@@ -1342,7 +1342,7 @@ struct Emitter {
   /// Inserts the IR for storing the value of `e` to `storage`.
   private mutating func emitStore(upcast e: CastExpr.ID, to storage: Operand) {
     assert(ast[e].direction == .up)
-    let target = canonical(program[ast[e].right].type)
+    let target = canonical(program[e].type)
     let source = canonical(program[ast[e].left].type)
 
     // `A ~> A`
