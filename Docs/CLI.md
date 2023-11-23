@@ -48,10 +48,6 @@ Import the built-in module.  Allows using Hylo's built-in types and functions (e
 
 Do not include the standard library module.
 
-### `--freestanding`
-
-Compile in freestanding mode (don't use libc).
-
 ### `--typecheck`
 
 Type-check the input file(s).  Exits the compilation pipeline after type-checking and does not produce an output file.

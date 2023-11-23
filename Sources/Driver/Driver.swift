@@ -50,11 +50,6 @@ public struct Driver: ParsableCommand {
   private var unhosted: Bool = false
 
   @Flag(
-    name: [.customLong("freestanding")],
-    help: "Compile in freestanding mode (no libc).")
-  private var freestanding: Bool = false
-
-  @Flag(
     name: [.customLong("sequential")],
     help: "Execute the compilation pipeline sequentially.")
   private var compileSequentially: Bool = false
@@ -162,10 +157,9 @@ public struct Driver: ParsableCommand {
     }
 
     let productName = makeProductName(inputs)
+
     /// An instance that includes just the standard library.
-    var ast = AST(
-      libraryRoot: unhosted ? coreLibrarySourceRoot : standardLibrarySourceRoot,
-      for: CompilerConfiguration(freestanding ? ["freestanding"] : []))
+    var ast = AST(libraryRoot: unhosted ? coreLibrarySourceRoot : standardLibrarySourceRoot)
 
     // The module whose Hylo files were given on the command-line
     let sourceModule = try ast.makeModule(

@@ -6,8 +6,8 @@ import Utils
 extension AST {
 
   /// Creates an instance that includes the Hylo library whose sources are rooted at `libraryRoot`.
-  public init(libraryRoot: URL, for compiler: CompilerConfiguration) {
-    self.init(for: compiler)
+  public init(libraryRoot: URL) {
+    self.init()
     do {
       var diagnostics = DiagnosticSet()
       coreLibrary = try makeModule(
