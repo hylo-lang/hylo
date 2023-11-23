@@ -107,13 +107,18 @@ struct TypeChecker {
     return elements.uniqueElement ?? ^UnionType(elements)
   }
 
+  /// Returns the canonical form of `v` in `scopeOfUse`.
+  mutating func canonical(
+    _ v: any CompileTimeValue, in scopeOfUse: AnyScopeID
+  ) -> any CompileTimeValue {
+    (v as? AnyType).map({ canonical($0, in: scopeOfUse) }) ?? v
+  }
+
   /// Returns `arguments` with all types replaced by their canonical form in `scopeOfUse`.
   mutating func canonical(
     _ arguments: GenericArguments, in scopeOfUse: AnyScopeID
   ) -> GenericArguments {
-    arguments.mapValues { (v) in
-      (v as? AnyType).map({ canonical($0, in: scopeOfUse) }) ?? v
-    }
+    arguments.mapValues({ canonical($0, in: scopeOfUse) })
   }
 
   /// Returns `true` iff `t` and `u` are equivalent types in `scopeOfUse`.

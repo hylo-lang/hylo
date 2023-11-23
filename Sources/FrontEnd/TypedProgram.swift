@@ -139,6 +139,14 @@ public struct TypedProgram {
     return checker.canonical(t, in: scopeOfUse)
   }
 
+  /// Returns the canonical form of `v` in `scopeOfUse`.
+  public func canonical(
+    _ v: any CompileTimeValue, in scopeOfUse: AnyScopeID
+  ) -> any CompileTimeValue {
+    var checker = TypeChecker(asContextFor: self)
+    return checker.canonical(v, in: scopeOfUse)
+  }
+
   /// Returns `arguments` with all types replaced by their canonical form in `scopeOfUse`.
   public func canonical(
     _ arguments: GenericArguments, in scopeOfUse: AnyScopeID
