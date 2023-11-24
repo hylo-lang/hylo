@@ -27,4 +27,11 @@ extension Sequence {
     try reduce(0, { (s, e) in try predicate(e) ? s + 1 : s })
   }
 
+  /// Returns the elements of the sequence, sorted by their values at `path`.
+  ///
+  /// - Complexity: O(*n* log *n*), where *n* is the length of `self`.
+  public func sorted<T: Comparable>(by path: KeyPath<Element, T>) -> [Element] {
+    sorted(by: { (a, b) in a[keyPath: path] < b[keyPath: path] })
+  }
+
 }

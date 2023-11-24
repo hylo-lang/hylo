@@ -13,7 +13,7 @@ extension XCTestCase {
 
     try checkAnnotatedHyloFileDiagnostics(inFileAt: hyloFilePath, expectSuccess: expectSuccess) {
       (hyloSource, diagnostics) in
-      var ast = AST()
+      var ast = AST(for: CompilerConfiguration())
       _ = try ast.makeModule(
         hyloSource.baseName, sourceCode: [hyloSource], diagnostics: &diagnostics)
     }
@@ -34,7 +34,7 @@ final class ParserTests: XCTestCase {
       }
       """)
 
-    var a = AST()
+    var a = AST(for: CompilerConfiguration())
     try checkNoDiagnostic { d in
       _ = try a.makeModule("Main", sourceCode: [input], diagnostics: &d)
     }
@@ -53,7 +53,7 @@ final class ParserTests: XCTestCase {
         public let y = 0;
       """)
 
-    var a = AST()
+    var a = AST(for: CompilerConfiguration())
     let m = try checkNoDiagnostic { d in
       try a.makeModule("Main", sourceCode: [input], diagnostics: &d)
     }
@@ -1648,11 +1648,257 @@ final class ParserTests: XCTestCase {
     XCTAssertNotNil(try apply(Parser.exprStmt, on: input))
   }
 
+  func testSimpleConditionalControl() throws {
+    let input: SourceFile = "#if os(macOs) foo() #endif"
+    let (stmtID, ast) = try apply(Parser.stmt, on: input)
+    let stmt = try XCTUnwrap(ast[stmtID] as? ConditionalCompilationStmt)
+    XCTAssertEqual(stmt.condition, .os("macOs"))
+    XCTAssertEqual(stmt.stmts.count, 1)
+    XCTAssertEqual(stmt.fallback.count, 0)
+  }
+
+  func testConditionalControlTrue() throws {
+    let input: SourceFile = "#if true foo() #else awgr() #endif"
+    let (stmtID, ast) = try apply(Parser.stmt, on: input)
+    let stmt = try XCTUnwrap(ast[stmtID] as? ConditionalCompilationStmt)
+    XCTAssertEqual(stmt.condition, .`true`)
+    XCTAssertEqual(stmt.stmts.count, 1)
+    XCTAssertEqual(stmt.fallback.count, 1)
+  }
+
+  func testConditionalControlFalse() throws {
+    let input: SourceFile = "#if false awgr() #else foo() #endif"
+    let (stmtID, ast) = try apply(Parser.stmt, on: input)
+    let stmt = try XCTUnwrap(ast[stmtID] as? ConditionalCompilationStmt)
+    XCTAssertEqual(stmt.condition, .`false`)
+    XCTAssertEqual(stmt.stmts.count, 1)
+    XCTAssertEqual(stmt.fallback.count, 1)
+  }
+
+  func testConditionalControlOs() throws {
+    let input: SourceFile =
+      "#if os(macOs) foo() #elseif os(Linux) bar() #elseif os(Windows) bazz() #else awgr() #endif"
+    let (stmtID, ast) = try apply(Parser.stmt, on: input)
+    let stmt = try XCTUnwrap(ast[stmtID] as? ConditionalCompilationStmt)
+    XCTAssertEqual(stmt.condition, .os("macOs"))
+    XCTAssertEqual(stmt.stmts.count, 1)
+    XCTAssertEqual(stmt.fallback.count, 1)
+    let stmt2 = try XCTUnwrap(ast[stmt.fallback[0]] as? ConditionalCompilationStmt)
+    XCTAssertEqual(stmt2.condition, .os("Linux"))
+    XCTAssertEqual(stmt2.stmts.count, 1)
+    XCTAssertEqual(stmt2.fallback.count, 1)
+    let stmt3 = try XCTUnwrap(ast[stmt2.fallback[0]] as? ConditionalCompilationStmt)
+    XCTAssertEqual(stmt3.condition, .os("Windows"))
+    XCTAssertEqual(stmt3.stmts.count, 1)
+    XCTAssertEqual(stmt3.fallback.count, 1)
+  }
+
+  func testConditionalControlArch() throws {
+    let input: SourceFile =
+      "#if arch(x86_64) foo() #elseif arch(i386) bar() #elseif arch(arm64) bazz() #elseif arch(arm) fizz() #else awgr() #endif"
+    let (stmtID, ast) = try apply(Parser.stmt, on: input)
+    let stmt = try XCTUnwrap(ast[stmtID] as? ConditionalCompilationStmt)
+    XCTAssertEqual(stmt.condition, .arch("x86_64"))
+    XCTAssertEqual(stmt.stmts.count, 1)
+    XCTAssertEqual(stmt.fallback.count, 1)
+    let stmt2 = try XCTUnwrap(ast[stmt.fallback[0]] as? ConditionalCompilationStmt)
+    XCTAssertEqual(stmt2.condition, .arch("i386"))
+    XCTAssertEqual(stmt2.stmts.count, 1)
+    XCTAssertEqual(stmt2.fallback.count, 1)
+    let stmt3 = try XCTUnwrap(ast[stmt2.fallback[0]] as? ConditionalCompilationStmt)
+    XCTAssertEqual(stmt3.condition, .arch("arm64"))
+    XCTAssertEqual(stmt3.stmts.count, 1)
+    XCTAssertEqual(stmt3.fallback.count, 1)
+    let stmt4 = try XCTUnwrap(ast[stmt3.fallback[0]] as? ConditionalCompilationStmt)
+    XCTAssertEqual(stmt4.condition, .arch("arm"))
+    XCTAssertEqual(stmt4.stmts.count, 1)
+    XCTAssertEqual(stmt4.fallback.count, 1)
+  }
+
+  func testConditionalControlFeature() throws {
+    let input: SourceFile =
+      "#if feature(useLibC) foo() #endif"
+    let (stmtID, ast) = try apply(Parser.stmt, on: input)
+    let stmt = try XCTUnwrap(ast[stmtID] as? ConditionalCompilationStmt)
+    XCTAssertEqual(stmt.condition, .feature("useLibC"))
+    XCTAssertEqual(stmt.stmts.count, 1)
+    XCTAssertEqual(stmt.fallback.count, 0)
+  }
+
+  func testConditionalControlCompiler() throws {
+    let input: SourceFile = "#if compiler(hc) foo() #else awgr() #endif"
+    let (stmtID, ast) = try apply(Parser.stmt, on: input)
+    let stmt = try XCTUnwrap(ast[stmtID] as? ConditionalCompilationStmt)
+    XCTAssertEqual(stmt.condition, .compiler("hc"))
+    XCTAssertEqual(stmt.stmts.count, 1)
+    XCTAssertEqual(stmt.fallback.count, 0)  // Body not parsed
+  }
+
+  func testConditionalControlCompilerVersionGreater() throws {
+    let input: SourceFile = "#if compiler_version(>= 0.1) foo() #else awgr() #endif"
+    let (stmtID, ast) = try apply(Parser.stmt, on: input)
+    let stmt = try XCTUnwrap(ast[stmtID] as? ConditionalCompilationStmt)
+    XCTAssertEqual(
+      stmt.condition,
+      .compilerVersion(
+        comparison: .greaterOrEqual(SemanticVersion(major: 0, minor: 1, patch: 0))))
+    XCTAssertEqual(stmt.stmts.count, 1)
+    XCTAssertEqual(stmt.fallback.count, 0)  // Body not parsed
+  }
+
+  func testConditionalControlCompilerVersionLess() throws {
+    let input: SourceFile = "#if compiler_version(< 100.1.2) foo() #else awgr() #endif"
+    let (stmtID, ast) = try apply(Parser.stmt, on: input)
+    let stmt = try XCTUnwrap(ast[stmtID] as? ConditionalCompilationStmt)
+    XCTAssertEqual(
+      stmt.condition,
+      .compilerVersion(
+        comparison: .less(SemanticVersion(major: 100, minor: 1, patch: 2))))
+    XCTAssertEqual(stmt.stmts.count, 1)
+    XCTAssertEqual(stmt.fallback.count, 0)  // Body not parsed
+  }
+
+  func testConditionalControlHyloVersionGreater() throws {
+    let input: SourceFile = "#if hylo_version(>= 0.1) foo() #else awgr() #endif"
+    let (stmtID, ast) = try apply(Parser.stmt, on: input)
+    let stmt = try XCTUnwrap(ast[stmtID] as? ConditionalCompilationStmt)
+    XCTAssertEqual(
+      stmt.condition,
+      .hyloVersion(comparison: .greaterOrEqual(SemanticVersion(major: 0, minor: 1, patch: 0))))
+    XCTAssertEqual(stmt.stmts.count, 1)
+    XCTAssertEqual(stmt.fallback.count, 0)  // Body not parsed
+  }
+
+  func testConditionalControlHyloVersionLess() throws {
+    let input: SourceFile = "#if hylo_version(< 100.1.2) foo() #else awgr() #endif"
+    let (stmtID, ast) = try apply(Parser.stmt, on: input)
+    let stmt = try XCTUnwrap(ast[stmtID] as? ConditionalCompilationStmt)
+    XCTAssertEqual(
+      stmt.condition,
+      .hyloVersion(
+        comparison: .less(SemanticVersion(major: 100, minor: 1, patch: 2))))
+    XCTAssertEqual(stmt.stmts.count, 1)
+    XCTAssertEqual(stmt.fallback.count, 0)  // Body not parsed
+  }
+
+  func testConditionalControlParsingInsideDisabledBlocks() throws {
+    let input: SourceFile = "#if false < parse error > #endif"
+    do {
+      let _ = try apply(Parser.stmt, on: input)
+      XCTFail("parse error expected")
+    } catch {
+      // all good
+    }
+  }
+
+  func testConditionalControlParsingInsideVersionBlocks() throws {
+    let input: SourceFile = "#if hylo_version(< 0.1) <don't show parse error here> #endif"
+    let (stmtID, ast) = try apply(Parser.stmt, on: input)
+    let stmt = try XCTUnwrap(ast[stmtID] as? ConditionalCompilationStmt)
+    XCTAssertEqual(
+      stmt.condition,
+      .hyloVersion(comparison: .less(SemanticVersion(major: 0, minor: 1, patch: 0))))
+    XCTAssertEqual(stmt.stmts.count, 0)  // Body not parsed
+    XCTAssertEqual(stmt.fallback.count, 0)
+  }
+
+  func testConditionalControlParsingSkipsParsingOverNestedBlocks() throws {
+    let input: SourceFile =
+      "#if hylo_version(< 0.1) <don't show parse error here> #if hylo_version(< 0.1) <don't show parse error here> #endif #endif"
+    let (stmtID, ast) = try apply(Parser.stmt, on: input)
+    let stmt = try XCTUnwrap(ast[stmtID] as? ConditionalCompilationStmt)
+    XCTAssertEqual(
+      stmt.condition,
+      .hyloVersion(comparison: .less(SemanticVersion(major: 0, minor: 1, patch: 0))))
+    XCTAssertEqual(stmt.stmts.count, 0)  // Body not parsed
+    XCTAssertEqual(stmt.fallback.count, 0)
+  }
+
+  func testConditionalControlParsingSkipsParsingOverNestedBlocks2() throws {
+    let input: SourceFile =
+      "#if hylo_version(< 0.1) <don't show parse error here> #if hylo_version(< 0.1) <don't show parse error here> #endif #elseif os(bla) #endif"
+    let (stmtID, ast) = try apply(Parser.stmt, on: input)
+    let stmt = try XCTUnwrap(ast[stmtID] as? ConditionalCompilationStmt)
+    XCTAssertEqual(
+      stmt.condition,
+      .hyloVersion(comparison: .less(SemanticVersion(major: 0, minor: 1, patch: 0))))
+    XCTAssertEqual(stmt.stmts.count, 0)  // Body not parsed
+    XCTAssertEqual(stmt.fallback.count, 1)
+    let stmt2 = try XCTUnwrap(ast[stmt.fallback[0]] as? ConditionalCompilationStmt)
+    XCTAssertEqual(stmt2.condition, .os("bla"))
+    XCTAssertEqual(stmt2.stmts.count, 0)
+    XCTAssertEqual(stmt2.fallback.count, 0)
+  }
+
+  func testConditionalControlParsingSkipsParsingOverNestedBlocksInElse() throws {
+    let input: SourceFile =
+      "#if hylo_version(>= 0.1) #else <don't show parse error here> #if hylo_version(< 0.1) <don't show parse error here> #endif #endif"
+    let (stmtID, ast) = try apply(Parser.stmt, on: input)
+    let stmt = try XCTUnwrap(ast[stmtID] as? ConditionalCompilationStmt)
+    XCTAssertEqual(
+      stmt.condition,
+      .hyloVersion(comparison: .greaterOrEqual(SemanticVersion(major: 0, minor: 1, patch: 0))))
+    XCTAssertEqual(stmt.stmts.count, 0)  // Body not parsed
+    XCTAssertEqual(stmt.fallback.count, 0)
+  }
+
+  func testConditionalControlParsingSkipsParsingOverNestedBlocksInElse2() throws {
+    let input: SourceFile =
+      "#if hylo_version(>= 0.1) #elseif compiler_version(>= 0.1) <don't show parse error here> #if hylo_version(< 0.1) <don't show parse error here> #endif #endif"
+    let (stmtID, ast) = try apply(Parser.stmt, on: input)
+    let stmt = try XCTUnwrap(ast[stmtID] as? ConditionalCompilationStmt)
+    XCTAssertEqual(
+      stmt.condition,
+      .hyloVersion(comparison: .greaterOrEqual(SemanticVersion(major: 0, minor: 1, patch: 0))))
+    XCTAssertEqual(stmt.stmts.count, 0)
+    XCTAssertEqual(stmt.fallback.count, 0)
+  }
+
+  func testConditionalControlChecksParsing() throws {
+    let input: SourceFile = "#if os(abracadabra) <expecting error here> #endif"
+    do {
+      let _ = try apply(Parser.stmt, on: input)
+      XCTFail("parse error expected")
+    } catch {
+      // all good
+    }
+  }
+  func testConditionalControlNotOperatorOnFalse() throws {
+    let input: SourceFile = "#if !os(abracadabra) foo() #endif"
+    let (stmtID, ast) = try apply(Parser.stmt, on: input)
+    let stmt = try XCTUnwrap(ast[stmtID] as? ConditionalCompilationStmt)
+    // We should expand to the body of the #if
+    XCTAssertEqual(stmt.expansion(for: CompilerConfiguration()).count, 1)
+  }
+
+  func testConditionalControlNotOperatorOnTrue() throws {
+    let input: SourceFile = "#if !true foo() #endif"
+    let (stmtID, ast) = try apply(Parser.stmt, on: input)
+    let stmt = try XCTUnwrap(ast[stmtID] as? ConditionalCompilationStmt)
+    // We should expand to nothing.
+    XCTAssertEqual(stmt.expansion(for: CompilerConfiguration()).count, 0)
+  }
+  func testConditionalControlNotNot() throws {
+    let input: SourceFile = "#if ! !true foo() #endif"
+    let (stmtID, ast) = try apply(Parser.stmt, on: input)
+    let stmt = try XCTUnwrap(ast[stmtID] as? ConditionalCompilationStmt)
+    // We should expand to the body.
+    XCTAssertEqual(stmt.expansion(for: CompilerConfiguration()).count, 1)
+  }
+  func testConditionalControlSkipParsingAfterNot() throws {
+    let input: SourceFile = "#if !compiler_version(< 0.1) foo() #else <won't parse> #endif"
+    let (stmtID, ast) = try apply(Parser.stmt, on: input)
+    let stmt = try XCTUnwrap(ast[stmtID] as? ConditionalCompilationStmt)
+    XCTAssertEqual(stmt.stmts.count, 1)
+    XCTAssertEqual(stmt.fallback.count, 0)  // don't parse the #else part
+  }
+
   // MARK: Operators
 
   func testTakeOperator() throws {
     let input: SourceFile = "+ & == | < <= > >="
-    var context = ParserState(ast: AST(), lexer: Lexer(tokenizing: input))
+    var context = ParserState(
+      ast: AST(for: CompilerConfiguration()), lexer: Lexer(tokenizing: input))
     XCTAssertEqual(context.takeOperator()?.value, "+")
     XCTAssertEqual(context.takeOperator()?.value, "&")
     XCTAssertEqual(context.takeOperator()?.value, "==")
@@ -1699,7 +1945,7 @@ extension SourceFile {
     inContext context: ParserState.Context? = nil,
     with parser: (inout ParserState) throws -> Element
   ) rethrows -> (element: Element, ast: AST) {
-    var state = ParserState(ast: AST(), lexer: Lexer(tokenizing: self))
+    var state = ParserState(ast: AST(for: CompilerConfiguration()), lexer: Lexer(tokenizing: self))
     if let c = context {
       state.contexts.append(c)
     }

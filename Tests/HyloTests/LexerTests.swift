@@ -135,6 +135,7 @@ final class LexerTests: XCTestCase {
       any break catch conformance continue do else extension for fun if import in infix init inout
       let match namespace nil operator postfix prefix property private public remote return set
       sink some spawn static subscript trait try type typealias var where while yield yielded
+      #if #else #elseif #endif
       """
 
     assert(
@@ -183,6 +184,10 @@ final class LexerTests: XCTestCase {
         TokenSpecification(.`while`, "while"),
         TokenSpecification(.`yield`, "yield"),
         TokenSpecification(.`yielded`, "yielded"),
+        TokenSpecification(.`poundIf`, "#if"),
+        TokenSpecification(.`poundElse`, "#else"),
+        TokenSpecification(.`poundElseif`, "#elseif"),
+        TokenSpecification(.`poundEndif`, "#endif"),
       ],
       in: input)
   }

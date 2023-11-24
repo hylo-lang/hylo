@@ -1,0 +1,68 @@
+/// A type whose values can be converted to and from a representation suitable for crossing a
+/// language boundary.
+///
+/// A function declaration with the `@ffi` attribute introduces a foreign function interface (FFI),
+/// an entity whose implementation is defined externally, typically in a different programming
+/// language. Because this other language may not understand the layout of Hylo types, some glue
+/// code has to be written to adapt the representations of values crossing the language boundary.
+/// Hylo uses conformances to `ForeignConvertible` to generate this code, requiring the parameters
+/// and return types of FFIs to be `ForeignConvertible`.
+///
+/// Types conforming to `ForeignConvertible` implement two methods for converting instances to and
+/// from their foreign representations. These methods are inverse of each other:
+///
+/// - `init(foreign_value:)` creates an instance from its foreign representation.
+/// - `foreign_value()` returns the foreign representation of an instance.
+///
+/// Given a type `T: ForeignConvertible`, `T.ForeignRepresentation` is either a "crossing type"
+/// (i.e., a type whose instances are capable of crossing a language boundary) or another type
+/// conforming to `ForeignConvertible`. Either way, the foreign representation of `T` shall not
+/// refer to `T`. Crossing types currently include built-in numeric types and built-in pointers.
+/// Other types may be added to this list in the future.
+///
+/// Hylo generates two functions for every declaration annotated with `@ffi`. The first is the
+/// foreign function itself, whose declaration is only visible in compiled code. The second is
+/// a regular Hylo function that implements the above-mentioned glue code. Specifically:
+///
+/// 1. Arguments are converted to their foreign representations, from left to right.
+/// 2. The foreign function is called.
+/// 3. The result of the foreign function is converted to its Hylo representation.
+///
+/// Conversions are performed using the following algorithms. Note that specialized implementations
+/// of these algorithms are synthesized for each FFI. No tests or erasure are actually performed.
+///
+///     fun convert<T: ForeignConvertible>(
+///       from_hylo_value v: T
+///     ) -> Any {
+///       let w = v.foreign_value()
+///       if sink let w: any ForeignConvertible = v {
+///         return convert(from_hylo_value: w)
+///       } else {
+///         return v
+///       }
+///     }
+///
+///     fun convert<T: ForeignConvertible>(
+///       from_foreign_value v: sink Any
+///     ) -> T {
+///       if T.ForeignRepresentation is ForeignConvertible {
+///         T.init(foreign_value: convert<T.ForeignRepresentation>(from_foreign_value: v))
+///       } else {
+///         T.init(foreign_value: v as! T.ForeignRepresentation)
+///       }
+///     }
+///
+/// You should avoid using `ForeignConvertible` to implement long chains of conversions through
+/// intermediate foreign representations.
+public trait ForeignConvertible: Equatable {
+
+  /// The foreign representation of the type.
+  type ForeignRepresentation
+
+  /// Creates a new instance from its foreign representation.
+  init(foreign_value: sink ForeignRepresentation)
+
+  /// Returns the foreign representation of this instance.
+  fun foreign_value() -> ForeignRepresentation
+
+}

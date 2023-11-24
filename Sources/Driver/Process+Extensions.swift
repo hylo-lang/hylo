@@ -1,4 +1,5 @@
 import Foundation
+import Utils
 
 extension Pipe {
 
@@ -12,53 +13,49 @@ extension Pipe {
 extension Process {
 
   /// The textual output of a process run.
-  public typealias OutputStreams = (standardOutput: Pipe, standardError: Pipe)
+  public typealias OutputText = (standardOutput: Lazy<String>, standardError: Lazy<String>)
 
   /// The results of a process run that exited with a nonzero code.
-  public class NonzeroExit: Error {
+  public struct NonzeroExit: Error {
 
     /// The nonzero exit code of the process run.
     public let terminationStatus: Int32
 
-    /// The textual output of the process run.
-    public let output: OutputStreams
+    /// The contents of the standard output stream.
+    public let standardOutput: Lazy<String>
+
+    /// The contents of the standard error stream.
+    public let standardError: Lazy<String>
 
     /// The command-line that triggered the process run.
     public let commandLine: [String]
-
-    /// A cache that captures the output streams the first time they are read, so that their
-    /// contents can be used repeatedly.
-    private var outputMemo: (standardOutput: String, standardError: String)? = nil
-
-    /// Creates an instance with the given properties.
-    init(terminationStatus: Int32, output: OutputStreams, commandLine: [String]) {
-      self.terminationStatus = terminationStatus
-      self.output = output
-      self.commandLine = commandLine
-    }
-
   }
 
   /// Runs `executable` with the given command line `arguments` and returns its exit status along
   /// with the text written to its standard output and standard error streams.
-  public static func run( _ executable: URL, arguments: [String] = []) throws -> OutputStreams {
-    let output: OutputStreams = (standardOutput: Pipe(), standardError: Pipe())
+  public static func run(_ executable: URL, arguments: [String] = []) throws -> OutputText {
     let p = Process()
+    let pipes = (standardOutput: Pipe(), standardError: Pipe())
     p.executableURL = executable
     p.arguments = arguments
-    p.standardOutput = output.standardOutput
-    p.standardError = output.standardError
+    p.standardOutput = pipes.standardOutput
+    p.standardError = pipes.standardError
     try p.run()
     p.waitUntilExit()
+
+    let r: OutputText = (
+      Lazy { pipes.standardOutput.readUTF8() },
+      Lazy { pipes.standardError.readUTF8() }
+    )
 
     if p.terminationStatus != 0 {
       throw NonzeroExit(
         terminationStatus: p.terminationStatus,
-        output: output,
+        standardOutput: r.standardOutput, standardError: r.standardError,
         commandLine: [executable.fileSystemPath] + arguments)
     }
 
-    return output
+    return r
   }
 
 }
@@ -66,15 +63,11 @@ extension Process {
 extension Process.NonzeroExit: CustomStringConvertible {
 
   public var description: String {
-    if outputMemo == nil {
-      outputMemo = (output.standardOutput.readUTF8(), output.standardError.readUTF8())
-    }
-
     return """
       NonzeroExit(
         terminationStatus: \(terminationStatus),
-        standardOutput: \(String(reflecting: outputMemo!.standardOutput)),
-        standardError: \(String(reflecting: outputMemo!.standardError)),
+        standardOutput: \(String(reflecting: standardOutput[])),
+        standardError: \(String(reflecting: standardError[])),
         commandLine: \(commandLine))
       """
   }

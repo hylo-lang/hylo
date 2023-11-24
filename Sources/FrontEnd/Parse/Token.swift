@@ -43,6 +43,10 @@ public struct Token {
     case `namespace`
     case `nil`
     case `operator`
+    case `poundElse`
+    case `poundElseif`
+    case `poundEndif`
+    case `poundIf`
     case `postfix`
     case `prefix`
     case `property`

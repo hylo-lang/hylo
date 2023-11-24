@@ -934,6 +934,11 @@ extension LLVM.Module {
         let source = llvm(s.operands[0])
         register[.register(i)] = insertZeroExtend(source, to: target, at: insertionPoint)
 
+      case .sext(_, let t):
+        let target = ir.llvm(builtinType: t, in: &self)
+        let source = llvm(s.operands[0])
+        register[.register(i)] = insertSignExtend(source, to: target, at: insertionPoint)
+
       case .inttoptr(_):
         let source = llvm(s.operands[0])
         register[.register(i)] = insertIntToPtr(source, at: insertionPoint)

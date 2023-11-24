@@ -20,7 +20,7 @@ final class DirectedGraphTests: XCTestCase {
   }
 
   func testInsertEdgeWithoutLabel() {
-    var g = DirectedGraph<Int, Void>()
+    var g = DirectedGraph<Int, NoLabel>()
 
     XCTAssert(g.insertEdge(from: 0, to: 0))
     XCTAssert(g.insertEdge(from: 0, to: 1))
@@ -73,6 +73,34 @@ final class DirectedGraphTests: XCTestCase {
       g[from: e.0, to: e.2] = e.1
     }
     XCTAssert(g.edges.sorted().elementsEqual(edges, by: { $0 == $1 }))
+  }
+
+  func testBFS() {
+    var g = DirectedGraph<Int, NoLabel>()
+    g.insertEdge(from: 0, to: 1)
+    g.insertEdge(from: 0, to: 2)
+    g.insertEdge(from: 1, to: 3)
+    g.insertEdge(from: 2, to: 3)
+
+    let vertices = Array(g.bfs(from: 0))
+    XCTAssertEqual(Set(vertices), [0, 1, 2, 3])
+    XCTAssertEqual(vertices.first, 0)
+    XCTAssertEqual(vertices.last, 3)
+  }
+
+  func testIsReachable() {
+    var g = DirectedGraph<Int, NoLabel>()
+    g.insertEdge(from: 0, to: 1)
+    g.insertEdge(from: 0, to: 2)
+    g.insertEdge(from: 1, to: 3)
+    g.insertEdge(from: 2, to: 3)
+
+    XCTAssert(g.isReachable(3, from: 0))
+    XCTAssert(g.isReachable(2, from: 0))
+    XCTAssert(g.isReachable(3, from: 1))
+
+    XCTAssertFalse(g.isReachable(0, from: 3))
+    XCTAssertFalse(g.isReachable(2, from: 1))
   }
 
 }

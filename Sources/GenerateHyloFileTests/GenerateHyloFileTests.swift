@@ -4,6 +4,7 @@ import Utils
 
 /// A command-line tool that generates XCTest cases for a list of annotated ".hylo"
 /// files as part of our build process.
+@main
 struct GenerateHyloFileTests: ParsableCommand {
 
   @Option(
@@ -24,9 +25,7 @@ struct GenerateHyloFileTests: ParsableCommand {
 
   /// Returns the Swift source of the test function for the Hylo file at `source`.
   func swiftFunctionTesting(valAt source: URL) throws -> String {
-    let firstLine =
-      try String(contentsOf: source)
-      .split(separator: "\n", maxSplits: 1).first ?? ""
+    let firstLine = try String(contentsOf: source).prefix { !$0.isNewline }
     let parsed = try firstLine.parsedAsFirstLineOfAnnotatedHyloFileTest()
     let testID = source.deletingPathExtension().lastPathComponent.asSwiftIdentifier
 
@@ -34,7 +33,7 @@ struct GenerateHyloFileTests: ParsableCommand {
 
         func test_\(parsed.methodName)_\(testID)() throws {
           try \(parsed.methodName)(
-            \(String(reflecting: source.path)), expectSuccess: \(parsed.expectSuccess))
+            \(String(reflecting: source.fileSystemPath)), expectSuccess: \(parsed.expectSuccess))
         }
 
       """
@@ -54,7 +53,7 @@ struct GenerateHyloFileTests: ParsableCommand {
         output += try swiftFunctionTesting(valAt: f)
       } catch let e as FirstLineError {
         try! FileHandle.standardError.write(
-          contentsOf: Data("\(f.path):1: error: \(e.details)\n".utf8))
+          contentsOf: Data("\(f.fileSystemPath):1: error: \(e.details)\n".utf8))
         GenerateHyloFileTests.exit(withError: ExitCode(-1))
       }
     }

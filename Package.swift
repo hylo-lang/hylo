@@ -1,6 +1,12 @@
 // swift-tools-version:5.7
 import PackageDescription
 
+#if os(Windows)
+  let onWindows = true
+#else
+  let onWindows = false
+#endif
+
 /// Settings to be passed to swiftc for all targets.
 let allTargetsSwiftSettings: [SwiftSetting] = [
   .unsafeFlags(["-warnings-as-errors"])
@@ -16,7 +22,6 @@ let package = Package(
   products: [
     .executable(name: "hc", targets: ["hc"]),
     .executable(name: "hylo-demangle", targets: ["hylo-demangle"]),
-    .library(name: "Hylo", targets: ["Driver"]),
   ],
 
   dependencies: [
@@ -66,6 +71,7 @@ let package = Package(
         "FrontEnd",
         "IR",
         "CodeGenLLVM",
+        "StandardLibrary",
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
       ],
       swiftSettings: allTargetsSwiftSettings),
@@ -76,7 +82,7 @@ let package = Package(
       dependencies: [
         "Utils",
         "Core",
-        "HyloModule",
+        "StandardLibrary",
         .product(name: "Collections", package: "swift-collections"),
         .product(name: "Durian", package: "Durian"),
         .product(name: "BigInt", package: "BigInt"),
@@ -110,7 +116,10 @@ let package = Package(
 
     .target(
       name: "Utils",
-      dependencies: [.product(name: "BigInt", package: "BigInt")],
+      dependencies: [
+        .product(name: "BigInt", package: "BigInt"),
+        .product(name: "Collections", package: "swift-collections"),
+      ],
       swiftSettings: allTargetsSwiftSettings),
 
     .target(
@@ -119,14 +128,15 @@ let package = Package(
       swiftSettings: allTargetsSwiftSettings),
 
     .target(
-      name: "HyloModule",
-      path: "Library",
-      resources: [.copy("Hylo")],
+      name: "StandardLibrary",
+      path: "StandardLibrary",
+      resources: [.copy("Sources")],
       swiftSettings: allTargetsSwiftSettings),
 
     .plugin(
       name: "TestGeneratorPlugin", capability: .buildTool(),
-      dependencies: [.target(name: "GenerateHyloFileTests")]),
+      // Workaround for SPM bug; see PortableBuildToolPlugin.swift
+      dependencies: onWindows ? [] : ["GenerateHyloFileTests"]),
 
     .executableTarget(
       name: "GenerateHyloFileTests",
@@ -134,7 +144,7 @@ let package = Package(
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
         "Utils",
       ],
-      swiftSettings: allTargetsSwiftSettings),
+      swiftSettings: allTargetsSwiftSettings + [.unsafeFlags(["-parse-as-library"])]),
 
     // Test targets.
     .testTarget(
@@ -144,17 +154,17 @@ let package = Package(
 
     .testTarget(
       name: "DriverTests",
-      dependencies: ["Driver"],
+      dependencies: ["Driver", "TestUtils"],
       swiftSettings: allTargetsSwiftSettings),
 
     .testTarget(
       name: "ManglingTests",
-      dependencies: ["Core", "FrontEnd", "IR", "TestUtils"],
+      dependencies: ["Core", "FrontEnd", "IR", "TestUtils", "StandardLibrary"],
       swiftSettings: allTargetsSwiftSettings),
 
     .testTarget(
       name: "HyloTests",
-      dependencies: ["Core", "FrontEnd", "IR", "TestUtils"],
+      dependencies: ["Core", "FrontEnd", "IR", "TestUtils", "StandardLibrary"],
       swiftSettings: allTargetsSwiftSettings,
       plugins: ["TestGeneratorPlugin"]),
 

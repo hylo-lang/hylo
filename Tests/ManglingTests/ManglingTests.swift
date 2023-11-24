@@ -1,6 +1,7 @@
 import Core
 import FrontEnd
 import IR
+import StandardLibrary
 import TestUtils
 import XCTest
 
@@ -66,7 +67,7 @@ final class ManglingTests: XCTestCase {
 
     let input = SourceFile(synthesizedText: text, named: "main")
     let (p, m) = try checkNoDiagnostic { (d) in
-      var ast = AST.standardLibrary
+      var ast = AST(libraryRoot: standardLibrarySourceRoot, for: CompilerConfiguration())
       let main = try ast.makeModule("Main", sourceCode: [input], diagnostics: &d)
       let base = ScopedProgram(ast)
       return (try TypedProgram(annotating: base, reportingDiagnosticsTo: &d), main)
@@ -93,7 +94,7 @@ final class ManglingTests: XCTestCase {
 
   func testTypes() throws {
     let p = try checkNoDiagnostic { (d) in
-      let ast = AST.standardLibrary
+      let ast = AST(libraryRoot: standardLibrarySourceRoot, for: CompilerConfiguration())
       let base = ScopedProgram(ast)
       return try TypedProgram(annotating: base, reportingDiagnosticsTo: &d)
     }

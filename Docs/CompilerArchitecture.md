@@ -88,7 +88,7 @@ necessary dependent on the target.
 [Tests]: ../Tests
 [Tools]: ../Tools
 [Examples]: ../Examples
-[Library]: ../Library
+[Library]: ../StandardLibrary
 [AST]: ../Sources/Core/AST/AST.swift
 [ScopedProgram]: ../Sources/Core/ScopedProgram.swift
 [TypedProgram]: ../Sources/FrontEnd/TypedProgram.swift

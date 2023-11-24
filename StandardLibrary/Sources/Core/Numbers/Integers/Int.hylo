@@ -46,6 +46,11 @@ public type Int {
     self ^ -1
   }
 
+  /// Returns the product of `self` and `other, wrapping the result in case of any overflow.
+  public fun infix &* (_ other: Self) -> Self {
+    self.multiplied_reporting_overflow(by: other).0
+  }
+
 }
 
 public conformance Int: ExpressibleByIntegerLiteral {}
@@ -75,6 +80,15 @@ public conformance Int: Equatable {
 }
 
 public conformance Int: Regular {}
+
+public conformance Int: Hashable {
+
+  public fun hash(into hasher: inout Hasher) {
+    // TODO: use conditional compilation to avoid branches
+    &hasher.unsafe_combine(bytes: pointer_to_bytes[of: self])
+  }
+
+}
 
 public conformance Int: Comparable {
 
@@ -175,7 +189,7 @@ public conformance Int: BinaryInteger {
   }
 
   public fun quotient_and_remainder(dividing_by other: Self) -> {quotient: Self, remainder: Self} {
-    (quotient: self / other, remainder: self & other)
+    (quotient: self / other, remainder: self % other)
   }
 
   public fun words() -> CollectionOfOne<UInt> {
