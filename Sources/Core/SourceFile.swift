@@ -33,8 +33,11 @@ public struct SourceFile {
     try self.init(contentsOf: URL(fileURLWithPath: filePath))
   }
 
-  public init(filePath: URL, withContent content: String) {
-    let storage = Storage(filePath, replace: true) { content[...] }
+  /// Creates an instance representing the in-memory edited file at `filePath`.
+  /// `withContent` is the content of the in-memory representation of the file,
+  /// which may be different from what is actually stored on disk.
+  public init(at filePath: URL, withContent content: String) {
+    let storage = Storage(filePath, replaceExisting: true) { content[...] }
     self.storage = storage
   }
 
@@ -353,14 +356,17 @@ extension SourceFile {
 
     /// Creates an alias to the instance with the given `url` if it exists, or creates a new
     /// instance having the given `url` and the text resulting from `makeText()`.
+    /// Storage instances are cached based on url, where `replaceExisting` defines if an
+    /// existing entry should be replaced with new content, otherwise the storage get the
+    /// content from the previously cached entry.
     fileprivate convenience init(
-      _ url: URL, lineStarts: [Index]? = nil, replace: Bool = false, makeText: () throws -> Substring
+      _ url: URL, lineStarts: [Index]? = nil, replaceExisting: Bool = false, makeText: () throws -> Substring
     ) rethrows {
       self.init(
         aliasing: try Self.allInstances.modify { (c: inout [URL: Storage]) -> Storage in
           try modify(&c[url]) { v in
             let r: Storage
-            if !replace && v != nil {
+            if !replaceExisting && v != nil {
               r = v!
             }
             else {
