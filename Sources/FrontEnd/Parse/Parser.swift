@@ -109,7 +109,7 @@ public enum Parser {
     guard let startIndex = state.peek()?.site.start else { return nil }
 
     // Parse attributes.
-    let attributes = try attributesList.parse(&state) ?? []
+    let attributes = try attributeList.parse(&state) ?? []
     var isPrologueEmpty = attributes.isEmpty
 
     // Parse modifiers.
@@ -3195,7 +3195,7 @@ public enum Parser {
     let startIndex = state.currentIndex
 
     let accessEffect = try passingConvention.parse(&state)
-    let attributes = try attributesList.parse(&state)
+    let attributes = try attributeList.parse(&state)
     guard let bareType = try expr.parse(&state) else {
       state.restore(from: backup)
       return nil
