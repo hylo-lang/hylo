@@ -508,13 +508,16 @@ struct ConstraintSystem {
     case let p as ParameterType:
       if p.isAutoclosure {
         let t = LambdaType(p.bareType)!
+        // Constraint for argument matching lambda return type.
         let s = schedule(
           ParameterConstraint(
             goal.left, AnyType(ParameterType(.`let`, t.output)), origin: goal.origin.subordinate(),
             withArgument: goal.argument))
-        // TODO: the env is not always .void
+        // Constraint for the environment.
+        let e = TupleType(checker.implicitCaptures(of: goal.argument))
         let s1 = schedule(
-          EqualityConstraint(.void, t.environment, origin: goal.origin.subordinate()))
+          EqualityConstraint(^e, t.environment, origin: goal.origin.subordinate()))
+        // Aggregate the constraints.
         return .product([s, s1]) { (d, m, r) in
           let (l, r) = (m.reify(goal.left), m.reify(goal.right))
           d.insert(.error(cannotPass: l, toParameter: r, at: goal.origin.site))

@@ -37,8 +37,5 @@ public fun main() {
   // Test with generics and non-void environments.
   // &counter = 0
   // let r = 17
-  // logic2(withDelayed: fun() -> Int {
-  //   &counter += 1
-  //   return r
-  // })
+  // logic2(withDelayed: r.abs())
 }

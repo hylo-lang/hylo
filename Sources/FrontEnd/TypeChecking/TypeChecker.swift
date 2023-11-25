@@ -2338,6 +2338,27 @@ struct TypeChecker {
     return types
   }
 
+  /// Returns the implicit captures found in `e`.
+  public mutating func implicitCaptures(of e: AnyExprID) -> [TupleType.Element] {
+    var captureToStemAndEffect: [AnyDeclID: (stem: String, effect: AccessEffect)] = [:]
+    for (name, mutability) in program.ast.uses(in: e) {
+      guard let scope = program.nodeToScope[name] else { continue }
+      guard let (stem, pick) = lookupImplicitCapture(name, occurringIn: scope) else { continue }
+
+      modify(&captureToStemAndEffect[pick, default: (stem, .let)]) { (x) in
+        x.effect = max(x.effect, mutability)
+      }
+    }
+
+    var types: [TupleType.Element] = []
+    for (d, x) in captureToStemAndEffect {
+      guard let t = resolveType(of: d) else { continue }
+      types.append(.init(label: x.stem, type: ^RemoteType(x.effect, t)))
+    }
+
+    return types
+  }
+
   /// Returns type of `d`'s memberwise initializer.
   private mutating func memberwiseInitializer(of d: ProductTypeDecl.ID) -> LambdaType {
     let r = resolveReceiverMetatype(in: d)!.instance
@@ -2993,9 +3014,17 @@ struct TypeChecker {
   private mutating func lookupImplicitCapture<T: Decl & LexicalScope>(
     _ c: NameExpr.ID, occurringIn d: T.ID
   ) -> (stem: String, decl: AnyDeclID)? {
+    return lookupImplicitCapture(c, occurringIn: AnyScopeID(d))
+  }
+
+  /// Returns the stem and declaration of `c`, which occurs in `scope`, or `nil` if either `c` doesn't
+  /// have to be captured or lookup failed.
+  private mutating func lookupImplicitCapture(
+    _ c: NameExpr.ID, occurringIn scope: AnyScopeID
+  ) -> (stem: String, decl: AnyDeclID)? {
     let n = program[c].name
     var candidates = lookup(unqualified: n.value.stem, in: program[c].scope)
-    candidates.removeAll(where: { isCaptured(referenceTo: $0, occurringIn: AnyScopeID(d)) })
+    candidates.removeAll(where: { isCaptured(referenceTo: $0, occurringIn: scope) })
     if candidates.isEmpty { return nil }
 
     guard let pick = candidates.uniqueElement else {
@@ -3004,7 +3033,7 @@ struct TypeChecker {
     }
 
     if program.isMember(pick) {
-      return ("self", lookup(unqualified: "self", in: AnyScopeID(d)).uniqueElement!)
+      return ("self", lookup(unqualified: "self", in: scope).uniqueElement!)
     } else {
       return (n.value.stem, pick)
     }

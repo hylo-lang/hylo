@@ -13,6 +13,16 @@ extension AST {
     return v.uses
   }
 
+  /// Returns a map from used name to its mutability.
+  ///
+  /// This method collects all name expressions that occurs in `e`, visiting its children in
+  /// pre-order. Nested type and extension declarations are not visited.
+  func uses(in e: AnyExprID) -> [(NameExpr.ID, AccessEffect)] {
+    var v = UseVisitor()
+    walk(e, notifying: &v)
+    return v.uses
+  }
+
 }
 
 /// The state of the visitor gathering uses.
