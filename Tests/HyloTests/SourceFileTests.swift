@@ -1,5 +1,6 @@
 import Core
 import XCTest
+import Foundation
 
 final class SourceFileTests: XCTestCase {
 
@@ -31,6 +32,14 @@ final class SourceFileTests: XCTestCase {
     XCTAssertEqual(source.line(containing: source.text.firstIndex(of: "2")!).number, 2)
     XCTAssertEqual(source.line(containing: source.text.firstIndex(of: "3")!).number, 3)
     XCTAssertEqual(source.line(containing: source.text.endIndex).number, 3)
+  }
+
+  func testUpdateSourceFileContent() throws {
+    let url = URL(fileURLWithPath: "foo.hylo")
+    let s1 = SourceFile(at: url, withContent: "import A")
+    XCTAssertEqual(s1.text, "import A")
+    let s2 = SourceFile(at: url, withContent: "import B")
+    XCTAssertEqual(s2.text, "import B")
   }
 
 }
