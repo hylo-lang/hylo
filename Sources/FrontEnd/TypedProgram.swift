@@ -61,6 +61,9 @@ public struct TypedProgram {
     tracingInferenceIf shouldTraceInference: ((AnyNodeID, TypedProgram) -> Bool)? = nil
   ) throws {
     let instanceUnderConstruction = SharedMutable(TypedProgram(partiallyFormedFrom: base))
+    #if os(macOS) && DEBUG
+    let isTypeCheckingParallel = isTypeCheckingParallel && false
+    #endif
 
     if isTypeCheckingParallel {
       let sources = base.ast[base.ast.modules].map(\.sources).joined()
