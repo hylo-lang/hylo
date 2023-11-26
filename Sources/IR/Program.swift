@@ -8,7 +8,7 @@ public struct Program: Core.Program {
 
   public var nodeToScope: Core.ASTProperty<Core.AnyScopeID> { base.nodeToScope }
 
-  public var scopeToDecls: Core.ASTProperty<[Core.AnyDeclID]> { base.scopeToDecls }
+  public var scopeToDecls: Core.ASTProperty<Core.DeclIDs> { base.scopeToDecls }
 
   public var varToBinding: [Core.VarDecl.ID: Core.BindingDecl.ID] { base.varToBinding }
 

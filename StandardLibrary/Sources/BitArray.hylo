@@ -1,0 +1,129 @@
+/// An array of bit values represented as Booleans, where `true` indicates that the bit is on.
+public type BitArray {
+
+  /// The value of the bits, represented as a contiguous array of words.
+  var bits: Array<Int>
+
+  /// The number of bits in the array.
+  var bit_count: Int
+
+  /// Creates an empty array.
+  public init() {
+    Array.`init`(self: &self.bits)
+    &self.bit_count = 0
+  }
+
+  /// Returns the number of bits in the array.
+  public fun count() -> Int {
+    bit_count.copy()
+  }
+
+  /// Returns the number of bits that the array can contain before allocating new storage.
+  public fun capacity() -> Int {
+    bits.capacity() << Int.bit_width().trailing_zeros()
+  }
+
+  /// Adds a new element at the end of the array.
+  public fun append(_ bit: Bool) inout {
+    let p = Position(count())
+    if p.bucket >= bits.count() {
+      &bits.append(Int(value: Builtin.zext_i1_word(bit.value)))
+    } else {
+      &set_value(bit, for: p)
+    }
+    &bit_count += 1
+  }
+
+  /// Accesses the bit at the given index.
+  public subscript(_ i: Int): Bool {
+    let {
+      let p = Position(i)
+      yield bits[p.bucket].matches(1 << p.offset)
+    }
+    inout {
+      let p = Position(i)
+      var v = bits[p.bucket].matches(1 << p.offset)
+      yield &v
+      &set_value(v, for: p)
+    }
+  }
+
+  /// Sets the value `b` for the bit at position `p`.
+  ///
+  /// - Requires: `p` is a valid position in `self`.
+  fun set_value(_ b: Bool, for p: Position) inout {
+    let m = 1 << p.offset
+    if b {
+      bits[p.bucket] |= m
+    } else {
+      bits[p.bucket] &= ~m
+    }
+  }
+
+}
+
+public conformance BitArray: Deinitializable {}
+
+// TODO: Make 'BitArray' conform to 'MutableCollection'
+public extension BitArray {
+
+  /// A position identifying a bit in a `BitArray`.
+  public type Position {
+
+    /// The bucket containing the bit.
+    let bucket: Int
+
+    /// The offset of the bit in its bucket.
+    let offset: Int
+
+    /// Creates an instance with the given properties.
+    memberwise init
+
+    /// Creates an instance identifying the bit at index `i` in a `BitArray`.
+    init(_ i: Int) {
+      &self.bucket = i >> Int.bit_width().trailing_zeros()
+      &self.offset = i & (Int.bit_width() - 1)
+    }
+
+  }
+
+  public fun start_position() -> Position {
+    .new(bucket: 0, offset: 0)
+  }
+
+  public fun end_position() -> Position {
+    .new(count())
+  }
+
+  public fun position(after p: Position) -> Position {
+    if p.offset == (Int.bit_width() - 1) {
+      .new(bucket: p.bucket + 1, offset: 0)
+    } else {
+      .new(bucket: p.bucket.copy(), offset: p.offset + 1)
+    }
+  }
+
+  public subscript (_ p: Position): Bool {
+    let {
+      yield bits[p.bucket].matches(1 << p.offset)
+    }
+    inout {
+      var v = bits[p.bucket].matches(1 << p.offset)
+      yield &v
+      &set_value(v, for: p)
+    }
+  }
+
+}
+
+public conformance BitArray.Position: Regular {
+
+  public fun copy() -> Self {
+    .new(bucket: bucket.copy(), offset: offset.copy())
+  }
+
+  public fun infix== (_ other: Self) -> Bool {
+    (self.bucket == other.bucket) && (self.offset == other.offset)
+  }
+
+}

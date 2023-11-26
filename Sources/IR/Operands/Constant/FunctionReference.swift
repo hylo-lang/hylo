@@ -1,4 +1,5 @@
 import Core
+import Utils
 
 /// A Hylo IR reference to a user function.
 public struct FunctionReference: Constant, Hashable {
@@ -35,13 +36,14 @@ public struct FunctionReference: Constant, Hashable {
     to f: Function.ID, in module: Module,
     specializedBy specialization: GenericArguments, in scopeOfUse: AnyScopeID
   ) {
-    precondition(
-      module[f].genericParameters.count <= specialization.count,
-      "underspecialized function reference")
+    var a = GenericArguments()
+    for p in module[f].genericParameters {
+      let v = specialization[p] ?? preconditionFailure("underspecialized function reference")
+      a[p] = module.program.canonical(v, in: scopeOfUse)
+    }
 
     let v = module[f]
     let t = LambdaType(inputs: v.inputs.map({ .init(type: ^$0.type) }), output: v.output)
-    let a = module.program.canonical(specialization, in: scopeOfUse)
     let u = module.program.canonical(
       module.program.specialize(^t, for: a, in: scopeOfUse), in: scopeOfUse)
 
