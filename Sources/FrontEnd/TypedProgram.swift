@@ -61,6 +61,9 @@ public struct TypedProgram {
     tracingInferenceIf shouldTraceInference: ((AnyNodeID, TypedProgram) -> Bool)? = nil
   ) throws {
     let instanceUnderConstruction = SharedMutable(TypedProgram(partiallyFormedFrom: base))
+    #if os(macOS) && DEBUG
+    let isTypeCheckingParallel = isTypeCheckingParallel && false
+    #endif
 
     if isTypeCheckingParallel {
       let sources = base.ast[base.ast.modules].map(\.sources).joined()
@@ -139,6 +142,14 @@ public struct TypedProgram {
     return checker.canonical(t, in: scopeOfUse)
   }
 
+  /// Returns the canonical form of `v` in `scopeOfUse`.
+  public func canonical(
+    _ v: any CompileTimeValue, in scopeOfUse: AnyScopeID
+  ) -> any CompileTimeValue {
+    var checker = TypeChecker(asContextFor: self)
+    return checker.canonical(v, in: scopeOfUse)
+  }
+
   /// Returns `arguments` with all types replaced by their canonical form in `scopeOfUse`.
   public func canonical(
     _ arguments: GenericArguments, in scopeOfUse: AnyScopeID
@@ -181,38 +192,38 @@ public struct TypedProgram {
 
   /// Returns `true` iff deinitializing an instance of `t` in `scopeOfUse` is a no-op.
   ///
-  /// A type is trivially deinitializable in a scope `s` if it is built-in, or if its conformance
-  /// to `Deinitializable` exposed to `s` does not involve any user-defined function.
+  /// A type is "trivially deinitializable" if deinitializing its instances doesn't have runtime
+  /// effects. Built-in types are trivially deinitializable. Types composed only of trivially
+  /// deinitializable parts are trivially deinitializable unless there exists a non-synthetic
+  /// conformance to `Deinitializable` in scope.
   public func isTriviallyDeinitializable(_ t: AnyType, in scopeOfUse: AnyScopeID) -> Bool {
     let model = canonical(t, in: scopeOfUse)
+    let deinitializable = ast.core.deinitializable.type
 
-    guard let c = conformance(of: model, to: ast.core.deinitializable.type, exposedTo: scopeOfUse)
-    else {
-      // Built-in types never have conformances.
+    // Built-in types have no conformance to `Deinitializable`.
+    guard let c = conformance(of: model, to: deinitializable, exposedTo: scopeOfUse) else {
       switch model.base {
       case is BuiltinType:
         return true
       case let u as TupleType:
         return u.elements.allSatisfy(\.type.isBuiltin)
-
-      // FIXME: Should have structural conformance
-      case is MetatypeType:
-        return true
-
       default:
         return false
       }
     }
 
-    guard case .synthetic = c.implementations.uniqueElement!.value else { return false }
+    // Non-synthethic conformances are not trivial.
+    if !c.implementations.uniqueElement!.value.isSynthetic { return false }
 
     switch model.base {
-    case is BuiltinType:
-      return true
     case let u as TupleType:
       return u.elements.allSatisfy({ isTriviallyDeinitializable($0.type, in: scopeOfUse) })
     case let u as UnionType:
       return u.elements.allSatisfy({ isTriviallyDeinitializable($0, in: scopeOfUse) })
+    case is MetatypeType:
+      return true
+    case is ProductType:
+      return true
     default:
       return false
     }
@@ -334,15 +345,8 @@ public struct TypedProgram {
   ) -> Conformance? {
     let m = canonical(model, in: scopeOfUse)
 
-    if let c = explicitConformance(of: m, to: concept, exposedTo: scopeOfUse) {
-      return c
-    }
-
-    if let c = impliedConformance(of: m, to: concept, exposedTo: scopeOfUse) {
-      return c
-    }
-
-    // Last resort; maybe the conformance is structural.
+    if let c = explicitConformance(of: m, to: concept, exposedTo: scopeOfUse) { return c }
+    if let c = impliedConformance(of: m, to: concept, exposedTo: scopeOfUse) { return c }
     return structuralConformance(of: m, to: concept, exposedTo: scopeOfUse)
   }
 
@@ -398,6 +402,8 @@ public struct TypedProgram {
       guard allConform(m.elements.map(\.type), to: concept, in: scopeOfUse) else { return nil }
     case let m as UnionType:
       guard allConform(m.elements, to: concept, in: scopeOfUse) else { return nil }
+    case is MetatypeType:
+      break
     case is RemoteType:
       break
     default:
@@ -545,7 +551,7 @@ extension TypedProgram: Program {
   public var nodeToScope: ASTProperty<AnyScopeID> { base.nodeToScope }
 
   /// A map from scope to the declarations directly contained in it.
-  public var scopeToDecls: ASTProperty<[AnyDeclID]> { base.scopeToDecls }
+  public var scopeToDecls: ASTProperty<DeclIDs> { base.scopeToDecls }
 
   /// A map from variable declaration its containing binding declaration.
   public var varToBinding: [VarDecl.ID: BindingDecl.ID] { base.varToBinding }

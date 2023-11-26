@@ -9,8 +9,8 @@ public protocol Program {
   /// A map from node to the innermost scope that contains it.
   var nodeToScope: ASTProperty<AnyScopeID> { get }
 
-  /// A map from scope to the declarations directly contained in them.
-  var scopeToDecls: ASTProperty<[AnyDeclID]> { get }
+  /// A map from scope to the declarations that it contains.
+  var scopeToDecls: ASTProperty<DeclIDs> { get }
 
   /// A map from variable declaration its containing binding declaration.
   var varToBinding: [VarDecl.ID: BindingDecl.ID] { get }

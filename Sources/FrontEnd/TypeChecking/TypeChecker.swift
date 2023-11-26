@@ -107,13 +107,18 @@ struct TypeChecker {
     return elements.uniqueElement ?? ^UnionType(elements)
   }
 
+  /// Returns the canonical form of `v` in `scopeOfUse`.
+  mutating func canonical(
+    _ v: any CompileTimeValue, in scopeOfUse: AnyScopeID
+  ) -> any CompileTimeValue {
+    (v as? AnyType).map({ canonical($0, in: scopeOfUse) }) ?? v
+  }
+
   /// Returns `arguments` with all types replaced by their canonical form in `scopeOfUse`.
   mutating func canonical(
     _ arguments: GenericArguments, in scopeOfUse: AnyScopeID
   ) -> GenericArguments {
-    arguments.mapValues { (v) in
-      (v as? AnyType).map({ canonical($0, in: scopeOfUse) }) ?? v
-    }
+    arguments.mapValues({ canonical($0, in: scopeOfUse) })
   }
 
   /// Returns `true` iff `t` and `u` are equivalent types in `scopeOfUse`.
@@ -1022,7 +1027,7 @@ struct TypeChecker {
 
   /// Type checks `s`.
   private mutating func check(_ s: ConditionalCompilationStmt.ID) {
-    for t in program[s].expansion { check(t) }
+    for t in program.ast[s].expansion(for: program.ast.compiler) { check(t) }
   }
 
   /// Type checks `s`.
@@ -2977,8 +2982,8 @@ struct TypeChecker {
     operator operatorName: Identifier, used notation: OperatorNotation,
     in scopeOfUse: ModuleDecl.ID
   ) -> OperatorDecl.ID? {
-    for decl in program.ast.topLevelDecls(scopeOfUse) where decl.kind == OperatorDecl.self {
-      let o = OperatorDecl.ID(decl)!
+    for d in program[scopeOfUse].decls.withoutExtensions where d.kind == OperatorDecl.self {
+      let o = OperatorDecl.ID(d)!
       if (program[o].notation.value == notation) && (program[o].name.value == operatorName) {
         return o
       }
@@ -3097,15 +3102,16 @@ struct TypeChecker {
       switch s.kind {
       case ModuleDecl.self:
         let m = ModuleDecl.ID(s)!
-        let symbols = program.ast.topLevelDecls(m)
-        reduce(decls: symbols, extending: subject, in: scopeOfUse, into: &matches)
+        let d = program[m].decls.extensions
+        reduce(decls: d, extending: subject, in: scopeOfUse, into: &matches)
         root = m
 
       case TranslationUnit.self:
         continue
 
       default:
-        reduce(decls: program[s].decls, extending: subject, in: scopeOfUse, into: &matches)
+        let d = program[s].decls.extensions
+        reduce(decls: d, extending: subject, in: scopeOfUse, into: &matches)
       }
     }
 
@@ -3115,7 +3121,7 @@ struct TypeChecker {
     // Look for extension declarations in imported modules.
     let fileImports = imports(exposedTo: scopeOfUse)
     for m in fileImports where m != root {
-      let symbols = program.ast.topLevelDecls(m)
+      let symbols = program[m].decls.extensions
       reduce(decls: symbols, extending: subject, in: scopeOfUse, into: &matches)
     }
 
@@ -3132,7 +3138,7 @@ struct TypeChecker {
   ) where S.Element == AnyDeclID {
     precondition(subject[.isCanonical])
 
-    for d in decls where d.kind.value is TypeExtendingDecl.Type {
+    for d in decls where d.isTypeExtendingDecl {
       // Skip declarations that are already on the checker's stack.
       if cache.uncheckedType[d] == .inProgress { continue }
 

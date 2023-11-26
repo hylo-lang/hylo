@@ -13,7 +13,7 @@ extension XCTestCase {
 
     try checkAnnotatedHyloFileDiagnostics(inFileAt: hyloFilePath, expectSuccess: expectSuccess) {
       (hyloSource, diagnostics) in
-      var ast = AST()
+      var ast = AST(for: CompilerConfiguration())
       _ = try ast.makeModule(
         hyloSource.baseName, sourceCode: [hyloSource], diagnostics: &diagnostics)
     }
@@ -34,7 +34,7 @@ final class ParserTests: XCTestCase {
       }
       """)
 
-    var a = AST()
+    var a = AST(for: CompilerConfiguration())
     try checkNoDiagnostic { d in
       _ = try a.makeModule("Main", sourceCode: [input], diagnostics: &d)
     }
@@ -53,7 +53,7 @@ final class ParserTests: XCTestCase {
         public let y = 0;
       """)
 
-    var a = AST()
+    var a = AST(for: CompilerConfiguration())
     let m = try checkNoDiagnostic { d in
       try a.makeModule("Main", sourceCode: [input], diagnostics: &d)
     }
@@ -1880,7 +1880,7 @@ final class ParserTests: XCTestCase {
     let (stmtID, ast) = try apply(Parser.stmt, on: input)
     let stmt = try XCTUnwrap(ast[stmtID] as? ConditionalCompilationStmt)
     // We should expand to the body of the #if
-    XCTAssertEqual(stmt.expansion.count, 1)
+    XCTAssertEqual(stmt.expansion(for: CompilerConfiguration()).count, 1)
   }
 
   func testConditionalControlNotOperatorOnTrue() throws {
@@ -1888,14 +1888,14 @@ final class ParserTests: XCTestCase {
     let (stmtID, ast) = try apply(Parser.stmt, on: input)
     let stmt = try XCTUnwrap(ast[stmtID] as? ConditionalCompilationStmt)
     // We should expand to nothing.
-    XCTAssertEqual(stmt.expansion.count, 0)
+    XCTAssertEqual(stmt.expansion(for: CompilerConfiguration()).count, 0)
   }
   func testConditionalControlNotNot() throws {
     let input: SourceFile = "#if ! !true foo() #endif"
     let (stmtID, ast) = try apply(Parser.stmt, on: input)
     let stmt = try XCTUnwrap(ast[stmtID] as? ConditionalCompilationStmt)
     // We should expand to the body.
-    XCTAssertEqual(stmt.expansion.count, 1)
+    XCTAssertEqual(stmt.expansion(for: CompilerConfiguration()).count, 1)
   }
   func testConditionalControlSkipParsingAfterNot() throws {
     let input: SourceFile = "#if !compiler_version(< 0.1) foo() #else <won't parse> #endif"
@@ -1909,7 +1909,8 @@ final class ParserTests: XCTestCase {
 
   func testTakeOperator() throws {
     let input: SourceFile = "+ & == | < <= > >="
-    var context = ParserState(ast: AST(), lexer: Lexer(tokenizing: input))
+    var context = ParserState(
+      ast: AST(for: CompilerConfiguration()), lexer: Lexer(tokenizing: input))
     XCTAssertEqual(context.takeOperator()?.value, "+")
     XCTAssertEqual(context.takeOperator()?.value, "&")
     XCTAssertEqual(context.takeOperator()?.value, "==")
@@ -1956,7 +1957,7 @@ extension SourceFile {
     inContext context: ParserState.Context? = nil,
     with parser: (inout ParserState) throws -> Element
   ) rethrows -> (element: Element, ast: AST) {
-    var state = ParserState(ast: AST(), lexer: Lexer(tokenizing: self))
+    var state = ParserState(ast: AST(for: CompilerConfiguration()), lexer: Lexer(tokenizing: self))
     if let c = context {
       state.contexts.append(c)
     }

@@ -30,3 +30,27 @@ public conformance Int32: Copyable {
   }
 
 }
+
+public conformance Int32: Equatable {
+
+  public fun infix== (_ other: Self) -> Bool {
+    Bool(value: Builtin.icmp_eq_i32(value, other.value))
+  }
+
+  public fun infix!= (_ other: Self) -> Bool {
+    Bool(value: Builtin.icmp_ne_i32(value, other.value))
+  }
+
+}
+
+public conformance Int32: Hashable {
+
+  public fun hash(into hasher: inout Hasher) {
+    let p = Pointer<Int8>(type_punning: pointer[to: self])
+    &hasher.combine(byte: p.unsafe[])
+    &hasher.combine(byte: p.advance(by: 1).unsafe[])
+    &hasher.combine(byte: p.advance(by: 2).unsafe[])
+    &hasher.combine(byte: p.advance(by: 3).unsafe[])
+  }
+
+}

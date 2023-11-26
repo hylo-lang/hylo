@@ -1,0 +1,35 @@
+/// The typed memory address of a buffer whose contents can be read.
+public type PointerToBuffer<Pointee> {
+
+  /// The address at which the buffer starts.
+  public let start: Pointer<Pointee>
+
+  /// The number of elements in the buffer.
+  public let count: Int
+
+  /// Creates an instance covering `count` contiguous instances beginning at `start`.
+  public memberwise init
+
+}
+
+public conformance PointerToBuffer: Deinitializable {}
+
+public conformance PointerToBuffer: Movable {}
+
+public conformance PointerToBuffer: Copyable {
+
+  public fun copy() -> Self {
+    PointerToBuffer(start: start.copy(), count: count.copy())
+  }
+
+}
+
+public conformance PointerToBuffer: Equatable {
+
+  public fun infix== (_ other: Self) -> Bool {
+    (self.start == other.start) && (self.count == other.count)
+  }
+
+}
+
+public conformance PointerToBuffer: Regular {}

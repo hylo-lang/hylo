@@ -50,6 +50,15 @@ public conformance UInt: Equatable {
 
 public conformance UInt: Regular {}
 
+public conformance UInt: Hashable {
+
+  public fun hash(into hasher: inout Hasher) {
+    // TODO: use conditional compilation to avoid branches
+    &hasher.unsafe_combine(bytes: pointer_to_bytes[of: self])
+  }
+
+}
+
 public conformance UInt: Comparable {
 
   public fun infix< (_ other: Self) -> Bool {

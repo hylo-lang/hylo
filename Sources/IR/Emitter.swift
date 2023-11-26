@@ -123,7 +123,7 @@ struct Emitter {
 
   /// Inserts the IR for the top-level declarations of `self.module`.
   mutating func incorporateTopLevelDeclarations() {
-    for u in program.ast.topLevelDecls(module.id) {
+    for u in program[module.id].decls {
       lower(topLevel: u)
     }
   }
@@ -169,6 +169,8 @@ struct Emitter {
     case TraitDecl.self:
       lower(trait: .init(d)!)
     case TypeAliasDecl.self:
+      break
+    case VarDecl.self:
       break
     default:
       unexpected(d, in: ast)
@@ -481,6 +483,8 @@ struct Emitter {
         lower(initializer: .init(m)!)
       case MethodDecl.self:
         lower(method: .init(m)!)
+      case ProductTypeDecl.self:
+        lower(product: .init(m)!)
       case SubscriptDecl.self:
         lower(subscript: .init(m)!)
       default:
@@ -1013,7 +1017,7 @@ struct Emitter {
   }
 
   private mutating func emit(condCompilationStmt s: ConditionalCompilationStmt.ID) -> ControlFlow {
-    return emit(stmtList: ast[s].expansion)
+    return emit(stmtList: ast[s].expansion(for: ast.compiler))
   }
 
   private mutating func emit(conditionalStmt s: ConditionalStmt.ID) -> ControlFlow {
@@ -1338,16 +1342,26 @@ struct Emitter {
   /// Inserts the IR for storing the value of `e` to `storage`.
   private mutating func emitStore(upcast e: CastExpr.ID, to storage: Operand) {
     assert(ast[e].direction == .up)
-    let target = program[ast[e].right].type
+    let target = canonical(program[e].type)
+    let source = canonical(program[ast[e].left].type)
 
-    // Store the LHS to `storage` if it already has the desired type.
-    if program.areEquivalent(program[ast[e].left].type, target, in: program[e].scope) {
+    // `A ~> A`
+    if program.areEquivalent(source, target, in: program[e].scope) {
       emitStore(value: ast[e].left, to: storage)
       return
     }
 
+    // `A ~> Union<A, B>`
+    if let u = UnionType(target), u.elements.contains(source) {
+      let x0 = insert(
+        module.makeOpenUnion(storage, as: source, forInitialization: true, at: program[e].site))!
+      emitStore(value: ast[e].left, to: x0)
+      insert(module.makeCloseUnion(x0, at: program[e].site))
+      return
+    }
+
     // Otherwise, wrap the LHS.
-    UNIMPLEMENTED()
+    UNIMPLEMENTED("unimplemented conversion from '\(source)' to '\(target)'")
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
@@ -2649,7 +2663,9 @@ struct Emitter {
   private mutating func emitDeinitParts(of storage: Operand, at site: SourceRange) {
     let t = module.type(of: storage).ast
 
-    if t.hasRecordLayout {
+    if program.isTriviallyDeinitializable(t, in: insertionScope!) {
+      insert(module.makeMarkState(storage, initialized: false, at: site))
+    } else if t.hasRecordLayout {
       emitDeinitRecordParts(of: storage, at: site)
     } else if t.base is UnionType {
       emitDeinitUnionPayload(of: storage, at: site)
