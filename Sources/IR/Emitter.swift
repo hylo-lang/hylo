@@ -1342,16 +1342,26 @@ struct Emitter {
   /// Inserts the IR for storing the value of `e` to `storage`.
   private mutating func emitStore(upcast e: CastExpr.ID, to storage: Operand) {
     assert(ast[e].direction == .up)
-    let target = program[ast[e].right].type
+    let target = canonical(program[e].type)
+    let source = canonical(program[ast[e].left].type)
 
-    // Store the LHS to `storage` if it already has the desired type.
-    if program.areEquivalent(program[ast[e].left].type, target, in: program[e].scope) {
+    // `A ~> A`
+    if program.areEquivalent(source, target, in: program[e].scope) {
       emitStore(value: ast[e].left, to: storage)
       return
     }
 
+    // `A ~> Union<A, B>`
+    if let u = UnionType(target), u.elements.contains(source) {
+      let x0 = insert(
+        module.makeOpenUnion(storage, as: source, forInitialization: true, at: program[e].site))!
+      emitStore(value: ast[e].left, to: x0)
+      insert(module.makeCloseUnion(x0, at: program[e].site))
+      return
+    }
+
     // Otherwise, wrap the LHS.
-    UNIMPLEMENTED()
+    UNIMPLEMENTED("unimplemented conversion from '\(source)' to '\(target)'")
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
