@@ -61,7 +61,9 @@ extension Program {
   }
 
   /// Returns `true` iff `l` is lexically enclosed in more scopes than `r`.
-  public func hasMoreAncestors(_ l: AnyDeclID, than r: AnyDeclID) -> Bool {
+  public func hasMoreAncestors<T: NodeIDProtocol, U: NodeIDProtocol>(
+    _ l: T, than r: U
+  ) -> Bool {
     guard let s = nodeToScope[l] else { return false }
     guard let t = nodeToScope[r] else { return true }
 
@@ -71,6 +73,35 @@ extension Program {
       if b.next() == nil { return true }
     }
     return false
+  }
+
+  /// Compares `lhs` and `rhs` in `scopeOfUse` and returns whether one lexically shadows the other.
+  ///
+  /// `lhs` is lexically deeper than `rhs` w.r.t. `scopeOfUse` if any of these statements hold:
+  /// - `lhs` is declared in the module containing `scopeOfUse` and `rhs` isn't.
+  /// - `lhs` and `rhs` are declared in module containing `scopeOfUse` and `lhs` has more ancestors
+  ///   than `rhs`.
+  public func compareLexicalDepth<T: NodeIDProtocol, U: NodeIDProtocol>(
+    _ lhs: T, _ rhs: U, in scopeOfUse: AnyScopeID
+  ) -> StrictPartialOrdering {
+    let m = module(containing: scopeOfUse)
+    if isContained(lhs, in: m) {
+      // If `lhs` is in the same module as `scopeOfUse` but `rhs` isn't, then `lhs` shadows `rhs`.
+      guard isContained(rhs, in: m) else { return .ascending }
+
+      // If `lhs` and `rhs` are in the same module as `scopeOfUse`, then `lhs` shadows `rhs` iff
+      // it has more ancestors than `rhs`.
+      if hasMoreAncestors(lhs, than: rhs) { return .ascending }
+      if hasMoreAncestors(rhs, than: lhs) { return .descending }
+      return nil
+    }
+
+    if isContained(rhs, in: m) {
+      // If `rhs` is in the same module as `scopeOfUse` but `lhs` isn't, then `rhs` shadows `lhs`.
+      return .descending
+    }
+
+    return nil
   }
 
   /// Returns the scope of `d`'s body, if any.

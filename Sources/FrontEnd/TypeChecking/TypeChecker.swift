@@ -5060,12 +5060,10 @@ struct TypeChecker {
 
   /// Compares `lhs` and `rhs` in `scopeOfUse` and returns whether one shadows the other.
   ///
-  /// `lhs` is deeper than `rhs` w.r.t. `scopeOfUse` if either of these statements hold:
-  /// - `lhs` and `rhs` are members of traits `t1` and `t2`, respectively, and `t1` refines `t2`
+  /// `lhs` is deeper than `rhs` w.r.t. `scopeOfUse` if any of these statements hold:
+  /// - `lhs` and `rhs` are members of traits `t1` and `t2`, respectively, and `t1` refines `t2`.
   /// - `lhs` isn't member of a trait and `rhs` is.
-  /// - `lhs` is declared in the module containing `scopeOfUse` and `rhs` isn't.
-  /// - `lhs` and `rhs` are declared in module containing `scopeOfUse` and `lhs` has more ancestors
-  ///   than `rhs`.
+  /// - `lhs` is lexically deeper than `rhs` (see `Program.compareLexicalDepth`).
   private mutating func compareDepth(
     _ lhs: AnyDeclID, _ rhs: AnyDeclID, in scopeOfUse: AnyScopeID
   ) -> StrictPartialOrdering {
@@ -5085,24 +5083,7 @@ struct TypeChecker {
       return .ascending
     }
 
-    let m = program.module(containing: scopeOfUse)
-    if program.isContained(lhs, in: m) {
-      // If `lhs` is in the same module as `scopeOfUse` but `rhs` isn't, then `lhs` shadows `rhs`.
-      guard program.isContained(rhs, in: m) else { return .ascending }
-
-      // If `lhs` and `rhs` are in the same module as `scopeOfUse`, then `lhs` shadows `rhs` iff
-      // it has more ancestors than `rhs`.
-      if program.hasMoreAncestors(lhs, than: rhs) { return .ascending }
-      if program.hasMoreAncestors(rhs, than: lhs) { return .descending }
-      return nil
-    }
-
-    if program.isContained(rhs, in: m) {
-      // If `rhs` is in the same module as `scopeOfUse` but `lhs` isn't, then `rhs` shadows `lhs`.
-      return .descending
-    }
-
-    return nil
+    return program.compareLexicalDepth(lhs, rhs, in: scopeOfUse)
   }
 
   /// Compares `lhs` and `rhs` in `scopeOfUse` and returns whether one is more specific than the
