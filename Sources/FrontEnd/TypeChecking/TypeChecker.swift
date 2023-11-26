@@ -297,13 +297,10 @@ struct TypeChecker {
   private mutating func demandConformance(
     of model: AnyType, to trait: TraitType, exposedTo scopeOfUse: AnyScopeID
   ) -> Conformance? {
+    // As results already in cache may be shadowed by a conformance that hasn't been checked yet,
+    // we have to check all conformance sources in scope before we can be sure we'll grab the right
+    // one when we call `cachedConformance`.
     let m = canonical(model, in: scopeOfUse)
-    if let c = cachedConformance(of: m, to: trait, exposedTo: scopeOfUse) {
-      return c
-    }
-
-    // If the conformance isn't already in cache, check sources defining a conformance of `model`
-    // to `trait` in scope, thus filling the cache before we look again.
     let r = refinements(of: trait)
     let s = originsOfConformance(of: m, to: trait, exposedTo: scopeOfUse)
     for o in s {
@@ -316,6 +313,10 @@ struct TypeChecker {
 
   /// Returns the checked conformance of `model` to `trait` that is exposed to `scopeOfUse`, or
   /// `nil` if such a conformance doesn't exist or hasn't been checked yet.
+  ///
+  /// The result is the innermost available conformance of `model` to `trait` in `scopeOfUse` iff
+  /// all possible sources have already been checked. Otherwise, the returned conformance may be
+  /// shadowed by one that hasn't been checked yet.
   ///
   /// - Requires: `model` is canonical.
   func cachedConformance(
@@ -337,6 +338,10 @@ struct TypeChecker {
 
   /// Returns the checked conformance of `model` to `trait` that is exposed to `scopeOfUse`, or
   /// `nil` if such a conformance doesn't exist or hasn't been checked yet.
+  ///
+  /// The result is the innermost available conformance of `model` to `trait` in `scopeOfUse` iff
+  /// all possible sources have already been checked. Otherwise, the returned conformance may be
+  /// shadowed by one that hasn't been checked yet.
   ///
   /// - Requires: `model` is canonical.
   private func cachedConformance(
@@ -1241,9 +1246,15 @@ struct TypeChecker {
 
     // TODO: Use arguments to bound generic types as constraints
 
+    // There's nothing to do if the conformance introduced by `origin` has already been checked.
+    // Otherwise, if there's already another conformance exposed to `scopeOfDefinition` in cache,
+    // it can't be introduced the same scope.
     if let c = cachedConformance(of: model, to: trait, exposedTo: scopeOfDefinition) {
-      assert(c.origin == origin, "inconsistent conformance origin")
-      return
+      if c.origin == origin {
+        return
+      } else {
+        precondition(c.scope != scopeOfDefinition, "inconsistent conformance origin")
+      }
     }
 
     /// A map from requirement to its implementation.
