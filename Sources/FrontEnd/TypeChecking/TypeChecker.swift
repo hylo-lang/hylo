@@ -367,10 +367,7 @@ struct TypeChecker {
         }
       }
       .minimalElements { (a, b) in
-        if a.scope == b.scope { return .equal }
-        if program.isContained(a.scope, in: b.scope) { return .ascending }
-        if program.isContained(b.scope, in: a.scope) { return .descending }
-        return nil
+        program.compareLexicalDepth(a.scope, b.scope, in: scopeOfUse)
       }
       .uniqueElement
   }
