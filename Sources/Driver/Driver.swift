@@ -129,13 +129,11 @@ public struct Driver: ParsableCommand {
   public func run() throws {
     do {
       let (exitCode, diagnostics) = try execute()
-
       diagnostics.render(
         into: &standardError, style: ProcessInfo.ansiTerminalIsConnected ? .styled : .unstyled)
-
       Driver.exit(withError: exitCode)
     } catch let e {
-      print("Unexpected error\n\(e)")
+      print("Unexpected error\n")
       Driver.exit(withError: e)
     }
   }

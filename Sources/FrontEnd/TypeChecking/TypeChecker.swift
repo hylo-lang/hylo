@@ -297,13 +297,10 @@ struct TypeChecker {
   private mutating func demandConformance(
     of model: AnyType, to trait: TraitType, exposedTo scopeOfUse: AnyScopeID
   ) -> Conformance? {
+    // As results already in cache may be shadowed by a conformance that hasn't been checked yet,
+    // we have to check all conformance sources in scope before we can be sure we'll grab the right
+    // one when we call `cachedConformance`.
     let m = canonical(model, in: scopeOfUse)
-    if let c = cachedConformance(of: m, to: trait, exposedTo: scopeOfUse) {
-      return c
-    }
-
-    // If the conformance isn't already in cache, check sources defining a conformance of `model`
-    // to `trait` in scope, thus filling the cache before we look again.
     let r = refinements(of: trait)
     let s = originsOfConformance(of: m, to: trait, exposedTo: scopeOfUse)
     for o in s {
@@ -316,6 +313,10 @@ struct TypeChecker {
 
   /// Returns the checked conformance of `model` to `trait` that is exposed to `scopeOfUse`, or
   /// `nil` if such a conformance doesn't exist or hasn't been checked yet.
+  ///
+  /// The result is the innermost available conformance of `model` to `trait` in `scopeOfUse` iff
+  /// all possible sources have already been checked. Otherwise, the returned conformance may be
+  /// shadowed by one that hasn't been checked yet.
   ///
   /// - Requires: `model` is canonical.
   func cachedConformance(
@@ -337,6 +338,10 @@ struct TypeChecker {
 
   /// Returns the checked conformance of `model` to `trait` that is exposed to `scopeOfUse`, or
   /// `nil` if such a conformance doesn't exist or hasn't been checked yet.
+  ///
+  /// The result is the innermost available conformance of `model` to `trait` in `scopeOfUse` iff
+  /// all possible sources have already been checked. Otherwise, the returned conformance may be
+  /// shadowed by one that hasn't been checked yet.
   ///
   /// - Requires: `model` is canonical.
   private func cachedConformance(
@@ -367,10 +372,7 @@ struct TypeChecker {
         }
       }
       .minimalElements { (a, b) in
-        if a.scope == b.scope { return .equal }
-        if program.isContained(a.scope, in: b.scope) { return .ascending }
-        if program.isContained(b.scope, in: a.scope) { return .descending }
-        return nil
+        program.compareLexicalDepth(a.scope, b.scope, in: scopeOfUse)
       }
       .uniqueElement
   }
@@ -1244,9 +1246,15 @@ struct TypeChecker {
 
     // TODO: Use arguments to bound generic types as constraints
 
+    // There's nothing to do if the conformance introduced by `origin` has already been checked.
+    // Otherwise, if there's already another conformance exposed to `scopeOfDefinition` in cache,
+    // it can't be introduced the same scope.
     if let c = cachedConformance(of: model, to: trait, exposedTo: scopeOfDefinition) {
-      assert(c.origin == origin, "inconsistent conformance origin")
-      return
+      if c.origin == origin {
+        return
+      } else {
+        precondition(c.scope != scopeOfDefinition, "inconsistent conformance origin")
+      }
     }
 
     /// A map from requirement to its implementation.
@@ -5085,12 +5093,10 @@ struct TypeChecker {
 
   /// Compares `lhs` and `rhs` in `scopeOfUse` and returns whether one shadows the other.
   ///
-  /// `lhs` is deeper than `rhs` w.r.t. `scopeOfUse` if either of these statements hold:
-  /// - `lhs` and `rhs` are members of traits `t1` and `t2`, respectively, and `t1` refines `t2`
+  /// `lhs` is deeper than `rhs` w.r.t. `scopeOfUse` if any of these statements hold:
+  /// - `lhs` and `rhs` are members of traits `t1` and `t2`, respectively, and `t1` refines `t2`.
   /// - `lhs` isn't member of a trait and `rhs` is.
-  /// - `lhs` is declared in the module containing `scopeOfUse` and `rhs` isn't.
-  /// - `lhs` and `rhs` are declared in module containing `scopeOfUse` and `lhs` has more ancestors
-  ///   than `rhs`.
+  /// - `lhs` is lexically deeper than `rhs` (see `Program.compareLexicalDepth`).
   private mutating func compareDepth(
     _ lhs: AnyDeclID, _ rhs: AnyDeclID, in scopeOfUse: AnyScopeID
   ) -> StrictPartialOrdering {
@@ -5110,24 +5116,7 @@ struct TypeChecker {
       return .ascending
     }
 
-    let m = program.module(containing: scopeOfUse)
-    if program.isContained(lhs, in: m) {
-      // If `lhs` is in the same module as `scopeOfUse` but `rhs` isn't, then `lhs` shadows `rhs`.
-      guard program.isContained(rhs, in: m) else { return .ascending }
-
-      // If `lhs` and `rhs` are in the same module as `scopeOfUse`, then `lhs` shadows `rhs` iff
-      // it has more ancestors than `rhs`.
-      if program.hasMoreAncestors(lhs, than: rhs) { return .ascending }
-      if program.hasMoreAncestors(rhs, than: lhs) { return .descending }
-      return nil
-    }
-
-    if program.isContained(rhs, in: m) {
-      // If `rhs` is in the same module as `scopeOfUse` but `lhs` isn't, then `rhs` shadows `lhs`.
-      return .descending
-    }
-
-    return nil
+    return program.compareLexicalDepth(lhs, rhs, in: scopeOfUse)
   }
 
   /// Compares `lhs` and `rhs` in `scopeOfUse` and returns whether one is more specific than the

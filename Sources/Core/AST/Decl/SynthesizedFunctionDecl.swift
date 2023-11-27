@@ -63,7 +63,7 @@ public struct SynthesizedFunctionDecl: Hashable {
 extension SynthesizedFunctionDecl: CustomStringConvertible {
 
   public var description: String {
-    "(\(receiver)).\(kind)"
+    "\(scope).(\(receiver)).\(kind)"
   }
 
 }
