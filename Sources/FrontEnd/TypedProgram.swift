@@ -456,12 +456,6 @@ public struct TypedProgram {
     return result
   }
 
-  /// Returns the scope of the declaration extended by `d`, if any.
-  public func scopeExtended<T: TypeExtendingDecl>(by d: T.ID) -> AnyScopeID? {
-    var checker = TypeChecker(asContextFor: self)
-    return checker.scopeExtended(by: d)
-  }
-
   /// Returns the modules visible to `s`:
   public func modules(exposedTo s: AnyScopeID) -> Set<ModuleDecl.ID> {
     if let m = ModuleDecl.ID(s) {
