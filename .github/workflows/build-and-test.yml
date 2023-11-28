@@ -58,7 +58,9 @@ jobs:
 
     runs-on: ${{ matrix.host.os }}
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
+      with:
+        submodules: true
 
     - name: Build and Test
       uses: devcontainers/ci@v0.3
@@ -103,7 +105,9 @@ jobs:
     runs-on: ${{ matrix.host.os }}
     steps:
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
+      with:
+        submodules: true
 
     - name: Setup swift
       uses: swift-actions/setup-swift@v1
@@ -156,7 +160,9 @@ jobs:
         release-tag-name: 20231010.3
         github-token: ${{ secrets.GITHUB_TOKEN }}
 
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
+      with:
+        submodules: true
 
     - name: Swift version
       run: swift --version
