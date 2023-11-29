@@ -297,6 +297,15 @@ public struct AST {
     return self[parameters].map(\.defaultValue)
   }
 
+  /// Returns the generic parameters introduced by `d`.
+  public func genericParameters(introducedBy d: AnyDeclID) -> [GenericParameterDecl.ID] {
+    if let s = self[d] as? GenericScope {
+      return s.genericParameters
+    } else {
+      return []
+    }
+  }
+
   /// Returns the name of `d` unless `d` is anonymous.
   public func name(of d: FunctionDecl.ID) -> Name? {
     guard let stem = self[d].identifier?.value else { return nil }

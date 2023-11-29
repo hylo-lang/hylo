@@ -3073,16 +3073,6 @@ struct TypeChecker {
     return table
   }
 
-  /// Returns the generic parameters introduced by `d`.
-  private func genericParameters(introducedBy d: AnyDeclID) -> [GenericParameterDecl.ID] {
-    switch d.kind {
-    case TraitDecl.self:
-      return []
-    default:
-      return (program.ast[d] as? GenericScope)?.genericParameters ?? []
-    }
-  }
-
   /// Returns declarations extending `subject` exposed to `scopeOfUse`.
   ///
   /// - Requires: The imports of the module containing `scopeOfUse` have been configured.
@@ -3704,7 +3694,7 @@ struct TypeChecker {
       assert(arguments.isEmpty, "generic declaration bound twice")
       return g.arguments
     } else {
-      let p = genericParameters(introducedBy: d)
+      let p = program.ast.genericParameters(introducedBy: d)
       return associateGenericParameters(p, of: name, to: arguments, reportingDiagnosticsTo: &log)
     }
   }
