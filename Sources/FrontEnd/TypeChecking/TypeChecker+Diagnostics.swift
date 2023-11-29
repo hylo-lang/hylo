@@ -6,6 +6,13 @@ extension Diagnostic {
     .error("ambiguous disjunction", at: site)
   }
 
+  static func error(autoclosureExpectsEmptyLambdaAt site: SourceRange, given: AnyType) -> Diagnostic
+  {
+    .error(
+      "autoclosure parameter expects lambda type with no parameters (given type: \(given))",
+      at: site)
+  }
+
   static func error(
     binding a: BindingPattern.Introducer, requiresInitializerAt site: SourceRange
   ) -> Diagnostic {
@@ -256,6 +263,14 @@ extension Diagnostic {
     undefinedName name: Int, in domain: AnyType, at site: SourceRange
   ) -> Diagnostic {
     .error("type '\(domain)' has no member '\(name)'", at: site)
+  }
+
+  static func error(unexpectedAttribute a: Attribute, at site: SourceRange) -> Diagnostic {
+    .error("unexpected attribute \(a.name.value)", at: site)
+  }
+
+  static func error(unexpectedAttributeArguments a: Attribute, at site: SourceRange) -> Diagnostic {
+    .error("attribute \(a.name.value) is not expected to have arguments", at: site)
   }
 
   static func error(noContextToResolve name: Name, at site: SourceRange) -> Diagnostic {

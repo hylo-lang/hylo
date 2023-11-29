@@ -316,17 +316,27 @@ struct ConstraintSystem {
         return delegate(to: [s])
       }
 
-      // If `R` has multiple elements, `L` can be equal to `R` (unless the goal is strict) or
-      // subtype of some strict subset of `R`.
+      // If `R` has multiple elements, then:
+      // - if `L` can't be a union, `L` must be subtype of one element element in `R`;
+      // - if the goal strict, `L` must be subtype of some strict subset of `R`;
+      // - otherwise, `L` must be equal to `R` or a subtype of a subset of `R`.
       var candidates: [DisjunctionConstraint.Predicate] = []
-      for subset in r.elements.combinations(of: r.elements.count - 1) {
-        let c = SubtypingConstraint(goal.left, ^UnionType(subset), origin: o)
-        candidates.append(.init(constraints: [c], penalties: 1))
+      if !goal.left.isTypeVariable {
+        for e in r.elements {
+          let c = SubtypingConstraint(goal.left, e, origin: o)
+          candidates.append(.init(constraints: [c], penalties: 1))
+        }
+      } else {
+        for subset in r.elements.combinations(of: r.elements.count - 1) {
+          let c = SubtypingConstraint(goal.left, ^UnionType(subset), origin: o)
+          candidates.append(.init(constraints: [c], penalties: 1))
+        }
+        if !goal.isStrict {
+          let c = EqualityConstraint(goal.left, goal.right, origin: o)
+          candidates.append(.init(constraints: [c], penalties: 0))
+        }
       }
-      if !goal.isStrict {
-        let c = EqualityConstraint(goal.left, goal.right, origin: o)
-        candidates.append(.init(constraints: [c], penalties: 0))
-      }
+
       let s = schedule(DisjunctionConstraint(between: candidates, origin: o))
       return delegate(to: [s])
 
