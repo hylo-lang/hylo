@@ -2744,16 +2744,16 @@ struct TypeChecker {
       }
 
       // Gather declarations of the identifier in the current scope; we can assume we've got no
-      // non-overloadable candidate.
+      // non-overloadable candidate in `matches` yet.
       let newMatches = lookup(stem, in: s, exposedTo: scopeOfUse)
-      for d in newMatches {
-        if !insert(lookedUp: d, in: &matches) { return matches }
+      if insert(newMatches: newMatches, into: &matches) {
+        return matches
       }
     }
 
     // Handle references to the containing module.
-    if program[containingModule!].baseName == stem {
-      if !insert(lookedUp: AnyDeclID(containingModule!), in: &matches) { return matches }
+    if matches.isEmpty && (program[containingModule!].baseName == stem) {
+      return [AnyDeclID(containingModule!)]
     }
 
     // Handle references to imported symbols.
@@ -2770,24 +2770,23 @@ struct TypeChecker {
     return matches
   }
 
-  /// Inserts `d` in `matches` if it isn't shadowed, returning `true` iff name lookup should
-  /// continue in outer scopes.
+  /// Merges `newMatches` into `partialResult`, returning `true` iff a non-overloadable declaration
+  /// was inserted.
   ///
-  /// `d` is inserted if and only if:
-  /// - it is not a binding under checking; and
-  /// - it `matches` is empty or `d` is overloadable.
-  private mutating func insert(lookedUp d: AnyDeclID, in matches: inout Set<AnyDeclID>) -> Bool {
-    if (d.kind == VarDecl.self) && cache.declsUnderChecking.contains(d) {
-      return true
-    } else if d.isOverloadable {
-      matches.insert(d)
-      return true
-    } else if matches.isEmpty {
-      matches.insert(d)
-      return false
-    } else {
-      return false
+  /// Bindings under checking are not inserted, thus preventing initializing expressions from
+  /// referring to the left hand side of a binding initialization (e.g., `let x = x`).
+  ///
+  /// - Requires: `partialResult` doesn't contain any non-overloadable declaration.
+  private mutating func insert(
+    newMatches: Set<AnyDeclID>, into partialResult: inout Set<AnyDeclID>
+  ) -> Bool {
+    var hasNonOverloadable = false
+    for m in newMatches {
+      if (m.kind == VarDecl.self) && cache.declsUnderChecking.contains(m) { continue }
+      partialResult.insert(m)
+      hasNonOverloadable = hasNonOverloadable || !m.isOverloadable
     }
+    return hasNonOverloadable
   }
 
   /// Returns the declarations that introduce a name with given `stem` in the declaration space of
