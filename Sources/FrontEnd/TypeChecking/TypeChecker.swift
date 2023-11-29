@@ -219,12 +219,15 @@ struct TypeChecker {
   private mutating func conformedTraits(
     of t: GenericTypeParameterType, in scopeOfUse: AnyScopeID
   ) -> Set<TraitType> {
-    // Generic parameters declared at trait scope conform to that trait.
+    // Trait receivers conform to their traits.
+    var result: Set<TraitType>
     if let d = TraitDecl.ID(program[t.decl].scope) {
-      return refinements(of: TraitType(d, ast: program.ast)).unordered
+      result = refinements(of: TraitType(d, ast: program.ast)).unordered
+    } else {
+      result = []
     }
 
-    var result = conformedTraits(declaredInEnvironmentIntroducing: ^t, exposedTo: scopeOfUse)
+    result.formUnion(conformedTraits(declaredInEnvironmentIntroducing: ^t, exposedTo: scopeOfUse))
     result.formUnion(conformedTraits(declaredInExtensionsOf: ^t, exposedTo: scopeOfUse))
     return result
   }
@@ -281,13 +284,18 @@ struct TypeChecker {
   ) -> Set<TraitType> {
     var result = Set<TraitType>()
     for s in program.scopes(from: scopeOfUse) where s.kind.value is GenericScope.Type {
-      let e = environment(of: s)!
-      result.formUnion(e.conformedTraits(of: ^t))
+      let d = AnyDeclID(s)!
+
+      // If an environment has been computed already, use it.
+      if let e = cache.read(\.environment[d]) {
+        result.formUnion(e.conformedTraits(of: ^t))
+      } else {
+        // TODO
+      }
 
       // Note: `s` might be extending the type whose declaration introduced the generic environment
       // that declared `t`.
       if s.kind.value is TypeExtendingDecl.Type {
-        let d = AnyDeclID(s)!
         if let g = environment(introducedByDeclOf: uncheckedType(of: d)) {
           result.formUnion(g.conformedTraits(of: ^t))
         }
