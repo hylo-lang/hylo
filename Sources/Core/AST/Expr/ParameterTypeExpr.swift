@@ -24,4 +24,21 @@ public struct ParameterTypeExpr: Expr {
     self.bareType = bareType
   }
 
+  /// `true` if `self` has the `@autoclosure` attribute.
+  public var isAutoclosure: Bool {
+    attributes.contains(where: { $0.value.name.value == "@autoclosure" })
+  }
+
+  public func validateForm(in ast: AST, reportingDiagnosticsTo log: inout DiagnosticSet) {
+    for a in attributes {
+      if a.value.name.value == "@autoclosure" {
+        if !a.value.arguments.isEmpty {
+          log.insert(.error(attributeTakesNoArgument: a.value, at: a.site))
+        }
+      } else {
+        log.insert(.error(unexpectedAttribute: a.value, at: a.site))
+      }
+    }
+  }
+
 }
