@@ -197,7 +197,7 @@ struct TypeChecker {
   private mutating func conformedTraits(
     of t: AssociatedTypeType, in scopeOfUse: AnyScopeID
   ) -> Set<TraitType> {
-    var result = conformedTraits(declaredInEnvironmentIntroducing: ^t, exposedTo: scopeOfUse)
+    var result = conformedTraits(declaredByConstraintsOn: ^t, exposedTo: scopeOfUse)
     result.formUnion(conformedTraits(declaredInExtensionsOf: ^t, exposedTo: scopeOfUse))
     return result
   }
@@ -227,7 +227,7 @@ struct TypeChecker {
       result = []
     }
 
-    result.formUnion(conformedTraits(declaredInEnvironmentIntroducing: ^t, exposedTo: scopeOfUse))
+    result.formUnion(conformedTraits(declaredByConstraintsOn: ^t, exposedTo: scopeOfUse))
     result.formUnion(conformedTraits(declaredInExtensionsOf: ^t, exposedTo: scopeOfUse))
     return result
   }
@@ -280,7 +280,7 @@ struct TypeChecker {
   /// logically containing `scopeOfUse`. The return value is the set of traits used as bounds of
   /// `t` in that environment.
   mutating func conformedTraits(
-    declaredInEnvironmentIntroducing t: AnyType, exposedTo scopeOfUse: AnyScopeID
+    declaredByConstraintsOn t: AnyType, exposedTo scopeOfUse: AnyScopeID
   ) -> Set<TraitType> {
     var result = Set<TraitType>()
     for s in program.scopes(from: scopeOfUse) where s.kind.value is GenericScope.Type {

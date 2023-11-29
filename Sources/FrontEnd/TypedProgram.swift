@@ -374,7 +374,7 @@ public struct TypedProgram {
   ) -> Conformance? {
     var checker = TypeChecker(asContextFor: self)
     let bounds = checker.conformedTraits(
-      declaredInEnvironmentIntroducing: model,
+      declaredByConstraintsOn: model,
       exposedTo: scopeOfUse)
     guard bounds.contains(concept) else { return nil }
 
