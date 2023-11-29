@@ -62,7 +62,7 @@ public struct TypedProgram {
   ) throws {
     let instanceUnderConstruction = SharedMutable(TypedProgram(partiallyFormedFrom: base))
     #if os(macOS) && DEBUG
-    let isTypeCheckingParallel = isTypeCheckingParallel && false
+      let isTypeCheckingParallel = isTypeCheckingParallel && false
     #endif
 
     if isTypeCheckingParallel {

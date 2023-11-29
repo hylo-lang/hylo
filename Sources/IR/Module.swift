@@ -319,7 +319,6 @@ public struct Module {
     let parameters = program.accumulatedGenericParameters(in: d)
     let output = program.canonical(
       (program[d].type.base as! CallableType).output, in: program[d].scope)
-
     let inputs = loweredParameters(of: d)
 
     let entity = Function(

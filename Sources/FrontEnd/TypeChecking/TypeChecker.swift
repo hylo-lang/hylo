@@ -2562,7 +2562,7 @@ struct TypeChecker {
       if let u = LambdaType(t) {
         if !u.inputs.isEmpty {
           report(.error(autoclosureExpectsEmptyLambdaAt: s, given: t))
-        } 
+        }
       } else {
         report(.error(autoclosureExpectsEmptyLambdaAt: s, given: t))
       }
@@ -2845,7 +2845,7 @@ struct TypeChecker {
   ) -> Set<AnyDeclID> {
     let extended = uncheckedType(of: lookupContext)
 
-    if let t = GenericTypeParameterType(extended), isTraitReceiver(t), (stem == "Self") {
+    if let t = GenericTypeParameterType(extended), isTraitReceiver(t), stem == "Self" {
       // "Self" in the context of a trait extension denotes that trait's receiver.
       return [AnyDeclID(t.decl)]
     } else {
