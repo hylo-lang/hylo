@@ -3,6 +3,10 @@ import OrderedCollections
 import Utils
 
 /// The transformation from a `ScopedProgram` to a `TypedProgram`.
+///
+/// - Note: A method named with a leading underscore are meant be called only by the method with
+///   the same name but without that leading underscore. The former typically implement the actual
+///   computation of a value that is memoized by the latter.
 struct TypeChecker {
 
   /// The diagnostics of the type errors.
@@ -1693,9 +1697,9 @@ struct TypeChecker {
   /// Returns the generic environment introduced by the declaration of `t`, if any.
   private mutating func environment(introducedByDeclOf t: AnyType) -> GenericEnvironment? {
     switch t.base {
+    case let u as GenericTypeParameterType:
+      return environment(of: program[u.decl].scope)
     case let u as ProductType:
-      return environment(of: u.decl)
-    case let u as TraitType:
       return environment(of: u.decl)
     case let u as TypeAliasType:
       return environment(of: u.decl)
@@ -1909,6 +1913,8 @@ struct TypeChecker {
     switch i.base {
     case is BuiltinType, is RemoteType:
       report(.error(cannotExtend: i, at: program[d].subject.site))
+    case let t as TraitType:
+      return ^GenericTypeParameterType(selfParameterOf: t.decl, in: program.ast)
     default:
       return i
     }
@@ -2381,6 +2387,15 @@ struct TypeChecker {
     }
   }
 
+  /// If `d` is a trait extension, returns the trait that it extends. Otherwise, returns `nil`.
+  private mutating func extendedTrait(_ d: ExtensionDecl.ID) -> TraitType? {
+    guard
+      let t = GenericTypeParameterType(uncheckedType(of: d)),
+      let u = TraitDecl.ID(program[t.decl].scope)
+    else { return nil }
+    return TraitType(u, ast: program.ast)
+  }
+
   // MARK: Evaluation
 
   /// Evaluates and returns the value of `e`.
@@ -2821,9 +2836,15 @@ struct TypeChecker {
     _ stem: String, in lookupContext: T.ID, exposedTo scopeOfUse: AnyScopeID
   ) -> Set<AnyDeclID> {
     let extended = uncheckedType(of: lookupContext)
-    var matches = names(introducedIn: lookupContext)[stem, default: []]
-    matches.formUnion(lookup(stem, memberOf: extended, exposedTo: scopeOfUse))
-    return matches
+
+    if let t = GenericTypeParameterType(extended), isTraitReceiver(t), (stem == "Self") {
+      // "Self" in the context of a trait extension denotes that trait's receiver.
+      return [AnyDeclID(t.decl)]
+    } else {
+      var matches = names(introducedIn: lookupContext)[stem, default: []]
+      matches.formUnion(lookup(stem, memberOf: extended, exposedTo: scopeOfUse))
+      return matches
+    }
   }
 
   /// Returns the declarations that introduce a name with given `stem` in the declaration space of
@@ -3086,12 +3107,32 @@ struct TypeChecker {
     }
 
     let subject = canonical(subject, in: scopeOfUse)
-    if let t = BoundGenericType(subject) {
-      let r = extensions(of: t.base, exposedTo: scopeOfUse)
-      cache.typeToExtensions[key] = r
-      return r
+    let matches: [AnyDeclID]
+
+    switch subject.base {
+    case let t as BoundGenericType:
+      // Extensions of bound generic types are looked up without the generic arguments.
+      matches = extensions(of: t.base, exposedTo: scopeOfUse)
+
+    case let t as TraitType:
+      // Extensions of traits are looked up by their receiver parameters.
+      let u = ^GenericTypeParameterType(selfParameterOf: t.decl, in: program.ast)
+      matches = extensions(of: u, exposedTo: scopeOfUse)
+
+    default:
+      matches = _extensions(of: subject, exposedTo: scopeOfUse)
     }
 
+    cache.typeToExtensions[key] = matches
+    return matches
+  }
+
+  /// Returns declarations extending `subject` exposed to `scopeOfUse`.
+  ///
+  /// - Requires: `subject` is canonical.
+  private mutating func _extensions(
+    of subject: AnyType, exposedTo scopeOfUse: AnyScopeID
+  ) -> [AnyDeclID] {
     var matches: [AnyDeclID] = []
     var root: ModuleDecl.ID? = nil
 
@@ -3122,7 +3163,6 @@ struct TypeChecker {
       reduce(decls: symbols, extending: subject, in: scopeOfUse, into: &matches)
     }
 
-    cache.typeToExtensions[key] = matches
     return matches
   }
 
@@ -3239,9 +3279,9 @@ struct TypeChecker {
   mutating func scopeExtended<T: TypeExtendingDecl>(by d: T.ID) -> AnyScopeID? {
     let t = uncheckedType(of: d)
     switch t.base {
+    case let u as GenericTypeParameterType where isTraitReceiver(u):
+      return program[u.decl].scope
     case let u as ProductType:
-      return AnyScopeID(u.decl)
-    case let u as TraitType:
       return AnyScopeID(u.decl)
     case let u as TypeAliasType:
       return AnyScopeID(u.decl)
@@ -3646,8 +3686,6 @@ struct TypeChecker {
     switch t.base {
     case let u as ProductType:
       return resolveReceiverMetatype(in: u.decl)
-    case let u as TraitType:
-      return resolveReceiverMetatype(in: u.decl)
     case let u as TypeAliasType:
       return resolveReceiverMetatype(in: u.decl)
     default:
@@ -3834,7 +3872,7 @@ struct TypeChecker {
     case TraitDecl.self:
       return TraitType(TraitDecl.ID(p)!, ast: program.ast)
     case ExtensionDecl.self:
-      return TraitType(uncheckedType(of: ExtensionDecl.ID(p)!))
+      return extendedTrait(ExtensionDecl.ID(p)!)
     case MethodDecl.self:
       return traitDeclaring(MethodDecl.ID(p)!)
     case SubscriptDecl.self:
@@ -5269,6 +5307,11 @@ struct TypeChecker {
   /// Returns `true` iff `d` introduces `var` bindings.
   private func isVar(_ d: BindingDecl.ID) -> Bool {
     program[d].pattern.introducer.value == .var
+  }
+
+  /// Returns `true` iff `t` is the receiver of a trait declaration.
+  private func isTraitReceiver(_ t: GenericTypeParameterType) -> Bool {
+    program[t.decl].scope.kind == TraitDecl.self
   }
 
   /// If `t` is the type of a mutating bundle in `scopeOfUse`, returns the output of a mutating
