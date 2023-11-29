@@ -3,6 +3,10 @@ import OrderedCollections
 import Utils
 
 /// The transformation from a `ScopedProgram` to a `TypedProgram`.
+///
+/// - Note: A method named with a leading underscore are meant be called only by the method with
+///   the same name but without that leading underscore. The former typically implement the actual
+///   computation of a value that is memoized by the latter.
 struct TypeChecker {
 
   /// The diagnostics of the type errors.
@@ -193,7 +197,7 @@ struct TypeChecker {
   private mutating func conformedTraits(
     of t: AssociatedTypeType, in scopeOfUse: AnyScopeID
   ) -> Set<TraitType> {
-    var result = conformedTraits(declaredInEnvironmentIntroducing: ^t, exposedTo: scopeOfUse)
+    var result = conformedTraits(declaredByConstraintsOn: ^t, exposedTo: scopeOfUse)
     result.formUnion(conformedTraits(declaredInExtensionsOf: ^t, exposedTo: scopeOfUse))
     return result
   }
@@ -215,12 +219,15 @@ struct TypeChecker {
   private mutating func conformedTraits(
     of t: GenericTypeParameterType, in scopeOfUse: AnyScopeID
   ) -> Set<TraitType> {
-    // Generic parameters declared at trait scope conform to that trait.
+    // Trait receivers conform to their traits.
+    var result: Set<TraitType>
     if let d = TraitDecl.ID(program[t.decl].scope) {
-      return refinements(of: TraitType(d, ast: program.ast)).unordered
+      result = refinements(of: TraitType(d, ast: program.ast)).unordered
+    } else {
+      result = []
     }
 
-    var result = conformedTraits(declaredInEnvironmentIntroducing: ^t, exposedTo: scopeOfUse)
+    result.formUnion(conformedTraits(declaredByConstraintsOn: ^t, exposedTo: scopeOfUse))
     result.formUnion(conformedTraits(declaredInExtensionsOf: ^t, exposedTo: scopeOfUse))
     return result
   }
@@ -273,17 +280,22 @@ struct TypeChecker {
   /// logically containing `scopeOfUse`. The return value is the set of traits used as bounds of
   /// `t` in that environment.
   mutating func conformedTraits(
-    declaredInEnvironmentIntroducing t: AnyType, exposedTo scopeOfUse: AnyScopeID
+    declaredByConstraintsOn t: AnyType, exposedTo scopeOfUse: AnyScopeID
   ) -> Set<TraitType> {
     var result = Set<TraitType>()
     for s in program.scopes(from: scopeOfUse) where s.kind.value is GenericScope.Type {
-      let e = environment(of: s)!
-      result.formUnion(e.conformedTraits(of: ^t))
+      let d = AnyDeclID(s)!
+
+      // If an environment has been computed already, use it.
+      if let e = cache.read(\.environment[d]) {
+        result.formUnion(e.conformedTraits(of: ^t))
+      } else {
+        // TODO
+      }
 
       // Note: `s` might be extending the type whose declaration introduced the generic environment
       // that declared `t`.
       if s.kind.value is TypeExtendingDecl.Type {
-        let d = AnyDeclID(s)!
         if let g = environment(introducedByDeclOf: uncheckedType(of: d)) {
           result.formUnion(g.conformedTraits(of: ^t))
         }
@@ -1693,9 +1705,9 @@ struct TypeChecker {
   /// Returns the generic environment introduced by the declaration of `t`, if any.
   private mutating func environment(introducedByDeclOf t: AnyType) -> GenericEnvironment? {
     switch t.base {
+    case let u as GenericTypeParameterType:
+      return environment(of: program[u.decl].scope)
     case let u as ProductType:
-      return environment(of: u.decl)
-    case let u as TraitType:
       return environment(of: u.decl)
     case let u as TypeAliasType:
       return environment(of: u.decl)
@@ -1909,6 +1921,8 @@ struct TypeChecker {
     switch i.base {
     case is BuiltinType, is RemoteType:
       report(.error(cannotExtend: i, at: program[d].subject.site))
+    case let t as TraitType:
+      return ^GenericTypeParameterType(selfParameterOf: t.decl, in: program.ast)
     default:
       return i
     }
@@ -2381,6 +2395,15 @@ struct TypeChecker {
     }
   }
 
+  /// If `d` is a trait extension, returns the trait that it extends. Otherwise, returns `nil`.
+  private mutating func extendedTrait(_ d: ExtensionDecl.ID) -> TraitType? {
+    guard
+      let t = GenericTypeParameterType(uncheckedType(of: d)),
+      let u = TraitDecl.ID(program[t.decl].scope)
+    else { return nil }
+    return TraitType(u, ast: program.ast)
+  }
+
   // MARK: Evaluation
 
   /// Evaluates and returns the value of `e`.
@@ -2539,7 +2562,7 @@ struct TypeChecker {
       if let u = LambdaType(t) {
         if !u.inputs.isEmpty {
           report(.error(autoclosureExpectsEmptyLambdaAt: s, given: t))
-        } 
+        }
       } else {
         report(.error(autoclosureExpectsEmptyLambdaAt: s, given: t))
       }
@@ -2744,16 +2767,16 @@ struct TypeChecker {
       }
 
       // Gather declarations of the identifier in the current scope; we can assume we've got no
-      // non-overloadable candidate.
+      // non-overloadable candidate in `matches` yet.
       let newMatches = lookup(stem, in: s, exposedTo: scopeOfUse)
-      for d in newMatches {
-        if !insert(lookedUp: d, in: &matches) { return matches }
+      if insert(newMatches: newMatches, into: &matches) {
+        return matches
       }
     }
 
     // Handle references to the containing module.
-    if program[containingModule!].baseName == stem {
-      if !insert(lookedUp: AnyDeclID(containingModule!), in: &matches) { return matches }
+    if matches.isEmpty && (program[containingModule!].baseName == stem) {
+      return [AnyDeclID(containingModule!)]
     }
 
     // Handle references to imported symbols.
@@ -2770,24 +2793,23 @@ struct TypeChecker {
     return matches
   }
 
-  /// Inserts `d` in `matches` if it isn't shadowed, returning `true` iff name lookup should
-  /// continue in outer scopes.
+  /// Merges `newMatches` into `partialResult`, returning `true` iff a non-overloadable declaration
+  /// was inserted.
   ///
-  /// `d` is inserted if and only if:
-  /// - it is not a binding under checking; and
-  /// - it `matches` is empty or `d` is overloadable.
-  private mutating func insert(lookedUp d: AnyDeclID, in matches: inout Set<AnyDeclID>) -> Bool {
-    if (d.kind == VarDecl.self) && cache.declsUnderChecking.contains(d) {
-      return true
-    } else if d.isOverloadable {
-      matches.insert(d)
-      return true
-    } else if matches.isEmpty {
-      matches.insert(d)
-      return false
-    } else {
-      return false
+  /// Bindings under checking are not inserted, thus preventing initializing expressions from
+  /// referring to the left hand side of a binding initialization (e.g., `let x = x`).
+  ///
+  /// - Requires: `partialResult` doesn't contain any non-overloadable declaration.
+  private mutating func insert(
+    newMatches: Set<AnyDeclID>, into partialResult: inout Set<AnyDeclID>
+  ) -> Bool {
+    var hasNonOverloadable = false
+    for m in newMatches {
+      if (m.kind == VarDecl.self) && cache.declsUnderChecking.contains(m) { continue }
+      partialResult.insert(m)
+      hasNonOverloadable = hasNonOverloadable || !m.isOverloadable
     }
+    return hasNonOverloadable
   }
 
   /// Returns the declarations that introduce a name with given `stem` in the declaration space of
@@ -2822,9 +2844,15 @@ struct TypeChecker {
     _ stem: String, in lookupContext: T.ID, exposedTo scopeOfUse: AnyScopeID
   ) -> Set<AnyDeclID> {
     let extended = uncheckedType(of: lookupContext)
-    var matches = names(introducedIn: lookupContext)[stem, default: []]
-    matches.formUnion(lookup(stem, memberOf: extended, exposedTo: scopeOfUse))
-    return matches
+
+    if let t = GenericTypeParameterType(extended), isTraitReceiver(t), stem == "Self" {
+      // "Self" in the context of a trait extension denotes that trait's receiver.
+      return [AnyDeclID(t.decl)]
+    } else {
+      var matches = names(introducedIn: lookupContext)[stem, default: []]
+      matches.formUnion(lookup(stem, memberOf: extended, exposedTo: scopeOfUse))
+      return matches
+    }
   }
 
   /// Returns the declarations that introduce a name with given `stem` in the declaration space of
@@ -3074,16 +3102,6 @@ struct TypeChecker {
     return table
   }
 
-  /// Returns the generic parameters introduced by `d`.
-  private func genericParameters(introducedBy d: AnyDeclID) -> [GenericParameterDecl.ID] {
-    switch d.kind {
-    case TraitDecl.self:
-      return []
-    default:
-      return (program.ast[d] as? GenericScope)?.genericParameters ?? []
-    }
-  }
-
   /// Returns declarations extending `subject` exposed to `scopeOfUse`.
   ///
   /// - Requires: The imports of the module containing `scopeOfUse` have been configured.
@@ -3097,12 +3115,32 @@ struct TypeChecker {
     }
 
     let subject = canonical(subject, in: scopeOfUse)
-    if let t = BoundGenericType(subject) {
-      let r = extensions(of: t.base, exposedTo: scopeOfUse)
-      cache.typeToExtensions[key] = r
-      return r
+    let matches: [AnyDeclID]
+
+    switch subject.base {
+    case let t as BoundGenericType:
+      // Extensions of bound generic types are looked up without the generic arguments.
+      matches = extensions(of: t.base, exposedTo: scopeOfUse)
+
+    case let t as TraitType:
+      // Extensions of traits are looked up by their receiver parameters.
+      let u = ^GenericTypeParameterType(selfParameterOf: t.decl, in: program.ast)
+      matches = extensions(of: u, exposedTo: scopeOfUse)
+
+    default:
+      matches = _extensions(of: subject, exposedTo: scopeOfUse)
     }
 
+    cache.typeToExtensions[key] = matches
+    return matches
+  }
+
+  /// Returns declarations extending `subject` exposed to `scopeOfUse`.
+  ///
+  /// - Requires: `subject` is canonical.
+  private mutating func _extensions(
+    of subject: AnyType, exposedTo scopeOfUse: AnyScopeID
+  ) -> [AnyDeclID] {
     var matches: [AnyDeclID] = []
     var root: ModuleDecl.ID? = nil
 
@@ -3133,7 +3171,6 @@ struct TypeChecker {
       reduce(decls: symbols, extending: subject, in: scopeOfUse, into: &matches)
     }
 
-    cache.typeToExtensions[key] = matches
     return matches
   }
 
@@ -3250,9 +3287,9 @@ struct TypeChecker {
   mutating func scopeExtended<T: TypeExtendingDecl>(by d: T.ID) -> AnyScopeID? {
     let t = uncheckedType(of: d)
     switch t.base {
+    case let u as GenericTypeParameterType where isTraitReceiver(u):
+      return program[u.decl].scope
     case let u as ProductType:
-      return AnyScopeID(u.decl)
-    case let u as TraitType:
       return AnyScopeID(u.decl)
     case let u as TypeAliasType:
       return AnyScopeID(u.decl)
@@ -3657,8 +3694,6 @@ struct TypeChecker {
     switch t.base {
     case let u as ProductType:
       return resolveReceiverMetatype(in: u.decl)
-    case let u as TraitType:
-      return resolveReceiverMetatype(in: u.decl)
     case let u as TypeAliasType:
       return resolveReceiverMetatype(in: u.decl)
     default:
@@ -3705,7 +3740,7 @@ struct TypeChecker {
       assert(arguments.isEmpty, "generic declaration bound twice")
       return g.arguments
     } else {
-      let p = genericParameters(introducedBy: d)
+      let p = program.ast.genericParameters(introducedBy: d)
       return associateGenericParameters(p, of: name, to: arguments, reportingDiagnosticsTo: &log)
     }
   }
@@ -3845,7 +3880,7 @@ struct TypeChecker {
     case TraitDecl.self:
       return TraitType(TraitDecl.ID(p)!, ast: program.ast)
     case ExtensionDecl.self:
-      return TraitType(uncheckedType(of: ExtensionDecl.ID(p)!))
+      return extendedTrait(ExtensionDecl.ID(p)!)
     case MethodDecl.self:
       return traitDeclaring(MethodDecl.ID(p)!)
     case SubscriptDecl.self:
@@ -5280,6 +5315,11 @@ struct TypeChecker {
   /// Returns `true` iff `d` introduces `var` bindings.
   private func isVar(_ d: BindingDecl.ID) -> Bool {
     program[d].pattern.introducer.value == .var
+  }
+
+  /// Returns `true` iff `t` is the receiver of a trait declaration.
+  private func isTraitReceiver(_ t: GenericTypeParameterType) -> Bool {
+    program[t.decl].scope.kind == TraitDecl.self
   }
 
   /// If `t` is the type of a mutating bundle in `scopeOfUse`, returns the output of a mutating

@@ -62,7 +62,7 @@ public struct TypedProgram {
   ) throws {
     let instanceUnderConstruction = SharedMutable(TypedProgram(partiallyFormedFrom: base))
     #if os(macOS) && DEBUG
-    let isTypeCheckingParallel = isTypeCheckingParallel && false
+      let isTypeCheckingParallel = isTypeCheckingParallel && false
     #endif
 
     if isTypeCheckingParallel {
@@ -374,7 +374,7 @@ public struct TypedProgram {
   ) -> Conformance? {
     var checker = TypeChecker(asContextFor: self)
     let bounds = checker.conformedTraits(
-      declaredInEnvironmentIntroducing: model,
+      declaredByConstraintsOn: model,
       exposedTo: scopeOfUse)
     guard bounds.contains(concept) else { return nil }
 
@@ -454,12 +454,6 @@ public struct TypedProgram {
     }
 
     return result
-  }
-
-  /// Returns the scope of the declaration extended by `d`, if any.
-  public func scopeExtended<T: TypeExtendingDecl>(by d: T.ID) -> AnyScopeID? {
-    var checker = TypeChecker(asContextFor: self)
-    return checker.scopeExtended(by: d)
   }
 
   /// Returns the modules visible to `s`:
