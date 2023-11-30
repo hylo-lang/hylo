@@ -2,7 +2,7 @@ import ArgumentParser
 import Core
 import Foundation
 
-extension SourceLine: @retroactive ExpressibleByArgument {
+extension SourceLine {
 
   public init?(argument: String) {
     let x = argument.split(atLastIndexOf: ":")
@@ -16,3 +16,9 @@ extension SourceLine: @retroactive ExpressibleByArgument {
   }
 
 }
+
+#if swift(>=5.10)
+extension SourceLine : @retroactive ExpressibleByArgument {}
+#else
+extension SourceLine : @retroactive ExpressibleByArgument {}
+#endif
