@@ -180,7 +180,7 @@ struct ConstraintSystem {
   private func formAmbiguousSolution<T>(
     _ results: Explorations<T>, diagnosedBy d: Diagnostic
   ) -> Solution {
-    var s = results.elements.reduce(into: Solution(), { (s, r) in s.merge(r.solution) })
+    var s = results.elements.reduce(into: Solution(), { (s, r) in s.formIntersection(r.solution) })
     s.incorporate(d)
     return s
   }
