@@ -155,11 +155,11 @@ jobs:
     runs-on: windows-latest
     steps:
     - name: Setup swift
-      uses: compnerd/gha-setup-swift@main
+      uses: compnerd/gha-setup-swift@v0.2.1
       with:
         github-repo: thebrowsercompany/swift-build
         release-asset-name: installer-amd64.exe
-        release-tag-name: 20231010.3
+        release-tag-name: 20231130.2
         github-token: ${{ secrets.GITHUB_TOKEN }}
 
     - uses: actions/checkout@v4
