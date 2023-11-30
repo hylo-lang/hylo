@@ -60,17 +60,28 @@ struct ConstraintSystem {
     _ = insert(fresh: obligations.constraints)
   }
 
+  /// Creates an instance copying the state of `other`.
+  private init(copying other: inout Self) {
+    let c = other.checker.release()
+    self = other
+    other.checker = c
+  }
+
   /// Solves this instance, using `checker` to query type relations and resolve names and returning
   /// the best solution found.
   mutating func solution(querying checker: inout TypeChecker) -> Solution {
-    self.checker = checker
-    defer { checker = self.checker.release() }
-    return solution(notWorseThan: .worst)!
+    solution(notWorseThan: .worst, querying: &checker)!
   }
 
   /// Solves this instance and returns the best solution with a score inferior or equal to
   /// `self.maxScore`, or `nil` if no such solution can be found.
-  private mutating func solution(notWorseThan maxScore: Solution.Score) -> Solution? {
+  private mutating func solution(
+    notWorseThan maxScore: Solution.Score,
+    querying checker: inout TypeChecker
+  ) -> Solution? {
+    self.checker = checker
+    defer { checker = self.checker.release() }
+
     logState()
     log("steps:")
 
@@ -782,10 +793,10 @@ struct ConstraintSystem {
       defer { indentation -= 1 }
 
       // Explore the result of this choice.
-      var exploration = self
+      var exploration = Self(copying: &self)
       let s = configureSubSystem(&exploration, choice)
       exploration.setOutcome(s.isEmpty ? .success : delegate(to: s), for: g)
-      guard let new = exploration.solution(notWorseThan: results.score) else {
+      guard let new = exploration.solution(notWorseThan: results.score, querying: &checker) else {
         continue
       }
 
