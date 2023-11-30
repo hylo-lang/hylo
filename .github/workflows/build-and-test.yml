@@ -99,7 +99,7 @@ jobs:
           }
         ]
         swift: [
-          { version: "5.8" }
+          { version: "5.9" }
         ]
         configuration: [ "debug", "release" ]
 
