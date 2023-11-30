@@ -1,5 +1,6 @@
 // swift-tools-version:5.7
 import PackageDescription
+import Foundation
 
 #if os(Windows)
   let osIsWindows = true
@@ -11,6 +12,11 @@ import PackageDescription
 let allTargetsSwiftSettings: [SwiftSetting] = [
   .unsafeFlags(["-warnings-as-errors"])
 ]
+
+/// Most people don't need this; set it in your environment if you do.
+let docGenerationDependency: [Package.Dependency] =
+  ProcessInfo.processInfo.environment["HYLO_ENABLE_DOC_GENERATION"] != nil
+  ? [ .package(url: "https://github.com/apple/swift-docc-plugin.git", from: "1.1.0") ] : []
 
 let package = Package(
   name: "Hylo",
@@ -43,11 +49,11 @@ let package = Package(
     .package(
       url: "https://github.com/apple/swift-format",
       from: "508.0.1"),
-    .package(url: "https://github.com/apple/swift-docc-plugin.git", from: "1.1.0"),
     .package(
       url: "https://github.com/SwiftPackageIndex/SPIManifest.git",
       from: "0.12.0"),
-  ],
+  ]
+    + docGenerationDependency,
 
   targets: [
     // The compiler's executable target.
