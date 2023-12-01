@@ -203,8 +203,8 @@ struct ConstraintSystem {
   }
 
   /// Knowing types can conform to `goal.concept` structurally, if `goal.model` is a structural
-  /// type, creates and returns sub-goals checking that its parts conform to `goal.concept`.
-  /// Otherwise, returns `.failure`.
+  /// type, creates and returns sub-goals checking that its parts conform to `goal.concept`; returns
+  /// `.failure` otherwise.
   ///
   /// - Requires: `goal.model` is not a type variable.
   private mutating func solve(structuralConformance goal: ConformanceConstraint) -> Outcome {
@@ -670,7 +670,7 @@ struct ConstraintSystem {
   }
 
   /// Returns a table from argument position to its corresponding parameter position iff `callee`
-  /// accepts an argument list with given `labels`. Otherwise, returns `nil`.
+  /// accepts an argument list with given `labels`; returns `nil` otherwise.
   ///
   /// For example, given a callee whose parameters are `(x: Int, y: Int = 0, z: Int)` and an
   /// argument list with labels `[x, z]`, this function returns `[0, 2]`.

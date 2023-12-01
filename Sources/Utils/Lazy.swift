@@ -43,7 +43,7 @@ public struct Lazy<T> {
 /// this value (or copy of it) throws the same error as the original access.
 public struct LazyThrowing<T> {
 
-  /// The hidden state of an instance
+  /// The hidden state of an instance.
   private enum State {
     /// The value has never been read; the payload is the value computation.
     case unevaluated(() throws -> T)
@@ -55,7 +55,7 @@ public struct LazyThrowing<T> {
     case failure(any Error)
   }
 
-  /// The hidden state of an instance
+  /// The hidden state of an instance.
   private let state: SharedMutable<State>
 
   /// Creates an instance whose value is `computeValue()`.

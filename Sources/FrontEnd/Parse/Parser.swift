@@ -1066,7 +1066,7 @@ public enum Parser {
         site: state.range(from: prologue.startIndex)))
   }
 
-  /// Returns the specified access modifier of the provided `prologue`, or synthesizes an implicit one
+  /// Returns the access modifier in `prologue` if in contains one, or synthesizes an implicit one.
   private static func declAccessModifier(
     ofDeclPrologue prologue: DeclPrologue,
     in state: inout ParserState
@@ -1354,7 +1354,7 @@ public enum Parser {
   }
 
   /// If the next token is a cast operator, parses an expression and returns a `CastExpr` appending
-  /// it to `lhs`. Otherwise, returns `nil`.
+  /// it to `lhs`; returns `nil` otherwise.
   private static func appendingCastTail(
     to lhs: AnyExprID,
     in state: inout ParserState
@@ -1388,7 +1388,7 @@ public enum Parser {
   }
 
   /// Parses pairs of infix operators and prefix expressions and, if one or more pairs were parsed,
-  /// returns a `SequenceExpr` appending them to `lhs`. Otherwise, returns `nil`.
+  /// returns a `SequenceExpr` appending them to `lhs`; returns `nil` otherwise.
   private static func appendingInfixTail(
     to lhs: AnyExprID,
     in state: inout ParserState
@@ -1583,7 +1583,7 @@ public enum Parser {
   }
 
   /// If the next token is a dot, parses a tuple or name components, and returns respectively a
-  /// `TupleMemberExpr` or `NameExpr` appending it to `head`. Otherwise, returns `nil`.
+  /// `TupleMemberExpr` or `NameExpr` appending it to `head`; returns `nil` otherwise.
   private static func appendingNameComponent(
     to head: AnyExprID,
     in state: inout ParserState

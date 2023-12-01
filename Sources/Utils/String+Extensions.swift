@@ -21,7 +21,7 @@ extension StringProtocol {
     }
   }
 
-  /// If `self` ends with `suffix`, `self` sans that `suffix`. Otherwise, returns `self`.
+  /// If `self` ends with `suffix`, `self` sans that `suffix`, or `self` otherwise.
   public func removingSuffix<S: Collection<Character>>(_ suffix: S) -> Self.SubSequence {
     if let i = index(endIndex, offsetBy: -suffix.count, limitedBy: startIndex),
       self[i...].elementsEqual(suffix)
