@@ -3098,97 +3098,125 @@ struct TypeChecker {
     return table
   }
 
-  /// Returns declarations extending `subject` exposed to `scopeOfUse`.
+  /// Returns the declarations extending `subject` exposed to `scopeOfUse`.
   ///
-  /// - Requires: The imports of the module containing `scopeOfUse` have been configured.
   /// - Returns: The declarations extending `subject`, which all conform to `TypeExtendingDecl`.
   private mutating func extensions(
     of subject: AnyType, exposedTo scopeOfUse: AnyScopeID
   ) -> [AnyDeclID] {
-    let key = Cache.TypeLookupKey(subject, in: scopeOfUse)
-    if let r = cache.typeToExtensions[key] {
-      return r
-    }
+    let t = canonical(subject, in: scopeOfUse)
 
-    let subject = canonical(subject, in: scopeOfUse)
-    let matches: [AnyDeclID]
-
-    switch subject.base {
-    case let t as BoundGenericType:
+    switch t.base {
+    case let u as BoundGenericType:
       // Extensions of bound generic types are looked up without the generic arguments.
-      matches = extensions(of: t.base, exposedTo: scopeOfUse)
+      return extensions(of: u.base, exposedTo: scopeOfUse)
 
-    case let t as TraitType:
+    case let u as TraitType:
       // Extensions of traits are looked up by their receiver parameters.
-      let u = ^GenericTypeParameterType(selfParameterOf: t.decl, in: program.ast)
-      matches = extensions(of: u, exposedTo: scopeOfUse)
+      let p = ^GenericTypeParameterType(selfParameterOf: u.decl, in: program.ast)
+      return extensions(of: p, exposedTo: scopeOfUse)
 
     default:
-      matches = _extensions(of: subject, exposedTo: scopeOfUse)
+      return _extensions(of: t, exposedTo: scopeOfUse)
     }
-
-    cache.typeToExtensions[key] = matches
-    return matches
   }
 
-  /// Returns declarations extending `subject` exposed to `scopeOfUse`.
+  /// Returns the declarations extending `subject` exposed to `scopeOfUse`.
   ///
   /// - Requires: `subject` is canonical.
   private mutating func _extensions(
     of subject: AnyType, exposedTo scopeOfUse: AnyScopeID
   ) -> [AnyDeclID] {
-    var matches: [AnyDeclID] = []
-    var root: ModuleDecl.ID? = nil
+    let key = Cache.TypeLookupKey(subject, in: scopeOfUse)
+    if let result = cache.typeToExtensions[key] { return result }
 
-    for s in program.scopes(from: scopeOfUse) {
-      switch s.kind {
-      case ModuleDecl.self:
-        let m = ModuleDecl.ID(s)!
-        let d = program[m].decls.extensions
-        reduce(decls: d, extending: subject, in: scopeOfUse, into: &matches)
-        root = m
+    var partialResult: [AnyDeclID] = []
+    defer { cache.typeToExtensions[key] = partialResult }
 
-      case TranslationUnit.self:
-        continue
+    var s = scopeOfUse
+    while true {
+      if let u = TranslationUnit.ID(s) {
+        for m in imports(exposedTo: u) {
+          appendExtensions(declaredIn: AnyScopeID(m), extending: subject, to: &partialResult)
+        }
+        return partialResult
+      } else {
+        appendExtensions(declaredIn: s, extending: subject, to: &partialResult)
+      }
 
-      default:
-        let d = program[s].decls.extensions
-        reduce(decls: d, extending: subject, in: scopeOfUse, into: &matches)
+      if let p = program.nodeToScope[s] {
+        s = p
+      } else {
+        return partialResult
       }
     }
-
-    // Nowhere else to look if `scopeOfUse` is a module.
-    if scopeOfUse.kind == ModuleDecl.self { return matches }
-
-    // Look for extension declarations in imported modules.
-    let fileImports = imports(exposedTo: scopeOfUse)
-    for m in fileImports where m != root {
-      let symbols = program[m].decls.extensions
-      reduce(decls: symbols, extending: subject, in: scopeOfUse, into: &matches)
-    }
-
-    return matches
   }
 
-  /// Insert in `matches` the declarations in `ds` that extend `subject` in `scopeOfUse`.
+  /// Adds the declarations in `s` that extends `t` to `partialResult`.
   ///
-  /// - Requires: `subject` must be canonical.
-  private mutating func reduce<S: Sequence>(
-    decls: S, extending subject: AnyType, in scopeOfUse: AnyScopeID,
-    into matches: inout [AnyDeclID]
-  ) where S.Element == AnyDeclID {
-    precondition(subject[.isCanonical])
+  /// - Requires: `t` is canonical.
+  private mutating func appendExtensions(
+    declaredIn s: AnyScopeID, extending t: AnyType, to partialResult: inout [AnyDeclID]
+  ) {
+    // This method implements extension binding, which consists of associating an extension with
+    // the type that it extends. Ideally, we would like to complete extension binding before
+    // answering qualified name lookup requests, because determining whether `Bar` is member of
+    // `Foo` requires looking in all extensions of `Foo`. Unfortunately, evaluating the expression
+    // type expressions may require qualified name lookup so we have to bind extensions lazily.
+    //
+    // To find the extensions of a type T, we have to resolve the type of each unbound extension
+    // and then check if that type is T. We avoid recursion during name lookup by ignoring the
+    // extensions that occurred on the stack. That's fine because extensions can't extend a type
+    // they declare.
+    //
+    // We minimize the number of linear passes we make by eagerly binding the extensions that we
+    // visit, regardless of the type that they extend. That way, the result of future calls to this
+    // method for a different type have a chance to be cached already.
 
-    for d in decls where d.isTypeExtendingDecl {
-      // Skip declarations that are already on the checker's stack.
-      if cache.uncheckedType[d] == .inProgress { continue }
+    // Nothing to do if the scope doesn't contain any extension.
+    let n = program[s].decls.extensions.count
+    if n == 0 { return }
 
-      // Skip declarations that aren't extending `subject`.
-      guard let extended = uncheckedType(of: d).errorFree else { continue }
-      if !areEquivalent(extended, subject, in: scopeOfUse) { continue }
+    // We swap the contents of the cache with `c` to avoid unnecessary copies.
+    var c: Cache.ScopeExtensionCache? = nil
+    swap(&c, &cache.scopeToTypeToExtensions[s])
+    if c == nil { c = .init(count: n) }
 
-      matches.append(d)
+    // Faster path: we've bound all extensions in `s`; we know which ones extend `t`.
+    if c!.unbound.allFalse {
+      if let e = c!.typeToExtension[t] {
+        partialResult.append(contentsOf: e)
+      }
+      swap(&c, &cache.scopeToTypeToExtensions[s])
+      return
     }
+
+    // Slower path: we must complete extension binding.
+    for (i, d) in program[s].decls.extensions.enumerated() where c!.unbound[i] {
+      switch cache.uncheckedType[d] {
+      case .some(.inProgress):
+        // Skip declarations that are already on the checker's stack.
+        continue
+
+      case .some(.computed(let extended)):
+        // Extended type was already computed; no need to deal with re-entrency.
+        c!.typeToExtension[extended, default: []].append(d)
+
+      case .none:
+        // The type of the extension is not known yet; we have to compute it. That may cause a
+        // re-entrant call into the current method, so we have to commit the state of our cache.
+        swap(&c, &cache.scopeToTypeToExtensions[s])
+        let extended = canonical(uncheckedType(of: d), in: s)
+        swap(&c, &cache.scopeToTypeToExtensions[s])
+        c!.typeToExtension[extended, default: []].append(d)
+      }
+
+      assert(c!.unbound[i])
+      c!.unbound[i] = false
+    }
+
+    partialResult.append(contentsOf: c!.typeToExtension[t, default: []])
+    swap(&c, &cache.scopeToTypeToExtensions[s])
   }
 
   /// Returns `d` if it has name `n`, otherwise the implementation of `d` with name `n` or `nil`
@@ -5337,6 +5365,23 @@ struct TypeChecker {
     /// A key in a type lookup table.
     typealias TypeLookupKey = ScopedValue<AnyType>
 
+    /// Cached information about the extensions of a scope.
+    struct ScopeExtensionCache {
+
+      /// A table mapping an extension in a given scope to `true` iff that extension is bound.
+      var unbound: BitArray
+
+      /// A table mapping a type to its extensions in a given scope.
+      var typeToExtension: [AnyType: [AnyDeclID]]
+
+      /// Creates an instance representing cached information for `count` extensions.
+      init(count: Int) {
+        unbound = .init(repeating: true, count: count)
+        typeToExtension = [:]
+      }
+
+    }
+
     /// The local instance being type checked.
     private(set) var local: TypedProgram
 
@@ -5368,6 +5413,11 @@ struct TypeChecker {
     ///
     /// This map serves as cache for `names(introducedIn:)`.
     var scopeToNames: [AnyScopeID: LookupTable] = [:]
+
+    /// A map from lexical scope to information about its extensions.
+    ///
+    /// This map serves as cache for `appendExtensions(declaredIn:extending:to:)`.
+    var scopeToTypeToExtensions: [AnyScopeID: ScopeExtensionCache] = [:]
 
     /// A map from type to the traits to which in conforms in a given scope.
     ///
