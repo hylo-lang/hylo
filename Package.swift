@@ -1,6 +1,6 @@
+import Foundation
 // swift-tools-version:5.7
 import PackageDescription
-import Foundation
 
 #if os(Windows)
   let osIsWindows = true
@@ -16,7 +16,7 @@ let allTargetsSwiftSettings: [SwiftSetting] = [
 /// Most people don't need this; set it in your environment if you do.
 let docGenerationDependency: [Package.Dependency] =
   ProcessInfo.processInfo.environment["HYLO_ENABLE_DOC_GENERATION"] != nil
-  ? [ .package(url: "https://github.com/apple/swift-docc-plugin.git", from: "1.1.0") ] : []
+  ? [.package(url: "https://github.com/apple/swift-docc-plugin.git", from: "1.1.0")] : []
 
 let package = Package(
   name: "Hylo",
@@ -186,14 +186,13 @@ let package = Package(
       swiftSettings: allTargetsSwiftSettings,
       plugins: ["TestGeneratorPlugin"]),
   ]
-  // On Windows we have a dummy library target that can be used to build all the build tool
-  // dependencies for non-reentrant builds.  See SPMBuildToolSupport/README.md for more info.
-    + (
-      osIsWindows ? [
+    // On Windows we have a dummy library target that can be used to build all the build tool
+    // dependencies for non-reentrant builds.  See SPMBuildToolSupport/README.md for more info.
+    + (osIsWindows
+      ? [
         .target(
           name: "BuildToolDependencies",
           dependencies: ["GenerateHyloFileTests"],
           swiftSettings: allTargetsSwiftSettings)
-      ] : []
-    ) as [PackageDescription.Target]
+      ] : []) as [PackageDescription.Target]
 )

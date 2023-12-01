@@ -18,7 +18,7 @@ extension SourceLine {
 }
 
 #if swift(>=5.11)
-extension SourceLine : @retroactive ExpressibleByArgument {}
+  extension SourceLine: @retroactive ExpressibleByArgument {}
 #else
-extension SourceLine : ExpressibleByArgument {}
+  extension SourceLine: ExpressibleByArgument {}
 #endif
