@@ -1066,8 +1066,7 @@ public enum Parser {
         site: state.range(from: prologue.startIndex)))
   }
 
-  /// Returns the specified access modifier of the provided `prologue`, or synthesizes an implicit
-  /// one.
+  /// Returns the access modifier in `prologue` if in contains one, or synthesizes an implicit one.
   private static func declAccessModifier(
     ofDeclPrologue prologue: DeclPrologue,
     in state: inout ParserState
