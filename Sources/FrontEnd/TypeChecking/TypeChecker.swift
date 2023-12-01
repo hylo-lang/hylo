@@ -2958,8 +2958,7 @@ struct TypeChecker {
   /// Returns the declarations that introduce a name with given `stem` as member of `nominalScope`
   /// and are exposed to `scopeOfUse`.
   private mutating func lookup(
-    _ stem: String, memberOf nominalScope: TypeAliasType,
-    exposedTo scopeOfUse: AnyScopeID
+    _ stem: String, memberOf nominalScope: TypeAliasType, exposedTo scopeOfUse: AnyScopeID
   ) -> Set<AnyDeclID> {
     if let d = names(introducedIn: nominalScope.decl)[stem] {
       return d
