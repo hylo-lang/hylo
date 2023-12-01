@@ -33,11 +33,12 @@ public struct SourceFile {
     try self.init(contentsOf: URL(fileURLWithPath: filePath))
   }
 
-  /// Creates an instance representing the in-memory edited file at `filePath`.
-  /// `withContent` is the content of the in-memory representation of the file,
-  /// which may be different from what is actually stored on disk.
-  public init(at filePath: URL, withContent content: String) {
-    let storage = Storage(filePath, replaceExisting: true) { content[...] }
+  /// Creates an instance representing the in-memory `contents` of the file at `filePath`.
+  ///
+  /// `contents` is the text of the file currently in memory, which may be different from what
+  /// is actually stored on disk when the file is being edited.
+  public init(at filePath: URL, withInMemoryContents contents: String) {
+    let storage = Storage(filePath, replaceExisting: true) { contents[...] }
     self.storage = storage
   }
 
@@ -356,6 +357,7 @@ extension SourceFile {
 
     /// Creates an alias to the instance with the given `url` if it exists, or creates a new
     /// instance having the given `url` and the text resulting from `makeText()`.
+    ///
     /// Storage instances are cached based on url, where `replaceExisting` defines if an
     /// existing entry should be replaced with new content, otherwise the storage get the
     /// content from the previously cached entry.
@@ -368,8 +370,7 @@ extension SourceFile {
             let r: Storage
             if !replaceExisting && v != nil {
               r = v!
-            }
-            else {
+            } else {
               r = try Storage(url: url, lineStarts: lineStarts, text: makeText())
             }
             v = r
