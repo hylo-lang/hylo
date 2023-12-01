@@ -120,7 +120,7 @@ public struct Token {
     (kind == .name) || isKeyword
   }
 
-  /// Indicates whether `self` may be in an operator
+  /// Indicates whether `self` may be in an operator.
   ///
   /// Operators may be represented by one or more tokens. For example, `<<` is
   /// represented by two consecutive `.lAngle` tokens. Use this property to determine whether

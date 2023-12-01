@@ -244,7 +244,7 @@ extension SourceFile: Codable {
     /// decoding of an `AST`.
     public init() { allInstances = [] }
 
-    /// Creates an instance containing `allInstances`
+    /// Creates an instance containing `allInstances`.
     fileprivate init(allInstances: [Storage]) { self.allInstances = allInstances }
 
     /// The values that will be used to reconstitute `SourceFile`s.
