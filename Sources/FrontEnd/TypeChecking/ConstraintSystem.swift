@@ -25,6 +25,9 @@ struct ConstraintSystem {
   /// The goals that are currently stale.
   private var stale: [GoalIdentity] = []
 
+  /// The root goals that could not be solved.
+  private var failureRoots: [GoalIdentity] = []
+
   /// A map from open type variable to its assignment.
   ///
   /// This map is monotonically extended during constraint solving to assign a type to each open
@@ -139,9 +142,7 @@ struct ConstraintSystem {
   ///
   /// The cost of a solution increases monotonically when a constraint is eliminated.
   private func score() -> Solution.Score {
-    .init(
-      errorCount: goals.indices.elementCount(where: isFailureRoot),
-      penalties: penalties)
+    .init(errorCount: failureRoots.count, penalties: penalties)
   }
 
   /// Returns `true` iff the solving `g` failed and `g` isn't subordinate.
@@ -154,6 +155,10 @@ struct ConstraintSystem {
     log(outcome: o)
     assert(outcomes[key] == nil)
     outcomes[key] = o
+
+    if isFailureRoot(key) {
+      failureRoots.append(key)
+    }
   }
 
   /// Creates a solution from the current state.
