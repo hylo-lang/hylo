@@ -1,5 +1,5 @@
-import Foundation
 // swift-tools-version:5.7
+import Foundation
 import PackageDescription
 
 #if os(Windows)
