@@ -594,16 +594,7 @@ struct TypeChecker {
 
   /// Type checks `u` and all declarations nested in `d`.
   mutating func check(_ u: TranslationUnit.ID) {
-    // The core library is always implicitly imported.
-    var imports = Set<ModuleDecl.ID>()
-    if let m = program.ast.coreLibrary {
-      imports.insert(m)
-    }
-    for d in program[u].decls.lazy.compactMap(ImportDecl.ID.init(_:)) {
-      insertImport(d, from: u, in: &imports)
-    }
-
-    cache.write(imports, at: \.imports[u])
+    _ = imports(exposedTo: u)
     check(program[u].decls)
   }
 
@@ -1135,6 +1126,27 @@ struct TypeChecker {
         checkedType(of: d, usedAs: .condition, ignoringSharedCache: true)
       }
     }
+  }
+
+  /// Returns the modules visible as imports in `u`.
+  private mutating func imports(exposedTo u: TranslationUnit.ID) -> Set<ModuleDecl.ID> {
+    if let result = cache.read(\.imports[u]) {
+      return result
+    }
+
+    // The core library and the containing module are always implicitly imported.
+    var result = Set<ModuleDecl.ID>()
+    result.insert(ModuleDecl.ID(program[u].scope)!)
+    if let m = program.ast.coreLibrary {
+      result.insert(m)
+    }
+
+    for d in program[u].decls {
+      if let i = ImportDecl.ID(d) { insertImport(i, from: u, in: &result) }
+    }
+
+    cache.write(result, at: \.imports[u])
+    return result
   }
 
   /// If `d` is a valid import in `u`, inserts the module referred by `d` in `imports`. Otherwise,
@@ -5247,11 +5259,6 @@ struct TypeChecker {
   mutating func freshVariable() -> TypeVariable {
     defer { nextFreshVariableIdentifier += 1 }
     return .init(nextFreshVariableIdentifier)
-  }
-
-  /// Returns the module imports exposed to `s`.
-  private func imports(exposedTo s: AnyScopeID) -> Set<ModuleDecl.ID> {
-    cache.local.imports[program.source(containing: s), default: []]
   }
 
   /// Returns `true` iff `t` is known as an arrow type.
