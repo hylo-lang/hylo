@@ -619,7 +619,7 @@ struct Mangler {
   }
 
   /// If `symbol` is reserved or has already been inserted in the symbol lookup table, writes a
-  /// lookup reference to it and returns `true`. Otherwise, returns `false`.
+  /// lookup reference to it and returns `true`; returns `false` otherwise.
   private func writeLookup(_ symbol: Symbol, to output: inout Output) -> Bool {
     if let r = reserved[symbol] {
       write(operator: .reserved, to: &output)

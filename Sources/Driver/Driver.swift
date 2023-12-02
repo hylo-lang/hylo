@@ -374,7 +374,7 @@ public struct Driver: ParsableCommand {
   }
 
   /// If `inputs` contains a single URL `u` whose path is non-empty, returns the last component of
-  /// `u` without any path extension and stripping all leading dots. Otherwise, returns "Main".
+  /// `u` without any path extension and stripping all leading dots; returns "Main" otherwise.
   private func makeProductName(_ inputs: [URL]) -> String {
     if let u = inputs.uniqueElement {
       let n = u.deletingPathExtension().lastPathComponent.drop(while: { $0 == "." })

@@ -512,9 +512,9 @@ struct TypeChecker {
       }
     }
 
-    /// If `t` is an unspecialized generic type, returns its specialization taking the arguments
-    /// in `substitutions` corresponding to the parameters introduced by `d`. Otherwise, returns
-    /// `t` unchanged.
+    /// If `t` is an unspecialized generic type, returns its specialization taking the arguments in
+    /// `substitutions` corresponding to the parameters introduced by `d`; returns `t` unchanged
+    /// otherwise.
     ///
     /// - Requires: `t` is not a trait.
     func transform<T: TypeProtocol, D: GenericScope>(
@@ -1149,8 +1149,8 @@ struct TypeChecker {
     return result
   }
 
-  /// If `d` is a valid import in `u`, inserts the module referred by `d` in `imports`. Otherwise,
-  /// a diagnostic is reported.
+  /// If `d` is a valid import in `u`, inserts the module referred by `d` in `imports`; reports a
+  /// diagnostic otherwise.
   private mutating func insertImport(
     _ d: ImportDecl.ID, from u: TranslationUnit.ID, in imports: inout Set<ModuleDecl.ID>
   ) {
@@ -1288,7 +1288,7 @@ struct TypeChecker {
     var conformanceDiagnostics = DiagnosticSet()
 
     /// A map associating the "Self" parameter of each trait in the refinement cluster of `trait`
-    /// to the type `
+    /// to the type.
     var traitReceiverToModel = GenericArguments()
     for t in refinements(of: trait).unordered {
       traitReceiverToModel[program[t.decl].receiver] = model
@@ -2407,7 +2407,7 @@ struct TypeChecker {
     }
   }
 
-  /// If `d` is a trait extension, returns the trait that it extends. Otherwise, returns `nil`.
+  /// If `d` is a trait extension, returns the trait that it extends; returns `nil` otherwise.
   private mutating func extendedTrait(_ d: ExtensionDecl.ID) -> TraitType? {
     guard
       let t = GenericTypeParameterType(uncheckedType(of: d)),
@@ -3293,7 +3293,7 @@ struct TypeChecker {
   }
 
   /// If `s` is contained in a type extending declaration, returns the scope extended by that
-  /// declaration. Otherwise, returns `nil`.
+  /// declaration; returns `nil` otherwise.
   private mutating func bridgedScope<S: ScopeID>(of s: S) -> AnyScopeID? {
     switch s.kind {
     case ConformanceDecl.self:
@@ -3754,7 +3754,7 @@ struct TypeChecker {
   }
 
   /// Returns the list of generic arguments passed to `d`, which has type `t` and is being referred
-  /// to by `name`, reporting diagnostics to `log.`
+  /// to by `name`, reporting diagnostics to `log`.
   private mutating func genericArguments(
     passedTo d: AnyDeclID, typed t: AnyType,
     referredToBy name: SourceRepresentable<Name>, specializedBy arguments: [any CompileTimeValue],
@@ -3792,7 +3792,7 @@ struct TypeChecker {
   }
 
   /// Associates `parameters`, which are introduced by `name`'s declaration, to corresponding
-  /// values in `arguments` if the two arrays have the same length. Otherwise, returns `nil`,
+  /// values in `arguments` if the two arrays have the same length; returns `nil` otherwise,
   /// reporting diagnostics to `log`.
   private mutating func associateGenericParameters(
     _ parameters: [GenericParameterDecl.ID], of name: SourceRepresentable<Name>,
@@ -5343,7 +5343,7 @@ struct TypeChecker {
   }
 
   /// If `t` is the type of a mutating bundle in `scopeOfUse`, returns the output of a mutating
-  /// variant in that bundle. Otherwise, returns `nil`.
+  /// variant in that bundle; returns `nil` otherwise.
   private mutating func mutatingVariantOutput(
     of t: MethodType, in scopeOfUse: AnyScopeID
   ) -> AnyType? {

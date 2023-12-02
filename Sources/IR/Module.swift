@@ -82,7 +82,7 @@ public struct Module {
     _modify { yield &functions[i.function]![i.block].instructions[i.address] }
   }
 
-  /// Accesses the instruction denoted by `o` if it is `.register`. Otherwise, returns `nil`.
+  /// Accesses the instruction denoted by `o` if it is `.register`; returns `nil` otherwise.
   public subscript(o: Operand) -> Instruction? {
     if case .register(let i) = o {
       return self[i]

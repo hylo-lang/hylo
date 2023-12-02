@@ -134,7 +134,7 @@ private enum ANSISGR: Int {
   case white = 37
   case defaultColor = 39
 
-  /// The textual representation of this code that has an effect on an ANSI terminal
+  /// The textual representation of this code that has an effect on an ANSI terminal.
   var controlString: String {
     "\u{001B}[\(rawValue)m"
   }
@@ -145,7 +145,7 @@ extension String {
   /// A string transformation for applying (or not) ANSI terminal styling.
   fileprivate typealias ANSIStyle = (String) -> String
 
-  /// Returns `self` with the given set of styles applied
+  /// Returns `self` with the given set of styles applied.
   fileprivate func styled(_ rendition: ANSISGR...) -> String {
     "\(list: rendition.map(\.controlString), joinedBy: "")"
       + "\(self)\(ANSISGR.reset.controlString)"

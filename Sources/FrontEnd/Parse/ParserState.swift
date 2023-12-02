@@ -304,7 +304,7 @@ struct ParserState {
     ast.insert(n, diagnostics: &diagnostics)
   }
 
-  /// Inserts `n` into `self.ast`
+  /// Inserts `n` into `self.ast`.
   ///
   /// - Precondition: `n` is well-formed.
   mutating func insert<T: Node>(synthesized n: T) -> T.ID {

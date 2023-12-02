@@ -559,7 +559,7 @@ extension LLVM.Module {
     /// one-to-one mapping from Hylo registers to LLVM registers.
     var byproduct: [IR.InstructionID: (slide: LLVM.IRValue, frame: LLVM.IRValue)] = [:]
 
-    /// The address of the function's frame if `f` is a subscript. Otherwise, `nil`.
+    /// The address of the function's frame if `f` is a subscript, or `nil` otherwise.
     let frame: LLVM.IRValue?
 
     /// The prologue of the transpiled function, which contains its stack allocations.

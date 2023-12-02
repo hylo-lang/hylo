@@ -20,7 +20,7 @@ extension BundledNode where T: ConcreteNodeID, T.Subject: CapturingDecl, P == Ty
 
 extension BundledNode where T: ExprID, P == TypedProgram {
 
-  /// The type of this expression
+  /// The type of this expression.
   public var type: AnyType {
     container.exprType[id]!
   }

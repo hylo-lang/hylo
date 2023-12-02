@@ -78,32 +78,32 @@ public type Float64 {
     self.copy()
   }
 
-  /// Returns `true` if `self` is smaller than `other`. Otherwise, returns `false`.
+  /// Returns `true` if `self` is smaller than `other`; returns `false` otherwise.
   public fun infix< (_ other: Self) -> Bool {
     Bool(value: Builtin.fcmp_ult_float64(value, other.value))
   }
 
-  /// Returns `true` if `self` is smaller than or equal to `other`. Otherwise, returns `false`.
+  /// Returns `true` if `self` is smaller than or equal to `other`; returns `false` otherwise.
   public fun infix<= (_ other: Self) -> Bool {
     Bool(value: Builtin.fcmp_ule_float64(value, other.value))
   }
 
-  /// Returns `true` if `self` is greater than `other`. Otherwise, returns `false`.
+  /// Returns `true` if `self` is greater than `other`; returns `false` otherwise.
   public fun infix> (_ other: Self) -> Bool {
     Bool(value: Builtin.fcmp_ugt_float64(value, other.value))
   }
 
-  /// Returns `true` if `self` is greater than or equal to `other`. Otherwise, returns `false`.
+  /// Returns `true` if `self` is greater than or equal to `other`; returns `false` otherwise.
   public fun infix>= (_ other: Self) -> Bool {
     Bool(value: Builtin.fcmp_uge_float64(value, other.value))
   }
 
-  /// Returns `true` if `self` is equal to `other`. Otherwise, returns `false`.
+  /// Returns `true` if `self` is equal to `other`; returns `false` otherwise.
   public fun infix== (_ other: Self) -> Bool {
     Bool(value: Builtin.fcmp_ueq_float64(value, other.value))
   }
 
-  /// Returns `true` if `self` is not equal to `other`. Otherwise, returns `false`.
+  /// Returns `true` if `self` is not equal to `other`; returns `false` otherwise.
   public fun infix!= (_ other: Self) -> Bool {
     Bool(value: Builtin.fcmp_une_float64(value, other.value))
   }

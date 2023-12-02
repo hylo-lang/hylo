@@ -45,15 +45,14 @@ public struct DoublyLinkedList<Element> {
   fileprivate struct Bucket {
 
     /// If the bucket is used, represents the offset of the preceding bucket in the list, or `-1`
-    /// if such a bucket is not defined. Unspecified otherwise.
+    /// if such a bucket is not defined; unspecified otherwise.
     var previousOffset: Int
 
-    /// If the bucket is used, represents the offset of the succeeding bucket in the list, or `-1`
-    /// if such a bucket is not defined. If the bucket is not used, represents the offset of the
-    /// next free bucket.
+    /// If the bucket is used, the offset of the succeeding bucket in the list, or `-1` if such a
+    /// bucket is not defined; If the bucket is not used, the offset of the next free bucket.
     var nextOffset: Int
 
-    /// If the bucket is used, the stored element. Otherwise `nil`.
+    /// If the bucket is used, the stored element, or `nil` otherwise.
     var element: Element?
 
   }
