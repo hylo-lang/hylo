@@ -840,7 +840,7 @@ struct ConstraintSystem {
 
     let i = fresh.partitioningIndex(
       at: newIdentity,
-      orderedBy: { (a, b) in !isSimpler(goals[a], goals[b]) })
+      orderedBy: { (a, b) in !goals[a].isSimpler(than: goals[b]) })
     fresh.insert(newIdentity, at: i)
     return newIdentity
   }
@@ -1077,43 +1077,31 @@ private struct Explorations<T: DisjunctiveConstraintProtocol> {
 
 }
 
-/// Returns whether `lhs` is heuristically simpler to solve than `rhs`.
-private func isSimpler(_ lhs: any Constraint, _ rhs: any Constraint) -> Bool {
-  if lhs is EqualityConstraint {
-    return !(rhs is EqualityConstraint)
-  } else if lhs.openVariables.isEmpty {
-    return !rhs.openVariables.isEmpty
-  } else if let d = lhs as? any DisjunctiveConstraintProtocol {
-    return isSimpler(d, rhs)
-  } else {
-    return rhs is (any DisjunctiveConstraintProtocol)
-  }
-}
+extension Constraint {
 
-/// Returns whether `lhs` is heuristically simpler to solve than `rhs`.
-private func isSimpler(
-  _ lhs: any DisjunctiveConstraintProtocol,
-  _ rhs: any Constraint
-) -> Bool {
-  if let r = rhs as? any DisjunctiveConstraintProtocol {
-    return isSimpler(lhs, r)
-  } else {
-    return false
+  /// Returns whether `self` is heuristically simpler to solve than `rhs`.
+  fileprivate func isSimpler(than rhs: any Constraint) -> Bool {
+    if self is EqualityConstraint {
+      return !(rhs is EqualityConstraint)
+    } else if self.openVariables.isEmpty {
+      return !rhs.openVariables.isEmpty
+    } else if let l = self as? any DisjunctiveConstraintProtocol {
+      if let r = rhs as? any DisjunctiveConstraintProtocol {
+        if l.choices.count == r.choices.count {
+          let x = l.choices.reduce(0, { $0 + $1.constraints.count })
+          let y = r.choices.reduce(0, { $0 + $1.constraints.count })
+          return x < y
+        } else {
+          return (l.choices.count < r.choices.count)
+        }
+      } else {
+        return false
+      }
+    } else {
+      return rhs is (any DisjunctiveConstraintProtocol)
+    }
   }
-}
 
-/// Returns whether `lhs` is heuristically simpler to solve than `rhs`.
-private func isSimpler(
-  _ lhs: any DisjunctiveConstraintProtocol,
-  _ rhs: any DisjunctiveConstraintProtocol
-) -> Bool {
-  if lhs.choices.count == rhs.choices.count {
-    let x = lhs.choices.reduce(0, { $0 + $1.constraints.count })
-    let y = rhs.choices.reduce(0, { $0 + $1.constraints.count })
-    return x < y
-  } else {
-    return (lhs.choices.count < rhs.choices.count)
-  }
 }
 
 /// Creates a constraint, suitable for type inference, requiring `subtype` to be a subtype of
