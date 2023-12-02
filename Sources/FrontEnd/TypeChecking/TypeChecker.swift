@@ -3199,7 +3199,8 @@ struct TypeChecker {
 
       case .some(.computed(let extended)):
         // Extended type was already computed; no need to deal with re-entrency.
-        c!.typeToExtension[extended, default: []].append(d)
+        let x = canonical(extended, in: s)
+        c!.typeToExtension[x, default: []].append(d)
 
       case .none:
         // The type of the extension is not known yet; we have to compute it. That may cause a
