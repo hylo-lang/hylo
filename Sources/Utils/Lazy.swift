@@ -17,6 +17,10 @@ public struct Lazy<T> {
   private let state: SharedMutable<State>
 
   /// Creates an instance whose value is `computeValue()`.
+  ///
+  /// - Requires: `computeValue` does not mutate any existing state.
+  /// - Warning: Swift silently creates mutable captures in closures! If `computeValue` mutates
+  ///   anything other than its local variables, you can create data races and undefined behavior.
   public init(_ computeValue: @escaping () -> T) {
     state = .init(.unevaluated(computeValue))
   }
@@ -59,6 +63,10 @@ public struct LazyThrowing<T> {
   private let state: SharedMutable<State>
 
   /// Creates an instance whose value is `computeValue()`.
+  ///
+  /// - Requires: `computeValue` does not mutate any existing state.
+  /// - Warning: Swift silently creates mutable captures in closures! If `computeValue` mutates
+  ///   anything other than its local variables, you can create data races and undefined behavior.
   public init(_ computeValue: @escaping () throws -> T) {
     state = .init(.unevaluated(computeValue))
   }
