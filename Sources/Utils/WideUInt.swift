@@ -25,7 +25,17 @@ public struct WideUInt {
 
 }
 
-extension WideUInt: Hashable {}
+extension WideUInt: Hashable {
+
+  public func hash(into hasher: inout Hasher) {
+    value.hash(into: &hasher)
+  }
+
+  public static func == (lhs: Self, rhs: Self) -> Bool {
+    lhs.value == rhs.value
+  }
+
+}
 
 extension WideUInt: Comparable {
 
