@@ -29,6 +29,12 @@ struct TupleMemberConstraint: Constraint, Hashable {
     self.origin = origin
   }
 
+  /// Inserts the type variables that occur free in `self` into `s`.
+  func collectOpenVariables(in s: inout Set<TypeVariable>) {
+    subject.collectOpenVariables(in: &s)
+    elementType.collectOpenVariables(in: &s)
+  }
+
   mutating func modifyTypes(_ transform: (AnyType) -> AnyType) {
     update(&subject, with: transform)
     update(&elementType, with: transform)

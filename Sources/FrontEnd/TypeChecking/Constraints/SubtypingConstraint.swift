@@ -31,6 +31,12 @@ struct SubtypingConstraint: Constraint, Hashable {
     self.origin = origin
   }
 
+  /// Inserts the type variables that occur free in `self` into `s`.
+  func collectOpenVariables(in s: inout Set<TypeVariable>) {
+    left.collectOpenVariables(in: &s)
+    right.collectOpenVariables(in: &s)
+  }
+
   mutating func modifyTypes(_ transform: (AnyType) -> AnyType) {
     update(&left, with: transform)
     update(&right, with: transform)
