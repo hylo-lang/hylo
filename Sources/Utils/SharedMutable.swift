@@ -17,17 +17,17 @@ public final class SharedMutable<SharedValue> {
     self.storage = toBeShared
   }
 
-  /// Thread-safely accesses the wrapped instance.
-  public subscript() -> SharedValue {
-    get { mutex.sync { storage } }
-    set { mutex.sync { storage = newValue } }
+  /// Returns the result of thread-safely applying `f` to the wrapped instance.
+  public func apply<R>(_ f: (SharedValue) throws -> R) rethrows -> R {
+    try mutex.sync {
+      try f(storage)
+    }
   }
 
   /// Returns the result of thread-safely applying `modification` to the wrapped instance.
   public func modify<R>(applying modification: (inout SharedValue) throws -> R) rethrows -> R {
     try mutex.sync {
-      let r = try modification(&storage)
-      return r
+      try modification(&storage)
     }
   }
 

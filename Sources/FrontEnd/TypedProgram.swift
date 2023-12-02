@@ -84,14 +84,18 @@ public struct TypedProgram {
       }
     }
 
-    var checker = TypeChecker(
-      constructing: instanceUnderConstruction[],
-      tracingInferenceIf: isTypeCheckingParallel ? nil : shouldTraceInference)
-    checker.checkAllDeclarations()
+    self = try instanceUnderConstruction.apply {
 
-    log.formUnion(checker.diagnostics)
-    try log.throwOnError()
-    self = checker.program
+      var checker = TypeChecker(
+        constructing: $0,
+        tracingInferenceIf: isTypeCheckingParallel ? nil : shouldTraceInference)
+      checker.checkAllDeclarations()
+
+      log.formUnion(checker.diagnostics)
+      try log.throwOnError()
+      return checker.program
+
+    }
   }
 
   /// The type checking of a collection of source files.
