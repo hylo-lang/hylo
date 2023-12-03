@@ -2531,7 +2531,7 @@ struct TypeChecker {
       if let u = LambdaType(t) {
         if !u.inputs.isEmpty {
           report(.error(autoclosureExpectsEmptyLambdaAt: s, given: t))
-        } 
+        }
       } else {
         report(.error(autoclosureExpectsEmptyLambdaAt: s, given: t))
       }

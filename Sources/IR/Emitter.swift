@@ -672,7 +672,7 @@ struct Emitter {
     case .copy:
       UNIMPLEMENTED()
     case .autoclosure:
-      // nothing do to here; expansion is done at the caller side
+      // nothing do to here; expansion is done at the caller side.
       break
     }
   }
