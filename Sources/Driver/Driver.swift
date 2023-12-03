@@ -199,6 +199,10 @@ public struct Driver: ParsableCommand {
       standardError.write("begin depolymorphization pass.\n")
     }
     ir.applyPass(.depolymorphize)
+    if verbose {
+      standardError.write("begin addressor simplification pass.\n")
+    }
+    ir.applyPass(.simplifyAddressors)
 
     if verbose {
       standardError.write("create LLVM target machine.\n")

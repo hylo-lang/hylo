@@ -1,0 +1,33 @@
+//- compileAndRun expecting: success
+
+type Point: Deinitializable {
+  public var x: Int
+  public var y: Int
+
+  public memberwise init
+
+  subscript(_ p: Int): Int {
+    if p == 0 {
+      yield x
+    }
+    else if p == 1 {
+      yield y
+    }
+    else {
+      fatal_error()
+    }
+  }
+}
+
+subscript luckyPrime(): Int { 13 }
+
+public fun main() {
+  let p = Point(x: 5, y: 7)
+  let r1 = p[0]
+  precondition(r1 == 5)
+  let r2 = p[1]
+  precondition(r2 == 7)
+
+  let x = luckyPrime[]
+  precondition(x == 13)
+}

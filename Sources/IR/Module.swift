@@ -194,6 +194,8 @@ public struct Module {
     switch p {
     case .depolymorphize:
       depolymorphize(in: ir)
+    case .simplifyAddressors:
+      simplifyAddressors(in: ir)
     }
   }
 
