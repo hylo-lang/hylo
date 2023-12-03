@@ -4320,8 +4320,7 @@ struct TypeChecker {
     updating obligations: inout ProofObligations
   ) -> AnyType {
     let callee = _inferredType(
-      ofCallee: program[e].callee, usedAs: .function, withHint: hint,
-      appliedTo: program[e].arguments, updating: &obligations)
+      ofCallee: program[e].callee, usedAs: .function, withHint: hint, updating: &obligations)
 
     // We failed to infer the type of the callee. We can stop here.
     if callee.isError {
@@ -4584,8 +4583,7 @@ struct TypeChecker {
     updating obligations: inout ProofObligations
   ) -> AnyType {
     let callee = _inferredType(
-      ofCallee: program[e].callee, usedAs: .subscript, withHint: hint,
-      appliedTo: program[e].arguments, updating: &obligations)
+      ofCallee: program[e].callee, usedAs: .subscript, withHint: hint, updating: &obligations)
 
     // We failed to infer the type of the callee. We can stop here.
     if callee.isError {
@@ -4674,11 +4672,9 @@ struct TypeChecker {
   }
 
   /// Returns the inferred type of `callee`, which is the callee of a function, initializer, or
-  /// subscript applied to with `arguments`, updating `state` with inference facts and deferred
-  /// type checking requests.
+  /// subscript, updating `state` with inference facts and deferred type checking requests.
   private mutating func _inferredType(
     ofCallee callee: AnyExprID, usedAs purpose: NameUse, withHint hint: AnyType?,
-    appliedTo arguments: [LabeledArgument],
     updating obligations: inout ProofObligations
   ) -> AnyType {
     assert(purpose != .unapplied)
