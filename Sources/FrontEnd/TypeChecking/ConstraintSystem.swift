@@ -54,8 +54,8 @@ struct ConstraintSystem {
   /// The current indentation level for logging messages.
   private var indentation = 0
 
-  /// Creates an instance for solving the constraints in `obligations`, logging a trace of
-  /// `solution(querying:)` iff `isLoggingEnabled` is `true`.
+  /// Creates an instance for solving the constraints in `obligations`, logging a trace of the
+  /// deduction process if `isLoggingEnabled` is `true`.
   init(_ obligations: ProofObligations, logging isLoggingEnabled: Bool) {
     self.scope = obligations.scope
     self.bindingAssumptions = obligations.referredDecl
