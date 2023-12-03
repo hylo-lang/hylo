@@ -34,7 +34,7 @@ public fun main() {
   // Test with generics.
   logic2(withDelayed: prime())
 
-  // Test with generics and non-void environments.
+  // TODO: Test with generics and non-void environments.
   // &counter = 0
   // let r = 17
   // logic2(withDelayed: fun() -> Int {

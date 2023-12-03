@@ -9,7 +9,7 @@ public struct ParameterType: TypeProtocol {
   /// The type of the parameter's value.
   public let bareType: AnyType
 
-  /// Indicates if the parameter is marked as autoclosure.
+  /// `true` iff the parameter is an autoclosure.
   public let isAutoclosure: Bool
 
   public let flags: TypeFlags
