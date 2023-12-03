@@ -3333,20 +3333,20 @@ struct TypeChecker {
 
   // MARK: Name resolution
 
-  /// Resolves components of `name` from left to right until all components have been resolved or
-  /// one component requires overload resolution.
+  /// Resolves components of `n` from left to right until all components have been resolved or one
+  /// component requires overload resolution.
   ///
-  /// If the leftmost component of `name` is non-nominal, `resolveNonNominalPrefix` is called on
-  /// `self` and the second component `c` of `name` (which is nominal), returning the type `T` of
-  /// `c`'s nominal scope or `nil` if such a type can't be determined. If a type is returned, name
-  /// resolution proceeds, looking for `c` as a member of `T`. Otherwise, `.canceled(nil, u)` is
-  /// returned, where `u` is the nominal suffix of `name`, starting from `c`.
+  /// If the leftmost component of `n` is non-nominal, `resolveNonNominalPrefix` is called on
+  /// `self` and the second component `c` of `n` (which is nominal), returning the type `T` of
+  /// `c`'s nominal scope or `nil` if such a type can't be determined. If a type is returned,
+  /// name resolution proceeds, looking for `c` as a member of `T`. Otherwise, `.canceled(nil, u)`
+  /// is returned, where `u` is the nominal suffix of `n`, starting from `c`.
   private mutating func resolve(
-    _ name: NameExpr.ID,
+    _ n: NameExpr.ID,
     usedAs purpose: NameUse = .unapplied,
     withNonNominalPrefix resolveNonNominalPrefix: (inout Self, NameExpr.ID) -> AnyType?
   ) -> NameResolutionResult {
-    var (unresolved, domain) = program.ast.splitNominalComponents(of: name)
+    var (unresolved, domain) = program.ast.splitNominalComponents(of: n)
 
     // Continue iff `name` is prefixed by nominal components only.
     var parent: NameResolutionContext? = nil
@@ -3369,11 +3369,12 @@ struct TypeChecker {
     // information to resolve overload sets.
     var resolved: [NameResolutionResult.ResolvedComponent] = []
     while let component = unresolved.popLast() {
-      let candidates = resolve(
-        component, in: parent, usedAs: unresolved.isEmpty ? purpose : .unapplied)
-      if candidates.isEmpty {
-        return .failed
-      }
+      // `purpose` only applies to the last component.
+      let u = unresolved.isEmpty ? purpose : .unapplied
+      let candidates = resolve(component, in: parent, usedAs: u)
+
+      // Resolution failed if we found no candidates.
+      if candidates.isEmpty { return .failed }
 
       // Append the resolved component to the nominal prefix.
       resolved.append(.init(component, candidates))
@@ -3426,9 +3427,15 @@ struct TypeChecker {
 
   /// Returns the declarations of `name` exposed to `scopeOfUse` and specialized by `arguments`.
   ///
-  /// The declarations are searched with an unqualified lookup unless `context` is set, in which
-  /// case they are searched in the declaration space of `context.type`. Generic candidates are
-  /// specialized with `arguments` appended to `parent.arguments`.
+  /// The return value is a set of candidates, each of which corresponding to one possible way to
+  /// resolve `name` to a specific declaration. The declarations are searched with an unqualified
+  /// lookup unless `context` is set, in which case they are searched in the declaration space of
+  /// `context.type`. The specialization of generic is obtained by appending `arguments` to
+  /// `parent.arguments`.
+  ///
+  /// If `name` resolves to an initializer and `purpose` is `.constructor`, the corresponding
+  /// candidate is assigned a constructor type. If `purpose` has call labels, they are used to
+  /// filter candidates with different labels.
   mutating func resolve(
     _ name: SourceRepresentable<Name>, specializedBy arguments: [any CompileTimeValue],
     in context: NameResolutionContext?, exposedTo scopeOfUse: AnyScopeID, usedAs purpose: NameUse
@@ -3453,56 +3460,13 @@ struct TypeChecker {
     // Create declaration references to all candidates.
     var candidates: NameResolutionResult.CandidateSet = []
     for m in matches {
-      guard var candidateType = resolveType(of: m) else { continue }
       var log = DiagnosticSet()
 
-      // The specialization of the match includes that of context in which it was looked up.
-      var specialization = genericArguments(inScopeIntroducing: m, resolvedIn: context)
-      candidateType = specialize(candidateType, for: specialization, in: scopeOfUse)
-
-      // Keep track of generic arguments that should be captured later on.
-      let candidateSpecialization = genericArguments(
-        passedTo: m, typed: candidateType, referredToBy: name, specializedBy: arguments,
+      let t = resolveType(
+        of: m, referredToBy: name, specializedBy: arguments, in: context,
+        exposedTo: scopeOfUse, usedAs: purpose,
         reportingDiagnosticsTo: &log)
-      for (p, a) in candidateSpecialization {
-        specialization[p] = a
-      }
-
-      // If the match is a trait member looked, specialize its receiver.
-      // TODO: Remove `mayCaptureGenericParameters` when
-      if let t = traitDeclaring(m), mayCaptureGenericParameters(m) {
-        // DR: `mayCaptureGenericParameters` is used to avoid populating the specialization table
-        // when `m` is an associated type declaration. Otherwise, `specialize` causes resolution
-        // to systematically pick the default value. I suspect that `specialize` shouldn't do that
-        // when the associated type is rooted at a trait. Substitution of associated type should
-        // rely on conformances rather than lookup.
-        let r = context?.type ?? resolveReceiverMetatype(in: scopeOfUse)?.instance
-        specialization[program[t.decl].receiver] = r
-      }
-
-      // If the name resolves to an initializer, determine if it is used as a constructor.
-      let isConstructor =
-        (m.kind == InitializerDecl.self)
-        && ((purpose == .constructor) || (name.value.stem == "new"))
-      if isConstructor {
-        candidateType = ^LambdaType(constructorFormOf: LambdaType(candidateType)!)
-      }
-
-      // If the receiver is an existential, replace its receiver.
-      if let container = ExistentialType(context?.type) {
-        candidateType = candidateType.asMember(of: container)
-        if let t = traitDeclaring(m) {
-          specialization[program[t.decl].receiver] = ^WitnessType(of: container)
-        }
-      }
-
-      // Re-specialize the candidate's type now that the substitution map is complete.
-      //
-      // The specialization map now contains the substitutions accumulated from the candidate's
-      // qualification as well as the ones related to the resolution of the candidate itself. For
-      // example, if we resolved `A<X>.f<Y>`, we'd get `X` from the resolution of the qualification
-      // and `Y` from the resolution of the candidate.
-      candidateType = specialize(candidateType, for: specialization, in: scopeOfUse)
+      guard let (candidateType, specialization, isConstructor) = t else { continue }
 
       let r = program.makeReference(
         to: m, specializedBy: specialization, memberOf: context, exposedTo: scopeOfUse,
@@ -3660,7 +3624,78 @@ struct TypeChecker {
     }
   }
 
-  /// Returns the resolved type of the entity declared by `d` or `nil` if is invalid.
+  /// Returns the resolved type of the entity declared by `d` when referred to by `name` with
+  /// the given `arguments`, or `nil` if `d` is ill-formed.
+  ///
+  /// If `d` is generic, `context` determines how to construct its complete list of arguments and
+  /// the specialization of the returned type is performed in `scopeOfUse`. Diagnostics of errors
+  /// related to the construction of the generic argument list are stored in `log`.
+  ///
+  /// If `d` declares an initializer and and `purpose` is `.constructor`, the returned type is the
+  /// constructor form of `d`'s type.
+  private mutating func resolveType(
+    of d: AnyDeclID,
+    referredToBy name: SourceRepresentable<Name>,
+    specializedBy arguments: [any CompileTimeValue],
+    in context: NameResolutionContext?,
+    exposedTo scopeOfUse: AnyScopeID,
+    usedAs purpose: NameUse,
+    reportingDiagnosticsTo log: inout DiagnosticSet
+  ) -> (candidateType: AnyType, specialization: GenericArguments, isConstructor: Bool)? {
+    guard var candidateType = resolveType(of: d) else { return nil }
+
+    // The specialization of the match includes that of context in which it was looked up.
+    var specialization = genericArguments(inScopeIntroducing: d, resolvedIn: context)
+    candidateType = specialize(candidateType, for: specialization, in: scopeOfUse)
+
+    // Keep track of generic arguments that should be captured later on.
+    let candidateSpecialization = genericArguments(
+      passedTo: d, typed: candidateType, referredToBy: name, specializedBy: arguments,
+      reportingDiagnosticsTo: &log)
+    for (p, a) in candidateSpecialization {
+      specialization[p] = a
+    }
+
+    // If the match is a trait member looked, specialize its receiver.
+    // TODO: Remove `mayCaptureGenericParameters` when
+    if let t = traitDeclaring(d), mayCaptureGenericParameters(d) {
+      // DR: `mayCaptureGenericParameters` is used to avoid populating the specialization table
+      // when `m` is an associated type declaration. Otherwise, `specialize` causes resolution
+      // to systematically pick the default value. I suspect that `specialize` shouldn't do that
+      // when the associated type is rooted at a trait. Substitution of associated type should
+      // rely on conformances rather than lookup.
+      let r = context?.type ?? resolveReceiverMetatype(in: scopeOfUse)?.instance
+      specialization[program[t.decl].receiver] = r
+    }
+
+    // If the name resolves to an initializer, determine if it is used as a constructor.
+    let isConstructor =
+      (d.kind == InitializerDecl.self)
+      && ((purpose == .constructor) || (name.value.stem == "new"))
+    if isConstructor {
+      candidateType = ^LambdaType(constructorFormOf: LambdaType(candidateType)!)
+    }
+
+    // If the receiver is an existential, replace its receiver.
+    if let container = ExistentialType(context?.type) {
+      candidateType = candidateType.asMember(of: container)
+      if let t = traitDeclaring(d) {
+        specialization[program[t.decl].receiver] = ^WitnessType(of: container)
+      }
+    }
+
+    // Re-specialize the candidate's type now that the substitution map is complete.
+    //
+    // The specialization map now contains the substitutions accumulated from the candidate's
+    // qualification as well as the ones related to the resolution of the candidate itself. For
+    // example, if we resolved `A<X>.f<Y>`, we'd get `X` from the resolution of the qualification
+    // and `Y` from the resolution of the candidate.
+    candidateType = specialize(candidateType, for: specialization, in: scopeOfUse)
+
+    return (candidateType, specialization, isConstructor)
+  }
+
+  /// Returns the resolved type of the entity declared by `d` or `nil` if `d` is ill-formed.
   private mutating func resolveType(of d: AnyDeclID) -> AnyType? {
     var result = uncheckedType(of: d)
     if result.isError { return nil }
