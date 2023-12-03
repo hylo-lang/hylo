@@ -2427,6 +2427,15 @@ struct TypeChecker {
     return SymbolicValue(staticType: t)
   }
 
+  /// Evaluates and returns the generic arguments in `s`.
+  private mutating func evalGenericArguments(_ s: [LabeledArgument]) -> [any CompileTimeValue] {
+    var result: [any CompileTimeValue] = []
+    for a in s {
+      result.append(evalTypeAnnotation(a.value))
+    }
+    return result
+  }
+
   /// Evaluates and returns the value of `e`, which is a type annotation.
   private mutating func evalTypeAnnotation(_ e: AnyExprID) -> AnyType {
     switch e.kind {
@@ -3391,11 +3400,7 @@ struct TypeChecker {
   ) -> [NameResolutionResult.Candidate] {
     let name = program[n].name
 
-    // Evaluate generic arguments.
-    let arguments = program[n].arguments.map { (a) -> any CompileTimeValue in
-      evalTypeAnnotation(a.value)
-    }
-
+    let arguments = evalGenericArguments(program[n].arguments)
     let candidates = resolve(
       name, specializedBy: arguments,
       in: context, exposedTo: program[n].scope, usedAs: purpose)
