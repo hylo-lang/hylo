@@ -119,7 +119,7 @@ extension PropertyListDecoder: StatefulDecoder {}
 /// it is otherwise unavailable.
 private final class Box<WrappedType> {
 
-  /// Creates an instance containing `contents`
+  /// Creates an instance containing `contents`.
   init(_ contents: WrappedType) { self.wrapped = contents }
 
   /// The wrapped instance.

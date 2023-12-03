@@ -25,6 +25,9 @@ struct ConstraintSystem {
   /// The goals that are currently stale.
   private var stale: [GoalIdentity] = []
 
+  /// The root goals that could not be solved.
+  private var failureRoots: [GoalIdentity] = []
+
   /// A map from open type variable to its assignment.
   ///
   /// This map is monotonically extended during constraint solving to assign a type to each open
@@ -51,8 +54,8 @@ struct ConstraintSystem {
   /// The current indentation level for logging messages.
   private var indentation = 0
 
-  /// Creates an instance for solving the constraints in `obligations`, logging a trace of
-  /// `solution(querying:)` iff `isLoggingEnabled` is `true`.
+  /// Creates an instance for solving the constraints in `obligations`, logging a trace of the
+  /// deduction process if `isLoggingEnabled` is `true`.
   init(_ obligations: ProofObligations, logging isLoggingEnabled: Bool) {
     self.scope = obligations.scope
     self.bindingAssumptions = obligations.referredDecl
@@ -60,17 +63,28 @@ struct ConstraintSystem {
     _ = insert(fresh: obligations.constraints)
   }
 
+  /// Creates an instance copying the state of `other`.
+  private init(copying other: inout Self) {
+    let c = other.checker.release()
+    self = other
+    other.checker = c
+  }
+
   /// Solves this instance, using `checker` to query type relations and resolve names and returning
   /// the best solution found.
   mutating func solution(querying checker: inout TypeChecker) -> Solution {
-    self.checker = checker
-    defer { checker = self.checker.release() }
-    return solution(notWorseThan: .worst)!
+    solution(notWorseThan: .worst, querying: &checker)!
   }
 
   /// Solves this instance and returns the best solution with a score inferior or equal to
   /// `self.maxScore`, or `nil` if no such solution can be found.
-  private mutating func solution(notWorseThan maxScore: Solution.Score) -> Solution? {
+  private mutating func solution(
+    notWorseThan maxScore: Solution.Score,
+    querying checker: inout TypeChecker
+  ) -> Solution? {
+    self.checker = checker
+    defer { checker = self.checker.release() }
+
     logState()
     log("steps:")
 
@@ -128,9 +142,7 @@ struct ConstraintSystem {
   ///
   /// The cost of a solution increases monotonically when a constraint is eliminated.
   private func score() -> Solution.Score {
-    .init(
-      errorCount: goals.indices.elementCount(where: isFailureRoot),
-      penalties: penalties)
+    .init(errorCount: failureRoots.count, penalties: penalties)
   }
 
   /// Returns `true` iff the solving `g` failed and `g` isn't subordinate.
@@ -143,6 +155,10 @@ struct ConstraintSystem {
     log(outcome: o)
     assert(outcomes[key] == nil)
     outcomes[key] = o
+
+    if isFailureRoot(key) {
+      failureRoots.append(key)
+    }
   }
 
   /// Creates a solution from the current state.
@@ -169,7 +185,7 @@ struct ConstraintSystem {
   private func formAmbiguousSolution<T>(
     _ results: Explorations<T>, diagnosedBy d: Diagnostic
   ) -> Solution {
-    var s = results.elements.reduce(into: Solution(), { (s, r) in s.merge(r.solution) })
+    var s = results.elements.reduce(into: Solution(), { (s, r) in s.formIntersection(r.solution) })
     s.incorporate(d)
     return s
   }
@@ -203,8 +219,8 @@ struct ConstraintSystem {
   }
 
   /// Knowing types can conform to `goal.concept` structurally, if `goal.model` is a structural
-  /// type, creates and returns sub-goals checking that its parts conform to `goal.concept`.
-  /// Otherwise, returns `.failure`.
+  /// type, creates and returns sub-goals checking that its parts conform to `goal.concept`; returns
+  /// `.failure` otherwise.
   ///
   /// - Requires: `goal.model` is not a type variable.
   private mutating func solve(structuralConformance goal: ConformanceConstraint) -> Outcome {
@@ -670,7 +686,7 @@ struct ConstraintSystem {
   }
 
   /// Returns a table from argument position to its corresponding parameter position iff `callee`
-  /// accepts an argument list with given `labels`. Otherwise, returns `nil`.
+  /// accepts an argument list with given `labels`; returns `nil` otherwise.
   ///
   /// For example, given a callee whose parameters are `(x: Int, y: Int = 0, z: Int)` and an
   /// argument list with labels `[x, z]`, this function returns `[0, 2]`.
@@ -782,10 +798,10 @@ struct ConstraintSystem {
       defer { indentation -= 1 }
 
       // Explore the result of this choice.
-      var exploration = self
+      var exploration = Self(copying: &self)
       let s = configureSubSystem(&exploration, choice)
       exploration.setOutcome(s.isEmpty ? .success : delegate(to: s), for: g)
-      guard let new = exploration.solution(notWorseThan: results.score) else {
+      guard let new = exploration.solution(notWorseThan: results.score, querying: &checker) else {
         continue
       }
 
@@ -824,7 +840,7 @@ struct ConstraintSystem {
 
     let i = fresh.partitioningIndex(
       at: newIdentity,
-      orderedBy: { (a, b) in !goals[a].simpler(than: goals[b]) })
+      orderedBy: { (a, b) in !goals[a].isSimpler(than: goals[b]) })
     fresh.insert(newIdentity, at: i)
     return newIdentity
   }
@@ -1063,14 +1079,14 @@ private struct Explorations<T: DisjunctiveConstraintProtocol> {
 
 extension Constraint {
 
-  /// Returns whether `self` is heuristically simpler to solve than `other`.
-  fileprivate func simpler(than other: Constraint) -> Bool {
-    switch self {
-    case is EqualityConstraint:
-      return !(other is EqualityConstraint)
-
-    case let l as any DisjunctiveConstraintProtocol:
-      if let r = other as? any DisjunctiveConstraintProtocol {
+  /// Returns whether `self` is heuristically simpler to solve than `rhs`.
+  fileprivate func isSimpler(than rhs: any Constraint) -> Bool {
+    if self is EqualityConstraint {
+      return !(rhs is EqualityConstraint)
+    } else if self.openVariables.isEmpty {
+      return !rhs.openVariables.isEmpty
+    } else if let l = self as? any DisjunctiveConstraintProtocol {
+      if let r = rhs as? any DisjunctiveConstraintProtocol {
         if l.choices.count == r.choices.count {
           let x = l.choices.reduce(0, { $0 + $1.constraints.count })
           let y = r.choices.reduce(0, { $0 + $1.constraints.count })
@@ -1081,9 +1097,8 @@ extension Constraint {
       } else {
         return false
       }
-
-    default:
-      return other is (any DisjunctiveConstraintProtocol)
+    } else {
+      return rhs is (any DisjunctiveConstraintProtocol)
     }
   }
 

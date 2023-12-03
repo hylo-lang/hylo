@@ -686,7 +686,7 @@ extension Module {
   }
 
   /// Inserts IR for the deinitialization of `root` at given `initializedSubfields` before
-  /// instruction `i`, anchoring instructions to `site`
+  /// instruction `i`, anchoring instructions to `site`.
   private mutating func insertDeinit(
     _ root: Operand, at initializedSubfields: [RecordPath], anchoredTo site: SourceRange,
     before i: InstructionID, reportingDiagnosticsTo log: inout DiagnosticSet

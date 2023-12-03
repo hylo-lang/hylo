@@ -62,7 +62,7 @@ public struct TypedProgram {
   ) throws {
     let instanceUnderConstruction = SharedMutable(TypedProgram(partiallyFormedFrom: base))
     #if os(macOS) && DEBUG
-    let isTypeCheckingParallel = isTypeCheckingParallel && false
+      let isTypeCheckingParallel = isTypeCheckingParallel && false
     #endif
 
     if isTypeCheckingParallel {
@@ -275,8 +275,8 @@ public struct TypedProgram {
     return result
   }
 
-  /// Returns the generic parameters captured in the scope of `d` if `d` is callable. Otherwise,
-  /// returns an empty collection.
+  /// Returns the generic parameters captured in the scope of `d` if `d` is callable; returns an
+  /// empty collection otherwise.
   public func liftedGenericParameters(of d: AnyDeclID) -> [GenericParameterDecl.ID] {
     switch d.kind {
     case FunctionDecl.self:
@@ -307,7 +307,7 @@ public struct TypedProgram {
   }
 
   /// If `d` is member of a trait `c`, returns `(d, c)` if `d` is a requirement, or `(r, c)` if `d`
-  /// is a default implementation of a requirement `r`. Otherwise, returns `nil`.
+  /// is a default implementation of a requirement `r`; returns `nil` otherwise.
   public func requirementDeclaring(_ d: AnyDeclID) -> (decl: AnyDeclID, trait: TraitType)? {
     guard let c = traitDeclaring(d) else { return nil }
 
@@ -374,7 +374,7 @@ public struct TypedProgram {
   ) -> Conformance? {
     var checker = TypeChecker(asContextFor: self)
     let bounds = checker.conformedTraits(
-      declaredInEnvironmentIntroducing: model,
+      declaredByConstraintsOn: model,
       exposedTo: scopeOfUse)
     guard bounds.contains(concept) else { return nil }
 
@@ -456,13 +456,7 @@ public struct TypedProgram {
     return result
   }
 
-  /// Returns the scope of the declaration extended by `d`, if any.
-  public func scopeExtended<T: TypeExtendingDecl>(by d: T.ID) -> AnyScopeID? {
-    var checker = TypeChecker(asContextFor: self)
-    return checker.scopeExtended(by: d)
-  }
-
-  /// Returns the modules visible to `s`:
+  /// Returns the modules visible to `s`.
   public func modules(exposedTo s: AnyScopeID) -> Set<ModuleDecl.ID> {
     if let m = ModuleDecl.ID(s) {
       return [m]

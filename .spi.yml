@@ -3,7 +3,7 @@ builder:
   configs:
   - platform: linux
     swift_version: '5.9'
-    image: registry.gitlab.com/finestructure/spi-images:val-5.9-latest
+    image: registry.gitlab.com/finestructure/spi-images:hylo-5.9-latest
     documentation_targets:
     - CLI
     - CodeGenLLVM
@@ -22,9 +22,3 @@ builder:
     --source-service-base-url, https://github.com/hylo-lang/hylo/blob/main,
     --checkout-path, .
     ]
-  - platform: linux
-    swift_version: '5.8'
-    image: registry.gitlab.com/finestructure/spi-images:val-5.8-latest
-  - platform: linux
-    swift_version: '5.7'
-    image: registry.gitlab.com/finestructure/spi-images:val-5.7-latest

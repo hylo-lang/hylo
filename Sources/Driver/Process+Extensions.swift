@@ -27,8 +27,12 @@ extension Process {
     /// The contents of the standard error stream.
     public let standardError: Lazy<String>
 
-    /// The command-line that triggered the process run.
-    public let commandLine: [String]
+    /// The name of the executable ran by the process.
+    public let executable: String
+
+    /// The arguments passed to executable ran by the process.
+    public let arguments: [String]
+
   }
 
   /// Runs `executable` with the given command line `arguments` and returns its exit status along
@@ -51,8 +55,10 @@ extension Process {
     if p.terminationStatus != 0 {
       throw NonzeroExit(
         terminationStatus: p.terminationStatus,
-        standardOutput: r.standardOutput, standardError: r.standardError,
-        commandLine: [executable.fileSystemPath] + arguments)
+        standardOutput: r.standardOutput,
+        standardError: r.standardError,
+        executable: executable.fileSystemPath,
+        arguments: arguments)
     }
 
     return r
@@ -63,13 +69,14 @@ extension Process {
 extension Process.NonzeroExit: CustomStringConvertible {
 
   public var description: String {
-    return """
-      NonzeroExit(
-        terminationStatus: \(terminationStatus),
-        standardOutput: \(String(reflecting: standardOutput[])),
-        standardError: \(String(reflecting: standardError[])),
-        commandLine: \(commandLine))
-      """
+    """
+    '\(executable)' failed with status \(terminationStatus)
+    arguments: \(list: arguments)
+    standard output:
+    \(standardOutput[])
+    standard error:
+    \(standardError[])
+    """
   }
 
 }

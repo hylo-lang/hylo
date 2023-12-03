@@ -3,6 +3,10 @@ import OrderedCollections
 import Utils
 
 /// The transformation from a `ScopedProgram` to a `TypedProgram`.
+///
+/// - Note: A method named with a leading underscore are meant be called only by the method with
+///   the same name but without that leading underscore. The former typically implement the actual
+///   computation of a value that is memoized by the latter.
 struct TypeChecker {
 
   /// The diagnostics of the type errors.
@@ -193,7 +197,7 @@ struct TypeChecker {
   private mutating func conformedTraits(
     of t: AssociatedTypeType, in scopeOfUse: AnyScopeID
   ) -> Set<TraitType> {
-    var result = conformedTraits(declaredInEnvironmentIntroducing: ^t, exposedTo: scopeOfUse)
+    var result = conformedTraits(declaredByConstraintsOn: ^t, exposedTo: scopeOfUse)
     result.formUnion(conformedTraits(declaredInExtensionsOf: ^t, exposedTo: scopeOfUse))
     return result
   }
@@ -215,12 +219,15 @@ struct TypeChecker {
   private mutating func conformedTraits(
     of t: GenericTypeParameterType, in scopeOfUse: AnyScopeID
   ) -> Set<TraitType> {
-    // Generic parameters declared at trait scope conform to that trait.
+    // Trait receivers conform to their traits.
+    var result: Set<TraitType>
     if let d = TraitDecl.ID(program[t.decl].scope) {
-      return refinements(of: TraitType(d, ast: program.ast)).unordered
+      result = refinements(of: TraitType(d, ast: program.ast)).unordered
+    } else {
+      result = []
     }
 
-    var result = conformedTraits(declaredInEnvironmentIntroducing: ^t, exposedTo: scopeOfUse)
+    result.formUnion(conformedTraits(declaredByConstraintsOn: ^t, exposedTo: scopeOfUse))
     result.formUnion(conformedTraits(declaredInExtensionsOf: ^t, exposedTo: scopeOfUse))
     return result
   }
@@ -273,17 +280,22 @@ struct TypeChecker {
   /// logically containing `scopeOfUse`. The return value is the set of traits used as bounds of
   /// `t` in that environment.
   mutating func conformedTraits(
-    declaredInEnvironmentIntroducing t: AnyType, exposedTo scopeOfUse: AnyScopeID
+    declaredByConstraintsOn t: AnyType, exposedTo scopeOfUse: AnyScopeID
   ) -> Set<TraitType> {
     var result = Set<TraitType>()
     for s in program.scopes(from: scopeOfUse) where s.kind.value is GenericScope.Type {
-      let e = environment(of: s)!
-      result.formUnion(e.conformedTraits(of: ^t))
+      let d = AnyDeclID(s)!
+
+      // If an environment has been computed already, use it.
+      if let e = cache.read(\.environment[d]) {
+        result.formUnion(e.conformedTraits(of: ^t))
+      } else {
+        // TODO
+      }
 
       // Note: `s` might be extending the type whose declaration introduced the generic environment
       // that declared `t`.
       if s.kind.value is TypeExtendingDecl.Type {
-        let d = AnyDeclID(s)!
         if let g = environment(introducedByDeclOf: uncheckedType(of: d)) {
           result.formUnion(g.conformedTraits(of: ^t))
         }
@@ -297,13 +309,10 @@ struct TypeChecker {
   private mutating func demandConformance(
     of model: AnyType, to trait: TraitType, exposedTo scopeOfUse: AnyScopeID
   ) -> Conformance? {
+    // As results already in cache may be shadowed by a conformance that hasn't been checked yet,
+    // we have to check all conformance sources in scope before we can be sure we'll grab the right
+    // one when we call `cachedConformance`.
     let m = canonical(model, in: scopeOfUse)
-    if let c = cachedConformance(of: m, to: trait, exposedTo: scopeOfUse) {
-      return c
-    }
-
-    // If the conformance isn't already in cache, check sources defining a conformance of `model`
-    // to `trait` in scope, thus filling the cache before we look again.
     let r = refinements(of: trait)
     let s = originsOfConformance(of: m, to: trait, exposedTo: scopeOfUse)
     for o in s {
@@ -316,6 +325,10 @@ struct TypeChecker {
 
   /// Returns the checked conformance of `model` to `trait` that is exposed to `scopeOfUse`, or
   /// `nil` if such a conformance doesn't exist or hasn't been checked yet.
+  ///
+  /// The result is the innermost available conformance of `model` to `trait` in `scopeOfUse` iff
+  /// all possible sources have already been checked. Otherwise, the returned conformance may be
+  /// shadowed by one that hasn't been checked yet.
   ///
   /// - Requires: `model` is canonical.
   func cachedConformance(
@@ -337,6 +350,10 @@ struct TypeChecker {
 
   /// Returns the checked conformance of `model` to `trait` that is exposed to `scopeOfUse`, or
   /// `nil` if such a conformance doesn't exist or hasn't been checked yet.
+  ///
+  /// The result is the innermost available conformance of `model` to `trait` in `scopeOfUse` iff
+  /// all possible sources have already been checked. Otherwise, the returned conformance may be
+  /// shadowed by one that hasn't been checked yet.
   ///
   /// - Requires: `model` is canonical.
   private func cachedConformance(
@@ -367,10 +384,7 @@ struct TypeChecker {
         }
       }
       .minimalElements { (a, b) in
-        if a.scope == b.scope { return .equal }
-        if program.isContained(a.scope, in: b.scope) { return .ascending }
-        if program.isContained(b.scope, in: a.scope) { return .descending }
-        return nil
+        program.compareLexicalDepth(a.scope, b.scope, in: scopeOfUse)
       }
       .uniqueElement
   }
@@ -498,9 +512,9 @@ struct TypeChecker {
       }
     }
 
-    /// If `t` is an unspecialized generic type, returns its specialization taking the arguments
-    /// in `substitutions` corresponding to the parameters introduced by `d`. Otherwise, returns
-    /// `t` unchanged.
+    /// If `t` is an unspecialized generic type, returns its specialization taking the arguments in
+    /// `substitutions` corresponding to the parameters introduced by `d`; returns `t` unchanged
+    /// otherwise.
     ///
     /// - Requires: `t` is not a trait.
     func transform<T: TypeProtocol, D: GenericScope>(
@@ -580,16 +594,7 @@ struct TypeChecker {
 
   /// Type checks `u` and all declarations nested in `d`.
   mutating func check(_ u: TranslationUnit.ID) {
-    // The core library is always implicitly imported.
-    var imports = Set<ModuleDecl.ID>()
-    if let m = program.ast.coreLibrary {
-      imports.insert(m)
-    }
-    for d in program[u].decls.lazy.compactMap(ImportDecl.ID.init(_:)) {
-      insertImport(d, from: u, in: &imports)
-    }
-
-    cache.write(imports, at: \.imports[u])
+    _ = imports(exposedTo: u)
     check(program[u].decls)
   }
 
@@ -1123,8 +1128,29 @@ struct TypeChecker {
     }
   }
 
-  /// If `d` is a valid import in `u`, inserts the module referred by `d` in `imports`. Otherwise,
-  /// a diagnostic is reported.
+  /// Returns the modules visible as imports in `u`.
+  private mutating func imports(exposedTo u: TranslationUnit.ID) -> Set<ModuleDecl.ID> {
+    if let result = cache.read(\.imports[u]) {
+      return result
+    }
+
+    // The core library and the containing module are always implicitly imported.
+    var result = Set<ModuleDecl.ID>()
+    result.insert(ModuleDecl.ID(program[u].scope)!)
+    if let m = program.ast.coreLibrary {
+      result.insert(m)
+    }
+
+    for d in program[u].decls {
+      if let i = ImportDecl.ID(d) { insertImport(i, from: u, in: &result) }
+    }
+
+    cache.write(result, at: \.imports[u])
+    return result
+  }
+
+  /// If `d` is a valid import in `u`, inserts the module referred by `d` in `imports`; reports a
+  /// diagnostic otherwise.
   private mutating func insertImport(
     _ d: ImportDecl.ID, from u: TranslationUnit.ID, in imports: inout Set<ModuleDecl.ID>
   ) {
@@ -1244,9 +1270,15 @@ struct TypeChecker {
 
     // TODO: Use arguments to bound generic types as constraints
 
+    // There's nothing to do if the conformance introduced by `origin` has already been checked.
+    // Otherwise, if there's already another conformance exposed to `scopeOfDefinition` in cache,
+    // it can't be introduced the same scope.
     if let c = cachedConformance(of: model, to: trait, exposedTo: scopeOfDefinition) {
-      assert(c.origin == origin, "inconsistent conformance origin")
-      return
+      if c.origin == origin {
+        return
+      } else {
+        precondition(c.scope != scopeOfDefinition, "inconsistent conformance origin")
+      }
     }
 
     /// A map from requirement to its implementation.
@@ -1256,7 +1288,7 @@ struct TypeChecker {
     var conformanceDiagnostics = DiagnosticSet()
 
     /// A map associating the "Self" parameter of each trait in the refinement cluster of `trait`
-    /// to the type `
+    /// to the type.
     var traitReceiverToModel = GenericArguments()
     for t in refinements(of: trait).unordered {
       traitReceiverToModel[program[t.decl].receiver] = model
@@ -1685,9 +1717,9 @@ struct TypeChecker {
   /// Returns the generic environment introduced by the declaration of `t`, if any.
   private mutating func environment(introducedByDeclOf t: AnyType) -> GenericEnvironment? {
     switch t.base {
+    case let u as GenericTypeParameterType:
+      return environment(of: program[u.decl].scope)
     case let u as ProductType:
-      return environment(of: u.decl)
-    case let u as TraitType:
       return environment(of: u.decl)
     case let u as TypeAliasType:
       return environment(of: u.decl)
@@ -1901,6 +1933,8 @@ struct TypeChecker {
     switch i.base {
     case is BuiltinType, is RemoteType:
       report(.error(cannotExtend: i, at: program[d].subject.site))
+    case let t as TraitType:
+      return ^GenericTypeParameterType(selfParameterOf: t.decl, in: program.ast)
     default:
       return i
     }
@@ -2373,6 +2407,15 @@ struct TypeChecker {
     }
   }
 
+  /// If `d` is a trait extension, returns the trait that it extends; returns `nil` otherwise.
+  private mutating func extendedTrait(_ d: ExtensionDecl.ID) -> TraitType? {
+    guard
+      let t = GenericTypeParameterType(uncheckedType(of: d)),
+      let u = TraitDecl.ID(program[t.decl].scope)
+    else { return nil }
+    return TraitType(u, ast: program.ast)
+  }
+
   // MARK: Evaluation
 
   /// Evaluates and returns the value of `e`.
@@ -2382,6 +2425,15 @@ struct TypeChecker {
   private mutating func eval(_ e: AnyExprID) -> any CompileTimeValue {
     let t = checkedType(of: e)
     return SymbolicValue(staticType: t)
+  }
+
+  /// Evaluates and returns the generic arguments in `s`.
+  private mutating func evalGenericArguments(_ s: [LabeledArgument]) -> [any CompileTimeValue] {
+    var result: [any CompileTimeValue] = []
+    for a in s {
+      result.append(evalTypeAnnotation(a.value))
+    }
+    return result
   }
 
   /// Evaluates and returns the value of `e`, which is a type annotation.
@@ -2512,6 +2564,15 @@ struct TypeChecker {
   /// Evaluates and returns the value of `e`, which is a type annotation.
   private mutating func evalTypeAnnotation(_ e: ParameterTypeExpr.ID) -> AnyType {
     let t = evalTypeAnnotation(program[e].bareType)
+
+    if program[e].isAutoclosure {
+      let s = program[program[e].bareType].site
+      guard let u = LambdaType(t), u.inputs.isEmpty else {
+        report(.error(autoclosureExpectsEmptyLambdaAt: s, given: t))
+        return .error
+      }
+    }
+
     return ^ParameterType(program[e].convention.value, t)
   }
 
@@ -2711,16 +2772,16 @@ struct TypeChecker {
       }
 
       // Gather declarations of the identifier in the current scope; we can assume we've got no
-      // non-overloadable candidate.
+      // non-overloadable candidate in `matches` yet.
       let newMatches = lookup(stem, in: s, exposedTo: scopeOfUse)
-      for d in newMatches {
-        if !insert(lookedUp: d, in: &matches) { return matches }
+      if insert(newMatches: newMatches, into: &matches) {
+        return matches
       }
     }
 
     // Handle references to the containing module.
-    if program[containingModule!].baseName == stem {
-      if !insert(lookedUp: AnyDeclID(containingModule!), in: &matches) { return matches }
+    if matches.isEmpty && (program[containingModule!].baseName == stem) {
+      return [AnyDeclID(containingModule!)]
     }
 
     // Handle references to imported symbols.
@@ -2737,24 +2798,23 @@ struct TypeChecker {
     return matches
   }
 
-  /// Inserts `d` in `matches` if it isn't shadowed, returning `true` iff name lookup should
-  /// continue in outer scopes.
+  /// Merges `newMatches` into `partialResult`, returning `true` iff a non-overloadable declaration
+  /// was inserted.
   ///
-  /// `d` is inserted if and only if:
-  /// - it is not a binding under checking; and
-  /// - it `matches` is empty or `d` is overloadable.
-  private mutating func insert(lookedUp d: AnyDeclID, in matches: inout Set<AnyDeclID>) -> Bool {
-    if (d.kind == VarDecl.self) && cache.declsUnderChecking.contains(d) {
-      return true
-    } else if d.isOverloadable {
-      matches.insert(d)
-      return true
-    } else if matches.isEmpty {
-      matches.insert(d)
-      return false
-    } else {
-      return false
+  /// Bindings under checking are not inserted, thus preventing initializing expressions from
+  /// referring to the left hand side of a binding initialization (e.g., `let x = x`).
+  ///
+  /// - Requires: `partialResult` doesn't contain any non-overloadable declaration.
+  private mutating func insert(
+    newMatches: Set<AnyDeclID>, into partialResult: inout Set<AnyDeclID>
+  ) -> Bool {
+    var hasNonOverloadable = false
+    for m in newMatches {
+      if (m.kind == VarDecl.self) && cache.declsUnderChecking.contains(m) { continue }
+      partialResult.insert(m)
+      hasNonOverloadable = hasNonOverloadable || !m.isOverloadable
     }
+    return hasNonOverloadable
   }
 
   /// Returns the declarations that introduce a name with given `stem` in the declaration space of
@@ -2789,9 +2849,15 @@ struct TypeChecker {
     _ stem: String, in lookupContext: T.ID, exposedTo scopeOfUse: AnyScopeID
   ) -> Set<AnyDeclID> {
     let extended = uncheckedType(of: lookupContext)
-    var matches = names(introducedIn: lookupContext)[stem, default: []]
-    matches.formUnion(lookup(stem, memberOf: extended, exposedTo: scopeOfUse))
-    return matches
+
+    if let t = GenericTypeParameterType(extended), isTraitReceiver(t), stem == "Self" {
+      // "Self" in the context of a trait extension denotes that trait's receiver.
+      return [AnyDeclID(t.decl)]
+    } else {
+      var matches = names(introducedIn: lookupContext)[stem, default: []]
+      matches.formUnion(lookup(stem, memberOf: extended, exposedTo: scopeOfUse))
+      return matches
+    }
   }
 
   /// Returns the declarations that introduce a name with given `stem` in the declaration space of
@@ -2901,8 +2967,7 @@ struct TypeChecker {
   /// Returns the declarations that introduce a name with given `stem` as member of `nominalScope`
   /// and are exposed to `scopeOfUse`.
   private mutating func lookup(
-    _ stem: String, memberOf nominalScope: TypeAliasType,
-    exposedTo scopeOfUse: AnyScopeID
+    _ stem: String, memberOf nominalScope: TypeAliasType, exposedTo scopeOfUse: AnyScopeID
   ) -> Set<AnyDeclID> {
     if let d = names(introducedIn: nominalScope.decl)[stem] {
       return d
@@ -3041,88 +3106,126 @@ struct TypeChecker {
     return table
   }
 
-  /// Returns the generic parameters introduced by `d`.
-  private func genericParameters(introducedBy d: AnyDeclID) -> [GenericParameterDecl.ID] {
-    switch d.kind {
-    case TraitDecl.self:
-      return []
-    default:
-      return (program.ast[d] as? GenericScope)?.genericParameters ?? []
-    }
-  }
-
-  /// Returns declarations extending `subject` exposed to `scopeOfUse`.
+  /// Returns the declarations extending `subject` exposed to `scopeOfUse`.
   ///
-  /// - Requires: The imports of the module containing `scopeOfUse` have been configured.
   /// - Returns: The declarations extending `subject`, which all conform to `TypeExtendingDecl`.
   private mutating func extensions(
     of subject: AnyType, exposedTo scopeOfUse: AnyScopeID
   ) -> [AnyDeclID] {
-    let key = Cache.TypeLookupKey(subject, in: scopeOfUse)
-    if let r = cache.typeToExtensions[key] {
-      return r
+    let t = canonical(subject, in: scopeOfUse)
+
+    switch t.base {
+    case let u as BoundGenericType:
+      // Extensions of bound generic types are looked up without the generic arguments.
+      return extensions(of: u.base, exposedTo: scopeOfUse)
+
+    case let u as TraitType:
+      // Extensions of traits are looked up by their receiver parameters.
+      let p = ^GenericTypeParameterType(selfParameterOf: u.decl, in: program.ast)
+      return extensions(of: p, exposedTo: scopeOfUse)
+
+    default:
+      return _extensions(of: t, exposedTo: scopeOfUse)
     }
-
-    let subject = canonical(subject, in: scopeOfUse)
-    if let t = BoundGenericType(subject) {
-      let r = extensions(of: t.base, exposedTo: scopeOfUse)
-      cache.typeToExtensions[key] = r
-      return r
-    }
-
-    var matches: [AnyDeclID] = []
-    var root: ModuleDecl.ID? = nil
-
-    for s in program.scopes(from: scopeOfUse) {
-      switch s.kind {
-      case ModuleDecl.self:
-        let m = ModuleDecl.ID(s)!
-        let d = program[m].decls.extensions
-        reduce(decls: d, extending: subject, in: scopeOfUse, into: &matches)
-        root = m
-
-      case TranslationUnit.self:
-        continue
-
-      default:
-        let d = program[s].decls.extensions
-        reduce(decls: d, extending: subject, in: scopeOfUse, into: &matches)
-      }
-    }
-
-    // Nowhere else to look if `scopeOfUse` is a module.
-    if scopeOfUse.kind == ModuleDecl.self { return matches }
-
-    // Look for extension declarations in imported modules.
-    let fileImports = imports(exposedTo: scopeOfUse)
-    for m in fileImports where m != root {
-      let symbols = program[m].decls.extensions
-      reduce(decls: symbols, extending: subject, in: scopeOfUse, into: &matches)
-    }
-
-    cache.typeToExtensions[key] = matches
-    return matches
   }
 
-  /// Insert in `matches` the declarations in `ds` that extend `subject` in `scopeOfUse`.
+  /// Returns the declarations extending `subject` exposed to `scopeOfUse`.
   ///
-  /// - Requires: `subject` must be canonical.
-  private mutating func reduce<S: Sequence>(
-    decls: S, extending subject: AnyType, in scopeOfUse: AnyScopeID,
-    into matches: inout [AnyDeclID]
-  ) where S.Element == AnyDeclID {
-    precondition(subject[.isCanonical])
+  /// - Requires: `subject` is canonical.
+  private mutating func _extensions(
+    of subject: AnyType, exposedTo scopeOfUse: AnyScopeID
+  ) -> [AnyDeclID] {
+    let key = Cache.TypeLookupKey(subject, in: scopeOfUse)
+    if let result = cache.typeToExtensions[key] { return result }
 
-    for d in decls where d.isTypeExtendingDecl {
-      // Skip declarations that are already on the checker's stack.
-      if cache.uncheckedType[d] == .inProgress { continue }
+    var partialResult: [AnyDeclID] = []
+    defer { cache.typeToExtensions[key] = partialResult }
 
-      // Skip declarations that aren't extending `subject`.
-      guard let extended = uncheckedType(of: d).errorFree else { continue }
-      if !areEquivalent(extended, subject, in: scopeOfUse) { continue }
+    var s = scopeOfUse
+    while true {
+      if let u = TranslationUnit.ID(s) {
+        for m in imports(exposedTo: u) {
+          appendExtensions(declaredIn: AnyScopeID(m), extending: subject, to: &partialResult)
+        }
+        return partialResult
+      } else {
+        appendExtensions(declaredIn: s, extending: subject, to: &partialResult)
+      }
 
-      matches.append(d)
+      if let p = program.nodeToScope[s] {
+        s = p
+      } else {
+        return partialResult
+      }
     }
+  }
+
+  /// Adds the declarations in `s` that extends `t` to `partialResult`.
+  ///
+  /// - Requires: `t` is canonical.
+  private mutating func appendExtensions(
+    declaredIn s: AnyScopeID, extending t: AnyType, to partialResult: inout [AnyDeclID]
+  ) {
+    // This method implements extension binding, which consists of associating an extension with
+    // the type that it extends. Ideally, we would like to complete extension binding before
+    // answering qualified name lookup requests, because determining whether `Bar` is member of
+    // `Foo` requires looking in all extensions of `Foo`. Unfortunately, evaluating the expression
+    // type expressions may require qualified name lookup so we have to bind extensions lazily.
+    //
+    // To find the extensions of a type T, we have to resolve the type of each unbound extension
+    // and then check if that type is T. We avoid recursion during name lookup by ignoring the
+    // extensions that occurred on the stack. That's fine because extensions can't extend a type
+    // they declare.
+    //
+    // We minimize the number of linear passes we make by eagerly binding the extensions that we
+    // visit, regardless of the type that they extend. That way, the result of future calls to this
+    // method for a different type have a chance to be cached already.
+
+    // Nothing to do if the scope doesn't contain any extension.
+    let n = program[s].decls.extensions.count
+    if n == 0 { return }
+
+    // We swap the contents of the cache with `c` to avoid unnecessary copies.
+    var c: Cache.ScopeExtensionCache? = nil
+    swap(&c, &cache.scopeToTypeToExtensions[s])
+    if c == nil { c = .init(count: n) }
+
+    // Faster path: we've bound all extensions in `s`; we know which ones extend `t`.
+    if c!.unbound.allFalse {
+      if let e = c!.typeToExtension[t] {
+        partialResult.append(contentsOf: e)
+      }
+      swap(&c, &cache.scopeToTypeToExtensions[s])
+      return
+    }
+
+    // Slower path: we must complete extension binding.
+    for (i, d) in program[s].decls.extensions.enumerated() where c!.unbound[i] {
+      switch cache.uncheckedType[d] {
+      case .some(.inProgress):
+        // Skip declarations that are already on the checker's stack.
+        continue
+
+      case .some(.computed(let extended)):
+        // Extended type was already computed; no need to deal with re-entrency.
+        let x = canonical(extended, in: s)
+        c!.typeToExtension[x, default: []].append(d)
+
+      case .none:
+        // The type of the extension is not known yet; we have to compute it. That may cause a
+        // re-entrant call into the current method, so we have to commit the state of our cache.
+        swap(&c, &cache.scopeToTypeToExtensions[s])
+        let extended = canonical(uncheckedType(of: d), in: s)
+        swap(&c, &cache.scopeToTypeToExtensions[s])
+        c!.typeToExtension[extended, default: []].append(d)
+      }
+
+      assert(c!.unbound[i])
+      c!.unbound[i] = false
+    }
+
+    partialResult.append(contentsOf: c!.typeToExtension[t, default: []])
+    swap(&c, &cache.scopeToTypeToExtensions[s])
   }
 
   /// Returns `d` if it has name `n`, otherwise the implementation of `d` with name `n` or `nil`
@@ -3199,7 +3302,7 @@ struct TypeChecker {
   }
 
   /// If `s` is contained in a type extending declaration, returns the scope extended by that
-  /// declaration. Otherwise, returns `nil`.
+  /// declaration; returns `nil` otherwise.
   private mutating func bridgedScope<S: ScopeID>(of s: S) -> AnyScopeID? {
     switch s.kind {
     case ConformanceDecl.self:
@@ -3217,9 +3320,9 @@ struct TypeChecker {
   mutating func scopeExtended<T: TypeExtendingDecl>(by d: T.ID) -> AnyScopeID? {
     let t = uncheckedType(of: d)
     switch t.base {
+    case let u as GenericTypeParameterType where isTraitReceiver(u):
+      return program[u.decl].scope
     case let u as ProductType:
-      return AnyScopeID(u.decl)
-    case let u as TraitType:
       return AnyScopeID(u.decl)
     case let u as TypeAliasType:
       return AnyScopeID(u.decl)
@@ -3230,20 +3333,20 @@ struct TypeChecker {
 
   // MARK: Name resolution
 
-  /// Resolves components of `name` from left to right until all components have been resolved or
-  /// one component requires overload resolution.
+  /// Resolves components of `n` from left to right until all components have been resolved or one
+  /// component requires overload resolution.
   ///
-  /// If the leftmost component of `name` is non-nominal, `resolveNonNominalPrefix` is called on
-  /// `self` and the second component `c` of `name` (which is nominal), returning the type `T` of
-  /// `c`'s nominal scope or `nil` if such a type can't be determined. If a type is returned, name
-  /// resolution proceeds, looking for `c` as a member of `T`. Otherwise, `.canceled(nil, u)` is
-  /// returned, where `u` is the nominal suffix of `name`, starting from `c`.
+  /// If the leftmost component of `n` is non-nominal, `resolveNonNominalPrefix` is called on
+  /// `self` and the second component `c` of `n` (which is nominal), returning the type `T` of
+  /// `c`'s nominal scope or `nil` if such a type can't be determined. If a type is returned,
+  /// name resolution proceeds, looking for `c` as a member of `T`. Otherwise, `.canceled(nil, u)`
+  /// is returned, where `u` is the nominal suffix of `n`, starting from `c`.
   private mutating func resolve(
-    _ name: NameExpr.ID,
+    _ n: NameExpr.ID,
     usedAs purpose: NameUse = .unapplied,
     withNonNominalPrefix resolveNonNominalPrefix: (inout Self, NameExpr.ID) -> AnyType?
   ) -> NameResolutionResult {
-    var (unresolved, domain) = program.ast.splitNominalComponents(of: name)
+    var (unresolved, domain) = program.ast.splitNominalComponents(of: n)
 
     // Continue iff `name` is prefixed by nominal components only.
     var parent: NameResolutionContext? = nil
@@ -3266,11 +3369,12 @@ struct TypeChecker {
     // information to resolve overload sets.
     var resolved: [NameResolutionResult.ResolvedComponent] = []
     while let component = unresolved.popLast() {
-      let candidates = resolve(
-        component, in: parent, usedAs: unresolved.isEmpty ? purpose : .unapplied)
-      if candidates.isEmpty {
-        return .failed
-      }
+      // `purpose` only applies to the last component.
+      let u = unresolved.isEmpty ? purpose : .unapplied
+      let candidates = resolve(component, in: parent, usedAs: u)
+
+      // Resolution failed if we found no candidates.
+      if candidates.isEmpty { return .failed }
 
       // Append the resolved component to the nominal prefix.
       resolved.append(.init(component, candidates))
@@ -3297,11 +3401,7 @@ struct TypeChecker {
   ) -> [NameResolutionResult.Candidate] {
     let name = program[n].name
 
-    // Evaluate generic arguments.
-    let arguments = program[n].arguments.map { (a) -> any CompileTimeValue in
-      evalTypeAnnotation(a.value)
-    }
-
+    let arguments = evalGenericArguments(program[n].arguments)
     let candidates = resolve(
       name, specializedBy: arguments,
       in: context, exposedTo: program[n].scope, usedAs: purpose)
@@ -3327,9 +3427,15 @@ struct TypeChecker {
 
   /// Returns the declarations of `name` exposed to `scopeOfUse` and specialized by `arguments`.
   ///
-  /// The declarations are searched with an unqualified lookup unless `context` is set, in which
-  /// case they are searched in the declaration space of `context.type`. Generic candidates are
-  /// specialized with `arguments` appended to `parent.arguments`.
+  /// The return value is a set of candidates, each of which corresponding to one possible way to
+  /// resolve `name` to a specific declaration. The declarations are searched with an unqualified
+  /// lookup unless `context` is set, in which case they are searched in the declaration space of
+  /// `context.type`. The specialization of generic is obtained by appending `arguments` to
+  /// `parent.arguments`.
+  ///
+  /// If `name` resolves to an initializer and `purpose` is `.constructor`, the corresponding
+  /// candidate is assigned a constructor type. If `purpose` has call labels, they are used to
+  /// filter candidates with different labels.
   mutating func resolve(
     _ name: SourceRepresentable<Name>, specializedBy arguments: [any CompileTimeValue],
     in context: NameResolutionContext?, exposedTo scopeOfUse: AnyScopeID, usedAs purpose: NameUse
@@ -3354,56 +3460,13 @@ struct TypeChecker {
     // Create declaration references to all candidates.
     var candidates: NameResolutionResult.CandidateSet = []
     for m in matches {
-      guard var candidateType = resolveType(of: m) else { continue }
       var log = DiagnosticSet()
 
-      // The specialization of the match includes that of context in which it was looked up.
-      var specialization = genericArguments(inScopeIntroducing: m, resolvedIn: context)
-      candidateType = specialize(candidateType, for: specialization, in: scopeOfUse)
-
-      // Keep track of generic arguments that should be captured later on.
-      let candidateSpecialization = genericArguments(
-        passedTo: m, typed: candidateType, referredToBy: name, specializedBy: arguments,
+      let t = resolveType(
+        of: m, referredToBy: name, specializedBy: arguments, in: context,
+        exposedTo: scopeOfUse, usedAs: purpose,
         reportingDiagnosticsTo: &log)
-      for (p, a) in candidateSpecialization {
-        specialization[p] = a
-      }
-
-      // If the match is a trait member looked, specialize its receiver.
-      // TODO: Remove `mayCaptureGenericParameters` when
-      if let t = traitDeclaring(m), mayCaptureGenericParameters(m) {
-        // DR: `mayCaptureGenericParameters` is used to avoid populating the specialization table
-        // when `m` is an associated type declaration. Otherwise, `specialize` causes resolution
-        // to systematically pick the default value. I suspect that `specialize` shouldn't do that
-        // when the associated type is rooted at a trait. Substitution of associated type should
-        // rely on conformances rather than lookup.
-        let r = context?.type ?? resolveReceiverMetatype(in: scopeOfUse)?.instance
-        specialization[program[t.decl].receiver] = r
-      }
-
-      // If the name resolves to an initializer, determine if it is used as a constructor.
-      let isConstructor =
-        (m.kind == InitializerDecl.self)
-        && ((purpose == .constructor) || (name.value.stem == "new"))
-      if isConstructor {
-        candidateType = ^LambdaType(constructorFormOf: LambdaType(candidateType)!)
-      }
-
-      // If the receiver is an existential, replace its receiver.
-      if let container = ExistentialType(context?.type) {
-        candidateType = candidateType.asMember(of: container)
-        if let t = traitDeclaring(m) {
-          specialization[program[t.decl].receiver] = ^WitnessType(of: container)
-        }
-      }
-
-      // Re-specialize the candidate's type now that the substitution map is complete.
-      //
-      // The specialization map now contains the substitutions accumulated from the candidate's
-      // qualification as well as the ones related to the resolution of the candidate itself. For
-      // example, if we resolved `A<X>.f<Y>`, we'd get `X` from the resolution of the qualification
-      // and `Y` from the resolution of the candidate.
-      candidateType = specialize(candidateType, for: specialization, in: scopeOfUse)
+      guard let (candidateType, specialization, isConstructor) = t else { continue }
 
       let r = program.makeReference(
         to: m, specializedBy: specialization, memberOf: context, exposedTo: scopeOfUse,
@@ -3561,7 +3624,78 @@ struct TypeChecker {
     }
   }
 
-  /// Returns the resolved type of the entity declared by `d` or `nil` if is invalid.
+  /// Returns the resolved type of the entity declared by `d` when referred to by `name` with
+  /// the given `arguments`, or `nil` if `d` is ill-formed.
+  ///
+  /// If `d` is generic, `context` determines how to construct its complete list of arguments and
+  /// the specialization of the returned type is performed in `scopeOfUse`. Diagnostics of errors
+  /// related to the construction of the generic argument list are stored in `log`.
+  ///
+  /// If `d` declares an initializer and and `purpose` is `.constructor`, the returned type is the
+  /// constructor form of `d`'s type.
+  private mutating func resolveType(
+    of d: AnyDeclID,
+    referredToBy name: SourceRepresentable<Name>,
+    specializedBy arguments: [any CompileTimeValue],
+    in context: NameResolutionContext?,
+    exposedTo scopeOfUse: AnyScopeID,
+    usedAs purpose: NameUse,
+    reportingDiagnosticsTo log: inout DiagnosticSet
+  ) -> (candidateType: AnyType, specialization: GenericArguments, isConstructor: Bool)? {
+    guard var candidateType = resolveType(of: d) else { return nil }
+
+    // The specialization of the match includes that of context in which it was looked up.
+    var specialization = genericArguments(inScopeIntroducing: d, resolvedIn: context)
+    candidateType = specialize(candidateType, for: specialization, in: scopeOfUse)
+
+    // Keep track of generic arguments that should be captured later on.
+    let candidateSpecialization = genericArguments(
+      passedTo: d, typed: candidateType, referredToBy: name, specializedBy: arguments,
+      reportingDiagnosticsTo: &log)
+    for (p, a) in candidateSpecialization {
+      specialization[p] = a
+    }
+
+    // If the match is a trait member looked, specialize its receiver.
+    // TODO: Remove `mayCaptureGenericParameters` when
+    if let t = traitDeclaring(d), mayCaptureGenericParameters(d) {
+      // DR: `mayCaptureGenericParameters` is used to avoid populating the specialization table
+      // when `m` is an associated type declaration. Otherwise, `specialize` causes resolution
+      // to systematically pick the default value. I suspect that `specialize` shouldn't do that
+      // when the associated type is rooted at a trait. Substitution of associated type should
+      // rely on conformances rather than lookup.
+      let r = context?.type ?? resolveReceiverMetatype(in: scopeOfUse)?.instance
+      specialization[program[t.decl].receiver] = r
+    }
+
+    // If the name resolves to an initializer, determine if it is used as a constructor.
+    let isConstructor =
+      (d.kind == InitializerDecl.self)
+      && ((purpose == .constructor) || (name.value.stem == "new"))
+    if isConstructor {
+      candidateType = ^LambdaType(constructorFormOf: LambdaType(candidateType)!)
+    }
+
+    // If the receiver is an existential, replace its receiver.
+    if let container = ExistentialType(context?.type) {
+      candidateType = candidateType.asMember(of: container)
+      if let t = traitDeclaring(d) {
+        specialization[program[t.decl].receiver] = ^WitnessType(of: container)
+      }
+    }
+
+    // Re-specialize the candidate's type now that the substitution map is complete.
+    //
+    // The specialization map now contains the substitutions accumulated from the candidate's
+    // qualification as well as the ones related to the resolution of the candidate itself. For
+    // example, if we resolved `A<X>.f<Y>`, we'd get `X` from the resolution of the qualification
+    // and `Y` from the resolution of the candidate.
+    candidateType = specialize(candidateType, for: specialization, in: scopeOfUse)
+
+    return (candidateType, specialization, isConstructor)
+  }
+
+  /// Returns the resolved type of the entity declared by `d` or `nil` if `d` is ill-formed.
   private mutating func resolveType(of d: AnyDeclID) -> AnyType? {
     var result = uncheckedType(of: d)
     if result.isError { return nil }
@@ -3624,8 +3758,6 @@ struct TypeChecker {
     switch t.base {
     case let u as ProductType:
       return resolveReceiverMetatype(in: u.decl)
-    case let u as TraitType:
-      return resolveReceiverMetatype(in: u.decl)
     case let u as TypeAliasType:
       return resolveReceiverMetatype(in: u.decl)
     default:
@@ -3662,7 +3794,7 @@ struct TypeChecker {
   }
 
   /// Returns the list of generic arguments passed to `d`, which has type `t` and is being referred
-  /// to by `name`, reporting diagnostics to `log.`
+  /// to by `name`, reporting diagnostics to `log`.
   private mutating func genericArguments(
     passedTo d: AnyDeclID, typed t: AnyType,
     referredToBy name: SourceRepresentable<Name>, specializedBy arguments: [any CompileTimeValue],
@@ -3672,7 +3804,7 @@ struct TypeChecker {
       assert(arguments.isEmpty, "generic declaration bound twice")
       return g.arguments
     } else {
-      let p = genericParameters(introducedBy: d)
+      let p = program.ast.genericParameters(introducedBy: d)
       return associateGenericParameters(p, of: name, to: arguments, reportingDiagnosticsTo: &log)
     }
   }
@@ -3700,7 +3832,7 @@ struct TypeChecker {
   }
 
   /// Associates `parameters`, which are introduced by `name`'s declaration, to corresponding
-  /// values in `arguments` if the two arrays have the same length. Otherwise, returns `nil`,
+  /// values in `arguments` if the two arrays have the same length; returns `nil` otherwise,
   /// reporting diagnostics to `log`.
   private mutating func associateGenericParameters(
     _ parameters: [GenericParameterDecl.ID], of name: SourceRepresentable<Name>,
@@ -3812,7 +3944,7 @@ struct TypeChecker {
     case TraitDecl.self:
       return TraitType(TraitDecl.ID(p)!, ast: program.ast)
     case ExtensionDecl.self:
-      return TraitType(uncheckedType(of: ExtensionDecl.ID(p)!))
+      return extendedTrait(ExtensionDecl.ID(p)!)
     case MethodDecl.self:
       return traitDeclaring(MethodDecl.ID(p)!)
     case SubscriptDecl.self:
@@ -4228,8 +4360,7 @@ struct TypeChecker {
     updating obligations: inout ProofObligations
   ) -> AnyType {
     let callee = _inferredType(
-      ofCallee: program[e].callee, usedAs: .function, withHint: hint,
-      appliedTo: program[e].arguments, updating: &obligations)
+      ofCallee: program[e].callee, usedAs: .function, withHint: hint, updating: &obligations)
 
     // We failed to infer the type of the callee. We can stop here.
     if callee.isError {
@@ -4492,8 +4623,7 @@ struct TypeChecker {
     updating obligations: inout ProofObligations
   ) -> AnyType {
     let callee = _inferredType(
-      ofCallee: program[e].callee, usedAs: .subscript, withHint: hint,
-      appliedTo: program[e].arguments, updating: &obligations)
+      ofCallee: program[e].callee, usedAs: .subscript, withHint: hint, updating: &obligations)
 
     // We failed to infer the type of the callee. We can stop here.
     if callee.isError {
@@ -4582,11 +4712,9 @@ struct TypeChecker {
   }
 
   /// Returns the inferred type of `callee`, which is the callee of a function, initializer, or
-  /// subscript applied to with `arguments`, updating `state` with inference facts and deferred
-  /// type checking requests.
+  /// subscript, updating `state` with inference facts and deferred type checking requests.
   private mutating func _inferredType(
     ofCallee callee: AnyExprID, usedAs purpose: NameUse, withHint hint: AnyType?,
-    appliedTo arguments: [LabeledArgument],
     updating obligations: inout ProofObligations
   ) -> AnyType {
     assert(purpose != .unapplied)
@@ -4912,13 +5040,14 @@ struct TypeChecker {
     _ obligations: ProofObligations, relatedTo n: T,
     ignoringSharedCache ignoreSharedCache: Bool = false
   ) -> Solution {
-    // Compute the solution.
     let solution = tracingInference(relatedTo: n) { (me, isLoggingEnabled) in
-      // Nothing to do if the obligations are known unsatisfiable.
-      if obligations.isUnsatisfiable { return .init() }
-
-      var system = ConstraintSystem(obligations, logging: isLoggingEnabled)
-      return system.solution(querying: &me)
+      if obligations.isUnsatisfiable {
+        // Nothing to do if the obligations are known unsatisfiable.
+        return .init()
+      } else {
+        var system = ConstraintSystem(obligations, logging: isLoggingEnabled)
+        return system.solution(querying: &me)
+      }
     }
 
     commit(solution, satisfying: obligations, ignoringSharedCache: ignoreSharedCache)
@@ -5060,12 +5189,10 @@ struct TypeChecker {
 
   /// Compares `lhs` and `rhs` in `scopeOfUse` and returns whether one shadows the other.
   ///
-  /// `lhs` is deeper than `rhs` w.r.t. `scopeOfUse` if either of these statements hold:
-  /// - `lhs` and `rhs` are members of traits `t1` and `t2`, respectively, and `t1` refines `t2`
+  /// `lhs` is deeper than `rhs` w.r.t. `scopeOfUse` if any of these statements hold:
+  /// - `lhs` and `rhs` are members of traits `t1` and `t2`, respectively, and `t1` refines `t2`.
   /// - `lhs` isn't member of a trait and `rhs` is.
-  /// - `lhs` is declared in the module containing `scopeOfUse` and `rhs` isn't.
-  /// - `lhs` and `rhs` are declared in module containing `scopeOfUse` and `lhs` has more ancestors
-  ///   than `rhs`.
+  /// - `lhs` is lexically deeper than `rhs` (see `Program.compareLexicalDepth`).
   private mutating func compareDepth(
     _ lhs: AnyDeclID, _ rhs: AnyDeclID, in scopeOfUse: AnyScopeID
   ) -> StrictPartialOrdering {
@@ -5085,24 +5212,7 @@ struct TypeChecker {
       return .ascending
     }
 
-    let m = program.module(containing: scopeOfUse)
-    if program.isContained(lhs, in: m) {
-      // If `lhs` is in the same module as `scopeOfUse` but `rhs` isn't, then `lhs` shadows `rhs`.
-      guard program.isContained(rhs, in: m) else { return .ascending }
-
-      // If `lhs` and `rhs` are in the same module as `scopeOfUse`, then `lhs` shadows `rhs` iff
-      // it has more ancestors than `rhs`.
-      if program.hasMoreAncestors(lhs, than: rhs) { return .ascending }
-      if program.hasMoreAncestors(rhs, than: lhs) { return .descending }
-      return nil
-    }
-
-    if program.isContained(rhs, in: m) {
-      // If `rhs` is in the same module as `scopeOfUse` but `lhs` isn't, then `rhs` shadows `lhs`.
-      return .descending
-    }
-
-    return nil
+    return program.compareLexicalDepth(lhs, rhs, in: scopeOfUse)
   }
 
   /// Compares `lhs` and `rhs` in `scopeOfUse` and returns whether one is more specific than the
@@ -5216,11 +5326,6 @@ struct TypeChecker {
     return .init(nextFreshVariableIdentifier)
   }
 
-  /// Returns the module imports exposed to `s`.
-  private func imports(exposedTo s: AnyScopeID) -> Set<ModuleDecl.ID> {
-    cache.local.imports[program.source(containing: s), default: []]
-  }
-
   /// Returns `true` iff `t` is known as an arrow type.
   private func isArrow(_ t: AnyType) -> Bool {
     (t.base as? CallableType)?.isArrow ?? false
@@ -5268,8 +5373,13 @@ struct TypeChecker {
     program[d].pattern.introducer.value == .var
   }
 
+  /// Returns `true` iff `t` is the receiver of a trait declaration.
+  private func isTraitReceiver(_ t: GenericTypeParameterType) -> Bool {
+    program[t.decl].scope.kind == TraitDecl.self
+  }
+
   /// If `t` is the type of a mutating bundle in `scopeOfUse`, returns the output of a mutating
-  /// variant in that bundle. Otherwise, returns `nil`.
+  /// variant in that bundle; returns `nil` otherwise.
   private mutating func mutatingVariantOutput(
     of t: MethodType, in scopeOfUse: AnyScopeID
   ) -> AnyType? {
@@ -5291,6 +5401,23 @@ struct TypeChecker {
 
     /// A key in a type lookup table.
     typealias TypeLookupKey = ScopedValue<AnyType>
+
+    /// Cached information about the extensions of a scope.
+    struct ScopeExtensionCache {
+
+      /// A table mapping an extension in a given scope to `true` iff that extension is bound.
+      var unbound: BitArray
+
+      /// A table mapping a type to its extensions in a given scope.
+      var typeToExtension: [AnyType: [AnyDeclID]]
+
+      /// Creates an instance representing cached information for `count` extensions.
+      init(count: Int) {
+        unbound = .init(repeating: true, count: count)
+        typeToExtension = [:]
+      }
+
+    }
 
     /// The local instance being type checked.
     private(set) var local: TypedProgram
@@ -5323,6 +5450,11 @@ struct TypeChecker {
     ///
     /// This map serves as cache for `names(introducedIn:)`.
     var scopeToNames: [AnyScopeID: LookupTable] = [:]
+
+    /// A map from lexical scope to information about its extensions.
+    ///
+    /// This map serves as cache for `appendExtensions(declaredIn:extending:to:)`.
+    var scopeToTypeToExtensions: [AnyScopeID: ScopeExtensionCache] = [:]
 
     /// A map from type to the traits to which in conforms in a given scope.
     ///

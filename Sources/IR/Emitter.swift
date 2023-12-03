@@ -2615,7 +2615,7 @@ struct Emitter {
   // MARK: Deinitialization
 
   /// If `storage` is deinitializable in `self.insertionScope`, inserts the IR for deinitializing
-  /// it. Otherwise, reports a diagnostic.
+  /// it, or reports a diagnostic otherwise.
   ///
   /// Let `T` be the type of `storage`, `storage` is deinitializable iff `T` has a deinitializer
   /// exposed to `self.insertionScope`.
@@ -2659,7 +2659,7 @@ struct Emitter {
   }
 
   /// If `storage` is deinitializable in `self.insertionScope`, inserts the IR for deinitializing
-  /// it. Otherwise, reports a diagnostic for each part that isn't deinitializable.
+  /// it; reports a diagnostic for each part that isn't deinitializable otherwise.
   private mutating func emitDeinitParts(of storage: Operand, at site: SourceRange) {
     let t = module.type(of: storage).ast
 
@@ -2675,8 +2675,8 @@ struct Emitter {
   }
 
   /// If `storage`, which stores a record, is deinitializable in `self.insertionScope`, inserts
-  /// the IR for deinitializing it. Otherwise, reports a diagnostic for each part that isn't
-  /// deinitializable.
+  /// the IR for deinitializing it; reports a diagnostic for each part that isn't
+  /// deinitializable otherwise.
   ///
   /// - Requires: the type of `storage` has a record layout.
   private mutating func emitDeinitRecordParts(of storage: Operand, at site: SourceRange) {
@@ -2699,8 +2699,8 @@ struct Emitter {
   }
 
   /// If `storage`, which stores a union. is deinitializable in `self.insertionScope`, inserts
-  /// the IR for deinitializing it. Otherwise, reports a diagnostic for each part that isn't
-  /// deinitializable.
+  /// the IR for deinitializing it; reports a diagnostic for each part that isn't
+  /// deinitializable otherwise.
   ///
   /// - Requires: the type of `storage` is a union.
   private mutating func emitDeinitUnionPayload(of storage: Operand, at site: SourceRange) {
@@ -2739,8 +2739,8 @@ struct Emitter {
   }
 
   /// If `storage`, which stores a union container holding a `payload`, is deinitializable in
-  /// `self.insertionScope`, inserts the IR for deinitializing it. Otherwise, reports a diagnostic
-  /// for each part that isn't deinitializable.
+  /// `self.insertionScope`, inserts the IR for deinitializing it; reports a diagnostic for each
+  /// part that isn't deinitializable otherwise.
   private mutating func emitDeinitUnionPayload(
     of storage: Operand, containing payload: AnyType, at site: SourceRange
   ) {

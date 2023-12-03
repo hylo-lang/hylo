@@ -82,7 +82,7 @@ public struct Module {
     _modify { yield &functions[i.function]![i.block].instructions[i.address] }
   }
 
-  /// Accesses the instruction denoted by `o` if it is `.register`. Otherwise, returns `nil`.
+  /// Accesses the instruction denoted by `o` if it is `.register`; returns `nil` otherwise.
   public subscript(o: Operand) -> Instruction? {
     if case .register(let i) = o {
       return self[i]
@@ -321,7 +321,6 @@ public struct Module {
     let parameters = program.accumulatedGenericParameters(in: d)
     let output = program.canonical(
       (program[d].type.base as! CallableType).output, in: program[d].scope)
-
     let inputs = loweredParameters(of: d)
 
     let entity = Function(

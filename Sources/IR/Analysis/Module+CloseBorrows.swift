@@ -16,7 +16,7 @@ extension Module {
   }
 
   /// If `i` is `access` or `project`, make sure it is post-dominated by respectively `end_borrow`
-  /// or `end_project`, inserting new instructions as necessary. Otherwise, does nothing.
+  /// or `end_project`, inserting new instructions as necessary; does nothing otherwise.
   private mutating func close(
     _ i: InstructionID, in f: Function.ID, reportingDiagnosticsTo log: inout DiagnosticSet
   ) {
