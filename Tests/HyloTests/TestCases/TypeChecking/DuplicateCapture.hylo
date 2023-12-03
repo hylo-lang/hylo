@@ -6,6 +6,7 @@ public fun main() {
 
   //! @+1 diagnostic duplicate capture name 'z'
   fun f[let z = x, let z = y]() -> Int {
+    //! @+1 diagnostic ambiguous use of 'z'
     z.copy()
   }
 }

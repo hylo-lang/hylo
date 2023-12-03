@@ -12,9 +12,10 @@ Please visit our [website](https://hylo-lang.org) to get more information about 
 
 This project is written in [Swift](https://swift.org) and distributed in the form of a package, built with [Swift Package Manager](https://swift.org/package-manager/).
 You will need Swift 5.7 or higher to build the compiler from sources.
+The repository contains [submodules](https://git-scm.com/book/en/v2/Git-Tools-Submodules), so when you clone it, be sure you've got them.
 
 **Windows users:** 
-1. although this project is **not** Unix-specific, Windows support is not guaranteed due to the instability of continuous integration (see [issue 252](https://github.com/hylo-lang/hylo/issues/252) and [issue 805](https://github.com/hylo-lang/hylo/issues/805).
+1. although this project is **not** Unix-specific, Windows support is not guaranteed due to the instability of continuous integration (see [issue 252](https://github.com/hylo-lang/hylo/issues/252) and [issue 805](https://github.com/hylo-lang/hylo/issues/805)).
 2. This repository contains symbolic links, so you'll need to [enable support](https://stackoverflow.com/questions/5917249/git-symbolic-links-in-windows/59761201#59761201) for them before checking it out.
 
 ### Prerequisites
@@ -23,7 +24,7 @@ You can skip directly to step 3 if you're doing development exclusively in a [de
 Otherwise:
 
 1. Install LLVM 15 or later on your system (e.g. `brew install llvm`) 
-2. Have the above installation's `llvm-config` in your `PATH` (homebrew doesn't do that automatically; you'd need `export PATH="$(brew --prefix --installed llvm)/bin:$PATH""`).
+2. Have the above installation's `llvm-config` in your `PATH` (homebrew doesn't do that automatically; you'd need `export PATH="$(brew --prefix --installed llvm)/bin:$PATH"`).
 3. In this project's root directory.
     1. `swift package resolve` to get the `make-pkgconfig` tool.
     2. `.build/checkouts/Swifty-LLVM/Tools/make-pkgconfig.sh llvm.pc` to generate LLVM's library description 

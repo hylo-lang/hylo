@@ -129,13 +129,11 @@ public struct Driver: ParsableCommand {
   public func run() throws {
     do {
       let (exitCode, diagnostics) = try execute()
-
       diagnostics.render(
         into: &standardError, style: ProcessInfo.ansiTerminalIsConnected ? .styled : .unstyled)
-
       Driver.exit(withError: exitCode)
     } catch let e {
-      print("Unexpected error\n\(e)")
+      print("Unexpected error\n")
       Driver.exit(withError: e)
     }
   }
@@ -376,7 +374,7 @@ public struct Driver: ParsableCommand {
   }
 
   /// If `inputs` contains a single URL `u` whose path is non-empty, returns the last component of
-  /// `u` without any path extension and stripping all leading dots. Otherwise, returns "Main".
+  /// `u` without any path extension and stripping all leading dots; returns "Main" otherwise.
   private func makeProductName(_ inputs: [URL]) -> String {
     if let u = inputs.uniqueElement {
       let n = u.deletingPathExtension().lastPathComponent.drop(while: { $0 == "." })

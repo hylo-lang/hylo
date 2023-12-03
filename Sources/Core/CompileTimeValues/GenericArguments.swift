@@ -13,7 +13,7 @@ public struct GenericArguments {
   /// The type of this map's contents.
   fileprivate typealias Contents = OrderedDictionary<GenericParameterDecl.ID, Value>
 
-  /// The contents of `self`
+  /// The contents of `self`.
   fileprivate var contents: Contents
 
   /// Creates an instance with given `contents`.

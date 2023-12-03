@@ -7,7 +7,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout Actions Repository
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
+      with:
+        submodules: true
+        show-progress: false
 
     - name: Check spelling of file.txt
       uses: crate-ci/typos@v1.0.4

@@ -33,7 +33,10 @@ jobs:
         brew install swift-format
 
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
+      with:
+        submodules: true
+        show-progress: false
 
     - name: Check code format
       run: swift-format lint -r --configuration .swift-format.json -p Sources Tests Package.swift

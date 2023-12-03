@@ -20,6 +20,7 @@ private protocol TypeBox {
   func transformParts<M>(
     mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction
   ) -> any TypeProtocol
+
 }
 
 /// A box wrapping an instance of `Base`.
@@ -50,6 +51,7 @@ private struct ConcreteTypeBox<Base: TypeProtocol>: TypeBox {
   ) -> any TypeProtocol {
     base.transformParts(mutating: &m, transformer)
   }
+
 }
 
 /// The (static) type of an entity.
@@ -189,6 +191,20 @@ public struct AnyType {
     self.transform { (t) in
       if t.isTypeVariable {
         return .stepOver(.error)
+      } else if t[.hasVariable] {
+        return .stepInto(t)
+      } else {
+        return .stepOver(t)
+      }
+    }
+  }
+
+  /// Inserts the type variables that occur free in `self` into `s`.
+  public func collectOpenVariables(in s: inout Set<TypeVariable>) {
+    _ = self.transform(mutating: &s) { (partialResult, t) in
+      if let v = TypeVariable(t) {
+        partialResult.insert(v)
+        return .stepOver(t)
       } else if t[.hasVariable] {
         return .stepInto(t)
       } else {

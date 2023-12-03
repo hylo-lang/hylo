@@ -67,7 +67,7 @@ public struct SynthesizedFunctionDecl: Hashable {
 extension SynthesizedFunctionDecl: CustomStringConvertible {
 
   public var description: String {
-    type.captures.isEmpty ? "\(kind)" : "(\(receiver)).\(kind)"
+    type.captures.isEmpty ? "\(scope).\(kind)" : "\(scope).(\(receiver)).\(kind)"
   }
 
 }

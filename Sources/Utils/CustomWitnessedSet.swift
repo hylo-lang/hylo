@@ -7,7 +7,7 @@ public struct CustomWitnessedSet<Witness: HashableWitness> {
   /// An element wrapped into a hashable box.
   fileprivate typealias _Element = HashableBox<Witness>
 
-  /// The contents of `self`
+  /// The contents of `self`.
   fileprivate var contents: Set<_Element>
 
   /// Creates an instance with the elements in `members`.
