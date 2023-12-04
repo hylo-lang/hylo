@@ -958,18 +958,20 @@ struct Emitter {
   }
 
   private mutating func emit(assignStmt s: AssignStmt.ID) -> ControlFlow {
-    // The left operand of an assignment should always be marked for mutation, even if the
-    // statement actually denotes initialization.
-    guard ast[s].left.kind == InoutExpr.self else {
+    // The LHS should must be marked for mutation even if the statement denotes initialization.
+    guard program[s].left.kind == InoutExpr.self else {
       let p = program[s].left.site.first()
       report(.error(assignmentLHSRequiresMutationMarkerAt: .empty(at: p)))
       return .next
     }
 
-    // The RHS is evaluated before the LHS.
-    let x0 = emitStore(value: ast[s].right)
-    let x1 = emitLValue(ast[s].left)
-    emitMove([.inout, .set], x0, to: x1, at: ast[s].site)
+    // The RHS is evaluated first, stored into some local storage, and moved to the LHS. Implicit
+    // conversion is necessary if the RHS is subtype of the LHS.
+    let rhs = emitAllocStack(for: program[s].left.type, at: ast[s].site)
+    emitStore(convertingIfNecessary: ast[s].right, to: rhs)
+    let lhs = emitLValue(ast[s].left)
+    emitMove([.inout, .set], rhs, to: lhs, at: ast[s].site)
+
     return .next
   }
 
