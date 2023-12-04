@@ -5,7 +5,7 @@ public protocol DeclID: NodeIDProtocol {}
 
 extension DeclID {
 
-  /// Indicates whether `self` denotes an overloadable declaration.
+  /// `true` iff `self` denotes an overloadable declaration.
   public var isOverloadable: Bool {
     switch kind {
     case FunctionDecl.self, InitializerDecl.self, MethodDecl.self, SubscriptDecl.self:
@@ -15,9 +15,24 @@ extension DeclID {
     }
   }
 
+  /// `true` iff `self` denotes an associated type or value.
+  public var isAssociatedDecl: Bool {
+    (kind == AssociatedTypeDecl.self) || (kind == AssociatedValueDecl.self)
+  }
+
   /// `true` iff `self` denotes the declaration of a callable entity.
   public var isCallable: Bool {
     (kind.value as! Decl.Type).isCallable
+  }
+
+  /// `true` iff `self` denotes a type extending declaration.
+  public var isTypeExtendingDecl: Bool {
+    (kind == ExtensionDecl.self) || (kind == ConformanceDecl.self)
+  }
+
+  /// `true` iff `self` denotes a conformance source.
+  public var isConformanceSource: Bool {
+    kind.value is ConformanceSource.Type
   }
 
 }

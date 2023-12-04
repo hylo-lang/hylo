@@ -44,7 +44,7 @@ public enum DemangledSymbol: Hashable {
   /// A type.
   case type(DemangledType)
 
-  /// The entity wrapped in `self` if its payload is `.entity`. Otherwise, `nil`.
+  /// The entity wrapped in `self` if its payload is `.entity`, or `nil` otherwise.
   public var entity: DemangledEntity? {
     if case .entity(let e) = self {
       return e

@@ -43,7 +43,7 @@ extension XCTestCase {
   /// Applies `processAndCheck` to `hyloToTest` and the subset of its annotations whose commands
   /// match `checkedCommands`, recording resulting XCTest failures along with any additional
   /// failures where the effects of processing don't match the its annotation commands ("//!
-  /// ... diagnostic ...").
+  /// ... diagnostic ..."), and returning any error thrown by `processAndCheck`.
   ///
   /// - Parameters:
   ///   - checkedCommands: the annnotation commands to be validated by `processAndCheck`.
@@ -93,11 +93,12 @@ extension XCTestCase {
   /// Applies `process` to the ".hylo" file at the given path and reports XCTest failures where the
   /// effects of processing don't match the file's annotation commands ("//! ... diagnostic ...").
   ///
-  /// - Parameter process: applies some processing to `file`, updating `diagnostics`
-  ///   with any generated diagnostics. Throws an `Error` if processing failed.
-  /// - Parameter expectSuccess: true if an error from `process` represents a test failure, false if
-  ///   the lack of an error represents a test failure; nil if that information is to be derived
-  ///   from the contents of the file.
+  /// - Parameters:
+  ///   - process: applies some processing to `file`, updating `diagnostics` with any generated
+  ///     diagnostics. Throws an `Error` if processing failed.
+  ///   - expectSuccess: true if an error from `process` represents a test failure, false if the
+  ///     lack of an error represents a test failure; nil if that information is to be derived
+  ///     from the contents of the file.
   public func checkAnnotatedHyloFileDiagnostics(
     inFileAt hyloFilePath: String,
     expectSuccess: Bool,
@@ -114,12 +115,16 @@ extension XCTestCase {
     }
 
     if (thrownError == nil) != expectSuccess {
-      record(
-        XCTIssue(
-          Diagnostic.error(
-            thrownError.map { "success was expected, but processing failed with thrown error: \($0)" }
-              ?? "processing succeeded, but failure was expected",
-            at: f.wholeRange)))
+      record(XCTIssue(unexpectedOutcomeDiagnostic(thrownError: thrownError, at: f.wholeRange)))
+    }
+  }
+
+  /// Returns the diagnostic of an unexpected outcome with given `thrownError` reported at `s`.
+  private func unexpectedOutcomeDiagnostic(thrownError: Error?, at s: SourceRange) -> Diagnostic {
+    if let e = thrownError {
+      return .error("success was expected, but processing failed with thrown error: \(e)", at: s)
+    } else {
+      return .error("processing succeeded, but failure was expected", at: s)
     }
   }
 

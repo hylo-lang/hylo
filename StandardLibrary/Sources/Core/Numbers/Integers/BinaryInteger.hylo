@@ -54,16 +54,16 @@ public trait BinaryInteger: Comparable {
   /// - Requires: `other` is different from `0`.
   fun infix%= (_ other: Self) inout
 
-  /// Returns `true` if `self` is smaller than `other`. Otherwise, returns `false`.
+  /// Returns `true` if `self` is smaller than `other`; returns `false` otherwise.
   fun infix< (_ other: Self) -> Bool
 
-  /// Returns `true` if `self` is smaller than or equal to `other`. Otherwise, returns `false`.
+  /// Returns `true` if `self` is smaller than or equal to `other`; returns `false` otherwise.
   fun infix<= (_ other: Self) -> Bool
 
-  /// Returns `true` if `self` is greater than `other`. Otherwise, returns `false`.
+  /// Returns `true` if `self` is greater than `other`; returns `false` otherwise.
   fun infix> (_ other: Self) -> Bool
 
-  /// Returns `true` if `self` is greater than or equal to `other`. Otherwise, returns `false`.
+  /// Returns `true` if `self` is greater than or equal to `other`; returns `false` otherwise.
   fun infix>= (_ other: Self) -> Bool
 
   /// Returns the bitwise AND of `self` and `other`.

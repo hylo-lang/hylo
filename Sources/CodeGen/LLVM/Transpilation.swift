@@ -559,7 +559,7 @@ extension LLVM.Module {
     /// one-to-one mapping from Hylo registers to LLVM registers.
     var byproduct: [IR.InstructionID: (slide: LLVM.IRValue, frame: LLVM.IRValue)] = [:]
 
-    /// The address of the function's frame if `f` is a subscript. Otherwise, `nil`.
+    /// The address of the function's frame if `f` is a subscript, or `nil` otherwise.
     let frame: LLVM.IRValue?
 
     /// The prologue of the transpiled function, which contains its stack allocations.
@@ -934,6 +934,11 @@ extension LLVM.Module {
         let source = llvm(s.operands[0])
         register[.register(i)] = insertZeroExtend(source, to: target, at: insertionPoint)
 
+      case .sext(_, let t):
+        let target = ir.llvm(builtinType: t, in: &self)
+        let source = llvm(s.operands[0])
+        register[.register(i)] = insertSignExtend(source, to: target, at: insertionPoint)
+
       case .inttoptr(_):
         let source = llvm(s.operands[0])
         register[.register(i)] = insertIntToPtr(source, at: insertionPoint)
@@ -1098,14 +1103,14 @@ extension LLVM.Module {
     func insert(switch i: IR.InstructionID) {
       let s = m[i] as! Switch
 
-      // Pick the case 0 as the "default".
-      let cases = s.successors[1...].enumerated().map { (value, destination) in
+      let branches = s.successors.enumerated().map { (value, destination) in
         (word().constant(UInt64(value)), block[destination]!)
       }
 
+      // The last branch is the "default".
       let n = llvm(s.index)
       insertSwitch(
-        on: n, cases: cases, default: block[s.successors[0]]!,
+        on: n, cases: branches.dropLast(), default: branches.last!.1,
         at: insertionPoint)
     }
 

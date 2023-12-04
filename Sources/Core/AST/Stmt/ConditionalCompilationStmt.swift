@@ -23,7 +23,7 @@ public struct ConditionalCompilationStmt: Stmt {
   }
 
   /// A condition in a conditional compilation statement.
-  public enum Condition: Codable, Equatable {
+  public indirect enum Condition: Codable, Equatable {
 
     /// Always holds.
     case `true`
@@ -37,6 +37,9 @@ public struct ConditionalCompilationStmt: Stmt {
     /// Holds iff the processor architecture for which the code is compiled matches the payload.
     case arch(Identifier)
 
+    /// Holds iff the payload matches any of the feature enabled in the compiler.
+    case feature(Identifier)
+
     /// Holds iff the name of the compiler processing the file matches the payload.
     case compiler(Identifier)
 
@@ -45,6 +48,9 @@ public struct ConditionalCompilationStmt: Stmt {
 
     /// Holds iff the version of Hylo for which this file is compiled, satisfies `comparison`.
     case hyloVersion(comparison: VersionComparison)
+
+    /// Holds iff the payload doesn't.
+    case not(Condition)
 
     /// `true` iff the body of the conditional-compilation shouldn't be parsed.
     public var mayNotNeedParsing: Bool {
@@ -55,23 +61,28 @@ public struct ConditionalCompilationStmt: Stmt {
         return true
       case .hyloVersion:
         return true
+      case .not(let c):
+        return c.mayNotNeedParsing
       default:
         return false
       }
     }
 
     /// Returns `true` iff `self` holds for the current process.
-    public func holds(for info: CompilerInfo) -> Bool {
+    public func holds(for info: CompilerConfiguration) -> Bool {
       switch self {
       case .`true`: return true
       case .`false`: return false
       case .os(let id): return id == info.os
       case .arch(let id): return id == info.arch
+      case .feature(let id): return info.features.contains(id)
       case .compiler(let id): return id == info.compiler
       case .compilerVersion(let comparison):
         return comparison.evaluate(for: info.compilerVersion)
       case .hyloVersion(let comparison):
         return comparison.evaluate(for: info.hyloVersion)
+      case .not(let c):
+        return !c.holds(for: info)
       }
     }
 
@@ -97,8 +108,8 @@ public struct ConditionalCompilationStmt: Stmt {
   }
 
   /// Returns the statements that this expands to.
-  public var expansion: [AnyStmtID] {
-    if condition.holds(for: CompilerInfo.instance) {
+  public func expansion(for compiler: CompilerConfiguration) -> [AnyStmtID] {
+    if condition.holds(for: compiler) {
       return stmts
     } else {
       return fallback

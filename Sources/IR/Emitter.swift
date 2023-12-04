@@ -123,7 +123,7 @@ struct Emitter {
 
   /// Inserts the IR for the top-level declarations of `self.module`.
   mutating func incorporateTopLevelDeclarations() {
-    for u in program.ast.topLevelDecls(module.id) {
+    for u in program[module.id].decls {
       lower(topLevel: u)
     }
   }
@@ -169,6 +169,8 @@ struct Emitter {
     case TraitDecl.self:
       lower(trait: .init(d)!)
     case TypeAliasDecl.self:
+      break
+    case VarDecl.self:
       break
     default:
       unexpected(d, in: ast)
@@ -481,6 +483,8 @@ struct Emitter {
         lower(initializer: .init(m)!)
       case MethodDecl.self:
         lower(method: .init(m)!)
+      case ProductTypeDecl.self:
+        lower(product: .init(m)!)
       case SubscriptDecl.self:
         lower(subscript: .init(m)!)
       default:
@@ -572,21 +576,8 @@ struct Emitter {
     _ name: NamePattern.ID, referringTo subfield: RecordPath, relativeTo storage: Operand,
     consuming initializer: AnyExprID
   ) {
-    let lhsPart = emitLocalDeclaration(of: name, referringTo: subfield, relativeTo: storage)
-    let lhsPartType = module.type(of: lhsPart).ast
-    let rhsPartType = canonical(program[initializer].type)
-
-    if program.areEquivalent(lhsPartType, rhsPartType, in: program[name].scope) {
-      emitStore(value: initializer, to: lhsPart)
-    } else if lhsPartType.base is UnionType {
-      let x0 = insert(
-        module.makeOpenUnion(
-          lhsPart, as: rhsPartType, forInitialization: true, at: ast[name].site))!
-      emitStore(value: initializer, to: x0)
-      insert(module.makeCloseUnion(x0, at: ast[name].site))
-    } else {
-      UNIMPLEMENTED()
-    }
+    let lhs = emitLocalDeclaration(of: name, referringTo: subfield, relativeTo: storage)
+    emitStore(convertingIfNecessary: initializer, to: lhs)
   }
 
   /// Inserts the IR to declare and initialize the names in `lhs`, which refer to subobjects of
@@ -967,18 +958,20 @@ struct Emitter {
   }
 
   private mutating func emit(assignStmt s: AssignStmt.ID) -> ControlFlow {
-    // The left operand of an assignment should always be marked for mutation, even if the
-    // statement actually denotes initialization.
-    guard ast[s].left.kind == InoutExpr.self else {
+    // The LHS should must be marked for mutation even if the statement denotes initialization.
+    guard program[s].left.kind == InoutExpr.self else {
       let p = program[s].left.site.first()
       report(.error(assignmentLHSRequiresMutationMarkerAt: .empty(at: p)))
       return .next
     }
 
-    // The RHS is evaluated before the LHS.
-    let x0 = emitStore(value: ast[s].right)
-    let x1 = emitLValue(ast[s].left)
-    emitMove([.inout, .set], x0, to: x1, at: ast[s].site)
+    // The RHS is evaluated first, stored into some local storage, and moved to the LHS. Implicit
+    // conversion is necessary if the RHS is subtype of the LHS.
+    let rhs = emitAllocStack(for: program[s].left.type, at: ast[s].site)
+    emitStore(convertingIfNecessary: ast[s].right, to: rhs)
+    let lhs = emitLValue(ast[s].left)
+    emitMove([.inout, .set], rhs, to: lhs, at: ast[s].site)
+
     return .next
   }
 
@@ -1013,7 +1006,7 @@ struct Emitter {
   }
 
   private mutating func emit(condCompilationStmt s: ConditionalCompilationStmt.ID) -> ControlFlow {
-    return emit(stmtList: ast[s].expansion)
+    return emit(stmtList: ast[s].expansion(for: ast.compiler))
   }
 
   private mutating func emit(conditionalStmt s: ConditionalStmt.ID) -> ControlFlow {
@@ -1338,16 +1331,26 @@ struct Emitter {
   /// Inserts the IR for storing the value of `e` to `storage`.
   private mutating func emitStore(upcast e: CastExpr.ID, to storage: Operand) {
     assert(ast[e].direction == .up)
-    let target = program[ast[e].right].type
+    let target = canonical(program[e].type)
+    let source = canonical(program[ast[e].left].type)
 
-    // Store the LHS to `storage` if it already has the desired type.
-    if program.areEquivalent(program[ast[e].left].type, target, in: program[e].scope) {
+    // `A ~> A`
+    if program.areEquivalent(source, target, in: program[e].scope) {
       emitStore(value: ast[e].left, to: storage)
       return
     }
 
+    // `A ~> Union<A, B>`
+    if let u = UnionType(target), u.elements.contains(source) {
+      let x0 = insert(
+        module.makeOpenUnion(storage, as: source, forInitialization: true, at: program[e].site))!
+      emitStore(value: ast[e].left, to: x0)
+      insert(module.makeCloseUnion(x0, at: program[e].site))
+      return
+    }
+
     // Otherwise, wrap the LHS.
-    UNIMPLEMENTED()
+    UNIMPLEMENTED("unimplemented conversion from '\(source)' to '\(target)'")
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
@@ -1576,6 +1579,30 @@ struct Emitter {
     emitMove([.inout, .set], x0, to: storage, at: ast[e].site)
   }
 
+  /// Inserts the IR to store the value of `e` to `storage`, converting it to the type of `storage`
+  /// if necessary.
+  ///
+  /// The type comparison is performed in the scope of `e`.
+  private mutating func emitStore<T: ExprID>(
+    convertingIfNecessary e: T,
+    to storage: Operand
+  ) {
+    let lhsType = module.type(of: storage).ast
+    let rhsType = canonical(program[e].type)
+
+    if program.areEquivalent(lhsType, rhsType, in: program[e].scope) {
+      emitStore(value: e, to: storage)
+    } else if lhsType.base is UnionType {
+      let x0 = insert(
+        module.makeOpenUnion(
+          storage, as: rhsType, forInitialization: true, at: ast[e].site))!
+      emitStore(value: e, to: x0)
+      insert(module.makeCloseUnion(x0, at: ast[e].site))
+    } else {
+      UNIMPLEMENTED()
+    }
+  }
+
   /// Writes the value of `literal` to `storage`.
   private mutating func emitStore<T: NumericLiteralExpr>(
     numericLiteral literal: T.ID, to storage: Operand
@@ -1591,6 +1618,8 @@ struct Emitter {
       emitStore(integer: literal, signed: true, bitWidth: 8, to: storage)
     case ast.coreType("UInt")!:
       emitStore(integer: literal, signed: false, bitWidth: 64, to: storage)
+    case ast.coreType("UInt8")!:
+      emitStore(integer: literal, signed: false, bitWidth: 8, to: storage)
     case ast.coreType("Float64")!:
       emitStore(floatingPoint: literal, to: storage, evaluatedBy: FloatingPointConstant.float64(_:))
     case ast.coreType("Float32")!:
@@ -2599,7 +2628,7 @@ struct Emitter {
   // MARK: Deinitialization
 
   /// If `storage` is deinitializable in `self.insertionScope`, inserts the IR for deinitializing
-  /// it. Otherwise, reports a diagnostic.
+  /// it, or reports a diagnostic otherwise.
   ///
   /// Let `T` be the type of `storage`, `storage` is deinitializable iff `T` has a deinitializer
   /// exposed to `self.insertionScope`.
@@ -2643,11 +2672,13 @@ struct Emitter {
   }
 
   /// If `storage` is deinitializable in `self.insertionScope`, inserts the IR for deinitializing
-  /// it. Otherwise, reports a diagnostic for each part that isn't deinitializable.
+  /// it; reports a diagnostic for each part that isn't deinitializable otherwise.
   private mutating func emitDeinitParts(of storage: Operand, at site: SourceRange) {
     let t = module.type(of: storage).ast
 
-    if t.hasRecordLayout {
+    if program.isTriviallyDeinitializable(t, in: insertionScope!) {
+      insert(module.makeMarkState(storage, initialized: false, at: site))
+    } else if t.hasRecordLayout {
       emitDeinitRecordParts(of: storage, at: site)
     } else if t.base is UnionType {
       emitDeinitUnionPayload(of: storage, at: site)
@@ -2657,8 +2688,8 @@ struct Emitter {
   }
 
   /// If `storage`, which stores a record, is deinitializable in `self.insertionScope`, inserts
-  /// the IR for deinitializing it. Otherwise, reports a diagnostic for each part that isn't
-  /// deinitializable.
+  /// the IR for deinitializing it; reports a diagnostic for each part that isn't
+  /// deinitializable otherwise.
   ///
   /// - Requires: the type of `storage` has a record layout.
   private mutating func emitDeinitRecordParts(of storage: Operand, at site: SourceRange) {
@@ -2681,8 +2712,8 @@ struct Emitter {
   }
 
   /// If `storage`, which stores a union. is deinitializable in `self.insertionScope`, inserts
-  /// the IR for deinitializing it. Otherwise, reports a diagnostic for each part that isn't
-  /// deinitializable.
+  /// the IR for deinitializing it; reports a diagnostic for each part that isn't
+  /// deinitializable otherwise.
   ///
   /// - Requires: the type of `storage` is a union.
   private mutating func emitDeinitUnionPayload(of storage: Operand, at site: SourceRange) {
@@ -2721,8 +2752,8 @@ struct Emitter {
   }
 
   /// If `storage`, which stores a union container holding a `payload`, is deinitializable in
-  /// `self.insertionScope`, inserts the IR for deinitializing it. Otherwise, reports a diagnostic
-  /// for each part that isn't deinitializable.
+  /// `self.insertionScope`, inserts the IR for deinitializing it; reports a diagnostic for each
+  /// part that isn't deinitializable otherwise.
   private mutating func emitDeinitUnionPayload(
     of storage: Operand, containing payload: AnyType, at site: SourceRange
   ) {

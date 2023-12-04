@@ -1,5 +1,5 @@
 /// Describes the compiler; used as source of truth for conditional compilation.
-public struct CompilerInfo {
+public struct CompilerConfiguration: Codable {
 
   /// The operating-system used when performing the compilation.
   let os: String
@@ -16,16 +16,17 @@ public struct CompilerInfo {
   /// The version of the Hylo language version we are targeting.
   let hyloVersion: SemanticVersion
 
-  /// We only need one instance of this struct, to represent the compiler information.
-  public static let instance = CompilerInfo()
+  /// The set of features supported in the current compilation.
+  let features: [String]
 
-  /// Creates an instance with the properties of the machine running this initializer.
-  private init() {
-    os = CompilerInfo.currentOS()
-    arch = CompilerInfo.currentArch()
+  /// Creates an instance with the properties of the machine running this initializer, using features `f`.
+  public init(_ f: [String] = []) {
+    os = CompilerConfiguration.currentOS()
+    arch = CompilerConfiguration.currentArch()
     compiler = "hc"
     compilerVersion = SemanticVersion(major: 0, minor: 1, patch: 0)
     hyloVersion = SemanticVersion(major: 0, minor: 1, patch: 0)
+    features = f
   }
 
   /// The name of the operating system on which this function is run.

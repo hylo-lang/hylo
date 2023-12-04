@@ -48,6 +48,19 @@ fun testArch() {
   use(a)
 }
 
+fun testFeature() {
+  #if !feature(freestanding)
+    let a = 13
+  #else
+    error()
+  #endif
+  use(a)
+
+  #if feature(dummy)
+    error()
+  #endif
+}
+
 fun testCompiler() {
   #if compiler(hc)
     let a = 29
@@ -144,13 +157,27 @@ fun testSkipParsingNested() {
   use(c)
 }
 
+fun testNot() {
+  #if !false
+    let a = 61
+  #endif
+  use(a)
+
+  #if ! ! true
+    let b = 67
+  #endif
+  use(b)
+}
+
 public fun main() {
   testTrue()
   testFalse()
   testOs()
   testArch()
+  testFeature()
   testCompiler()
   testCompilerVersion()
   testHyloVersion()
   testSkipParsingNested()
+  testNot()
 }

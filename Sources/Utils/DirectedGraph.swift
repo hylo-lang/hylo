@@ -1,4 +1,18 @@
+import DequeModule
+
+/// The absence of a label in a directed graph.
+public struct NoLabel: Hashable {
+
+  /// Creates an instance.
+  public init() {}
+
+}
+
 /// A finite, directed graph.
+///
+/// - Note: Use `DirectedGraph<V, NoLabel>` rather than `DirectedGraph<V, Void>` to implement an
+///   unlabeled graph. Unlike `Void`, `NoLabel` conforms to `Equatable`, allowing the graph itself
+///   to be `Equatable`.
 public struct DirectedGraph<Vertex: Hashable, Label> {
 
   /// The base of an edge.
@@ -6,6 +20,9 @@ public struct DirectedGraph<Vertex: Hashable, Label> {
 
   /// The tip of an edge.
   public typealias EdgeTip = (target: Vertex, label: Label)
+
+  /// A collection with the outgoing edges of a vertex.
+  public typealias OutgoingEdges = [Vertex: Label]
 
   /// An edge between two vertices.
   public struct Edge {
@@ -22,7 +39,7 @@ public struct DirectedGraph<Vertex: Hashable, Label> {
   }
 
   /// A table from a vertex to its outgoing edges.
-  private var outgoingEdges: [Vertex: [Vertex: Label]]
+  private var outgoingEdges: [Vertex: OutgoingEdges]
 
   /// Creates an empty graph.
   public init() {
@@ -34,6 +51,18 @@ public struct DirectedGraph<Vertex: Hashable, Label> {
     outgoingEdges.lazy
       .map({ (s, o) in o.lazy.map({ (t, l) in .init(source: s, label: l, target: t) }) })
       .joined()
+  }
+
+  /// Returns the vertices in `self` gathered in a breadth-first manner from `root`.
+  public func bfs(from root: Vertex) -> BreadthFirstSequence<Vertex, Label> {
+    .init(from: root, in: self)
+  }
+
+  /// Returns `true` iff there exists a path from `u` to `v` in the graph.
+  ///
+  /// - Complexity: O(m) where m is the number of edges in the graph.
+  public func isReachable(_ v: Vertex, from u: Vertex) -> Bool {
+    bfs(from: u).contains(v)
   }
 
   /// Inserts an edge from `source` to `target`, labeled by `label`.
@@ -89,14 +118,14 @@ public struct DirectedGraph<Vertex: Hashable, Label> {
   /// Accesses the outgoing edges of `source`.
   ///
   /// - Complexity: O(1).
-  public subscript(from source: Vertex) -> [Vertex: Label] {
+  public subscript(from source: Vertex) -> OutgoingEdges {
     _read { yield outgoingEdges[source, default: [:]] }
     _modify { yield &outgoingEdges[source, default: [:]] }
   }
 
 }
 
-extension DirectedGraph where Label == () {
+extension DirectedGraph where Label == NoLabel {
 
   /// Inserts an edge from `source` to `target`, labeled by `label`.
   ///
@@ -105,7 +134,7 @@ extension DirectedGraph where Label == () {
   /// - Complexity: O(1).
   @discardableResult
   public mutating func insertEdge(from source: Vertex, to target: Vertex) -> Bool {
-    insertEdge(from: source, to: target, labeledBy: ()).inserted
+    insertEdge(from: source, to: target, labeledBy: .init()).inserted
   }
 
 }
@@ -155,6 +184,37 @@ extension DirectedGraph.Edge: Comparable where Vertex: Comparable, Label: Compar
     } else {
       return l.source < r.source
     }
+  }
+
+}
+
+/// The vertices of a graph collected in a breadth-first manner.
+public struct BreadthFirstSequence<Vertex: Hashable, Label>: IteratorProtocol, Sequence {
+
+  /// The graph whose the vertices are collected.
+  public let graph: DirectedGraph<Vertex, Label>
+
+  /// A queue with vertices to visit.
+  private var toVisit = Deque<Vertex>()
+
+  /// The vertices that have been returned already.
+  private var visited = Set<Vertex>()
+
+  /// Creates an instance containing the vertices in `graph` gathered in a breadth-first manner
+  /// from `root`.
+  public init(from root: Vertex, in graph: DirectedGraph<Vertex, Label>) {
+    self.graph = graph
+    self.toVisit.append(root)
+  }
+
+  /// Returns the next vertex, or `nil` if all vertices have been returned already.
+  public mutating func next() -> Vertex? {
+    guard let v = toVisit.popFirst() else { return nil }
+    visited.insert(v)
+    for e in graph[from: v] where !visited.contains(e.key) {
+      toVisit.append(e.key)
+    }
+    return v
   }
 
 }

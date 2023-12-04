@@ -27,7 +27,7 @@ extension Function {
     public let value: Value
 
     /// Creates the identity of the lowered form of `d`, which is the declaration of a function,
-    /// initializer, method implementation, or subscript implementation.s
+    /// initializer, method implementation, or subscript implementation.
     init<T: DeclID>(_ d: T) {
       switch d.kind {
       case FunctionDecl.self, InitializerDecl.self, MethodImpl.self, SubscriptImpl.self:

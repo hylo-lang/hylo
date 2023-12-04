@@ -25,6 +25,9 @@ struct ConstraintSystem {
   /// The goals that are currently stale.
   private var stale: [GoalIdentity] = []
 
+  /// The root goals that could not be solved.
+  private var failureRoots: [GoalIdentity] = []
+
   /// A map from open type variable to its assignment.
   ///
   /// This map is monotonically extended during constraint solving to assign a type to each open
@@ -51,8 +54,8 @@ struct ConstraintSystem {
   /// The current indentation level for logging messages.
   private var indentation = 0
 
-  /// Creates an instance for solving the constraints in `obligations`, logging a trace of
-  /// `solution(querying:)` iff `isLoggingEnabled` is `true`.
+  /// Creates an instance for solving the constraints in `obligations`, logging a trace of the
+  /// deduction process if `isLoggingEnabled` is `true`.
   init(_ obligations: ProofObligations, logging isLoggingEnabled: Bool) {
     self.scope = obligations.scope
     self.bindingAssumptions = obligations.referredDecl
@@ -60,17 +63,28 @@ struct ConstraintSystem {
     _ = insert(fresh: obligations.constraints)
   }
 
+  /// Creates an instance copying the state of `other`.
+  private init(copying other: inout Self) {
+    let c = other.checker.release()
+    self = other
+    other.checker = c
+  }
+
   /// Solves this instance, using `checker` to query type relations and resolve names and returning
   /// the best solution found.
   mutating func solution(querying checker: inout TypeChecker) -> Solution {
-    self.checker = checker
-    defer { checker = self.checker.release() }
-    return solution(notWorseThan: .worst)!
+    solution(notWorseThan: .worst, querying: &checker)!
   }
 
   /// Solves this instance and returns the best solution with a score inferior or equal to
   /// `self.maxScore`, or `nil` if no such solution can be found.
-  private mutating func solution(notWorseThan maxScore: Solution.Score) -> Solution? {
+  private mutating func solution(
+    notWorseThan maxScore: Solution.Score,
+    querying checker: inout TypeChecker
+  ) -> Solution? {
+    self.checker = checker
+    defer { checker = self.checker.release() }
+
     logState()
     log("steps:")
 
@@ -128,9 +142,7 @@ struct ConstraintSystem {
   ///
   /// The cost of a solution increases monotonically when a constraint is eliminated.
   private func score() -> Solution.Score {
-    .init(
-      errorCount: goals.indices.elementCount(where: isFailureRoot),
-      penalties: penalties)
+    .init(errorCount: failureRoots.count, penalties: penalties)
   }
 
   /// Returns `true` iff the solving `g` failed and `g` isn't subordinate.
@@ -143,6 +155,10 @@ struct ConstraintSystem {
     log(outcome: o)
     assert(outcomes[key] == nil)
     outcomes[key] = o
+
+    if isFailureRoot(key) {
+      failureRoots.append(key)
+    }
   }
 
   /// Creates a solution from the current state.
@@ -169,7 +185,7 @@ struct ConstraintSystem {
   private func formAmbiguousSolution<T>(
     _ results: Explorations<T>, diagnosedBy d: Diagnostic
   ) -> Solution {
-    var s = results.elements.reduce(into: Solution(), { (s, r) in s.merge(r.solution) })
+    var s = results.elements.reduce(into: Solution(), { (s, r) in s.formIntersection(r.solution) })
     s.incorporate(d)
     return s
   }
@@ -203,8 +219,8 @@ struct ConstraintSystem {
   }
 
   /// Knowing types can conform to `goal.concept` structurally, if `goal.model` is a structural
-  /// type, creates and returns sub-goals checking that its parts conform to `goal.concept`.
-  /// Otherwise, returns `.failure`.
+  /// type, creates and returns sub-goals checking that its parts conform to `goal.concept`; returns
+  /// `.failure` otherwise.
   ///
   /// - Requires: `goal.model` is not a type variable.
   private mutating func solve(structuralConformance goal: ConformanceConstraint) -> Outcome {
@@ -316,17 +332,27 @@ struct ConstraintSystem {
         return delegate(to: [s])
       }
 
-      // If `R` has multiple elements, `L` can be equal to `R` (unless the goal is strict) or
-      // subtype of some strict subset of `R`.
+      // If `R` has multiple elements, then:
+      // - if `L` can't be a union, `L` must be subtype of one element element in `R`;
+      // - if the goal strict, `L` must be subtype of some strict subset of `R`;
+      // - otherwise, `L` must be equal to `R` or a subtype of a subset of `R`.
       var candidates: [DisjunctionConstraint.Predicate] = []
-      for subset in r.elements.combinations(of: r.elements.count - 1) {
-        let c = SubtypingConstraint(goal.left, ^UnionType(subset), origin: o)
-        candidates.append(.init(constraints: [c], penalties: 1))
+      if !goal.left.isTypeVariable {
+        for e in r.elements {
+          let c = SubtypingConstraint(goal.left, e, origin: o)
+          candidates.append(.init(constraints: [c], penalties: 1))
+        }
+      } else {
+        for subset in r.elements.combinations(of: r.elements.count - 1) {
+          let c = SubtypingConstraint(goal.left, ^UnionType(subset), origin: o)
+          candidates.append(.init(constraints: [c], penalties: 1))
+        }
+        if !goal.isStrict {
+          let c = EqualityConstraint(goal.left, goal.right, origin: o)
+          candidates.append(.init(constraints: [c], penalties: 0))
+        }
       }
-      if !goal.isStrict {
-        let c = EqualityConstraint(goal.left, goal.right, origin: o)
-        candidates.append(.init(constraints: [c], penalties: 0))
-      }
+
       let s = schedule(DisjunctionConstraint(between: candidates, origin: o))
       return delegate(to: [s])
 
@@ -660,7 +686,7 @@ struct ConstraintSystem {
   }
 
   /// Returns a table from argument position to its corresponding parameter position iff `callee`
-  /// accepts an argument list with given `labels`. Otherwise, returns `nil`.
+  /// accepts an argument list with given `labels`; returns `nil` otherwise.
   ///
   /// For example, given a callee whose parameters are `(x: Int, y: Int = 0, z: Int)` and an
   /// argument list with labels `[x, z]`, this function returns `[0, 2]`.
@@ -772,10 +798,10 @@ struct ConstraintSystem {
       defer { indentation -= 1 }
 
       // Explore the result of this choice.
-      var exploration = self
+      var exploration = Self(copying: &self)
       let s = configureSubSystem(&exploration, choice)
       exploration.setOutcome(s.isEmpty ? .success : delegate(to: s), for: g)
-      guard let new = exploration.solution(notWorseThan: results.score) else {
+      guard let new = exploration.solution(notWorseThan: results.score, querying: &checker) else {
         continue
       }
 
@@ -814,7 +840,7 @@ struct ConstraintSystem {
 
     let i = fresh.partitioningIndex(
       at: newIdentity,
-      orderedBy: { (a, b) in !goals[a].simpler(than: goals[b]) })
+      orderedBy: { (a, b) in !goals[a].isSimpler(than: goals[b]) })
     fresh.insert(newIdentity, at: i)
     return newIdentity
   }
@@ -832,106 +858,38 @@ struct ConstraintSystem {
     stale.append(g)
   }
 
-  /// Unifies `lhs` with `rhs` using `relations` to check for equivalence, returning `true` if
-  /// unification succeeded.
+  /// Returns `true` iff `lhs` and `rhs` can be unified, updating the type substitution table.
   ///
-  /// Type unification consists of finding substitutions that makes `lhs` and `rhs` equal. The
-  /// algorithm recursively visits both types in lockstep, updating `self.typeAssumptions` every
-  /// time either side is a type variable for which no substitution has been made yet.
+  /// Type unification consists of finding substitutions that makes `lhs` and `rhs` equal. Both
+  /// types are visited in lockstep, updating `self.typeAssumptions` every time either side is a
+  /// type variable for which no substitution has been made yet.
   private mutating func unify(_ lhs: AnyType, _ rhs: AnyType) -> Bool {
-    let (a, b) = (typeAssumptions[lhs], typeAssumptions[rhs])
-    if checker.areEquivalent(a, b, in: scope) { return true }
-
-    switch (a.base, b.base) {
-    case (let v as TypeVariable, _):
-      assume(v, equals: rhs)
-      return true
-
-    case (_, let v as TypeVariable):
-      assume(v, equals: lhs)
-      return true
-
-    case (let l as BoundGenericType, let r as BoundGenericType):
-      guard unify(l.base, r.base), l.arguments.count == r.arguments.count else {
-        return false
-      }
-
-      var result = true
-      for (a, b) in zip(l.arguments, r.arguments) {
-        result = (a.key == b.key) && result
-        switch (a.value, b.value) {
-        case (let vl as AnyType, let vr as AnyType):
-          result = unify(vl, vr) && result
-        default:
-          result = a.value.equals(b.value) && result
-        }
-      }
-      return result
-
-    case (let l as MetatypeType, let r as MetatypeType):
-      return unify(l.instance, r.instance)
-
-    case (let l as TupleType, let r as TupleType):
-      if !l.labels.elementsEqual(r.labels) {
-        return false
-      }
-
-      var result = true
-      for (a, b) in zip(l.elements, r.elements) {
-        result = unify(a.type, b.type) && result
-      }
-      return result
-
-    case (let l as LambdaType, let r as LambdaType):
-      if !l.labels.elementsEqual(r.labels) {
-        return false
-      }
-
-      var result = true
-      for (a, b) in zip(l.inputs, r.inputs) {
-        result = unify(a.type, b.type) && result
-      }
-      result = unify(l.output, r.output) && result
-      result = unify(l.environment, r.environment) && result
-      return result
-
-    case (let l as MethodType, let r as MethodType):
-      if !l.labels.elementsEqual(r.labels) {
-        return false
-      }
-      if l.capabilities != r.capabilities {
-        return false
-      }
-
-      var result = true
-      for (a, b) in zip(l.inputs, r.inputs) {
-        result = unify(a.type, b.type) && result
-      }
-      result = unify(l.output, r.output) && result
-      result = unify(l.receiver, r.receiver) && result
-      return result
-
-    case (let l as ParameterType, let r as ParameterType):
-      if l.access != r.access {
-        return false
-      }
-      return unify(l.bareType, r.bareType)
-
-    case (let l as RemoteType, let r as RemoteType):
-      if l.access != r.access {
-        return false
-      }
-      return unify(l.bareType, r.bareType)
-
-    default:
-      if !lhs[.isCanonical] {
-        return unify(checker.canonical(lhs, in: scope), rhs)
-      }
-      if !rhs[.isCanonical] {
-        return unify(lhs, checker.canonical(rhs, in: scope))
-      }
-      return false
+    lhs.matches(rhs, mutating: &self) { (this, a, b) in
+      this.unifySyntacticallyInequal(a, b)
     }
+  }
+
+  /// Returns `true` iff `lhs` and `rhs`, which have different constructors, can be unified.
+  private mutating func unifySyntacticallyInequal(_ lhs: AnyType, _ rhs: AnyType) -> Bool {
+    let t = typeAssumptions[lhs]
+    let u = typeAssumptions[rhs]
+
+    if let v = TypeVariable(t) {
+      assume(v, equals: u)
+      return true
+    }
+    if let v = TypeVariable(u) {
+      assume(v, equals: t)
+      return true
+    }
+    if !t[.isCanonical] {
+      return unify(checker.canonical(t, in: scope), u)
+    }
+    if !u[.isCanonical] {
+      return unify(t, checker.canonical(u, in: scope))
+    }
+
+    return t == u
   }
 
   /// Extends the type substution table to map `tau` to `substitute`.
@@ -1121,14 +1079,14 @@ private struct Explorations<T: DisjunctiveConstraintProtocol> {
 
 extension Constraint {
 
-  /// Returns whether `self` is heuristically simpler to solve than `other`.
-  fileprivate func simpler(than other: Constraint) -> Bool {
-    switch self {
-    case is EqualityConstraint:
-      return !(other is EqualityConstraint)
-
-    case let l as any DisjunctiveConstraintProtocol:
-      if let r = other as? any DisjunctiveConstraintProtocol {
+  /// Returns whether `self` is heuristically simpler to solve than `rhs`.
+  fileprivate func isSimpler(than rhs: any Constraint) -> Bool {
+    if self is EqualityConstraint {
+      return !(rhs is EqualityConstraint)
+    } else if self.openVariables.isEmpty {
+      return !rhs.openVariables.isEmpty
+    } else if let l = self as? any DisjunctiveConstraintProtocol {
+      if let r = rhs as? any DisjunctiveConstraintProtocol {
         if l.choices.count == r.choices.count {
           let x = l.choices.reduce(0, { $0 + $1.constraints.count })
           let y = r.choices.reduce(0, { $0 + $1.constraints.count })
@@ -1139,9 +1097,8 @@ extension Constraint {
       } else {
         return false
       }
-
-    default:
-      return other is (any DisjunctiveConstraintProtocol)
+    } else {
+      return rhs is (any DisjunctiveConstraintProtocol)
     }
   }
 

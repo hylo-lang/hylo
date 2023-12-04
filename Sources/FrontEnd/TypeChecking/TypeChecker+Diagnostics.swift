@@ -6,6 +6,13 @@ extension Diagnostic {
     .error("ambiguous disjunction", at: site)
   }
 
+  static func error(autoclosureExpectsEmptyLambdaAt site: SourceRange, given: AnyType) -> Diagnostic
+  {
+    .error(
+      "autoclosure parameter expects lambda type with no parameters (given type: \(given))",
+      at: site)
+  }
+
   static func error(
     binding a: BindingPattern.Introducer, requiresInitializerAt site: SourceRange
   ) -> Diagnostic {
@@ -180,6 +187,12 @@ extension Diagnostic {
     }
 
     return .note("trait '\(x)' requires \(entity) '\(n)' with type '\(t)'", at: site)
+  }
+
+  static func note(
+    trait x: TraitType, requiresAssociatedType n: String, at site: SourceRange
+  ) -> Diagnostic {
+    return .note("trait '\(x)' requires associaed type '\(n)'", at: site)
   }
 
   static func error(undefinedOperator name: String, at site: SourceRange) -> Diagnostic {

@@ -11,6 +11,9 @@ protocol Constraint {
   /// The site from which a constraint originates and the reason why it was formed.
   var origin: ConstraintOrigin { get }
 
+  /// Inserts the type variables that occur free in `self` into `s`.
+  func collectOpenVariables(in s: inout Set<TypeVariable>)
+
   /// Applies `transform` on constituent types of `self`.
   mutating func modifyTypes(_ transform: (AnyType) -> AnyType)
 
@@ -23,6 +26,13 @@ protocol Constraint {
 }
 
 extension Constraint {
+
+  /// Returns the type variables that occur free in `self`.
+  var openVariables: Set<TypeVariable> {
+    var result: Set<TypeVariable> = []
+    collectOpenVariables(in: &result)
+    return result
+  }
 
   /// Returns a copy of `self` where constituent types have been transformed with `transform`.
   func modifyingTypes(_ transform: (AnyType) -> AnyType) -> Self {
