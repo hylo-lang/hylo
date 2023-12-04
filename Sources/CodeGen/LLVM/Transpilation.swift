@@ -1103,14 +1103,14 @@ extension LLVM.Module {
     func insert(switch i: IR.InstructionID) {
       let s = m[i] as! Switch
 
-      // Pick the case 0 as the "default".
-      let cases = s.successors[1...].enumerated().map { (value, destination) in
+      let branches = s.successors.enumerated().map { (value, destination) in
         (word().constant(UInt64(value)), block[destination]!)
       }
 
+      // The last branch is the "default".
       let n = llvm(s.index)
       insertSwitch(
-        on: n, cases: cases, default: block[s.successors[0]]!,
+        on: n, cases: branches.dropLast(), default: branches.last!.1,
         at: insertionPoint)
     }
 
