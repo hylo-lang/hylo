@@ -4722,11 +4722,9 @@ struct TypeChecker {
     updating obligations: inout ProofObligations
   ) -> AnyType {
     assert(purpose != .unapplied)
-    switch callee.kind {
-    case NameExpr.self:
-      let e = NameExpr.ID(callee)!
+    if let e = NameExpr.ID(callee) {
       return _inferredType(of: e, inImplicitScope: hint, usedAs: purpose, updating: &obligations)
-    default:
+    } else {
       return inferredType(of: callee, updating: &obligations)
     }
   }

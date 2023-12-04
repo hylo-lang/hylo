@@ -105,9 +105,7 @@ enum NameResolutionResult {
 
     /// Creates an instance from an array literal.
     init(arrayLiteral candidates: Candidate...) {
-      for c in candidates {
-        insert(c)
-      }
+      for c in candidates { insert(c) }
     }
 
     /// Inserts `c` into `self`.
@@ -120,9 +118,7 @@ enum NameResolutionResult {
 
     /// Inserts the contents of `other` into `self`.
     mutating func formUnion(_ other: Self) {
-      for e in other.elements {
-        insert(e)
-      }
+      for c in other.elements { insert(c) }
     }
 
     /// Filters the viable candidates in `self` to keep those callable with given `labels`, unless
