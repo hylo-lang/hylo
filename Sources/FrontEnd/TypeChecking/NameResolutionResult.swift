@@ -100,8 +100,7 @@ enum NameResolutionResult {
     /// The candidates in the set.
     internal private(set) var elements: [Candidate] = []
 
-    /// The positions of candidates in `elements` that are viable given the generic arguments that
-    /// where used for name resolution.
+    /// The positions of candidates in `elements` that are considered viable.
     internal private(set) var viable: [Int] = []
 
     /// Creates an instance from an array literal.
@@ -123,6 +122,24 @@ enum NameResolutionResult {
     mutating func formUnion(_ other: Self) {
       for e in other.elements {
         insert(e)
+      }
+    }
+
+    /// Filters the viable candidates in `self` to keep those callable with given `labels`, unless
+    /// no viable candidate satisfies this predicate.
+    mutating func filter(accepting labels: [String?]) {
+      if viable.count <= 1 { return }
+
+      var filtered: [Int] = []
+      for c in viable {
+        guard let t = elements[c].type.base as? CallableType else { continue }
+        if t.accepts(labels) {
+          filtered.append(c)
+        }
+      }
+
+      if !filtered.isEmpty {
+        viable = filtered
       }
     }
 
