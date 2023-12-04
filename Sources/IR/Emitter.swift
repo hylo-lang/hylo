@@ -576,21 +576,8 @@ struct Emitter {
     _ name: NamePattern.ID, referringTo subfield: RecordPath, relativeTo storage: Operand,
     consuming initializer: AnyExprID
   ) {
-    let lhsPart = emitLocalDeclaration(of: name, referringTo: subfield, relativeTo: storage)
-    let lhsPartType = module.type(of: lhsPart).ast
-    let rhsPartType = canonical(program[initializer].type)
-
-    if program.areEquivalent(lhsPartType, rhsPartType, in: program[name].scope) {
-      emitStore(value: initializer, to: lhsPart)
-    } else if lhsPartType.base is UnionType {
-      let x0 = insert(
-        module.makeOpenUnion(
-          lhsPart, as: rhsPartType, forInitialization: true, at: ast[name].site))!
-      emitStore(value: initializer, to: x0)
-      insert(module.makeCloseUnion(x0, at: ast[name].site))
-    } else {
-      UNIMPLEMENTED()
-    }
+    let lhs = emitLocalDeclaration(of: name, referringTo: subfield, relativeTo: storage)
+    emitStore(convertingIfNecessary: initializer, to: lhs)
   }
 
   /// Inserts the IR to declare and initialize the names in `lhs`, which refer to subobjects of
@@ -1588,6 +1575,30 @@ struct Emitter {
   private mutating func emitStore(_ e: TupleMemberExpr.ID, to storage: Operand) {
     let x0 = emitLValue(e)
     emitMove([.inout, .set], x0, to: storage, at: ast[e].site)
+  }
+
+  /// Inserts the IR to store the value of `e` to `storage`, converting it to the type of `storage`
+  /// if necessary.
+  ///
+  /// The type comparison is performed in the scope of `e`.
+  private mutating func emitStore<T: ExprID>(
+    convertingIfNecessary e: T,
+    to storage: Operand
+  ) {
+    let lhsType = module.type(of: storage).ast
+    let rhsType = canonical(program[e].type)
+
+    if program.areEquivalent(lhsType, rhsType, in: program[e].scope) {
+      emitStore(value: e, to: storage)
+    } else if lhsType.base is UnionType {
+      let x0 = insert(
+        module.makeOpenUnion(
+          storage, as: rhsType, forInitialization: true, at: ast[e].site))!
+      emitStore(value: e, to: x0)
+      insert(module.makeCloseUnion(x0, at: ast[e].site))
+    } else {
+      UNIMPLEMENTED()
+    }
   }
 
   /// Writes the value of `literal` to `storage`.
