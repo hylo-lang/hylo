@@ -20,10 +20,18 @@ public struct AST {
     /// The module containing Hylo's core library, if any.
     public var coreLibrary: ModuleDecl.ID?
 
+    /// Information about the compiler processing `self`.
+    public let compiler: CompilerConfiguration
+
+    /// Creates an empty AST for given compiler.
+    public init(for compiler: CompilerConfiguration) {
+      self.compiler = compiler
+    }
+
   }
 
   /// The notional stored properties of `self`; distinguished for encoding/decoding purposes.
-  private var storage = Storage()
+  private var storage: Storage
 
   /// The traits in Hylo's standard library that are known by the compiler.
   public var coreTraits: CoreTraits?
@@ -50,8 +58,15 @@ public struct AST {
     set { storage.coreLibrary = newValue }
   }
 
+  /// Information about the compiler processing `self`.
+  public var compiler: CompilerConfiguration {
+    return storage.compiler
+  }
+
   /// Creates an empty AST.
-  public init() {}
+  public init(for compiler: CompilerConfiguration) {
+    self.storage = Storage(for: compiler)
+  }
 
   /// Inserts `n` into `self`, updating `diagnostics` if `n` is ill-formed.
   public mutating func insert<T: Node>(_ n: T, diagnostics: inout DiagnosticSet) -> T.ID {
@@ -264,7 +279,7 @@ public struct AST {
   }
 
   /// Returns a table mapping each parameter of `d` to its default argument if `d` is a function,
-  /// initializer, method or subscript declaration. Otherwise, returns `nil`.
+  /// initializer, method or subscript declaration; otherwise, returns `nil`.
   public func defaultArguments(of d: AnyDeclID) -> [AnyExprID?]? {
     let parameters: [ParameterDecl.ID]
     switch d.kind {
@@ -280,6 +295,15 @@ public struct AST {
       return nil
     }
     return self[parameters].map(\.defaultValue)
+  }
+
+  /// Returns the generic parameters introduced by `d`.
+  public func genericParameters(introducedBy d: AnyDeclID) -> [GenericParameterDecl.ID] {
+    if let s = self[d] as? GenericScope {
+      return s.genericParameters
+    } else {
+      return []
+    }
   }
 
   /// Returns the name of `d` unless `d` is anonymous.
@@ -414,7 +438,7 @@ public struct AST {
     self[self[self[s].binding].pattern].introducer.value.isConsuming
   }
 
-  /// Returns the source site of `expr`
+  /// Returns the source site of `expr`.
   public func site(of expr: FoldedSequenceExpr) -> SourceRange {
     switch expr {
     case .leaf(let i):

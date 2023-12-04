@@ -1,3 +1,5 @@
+import Core
+
 /// A set of predicates that is satisfied if at least one of them is satisfied.
 protocol DisjunctiveConstraintProtocol: Constraint {
 
@@ -17,5 +19,18 @@ protocol DisjunctiveConstraintTerm {
 
   /// The penalties associated with this predicate during constraint solving.
   var penalties: Int { get }
+
+}
+
+extension DisjunctiveConstraintProtocol {
+
+  /// Inserts the type variables that occur free in `self` into `s`.
+  func collectOpenVariables(in s: inout Set<TypeVariable>) {
+    for p in choices {
+      for c in p.constraints {
+        c.collectOpenVariables(in: &s)
+      }
+    }
+  }
 
 }

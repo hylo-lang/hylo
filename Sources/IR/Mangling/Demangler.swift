@@ -565,8 +565,8 @@ struct Demangler {
     return .type(.union(elements))
   }
 
-  /// If `stream` starts with a mangling operator, consumes and returns it. Otherwise, returns
-  /// `nil` without mutating `stream`.
+  /// If `stream` starts with a mangling operator, consumes and returns it; returns
+  /// `nil` without mutating `stream` otherwise.
   private func takeOperator(from stream: inout Substring) -> ManglingOperator? {
     if stream.isEmpty { return nil }
 
@@ -627,8 +627,8 @@ struct Demangler {
     return r
   }
 
-  /// Assuming `stream` starts with a mangled integer, consumes and returns it. Returns `nil` iff
-  /// data seems corrupted.
+  /// Assuming `stream` starts with a mangled integer, consumes and returns it; returns `nil`
+  /// otherwise.
   private func takeInteger(from stream: inout Substring) -> Base64VarUInt? {
     guard let (v, i) = Base64VarUInt.decode(from: stream) else {
       return nil

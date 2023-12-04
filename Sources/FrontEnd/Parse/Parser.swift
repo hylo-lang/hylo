@@ -107,14 +107,10 @@ public enum Parser {
     then continuation: (_ prologue: DeclPrologue, _ state: inout ParserState) throws -> R?
   ) throws -> R? {
     guard let startIndex = state.peek()?.site.start else { return nil }
-    var isPrologueEmpty = true
 
     // Parse attributes.
-    var attributes: [SourceRepresentable<Attribute>] = []
-    while let a = try parseDeclAttribute(in: &state) {
-      attributes.append(a)
-      isPrologueEmpty = false
-    }
+    let attributes = try attributeList.parse(&state) ?? []
+    var isPrologueEmpty = attributes.isEmpty
 
     // Parse modifiers.
     var accessModifiers: Set<SourceRepresentable<AccessModifier>> = []
@@ -1070,7 +1066,7 @@ public enum Parser {
         site: state.range(from: prologue.startIndex)))
   }
 
-  /// Returns the specified access modifier of the provided `prologue`, or synthesizes an implicit one
+  /// Returns the access modifier in `prologue` if in contains one, or synthesizes an implicit one.
   private static func declAccessModifier(
     ofDeclPrologue prologue: DeclPrologue,
     in state: inout ParserState
@@ -1358,7 +1354,7 @@ public enum Parser {
   }
 
   /// If the next token is a cast operator, parses an expression and returns a `CastExpr` appending
-  /// it to `lhs`. Otherwise, returns `nil`.
+  /// it to `lhs`; returns `nil` otherwise.
   private static func appendingCastTail(
     to lhs: AnyExprID,
     in state: inout ParserState
@@ -1392,7 +1388,7 @@ public enum Parser {
   }
 
   /// Parses pairs of infix operators and prefix expressions and, if one or more pairs were parsed,
-  /// returns a `SequenceExpr` appending them to `lhs`. Otherwise, returns `nil`.
+  /// returns a `SequenceExpr` appending them to `lhs`; returns `nil` otherwise.
   private static func appendingInfixTail(
     to lhs: AnyExprID,
     in state: inout ParserState
@@ -1587,7 +1583,7 @@ public enum Parser {
   }
 
   /// If the next token is a dot, parses a tuple or name components, and returns respectively a
-  /// `TupleMemberExpr` or `NameExpr` appending it to `head`. Otherwise, returns `nil`.
+  /// `TupleMemberExpr` or `NameExpr` appending it to `head`; returns `nil` otherwise.
   private static func appendingNameComponent(
     to head: AnyExprID,
     in state: inout ParserState
@@ -1631,18 +1627,7 @@ public enum Parser {
 
     case .int:
       // Integer or Float literal.
-
-      // Try to parse a float literal first.
-      if let expr = try parseFloatLiteralExpr(in: &state) {
-        return AnyExprID(expr)
-      }
-
-      // Note: state.take(.int) is called in `parseFloatLiteralExpr(in:)`.
-      let expr = state.insert(
-        IntegerLiteralExpr(
-          value: state.lexer.sourceCode[head.site].filter({ $0 != "_" }),
-          site: head.site))
-      return AnyExprID(expr)
+      return try parseIntegerOrFloatLiteralExpr(in: &state)
 
     case .string:
       // String literal.
@@ -1720,27 +1705,36 @@ public enum Parser {
     }
   }
 
-  private static func parseFloatLiteralExpr(in state: inout ParserState) throws -> FloatLiteralExpr
-    .ID?
-  {
-    guard let first = state.take(.int) else { return nil }
+  /// Parses an integer or float literal expression from `state`.
+  private static func parseIntegerOrFloatLiteralExpr(
+    in state: inout ParserState
+  ) throws -> AnyExprID? {
+    guard let integer = state.take(.int) else { return nil }
 
-    if state.take(if: { $0.kind == .dot }) != nil {
-      guard state.take(if: { $0.kind == .int }) != nil else { return nil }
-    } else {
-      if state.peek()?.kind != .exponent {
-        return nil
-      }
+    if let e = parseFloatLiteralExpr(after: integer, in: &state) {
+      return AnyExprID(e)
     }
 
-    _ = state.take(if: { $0.kind == .exponent })
+    let e = state.insert(
+      IntegerLiteralExpr(
+        value: state.lexer.sourceCode[integer.site].filter({ $0 != "_" }),
+        site: integer.site))
+    return AnyExprID(e)
+  }
 
-    let site = first.site.extended(upTo: state.currentIndex)
+  /// Parses a float literal expression from `state`, assuming it has the given `integerPart`.
+  private static func parseFloatLiteralExpr(
+    after integerPart: Token, in state: inout ParserState
+  ) -> FloatLiteralExpr.ID? {
+    let i = state.currentIndex
+    _ = state.take(.dot, .int) != nil
+    _ = state.take(.exponent)
 
+    if state.currentIndex == i { return nil }
+
+    let s = integerPart.site.extended(upTo: state.currentIndex)
     return state.insert(
-      FloatLiteralExpr(
-        value: state.lexer.sourceCode[site].filter({ $0 != "_" }),
-        site: site))
+      FloatLiteralExpr(value: state.lexer.sourceCode[s].filter({ $0 != "_" }), site: s))
   }
 
   private static func parseExistentialTypeExpr(
@@ -2977,7 +2971,7 @@ public enum Parser {
 
     // Parse the body of the compiler condition.
     let stmts: [AnyStmtID]
-    if condition.mayNotNeedParsing && !condition.holds(for: CompilerInfo.instance) {
+    if condition.mayNotNeedParsing && !condition.holds(for: state.ast.compiler) {
       try skipConditionalCompilationBranch(in: &state, stoppingAtElse: true)
       stmts = []
     } else {
@@ -2989,7 +2983,7 @@ public enum Parser {
     if state.take(.poundEndif) != nil {
       fallback = []
     } else if state.take(.poundElse) != nil {
-      if condition.mayNotNeedParsing && condition.holds(for: CompilerInfo.instance) {
+      if condition.mayNotNeedParsing && condition.holds(for: state.ast.compiler) {
         try skipConditionalCompilationBranch(in: &state, stoppingAtElse: false)
         fallback = []
       } else {
@@ -2998,7 +2992,7 @@ public enum Parser {
       // Expect #endif.
       _ = try state.expect("'#endif'", using: { $0.take(.poundEndif) })
     } else if let head2 = state.take(.poundElseif) {
-      if condition.mayNotNeedParsing && condition.holds(for: CompilerInfo.instance) {
+      if condition.mayNotNeedParsing && condition.holds(for: state.ast.compiler) {
         try skipConditionalCompilationBranch(in: &state, stoppingAtElse: false)
         fallback = []
       } else {
@@ -3190,21 +3184,32 @@ public enum Parser {
     return nil
   }
 
-  static let parameterTypeExpr =
-    (maybe(passingConvention)
-      .andCollapsingSoftFailures(expr)
-      .map({ (state, tree) -> ParameterTypeExpr.ID in
-        let s = state.range(from: tree.0?.site.start ?? state.ast[tree.1].site.start)
-        return state.insert(
-          ParameterTypeExpr(
-            convention: tree.0
-              ?? SourceRepresentable(
-                value: .let,
-                range: state.lexer.sourceCode.emptyRange(at: s.start)),
-            bareType: tree.1,
-            site: s
-          ))
-      }))
+  static let parameterTypeExpr = Apply(parseParameterTypeExpr(in:))
+
+  private static func parseParameterTypeExpr(
+    in state: inout ParserState
+  ) throws -> NodeID<ParameterTypeExpr>? {
+    let backup = state.backup()
+    let startIndex = state.currentIndex
+
+    let accessEffect = try passingConvention.parse(&state)
+    let attributes = try attributeList.parse(&state)
+    guard let bareType = try expr.parse(&state) else {
+      state.restore(from: backup)
+      return nil
+    }
+
+    return state.insert(
+      ParameterTypeExpr(
+        convention: accessEffect
+          ?? SourceRepresentable(
+            value: .let,
+            range: state.lexer.sourceCode.emptyRange(at: startIndex)),
+        attributes: attributes ?? [],
+        bareType: bareType,
+        site: state.range(from: startIndex)
+      ))
+  }
 
   static let receiverEffect = accessEffect
 
@@ -3270,6 +3275,10 @@ public enum Parser {
       .map({ (state, tree) -> TraitComposition in [tree.0] + tree.1 }))
 
   // MARK: Attributes
+
+  static let attributeList =
+    (zeroOrMany(Apply(parseDeclAttribute(in:)))
+      .map({ (_, tree) -> [SourceRepresentable<Attribute>] in tree }))
 
   static func parseDeclAttribute(
     in state: inout ParserState

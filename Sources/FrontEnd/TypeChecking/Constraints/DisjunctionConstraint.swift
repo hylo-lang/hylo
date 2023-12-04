@@ -20,15 +20,12 @@ struct DisjunctionConstraint: DisjunctiveConstraintProtocol, Hashable {
 
   mutating func modifyTypes(_ transform: (AnyType) -> AnyType) {
     for i in 0 ..< choices.count {
-      choices[i] = Predicate(
-        constraints: choices[i].constraints.reduce(
-          into: [],
-          { (cs, c) in
-            var newConstraint = c
-            newConstraint.modifyTypes(transform)
-            cs.insert(newConstraint)
-          }),
-        penalties: choices[i].penalties)
+      let modified = choices[i].constraints.reduce(into: ConstraintSet()) { (cs, c) in
+        var newConstraint = c
+        newConstraint.modifyTypes(transform)
+        cs.insert(newConstraint)
+      }
+      choices[i] = Predicate(constraints: modified, penalties: choices[i].penalties)
     }
   }
 

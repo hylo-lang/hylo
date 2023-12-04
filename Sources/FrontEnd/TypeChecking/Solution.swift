@@ -75,7 +75,7 @@ struct Solution {
 
   /// Removes the type and binding assumptions that aren't in `other` and incorporate the
   /// penalties and diagnostics of `other` into `self`.
-  mutating func merge(_ other: Self) {
+  mutating func formIntersection(_ other: Self) {
     typeAssumptions.formIntersection(other.typeAssumptions)
     bindingAssumptions.formIntersection(other.bindingAssumptions)
     penalties = max(penalties, other.penalties)
