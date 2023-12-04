@@ -4715,6 +4715,8 @@ struct TypeChecker {
 
   /// Returns the inferred type of `callee`, which is the callee of a function, initializer, or
   /// subscript, updating `state` with inference facts and deferred type checking requests.
+  ///
+  /// - Requires: `purpose` is either `.function` or `.subscript`.
   private mutating func _inferredType(
     ofCallee callee: AnyExprID, usedAs purpose: NameUse, withHint hint: AnyType?,
     updating obligations: inout ProofObligations
