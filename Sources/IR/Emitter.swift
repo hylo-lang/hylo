@@ -576,21 +576,8 @@ struct Emitter {
     _ name: NamePattern.ID, referringTo subfield: RecordPath, relativeTo storage: Operand,
     consuming initializer: AnyExprID
   ) {
-    let lhsPart = emitLocalDeclaration(of: name, referringTo: subfield, relativeTo: storage)
-    let lhsPartType = module.type(of: lhsPart).ast
-    let rhsPartType = canonical(program[initializer].type)
-
-    if program.areEquivalent(lhsPartType, rhsPartType, in: program[name].scope) {
-      emitStore(value: initializer, to: lhsPart)
-    } else if lhsPartType.base is UnionType {
-      let x0 = insert(
-        module.makeOpenUnion(
-          lhsPart, as: rhsPartType, forInitialization: true, at: ast[name].site))!
-      emitStore(value: initializer, to: x0)
-      insert(module.makeCloseUnion(x0, at: ast[name].site))
-    } else {
-      UNIMPLEMENTED()
-    }
+    let lhs = emitLocalDeclaration(of: name, referringTo: subfield, relativeTo: storage)
+    emitStore(convertingIfNecessary: initializer, to: lhs)
   }
 
   /// Inserts the IR to declare and initialize the names in `lhs`, which refer to subobjects of
@@ -971,18 +958,20 @@ struct Emitter {
   }
 
   private mutating func emit(assignStmt s: AssignStmt.ID) -> ControlFlow {
-    // The left operand of an assignment should always be marked for mutation, even if the
-    // statement actually denotes initialization.
-    guard ast[s].left.kind == InoutExpr.self else {
+    // The LHS should must be marked for mutation even if the statement denotes initialization.
+    guard program[s].left.kind == InoutExpr.self else {
       let p = program[s].left.site.first()
       report(.error(assignmentLHSRequiresMutationMarkerAt: .empty(at: p)))
       return .next
     }
 
-    // The RHS is evaluated before the LHS.
-    let x0 = emitStore(value: ast[s].right)
-    let x1 = emitLValue(ast[s].left)
-    emitMove([.inout, .set], x0, to: x1, at: ast[s].site)
+    // The RHS is evaluated first, stored into some local storage, and moved to the LHS. Implicit
+    // conversion is necessary if the RHS is subtype of the LHS.
+    let rhs = emitAllocStack(for: program[s].left.type, at: ast[s].site)
+    emitStore(convertingIfNecessary: ast[s].right, to: rhs)
+    let lhs = emitLValue(ast[s].left)
+    emitMove([.inout, .set], rhs, to: lhs, at: ast[s].site)
+
     return .next
   }
 
@@ -1588,6 +1577,30 @@ struct Emitter {
   private mutating func emitStore(_ e: TupleMemberExpr.ID, to storage: Operand) {
     let x0 = emitLValue(e)
     emitMove([.inout, .set], x0, to: storage, at: ast[e].site)
+  }
+
+  /// Inserts the IR to store the value of `e` to `storage`, converting it to the type of `storage`
+  /// if necessary.
+  ///
+  /// The type comparison is performed in the scope of `e`.
+  private mutating func emitStore<T: ExprID>(
+    convertingIfNecessary e: T,
+    to storage: Operand
+  ) {
+    let lhsType = module.type(of: storage).ast
+    let rhsType = canonical(program[e].type)
+
+    if program.areEquivalent(lhsType, rhsType, in: program[e].scope) {
+      emitStore(value: e, to: storage)
+    } else if lhsType.base is UnionType {
+      let x0 = insert(
+        module.makeOpenUnion(
+          storage, as: rhsType, forInitialization: true, at: ast[e].site))!
+      emitStore(value: e, to: x0)
+      insert(module.makeCloseUnion(x0, at: ast[e].site))
+    } else {
+      UNIMPLEMENTED()
+    }
   }
 
   /// Writes the value of `literal` to `storage`.
