@@ -3491,6 +3491,10 @@ struct TypeChecker {
         .init(reference: r, type: candidateType, constraints: cs, diagnostics: log))
     }
 
+    if let labels = purpose.labels {
+      candidates.filter(accepting: labels)
+    }
+
     return candidates
   }
 
@@ -3602,21 +3606,18 @@ struct TypeChecker {
     }
 
     switch purpose {
-    case .constructor, .function:
+    case .constructor(let ls), .function(let ls):
       guard let t = MetatypeType(parent.type)?.instance else { return nil }
       let n = SourceRepresentable(value: Name(stem: "init"), range: name.site)
+      let p = NameResolutionContext(type: t, arguments: parent.arguments, receiver: nil)
       let r = resolve(
-        n, specializedBy: [],
-        in: .init(type: t, arguments: parent.arguments, receiver: nil),
-        exposedTo: scopeOfUse, usedAs: .constructor)
+        n, specializedBy: [], in: p, exposedTo: scopeOfUse, usedAs: .constructor(labels: ls))
       return r.elements.isEmpty ? nil : r
 
     case .subscript where !(parent.type.base is MetatypeType):
       let n = SourceRepresentable(value: Name(stem: "[]"), range: name.site)
       let r = resolve(
-        n, specializedBy: [],
-        in: parent,
-        exposedTo: scopeOfUse, usedAs: .subscript)
+        n, specializedBy: [], in: parent, exposedTo: scopeOfUse, usedAs: purpose)
       return r.elements.isEmpty ? nil : r
 
     default:
@@ -3670,8 +3671,7 @@ struct TypeChecker {
 
     // If the name resolves to an initializer, determine if it is used as a constructor.
     let isConstructor =
-      (d.kind == InitializerDecl.self)
-      && ((purpose == .constructor) || (name.value.stem == "new"))
+      (d.kind == InitializerDecl.self) && (purpose.isConstructor || (name.value.stem == "new"))
     if isConstructor {
       candidateType = ^LambdaType(constructorFormOf: LambdaType(candidateType)!)
     }
@@ -4359,8 +4359,9 @@ struct TypeChecker {
     of e: FunctionCallExpr.ID, withHint hint: AnyType? = nil,
     updating obligations: inout ProofObligations
   ) -> AnyType {
+    let u = NameUse.function(labels: program[e].arguments.map(\.label?.value))
     let callee = _inferredType(
-      ofCallee: program[e].callee, usedAs: .function, withHint: hint, updating: &obligations)
+      ofCallee: program[e].callee, usedAs: u, withHint: hint, updating: &obligations)
 
     // We failed to infer the type of the callee. We can stop here.
     if callee.isError {
@@ -4622,8 +4623,9 @@ struct TypeChecker {
     of e: SubscriptCallExpr.ID, withHint hint: AnyType? = nil,
     updating obligations: inout ProofObligations
   ) -> AnyType {
+    let u = NameUse.subscript(labels: program[e].arguments.map(\.label?.value))
     let callee = _inferredType(
-      ofCallee: program[e].callee, usedAs: .subscript, withHint: hint, updating: &obligations)
+      ofCallee: program[e].callee, usedAs: u, withHint: hint, updating: &obligations)
 
     // We failed to infer the type of the callee. We can stop here.
     if callee.isError {
@@ -4713,16 +4715,16 @@ struct TypeChecker {
 
   /// Returns the inferred type of `callee`, which is the callee of a function, initializer, or
   /// subscript, updating `state` with inference facts and deferred type checking requests.
+  ///
+  /// - Requires: `purpose` is either `.function` or `.subscript`.
   private mutating func _inferredType(
     ofCallee callee: AnyExprID, usedAs purpose: NameUse, withHint hint: AnyType?,
     updating obligations: inout ProofObligations
   ) -> AnyType {
     assert(purpose != .unapplied)
-    switch callee.kind {
-    case NameExpr.self:
-      let e = NameExpr.ID(callee)!
+    if let e = NameExpr.ID(callee) {
       return _inferredType(of: e, inImplicitScope: hint, usedAs: purpose, updating: &obligations)
-    default:
+    } else {
       return inferredType(of: callee, updating: &obligations)
     }
   }
