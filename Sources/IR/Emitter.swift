@@ -659,6 +659,9 @@ struct Emitter {
       return withClearContext({ $0.lower(globalBindingInitializer: d) })
     case .copy:
       UNIMPLEMENTED()
+    case .autoclosure:
+      // nothing do to here; expansion is done at the caller side.
+      break
     }
   }
 
@@ -861,6 +864,25 @@ struct Emitter {
     insert(module.makeMarkState(returnValue!, initialized: true, at: program[initializer].site))
     emitDeallocTopFrame(at: program[initializer].site)
     insert(module.makeReturn(at: program[initializer].site))
+
+    return f
+  }
+
+  private mutating func lower(syntheticAutoclosure d: SynthesizedFunctionDecl) -> Function.ID {
+    guard case .autoclosure(let argument) = d.kind else { unreachable() }
+    let f = module.demandDeclaration(lowering: d)
+    let entry = module.appendEntry(in: d.scope, to: f)
+
+    insertionPoint = .end(of: entry)
+    self.frames.push()
+    defer {
+      self.frames.pop()
+      assert(self.frames.isEmpty)
+    }
+
+    // Emit the body.
+    emitStore(value: argument, to: returnValue!)
+    insert(module.makeReturn(at: ast[argument].site))
 
     return f
   }
@@ -1834,6 +1856,11 @@ struct Emitter {
   private mutating func emit(
     argument e: AnyExprID, to parameter: ParameterType, at site: SourceRange? = nil
   ) -> Operand {
+
+    if parameter.isAutoclosure {
+      return emit(autoclosureFor: e, to: parameter, at: site)
+    }
+
     let argumentSite: SourceRange
     let storage: Operand
 
@@ -1848,6 +1875,27 @@ struct Emitter {
 
     let s = emitCoerce(storage, to: parameter.bareType, at: argumentSite)
     return insert(module.makeAccess(parameter.access, from: s, at: argumentSite))!
+  }
+
+  private mutating func emit(
+    autoclosureFor argument: AnyExprID, to parameter: ParameterType, at site: SourceRange? = nil
+  ) -> Operand {
+    // Emit synthesized function declaration.
+    let f = SynthesizedFunctionDecl(
+      .autoclosure(argument), typed: parameter.bareType.base as! LambdaType,
+      in: program[argument].scope)
+    let callee = withClearContext({ $0.lower(syntheticAutoclosure: f) })
+
+    // Emit the IR code to reference tha function declaration.
+    let r = FunctionReference(
+      to: callee, in: module,
+      specializedBy: module.specialization(in: insertionFunction!), in: insertionScope!)
+
+    let site = ast[argument].site
+    let s1 = insert(module.makeAddressToPointer(.constant(r), at: site))!
+    let s2 = emitAllocStack(for: parameter.bareType, at: site)
+    emitStore(value: s1, to: s2, at: site)
+    return insert(module.makeAccess(parameter.access, from: s2, at: site))!
   }
 
   /// Inserts the IR for infix operand `e` passed with convention `access`.

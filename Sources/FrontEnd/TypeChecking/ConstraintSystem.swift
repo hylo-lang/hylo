@@ -532,6 +532,9 @@ struct ConstraintSystem {
       return nil
 
     case let p as ParameterType:
+      if p.isAutoclosure {
+        return solve(autoclosureParameter: goal, ofType: p)
+      }
       let s = schedule(
         SubtypingConstraint(goal.left, p.bareType, origin: goal.origin.subordinate()))
       return .product([s]) { (d, m, r) in
@@ -543,6 +546,24 @@ struct ConstraintSystem {
       return .failure { (d, m, _) in
         d.insert(.error(invalidParameterType: m.reify(goal.right), at: goal.origin.site))
       }
+    }
+  }
+
+  /// Returns either `.success` if instances of `goal.left` can be passed to a parameter `p`,
+  /// `.failure` if they can't, or `nil` if neither of these outcomes can be determined yet.
+  private mutating func solve(
+    autoclosureParameter goal: ParameterConstraint, ofType p: ParameterType
+  ) -> Outcome? {
+    let t = LambdaType(p.bareType)!
+    let s = schedule(
+      ParameterConstraint(
+        goal.left, AnyType(ParameterType(.`let`, t.output)), origin: goal.origin.subordinate()))
+    // TODO: the env is not always .void
+    let s1 = schedule(
+      EqualityConstraint(.void, t.environment, origin: goal.origin.subordinate()))
+    return .product([s, s1]) { (d, m, r) in
+      let (l, r) = (m.reify(goal.left), m.reify(goal.right))
+      d.insert(.error(cannotPass: l, toParameter: r, at: goal.origin.site))
     }
   }
 

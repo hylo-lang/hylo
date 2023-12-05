@@ -388,7 +388,7 @@ extension Program {
 
     switch d.kind {
     case FunctionDecl.self:
-      return ast.name(of: FunctionDecl.ID(d)!)!
+      return ast.name(of: FunctionDecl.ID(d)!)
     case InitializerDecl.self:
       return ast.name(of: InitializerDecl.ID(d)!)
     case MethodImpl.self:

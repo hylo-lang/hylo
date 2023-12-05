@@ -2573,7 +2573,7 @@ struct TypeChecker {
       }
     }
 
-    return ^ParameterType(program[e].convention.value, t)
+    return ^ParameterType(program[e].convention.value, t, isAutoclosure: program[e].isAutoclosure)
   }
 
   /// Evaluates and returns the value of `e`, which is a type annotation.
