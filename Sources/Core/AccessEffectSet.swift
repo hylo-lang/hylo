@@ -23,7 +23,7 @@ public struct AccessEffectSet: OptionSet, Hashable {
     (rawValue != 0) && (rawValue & (rawValue - 1) == 0)
   }
 
-  /// The unique element in `self` if `self` is a singleton. Otherwise, `nil`.
+  /// The unique element in `self` if `self` is a singleton, or `nil` otherwise.
   public var uniqueElement: AccessEffect? {
     .init(rawValue: rawValue)
   }

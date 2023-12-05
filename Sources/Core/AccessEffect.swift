@@ -1,4 +1,4 @@
-/// An access effect, specifying how a parameter, receiver, or remote part is accessed
+/// An access effect, specifying how a parameter, receiver, or remote part is accessed.
 public enum AccessEffect: UInt8, Codable {
 
   /// Value is accessed immutably.

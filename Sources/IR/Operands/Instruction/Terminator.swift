@@ -4,8 +4,8 @@ protocol Terminator: Instruction {
   /// The basic blocks to which control flow may transfer.
   var successors: [Block.ID] { get }
 
-  /// Replaces `old` with `new` and returns `true` if `old` is successor of `self`. Otherwise,
-  /// returns `false`.
+  /// Replaces `old` with `new` and returns `true` if `old` is successor of `self`; returns `false`
+  /// otherwise.
   ///
   /// - Requires: `new` takes the same parameters as `old`.
   @discardableResult

@@ -58,7 +58,10 @@ jobs:
 
     runs-on: ${{ matrix.host.os }}
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
+      with:
+        submodules: true
+        show-progress: false
 
     - name: Build and Test
       uses: devcontainers/ci@v0.3
@@ -96,14 +99,17 @@ jobs:
           }
         ]
         swift: [
-          { version: "5.8" }
+          { version: "5.9" }
         ]
         configuration: [ "debug", "release" ]
 
     runs-on: ${{ matrix.host.os }}
     steps:
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
+      with:
+        submodules: true
+        show-progress: false
 
     - name: Setup swift
       uses: swift-actions/setup-swift@v1
@@ -149,14 +155,17 @@ jobs:
     runs-on: windows-latest
     steps:
     - name: Setup swift
-      uses: compnerd/gha-setup-swift@main
+      uses: compnerd/gha-setup-swift@v0.2.1
       with:
         github-repo: thebrowsercompany/swift-build
         release-asset-name: installer-amd64.exe
-        release-tag-name: 20231010.3
+        release-tag-name: 20231130.2
         github-token: ${{ secrets.GITHUB_TOKEN }}
 
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
+      with:
+        submodules: true
+        show-progress: false
 
     - name: Swift version
       run: swift --version
@@ -179,10 +188,10 @@ jobs:
       run: clang -c ./StandardLibrary/Sources/LibC.c -o HyloLibC.lib
 
     - name: Prevent reentrant builds for speed
-      run: echo 'HYLO_NO_REENTRANT_BUILD=1' >> $env:GITHUB_ENV
+      run: echo 'SPM_BUILD_TOOL_SUPPORT_NO_REENTRANT_BUILD=1' >> $env:GITHUB_ENV
 
-    - name: Non-test build ensuring that build tools have been built
-      run: swift build --explicit-target-dependency-import-check error --pkg-config-path .
+    - name: Build the dependencies of build tools for non-reentrant build
+      run: swift build --explicit-target-dependency-import-check=error --pkg-config-path . --target BuildToolDependencies
 
     - name: Build tests
       run: swift build --explicit-target-dependency-import-check error --build-tests --pkg-config-path .

@@ -18,7 +18,7 @@ public struct PragmaLiteralExpr: Expr {
   /// The kind of the literal.
   public let kind: Kind
 
-  /// Creates a literal with given `kind` at `site.`
+  /// Creates a literal with given `kind` at `site`.
   public init(_ kind: Kind, at site: SourceRange) {
     self.site = site
     self.kind = kind

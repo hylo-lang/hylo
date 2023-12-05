@@ -3,11 +3,11 @@ import PackagePlugin
 /// The Swift Package Manager plugin that generates XCTest cases for annotated ".hylo" files as
 /// part of our build process.
 @main
-struct TestGeneratorPlugin: PortableBuildToolPlugin {
+struct TestGeneratorPlugin: SPMBuildToolPlugin {
 
-  func portableBuildCommands(
+  func buildCommands(
     context: PackagePlugin.PluginContext, target: PackagePlugin.Target
-  ) throws -> [PortableBuildCommand]
+  ) throws -> [SPMBuildCommand]
   {
     guard let target = target as? SourceModuleTarget else { return [] }
     let inputPaths = target.sourceFiles(withSuffix: ".hylo").map(\.path)
@@ -16,7 +16,7 @@ struct TestGeneratorPlugin: PortableBuildToolPlugin {
     return [
       .buildCommand(
       displayName: "Generating XCTestCases into \(outputPath)",
-      tool: .executableProduct(name: "GenerateHyloFileTests"),
+      executable: .targetInThisPackage("GenerateHyloFileTests"),
       arguments: ["-o", outputPath.platformString, "-n", target.moduleName]
         + inputPaths.map(\.platformString),
       inputFiles: inputPaths,
