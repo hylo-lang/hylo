@@ -404,8 +404,8 @@ public struct Driver: ParsableCommand {
     if let cached = Driver.executableLocationCache[invocationName] { return cached }
 
     let executableFileName =
-      invocationName.hasSuffix(executableSuffix)
-      ? invocationName : invocationName + executableSuffix
+      invocationName.hasSuffix(HostPlatform.executableSuffix)
+      ? invocationName : invocationName + HostPlatform.executableSuffix
 
     // Search in the current working directory.
     var candidate = currentDirectory.appendingPathComponent(executableFileName)
