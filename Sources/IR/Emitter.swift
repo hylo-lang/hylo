@@ -247,7 +247,8 @@ struct Emitter {
     switch emit(braceStmt: b) {
     case .next:
       if canonical(returnType).isVoidOrNever {
-        emitStore(value: .void, to: returnValue!, at: .empty(atEndOf: ast[b].site))
+        let anchor = SourceRange.empty(atEndOf: ast[b].site)
+        insert(module.makeMarkState(returnValue!, initialized: true, at: anchor))
       }
       return ast[b].site
 
@@ -299,7 +300,7 @@ struct Emitter {
       insert(module.makeUnreachable(at: site))
 
     case .void:
-      emitStore(value: .void, to: returnValue!, at: site)
+      insert(module.makeMarkState(returnValue!, initialized: true, at: site))
       emitDeallocTopFrame(at: site)
       insert(module.makeReturn(at: site))
 
@@ -679,7 +680,7 @@ struct Emitter {
     let receiver = Operand.parameter(entry, 0)
     emitDeinitParts(of: receiver, at: site)
 
-    emitStore(value: .void, to: returnValue!, at: site)
+    insert(module.makeMarkState(returnValue!, initialized: true, at: site))
     emitDeallocTopFrame(at: site)
     insert(module.makeReturn(at: site))
   }
@@ -716,7 +717,7 @@ struct Emitter {
       emitMoveInitUnionPayload(of: receiver, consuming: argument, at: site)
     }
 
-    emitStore(value: .void, to: returnValue!, at: site)
+    insert(module.makeMarkState(returnValue!, initialized: true, at: site))
     emitDeallocTopFrame(at: site)
     insert(module.makeReturn(at: site))
   }
@@ -828,7 +829,7 @@ struct Emitter {
 
     // Apply the move-initializer.
     emitMove([.set], argument, to: receiver, at: site)
-    emitStore(value: .void, to: returnValue!, at: site)
+    insert(module.makeMarkState(returnValue!, initialized: true, at: site))
     emitDeallocTopFrame(at: site)
     insert(module.makeReturn(at: site))
   }
@@ -857,7 +858,7 @@ struct Emitter {
     emitInitStoredLocalBindings(
       in: program[binding].pattern.subpattern, referringTo: [], relativeTo: storage,
       consuming: initializer)
-    emitStore(value: .void, to: returnValue!, at: program[initializer].site)
+    insert(module.makeMarkState(returnValue!, initialized: true, at: program[initializer].site))
     emitDeallocTopFrame(at: program[initializer].site)
     insert(module.makeReturn(at: program[initializer].site))
 
@@ -1209,7 +1210,7 @@ struct Emitter {
     if let e = ast[s].value {
       emitStore(value: e, to: returnValue!)
     } else {
-      emitStore(value: .void, to: returnValue!, at: ast[s].site)
+      insert(module.makeMarkState(returnValue!, initialized: true, at: ast[s].site))
     }
 
     // The return instruction is emitted by the caller handling this control-flow effect.
@@ -1252,9 +1253,9 @@ struct Emitter {
 
   // MARK: Values
 
-  /// - Note: should be renamed `emitInit`.
-  private mutating func emitStore(
-    value: Operand, to storage: Operand, at site: SourceRange
+  /// Inserts the IR for initializing `storage` by storing `value` to it.
+  private mutating func emitInitialize(
+    storage: Operand, to value: Operand, at site: SourceRange
   ) {
     let x0 = insert(module.makeAccess(.set, from: storage, at: site))!
     insert(module.makeStore(value, at: x0, at: site))
@@ -1465,7 +1466,7 @@ struct Emitter {
     let site = ast[e].site
     let x0 = insert(module.makeAddressToPointer(.constant(r), at: site))!
     let x1 = emitSubfieldView(storage, at: [0], at: site)
-    emitStore(value: x0, to: x1, at: ast[e].site)
+    emitInitialize(storage: x1, to: x0, at: ast[e].site)
 
     let lambda = LambdaType(program.canonical(program[e].type, in: insertionScope!))!
     if lambda.environment == .void { return }
@@ -1683,7 +1684,7 @@ struct Emitter {
 
     let x1 = emitSubfieldView(storage, at: [1, 0], at: site)
     let x2 = insert(module.makeConstantString(utf8: bytes, at: site))!
-    emitStore(value: x2, to: x1, at: site)
+    emitInitialize(storage: x1, to: x2, at: site)
   }
 
   /// Inserts the IR for storing `a`, which is an `access`, to `storage`.
@@ -2246,7 +2247,7 @@ struct Emitter {
 
     // Store the foreign representation in memory to call the converter.
     let source = emitAllocStack(for: module.type(of: foreign).ast, at: site)
-    emitStore(value: foreign, to: source, at: site)
+    emitInitialize(storage: source, to: foreign, at: site)
 
     switch foreignConvertibleConformance.implementations[r]! {
     case .concrete(let m):
@@ -2458,7 +2459,7 @@ struct Emitter {
     // Handle references to type declarations.
     if let t = MetatypeType(program[d].type) {
       let s = emitAllocStack(for: ^t, at: site)
-      emitStore(value: .constant(t), to: s, at: site)
+      emitInitialize(storage: s, to: .constant(t), at: site)
       return s
     }
 
