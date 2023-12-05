@@ -1,5 +1,5 @@
 /// The platform on which the compiler or interpreter is running.
-public enum HostPlatform {
+public enum Host {
 
   /// An operating system on which the compiler or interpreter can run.
   public enum OperatingSystem {
