@@ -2675,28 +2675,94 @@ struct TypeChecker {
 
   /// Evaluates and returns `e`, which is a type annotation describing the subject of an extension
   /// or a bound in an existential type, along with its associated constraints.
-  ///
-  /// When a type annotation describes the subject of an extension or a bound an existential bound,
-  /// generic parameters are interpreted as sugared constraints that would otherwise be defined in
-  /// a where clause. For example:
-  ///
-  ///     conformance Array<Int>: P {}
-  ///
-  /// Here, the extended type is `Array` and `Int` is viewed as a constraint on `Array`.
   private mutating func eval(existentialBound e: AnyExprID) -> (AnyType, Set<GenericConstraint>) {
-    let i = evalTypeAnnotation(e)
+    // Name expressions may contain sugared constraints. Others cannot.
+    if let n = NameExpr.ID(e) {
+      return eval(existentialBound: n)
+    } else {
+      let t = evalTypeAnnotation(e)
+      assert(!(t.base is BoundGenericType), "unexpected bound generic type")
+      return (t, [])
+    }
+  }
 
-    // Arguments to bound generic types desugar like where clauses. No constraint is created when
-    // an argument refers to its corresponding parameter, unless the `d` is nested in the scope
-    // where that parameter is introduced.
-    if let b = BoundGenericType(i) {
-      for (p, a) in b.arguments {
-        if GenericTypeParameterType(a as! AnyType)?.decl != p { UNIMPLEMENTED() }
+  /// Evaluates and returns `e`, which is a type annotation describing the subject of an extension
+  /// or a bound in an existential type, along with its associated constraints.
+  ///
+  /// When a name expression describes the subject of an extension or a bound an existential bound,
+  /// generic parameters are interpreted as sugared constraints that would otherwise be defined in
+  /// a where clause. For example, in `conformance Array<Int>: P {}`, the extended type is `Array`
+  /// and `Int` is interpreted as a constraint on `Array`'s generic parameter.
+  private mutating func eval(
+    existentialBound e: NameExpr.ID
+  ) -> (AnyType, Set<GenericConstraint>) {
+    let resolution = resolve(e, withNonNominalPrefix: { (me, p) in me.evalQualification(of: p) })
+
+    switch resolution {
+    case .failed:
+      return error()
+
+    case .canceled:
+      report(.error(noContextToResolve: program[e].name.value, at: program[e].name.site))
+      return error()
+
+    case .done(let prefix, let suffix):
+      // Nominal type expressions shall not be overloaded.
+      if !suffix.isEmpty {
+        cache.write(.error, at: \.exprType[e])
+        return error()
       }
-      return (b.base, [])
+
+      var t: AnyType?
+      for n in prefix {
+        t = bindExistentialBoundComponent(n)
+        if t == nil { return error() }
+      }
+      return (t!, [])
     }
 
-    return (i, [])
+    /// Assigns `e` to an error and returns `(.error, [])`.
+    func error() -> (AnyType, Set<GenericConstraint>) {
+      cache.write(.error, at: \.exprType[e])
+      return (.error, [])
+    }
+  }
+
+  /// Binds `n` to its declaration and returns its type.
+  private mutating func bindExistentialBoundComponent(
+    _ n: NameResolutionResult.ResolvedComponent
+  ) -> AnyType? {
+    guard let pick = n.candidates.uniqueElement else {
+      report(.error(ambiguousUse: n.component, in: program.ast))
+      return nil
+    }
+
+    cache.write(pick.reference, at: \.referredDecl[n.component])
+
+    switch pick.type.base {
+    case is BuiltinType, is NamespaceType, is TraitType:
+      cache.write(pick.type, at: \.exprType[n.component])
+      return pick.type
+
+    case let m as MetatypeType:
+      cache.write(pick.type, at: \.exprType[n.component])
+
+      // Arguments to bound generic types desugar like where clauses. No constraint is created when
+      // an argument refers to its corresponding parameter, unless the `d` is nested in the scope
+      // where that parameter is introduced.
+      if let u = BoundGenericType(m.instance) {
+        for (p, a) in u.arguments {
+          if GenericTypeParameterType(a as! AnyType)?.decl != p { UNIMPLEMENTED() }
+        }
+        return u.base
+      } else {
+        return m.instance
+      }
+
+    default:
+      report(.error(typeExprDenotesValue: n.component, in: program.ast))
+      return nil
+    }
   }
 
   /// Evaluates `e`, which expresses the bounds of an existential type expression, returning the
