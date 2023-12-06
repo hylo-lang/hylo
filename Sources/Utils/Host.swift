@@ -7,14 +7,14 @@ public enum Host {
   }
 
   #if os(macOS)
-  /// The operating system.
-  public static let operatingSystem: OperatingSystem = .macOS
+    /// The operating system.
+    public static let operatingSystem: OperatingSystem = .macOS
   #elseif os(Linux)
-  /// The operating system.
-  public static let operatingSystem: OperatingSystem = .linux
+    /// The operating system.
+    public static let operatingSystem: OperatingSystem = .linux
   #elseif os(Windows)
-  /// The operating system.
-  public static let operatingSystem: OperatingSystem = .windows
+    /// The operating system.
+    public static let operatingSystem: OperatingSystem = .windows
   #endif
 
   /// The name of the environment variable containing the executable search path.
@@ -25,4 +25,5 @@ public enum Host {
 
   /// The file extension applied to binary executables.
   public static let executableSuffix = operatingSystem == .windows ? ".exe" : ""
+
 }
