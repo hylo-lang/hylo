@@ -1894,7 +1894,7 @@ struct Emitter {
     let site = ast[argument].site
     let s1 = insert(module.makeAddressToPointer(.constant(r), at: site))!
     let s2 = emitAllocStack(for: parameter.bareType, at: site)
-    emitStore(value: s1, to: s2, at: site)
+    emitInitialize(storage: s2, to: s1, at: site)
     return insert(module.makeAccess(parameter.access, from: s2, at: site))!
   }
 
