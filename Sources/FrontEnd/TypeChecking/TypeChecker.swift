@@ -2460,10 +2460,15 @@ struct TypeChecker {
     }
 
     // Attempt to evaluate `e` as a metatype.
-    let v = eval(e)
-    if let t = MetatypeType(v.staticType) {
+    switch eval(e).staticType.base {
+    case let t as MetatypeType:
       return t.instance
-    } else {
+
+    case is ErrorType:
+      // Diagnostic already reported.
+      return .error
+
+    default:
       report(.error(typeExprDenotesValue: e, in: program.ast))
       return .error
     }
