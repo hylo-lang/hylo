@@ -2077,7 +2077,7 @@ struct TypeChecker {
   /// - Requires: `d` has a type annotation.
   private mutating func _uncheckedType(of d: ParameterDecl.ID) -> AnyType {
     let a = program[d].annotation ?? preconditionFailure("missing type annotation")
-    let t = evalTypeAnnotation(a)
+    let t = evalParameterAnnotation(a)
 
     // The annotation may not omit generic arguments.
     if t[.hasVariable] {
@@ -2476,31 +2476,6 @@ struct TypeChecker {
     }
   }
 
-  /// Evaluates and returns the value of `e`, which is a type annotation.
-  private mutating func evalTypeAnnotation(_ e: ExistentialTypeExpr.ID) -> AnyType {
-    let (i, cs) = eval(existentialInterface: program[e].traits)
-
-    guard cs.isEmpty else { UNIMPLEMENTED() }
-    guard program[e].whereClause == nil else { UNIMPLEMENTED() }
-
-    return ^ExistentialType(i, constraints: cs)
-  }
-
-  /// Evaluates and returns the value of `e`, which is a type annotation.
-  private mutating func evalTypeAnnotation(_ e: ParameterTypeExpr.ID) -> AnyType {
-    let t = evalTypeAnnotation(program[e].bareType)
-
-    if program[e].isAutoclosure {
-      let s = program[program[e].bareType].site
-      guard let u = LambdaType(t), u.inputs.isEmpty else {
-        report(.error(autoclosureExpectsEmptyLambdaAt: s, given: t))
-        return .error
-      }
-    }
-
-    return ^ParameterType(program[e].convention.value, t)
-  }
-
   /// Evaluates and returns the qualification of `e`, which is a type annotation.
   private mutating func evalQualification(of e: NameExpr.ID) -> AnyType? {
     switch program[e].domain {
@@ -2514,16 +2489,31 @@ struct TypeChecker {
     }
   }
 
-  /// Evaluates and returns the parameter annotations of `e`.ns.
+  /// Evaluates and returns the parameter annotations of `e`.
   private mutating func evalParameterAnnotations(
     of e: LambdaTypeExpr.ID
   ) -> [CallableTypeParameter] {
     var result: [CallableTypeParameter] = []
     for p in program[e].parameters {
-      let t = evalTypeAnnotation(p.type)
+      let t = evalParameterAnnotation(p.type)
       result.append(.init(label: p.label?.value, type: t))
     }
     return result
+  }
+
+  /// Evaluates and returns the value of `e`.
+  private mutating func evalParameterAnnotation(_ e: ParameterTypeExpr.ID) -> AnyType {
+    let t = evalTypeAnnotation(program[e].bareType)
+
+    if program[e].isAutoclosure {
+      let s = program[program[e].bareType].site
+      guard let u = LambdaType(t), u.inputs.isEmpty else {
+        report(.error(autoclosureExpectsEmptyLambdaAt: s, given: t))
+        return .error
+      }
+    }
+
+    return ^ParameterType(program[e].convention.value, t)
   }
 
   /// Evaluates and returns the return type annotation of `d`.
@@ -4353,11 +4343,13 @@ struct TypeChecker {
     of e: ExistentialTypeExpr.ID, withHint hint: AnyType? = nil,
     updating obligations: inout ProofObligations
   ) -> AnyType {
-    if let t = evalTypeAnnotation(e).errorFree {
-      return constrain(e, to: ^MetatypeType(of: t), in: &obligations)
-    } else {
-      return constrain(e, to: .error, in: &obligations)
-    }
+    let (i, cs) = eval(existentialInterface: program[e].traits)
+
+    guard cs.isEmpty else { UNIMPLEMENTED() }
+    guard program[e].whereClause == nil else { UNIMPLEMENTED() }
+
+    let r = ExistentialType(i, constraints: cs)
+    return constrain(e, to: ^MetatypeType(of: r), in: &obligations)
   }
 
   /// Returns the inferred type of `e`, updating `obligations` and gathering contextual information
