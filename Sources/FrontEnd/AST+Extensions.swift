@@ -6,7 +6,10 @@ import Utils
 extension AST {
 
   /// Creates an instance that includes the Hylo library whose sources are rooted at `libraryRoot`.
-  public init(libraryRoot: URL, for compiler: CompilerConfiguration) {
+  public init(
+    libraryRoot: URL,
+    for compiler: ConditionalCompilationConfiguration = ConditionalCompilationConfiguration()
+  ) {
     self.init(for: compiler)
     do {
       var diagnostics = DiagnosticSet()

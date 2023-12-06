@@ -69,7 +69,7 @@ public struct ConditionalCompilationStmt: Stmt {
     }
 
     /// Returns `true` iff `self` holds for the current process.
-    public func holds(for info: CompilerConfiguration) -> Bool {
+    public func holds(for info: ConditionalCompilationConfiguration) -> Bool {
       switch self {
       case .`true`: return true
       case .`false`: return false
@@ -108,7 +108,7 @@ public struct ConditionalCompilationStmt: Stmt {
   }
 
   /// Returns the statements that this expands to.
-  public func expansion(for compiler: CompilerConfiguration) -> [AnyStmtID] {
+  public func expansion(for compiler: ConditionalCompilationConfiguration) -> [AnyStmtID] {
     if condition.holds(for: compiler) {
       return stmts
     } else {

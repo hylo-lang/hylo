@@ -20,12 +20,12 @@ public struct AST {
     /// The module containing Hylo's core library, if any.
     public var coreLibrary: ModuleDecl.ID?
 
-    /// Information about the compiler processing `self`.
-    public let compiler: CompilerConfiguration
+    /// Conditional compilation configuration for processing `self`.
+    public let configuration: ConditionalCompilationConfiguration
 
-    /// Creates an empty AST for given compiler.
-    public init(for compiler: CompilerConfiguration) {
-      self.compiler = compiler
+    /// Creates an empty AST for given conditional compilation configuration.
+    public init(for configuration: ConditionalCompilationConfiguration) {
+      self.configuration = configuration
     }
 
   }
@@ -58,14 +58,16 @@ public struct AST {
     set { storage.coreLibrary = newValue }
   }
 
-  /// Information about the compiler processing `self`.
-  public var compiler: CompilerConfiguration {
-    return storage.compiler
+  /// Conditional compilation configuration for processing `self`.
+  public var configuration: ConditionalCompilationConfiguration {
+    return storage.configuration
   }
 
   /// Creates an empty AST.
-  public init(for compiler: CompilerConfiguration) {
-    self.storage = Storage(for: compiler)
+  public init(
+    for configuration: ConditionalCompilationConfiguration = ConditionalCompilationConfiguration()
+  ) {
+    self.storage = Storage(for: configuration)
   }
 
   /// Inserts `n` into `self`, updating `diagnostics` if `n` is ill-formed.

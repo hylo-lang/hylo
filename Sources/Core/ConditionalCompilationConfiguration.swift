@@ -1,7 +1,7 @@
 import Utils
 
-/// Describes the compiler; used as source of truth for conditional compilation.
-public struct CompilerConfiguration: Codable {
+/// The configuration needed for conditional compilation.
+public struct ConditionalCompilationConfiguration: Codable {
 
   /// The target operating system.
   let operatingSystem: Host.OperatingSystem

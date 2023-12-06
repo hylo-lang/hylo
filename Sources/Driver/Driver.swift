@@ -163,7 +163,7 @@ public struct Driver: ParsableCommand {
     /// An instance that includes just the standard library.
     var ast = AST(
       libraryRoot: unhosted ? coreLibrarySourceRoot : standardLibrarySourceRoot,
-      for: CompilerConfiguration(freestanding: freestanding))
+      for: ConditionalCompilationConfiguration(freestanding: freestanding))
 
     // The module whose Hylo files were given on the command-line
     let sourceModule = try ast.makeModule(
