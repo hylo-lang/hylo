@@ -2459,10 +2459,14 @@ struct TypeChecker {
       break
     }
 
-    // Attempt to evaluate `e` as a metatype.
-    switch eval(e).staticType.base {
+    // Compute the type expressed by `e`.
+    let v = eval(e)
+    switch v.staticType.base {
     case let t as MetatypeType:
       return t.instance
+
+    case is NamespaceType, is TraitType:
+      return v.staticType
 
     case is ErrorType:
       // Diagnostic already reported.
