@@ -8,9 +8,9 @@ extension AST {
   /// Creates an instance that includes the Hylo library whose sources are rooted at `libraryRoot`.
   public init(
     libraryRoot: URL,
-    for compiler: ConditionalCompilationConfiguration = ConditionalCompilationConfiguration()
+    _ configuration: ConditionalCompilationConfiguration = ConditionalCompilationConfiguration()
   ) {
-    self.init(for: compiler)
+    self.init(configuration)
     do {
       var diagnostics = DiagnosticSet()
       coreLibrary = try makeModule(

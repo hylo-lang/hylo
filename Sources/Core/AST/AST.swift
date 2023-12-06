@@ -24,7 +24,7 @@ public struct AST {
     public let configuration: ConditionalCompilationConfiguration
 
     /// Creates an empty AST for given conditional compilation configuration.
-    public init(for configuration: ConditionalCompilationConfiguration) {
+    public init(_ configuration: ConditionalCompilationConfiguration) {
       self.configuration = configuration
     }
 
@@ -65,9 +65,9 @@ public struct AST {
 
   /// Creates an empty AST.
   public init(
-    for configuration: ConditionalCompilationConfiguration = ConditionalCompilationConfiguration()
+    _ configuration: ConditionalCompilationConfiguration = ConditionalCompilationConfiguration()
   ) {
-    self.storage = Storage(for: configuration)
+    self.storage = Storage(configuration)
   }
 
   /// Inserts `n` into `self`, updating `diagnostics` if `n` is ill-formed.
