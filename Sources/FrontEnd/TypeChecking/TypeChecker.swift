@@ -1789,7 +1789,7 @@ struct TypeChecker {
     switch c.value {
     case .equality(let l, let r):
       guard
-        let lhs = evalTypeAnnotation(l).errorFree,
+        let lhs = evalTypeAnnotation(AnyExprID(l)).errorFree,
         let rhs = evalTypeAnnotation(r).errorFree
       else { return }
 
@@ -1800,7 +1800,7 @@ struct TypeChecker {
       }
 
     case .conformance(let l, let r):
-      guard let lhs = evalTypeAnnotation(l).errorFree else { return }
+      guard let lhs = evalTypeAnnotation(AnyExprID(l)).errorFree else { return }
       guard lhs.isTypeParameter else {
         report(.error(invalidConformanceConstraintTo: lhs, at: c.site))
         return
@@ -1964,7 +1964,7 @@ struct TypeChecker {
 
   /// Computes and returns the type of `d`.
   private mutating func _uncheckedType(of d: GenericParameterDecl.ID) -> AnyType {
-    let bounds = program[d].conformances.map({ evalTypeAnnotation($0) })
+    let bounds = program[d].conformances.map({ evalTypeAnnotation(AnyExprID($0)) })
 
     // The declaration introduces a value if it's first annotation isn't a trait. Otherwise, it
     // introduces a type.
@@ -2477,26 +2477,6 @@ struct TypeChecker {
   }
 
   /// Evaluates and returns the value of `e`, which is a type annotation.
-  private mutating func evalTypeAnnotation(_ e: ConformanceLensTypeExpr.ID) -> AnyType {
-    guard
-      let t = evalTypeAnnotation(program[e].lens).errorFree,
-      let s = evalTypeAnnotation(program[e].subject).errorFree
-    else { return .error }
-
-    guard let lens = TraitType(t) else {
-      report(.error(notATrait: t, at: program[e].lens.site))
-      return .error
-    }
-
-    guard conformedTraits(of: s, in: program[e].scope).contains(lens) else {
-      report(.error(s, doesNotConformTo: lens, at: program[e].lens.site))
-      return .error
-    }
-
-    return ^ConformanceLensType(viewing: s, through: lens)
-  }
-
-  /// Evaluates and returns the value of `e`, which is a type annotation.
   private mutating func evalTypeAnnotation(_ e: ExistentialTypeExpr.ID) -> AnyType {
     let (i, cs) = eval(existentialInterface: program[e].traits)
 
@@ -2504,68 +2484,6 @@ struct TypeChecker {
     guard program[e].whereClause == nil else { UNIMPLEMENTED() }
 
     return ^ExistentialType(i, constraints: cs)
-  }
-
-  /// Evaluates and returns the value of `e`, which is a type annotation.
-  private mutating func evalTypeAnnotation(_ e: LambdaTypeExpr.ID) -> AnyType {
-    let environment: AnyType
-    if let v = program[e].environment {
-      environment = evalTypeAnnotation(v)
-    } else {
-      environment = .any
-    }
-
-    let inputs = evalParameterAnnotations(of: e)
-    let output = evalTypeAnnotation(program[e].output)
-
-    return ^LambdaType(
-      receiverEffect: program[e].receiverEffect?.value ?? .let,
-      environment: environment,
-      inputs: inputs,
-      output: output)
-  }
-
-  /// Evaluates and returns the value of `e`, which is a type annotation.
-  private mutating func evalTypeAnnotation(_ e: NameExpr.ID) -> AnyType {
-    if let t = cache.local.exprType[e] {
-      return t
-    }
-
-    let resolution = resolve(e, withNonNominalPrefix: { (me, p) in me.evalQualification(of: p) })
-    switch resolution {
-    case .done(let prefix, let suffix):
-      // Nominal type expressions shall not be overloaded.
-      guard suffix.isEmpty else {
-        report(.error(ambiguousUse: suffix.first!, in: program.ast))
-        return .error
-      }
-      guard let candidate = prefix.last!.candidates.uniqueElement else {
-        report(.error(ambiguousUse: prefix.last!.component, in: program.ast))
-        return .error
-      }
-
-      // Last component must resolve to a type or trait.
-      switch candidate.type.base {
-      case is MetatypeType, is TraitType:
-        break
-      case is ErrorType:
-        return .error
-      default:
-        report(.error(typeExprDenotesValue: prefix.last!.component, in: program.ast))
-        return .error
-      }
-
-      var t: AnyType?
-      for r in prefix { t = bindTypeAnnotation(r) }
-      return t!
-
-    case .failed:
-      return .error
-
-    case .canceled:
-      // Non-nominal prefixes are handled by the closure passed to `resolveNominalPrefix`.
-      unreachable()
-    }
   }
 
   /// Evaluates and returns the value of `e`, which is a type annotation.
@@ -2581,27 +2499,6 @@ struct TypeChecker {
     }
 
     return ^ParameterType(program[e].convention.value, t)
-  }
-
-  /// Evaluates and returns the value of `e`, which is a type annotation.
-  private mutating func evalTypeAnnotation(_ e: RemoteExpr.ID) -> AnyType {
-    let t = evalTypeAnnotation(program[e].operand)
-    return ^RemoteType(program[e].convention.value, t)
-  }
-
-  /// Evaluates and returns the value of `e`, which is a type annotation.
-  private mutating func evalTypeAnnotation(_ e: TupleTypeExpr.ID) -> AnyType {
-    var elements: [TupleType.Element] = []
-    for m in program[e].elements {
-      let t = evalTypeAnnotation(m.type)
-      elements.append(.init(label: m.label?.value, type: t))
-    }
-    return ^TupleType(elements)
-  }
-
-  /// Evaluates and returns the value of `e`, which is a type annotation.
-  private mutating func evalTypeAnnotation(_ e: WildcardExpr.ID) -> AnyType {
-    ^freshVariable()
   }
 
   /// Evaluates and returns the qualification of `e`, which is a type annotation.
@@ -2667,7 +2564,7 @@ struct TypeChecker {
     var result: [(name: NameExpr.ID, trait: TraitType)] = []
 
     for n in composition {
-      let t = evalTypeAnnotation(n)
+      let t = evalTypeAnnotation(AnyExprID(n))
       if let u = TraitType(t) {
         result.append((n, u))
       } else if t[.hasError] {
