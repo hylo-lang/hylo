@@ -73,10 +73,10 @@ public struct ConditionalCompilationStmt: Stmt {
       switch self {
       case .`true`: return true
       case .`false`: return false
-      case .os(let id): return id == info.os
-      case .arch(let id): return id == info.arch
-      case .feature(let id): return info.features.contains(id)
-      case .compiler(let id): return id == info.compiler
+      case .os(let id): return id == info.operatingSystem.description
+      case .arch(let id): return id == info.architecture.description
+      case .feature(let id): return id == "freestanding" && info.freestanding
+      case .compiler(let id): return id == "hc"
       case .compilerVersion(let comparison):
         return comparison.evaluate(for: info.compilerVersion)
       case .hyloVersion(let comparison):
