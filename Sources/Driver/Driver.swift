@@ -398,8 +398,8 @@ public struct Driver: ParsableCommand {
     UNIMPLEMENTED()
   }
 
-  /// Returns the path of the executable that is invoked at the command-line with the name given by
-  /// `invocationName`.
+  /// Returns the path of the binary executable that is invoked at the command-line with the name
+  /// given by `invocationName`.
   private func findExecutable(invokedAs invocationName: String) throws -> URL {
     if let cached = Driver.executableLocationCache[invocationName] { return cached }
 
@@ -407,19 +407,13 @@ public struct Driver: ParsableCommand {
       invocationName.hasSuffix(executableSuffix)
       ? invocationName : invocationName + executableSuffix
 
-    // Search in the current working directory.
-    var candidate = currentDirectory.appendingPathComponent(executableFileName)
-    if FileManager.default.fileExists(atPath: candidate.fileSystemPath) {
-      Driver.executableLocationCache[invocationName] = candidate
-      return candidate
-    }
-
     // Search in the PATH.
     let environment =
       ProcessInfo.processInfo.environment[HostPlatform.pathEnvironmentVariable] ?? ""
     for root in environment.split(separator: HostPlatform.pathEnvironmentSeparator) {
-      candidate = URL(fileURLWithPath: String(root)).appendingPathComponent(
-        invocationName + HostPlatform.executableSuffix)
+      let candidate = URL(fileURLWithPath: String(root))
+        .appendingPathComponent(executableFileName)
+
       if FileManager.default.fileExists(atPath: candidate.fileSystemPath) {
         Driver.executableLocationCache[invocationName] = candidate
         return candidate
