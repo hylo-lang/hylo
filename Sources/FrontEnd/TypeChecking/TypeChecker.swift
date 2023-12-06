@@ -2418,63 +2418,61 @@ struct TypeChecker {
 
   // MARK: Evaluation
 
-  /// Evaluates and returns the value of `e`.
-  ///
-  /// Use this method to evaluate compile-time expressions in value contexts, such as arguments
-  /// to generic parameters.
-  private mutating func eval(_ e: AnyExprID) -> any CompileTimeValue {
-    let t = checkedType(of: e)
-    return SymbolicValue(staticType: t)
-  }
-
   /// Evaluates and returns the generic arguments in `s`.
+  ///
+  /// Wildcards are evaluated as fresh variables to support partial type inference. These may
+  /// be substituted by either a type or a value.
   private mutating func evalGenericArguments(_ s: [LabeledArgument]) -> [any CompileTimeValue] {
     var result: [any CompileTimeValue] = []
     for a in s {
-      result.append(evalTypeAnnotation(a.value))
+      if a.value.kind == WildcardExpr.self {
+        result.append(^freshVariable())
+      } else {
+        result.append(evalTypeAnnotation(a.value))
+      }
     }
     return result
   }
 
+  /// Evaluates and returns the value of `e`, which is a type annotation that may contain wildcards
+  /// or elided generic arguments, updating `obligations` with new goals.
+  private mutating func evalPartialTypeAnnotation(
+    _ e: AnyExprID,
+    updating obligations: inout ProofObligations
+  ) -> AnyType? {
+    let t = inferredType(of: e, updating: &obligations)
+    return ensureValidTypeAnnotation(e, inferredAs: t)
+  }
+
   /// Evaluates and returns the value of `e`, which is a type annotation.
   private mutating func evalTypeAnnotation(_ e: AnyExprID) -> AnyType {
-    switch e.kind {
-    case ConformanceLensTypeExpr.self:
-      return evalTypeAnnotation(ConformanceLensTypeExpr.ID(e)!)
-    case ExistentialTypeExpr.self:
-      return evalTypeAnnotation(ExistentialTypeExpr.ID(e)!)
-    case LambdaTypeExpr.self:
-      return evalTypeAnnotation(LambdaTypeExpr.ID(e)!)
-    case NameExpr.self:
-      return evalTypeAnnotation(NameExpr.ID(e)!)
-    case ParameterTypeExpr.self:
-      return evalTypeAnnotation(ParameterTypeExpr.ID(e)!)
-    case RemoteExpr.self:
-      return evalTypeAnnotation(RemoteExpr.ID(e)!)
-    case TupleTypeExpr.self:
-      return evalTypeAnnotation(TupleTypeExpr.ID(e)!)
-    case WildcardExpr.self:
-      return evalTypeAnnotation(WildcardExpr.ID(e)!)
-    default:
-      break
-    }
+    let t = checkedType(of: e)
+    return ensureValidTypeAnnotation(e, inferredAs: t) ?? .error
+  }
 
-    // Compute the type expressed by `e`.
-    let v = eval(e)
-    switch v.staticType.base {
-    case let t as MetatypeType:
-      return t.instance
+  /// Ensures that `t` is a valid type for an annotation and returns its meaning iff it is;
+  /// otherwise, returns `nil`.
+  private mutating func ensureValidTypeAnnotation(
+    _ e: AnyExprID, inferredAs t: AnyType
+  ) -> AnyType? {
+    switch t.base {
+    case let u as MetatypeType:
+      return u.instance
 
     case is NamespaceType, is TraitType:
-      return v.staticType
+      return t
+
+    case let u as RemoteType where u.bareType.base is MetatypeType:
+      // FIXME: Workaround to deal with the fact that `remote let T` is ambiguous.
+      return ^RemoteType(u.access, MetatypeType(u.bareType)!.instance)
 
     case is ErrorType:
       // Diagnostic already reported.
-      return .error
+      return nil
 
     default:
       report(.error(typeExprDenotesValue: e, in: program.ast))
-      return .error
+      return nil
     }
   }
 
@@ -4316,6 +4314,8 @@ struct TypeChecker {
       return _inferredType(of: CastExpr.ID(e)!, withHint: hint, updating: &obligations)
     case ConditionalExpr.self:
       return _inferredType(of: ConditionalExpr.ID(e)!, withHint: hint, updating: &obligations)
+    case ConformanceLensTypeExpr.self:
+      return _inferredType(of: ConformanceLensTypeExpr.ID(e)!, withHint: hint, updating: &obligations)
     case ExistentialTypeExpr.self:
       return _inferredType(of: ExistentialTypeExpr.ID(e)!, withHint: hint, updating: &obligations)
     case FloatLiteralExpr.self:
@@ -4328,6 +4328,8 @@ struct TypeChecker {
       return _inferredType(of: IntegerLiteralExpr.ID(e)!, withHint: hint, updating: &obligations)
     case LambdaExpr.self:
       return _inferredType(of: LambdaExpr.ID(e)!, withHint: hint, updating: &obligations)
+    case LambdaTypeExpr.self:
+      return _inferredType(of: LambdaTypeExpr.ID(e)!, withHint: hint, updating: &obligations)
     case MatchExpr.self:
       return _inferredType(of: MatchExpr.ID(e)!, withHint: hint, updating: &obligations)
     case NameExpr.self:
@@ -4346,6 +4348,10 @@ struct TypeChecker {
       return _inferredType(of: TupleExpr.ID(e)!, withHint: hint, updating: &obligations)
     case TupleMemberExpr.self:
       return _inferredType(of: TupleMemberExpr.ID(e)!, withHint: hint, updating: &obligations)
+    case TupleTypeExpr.self:
+      return _inferredType(of: TupleTypeExpr.ID(e)!, withHint: hint, updating: &obligations)
+    case WildcardExpr.self:
+      return _inferredType(of: WildcardExpr.ID(e)!, withHint: hint, updating: &obligations)
     default:
       unexpected(e, in: program.ast)
     }
@@ -4366,7 +4372,7 @@ struct TypeChecker {
     of e: CastExpr.ID, withHint hint: AnyType? = nil,
     updating obligations: inout ProofObligations
   ) -> AnyType {
-    guard let target = evalTypeAnnotation(program[e].right).errorFree else {
+    guard let target = evalPartialTypeAnnotation(program[e].right, updating: &obligations) else {
       return constrain(e, to: .error, in: &obligations)
     }
 
@@ -4416,6 +4422,32 @@ struct TypeChecker {
     obligations.insert(
       MergingConstraint(t, [a, b], origin: .init(.branchMerge, at: program[e].introducerSite)))
     return constrain(e, to: t, in: &obligations)
+  }
+
+  private mutating func _inferredType(
+    of e: ConformanceLensTypeExpr.ID, withHint hint: AnyType? = nil,
+    updating obligations: inout ProofObligations
+  ) -> AnyType {
+    guard
+      let t = evalPartialTypeAnnotation(program[e].lens, updating: &obligations),
+      let s = evalPartialTypeAnnotation(program[e].subject, updating: &obligations)
+    else {
+      return constrain(e, to: .error, in: &obligations)
+    }
+
+    guard let lens = TraitType(t) else {
+      report(.error(notATrait: t, at: program[e].lens.site))
+      return constrain(e, to: .error, in: &obligations)
+    }
+
+    guard conformedTraits(of: s, in: program[e].scope).contains(lens) else {
+      report(.error(s, doesNotConformTo: lens, at: program[e].lens.site))
+      return constrain(e, to: .error, in: &obligations)
+    }
+
+    // DR: It seems fishy that we don't have to return a metatype.
+    let r = ConformanceLensType(viewing: s, through: lens)
+    return constrain(e, to: ^r, in: &obligations)
   }
 
   /// Returns the inferred type of `e`, updating `obligations` and gathering contextual information
@@ -4543,6 +4575,30 @@ struct TypeChecker {
       inputs: inputs, output: output)
     obligations.assign(result, to: AnyDeclID(d))
     return constrain(e, to: result, in: &obligations)
+  }
+
+  /// Returns the inferred type of `e`, updating `obligations` and gathering contextual information
+  /// from `hint`.
+  private mutating func _inferredType(
+    of e: LambdaTypeExpr.ID, withHint hint: AnyType? = nil,
+    updating obligations: inout ProofObligations
+  ) -> AnyType {
+    let environment: AnyType
+    if let v = program[e].environment {
+      environment = evalPartialTypeAnnotation(v, updating: &obligations) ?? .error
+    } else {
+      environment = .any
+    }
+
+    let inputs = evalParameterAnnotations(of: e)
+    let output = evalTypeAnnotation(program[e].output)
+
+    let r = ^LambdaType(
+      receiverEffect: program[e].receiverEffect?.value ?? .let,
+      environment: environment,
+      inputs: inputs,
+      output: output)
+    return constrain(e, to: ^MetatypeType(of: r), in: &obligations)
   }
 
   /// Returns the inferred type of `e`, updating `obligations` and gathering contextual information
@@ -4801,6 +4857,31 @@ struct TypeChecker {
     return constrain(e, to: t, in: &obligations)
   }
 
+  /// Returns the inferred type of `e`, updating `obligations` and gathering contextual information
+  /// from `hint`.
+  private mutating func _inferredType(
+    of e: TupleTypeExpr.ID, withHint hint: AnyType? = nil,
+    updating obligations: inout ProofObligations
+  ) -> AnyType {
+    var elementTypes: [TupleType.Element] = []
+    for e in program[e].elements {
+      let t = evalPartialTypeAnnotation(e.type, updating: &obligations) ?? .error
+      elementTypes.append(.init(label: e.label?.value, type: t))
+    }
+
+    let r = TupleType(elementTypes)
+    return constrain(e, to: ^MetatypeType(of: r), in: &obligations)
+  }
+
+  /// Returns the inferred type of `e` using `hint` for context and updating `obligations`.
+  private mutating func _inferredType(
+    of e: WildcardExpr.ID, withHint hint: AnyType? = nil,
+    updating obligations: inout ProofObligations
+  ) -> AnyType {
+    let r = hint ?? ^freshVariable()
+    return constrain(e, to: ^MetatypeType(of: r), in: &obligations)
+  }
+
   /// Returns the inferred type of `callee`, which is the callee of a function, initializer, or
   /// subscript, updating `state` with inference facts and deferred type checking requests.
   ///
@@ -4912,12 +4993,16 @@ struct TypeChecker {
     // and constrained to be a subtype of the expected type, if any.
     var subpattern = hint
     if let a = program[p].annotation {
-      let subject = evalTypeAnnotation(a)
+      if let t = evalPartialTypeAnnotation(a, updating: &obligations) {
+        subpattern = t
+      } else {
+        subpattern = .error
+      }
+
       if let t = hint {
         obligations.insert(
-          SubtypingConstraint(subject, t, origin: .init(.annotation, at: program[p].site)))
+          SubtypingConstraint(subpattern!, t, origin: .init(.annotation, at: program[p].site)))
       }
-      subpattern = subject
     }
 
     return inferredType(of: program[p].subpattern, withHint: subpattern, updating: &obligations)
