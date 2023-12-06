@@ -3135,8 +3135,8 @@ public enum Parser {
           throw [.error(expected: "identifier", at: state.currentLocation)] as DiagnosticSet
         }
         switch conditionName {
-        case "os": return .os(id)
-        case "arch": return .arch(id)
+        case "os": return .operatingSystem(id)
+        case "arch": return .architecture(id)
         case "feature": return .feature(id)
         case "compiler": return .compiler(id)
         default:

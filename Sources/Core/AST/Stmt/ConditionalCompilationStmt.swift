@@ -32,10 +32,10 @@ public struct ConditionalCompilationStmt: Stmt {
     case `false`
 
     /// Holds iff the operating system for which the code is compiled matches the payload.
-    case os(Identifier)
+    case operatingSystem(Identifier)
 
     /// Holds iff the processor architecture for which the code is compiled matches the payload.
-    case arch(Identifier)
+    case architecture(Identifier)
 
     /// Holds iff the payload matches any of the feature enabled in the compiler.
     case feature(Identifier)
@@ -73,8 +73,8 @@ public struct ConditionalCompilationStmt: Stmt {
       switch self {
       case .`true`: return true
       case .`false`: return false
-      case .os(let id): return id == info.operatingSystem.description
-      case .arch(let id): return id == info.architecture.description
+      case .operatingSystem(let id): return id == info.operatingSystem.description
+      case .architecture(let id): return id == info.architecture.description
       case .feature(let id): return id == "freestanding" && info.freestanding
       case .compiler(let id): return id == "hc"
       case .compilerVersion(let comparison):
