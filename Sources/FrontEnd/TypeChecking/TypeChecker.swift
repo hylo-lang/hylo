@@ -4206,7 +4206,8 @@ struct TypeChecker {
     case ConditionalExpr.self:
       return _inferredType(of: ConditionalExpr.ID(e)!, withHint: hint, updating: &obligations)
     case ConformanceLensTypeExpr.self:
-      return _inferredType(of: ConformanceLensTypeExpr.ID(e)!, withHint: hint, updating: &obligations)
+      return _inferredType(
+        of: ConformanceLensTypeExpr.ID(e)!, withHint: hint, updating: &obligations)
     case ExistentialTypeExpr.self:
       return _inferredType(of: ExistentialTypeExpr.ID(e)!, withHint: hint, updating: &obligations)
     case FloatLiteralExpr.self:
