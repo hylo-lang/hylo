@@ -4138,14 +4138,12 @@ struct TypeChecker {
     updating obligations: inout ProofObligations
   ) -> AnyType {
     let p = program[d].pattern
-    guard
-      let pattern = inferredType(
-        of: p.id, withHint: purpose.filteredType, updating: &obligations
-      ).errorFree
-    else { return .error }
+    let pattern = inferredType(
+      of: p.id, withHint: purpose.filteredType, updating: &obligations)
+    if pattern[.hasError] { return pattern }
 
     // If `d` has no initializer, its type is that of its annotation, if present. Otherwise, its
-    // pattern must be used as a filter and the is inferred to have the same type.
+    // pattern must be used as a filter and `d` is inferred to have the same type.
     guard let i = program[d].initializer else {
       switch purpose {
       case .irrefutable:
