@@ -2434,13 +2434,13 @@ struct TypeChecker {
     return result
   }
 
-  /// Evaluates and returns the value of `e`, which is a type annotation that may contain wildcards
-  /// or elided generic arguments, updating `obligations` with new goals.
+  /// Evaluates and returns the value of `e`, which is an annotation that may contain wildcards or
+  /// elided generic arguments, using `hint` for context and updating `obligations` with new goals.
   private mutating func evalPartialTypeAnnotation(
-    _ e: AnyExprID,
+    _ e: AnyExprID, withHint hint: AnyType? = nil,
     updating obligations: inout ProofObligations
   ) -> AnyType? {
-    let t = inferredType(of: e, updating: &obligations)
+    let t = inferredType(of: e, withHint: hint, updating: &obligations)
     return ensureValidTypeAnnotation(e, inferredAs: t)
   }
 
@@ -4880,18 +4880,15 @@ struct TypeChecker {
     // A binding pattern introduces additional type information when it has a type annotation. In
     // that case, the type denoted by the annotation is used to infer the type of the sub-pattern
     // and constrained to be a subtype of the expected type, if any.
-    var subpattern = hint
+    let subpattern: AnyType?
     if let a = program[p].annotation {
-      if let t = evalPartialTypeAnnotation(a, updating: &obligations) {
+      if let t = evalPartialTypeAnnotation(a, withHint: hint, updating: &obligations) {
         subpattern = t
       } else {
         subpattern = .error
       }
-
-      if let t = hint {
-        obligations.insert(
-          SubtypingConstraint(subpattern!, t, origin: .init(.annotation, at: program[p].site)))
-      }
+    } else {
+      subpattern = hint
     }
 
     return inferredType(of: program[p].subpattern, withHint: subpattern, updating: &obligations)
