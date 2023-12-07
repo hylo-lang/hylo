@@ -11,23 +11,23 @@ import Utils
 /// The parent directory of the standard library sources directory.
 private let libraryRoot = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
 
-/// The root URL of Hylo's standard library.
-private let standardLibrarySourceRoot = libraryRoot.appendingPathComponent("Sources")
+/// The root of a directory hierarchy containing all the standard library sources.
+private let hostedLibrarySourceRoot = libraryRoot.appendingPathComponent("Sources")
 
-/// The root URL of Hylo's core library.
-private let freestandingLibrarySourceRoot = standardLibrarySourceRoot.appendingPathComponent("Core")
+/// The root of a directory hierarchy containing the sources for the standard library's freestanding
+/// core.
+private let freestandingLibrarySourceRoot = hostedLibrarySourceRoot.appendingPathComponent("Core")
 
 extension Utils.Host {
 
-  /// An AST representing the whole standard library, conditionally compiled for targeting the host platform.
-  public static let standardLibraryAST = AST(
-    libraryRoot: standardLibrarySourceRoot,
-    for: CompilerConfiguration([]))
+  /// An AST representing the whole standard library, conditionally compiled for targeting the host
+  /// platform.
+  public static let hostedLibraryAST
+    = AST(libraryRoot: hostedLibrarySourceRoot, for: CompilerConfiguration([]))
 
   /// An AST representing the freestanding core of standard library, conditionally compiled for
   /// targeting the host platform.
-  public static let freestandingLibraryAST = AST(
-    libraryRoot: freestandingLibrarySourceRoot,
-    for: CompilerConfiguration(["freestanding"]))
+  public static let freestandingLibraryAST
+    = AST(libraryRoot: freestandingLibrarySourceRoot, for: CompilerConfiguration(["freestanding"]))
 
 }
