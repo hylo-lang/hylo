@@ -197,7 +197,7 @@ struct ConstraintSystem {
     let goal = goals[g] as! ConformanceConstraint
 
     // Nothing to do if the subject is still a type variable.
-    if goal.model.isTypeVariable {
+    if goal.model.base is TypeVariable {
       postpone(g)
       return nil
     }
@@ -225,7 +225,7 @@ struct ConstraintSystem {
   /// - Requires: `goal.model` is not a type variable.
   private mutating func solve(structuralConformance goal: ConformanceConstraint) -> Outcome {
     let model = checker.canonical(goal.model, in: scope)
-    assert(!model.isTypeVariable)
+    assert(!(model.base is TypeVariable))
 
     switch model.base {
     case let t as TupleType:
@@ -337,7 +337,7 @@ struct ConstraintSystem {
       // - if the goal strict, `L` must be subtype of some strict subset of `R`;
       // - otherwise, `L` must be equal to `R` or a subtype of a subset of `R`.
       var candidates: [DisjunctionConstraint.Predicate] = []
-      if !goal.left.isTypeVariable {
+      if !(goal.left.base is TypeVariable) {
         for e in r.elements {
           let c = SubtypingConstraint(goal.left, e, origin: o)
           candidates.append(.init(constraints: [c], penalties: 1))

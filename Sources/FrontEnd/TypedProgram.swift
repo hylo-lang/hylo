@@ -143,9 +143,7 @@ public struct TypedProgram {
   }
 
   /// Returns the canonical form of `v` in `scopeOfUse`.
-  public func canonical(
-    _ v: any CompileTimeValue, in scopeOfUse: AnyScopeID
-  ) -> any CompileTimeValue {
+  public func canonical(_ v: CompileTimeValue, in scopeOfUse: AnyScopeID) -> CompileTimeValue {
     var checker = TypeChecker(asContextFor: self)
     return checker.canonical(v, in: scopeOfUse)
   }
@@ -182,8 +180,8 @@ public struct TypedProgram {
   ) -> GenericArguments {
     var checker = TypeChecker(asContextFor: self)
     return arguments.mapValues { (v) in
-      if let t = v as? AnyType {
-        return checker.specialize(t, for: specialization, in: scopeOfUse)
+      if case .type(let t) = v {
+        return .type(checker.specialize(t, for: specialization, in: scopeOfUse))
       } else {
         UNIMPLEMENTED()
       }
@@ -414,7 +412,7 @@ public struct TypedProgram {
     for requirement in ast.requirements(of: concept.decl) {
       guard let k = ast.synthesizedKind(of: requirement, definedBy: concept) else { return nil }
 
-      let a: GenericArguments = [ast[concept.decl].receiver: model]
+      let a: GenericArguments = [ast[concept.decl].receiver: .type(model)]
       let t = LambdaType(specialize(declType[requirement]!, for: a, in: scopeOfUse))!
       let d = SynthesizedFunctionDecl(k, typed: t, in: scopeOfUse)
       implementations[requirement] = .synthetic(d)

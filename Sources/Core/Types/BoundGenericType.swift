@@ -21,7 +21,7 @@ public struct BoundGenericType: TypeProtocol {
 
     var flags: TypeFlags = base.flags
     for (_, a) in arguments {
-      if let t = a as? AnyType {
+      if case .type(let t) = a {
         flags.merge(t.flags)
       } else {
         UNIMPLEMENTED()
@@ -47,9 +47,9 @@ public struct BoundGenericType: TypeProtocol {
   ) -> Self {
     BoundGenericType(
       base.transform(mutating: &m, transformer),
-      arguments: arguments.mapValues({ (a) -> any CompileTimeValue in
-        if let t = a as? AnyType {
-          return t.transform(mutating: &m, transformer)
+      arguments: arguments.mapValues({ (a) -> CompileTimeValue in
+        if case .type(let t) = a {
+          return .type(t.transform(mutating: &m, transformer))
         } else {
           UNIMPLEMENTED()
         }
@@ -58,7 +58,7 @@ public struct BoundGenericType: TypeProtocol {
 
   /// Applies `transform` on `m` and the generic arguments that are part of `self`.
   public func transformArguments<M>(
-    mutating m: inout M, _ transform: (inout M, any CompileTimeValue) -> any CompileTimeValue
+    mutating m: inout M, _ transform: (inout M, CompileTimeValue) -> CompileTimeValue
   ) -> Self {
     let transformed = arguments.mapValues({ (a) in transform(&m, a) })
     return .init(base, arguments: transformed)
@@ -71,7 +71,7 @@ extension BoundGenericType: Equatable {
   public static func == (l: Self, r: Self) -> Bool {
     guard l.base == r.base else { return false }
     return l.arguments.elementsEqual(r.arguments) { (a, b) in
-      (a.key == b.key) && a.value.equals(b.value)
+      (a.key == b.key) && (a.value == b.value)
     }
   }
 

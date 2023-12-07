@@ -1,28 +1,36 @@
 /// A value computed at compile-time.
-public protocol CompileTimeValue: Hashable {
+public enum CompileTimeValue: Hashable {
 
-  /// The type of this value determined at compile-time.
-  ///
-  /// This property denotes the type given to the value for the purpose of type checking and code
-  /// generation. Its actual type of the might differ at run-time (e.g., if this value inhabits a
-  /// union type).
-  var staticType: AnyType { get }
+  /// A type.
+  case type(AnyType)
 
-}
+  /// An instance of a type known by the compiler (e.g. `Int`).
+  case compilerKnown(AnyHashable)
 
-extension CompileTimeValue {
+  /// The payload of `.type`.
+  public var asType: AnyType? {
+    if case .type(let t) = self {
+      return t
+    } else {
+      return nil
+    }
+  }
 
   /// `true` if `self` is a `TypeVariable`.
   public var isTypeVariable: Bool {
-    (self as? AnyType)?.base is TypeVariable
+    asType?.base is TypeVariable
   }
 
-  /// Returns `true` if `self` is equal to `other`.
-  public func equals(_ other: any CompileTimeValue) -> Bool {
-    if let r = other as? Self {
-      return self == r
-    } else {
-      return false
+}
+
+extension CompileTimeValue: CustomStringConvertible {
+
+  public var description: String {
+    switch self {
+    case .type(let v):
+      return "\(v)"
+    case .compilerKnown(let v):
+      return "\(v)"
     }
   }
 
