@@ -45,13 +45,8 @@ public struct Driver: ParsableCommand {
   private var importBuiltinModule: Bool = false
 
   @Flag(
-    name: [.customLong("unhosted")],
-    help: "Load only the core library, omitting any definitions that depend on OS support.")
-  private var unhosted: Bool = false
-
-  @Flag(
     name: [.customLong("freestanding")],
-    help: "Compile in freestanding mode (no libc).")
+    help: "Import only the freestanding core of the standard library, omitting any definitions that depend on having an operating system.")
   private var freestanding: Bool = false
 
   @Flag(
@@ -160,10 +155,9 @@ public struct Driver: ParsableCommand {
     }
 
     let productName = makeProductName(inputs)
+
     /// An instance that includes just the standard library.
-    var ast = AST(
-      libraryRoot: unhosted ? coreLibrarySourceRoot : standardLibrarySourceRoot,
-      for: CompilerConfiguration(freestanding ? ["freestanding"] : []))
+    var ast = freestanding ? Host.freestandingLibraryAST : Host.hostedLibraryAST
 
     // The module whose Hylo files were given on the command-line
     let sourceModule = try ast.makeModule(

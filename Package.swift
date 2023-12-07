@@ -88,7 +88,6 @@ let package = Package(
       dependencies: [
         "Utils",
         "Core",
-        "StandardLibrary",
         .product(name: "Collections", package: "swift-collections"),
         .product(name: "Durian", package: "Durian"),
         .product(name: "BigInt", package: "BigInt"),
@@ -135,8 +134,9 @@ let package = Package(
 
     .target(
       name: "StandardLibrary",
+      dependencies: ["FrontEnd", "Utils"],
       path: "StandardLibrary",
-      resources: [.copy("Sources")],
+      exclude: ["Sources"],
       swiftSettings: allTargetsSwiftSettings),
 
     .plugin(
