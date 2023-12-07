@@ -2,7 +2,7 @@ import Core
 import Foundation
 import Utils
 
-fileprivate let libraryRoot = Bundle.module.resourceURL!
+private let libraryRoot = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
 
 /// The root URL of Hylo's standard library.
 private let standardLibrarySourceRoot = libraryRoot.appendingPathComponent("Sources")
