@@ -1,4 +1,4 @@
-/// The expression of an existential type.
+/// The expression of an existential type (e.g., `any P & Q` or `any Array`).
 public struct ExistentialTypeExpr: Expr {
 
   public let site: SourceRange
