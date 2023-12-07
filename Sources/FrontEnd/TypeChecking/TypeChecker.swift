@@ -3936,11 +3936,24 @@ struct TypeChecker {
     associatedWith d: AnyDeclID, specializedBy specialization: GenericArguments,
     in scopeOfUse: AnyScopeID, at site: SourceRange
   ) -> ConstraintSet {
-    if d.kind == ModuleDecl.self { return [] }
-    let lca = program.innermostCommonScope(program[d].scope, scopeOfUse)
+    switch d.kind {
+    case ModuleDecl.self:
+      // Modules have no constraints.
+      return []
 
+    case AssociatedTypeDecl.self, AssociatedValueDecl.self:
+      // A reference to an associated type and value must already satisfied the constraints
+      // associated with its scope.
+      return []
+
+    default:
+      break
+    }
+
+    let lca = program.innermostCommonScope(program[d].scope, scopeOfUse)
     let origin = ConstraintOrigin(.whereClause, at: site)
     var result = ConstraintSet()
+
     for s in program.scopes(from: program[d].scope) {
       if s == lca { break }
       if let e = environment(of: s) {
