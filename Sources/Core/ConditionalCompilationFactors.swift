@@ -1,7 +1,7 @@
 import Utils
 
-/// The configuration needed for conditional compilation.
-public struct ConditionalCompilationConfiguration: Codable {
+/// The factors that influence conditional compilation.
+public struct ConditionalCompilationFactors: Codable {
 
   /// The target operating system.
   let operatingSystem: Host.OperatingSystem
