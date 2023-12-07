@@ -40,7 +40,7 @@ public struct BitArray {
   }
 
   /// The value of each bit in the map, represented as a contiguous array of words.
-  private var bits: Array<UInt>
+  private var bits: [UInt]
 
   /// The number of bits in the array.
   public private(set) var count: Int

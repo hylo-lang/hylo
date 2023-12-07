@@ -378,6 +378,10 @@ struct Mangler {
     case .globalInitialization(let d):
       write(base64Didit: 4, to: &output)
       write(entity: d, to: &output)
+    case .autoclosure(let e):
+      write(base64Didit: 5, to: &output)
+      // To allow using multiple autoclosures in the same scope, also write the expression ID.
+      write(integer: e.rawValue, to: &output)
     }
   }
 

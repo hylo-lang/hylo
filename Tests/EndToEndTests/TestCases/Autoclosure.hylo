@@ -7,7 +7,14 @@ fun prime() -> Int {
   return 17
 }
 
-fun logic<E>(withDelayed value: @autoclosure [E]() -> Int) {
+fun logic(withDelayed value: @autoclosure []() -> Int, counterStartingAt s: Int, endingAt e: Int) {
+  precondition(counter == s)
+  let x = value()
+  precondition(counter == e)
+  precondition(x == 17)
+}
+
+fun logic2<E>(withDelayed value: @autoclosure [E]() -> Int) {
   precondition(counter == 0)
   let x = value()
   precondition(counter == 1)
@@ -15,7 +22,23 @@ fun logic<E>(withDelayed value: @autoclosure [E]() -> Int) {
 }
 
 public fun main() {
-  // TODO
-  // logic(withDelayed: prime())
-  logic(withDelayed: fun(){ prime() })
+  &counter = 0
+
+  // Test with function call.
+  logic(withDelayed: prime(), counterStartingAt: 0, endingAt: 1)
+
+  // Test with constant.
+  logic(withDelayed: 17, counterStartingAt: 1, endingAt: 1)
+
+  &counter = 0
+  // Test with generics.
+  logic2(withDelayed: prime())
+
+  // TODO: Test with generics and non-void environments.
+  // &counter = 0
+  // let r = 17
+  // logic2(withDelayed: fun() -> Int {
+  //   &counter += 1
+  //   return r
+  // })
 }

@@ -367,8 +367,8 @@ public struct Driver: ParsableCommand {
   /// as a default name if `outputURL` is `nil`.
   private func executableOutputPath(default productName: String) -> String {
     var binaryPath = outputURL?.path ?? URL(fileURLWithPath: productName).fileSystemPath
-    if !binaryPath.hasSuffix(HostPlatform.executableSuffix) {
-      binaryPath += HostPlatform.executableSuffix
+    if !binaryPath.hasSuffix(Host.executableSuffix) {
+      binaryPath += Host.executableSuffix
     }
     return binaryPath
   }
@@ -404,8 +404,8 @@ public struct Driver: ParsableCommand {
     if let cached = Driver.executableLocationCache[invocationName] { return cached }
 
     let executableFileName =
-      invocationName.hasSuffix(executableSuffix)
-      ? invocationName : invocationName + executableSuffix
+      invocationName.hasSuffix(Host.executableSuffix)
+      ? invocationName : invocationName + Host.executableSuffix
 
     // Search in the current working directory.
     var candidate = currentDirectory.appendingPathComponent(executableFileName)
@@ -416,10 +416,10 @@ public struct Driver: ParsableCommand {
 
     // Search in the PATH.
     let environment =
-      ProcessInfo.processInfo.environment[HostPlatform.pathEnvironmentVariable] ?? ""
-    for root in environment.split(separator: HostPlatform.pathEnvironmentSeparator) {
+      ProcessInfo.processInfo.environment[Host.pathEnvironmentVariable] ?? ""
+    for root in environment.split(separator: Host.pathEnvironmentSeparator) {
       candidate = URL(fileURLWithPath: String(root)).appendingPathComponent(
-        invocationName + HostPlatform.executableSuffix)
+        invocationName + Host.executableSuffix)
       if FileManager.default.fileExists(atPath: candidate.fileSystemPath) {
         Driver.executableLocationCache[invocationName] = candidate
         return candidate
