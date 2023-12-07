@@ -1597,23 +1597,29 @@ struct TypeChecker {
 
   /// Type checks `e` and returns its type, using `hint` as contextual type information.
   private mutating func checkedType(of e: AnyExprID, withHint hint: AnyType? = nil) -> AnyType {
-    var obligations = ProofObligations(scope: program[e].scope)
-    let t = inferredType(of: e, withHint: hint, updating: &obligations)
+    let (incompleteType, obligations) = partiallyCheckedType(of: e, withHint: hint)
     let s = discharge(obligations, relatedTo: e)
-    return s.typeAssumptions.reify(t)
+    return s.typeAssumptions.reify(incompleteType)
   }
 
   /// Type checks `e` as an argument to `p` and returns its type.
   private mutating func checkedType(
     of e: AnyExprID, asArgumentTo p: ParameterType
   ) -> AnyType {
-    var obligations = ProofObligations(scope: program[e].scope)
-
-    let t = inferredType(of: e, withHint: p.bareType, updating: &obligations)
-    obligations.insert(ParameterConstraint(t, ^p, origin: .init(.argument, at: program[e].site)))
-
+    var (incompleteType, obligations) = partiallyCheckedType(of: e, withHint: p.bareType)
+    obligations.insert(
+      ParameterConstraint(incompleteType, ^p, origin: .init(.argument, at: program[e].site)))
     let s = discharge(obligations, relatedTo: e)
-    return s.typeAssumptions.reify(t)
+    return s.typeAssumptions.reify(incompleteType)
+  }
+
+  /// Returns the inferred type of `e`, along with a set of goals to solve to check that type.
+  private mutating func partiallyCheckedType(
+    of e: AnyExprID, withHint hint: AnyType? = nil
+  ) -> (AnyType, ProofObligations) {
+    var obligations = ProofObligations(scope: program[e].scope)
+    let t = inferredType(of: e, withHint: hint, updating: &obligations)
+    return (t, obligations)
   }
 
   /// Returns the generic environment introduced by `s`, if any.
