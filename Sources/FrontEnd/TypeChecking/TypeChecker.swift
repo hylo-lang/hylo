@@ -1597,23 +1597,29 @@ struct TypeChecker {
 
   /// Type checks `e` and returns its type, using `hint` as contextual type information.
   private mutating func checkedType(of e: AnyExprID, withHint hint: AnyType? = nil) -> AnyType {
-    var obligations = ProofObligations(scope: program[e].scope)
-    let t = inferredType(of: e, withHint: hint, updating: &obligations)
+    let (incompleteType, obligations) = partiallyCheckedType(of: e, withHint: hint)
     let s = discharge(obligations, relatedTo: e)
-    return s.typeAssumptions.reify(t)
+    return s.typeAssumptions.reify(incompleteType)
   }
 
   /// Type checks `e` as an argument to `p` and returns its type.
   private mutating func checkedType(
     of e: AnyExprID, asArgumentTo p: ParameterType
   ) -> AnyType {
-    var obligations = ProofObligations(scope: program[e].scope)
-
-    let t = inferredType(of: e, withHint: p.bareType, updating: &obligations)
-    obligations.insert(ParameterConstraint(t, ^p, origin: .init(.argument, at: program[e].site)))
-
+    var (incompleteType, obligations) = partiallyCheckedType(of: e, withHint: p.bareType)
+    obligations.insert(
+      ParameterConstraint(incompleteType, ^p, origin: .init(.argument, at: program[e].site)))
     let s = discharge(obligations, relatedTo: e)
-    return s.typeAssumptions.reify(t)
+    return s.typeAssumptions.reify(incompleteType)
+  }
+
+  /// Returns the inferred type of `e`, along with a set of goals to solve to check that type.
+  private mutating func partiallyCheckedType(
+    of e: AnyExprID, withHint hint: AnyType? = nil
+  ) -> (AnyType, ProofObligations) {
+    var obligations = ProofObligations(scope: program[e].scope)
+    let t = inferredType(of: e, withHint: hint, updating: &obligations)
+    return (t, obligations)
   }
 
   /// Returns the generic environment introduced by `s`, if any.
@@ -1789,7 +1795,7 @@ struct TypeChecker {
     switch c.value {
     case .equality(let l, let r):
       guard
-        let lhs = evalTypeAnnotation(l).errorFree,
+        let lhs = evalTypeAnnotation(AnyExprID(l)).errorFree,
         let rhs = evalTypeAnnotation(r).errorFree
       else { return }
 
@@ -1800,7 +1806,7 @@ struct TypeChecker {
       }
 
     case .conformance(let l, let r):
-      guard let lhs = evalTypeAnnotation(l).errorFree else { return }
+      guard let lhs = evalTypeAnnotation(AnyExprID(l)).errorFree else { return }
       guard lhs.isTypeParameter else {
         report(.error(invalidConformanceConstraintTo: lhs, at: c.site))
         return
@@ -1964,7 +1970,7 @@ struct TypeChecker {
 
   /// Computes and returns the type of `d`.
   private mutating func _uncheckedType(of d: GenericParameterDecl.ID) -> AnyType {
-    let bounds = program[d].conformances.map({ evalTypeAnnotation($0) })
+    let bounds = program[d].conformances.map({ evalTypeAnnotation(AnyExprID($0)) })
 
     // The declaration introduces a value if it's first annotation isn't a trait. Otherwise, it
     // introduces a type.
@@ -2077,7 +2083,7 @@ struct TypeChecker {
   /// - Requires: `d` has a type annotation.
   private mutating func _uncheckedType(of d: ParameterDecl.ID) -> AnyType {
     let a = program[d].annotation ?? preconditionFailure("missing type annotation")
-    let t = evalTypeAnnotation(a)
+    let t = evalParameterAnnotation(a)
 
     // The annotation may not omit generic arguments.
     if t[.hasVariable] {
@@ -2418,183 +2424,62 @@ struct TypeChecker {
 
   // MARK: Evaluation
 
-  /// Evaluates and returns the value of `e`.
-  ///
-  /// Use this method to evaluate compile-time expressions in value contexts, such as arguments
-  /// to generic parameters.
-  private mutating func eval(_ e: AnyExprID) -> any CompileTimeValue {
-    let t = checkedType(of: e)
-    return SymbolicValue(staticType: t)
-  }
-
   /// Evaluates and returns the generic arguments in `s`.
+  ///
+  /// Wildcards are evaluated as fresh variables to support partial type inference. These may
+  /// be substituted by either a type or a value.
   private mutating func evalGenericArguments(_ s: [LabeledArgument]) -> [any CompileTimeValue] {
     var result: [any CompileTimeValue] = []
     for a in s {
-      result.append(evalTypeAnnotation(a.value))
+      if a.value.kind == WildcardExpr.self {
+        result.append(^freshVariable())
+      } else {
+        result.append(evalTypeAnnotation(a.value))
+      }
     }
     return result
   }
 
+  /// Evaluates and returns the value of `e`, which is an annotation that may contain wildcards or
+  /// elided generic arguments, using `hint` for context and updating `obligations` with new goals.
+  private mutating func evalPartialTypeAnnotation(
+    _ e: AnyExprID, withHint hint: AnyType? = nil,
+    updating obligations: inout ProofObligations
+  ) -> AnyType? {
+    let t = inferredType(of: e, withHint: hint, updating: &obligations)
+    return ensureValidTypeAnnotation(e, inferredAs: t)
+  }
+
   /// Evaluates and returns the value of `e`, which is a type annotation.
   private mutating func evalTypeAnnotation(_ e: AnyExprID) -> AnyType {
-    switch e.kind {
-    case ConformanceLensTypeExpr.self:
-      return evalTypeAnnotation(ConformanceLensTypeExpr.ID(e)!)
-    case ExistentialTypeExpr.self:
-      return evalTypeAnnotation(ExistentialTypeExpr.ID(e)!)
-    case LambdaTypeExpr.self:
-      return evalTypeAnnotation(LambdaTypeExpr.ID(e)!)
-    case NameExpr.self:
-      return evalTypeAnnotation(NameExpr.ID(e)!)
-    case ParameterTypeExpr.self:
-      return evalTypeAnnotation(ParameterTypeExpr.ID(e)!)
-    case RemoteExpr.self:
-      return evalTypeAnnotation(RemoteExpr.ID(e)!)
-    case TupleTypeExpr.self:
-      return evalTypeAnnotation(TupleTypeExpr.ID(e)!)
-    case WildcardExpr.self:
-      return evalTypeAnnotation(WildcardExpr.ID(e)!)
-    default:
-      break
-    }
-
-    // Attempt to evaluate `e` as a metatype.
-    let v = eval(e)
-    if let t = MetatypeType(v.staticType) {
-      return t.instance
-    } else {
-      report(.error(typeExprDenotesValue: e, in: program.ast))
-      return .error
-    }
+    let t = checkedType(of: e)
+    return ensureValidTypeAnnotation(e, inferredAs: t) ?? .error
   }
 
-  /// Evaluates and returns the value of `e`, which is a type annotation.
-  private mutating func evalTypeAnnotation(_ e: ConformanceLensTypeExpr.ID) -> AnyType {
-    guard
-      let t = evalTypeAnnotation(program[e].lens).errorFree,
-      let s = evalTypeAnnotation(program[e].subject).errorFree
-    else { return .error }
+  /// Ensures that `t` is a valid type for an annotation and returns its meaning iff it is;
+  /// otherwise, returns `nil`.
+  private mutating func ensureValidTypeAnnotation(
+    _ e: AnyExprID, inferredAs t: AnyType
+  ) -> AnyType? {
+    switch t.base {
+    case let u as MetatypeType:
+      return u.instance
 
-    guard let lens = TraitType(t) else {
-      report(.error(notATrait: t, at: program[e].lens.site))
-      return .error
-    }
-
-    guard conformedTraits(of: s, in: program[e].scope).contains(lens) else {
-      report(.error(s, doesNotConformTo: lens, at: program[e].lens.site))
-      return .error
-    }
-
-    return ^ConformanceLensType(viewing: s, through: lens)
-  }
-
-  /// Evaluates and returns the value of `e`, which is a type annotation.
-  private mutating func evalTypeAnnotation(_ e: ExistentialTypeExpr.ID) -> AnyType {
-    let (i, cs) = eval(existentialInterface: program[e].traits)
-
-    guard cs.isEmpty else { UNIMPLEMENTED() }
-    guard program[e].whereClause == nil else { UNIMPLEMENTED() }
-
-    return ^ExistentialType(i, constraints: cs)
-  }
-
-  /// Evaluates and returns the value of `e`, which is a type annotation.
-  private mutating func evalTypeAnnotation(_ e: LambdaTypeExpr.ID) -> AnyType {
-    let environment: AnyType
-    if let v = program[e].environment {
-      environment = evalTypeAnnotation(v)
-    } else {
-      environment = .any
-    }
-
-    let inputs = evalParameterAnnotations(of: e)
-    let output = evalTypeAnnotation(program[e].output)
-
-    return ^LambdaType(
-      receiverEffect: program[e].receiverEffect?.value ?? .let,
-      environment: environment,
-      inputs: inputs,
-      output: output)
-  }
-
-  /// Evaluates and returns the value of `e`, which is a type annotation.
-  private mutating func evalTypeAnnotation(_ e: NameExpr.ID) -> AnyType {
-    if let t = cache.local.exprType[e] {
+    case is NamespaceType, is TraitType:
       return t
+
+    case let u as RemoteType where u.bareType.base is MetatypeType:
+      // FIXME: Workaround to deal with the fact that `remote let T` is ambiguous.
+      return ^RemoteType(u.access, MetatypeType(u.bareType)!.instance)
+
+    case is ErrorType:
+      // Diagnostic already reported.
+      return nil
+
+    default:
+      report(.error(typeExprDenotesValue: e, in: program.ast))
+      return nil
     }
-
-    let resolution = resolve(e, withNonNominalPrefix: { (me, p) in me.evalQualification(of: p) })
-    switch resolution {
-    case .done(let prefix, let suffix):
-      // Nominal type expressions shall not be overloaded.
-      guard suffix.isEmpty else {
-        report(.error(ambiguousUse: suffix.first!, in: program.ast))
-        return .error
-      }
-      guard let candidate = prefix.last!.candidates.uniqueElement else {
-        report(.error(ambiguousUse: prefix.last!.component, in: program.ast))
-        return .error
-      }
-
-      // Last component must resolve to a type or trait.
-      switch candidate.type.base {
-      case is MetatypeType, is TraitType:
-        break
-      case is ErrorType:
-        return .error
-      default:
-        report(.error(typeExprDenotesValue: prefix.last!.component, in: program.ast))
-        return .error
-      }
-
-      var t: AnyType?
-      for r in prefix { t = bindTypeAnnotation(r) }
-      return t!
-
-    case .failed:
-      return .error
-
-    case .canceled:
-      // Non-nominal prefixes are handled by the closure passed to `resolveNominalPrefix`.
-      unreachable()
-    }
-  }
-
-  /// Evaluates and returns the value of `e`, which is a type annotation.
-  private mutating func evalTypeAnnotation(_ e: ParameterTypeExpr.ID) -> AnyType {
-    let t = evalTypeAnnotation(program[e].bareType)
-
-    if program[e].isAutoclosure {
-      let s = program[program[e].bareType].site
-      guard let u = LambdaType(t), u.inputs.isEmpty else {
-        report(.error(autoclosureExpectsEmptyLambdaAt: s, given: t))
-        return .error
-      }
-    }
-
-    return ^ParameterType(program[e].convention.value, t, isAutoclosure: program[e].isAutoclosure)
-  }
-
-  /// Evaluates and returns the value of `e`, which is a type annotation.
-  private mutating func evalTypeAnnotation(_ e: RemoteExpr.ID) -> AnyType {
-    let t = evalTypeAnnotation(program[e].operand)
-    return ^RemoteType(program[e].convention.value, t)
-  }
-
-  /// Evaluates and returns the value of `e`, which is a type annotation.
-  private mutating func evalTypeAnnotation(_ e: TupleTypeExpr.ID) -> AnyType {
-    var elements: [TupleType.Element] = []
-    for m in program[e].elements {
-      let t = evalTypeAnnotation(m.type)
-      elements.append(.init(label: m.label?.value, type: t))
-    }
-    return ^TupleType(elements)
-  }
-
-  /// Evaluates and returns the value of `e`, which is a type annotation.
-  private mutating func evalTypeAnnotation(_ e: WildcardExpr.ID) -> AnyType {
-    ^freshVariable()
   }
 
   /// Evaluates and returns the qualification of `e`, which is a type annotation.
@@ -2610,16 +2495,31 @@ struct TypeChecker {
     }
   }
 
-  /// Evaluates and returns the parameter annotations of `e`.ns.
+  /// Evaluates and returns the parameter annotations of `e`.
   private mutating func evalParameterAnnotations(
     of e: LambdaTypeExpr.ID
   ) -> [CallableTypeParameter] {
     var result: [CallableTypeParameter] = []
     for p in program[e].parameters {
-      let t = evalTypeAnnotation(p.type)
+      let t = evalParameterAnnotation(p.type)
       result.append(.init(label: p.label?.value, type: t))
     }
     return result
+  }
+
+  /// Evaluates and returns the value of `e`.
+  private mutating func evalParameterAnnotation(_ e: ParameterTypeExpr.ID) -> AnyType {
+    let t = evalTypeAnnotation(program[e].bareType)
+
+    if program[e].isAutoclosure {
+      let s = program[program[e].bareType].site
+      guard let u = LambdaType(t), u.inputs.isEmpty else {
+        report(.error(autoclosureExpectsEmptyLambdaAt: s, given: t))
+        return .error
+      }
+    }
+
+    return ^ParameterType(program[e].convention.value, t, isAutoclosure: program[e].isAutoclosure)
   }
 
   /// Evaluates and returns the return type annotation of `d`.
@@ -2660,7 +2560,7 @@ struct TypeChecker {
     var result: [(name: NameExpr.ID, trait: TraitType)] = []
 
     for n in composition {
-      let t = evalTypeAnnotation(n)
+      let t = evalTypeAnnotation(AnyExprID(n))
       if let u = TraitType(t) {
         result.append((n, u))
       } else if t[.hasError] {
@@ -2675,28 +2575,94 @@ struct TypeChecker {
 
   /// Evaluates and returns `e`, which is a type annotation describing the subject of an extension
   /// or a bound in an existential type, along with its associated constraints.
-  ///
-  /// When a type annotation describes the subject of an extension or a bound an existential bound,
-  /// generic parameters are interpreted as sugared constraints that would otherwise be defined in
-  /// a where clause. For example:
-  ///
-  ///     conformance Array<Int>: P {}
-  ///
-  /// Here, the extended type is `Array` and `Int` is viewed as a constraint on `Array`.
   private mutating func eval(existentialBound e: AnyExprID) -> (AnyType, Set<GenericConstraint>) {
-    let i = evalTypeAnnotation(e)
+    // Name expressions may contain sugared constraints. Others cannot.
+    if let n = NameExpr.ID(e) {
+      return eval(existentialBound: n)
+    } else {
+      let t = evalTypeAnnotation(e)
+      assert(!(t.base is BoundGenericType), "unexpected bound generic type")
+      return (t, [])
+    }
+  }
 
-    // Arguments to bound generic types desugar like where clauses. No constraint is created when
-    // an argument refers to its corresponding parameter, unless the `d` is nested in the scope
-    // where that parameter is introduced.
-    if let b = BoundGenericType(i) {
-      for (p, a) in b.arguments {
-        if GenericTypeParameterType(a as! AnyType)?.decl != p { UNIMPLEMENTED() }
+  /// Evaluates and returns `e`, which is a type annotation describing the subject of an extension
+  /// or a bound in an existential type, along with its associated constraints.
+  ///
+  /// When a name expression describes the subject of an extension or a bound an existential bound,
+  /// generic parameters are interpreted as sugared constraints that would otherwise be defined in
+  /// a where clause. For example, in `conformance Array<Int>: P {}`, the extended type is `Array`
+  /// and `Int` is interpreted as a constraint on `Array`'s generic parameter.
+  private mutating func eval(
+    existentialBound e: NameExpr.ID
+  ) -> (AnyType, Set<GenericConstraint>) {
+    let resolution = resolve(e, withNonNominalPrefix: { (me, p) in me.evalQualification(of: p) })
+
+    switch resolution {
+    case .failed:
+      return error()
+
+    case .canceled:
+      report(.error(noContextToResolve: program[e].name.value, at: program[e].name.site))
+      return error()
+
+    case .done(let prefix, let suffix):
+      // Nominal type expressions shall not be overloaded.
+      if !suffix.isEmpty {
+        cache.write(.error, at: \.exprType[e])
+        return error()
       }
-      return (b.base, [])
+
+      var t: AnyType?
+      for n in prefix {
+        t = bindExistentialBoundComponent(n)
+        if t == nil { return error() }
+      }
+      return (t!, [])
     }
 
-    return (i, [])
+    /// Assigns `e` to an error and returns `(.error, [])`.
+    func error() -> (AnyType, Set<GenericConstraint>) {
+      cache.write(.error, at: \.exprType[e])
+      return (.error, [])
+    }
+  }
+
+  /// Binds `n` to its declaration and returns its type.
+  private mutating func bindExistentialBoundComponent(
+    _ n: NameResolutionResult.ResolvedComponent
+  ) -> AnyType? {
+    guard let pick = n.candidates.uniqueElement else {
+      report(.error(ambiguousUse: n.component, in: program.ast))
+      return nil
+    }
+
+    cache.write(pick.reference, at: \.referredDecl[n.component])
+
+    switch pick.type.base {
+    case is BuiltinType, is NamespaceType, is TraitType:
+      cache.write(pick.type, at: \.exprType[n.component])
+      return pick.type
+
+    case let m as MetatypeType:
+      cache.write(pick.type, at: \.exprType[n.component])
+
+      // Arguments to bound generic types desugar like where clauses. No constraint is created when
+      // an argument refers to its corresponding parameter, unless the `d` is nested in the scope
+      // where that parameter is introduced.
+      if let u = BoundGenericType(m.instance) {
+        for (p, a) in u.arguments {
+          if GenericTypeParameterType(a as! AnyType)?.decl != p { UNIMPLEMENTED() }
+        }
+        return u.base
+      } else {
+        return m.instance
+      }
+
+    default:
+      report(.error(typeExprDenotesValue: n.component, in: program.ast))
+      return nil
+    }
   }
 
   /// Evaluates `e`, which expresses the bounds of an existential type expression, returning the
@@ -3861,11 +3827,24 @@ struct TypeChecker {
     associatedWith d: AnyDeclID, specializedBy specialization: GenericArguments,
     in scopeOfUse: AnyScopeID, at site: SourceRange
   ) -> ConstraintSet {
-    if d.kind == ModuleDecl.self { return [] }
-    let lca = program.innermostCommonScope(program[d].scope, scopeOfUse)
+    switch d.kind {
+    case ModuleDecl.self:
+      // Modules have no constraints.
+      return []
 
+    case AssociatedTypeDecl.self, AssociatedValueDecl.self:
+      // A reference to an associated type and value must already satisfied the constraints
+      // associated with its scope.
+      return []
+
+    default:
+      break
+    }
+
+    let lca = program.innermostCommonScope(program[d].scope, scopeOfUse)
     let origin = ConstraintOrigin(.whereClause, at: site)
     var result = ConstraintSet()
+
     for s in program.scopes(from: program[d].scope) {
       if s == lca { break }
       if let e = environment(of: s) {
@@ -4159,14 +4138,12 @@ struct TypeChecker {
     updating obligations: inout ProofObligations
   ) -> AnyType {
     let p = program[d].pattern
-    guard
-      let pattern = inferredType(
-        of: p.id, withHint: purpose.filteredType, updating: &obligations
-      ).errorFree
-    else { return .error }
+    let pattern = inferredType(
+      of: p.id, withHint: purpose.filteredType, updating: &obligations)
+    if pattern[.hasError] { return pattern }
 
     // If `d` has no initializer, its type is that of its annotation, if present. Otherwise, its
-    // pattern must be used as a filter and the is inferred to have the same type.
+    // pattern must be used as a filter and `d` is inferred to have the same type.
     guard let i = program[d].initializer else {
       switch purpose {
       case .irrefutable:
@@ -4228,6 +4205,9 @@ struct TypeChecker {
       return _inferredType(of: CastExpr.ID(e)!, withHint: hint, updating: &obligations)
     case ConditionalExpr.self:
       return _inferredType(of: ConditionalExpr.ID(e)!, withHint: hint, updating: &obligations)
+    case ConformanceLensTypeExpr.self:
+      return _inferredType(
+        of: ConformanceLensTypeExpr.ID(e)!, withHint: hint, updating: &obligations)
     case ExistentialTypeExpr.self:
       return _inferredType(of: ExistentialTypeExpr.ID(e)!, withHint: hint, updating: &obligations)
     case FloatLiteralExpr.self:
@@ -4240,6 +4220,8 @@ struct TypeChecker {
       return _inferredType(of: IntegerLiteralExpr.ID(e)!, withHint: hint, updating: &obligations)
     case LambdaExpr.self:
       return _inferredType(of: LambdaExpr.ID(e)!, withHint: hint, updating: &obligations)
+    case LambdaTypeExpr.self:
+      return _inferredType(of: LambdaTypeExpr.ID(e)!, withHint: hint, updating: &obligations)
     case MatchExpr.self:
       return _inferredType(of: MatchExpr.ID(e)!, withHint: hint, updating: &obligations)
     case NameExpr.self:
@@ -4258,6 +4240,10 @@ struct TypeChecker {
       return _inferredType(of: TupleExpr.ID(e)!, withHint: hint, updating: &obligations)
     case TupleMemberExpr.self:
       return _inferredType(of: TupleMemberExpr.ID(e)!, withHint: hint, updating: &obligations)
+    case TupleTypeExpr.self:
+      return _inferredType(of: TupleTypeExpr.ID(e)!, withHint: hint, updating: &obligations)
+    case WildcardExpr.self:
+      return _inferredType(of: WildcardExpr.ID(e)!, withHint: hint, updating: &obligations)
     default:
       unexpected(e, in: program.ast)
     }
@@ -4278,7 +4264,7 @@ struct TypeChecker {
     of e: CastExpr.ID, withHint hint: AnyType? = nil,
     updating obligations: inout ProofObligations
   ) -> AnyType {
-    guard let target = evalTypeAnnotation(program[e].right).errorFree else {
+    guard let target = evalPartialTypeAnnotation(program[e].right, updating: &obligations) else {
       return constrain(e, to: .error, in: &obligations)
     }
 
@@ -4330,17 +4316,45 @@ struct TypeChecker {
     return constrain(e, to: t, in: &obligations)
   }
 
+  private mutating func _inferredType(
+    of e: ConformanceLensTypeExpr.ID, withHint hint: AnyType? = nil,
+    updating obligations: inout ProofObligations
+  ) -> AnyType {
+    guard
+      let t = evalPartialTypeAnnotation(program[e].lens, updating: &obligations),
+      let s = evalPartialTypeAnnotation(program[e].subject, updating: &obligations)
+    else {
+      return constrain(e, to: .error, in: &obligations)
+    }
+
+    guard let lens = TraitType(t) else {
+      report(.error(notATrait: t, at: program[e].lens.site))
+      return constrain(e, to: .error, in: &obligations)
+    }
+
+    guard conformedTraits(of: s, in: program[e].scope).contains(lens) else {
+      report(.error(s, doesNotConformTo: lens, at: program[e].lens.site))
+      return constrain(e, to: .error, in: &obligations)
+    }
+
+    // DR: It seems fishy that we don't have to return a metatype.
+    let r = ConformanceLensType(viewing: s, through: lens)
+    return constrain(e, to: ^r, in: &obligations)
+  }
+
   /// Returns the inferred type of `e`, updating `obligations` and gathering contextual information
   /// from `hint`.
   private mutating func _inferredType(
     of e: ExistentialTypeExpr.ID, withHint hint: AnyType? = nil,
     updating obligations: inout ProofObligations
   ) -> AnyType {
-    if let t = evalTypeAnnotation(e).errorFree {
-      return constrain(e, to: ^MetatypeType(of: t), in: &obligations)
-    } else {
-      return constrain(e, to: .error, in: &obligations)
-    }
+    let (i, cs) = eval(existentialInterface: program[e].traits)
+
+    guard cs.isEmpty else { UNIMPLEMENTED() }
+    guard program[e].whereClause == nil else { UNIMPLEMENTED() }
+
+    let r = ExistentialType(i, constraints: cs)
+    return constrain(e, to: ^MetatypeType(of: r), in: &obligations)
   }
 
   /// Returns the inferred type of `e`, updating `obligations` and gathering contextual information
@@ -4455,6 +4469,30 @@ struct TypeChecker {
       inputs: inputs, output: output)
     obligations.assign(result, to: AnyDeclID(d))
     return constrain(e, to: result, in: &obligations)
+  }
+
+  /// Returns the inferred type of `e`, updating `obligations` and gathering contextual information
+  /// from `hint`.
+  private mutating func _inferredType(
+    of e: LambdaTypeExpr.ID, withHint hint: AnyType? = nil,
+    updating obligations: inout ProofObligations
+  ) -> AnyType {
+    let environment: AnyType
+    if let v = program[e].environment {
+      environment = evalPartialTypeAnnotation(v, updating: &obligations) ?? .error
+    } else {
+      environment = .any
+    }
+
+    let inputs = evalParameterAnnotations(of: e)
+    let output = evalTypeAnnotation(program[e].output)
+
+    let r = ^LambdaType(
+      receiverEffect: program[e].receiverEffect?.value ?? .let,
+      environment: environment,
+      inputs: inputs,
+      output: output)
+    return constrain(e, to: ^MetatypeType(of: r), in: &obligations)
   }
 
   /// Returns the inferred type of `e`, updating `obligations` and gathering contextual information
@@ -4713,6 +4751,31 @@ struct TypeChecker {
     return constrain(e, to: t, in: &obligations)
   }
 
+  /// Returns the inferred type of `e`, updating `obligations` and gathering contextual information
+  /// from `hint`.
+  private mutating func _inferredType(
+    of e: TupleTypeExpr.ID, withHint hint: AnyType? = nil,
+    updating obligations: inout ProofObligations
+  ) -> AnyType {
+    var elementTypes: [TupleType.Element] = []
+    for e in program[e].elements {
+      let t = evalPartialTypeAnnotation(e.type, updating: &obligations) ?? .error
+      elementTypes.append(.init(label: e.label?.value, type: t))
+    }
+
+    let r = TupleType(elementTypes)
+    return constrain(e, to: ^MetatypeType(of: r), in: &obligations)
+  }
+
+  /// Returns the inferred type of `e` using `hint` for context and updating `obligations`.
+  private mutating func _inferredType(
+    of e: WildcardExpr.ID, withHint hint: AnyType? = nil,
+    updating obligations: inout ProofObligations
+  ) -> AnyType {
+    let r = hint ?? ^freshVariable()
+    return constrain(e, to: ^MetatypeType(of: r), in: &obligations)
+  }
+
   /// Returns the inferred type of `callee`, which is the callee of a function, initializer, or
   /// subscript, updating `state` with inference facts and deferred type checking requests.
   ///
@@ -4822,14 +4885,15 @@ struct TypeChecker {
     // A binding pattern introduces additional type information when it has a type annotation. In
     // that case, the type denoted by the annotation is used to infer the type of the sub-pattern
     // and constrained to be a subtype of the expected type, if any.
-    var subpattern = hint
+    let subpattern: AnyType?
     if let a = program[p].annotation {
-      let subject = evalTypeAnnotation(a)
-      if let t = hint {
-        obligations.insert(
-          SubtypingConstraint(subject, t, origin: .init(.annotation, at: program[p].site)))
+      if let t = evalPartialTypeAnnotation(a, withHint: hint, updating: &obligations) {
+        subpattern = t
+      } else {
+        subpattern = .error
       }
-      subpattern = subject
+    } else {
+      subpattern = hint
     }
 
     return inferredType(of: program[p].subpattern, withHint: subpattern, updating: &obligations)
