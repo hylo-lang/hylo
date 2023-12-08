@@ -2776,7 +2776,7 @@ struct Emitter {
     }
   }
 
-  /// If `storage`, which stores a union. is deinitializable in `self.insertionScope`, inserts
+  /// If `storage`, which stores a union, is deinitializable in `self.insertionScope`, inserts
   /// the IR for deinitializing it; reports a diagnostic for each part that isn't
   /// deinitializable otherwise.
   ///
