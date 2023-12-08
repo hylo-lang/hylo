@@ -21,6 +21,8 @@ extension Module {
         switch blockInstructions[i] {
         case is Access:
           interpret(access: user, in: &context)
+        case is AdvancedByStrides:
+          interpret(advancedByStrides: user, in: &context)
         case is AllocStack:
           interpret(allocStack: user, in: &context)
         case is CloseUnion:
@@ -112,6 +114,24 @@ extension Module {
       if !hasConflict {
         context.locals[.register(i)] = context.locals[s.source]!
       }
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(advancedByStrides i: InstructionID, in context: inout Context) {
+      let s = self[i] as! AdvancedByStrides
+      if case .constant = s.base {
+        // Operand is a constant.
+        UNIMPLEMENTED()
+      }
+
+      // Skip the instruction if an error occurred upstream.
+      guard let base = context.locals[s.base] else {
+        assert(diagnostics.containsError)
+        return
+      }
+
+      let newLocations = base.unwrapLocations()!.map({ $0.appending([s.offset]) })
+      context.locals[.register(i)] = .locations(Set(newLocations))
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
