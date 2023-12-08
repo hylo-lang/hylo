@@ -2743,10 +2743,10 @@ struct Emitter {
 
     if program.isTriviallyDeinitializable(t, in: insertionScope!) {
       insert(module.makeMarkState(storage, initialized: false, at: site))
-    } else if t.hasRecordLayout {
-      emitDeinitRecordParts(of: storage, at: site)
     } else if t.base is UnionType {
       emitDeinitUnionPayload(of: storage, at: site)
+    } else if t.hasRecordLayout {
+      emitDeinitRecordParts(of: storage, at: site)
     } else {
       report(.error(t, doesNotConformTo: ast.core.deinitializable.type, at: site))
     }
