@@ -22,6 +22,9 @@ public indirect enum DemangledType: Hashable {
   /// A bound generic type.
   case boundGeneric(base: DemangledType, arguments: [DemangledSymbol])
 
+  /// A buffer type.
+  case buffer(element: DemangledType, count: Int)
+
   /// A built-in type.
   case builtin(BuiltinType)
 
@@ -96,6 +99,9 @@ extension DemangledType: CustomStringConvertible {
 
     case .boundGeneric(let base, let arguments):
       return "\(base)<\(list: arguments)>"
+
+    case .buffer(let element, let count):
+      return "\(element)[\(count)]"
 
     case .builtin(let t):
       return t.description

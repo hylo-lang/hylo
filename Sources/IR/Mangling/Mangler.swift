@@ -410,9 +410,12 @@ struct Mangler {
 
   /// Writes the mangled representation of `symbol` to `output`.
   mutating func mangle(value symbol: CompileTimeValue, to output: inout Output) {
-    if case .type(let t) = symbol {
+    switch symbol {
+    case .type(let t):
       mangle(type: t, to: &output)
-    } else {
+    case .compilerKnown(let v) where v is Int:
+      write(integer: v as! Int, to: &output)
+    default:
       UNIMPLEMENTED()
     }
   }
@@ -431,6 +434,9 @@ struct Mangler {
 
     case let t as BoundGenericType:
       write(boundGenericType: t, to: &output)
+
+    case let t as BufferType:
+      write(bufferType: t, to: &output)
 
     case let t as BuiltinType:
       write(builtinType: t, to: &output)
@@ -508,6 +514,13 @@ struct Mangler {
     for u in t.arguments.values {
       mangle(value: u, to: &output)
     }
+  }
+
+  /// Writes the mangled representation of `t` to `output`.
+  private mutating func write(bufferType t: BufferType, to output: inout Output) {
+    write(operator: .bufferType, to: &output)
+    mangle(type: t.element, to: &output)
+    mangle(value: t.count, to: &output)
   }
 
   /// Writes the mangled representation of `symbol` to `output`.
