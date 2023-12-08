@@ -232,6 +232,8 @@ public struct TypedProgram {
     switch t.base {
     case let u as BoundGenericType:
       return storage(of: u)
+    case let u as BufferType:
+      return storage(of: u)
     case let u as LambdaType:
       return storage(of: u)
     case let u as ProductType:
@@ -251,6 +253,15 @@ public struct TypedProgram {
     storage(of: t.base).map { (p) in
       let t = specialize(p.type, for: t.arguments, in: AnyScopeID(base.ast.coreLibrary!))
       return .init(label: p.label, type: t)
+    }
+  }
+
+  /// Returns the names and types of `t`'s stored properties.
+  public func storage(of t: BufferType) -> [TupleType.Element] {
+    if let w = t.count.asCompilerKnown(Int.self) {
+      return Array(repeating: .init(label: nil, type: t.element), count: w)
+    } else {
+      return []
     }
   }
 
