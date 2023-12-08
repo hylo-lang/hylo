@@ -215,6 +215,8 @@ extension LLVM.Module {
     from ir: IR.Program
   ) -> LLVM.IRValue {
     switch c {
+    case let v as IR.WordConstant:
+      return transpiledConstant(v, usedIn: m, from: ir)
     case let v as IR.IntegerConstant:
       return transpiledConstant(v, usedIn: m, from: ir)
     case let v as IR.FloatingPointConstant:
@@ -230,6 +232,13 @@ extension LLVM.Module {
     default:
       unreachable()
     }
+  }
+
+  /// Returns the LLVM IR value corresponding to the Hylo IR constant `c` when used in `m` in `ir`.
+  private mutating func transpiledConstant(
+    _ c: IR.WordConstant, usedIn m: IR.Module, from ir: IR.Program
+  ) -> LLVM.IRValue {
+    word().constant(c.value)
   }
 
   /// Returns the LLVM IR value corresponding to the Hylo IR constant `c` when used in `m` in `ir`.
