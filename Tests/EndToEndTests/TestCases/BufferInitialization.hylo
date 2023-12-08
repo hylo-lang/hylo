@@ -1,0 +1,8 @@
+//- compileAndRun expecting: success
+
+fun use(_ x: Bool[2]) {}
+
+public fun main() {
+  let x: Bool[2] = [true, true]
+  use(x)
+}
