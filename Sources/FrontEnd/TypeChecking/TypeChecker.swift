@@ -3489,37 +3489,30 @@ struct TypeChecker {
     specializedBy arguments: [CompileTimeValue],
     exposedTo scopeOfUse: AnyScopeID
   ) -> NameResolutionResult.CandidateSet {
+    // TODO: Check labels and notations.
+    switch name.value.stem {
+    case "Any":
+      return nonGeneric(MetatypeType(of: .any))
+    case "Builtin":
+      return program.builtinIsVisible(in: scopeOfUse) ? [.builtinModule] : []
+    case "Metatype":
+      return resolve(metatype: name, specializedBy: arguments)
+    case "Never":
+      return nonGeneric(MetatypeType(of: .never))
+    case "Self":
+      return resolveReceiverMetatype(in: scopeOfUse).map(nonGeneric(_:)) ?? []
+    case "Union":
+      return resolve(union: name, specializedBy: arguments)
+    default:
+      return []
+    }
+
+    /// Returns a singleton containing a reference to `t`, which is not generic.
     func nonGeneric(_ t: MetatypeType) -> NameResolutionResult.CandidateSet {
       if arguments.count > 0 {
         report(.error(argumentToNonGenericType: t.instance, at: name.site))
       }
       return [.compilerKnown(^t)]
-    }
-
-    // TODO: Check labels and notations.
-    switch name.value.stem {
-    case "Any":
-      return nonGeneric(MetatypeType(of: .any))
-
-    case "Never":
-      return nonGeneric(MetatypeType(of: .never))
-
-    case "Builtin":
-      let b = program[program.module(containing: scopeOfUse)].canAccessBuiltins
-      return b ? [.builtinModule] : []
-
-    case "Union":
-      return resolve(union: name, specializedBy: arguments)
-
-    case "Self":
-      guard let t = resolveReceiverMetatype(in: scopeOfUse) else { return [] }
-      return nonGeneric(t)
-
-    case "Metatype":
-      return resolve(metatype: name, specializedBy: arguments)
-
-    default:
-      return []
     }
   }
 
