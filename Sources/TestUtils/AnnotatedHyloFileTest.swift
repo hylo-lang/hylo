@@ -215,9 +215,3 @@ extension XCTestCase {
   }
 
 }
-
-struct NonzeroExitCode: Error {
-
-  var value: Int32
-
-}
