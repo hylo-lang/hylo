@@ -1,12 +1,12 @@
 import Core
 import Foundation
-import StandardLibrary
+import FrontEnd
 import Utils
 
 extension AST {
 
   /// Creates an instance that includes the Hylo library whose sources are rooted at `libraryRoot`.
-  public init(libraryRoot: URL, for compiler: CompilerConfiguration) {
+  init(libraryRoot: URL, for compiler: CompilerConfiguration) {
     self.init(for: compiler)
     do {
       var diagnostics = DiagnosticSet()
