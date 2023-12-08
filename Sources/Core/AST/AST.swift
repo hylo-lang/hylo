@@ -279,7 +279,7 @@ public struct AST {
   }
 
   /// Returns a table mapping each parameter of `d` to its default argument if `d` is a function,
-  /// initializer, method or subscript declaration. Otherwise, returns `nil`.
+  /// initializer, method or subscript declaration; otherwise, returns `nil`.
   public func defaultArguments(of d: AnyDeclID) -> [AnyExprID?]? {
     let parameters: [ParameterDecl.ID]
     switch d.kind {
@@ -438,7 +438,7 @@ public struct AST {
     self[self[self[s].binding].pattern].introducer.value.isConsuming
   }
 
-  /// Returns the source site of `expr`
+  /// Returns the source site of `expr`.
   public func site(of expr: FoldedSequenceExpr) -> SourceRange {
     switch expr {
     case .leaf(let i):

@@ -139,7 +139,7 @@ struct ParserState {
     return token
   }
 
-  /// Fills the lookahead buffer until it contains `n` tokens, or fewer if the lexer is exhausted.
+  /// Returns up to the next `n` next tokens without consuming them.
   mutating func peek(_ n: Int) -> Deque<Token>.SubSequence {
     while lookahead.count < n {
       guard let t = lexer.next() else { break }
@@ -304,7 +304,7 @@ struct ParserState {
     ast.insert(n, diagnostics: &diagnostics)
   }
 
-  /// Inserts `n` into `self.ast`
+  /// Inserts `n` into `self.ast`.
   ///
   /// - Precondition: `n` is well-formed.
   mutating func insert<T: Node>(synthesized n: T) -> T.ID {

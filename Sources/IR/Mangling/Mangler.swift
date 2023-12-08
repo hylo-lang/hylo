@@ -378,6 +378,10 @@ struct Mangler {
     case .globalInitialization(let d):
       write(base64Didit: 4, to: &output)
       write(entity: d, to: &output)
+    case .autoclosure(let e):
+      write(base64Didit: 5, to: &output)
+      // To allow using multiple autoclosures in the same scope, also write the expression ID.
+      write(integer: e.rawValue, to: &output)
     }
   }
 
@@ -619,7 +623,7 @@ struct Mangler {
   }
 
   /// If `symbol` is reserved or has already been inserted in the symbol lookup table, writes a
-  /// lookup reference to it and returns `true`. Otherwise, returns `false`.
+  /// lookup reference to it and returns `true`; returns `false` otherwise.
   private func writeLookup(_ symbol: Symbol, to output: inout Output) -> Bool {
     if let r = reserved[symbol] {
       write(operator: .reserved, to: &output)

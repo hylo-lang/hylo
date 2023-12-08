@@ -50,7 +50,7 @@ public enum Operand {
     }
   }
 
-  /// The payload if `self` is `.constant`. Otherwise, `nil`.
+  /// The payload if `self` is `.constant`, or `nil` otherwise.
   public var constant: (any Constant)? {
     switch self {
     case .constant(let c):

@@ -69,6 +69,15 @@ struct CallConstraint: Constraint, Hashable {
     arguments.lazy.map(\.label?.value)
   }
 
+  /// Inserts the type variables that occur free in `self` into `s`.
+  func collectOpenVariables(in s: inout Set<TypeVariable>) {
+    callee.collectOpenVariables(in: &s)
+    output.collectOpenVariables(in: &s)
+    for i in 0 ..< arguments.count {
+      arguments[i].type.collectOpenVariables(in: &s)
+    }
+  }
+
   mutating func modifyTypes(_ transform: (AnyType) -> AnyType) {
     update(&callee, with: transform)
     update(&output, with: transform)

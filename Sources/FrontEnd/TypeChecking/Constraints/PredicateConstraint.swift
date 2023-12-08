@@ -14,7 +14,12 @@ struct PredicateConstraint: Constraint, Hashable {
     self.origin = origin
   }
 
-  mutating func modifyTypes(_ transform: (AnyType) -> AnyType) {}
+  /// Inserts the type variables that occur free in `self` into `s`.
+  func collectOpenVariables(in s: inout Set<TypeVariable>) {
+  }
+
+  mutating func modifyTypes(_ transform: (AnyType) -> AnyType) {
+  }
 
 }
 

@@ -949,6 +949,14 @@ final class ParserTests: XCTestCase {
     }
   }
 
+  func testMethodCallOnIntegerLiteral() throws {
+    // See #1037
+    let input: SourceFile = "1.copy()"
+    let (e, ast) = try input.parse(with: Parser.parseExpr(in:))
+    let call = try XCTUnwrap(ast[e] as? FunctionCallExpr)
+    XCTAssertEqual(input[ast[call.callee].site], "1.copy")
+  }
+
   // MARK: Compound expressions
 
   func testLabeledMemberExpr() throws {

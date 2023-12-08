@@ -247,7 +247,8 @@ struct Emitter {
     switch emit(braceStmt: b) {
     case .next:
       if canonical(returnType).isVoidOrNever {
-        emitStore(value: .void, to: returnValue!, at: .empty(atEndOf: ast[b].site))
+        let anchor = SourceRange.empty(atEndOf: ast[b].site)
+        insert(module.makeMarkState(returnValue!, initialized: true, at: anchor))
       }
       return ast[b].site
 
@@ -299,7 +300,7 @@ struct Emitter {
       insert(module.makeUnreachable(at: site))
 
     case .void:
-      emitStore(value: .void, to: returnValue!, at: site)
+      insert(module.makeMarkState(returnValue!, initialized: true, at: site))
       emitDeallocTopFrame(at: site)
       insert(module.makeReturn(at: site))
 
@@ -576,21 +577,8 @@ struct Emitter {
     _ name: NamePattern.ID, referringTo subfield: RecordPath, relativeTo storage: Operand,
     consuming initializer: AnyExprID
   ) {
-    let lhsPart = emitLocalDeclaration(of: name, referringTo: subfield, relativeTo: storage)
-    let lhsPartType = module.type(of: lhsPart).ast
-    let rhsPartType = canonical(program[initializer].type)
-
-    if program.areEquivalent(lhsPartType, rhsPartType, in: program[name].scope) {
-      emitStore(value: initializer, to: lhsPart)
-    } else if lhsPartType.base is UnionType {
-      let x0 = insert(
-        module.makeOpenUnion(
-          lhsPart, as: rhsPartType, forInitialization: true, at: ast[name].site))!
-      emitStore(value: initializer, to: x0)
-      insert(module.makeCloseUnion(x0, at: ast[name].site))
-    } else {
-      UNIMPLEMENTED()
-    }
+    let lhs = emitLocalDeclaration(of: name, referringTo: subfield, relativeTo: storage)
+    emitStore(convertingIfNecessary: initializer, to: lhs)
   }
 
   /// Inserts the IR to declare and initialize the names in `lhs`, which refer to subobjects of
@@ -671,6 +659,9 @@ struct Emitter {
       return withClearContext({ $0.lower(globalBindingInitializer: d) })
     case .copy:
       UNIMPLEMENTED()
+    case .autoclosure:
+      // nothing do to here; expansion is done at the caller side.
+      break
     }
   }
 
@@ -692,7 +683,7 @@ struct Emitter {
     let receiver = Operand.parameter(entry, 0)
     emitDeinitParts(of: receiver, at: site)
 
-    emitStore(value: .void, to: returnValue!, at: site)
+    insert(module.makeMarkState(returnValue!, initialized: true, at: site))
     emitDeallocTopFrame(at: site)
     insert(module.makeReturn(at: site))
   }
@@ -729,7 +720,7 @@ struct Emitter {
       emitMoveInitUnionPayload(of: receiver, consuming: argument, at: site)
     }
 
-    emitStore(value: .void, to: returnValue!, at: site)
+    insert(module.makeMarkState(returnValue!, initialized: true, at: site))
     emitDeallocTopFrame(at: site)
     insert(module.makeReturn(at: site))
   }
@@ -841,7 +832,7 @@ struct Emitter {
 
     // Apply the move-initializer.
     emitMove([.set], argument, to: receiver, at: site)
-    emitStore(value: .void, to: returnValue!, at: site)
+    insert(module.makeMarkState(returnValue!, initialized: true, at: site))
     emitDeallocTopFrame(at: site)
     insert(module.makeReturn(at: site))
   }
@@ -870,9 +861,28 @@ struct Emitter {
     emitInitStoredLocalBindings(
       in: program[binding].pattern.subpattern, referringTo: [], relativeTo: storage,
       consuming: initializer)
-    emitStore(value: .void, to: returnValue!, at: program[initializer].site)
+    insert(module.makeMarkState(returnValue!, initialized: true, at: program[initializer].site))
     emitDeallocTopFrame(at: program[initializer].site)
     insert(module.makeReturn(at: program[initializer].site))
+
+    return f
+  }
+
+  private mutating func lower(syntheticAutoclosure d: SynthesizedFunctionDecl) -> Function.ID {
+    guard case .autoclosure(let argument) = d.kind else { unreachable() }
+    let f = module.demandDeclaration(lowering: d)
+    let entry = module.appendEntry(in: d.scope, to: f)
+
+    insertionPoint = .end(of: entry)
+    self.frames.push()
+    defer {
+      self.frames.pop()
+      assert(self.frames.isEmpty)
+    }
+
+    // Emit the body.
+    emitStore(value: argument, to: returnValue!)
+    insert(module.makeReturn(at: ast[argument].site))
 
     return f
   }
@@ -971,18 +981,20 @@ struct Emitter {
   }
 
   private mutating func emit(assignStmt s: AssignStmt.ID) -> ControlFlow {
-    // The left operand of an assignment should always be marked for mutation, even if the
-    // statement actually denotes initialization.
-    guard ast[s].left.kind == InoutExpr.self else {
+    // The LHS should must be marked for mutation even if the statement denotes initialization.
+    guard program[s].left.kind == InoutExpr.self else {
       let p = program[s].left.site.first()
       report(.error(assignmentLHSRequiresMutationMarkerAt: .empty(at: p)))
       return .next
     }
 
-    // The RHS is evaluated before the LHS.
-    let x0 = emitStore(value: ast[s].right)
-    let x1 = emitLValue(ast[s].left)
-    emitMove([.inout, .set], x0, to: x1, at: ast[s].site)
+    // The RHS is evaluated first, stored into some local storage, and moved to the LHS. Implicit
+    // conversion is necessary if the RHS is subtype of the LHS.
+    let rhs = emitAllocStack(for: program[s].left.type, at: ast[s].site)
+    emitStore(convertingIfNecessary: ast[s].right, to: rhs)
+    let lhs = emitLValue(ast[s].left)
+    emitMove([.inout, .set], rhs, to: lhs, at: ast[s].site)
+
     return .next
   }
 
@@ -1220,7 +1232,7 @@ struct Emitter {
     if let e = ast[s].value {
       emitStore(value: e, to: returnValue!)
     } else {
-      emitStore(value: .void, to: returnValue!, at: ast[s].site)
+      insert(module.makeMarkState(returnValue!, initialized: true, at: ast[s].site))
     }
 
     // The return instruction is emitted by the caller handling this control-flow effect.
@@ -1263,9 +1275,9 @@ struct Emitter {
 
   // MARK: Values
 
-  /// - Note: should be renamed `emitInit`.
-  private mutating func emitStore(
-    value: Operand, to storage: Operand, at site: SourceRange
+  /// Inserts the IR for initializing `storage` by storing `value` to it.
+  private mutating func emitInitialize(
+    storage: Operand, to value: Operand, at site: SourceRange
   ) {
     let x0 = insert(module.makeAccess(.set, from: storage, at: site))!
     insert(module.makeStore(value, at: x0, at: site))
@@ -1476,7 +1488,7 @@ struct Emitter {
     let site = ast[e].site
     let x0 = insert(module.makeAddressToPointer(.constant(r), at: site))!
     let x1 = emitSubfieldView(storage, at: [0], at: site)
-    emitStore(value: x0, to: x1, at: ast[e].site)
+    emitInitialize(storage: x1, to: x0, at: ast[e].site)
 
     let lambda = LambdaType(program.canonical(program[e].type, in: insertionScope!))!
     if lambda.environment == .void { return }
@@ -1590,6 +1602,30 @@ struct Emitter {
     emitMove([.inout, .set], x0, to: storage, at: ast[e].site)
   }
 
+  /// Inserts the IR to store the value of `e` to `storage`, converting it to the type of `storage`
+  /// if necessary.
+  ///
+  /// The type comparison is performed in the scope of `e`.
+  private mutating func emitStore<T: ExprID>(
+    convertingIfNecessary e: T,
+    to storage: Operand
+  ) {
+    let lhsType = module.type(of: storage).ast
+    let rhsType = canonical(program[e].type)
+
+    if program.areEquivalent(lhsType, rhsType, in: program[e].scope) {
+      emitStore(value: e, to: storage)
+    } else if lhsType.base is UnionType {
+      let x0 = insert(
+        module.makeOpenUnion(
+          storage, as: rhsType, forInitialization: true, at: ast[e].site))!
+      emitStore(value: e, to: x0)
+      insert(module.makeCloseUnion(x0, at: ast[e].site))
+    } else {
+      UNIMPLEMENTED()
+    }
+  }
+
   /// Writes the value of `literal` to `storage`.
   private mutating func emitStore<T: NumericLiteralExpr>(
     numericLiteral literal: T.ID, to storage: Operand
@@ -1670,7 +1706,7 @@ struct Emitter {
 
     let x1 = emitSubfieldView(storage, at: [1, 0], at: site)
     let x2 = insert(module.makeConstantString(utf8: bytes, at: site))!
-    emitStore(value: x2, to: x1, at: site)
+    emitInitialize(storage: x1, to: x2, at: site)
   }
 
   /// Inserts the IR for storing `a`, which is an `access`, to `storage`.
@@ -1820,6 +1856,11 @@ struct Emitter {
   private mutating func emit(
     argument e: AnyExprID, to parameter: ParameterType, at site: SourceRange? = nil
   ) -> Operand {
+
+    if parameter.isAutoclosure {
+      return emit(autoclosureFor: e, to: parameter, at: site)
+    }
+
     let argumentSite: SourceRange
     let storage: Operand
 
@@ -1834,6 +1875,27 @@ struct Emitter {
 
     let s = emitCoerce(storage, to: parameter.bareType, at: argumentSite)
     return insert(module.makeAccess(parameter.access, from: s, at: argumentSite))!
+  }
+
+  private mutating func emit(
+    autoclosureFor argument: AnyExprID, to parameter: ParameterType, at site: SourceRange? = nil
+  ) -> Operand {
+    // Emit synthesized function declaration.
+    let f = SynthesizedFunctionDecl(
+      .autoclosure(argument), typed: parameter.bareType.base as! LambdaType,
+      in: program[argument].scope)
+    let callee = withClearContext({ $0.lower(syntheticAutoclosure: f) })
+
+    // Emit the IR code to reference tha function declaration.
+    let r = FunctionReference(
+      to: callee, in: module,
+      specializedBy: module.specialization(in: insertionFunction!), in: insertionScope!)
+
+    let site = ast[argument].site
+    let s1 = insert(module.makeAddressToPointer(.constant(r), at: site))!
+    let s2 = emitAllocStack(for: parameter.bareType, at: site)
+    emitInitialize(storage: s2, to: s1, at: site)
+    return insert(module.makeAccess(parameter.access, from: s2, at: site))!
   }
 
   /// Inserts the IR for infix operand `e` passed with convention `access`.
@@ -2233,7 +2295,7 @@ struct Emitter {
 
     // Store the foreign representation in memory to call the converter.
     let source = emitAllocStack(for: module.type(of: foreign).ast, at: site)
-    emitStore(value: foreign, to: source, at: site)
+    emitInitialize(storage: source, to: foreign, at: site)
 
     switch foreignConvertibleConformance.implementations[r]! {
     case .concrete(let m):
@@ -2445,7 +2507,7 @@ struct Emitter {
     // Handle references to type declarations.
     if let t = MetatypeType(program[d].type) {
       let s = emitAllocStack(for: ^t, at: site)
-      emitStore(value: .constant(t), to: s, at: site)
+      emitInitialize(storage: s, to: .constant(t), at: site)
       return s
     }
 
@@ -2615,7 +2677,7 @@ struct Emitter {
   // MARK: Deinitialization
 
   /// If `storage` is deinitializable in `self.insertionScope`, inserts the IR for deinitializing
-  /// it. Otherwise, reports a diagnostic.
+  /// it, or reports a diagnostic otherwise.
   ///
   /// Let `T` be the type of `storage`, `storage` is deinitializable iff `T` has a deinitializer
   /// exposed to `self.insertionScope`.
@@ -2659,7 +2721,7 @@ struct Emitter {
   }
 
   /// If `storage` is deinitializable in `self.insertionScope`, inserts the IR for deinitializing
-  /// it. Otherwise, reports a diagnostic for each part that isn't deinitializable.
+  /// it; reports a diagnostic for each part that isn't deinitializable otherwise.
   private mutating func emitDeinitParts(of storage: Operand, at site: SourceRange) {
     let t = module.type(of: storage).ast
 
@@ -2675,8 +2737,8 @@ struct Emitter {
   }
 
   /// If `storage`, which stores a record, is deinitializable in `self.insertionScope`, inserts
-  /// the IR for deinitializing it. Otherwise, reports a diagnostic for each part that isn't
-  /// deinitializable.
+  /// the IR for deinitializing it; reports a diagnostic for each part that isn't
+  /// deinitializable otherwise.
   ///
   /// - Requires: the type of `storage` has a record layout.
   private mutating func emitDeinitRecordParts(of storage: Operand, at site: SourceRange) {
@@ -2699,8 +2761,8 @@ struct Emitter {
   }
 
   /// If `storage`, which stores a union. is deinitializable in `self.insertionScope`, inserts
-  /// the IR for deinitializing it. Otherwise, reports a diagnostic for each part that isn't
-  /// deinitializable.
+  /// the IR for deinitializing it; reports a diagnostic for each part that isn't
+  /// deinitializable otherwise.
   ///
   /// - Requires: the type of `storage` is a union.
   private mutating func emitDeinitUnionPayload(of storage: Operand, at site: SourceRange) {
@@ -2739,8 +2801,8 @@ struct Emitter {
   }
 
   /// If `storage`, which stores a union container holding a `payload`, is deinitializable in
-  /// `self.insertionScope`, inserts the IR for deinitializing it. Otherwise, reports a diagnostic
-  /// for each part that isn't deinitializable.
+  /// `self.insertionScope`, inserts the IR for deinitializing it; reports a diagnostic for each
+  /// part that isn't deinitializable otherwise.
   private mutating func emitDeinitUnionPayload(
     of storage: Operand, containing payload: AnyType, at site: SourceRange
   ) {
