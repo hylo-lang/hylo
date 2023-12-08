@@ -13,7 +13,7 @@ public struct Conformance {
     case function(FunctionReference)
 
     /// The implementation of an associated type or value requirement.
-    case value(any CompileTimeValue)
+    case value(CompileTimeValue)
 
   }
 

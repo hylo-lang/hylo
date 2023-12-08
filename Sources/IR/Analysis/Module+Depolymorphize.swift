@@ -530,7 +530,7 @@ extension Module {
     requirement: AnyDeclID, of trait: TraitType, in ir: IR.Program,
     for specialization: GenericArguments, in scopeOfUse: AnyScopeID
   ) -> Function.ID {
-    let model = specialization[program[trait.decl].receiver]! as! AnyType
+    let model = specialization[program[trait.decl].receiver]!.asType!
     let c = program.conformance(of: model, to: trait, exposedTo: scopeOfUse)!
 
     let lowered = demandDeclaration(lowering: c.implementations[requirement]!)!

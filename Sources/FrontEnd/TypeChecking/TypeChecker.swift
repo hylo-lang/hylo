@@ -113,9 +113,13 @@ struct TypeChecker {
 
   /// Returns the canonical form of `v` in `scopeOfUse`.
   mutating func canonical(
-    _ v: any CompileTimeValue, in scopeOfUse: AnyScopeID
-  ) -> any CompileTimeValue {
-    (v as? AnyType).map({ canonical($0, in: scopeOfUse) }) ?? v
+    _ v: CompileTimeValue, in scopeOfUse: AnyScopeID
+  ) -> CompileTimeValue {
+    if case .type(let t) = v {
+      return .type(canonical(t, in: scopeOfUse))
+    } else {
+      return v
+    }
   }
 
   /// Returns `arguments` with all types replaced by their canonical form in `scopeOfUse`.
@@ -499,14 +503,14 @@ struct TypeChecker {
 
     func transform(mutating me: inout Self, _ t: BoundGenericType) -> AnyType {
       ^t.transformArguments(mutating: &me) { (me, v) in
-        let w = (v as? AnyType) ?? UNIMPLEMENTED()
-        return w.transform(mutating: &me, transform)
+        let w = v.asType ?? UNIMPLEMENTED()
+        return .type(w.transform(mutating: &me, transform))
       }
     }
 
     func transform(mutating me: inout Self, _ t: GenericTypeParameterType) -> AnyType {
       if let v = specialization[t.decl] {
-        return (v as? AnyType) ?? preconditionFailure("expected type")
+        return v.asType ?? preconditionFailure("expected type")
       } else {
         return ^t
       }
@@ -528,7 +532,7 @@ struct TypeChecker {
 
       var arguments: GenericArguments = [:]
       for p in parameters {
-        arguments[p] = specialization[p] ?? ^me.freshVariable()
+        arguments[p] = specialization[p] ?? .type(^me.freshVariable())
       }
       return ^BoundGenericType(t, arguments: arguments)
     }
@@ -571,7 +575,7 @@ struct TypeChecker {
 
     let b = MetatypeType(uncheckedType(of: d))!.instance
     let a = GenericArguments(
-      uniqueKeysWithValues: parameters.map({ (key: $0, value: ^freshVariable()) }))
+      uniqueKeysWithValues: parameters.map({ (key: $0, value: .type(^freshVariable())) }))
     return BoundGenericType(b, arguments: a)
   }
 
@@ -1291,7 +1295,7 @@ struct TypeChecker {
     /// to the type.
     var traitReceiverToModel = GenericArguments()
     for t in refinements(of: trait).unordered {
-      traitReceiverToModel[program[t.decl].receiver] = model
+      traitReceiverToModel[program[t.decl].receiver] = .type(model)
     }
 
     for r in program.ast.requirements(of: trait.decl) {
@@ -1511,7 +1515,7 @@ struct TypeChecker {
         guard let rhs = b.environment?.parameters, lhs.count == rhs.count else { return }
         var s = GenericArguments()
         for (p, t) in zip(lhs, rhs) {
-          s[p] = ^GenericTypeParameterType(t, ast: program.ast)
+          s[p] = .type(^GenericTypeParameterType(t, ast: program.ast))
         }
         expectedType = specialize(a.type, for: s, in: scopeOfDefinition)
       } else {
@@ -2428,13 +2432,13 @@ struct TypeChecker {
   ///
   /// Wildcards are evaluated as fresh variables to support partial type inference. These may
   /// be substituted by either a type or a value.
-  private mutating func evalGenericArguments(_ s: [LabeledArgument]) -> [any CompileTimeValue] {
-    var result: [any CompileTimeValue] = []
+  private mutating func evalGenericArguments(_ s: [LabeledArgument]) -> [CompileTimeValue] {
+    var result: [CompileTimeValue] = []
     for a in s {
       if a.value.kind == WildcardExpr.self {
-        result.append(^freshVariable())
+        result.append(.type(^freshVariable()))
       } else {
-        result.append(evalTypeAnnotation(a.value))
+        result.append(.type(evalTypeAnnotation(a.value)))
       }
     }
     return result
@@ -2652,7 +2656,7 @@ struct TypeChecker {
       // where that parameter is introduced.
       if let u = BoundGenericType(m.instance) {
         for (p, a) in u.arguments {
-          if GenericTypeParameterType(a as! AnyType)?.decl != p { UNIMPLEMENTED() }
+          if GenericTypeParameterType(a.asType!)?.decl != p { UNIMPLEMENTED() }
         }
         return u.base
       } else {
@@ -3403,7 +3407,7 @@ struct TypeChecker {
   /// candidate is assigned a constructor type. If `purpose` has call labels, they are used to
   /// filter candidates with different labels.
   mutating func resolve(
-    _ name: SourceRepresentable<Name>, specializedBy arguments: [any CompileTimeValue],
+    _ name: SourceRepresentable<Name>, specializedBy arguments: [CompileTimeValue],
     in context: NameResolutionContext?, exposedTo scopeOfUse: AnyScopeID, usedAs purpose: NameUse
   ) -> NameResolutionResult.CandidateSet {
     // Resolve references to the built-in symbols.
@@ -3481,7 +3485,7 @@ struct TypeChecker {
   /// or `Union<A, B>`) specialized by `arguments`, or `nil` if an error occurred.
   private mutating func resolve(
     compilerKnownAlias name: SourceRepresentable<Name>,
-    specializedBy arguments: [any CompileTimeValue],
+    specializedBy arguments: [CompileTimeValue],
     exposedTo scopeOfUse: AnyScopeID
   ) -> NameResolutionResult.CandidateSet {
     func nonGeneric(_ t: MetatypeType) -> NameResolutionResult.CandidateSet {
@@ -3520,11 +3524,11 @@ struct TypeChecker {
 
   /// Resolves `name` as a reference to a union type specialized by `arguments`.
   private mutating func resolve(
-    union name: SourceRepresentable<Name>, specializedBy arguments: [any CompileTimeValue]
+    union name: SourceRepresentable<Name>, specializedBy arguments: [CompileTimeValue]
   ) -> NameResolutionResult.CandidateSet {
     var elements: [AnyType] = []
     for a in arguments {
-      guard let t = a as? AnyType else {
+      guard let t = a.asType else {
         report(.error(valueInUnionTypeAt: name.site))
         return [.compilerKnown(.error)]
       }
@@ -3545,10 +3549,10 @@ struct TypeChecker {
 
   /// Resolves `name` as a reference to a metatype specialized by `arguments`.
   private mutating func resolve(
-    metatype name: SourceRepresentable<Name>, specializedBy arguments: [any CompileTimeValue]
+    metatype name: SourceRepresentable<Name>, specializedBy arguments: [CompileTimeValue]
   ) -> NameResolutionResult.CandidateSet {
     if let a = arguments.uniqueElement {
-      let instance = (a as? AnyType) ?? UNIMPLEMENTED()
+      let instance = a.asType ?? UNIMPLEMENTED()
       return [.compilerKnown(^MetatypeType(of: MetatypeType(of: instance)))]
     }
 
@@ -3603,7 +3607,7 @@ struct TypeChecker {
   private mutating func resolveType(
     of d: AnyDeclID,
     referredToBy name: SourceRepresentable<Name>,
-    specializedBy arguments: [any CompileTimeValue],
+    specializedBy arguments: [CompileTimeValue],
     in context: NameResolutionContext?,
     exposedTo scopeOfUse: AnyScopeID,
     usedAs purpose: NameUse,
@@ -3631,8 +3635,9 @@ struct TypeChecker {
       // to systematically pick the default value. I suspect that `specialize` shouldn't do that
       // when the associated type is rooted at a trait. Substitution of associated type should
       // rely on conformances rather than lookup.
-      let r = context?.type ?? resolveReceiverMetatype(in: scopeOfUse)?.instance
-      specialization[program[t.decl].receiver] = r
+      if let r = context?.type ?? resolveReceiverMetatype(in: scopeOfUse)?.instance {
+        specialization[program[t.decl].receiver] = .type(r)
+      }
     }
 
     // If the name resolves to an initializer, determine if it is used as a constructor.
@@ -3646,7 +3651,7 @@ struct TypeChecker {
     if let container = ExistentialType(context?.type) {
       candidateType = candidateType.asMember(of: container)
       if let t = traitDeclaring(d) {
-        specialization[program[t.decl].receiver] = ^WitnessType(of: container)
+        specialization[program[t.decl].receiver] = .type(^WitnessType(of: container))
       }
     }
 
@@ -3763,7 +3768,7 @@ struct TypeChecker {
   /// to by `name`, reporting diagnostics to `log`.
   private mutating func genericArguments(
     passedTo d: AnyDeclID, typed t: AnyType,
-    referredToBy name: SourceRepresentable<Name>, specializedBy arguments: [any CompileTimeValue],
+    referredToBy name: SourceRepresentable<Name>, specializedBy arguments: [CompileTimeValue],
     reportingDiagnosticsTo log: inout DiagnosticSet
   ) -> GenericArguments {
     if let g = BoundGenericType(t) {
@@ -3802,7 +3807,7 @@ struct TypeChecker {
   /// reporting diagnostics to `log`.
   private mutating func associateGenericParameters(
     _ parameters: [GenericParameterDecl.ID], of name: SourceRepresentable<Name>,
-    to arguments: [any CompileTimeValue],
+    to arguments: [CompileTimeValue],
     reportingDiagnosticsTo log: inout DiagnosticSet
   ) -> GenericArguments {
     var result = GenericArguments()
@@ -3810,7 +3815,7 @@ struct TypeChecker {
       result[p] = a
     }
     for p in parameters.dropFirst(arguments.count) {
-      result[p] = ^GenericTypeParameterType(p, ast: program.ast)
+      result[p] = .type(^GenericTypeParameterType(p, ast: program.ast))
     }
 
     if !arguments.isEmpty && (parameters.count != arguments.count) {
@@ -4010,10 +4015,10 @@ struct TypeChecker {
     var cs = candidate.constraints.union(t.constraints)
 
     let r = candidate.reference.modifyingArguments(mutating: &substitutions) { (s, v) in
-      let v = (v as? AnyType) ?? UNIMPLEMENTED()
-      let x = instantiate(v, in: ctx, cause: cause, updating: &s)
+      let w = v.asType ?? UNIMPLEMENTED()
+      let x = instantiate(w, in: ctx, cause: cause, updating: &s)
       cs.formUnion(x.constraints)
-      return x.shape
+      return .type(x.shape)
     }
 
     instantiate(
@@ -4957,7 +4962,7 @@ struct TypeChecker {
         report(.error(labels: lhs, incompatibleWith: rhs, at: program[p].site))
         return .error
       }
-    } else if !h.isTypeVariable {
+    } else if !(h.base is TypeVariable) {
       return skip(.error(invalidDestructuringOfType: h, at: program[p].site))
     }
 

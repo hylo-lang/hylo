@@ -409,8 +409,8 @@ struct Mangler {
   }
 
   /// Writes the mangled representation of `symbol` to `output`.
-  mutating func mangle(value symbol: any CompileTimeValue, to output: inout Output) {
-    if let t = symbol as? AnyType {
+  mutating func mangle(value symbol: CompileTimeValue, to output: inout Output) {
+    if case .type(let t) = symbol {
       mangle(type: t, to: &output)
     } else {
       UNIMPLEMENTED()

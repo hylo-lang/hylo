@@ -189,7 +189,7 @@ public struct AnyType {
   /// Returns `self` with occurrences of free type variables replaced by errors.
   public var replacingVariablesWithErrors: AnyType {
     self.transform { (t) in
-      if t.isTypeVariable {
+      if t.base is TypeVariable {
         return .stepOver(.error)
       } else if t[.hasVariable] {
         return .stepInto(t)
@@ -230,10 +230,10 @@ public struct AnyType {
       var result = lhs.base.matches(rhs.base, mutating: &unifier, unify)
       for (a, b) in zip(lhs.arguments, rhs.arguments) {
         switch (a.value, b.value) {
-        case (let vl as AnyType, let vr as AnyType):
+        case (.type(let vl), .type(let vr)):
           result = vl.matches(vr, mutating: &unifier, unify) && result
         default:
-          result = a.value.equals(b.value) && result
+          result = a.value == b.value && result
         }
       }
       return result
@@ -298,12 +298,6 @@ extension AnyType: TypeProtocol {
   ) -> AnyType {
     AnyType(wrapped.transformParts(mutating: &m, transformer))
   }
-
-}
-
-extension AnyType: CompileTimeValue {
-
-  public var staticType: AnyType { ^MetatypeType(of: self) }
 
 }
 

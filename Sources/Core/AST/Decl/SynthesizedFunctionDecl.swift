@@ -54,7 +54,7 @@ public struct SynthesizedFunctionDecl: Hashable {
     guard !type.captures.isEmpty else { return [] }
     guard let t = BoundGenericType(receiver) else { return [] }
     return t.arguments.compactMap { (k, v) -> GenericParameterDecl.ID? in
-      if let u = v as? AnyType {
+      if case .type(let u) = v {
         return GenericTypeParameterType(u)?.decl == k ? k : nil
       } else {
         UNIMPLEMENTED("compile time values")
