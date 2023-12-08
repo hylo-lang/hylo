@@ -42,6 +42,12 @@ struct MemberConstraint: Constraint, Hashable {
     self.origin = origin
   }
 
+  /// Inserts the type variables that occur free in `self` into `s`.
+  func collectOpenVariables(in s: inout Set<TypeVariable>) {
+    subject.collectOpenVariables(in: &s)
+    memberType.collectOpenVariables(in: &s)
+  }
+
   mutating func modifyTypes(_ transform: (AnyType) -> AnyType) {
     update(&subject, with: transform)
     update(&memberType, with: transform)

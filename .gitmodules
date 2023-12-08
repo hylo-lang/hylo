@@ -1,0 +1,3 @@
+[submodule "SPMBuildToolSupport"]
+	path = SPMBuildToolSupport
+	url = https://github.com/dabrahams/SPMBuildToolSupport.git

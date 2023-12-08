@@ -22,6 +22,15 @@ public struct Conformance {
       }
     }
 
+    /// `true` iff `self` is synthetic.
+    public var isSynthetic: Bool {
+      if case .synthetic = self {
+        return true
+      } else {
+        return false
+      }
+    }
+
   }
 
   /// The type on the left-hand side of this conformance.

@@ -40,8 +40,8 @@ extension Module {
     }
   }
 
-  /// If `i` is a call to a generic function, replaces it by an instruction applying a
-  /// depolymorphized version of its callee. Otherwise, does nothing.
+  /// Iff `i` is a call to a generic function, replaces it by an instruction applying a
+  /// depolymorphized version of its callee.
   ///
   /// - Requires: `i` identifies a `CallInstruction`
   private mutating func depolymorphize(call i: InstructionID, in ir: IR.Program) {
@@ -60,8 +60,8 @@ extension Module {
     replace(i, with: new)
   }
 
-  /// If `i` is the projection through a generic subscript, replaces it by an instruction applying
-  /// a depolymorphized version of its callee. Otherwise, does nothing.
+  /// Iff `i` is the projection through a generic subscript, replaces it by an instruction applying
+  /// a depolymorphized version of its callee.
   ///
   /// - Requires: `i` identifies a `ProjectInstruction`
   private mutating func depolymorphize(project i: InstructionID, in ir: IR.Program) {

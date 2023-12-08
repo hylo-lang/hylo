@@ -5,14 +5,14 @@ public type UInt8 {
 
   memberwise init
 
-  /// Creates an instance with value `0`.
-  public init() {
-    &self.value = Builtin.zeroinitializer_i8()
-  }
-
   /// Creates an instance with the same memory representation as `other`.
   public init(bit_pattern other: Int8) {
     &self.value = other.value
+  }
+
+  /// Returns the bitwise inverse of `self`.
+  public fun prefix~ () -> Self {
+    self ^ UInt8(bit_pattern: -1 as Int8)
   }
 
 }
@@ -20,6 +20,8 @@ public type UInt8 {
 public conformance UInt8: ExpressibleByIntegerLiteral {}
 
 public conformance UInt8: Deinitializable {}
+
+public conformance UInt8: Movable {}
 
 public conformance UInt8: Copyable {
 
@@ -41,6 +43,16 @@ public conformance UInt8: Equatable {
 
 }
 
+public conformance UInt8: Regular {}
+
+public conformance UInt8: Hashable {
+
+  public fun hash(into hasher: inout Hasher) {
+    &hasher.combine(byte: Int8(bit_pattern: self))
+  }
+
+}
+
 public conformance UInt8: Comparable {
 
   public fun infix< (_ other: Self) -> Bool {
@@ -57,6 +69,239 @@ public conformance UInt8: Comparable {
 
   public fun infix>= (_ other: Self) -> Bool {
     Bool(value: Builtin.icmp_uge_i8(value, other.value))
+  }
+
+}
+
+public conformance UInt8: AdditiveArithmetic {
+
+  public fun infix+ (_ other: Self) -> Self {
+    UInt8(value: Builtin.add_i8(value, other.value))
+  }
+
+  public fun infix+= (_ other: Self) inout {
+    &self.value = Builtin.add_i8(value, other.value)
+  }
+
+  public fun infix- (_ other: Self) -> Self {
+    UInt8(value: Builtin.sub_i8(value, other.value))
+  }
+
+  public fun infix-= (_ other: Self) inout {
+    &self.value = Builtin.sub_i8(value, other.value)
+  }
+
+  public static fun zero() -> Self {
+    0
+  }
+
+}
+
+// TODO: Rewrite as a conformance to `Numeric` when #1047 is fixed
+public extension UInt8 {
+
+//   public typealias Magnitude = UInt8
+
+  public fun magnitude() -> UInt8 {
+    self.copy()
+  }
+
+  public fun infix* (_ other: Self) -> Self {
+    UInt8(value: Builtin.mul_i8(value, other.value))
+  }
+
+  public fun infix*= (_ other: Self) inout {
+    &self.value = Builtin.mul_i8(value, other.value)
+  }
+
+}
+
+public conformance UInt8: BinaryInteger {
+
+  public init() {
+    &self.value = Builtin.zeroinitializer_i8()
+  }
+
+  public init<T: BinaryInteger>(truncating_or_extending source: T) {
+    let w = source.words()
+    &self.value = Builtin.trunc_word_i8(w[w.start_position()].value)
+  }
+
+  public fun instance_bit_width() -> Int {
+    8
+  }
+
+  public fun signum() -> Int {
+    Int(value: Builtin.zext_i1_word((self > 0).value))
+  }
+
+  public fun trailing_zeros() -> Int {
+    Int(value: Builtin.zext_i8_word(Builtin.cttz_i8(value)))
+  }
+
+  public fun quotient_and_remainder(dividing_by other: Self) -> {quotient: Self, remainder: Self} {
+    (quotient: self / other, remainder: self % other)
+  }
+
+  public fun words() -> CollectionOfOne<UInt> {
+    CollectionOfOne(UInt(value: Builtin.zext_i8_word(value)))
+  }
+
+  public fun infix/ (_ other: Self) -> Self {
+    UInt8(value: Builtin.udiv_i8(value, other.value))
+  }
+
+  public fun infix/= (_ other: Self) inout {
+    &self.value = Builtin.udiv_i8(value, other.value)
+  }
+
+  public fun infix% (_ other: Self) -> Self {
+    UInt8(value: Builtin.urem_i8(value, other.value))
+  }
+
+  public fun infix%= (_ other: Self) inout {
+    &self.value = Builtin.urem_i8(value, other.value)
+  }
+
+  public fun infix& (_ other: Self) -> Self {
+    UInt8(value: Builtin.and_i8(value, other.value))
+  }
+
+  public fun infix&= (_ other: Self) inout {
+    &self.value = Builtin.and_i8(value, other.value)
+  }
+
+  public fun infix| (_ other: Self) -> Self {
+    UInt8(value: Builtin.or_i8(value, other.value))
+  }
+
+  public fun infix|= (_ other: Self) inout {
+    &self.value = Builtin.or_i8(value, other.value)
+  }
+
+  public fun infix^ (_ other: Self) -> Self {
+    UInt8(value: Builtin.xor_i8(value, other.value))
+  }
+
+  public fun infix^= (_ other: Self) inout {
+    &self.value = Builtin.xor_i8(value, other.value)
+  }
+
+  public fun infix<< (_ n: Int) -> Self {
+    if n >= 0 {
+      return if n < Self.bit_width() { self &<< n } else { 0 }
+    } else if n <= -Self.bit_width() {
+      return 0
+    } else {
+      return self &>> -n
+    }
+  }
+
+  public fun infix<<= (_ n: Int) inout {
+    &self = self << n
+  }
+
+  public fun infix>> (_ n: Int) -> Self {
+    if n >= 0 {
+      return if n < Self.bit_width() { self &>> n } else { 0 }
+    } else if n <= -Self.bit_width() {
+      return 0
+    } else {
+      return self &<< -n
+    }
+  }
+
+  public fun infix>>= (_ n: Int) inout {
+    &self = self >> n
+  }
+
+  public static fun is_signed() -> Bool {
+    false
+  }
+
+}
+
+public conformance UInt8: FixedWidthInteger {
+
+  public fun matches(_ mask: Self) -> Bool {
+    (self & mask) == mask
+  }
+
+  public fun adding_reporting_overflow(_ other: Self) -> {partial_value: Self, overflow: Bool} {
+    let r = Builtin.uadd_with_overflow_i8(value, other.value)
+    return (partial_value: UInt8(value: r.0), overflow: Bool(value: r.1))
+  }
+
+  public fun subtracting_reporting_overflow(
+    _ other: Self
+  ) -> {partial_value: Self, overflow: Bool} {
+    let r = Builtin.usub_with_overflow_i8(value, other.value)
+    return (partial_value: UInt8(value: r.0), overflow: Bool(value: r.1))
+  }
+
+  public fun multiplied_reporting_overflow(
+    by other: Self
+  ) -> {partial_value: Self, overflow: Bool} {
+    let r = Builtin.umul_with_overflow_i8(value, other.value)
+    return (partial_value: UInt8(value: r.0), overflow: Bool(value: r.1))
+  }
+
+  public fun divided_reporting_overflow(by other: Self) -> {partial_value: Self, overflow: Bool} {
+    if other == 0 {
+      (partial_value: self.copy(), overflow: true)
+    } else {
+      (partial_value: UInt8(value: Builtin.udiv_i8(value, other.value)), overflow: false)
+    }
+  }
+
+  public fun remainder_reporting_overflow(
+    dividing_by other: Self
+  ) -> {partial_value: Self, overflow: Bool} {
+    if other == 0 {
+      (partial_value: self.copy(), overflow: true)
+    } else {
+      (partial_value: UInt8(value: Builtin.urem_i8(value, other.value)), overflow: false)
+    }
+  }
+
+  public fun nonzero_bit_count() -> Int {
+    Int(value: Builtin.zext_i8_word(Builtin.ctpop_i8(value)))
+  }
+
+  public fun leading_zeros() -> Int {
+    Int(value: Builtin.zext_i8_word(Builtin.ctlz_i8(value)))
+  }
+
+  public fun infix&<< (_ n: Int) -> Self {
+    var lhs = self.copy()
+    lhs &<<= n
+    return lhs
+  }
+
+  public fun infix&<<= (_ n: Int) inout {
+    &self.value = Builtin.shl_i8(value, UInt8(truncating_or_extending: n).value)
+  }
+
+  public fun infix&>> (_ n: Int) -> Self {
+    var lhs = self.copy()
+    lhs &>>= n
+    return lhs
+  }
+
+  public fun infix&>>= (_ n: Int) inout {
+    &self.value = Builtin.lshr_i8(value, UInt8(truncating_or_extending: n).value)
+  }
+
+  public static fun bit_width() -> Int {
+    8
+  }
+
+  public static fun max() -> Self {
+    255
+  }
+
+  public static fun min() -> Self {
+    0
   }
 
 }
