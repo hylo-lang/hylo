@@ -35,8 +35,8 @@ extension Process {
 
   }
 
-  /// Runs `executable` with the given command line `arguments` and returns its exit status along
-  /// with the text written to its standard output and standard error streams.
+  /// Runs `executable` with the given command line `arguments` and returns the text written to its
+  /// standard output and standard error streams, throwing `NonzeroExit` if the command fails.
   public static func run(_ executable: URL, arguments: [String] = []) throws -> OutputText {
     let p = Process()
     let pipes = (standardOutput: Pipe(), standardError: Pipe())
