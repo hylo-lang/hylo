@@ -36,9 +36,9 @@ final class SourceFileTests: XCTestCase {
 
   func testUpdateSourceFileContent() throws {
     let url = URL(fileURLWithPath: "foo.hylo")
-    let s1 = SourceFile(at: url, withInMemoryContents: "import A")
+    let s1 = SourceFile(contents: "import A", fileID: url)
     XCTAssertEqual(s1.text, "import A")
-    let s2 = SourceFile(at: url, withInMemoryContents: "import B")
+    let s2 = SourceFile(contents: "import B", fileID: url)
     XCTAssertEqual(s2.text, "import B")
   }
 

@@ -33,12 +33,11 @@ public struct SourceFile {
     try self.init(contentsOf: URL(fileURLWithPath: filePath))
   }
 
-  /// Creates an instance representing the in-memory `contents` of the file at `filePath`.
+  /// Creates an instance with the given `contents`, identified by `fileID`.
   ///
-  /// `contents` is the text of the file currently in memory, which may be different from what
-  /// is actually stored on disk when the file is being edited.
-  public init(at filePath: URL, withInMemoryContents contents: String) {
-    let storage = Storage(filePath, replaceExisting: true) { contents[...] }
+  /// `contents` may not reflect what—if anything—is stored on disk at `fileID`.
+  public init(contents: String, fileID: URL) {
+    let storage = Storage(fileID, replaceExisting: true) { contents[...] }
     self.storage = storage
   }
 
