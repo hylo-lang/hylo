@@ -214,6 +214,8 @@ public struct TypedProgram {
     if !c.implementations.uniqueElement!.value.isSynthetic { return false }
 
     switch model.base {
+    case let u as BufferType:
+      return isTriviallyDeinitializable(u.element, in: scopeOfUse)
     case let u as TupleType:
       return u.elements.allSatisfy({ isTriviallyDeinitializable($0.type, in: scopeOfUse) })
     case let u as UnionType:
@@ -405,6 +407,9 @@ public struct TypedProgram {
     assert(model[.isCanonical])
 
     switch model.base {
+    case let m as BufferType:
+      // FIXME: To remove once conditional conformance is implemented
+      guard conforms(m.element, to: concept, in: scopeOfUse) else { return nil }
     case let m as LambdaType:
       guard allConform(m.captures.map(\.type), to: concept, in: scopeOfUse) else { return nil }
     case let m as TupleType:
