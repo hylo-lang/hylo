@@ -1301,6 +1301,8 @@ struct Emitter {
     switch e.kind {
     case BooleanLiteralExpr.self:
       emitStore(BooleanLiteralExpr.ID(e)!, to: storage)
+    case BufferLiteralExpr.self:
+      emitStore(BufferLiteralExpr.ID(e)!, to: storage)
     case CastExpr.self:
       emitStore(CastExpr.ID(e)!, to: storage)
     case ConditionalExpr.self:
@@ -1337,6 +1339,20 @@ struct Emitter {
     let x0 = emitSubfieldView(storage, at: [0], at: ast[e].site)
     let x1 = insert(module.makeAccess(.set, from: x0, at: ast[e].site))!
     insert(module.makeStore(.i1(ast[e].value), at: x1, at: ast[e].site))
+  }
+
+  /// Inserts the IR for storing the value of `e` to `storage`.
+  private mutating func emitStore(_ e: BufferLiteralExpr.ID, to storage: Operand) {
+    if program[e].elements.isEmpty {
+      insert(module.makeMarkState(storage, initialized: true, at: program[e].site))
+      return
+    }
+
+    // The elements of a buffer literal have the same type.
+    for (i, v) in program[e].elements.enumerated() {
+      let x0 = insert(module.makeAdvanced(storage, byStrides: i, at: program[v].site))!
+      emitStore(value: v, to: x0)
+    }
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
