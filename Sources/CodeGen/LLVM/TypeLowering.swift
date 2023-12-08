@@ -12,6 +12,8 @@ extension IR.Program {
     switch val {
     case let t as AnyType:
       return llvm(t.base, in: &module)
+    case let t as BufferType:
+      return llvm(bufferType: t, in: &module)
     case let t as BuiltinType:
       return llvm(builtinType: t, in: &module)
     case let t as BoundGenericType:
@@ -31,6 +33,17 @@ extension IR.Program {
     default:
       notLLVMRepresentable(val)
     }
+  }
+
+  /// Returns the LLVM form of `val` in `module`.
+  ///
+  /// - Requires: `val` is representable in LLVM.
+  func llvm(bufferType val: BufferType, in module: inout LLVM.Module) -> LLVM.IRType {
+    let e = llvm(val.element, in: &module)
+    guard let n = val.count.asCompilerKnown(Int.self) else {
+      notLLVMRepresentable(val)
+    }
+    return LLVM.ArrayType(n, e, in: &module)
   }
 
   /// Returns the LLVM form of `val` in `module`.
