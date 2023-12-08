@@ -215,6 +215,8 @@ extension LLVM.Module {
     from ir: IR.Program
   ) -> LLVM.IRValue {
     switch c {
+    case let v as IR.WordConstant:
+      return transpiledConstant(v, usedIn: m, from: ir)
     case let v as IR.IntegerConstant:
       return transpiledConstant(v, usedIn: m, from: ir)
     case let v as IR.FloatingPointConstant:
@@ -230,6 +232,13 @@ extension LLVM.Module {
     default:
       unreachable()
     }
+  }
+
+  /// Returns the LLVM IR value corresponding to the Hylo IR constant `c` when used in `m` in `ir`.
+  private mutating func transpiledConstant(
+    _ c: IR.WordConstant, usedIn m: IR.Module, from ir: IR.Program
+  ) -> LLVM.IRValue {
+    word().constant(c.value)
   }
 
   /// Returns the LLVM IR value corresponding to the Hylo IR constant `c` when used in `m` in `ir`.
@@ -599,6 +608,8 @@ extension LLVM.Module {
         insert(addressToPointer: i)
       case is IR.AdvancedByBytes:
         insert(advancedByBytes: i)
+      case is IR.AdvancedByStrides:
+        insert(advancedByStrides: i)
       case is IR.AllocStack:
         insert(allocStack: i)
       case is IR.Access:
@@ -677,6 +688,18 @@ extension LLVM.Module {
       let base = llvm(s.base)
       let v = insertGetElementPointerInBounds(
         of: base, typed: ptr, indices: [llvm(s.byteOffset)], at: insertionPoint)
+      register[.register(i)] = v
+    }
+
+    /// Inserts the transpilation of `i` at `insertionPoint`.
+    func insert(advancedByStrides i: IR.InstructionID) {
+      let s = m[i] as! AdvancedByStrides
+
+      let base = llvm(s.base)
+      let baseType = ir.llvm(m.type(of: s.base).ast, in: &self)
+      let indices = [i32.constant(0), i32.constant(s.offset)]
+      let v = insertGetElementPointerInBounds(
+        of: base, typed: baseType, indices: indices, at: insertionPoint)
       register[.register(i)] = v
     }
 

@@ -4207,6 +4207,8 @@ struct TypeChecker {
     switch e.kind {
     case BooleanLiteralExpr.self:
       return _inferredType(of: BooleanLiteralExpr.ID(e)!, withHint: hint, updating: &obligations)
+    case BufferLiteralExpr.self:
+      return _inferredType(of: BufferLiteralExpr.ID(e)!, withHint: hint, updating: &obligations)
     case CastExpr.self:
       return _inferredType(of: CastExpr.ID(e)!, withHint: hint, updating: &obligations)
     case ConditionalExpr.self:
@@ -4262,6 +4264,36 @@ struct TypeChecker {
     updating obligations: inout ProofObligations
   ) -> AnyType {
     constrain(e, to: ^program.ast.coreType("Bool")!, in: &obligations)
+  }
+
+  /// Returns the inferred type of `e`, updating `obligations` and gathering contextual information
+  /// from `hint`.
+  private mutating func _inferredType(
+    of e: BufferLiteralExpr.ID, withHint hint: AnyType? = nil,
+    updating obligations: inout ProofObligations
+  ) -> AnyType {
+    let elementHint: AnyType
+    if let h = hint, let b = BufferType(canonical(h, in: program[e].scope)) {
+      elementHint = b.element
+    } else {
+      elementHint = ^freshVariable()
+    }
+
+    // If the buffer has no element, we keep the element type open. Othewise, we use the type of
+    // the first element to constrain all others.
+    if let elements = program[e].elements.headAndTail {
+      let head = inferredType(of: elements.head, withHint: elementHint, updating: &obligations)
+      for x in elements.tail {
+        let t = inferredType(of: x, withHint: head, updating: &obligations)
+        let o = ConstraintOrigin(.structural, at: program[x].site)
+        obligations.insert(EqualityConstraint(head, t, origin: o))
+      }
+
+      let n = program[e].elements.count
+      return constrain(e, to: ^BufferType(head, .compilerKnown(n)), in: &obligations)
+    } else {
+      return constrain(e, to: ^BufferType(elementHint, .compilerKnown(0)), in: &obligations)
+    }
   }
 
   /// Returns the inferred type of `e`, updating `obligations` and gathering contextual information
@@ -4679,7 +4711,19 @@ struct TypeChecker {
     // The callee has a metatype and is a name expression bound to a nominal type declaration,
     // meaning that the call is actually a sugared buffer type expression.
     if isBoundToNominalTypeDecl(program[e].callee, in: obligations) {
-      UNIMPLEMENTED()
+      let n = program[e].arguments.count
+      if n != 1 {
+        report(.error(invalidBufferTypeArgumentCount: n, at: program[e].callee.site))
+        return constrain(e, to: .error, in: &obligations)
+      }
+
+      if let a = IntegerLiteralExpr.ID(program[e].arguments[0].value) {
+        let t = MetatypeType(callee)!.instance
+        let r = BufferType(t, .compilerKnown(Int(program[a].value)!))
+        return constrain(e, to: ^MetatypeType(of: r), in: &obligations)
+      } else {
+        UNIMPLEMENTED("arbitrary buffer type argument expression")
+      }
     }
 
     // The callee has a callable type or we need inference to determine its type. Either way,

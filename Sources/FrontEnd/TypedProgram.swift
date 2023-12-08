@@ -218,6 +218,8 @@ public struct TypedProgram {
     if !c.implementations.uniqueElement!.value.isSynthetic { return false }
 
     switch model.base {
+    case let u as BufferType:
+      return isTriviallyDeinitializable(u.element, in: scopeOfUse)
     case let u as TupleType:
       return u.elements.allSatisfy({ isTriviallyDeinitializable($0.type, in: scopeOfUse) })
     case let u as UnionType:
@@ -235,6 +237,8 @@ public struct TypedProgram {
   public func storage(of t: AnyType) -> [TupleType.Element] {
     switch t.base {
     case let u as BoundGenericType:
+      return storage(of: u)
+    case let u as BufferType:
       return storage(of: u)
     case let u as LambdaType:
       return storage(of: u)
@@ -255,6 +259,15 @@ public struct TypedProgram {
     storage(of: t.base).map { (p) in
       let t = specialize(p.type, for: t.arguments, in: AnyScopeID(base.ast.coreLibrary!))
       return .init(label: p.label, type: t)
+    }
+  }
+
+  /// Returns the names and types of `t`'s stored properties.
+  public func storage(of t: BufferType) -> [TupleType.Element] {
+    if let w = t.count.asCompilerKnown(Int.self) {
+      return Array(repeating: .init(label: nil, type: t.element), count: w)
+    } else {
+      return []
     }
   }
 
@@ -398,6 +411,9 @@ public struct TypedProgram {
     assert(model[.isCanonical])
 
     switch model.base {
+    case let m as BufferType:
+      // FIXME: To remove once conditional conformance is implemented
+      guard conforms(m.element, to: concept, in: scopeOfUse) else { return nil }
     case let m as LambdaType:
       guard allConform(m.captures.map(\.type), to: concept, in: scopeOfUse) else { return nil }
     case let m as TupleType:

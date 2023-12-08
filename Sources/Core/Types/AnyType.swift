@@ -177,7 +177,7 @@ public struct AnyType {
   /// Indicates whether `self` has a record layout.
   public var hasRecordLayout: Bool {
     switch base {
-    case is LambdaType, is ProductType, is TupleType:
+    case is BufferType, is LambdaType, is ProductType, is TupleType:
       return true
     case let type as BoundGenericType:
       return type.base.hasRecordLayout

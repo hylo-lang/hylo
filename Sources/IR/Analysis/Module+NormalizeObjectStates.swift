@@ -28,6 +28,8 @@ extension Module {
           pc = interpret(addressToPointer: user, in: &context)
         case is AdvancedByBytes:
           pc = interpret(advancedByBytes: user, in: &context)
+        case is AdvancedByStrides:
+          pc = interpret(advancedByStrides: user, in: &context)
         case is AllocStack:
           pc = interpret(allocStack: user, in: &context)
         case is Branch:
@@ -162,6 +164,23 @@ extension Module {
       consume(s.base, with: i, at: s.site, in: &context)
       consume(s.byteOffset, with: i, at: s.site, in: &context)
       initializeRegister(createdBy: i, in: &context)
+      return successor(of: i)
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(advancedByStrides i: InstructionID, in context: inout Context) -> PC? {
+      let s = self[i] as! AdvancedByStrides
+
+      // Operand must a location.
+      let locations: [AbstractLocation]
+      if case .constant = s.base {
+        // Operand is a constant.
+        UNIMPLEMENTED()
+      } else {
+        locations = context.locals[s.base]!.unwrapLocations()!.map({ $0.appending([s.offset]) })
+      }
+
+      context.locals[.register(i)] = .locations(Set(locations))
       return successor(of: i)
     }
 

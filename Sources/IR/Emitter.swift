@@ -1301,6 +1301,8 @@ struct Emitter {
     switch e.kind {
     case BooleanLiteralExpr.self:
       emitStore(BooleanLiteralExpr.ID(e)!, to: storage)
+    case BufferLiteralExpr.self:
+      emitStore(BufferLiteralExpr.ID(e)!, to: storage)
     case CastExpr.self:
       emitStore(CastExpr.ID(e)!, to: storage)
     case ConditionalExpr.self:
@@ -1337,6 +1339,20 @@ struct Emitter {
     let x0 = emitSubfieldView(storage, at: [0], at: ast[e].site)
     let x1 = insert(module.makeAccess(.set, from: x0, at: ast[e].site))!
     insert(module.makeStore(.i1(ast[e].value), at: x1, at: ast[e].site))
+  }
+
+  /// Inserts the IR for storing the value of `e` to `storage`.
+  private mutating func emitStore(_ e: BufferLiteralExpr.ID, to storage: Operand) {
+    if program[e].elements.isEmpty {
+      insert(module.makeMarkState(storage, initialized: true, at: program[e].site))
+      return
+    }
+
+    // The elements of a buffer literal have the same type.
+    for (i, v) in program[e].elements.enumerated() {
+      let x0 = insert(module.makeAdvanced(storage, byStrides: i, at: program[v].site))!
+      emitStore(value: v, to: x0)
+    }
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
@@ -2727,10 +2743,10 @@ struct Emitter {
 
     if program.isTriviallyDeinitializable(t, in: insertionScope!) {
       insert(module.makeMarkState(storage, initialized: false, at: site))
-    } else if t.hasRecordLayout {
-      emitDeinitRecordParts(of: storage, at: site)
     } else if t.base is UnionType {
       emitDeinitUnionPayload(of: storage, at: site)
+    } else if t.hasRecordLayout {
+      emitDeinitRecordParts(of: storage, at: site)
     } else {
       report(.error(t, doesNotConformTo: ast.core.deinitializable.type, at: site))
     }
@@ -2760,7 +2776,7 @@ struct Emitter {
     }
   }
 
-  /// If `storage`, which stores a union. is deinitializable in `self.insertionScope`, inserts
+  /// If `storage`, which stores a union, is deinitializable in `self.insertionScope`, inserts
   /// the IR for deinitializing it; reports a diagnostic for each part that isn't
   /// deinitializable otherwise.
   ///

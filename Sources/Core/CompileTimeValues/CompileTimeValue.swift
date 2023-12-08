@@ -21,6 +21,15 @@ public enum CompileTimeValue: Hashable {
     asType?.base is TypeVariable
   }
 
+  /// The payload of `.compilerKnown` as an instance of `T`.
+  public func asCompilerKnown<T>(_: T.Type) -> T? {
+    if case .compilerKnown(let v) = self {
+      return v as? T
+    } else {
+      return nil
+    }
+  }
+
 }
 
 extension CompileTimeValue: CustomStringConvertible {

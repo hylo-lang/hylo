@@ -171,7 +171,15 @@ extension Instruction {
   /// accessing them.
   fileprivate var isTransparentOffset: Bool {
     switch self {
-    case is AdvancedByBytes, is OpenCapture, is OpenUnion, is SubfieldView, is WrapExistentialAddr:
+    case is AdvancedByStrides:
+      return true
+    case is OpenCapture:
+      return true
+    case is OpenUnion:
+      return true
+    case is SubfieldView:
+      return true
+    case is WrapExistentialAddr:
       return true
     default:
       return false
