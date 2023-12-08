@@ -46,7 +46,9 @@ public struct Driver: ParsableCommand {
 
   @Flag(
     name: [.customLong("freestanding")],
-    help: "Import only the freestanding core of the standard library, omitting any definitions that depend on having an operating system.")
+    help:
+      "Import only the freestanding core of the standard library, omitting any definitions that depend on having an operating system."
+  )
   private var freestanding: Bool = false
 
   @Flag(
