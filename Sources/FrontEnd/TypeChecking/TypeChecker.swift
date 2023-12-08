@@ -58,9 +58,8 @@ struct TypeChecker {
   ) {
     self.identifier = identifier
     self.nextFreshVariableIdentifier = UInt64(identifier) << 56
-    self.cache = instanceUnderConstruction.apply {
-      Cache(local: $0, shared: instanceUnderConstruction)
-    }
+    self.cache = instanceUnderConstruction.read(
+      applying: { Cache(local: $0, shared: instanceUnderConstruction) })
     self.shouldTraceInference = shouldTraceInference
   }
 
@@ -5398,9 +5397,9 @@ struct TypeChecker {
       if let v = local[keyPath: path] {
         return v
       }
-      if ignoreSharedCache { return nil}
+      if ignoreSharedCache { return nil }
 
-      guard let v = shared?.apply({ $0[keyPath: path] })
+      guard let v = shared?.read(applying: { $0[keyPath: path] })
       else { return nil }
 
       local[keyPath: path] = v

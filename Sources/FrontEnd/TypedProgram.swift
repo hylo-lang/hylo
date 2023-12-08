@@ -84,7 +84,7 @@ public struct TypedProgram {
       }
     }
 
-    self = try instanceUnderConstruction.apply {
+    self = try instanceUnderConstruction.read {
 
       var checker = TypeChecker(
         constructing: $0,

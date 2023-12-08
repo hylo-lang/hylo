@@ -18,7 +18,7 @@ public final class SharedMutable<SharedValue> {
   }
 
   /// Returns the result of thread-safely applying `f` to the wrapped instance.
-  public func apply<R>(_ f: (SharedValue) throws -> R) rethrows -> R {
+  public func read<R>(applying f: (SharedValue) throws -> R) rethrows -> R {
     try mutex.sync {
       try f(storage)
     }
