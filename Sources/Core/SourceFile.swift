@@ -355,12 +355,9 @@ extension SourceFile {
     /// The owner of all instances of `Storage`.
     private static let allInstances = SharedMutable<[URL: Storage]>([:])
 
-    /// Creates an alias to the instance with the given `url` if it exists, or creates a new
+    /// Creates an alias to the instance with the given `url` if it exists, replacing the instance's text with the
+    /// result of `makeText()` iff `replaceExisting` is `true`, or creates a new
     /// instance having the given `url` and the text resulting from `makeText()`.
-    ///
-    /// Storage instances are cached based on url, where `replaceExisting` defines if an
-    /// existing entry should be replaced with new content, otherwise the storage get the
-    /// content from the previously cached entry.
     fileprivate convenience init(
       _ url: URL, lineStarts: [Index]? = nil, replaceExisting: Bool = false, makeText: () throws -> Substring
     ) rethrows {
