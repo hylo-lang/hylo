@@ -58,7 +58,8 @@ struct TypeChecker {
   ) {
     self.identifier = identifier
     self.nextFreshVariableIdentifier = UInt64(identifier) << 56
-    self.cache = Cache(local: instanceUnderConstruction[], shared: instanceUnderConstruction)
+    self.cache = instanceUnderConstruction.read(
+      applying: { Cache(local: $0, shared: instanceUnderConstruction) })
     self.shouldTraceInference = shouldTraceInference
   }
 
@@ -5560,12 +5561,14 @@ struct TypeChecker {
     ) -> V? {
       if let v = local[keyPath: path] {
         return v
-      } else if !ignoreSharedCache, let v = shared?[][keyPath: path] {
-        local[keyPath: path] = v
-        return v
-      } else {
-        return nil
       }
+      if ignoreSharedCache { return nil }
+
+      guard let v = shared?.read(applying: { $0[keyPath: path] })
+      else { return nil }
+
+      local[keyPath: path] = v
+      return v
     }
 
     /// Writes `value` to the cache at `path`, applying the update with `merge`.
