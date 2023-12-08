@@ -177,6 +177,8 @@ extension Module {
         rewrite(addressToPointer: i, to: b)
       case is AdvancedByBytes:
         rewrite(advancedByBytes: i, to: b)
+      case is AdvancedByStrides:
+        rewrite(advancedByStrides: i, to: b)
       case is AllocStack:
         rewrite(allocStack: i, to: b)
       case is Branch:
@@ -259,6 +261,13 @@ extension Module {
       let u = rewritten(s.base)
       let v = rewritten(s.byteOffset)
       append(makeAdvancedByBytes(source: u, offset: v, at: s.site), to: b)
+    }
+
+    /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
+    func rewrite(advancedByStrides i: InstructionID, to b: Block.ID) {
+      let s = sourceModule[i] as! AdvancedByStrides
+      let u = rewritten(s.base)
+      append(makeAdvanced(u, byStrides: s.offset, at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
