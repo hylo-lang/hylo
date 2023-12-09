@@ -1,3 +1,4 @@
+import CBORCoding
 import Core
 import FrontEnd
 import XCTest
@@ -52,11 +53,11 @@ final class ASTTests: XCTestCase {
     }
 
     // Serialize the AST.
-    let encoder = JSONEncoder().forAST
+    let encoder = CBOREncoder().forAST
     let serialized = try encoder.encode(original)
 
     // Deserialize the AST.
-    let decoder = JSONDecoder().forAST
+    let decoder = CBORDecoder().forAST
     let deserialized = try decoder.decode(AST.self, from: serialized)
 
     // Deserialized AST should contain a `main` function.
