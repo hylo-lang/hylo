@@ -2490,16 +2490,12 @@ struct TypeChecker {
     case let u as MetatypeType:
       return u.instance
 
-    case is NamespaceType, is TraitType:
+    case is ErrorType, is NamespaceType, is TraitType:
       return t
 
     case let u as RemoteType where u.bareType.base is MetatypeType:
       // FIXME: Workaround to deal with the fact that `remote let T` is ambiguous.
       return ^RemoteType(u.access, MetatypeType(u.bareType)!.instance)
-
-    case is ErrorType:
-      // Diagnostic already reported.
-      return nil
 
     default:
       return nil
