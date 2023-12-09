@@ -1,3 +1,4 @@
+import CBORCoding
 import Core
 import FrontEnd
 import XCTest

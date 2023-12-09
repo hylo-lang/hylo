@@ -1,3 +1,4 @@
+import CBORCoding
 import Foundation
 
 /// A key used to access the coding state of encoders/decoders.
@@ -112,6 +113,8 @@ extension JSONEncoder: StatefulEncoder {}
 extension JSONDecoder: StatefulDecoder {}
 extension PropertyListEncoder: StatefulEncoder {}
 extension PropertyListDecoder: StatefulDecoder {}
+extension CBOREncoder: StatefulEncoder {}
+extension CBORDecoder: StatefulDecoder {}
 
 /// A (thread-unsafe) shared mutable wrapper for a `WrappedType` instance.
 ///
