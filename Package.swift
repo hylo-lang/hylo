@@ -163,9 +163,9 @@ let package = Package(
       dependencies: [
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
         .product(name: "CBORCoding", package: "CBORCoding"),
-        "Utils", "FrontEnd"
+        "Utils", "FrontEnd",
       ],
-      swiftSettings: allTargetsSwiftSettings + [ .unsafeFlags(["-parse-as-library"]) ]),
+      swiftSettings: allTargetsSwiftSettings + [.unsafeFlags(["-parse-as-library"])]),
 
     // Test targets.
     .testTarget(

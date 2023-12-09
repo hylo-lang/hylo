@@ -1,5 +1,5 @@
-import Foundation
 import CBORCoding
+import Foundation
 
 /// A key used to access the coding state of encoders/decoders.
 private let stateKey = CodingUserInfoKey(rawValue: UUID().uuidString)!
