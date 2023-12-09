@@ -10,6 +10,15 @@
       }
     },
     {
+      "identity" : "cborcoding",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/dabrahams/CBORCoding.git",
+      "state" : {
+        "branch" : "main",
+        "revision" : "75b8b8735986b130a74b158d848569af834dabac"
+      }
+    },
+    {
       "identity" : "durian",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/hylo-lang/Durian.git",
