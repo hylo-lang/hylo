@@ -16,7 +16,7 @@ public enum ResultOrError<T> {
     }
   }
 
-  /// The result of the succesful computation if any, or `nil` otherwise.
+  /// The result of the successful computation if any, or `nil` otherwise.
   public var result: T? {
     if case .result(let r) = self { return r }
     return nil
