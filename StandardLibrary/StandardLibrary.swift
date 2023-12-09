@@ -1,6 +1,9 @@
+import CBORCoding
 import Core
 import Foundation
 import Utils
+
+private let resources = Bundle.module.resourceURL!
 
 // This path points into the source tree rather than to some copy so that when diagnostics are
 // issued for the standard library, they point to the original source files and edits to those
@@ -22,12 +25,22 @@ extension Utils.Host {
 
   /// An AST representing the whole standard library, conditionally compiled for targeting the host
   /// platform.
-  public static let hostedLibraryAST
-    = ResultOrError({ try AST(libraryRoot: hostedLibrarySourceRoot, for: CompilerConfiguration([])) })
+  public static let hostedLibraryAST = ResultOrError {
+    try CBORDecoder().forAST.decode(
+      AST.self,
+      from: Data(
+        contentsOf: resources.url(forResource: "hosted.cbor", withExtension: nil),
+        options: .alwaysMapped))
+  }
 
   /// An AST representing the freestanding core of standard library, conditionally compiled for
   /// targeting the host platform.
-  public static let freestandingLibraryAST
-    = ResultOrError({ try AST(libraryRoot: freestandingLibrarySourceRoot, for: CompilerConfiguration(["freestanding"])) })
+  public static let freestandingLibraryAST = ResultOrError {
+    try CBORDecoder().forAST.decode(
+      AST.self,
+      from: Data(
+        contentsOf: resources.url(forResource: "freestanding.cbor", withExtension: nil),
+        options: .alwaysMapped))
+  }
 
 }
