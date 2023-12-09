@@ -4054,10 +4054,15 @@ struct TypeChecker {
     var cs = candidate.constraints.union(t.constraints)
 
     let r = candidate.reference.modifyingArguments(mutating: &substitutions) { (s, v) in
-      let w = v.asType ?? UNIMPLEMENTED()
-      let x = instantiate(w, in: ctx, cause: cause, updating: &s)
-      cs.formUnion(x.constraints)
-      return .type(x.shape)
+      switch v {
+      case .type(let w):
+        let x = instantiate(w, in: ctx, cause: cause, updating: &s)
+        cs.formUnion(x.constraints)
+        return .type(x.shape)
+
+      case .compilerKnown:
+        return v
+      }
     }
 
     instantiate(
