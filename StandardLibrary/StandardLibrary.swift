@@ -40,12 +40,22 @@ extension Utils.Host {
 
   /// An AST representing the whole standard library, conditionally compiled for targeting the host
   /// platform.
-  public static let hostedLibraryAST
-    = Result { try AST(libraryRoot: hostedLibrarySourceRoot, for: CompilerConfiguration([])) }
+  public static let hostedLibraryAST = Result {
+    try CBORDecoder().forAST.decode(
+      AST.self,
+      from: Data(
+        contentsOf: resource("hosted", withExtension: "cbor"),
+        options: .alwaysMapped))
+  }
 
   /// An AST representing the freestanding core of standard library, conditionally compiled for
   /// targeting the host platform.
-  public static let freestandingLibraryAST
-    = Result { try AST(libraryRoot: freestandingLibrarySourceRoot, for: CompilerConfiguration(["freestanding"])) }
+  public static let freestandingLibraryAST = Result {
+    try CBORDecoder().forAST.decode(
+      AST.self,
+      from: Data(
+        contentsOf: resource("freestanding", withExtension: "cbor"),
+        options: .alwaysMapped))
+  }
 
 }
