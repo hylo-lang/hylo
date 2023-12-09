@@ -143,10 +143,12 @@ let package = Package(
 
     .target(
       name: "StandardLibrary",
-      dependencies: ["FrontEnd", "Utils"],
+      dependencies: ["FrontEnd", "Utils", .product(name: "CBORCoding", package: "CBORCoding")],
       path: "StandardLibrary",
       exclude: ["Sources"],
-      swiftSettings: allTargetsSwiftSettings),
+      swiftSettings: allTargetsSwiftSettings,
+      plugins: ["StandardLibraryBuilderPlugin"]
+    ),
 
     .plugin(
       name: "TestGeneratorPlugin", capability: .buildTool(),
@@ -160,6 +162,19 @@ let package = Package(
         "Utils",
       ],
       swiftSettings: allTargetsSwiftSettings),
+
+    .plugin(
+      name: "StandardLibraryBuilderPlugin", capability: .buildTool(),
+      dependencies: osIsWindows ? [] : ["BuildStandardLibrary"]),
+
+    .executableTarget(
+      name: "BuildStandardLibrary",
+      dependencies: [
+        .product(name: "ArgumentParser", package: "swift-argument-parser"),
+        .product(name: "CBORCoding", package: "CBORCoding"),
+        "Core", "Utils", "FrontEnd",
+      ],
+      swiftSettings: allTargetsSwiftSettings + [.unsafeFlags(["-parse-as-library"])]),
 
     // Test targets.
     .testTarget(
