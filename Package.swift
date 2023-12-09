@@ -154,6 +154,19 @@ let package = Package(
       ],
       swiftSettings: allTargetsSwiftSettings + [.unsafeFlags(["-parse-as-library"])]),
 
+    .plugin(
+      name: "StandardLibraryBuilderPlugin", capability: .buildTool(),
+      dependencies: osIsWindows ? [] : ["BuildStandardLibrary"]),
+
+    .executableTarget(
+      name: "BuildStandardLibrary",
+      dependencies: [
+        .product(name: "ArgumentParser", package: "swift-argument-parser"),
+        .product(name: "CBORCoding", package: "CBORCoding"),
+        "Utils", "FrontEnd"
+      ],
+      swiftSettings: allTargetsSwiftSettings + [ .unsafeFlags(["-parse-as-library"]) ]),
+
     // Test targets.
     .testTarget(
       name: "UtilsTests",
