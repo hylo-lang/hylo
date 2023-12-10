@@ -23,11 +23,11 @@ extension Utils.Host {
   /// An AST representing the whole standard library, conditionally compiled for targeting the host
   /// platform.
   public static let hostedLibraryAST
-    = ResultOrError({ try AST(libraryRoot: hostedLibrarySourceRoot, for: CompilerConfiguration([])) })
+    = Result { try AST(libraryRoot: hostedLibrarySourceRoot, for: CompilerConfiguration([])) }
 
   /// An AST representing the freestanding core of standard library, conditionally compiled for
   /// targeting the host platform.
   public static let freestandingLibraryAST
-    = ResultOrError({ try AST(libraryRoot: freestandingLibrarySourceRoot, for: CompilerConfiguration(["freestanding"])) })
+    = Result { try AST(libraryRoot: freestandingLibrarySourceRoot, for: CompilerConfiguration(["freestanding"])) }
 
 }

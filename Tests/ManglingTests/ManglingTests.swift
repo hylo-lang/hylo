@@ -68,7 +68,7 @@ final class ManglingTests: XCTestCase {
 
     let input = SourceFile(synthesizedText: text, named: "main")
     let (p, m) = try checkNoDiagnostic { (d) in
-      var ast = try Utils.Host.hostedLibraryAST[]
+      var ast = try Utils.Host.hostedLibraryAST.get()
       let main = try ast.makeModule("Main", sourceCode: [input], diagnostics: &d)
       let base = ScopedProgram(ast)
       return (try TypedProgram(annotating: base, reportingDiagnosticsTo: &d), main)
@@ -95,7 +95,7 @@ final class ManglingTests: XCTestCase {
 
   func testTypes() throws {
     let p = try checkNoDiagnostic { (d) in
-      let ast = try Host.hostedLibraryAST[]
+      let ast = try Host.hostedLibraryAST.get()
       let base = ScopedProgram(ast)
       return try TypedProgram(annotating: base, reportingDiagnosticsTo: &d)
     }
