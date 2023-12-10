@@ -136,8 +136,6 @@ extension Module {
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(allocStack i: InstructionID, in context: inout Context) {
-      let l = AbstractLocation.root(.register(i))
-      precondition(context.memory[l] == nil, "stack leak")
       context.declareStorage(assignedTo: i, in: self, initially: .unique)
     }
 
