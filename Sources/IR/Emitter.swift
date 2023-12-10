@@ -2513,13 +2513,6 @@ struct Emitter {
       return s
     }
 
-    // Handle global bindings.
-    if d.kind == VarDecl.self {
-      let (root, subfied) = program.subfieldRelativeToRoot(of: .init(d)!)
-      let s = insert(module.makeGlobalAddr(of: root, at: site))!
-      return emitSubfieldView(s, at: subfied, at: site)
-    }
-
     // Handle references to type declarations.
     if let t = MetatypeType(program[d].type) {
       let s = emitAllocStack(for: ^t, at: site)
@@ -2527,8 +2520,20 @@ struct Emitter {
       return s
     }
 
-    // Handle references to global functions.
-    UNIMPLEMENTED()
+    assert(program.isGlobal(d), "unhandled local declaration")
+
+    switch d.kind {
+    case GenericParameterDecl.self:
+      return insert(module.makeGenericArgument(passedTo: .init(d)!, at: site))!
+
+    case VarDecl.self:
+      let (root, subfied) = program.subfieldRelativeToRoot(of: .init(d)!)
+      let s = insert(module.makeGlobalAddr(of: root, at: site))!
+      return emitSubfieldView(s, at: subfied, at: site)
+
+    default:
+      unexpected(d, in: program.ast)
+    }
   }
 
   /// Inserts IR to return the address of the member declared by `d`, bound to `receiver`, and
