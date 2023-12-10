@@ -136,14 +136,9 @@ extension Module {
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(allocStack i: InstructionID, in context: inout Context) {
-      let s = self[i] as! AllocStack
       let l = AbstractLocation.root(.register(i))
       precondition(context.memory[l] == nil, "stack leak")
-
-      context.memory[l] = .init(
-        layout: AbstractTypeLayout(of: s.allocatedType, definedIn: program),
-        value: .full(.unique))
-      context.locals[.register(i)] = .locations([l])
+      context.declareStorage(assignedTo: i, in: self, initially: .unique)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
@@ -219,13 +214,7 @@ extension Module {
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(globalAddr i: InstructionID, in context: inout Context) {
-      let s = self[i] as! GlobalAddr
-      let l = AbstractLocation.root(.register(i))
-
-      context.memory[l] = .init(
-        layout: AbstractTypeLayout(of: s.valueType, definedIn: program),
-        value: .full(.unique))
-      context.locals[.register(i)] = .locations([l])
+      context.declareStorage(assignedTo: i, in: self, initially: .unique)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.

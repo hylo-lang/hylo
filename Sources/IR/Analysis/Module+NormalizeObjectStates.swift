@@ -148,13 +148,7 @@ extension Module {
       // Create an abstract location denoting the newly allocated memory.
       let l = AbstractLocation.root(.register(i))
       precondition(context.memory[l] == nil, "stack leak")
-
-      // Update the context.
-      let s = self[i] as! AllocStack
-      let t = AbstractTypeLayout(of: s.allocatedType, definedIn: program)
-
-      context.memory[l] = .init(layout: t, value: .full(.uninitialized))
-      context.locals[.register(i)] = .locations([l])
+      context.declareStorage(assignedTo: i, in: self, initially: .uninitialized)
       return successor(of: i)
     }
 
@@ -339,12 +333,7 @@ extension Module {
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(globalAddr i: InstructionID, in context: inout Context) -> PC? {
-      let l = AbstractLocation.root(.register(i))
-      context.memory[l] = .init(
-        layout: AbstractTypeLayout(
-          of: (self[i] as! GlobalAddr).valueType, definedIn: program),
-        value: .full(.initialized))
-      context.locals[.register(i)] = .locations([l])
+      context.declareStorage(assignedTo: i, in: self, initially: .initialized)
       return successor(of: i)
     }
 
