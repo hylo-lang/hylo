@@ -1705,10 +1705,11 @@ struct Emitter {
   /// Writes an instance of `Hylo.Int` with value `v` to `storage`.
   ///
   /// - Requires: `storage` is the address of uninitialized memory of type `Hylo.Int`.
-  private mutating func emitStore(int v: Int, to storage: Operand, at site: SourceRange) {
+  mutating func emitStore(int v: Int, to storage: Operand, at site: SourceRange) {
     let x0 = emitSubfieldView(storage, at: [0], at: site)
     let x1 = insert(module.makeAccess(.set, from: x0, at: site))!
     insert(module.makeStore(.word(v), at: x1, at: site))
+    insert(module.makeEndAccess(x1, at: site))
   }
 
   /// Writes an instance of `Hylo.String` with value `v` to `storage`.

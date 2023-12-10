@@ -35,6 +35,8 @@ extension Module {
           interpret(endProject: user, in: &context)
         case is EndProject:
           interpret(endProjectWitness: user, in: &context)
+        case is GenericArgument:
+          interpret(genericArgument: user, in: &context)
         case is GlobalAddr:
           interpret(globalAddr: user, in: &context)
         case is OpenCapture:
@@ -208,6 +210,11 @@ extension Module {
       let s = self[i] as! EndProjectWitness
       let r = self[s.start.instruction!] as! Project
       finalize(region: s.start, projecting: r.projection.access, exitedWith: i, in: &context)
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(genericArgument i: InstructionID, in context: inout Context) {
+      context.declareStorage(assignedTo: i, in: self, initially: .unique)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.

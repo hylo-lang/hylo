@@ -1,5 +1,6 @@
 import Core
 import FrontEnd
+import OrderedCollections
 import Utils
 
 extension Module {
@@ -154,6 +155,13 @@ extension Module {
         self[result].appendBlock(in: sourceModule[source].scope, taking: inputs))
     }
 
+    /// A table from generic value parameter to the allocation of the storage containing its value.
+    ///
+    /// Generic value parameters are rewritten as local variables initialized at the beginning of
+    /// the monomorphized function. Generic value arguments don't require deinitialization. Their
+    /// local storage is deallocated before each rewritten return instruction.
+    let rewrittenGenericValues = defineGenericValueArguments(specialization, in: result)
+
     // Iterate over the basic blocks of the source function in a way that guarantees we always
     // visit definitions before their uses.
     let cfg = sourceModule[f].cfg()
@@ -203,6 +211,8 @@ extension Module {
         rewrittenInstructions[i] = rewrite(endBorrow: i, to: b)
       case is EndProject:
         rewrittenInstructions[i] = rewrite(endProject: i, to: b)
+      case is GenericArgument:
+        rewrittenInstructions[i] = rewrite(genericArgument: i, to: b)
       case is GlobalAddr:
         rewrittenInstructions[i] = rewrite(globalAddr: i, to: b)
       case is LLVMInstruction:
@@ -355,6 +365,12 @@ extension Module {
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
+    func rewrite(genericArgument i: InstructionID, to b: Block.ID) -> InstructionID {
+      let s = sourceModule[i] as! GenericArgument
+      return rewrittenGenericValues[s.parameter]!
+    }
+
+    /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
     func rewrite(globalAddr i: InstructionID, to b: Block.ID) -> InstructionID {
       let s = sourceModule[i] as! GlobalAddr
       return append(makeGlobalAddr(of: s.binding, at: s.site), to: b)
@@ -435,6 +451,10 @@ extension Module {
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
     func rewrite(return i: InstructionID, to b: Block.ID) -> InstructionID {
       let s = sourceModule[i] as! Return
+
+      for i in rewrittenGenericValues.values.reversed() {
+        append(makeDeallocStack(for: .register(i), at: s.site), to: b)
+      }
       return append(makeReturn(at: s.site), to: b)
     }
 
@@ -578,6 +598,40 @@ extension Module {
 
     addFunction(entity, for: result)
     return result
+  }
+
+  /// Allocates and initializes storage for each generic value argument in `specialization` in the
+  /// entry of `monomorphized`, returning a map from a generic value parameter to its corresponding
+  /// allocation that preserves the order of `specialization`.
+  private mutating func defineGenericValueArguments(
+    _ specialization: GenericArguments,
+    in monomorphized: Function.ID
+  ) -> OrderedDictionary<GenericParameterDecl.ID, InstructionID> {
+    let insertionSite = SourceRange.empty(at: self[monomorphized].site.first())
+    let entry = Block.ID(monomorphized, self[monomorphized].entry!)
+
+    var genericValues = OrderedDictionary<GenericParameterDecl.ID, InstructionID>()
+
+    for (k, v) in specialization {
+      if v.asType != nil { continue }
+
+      guard let w = v.asCompilerKnown(Int.self) else {
+        UNIMPLEMENTED("arbitrary compile-time values")
+      }
+
+      let s = append(makeAllocStack(^program.ast.coreType("Int")!, at: insertionSite), to: entry)
+
+      var log = DiagnosticSet()
+      Emitter.withInstance(insertingIn: &self, reportingDiagnosticsTo: &log) { (e) in
+        e.insertionPoint = .end(of: entry)
+        e.emitStore(int: w, to: .register(s), at: insertionSite)
+      }
+      assert(log.isEmpty)
+
+      genericValues[k] = s
+    }
+
+    return genericValues
   }
 
 }
