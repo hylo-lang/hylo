@@ -1,0 +1,9 @@
+//- compileAndRun expecting: success
+
+public fun foo<n: Int>() -> Int {
+  n.copy()
+}
+
+public fun main() {
+  precondition(foo<42>() == 42)
+}
