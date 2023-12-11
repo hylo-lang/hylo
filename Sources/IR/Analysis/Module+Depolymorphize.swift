@@ -211,8 +211,8 @@ extension Module {
         rewrittenInstructions[i] = rewrite(endBorrow: i, to: b)
       case is EndProject:
         rewrittenInstructions[i] = rewrite(endProject: i, to: b)
-      case is GenericArgument:
-        rewrittenInstructions[i] = rewrite(genericArgument: i, to: b)
+      case is GenericParameter:
+        rewrittenInstructions[i] = rewrite(genericParameter: i, to: b)
       case is GlobalAddr:
         rewrittenInstructions[i] = rewrite(globalAddr: i, to: b)
       case is LLVMInstruction:
@@ -365,8 +365,8 @@ extension Module {
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
-    func rewrite(genericArgument i: InstructionID, to b: Block.ID) -> InstructionID {
-      let s = sourceModule[i] as! GenericArgument
+    func rewrite(genericParameter i: InstructionID, to b: Block.ID) -> InstructionID {
+      let s = sourceModule[i] as! GenericParameter
       return rewrittenGenericValues[s.parameter]!
     }
 

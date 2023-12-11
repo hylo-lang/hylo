@@ -35,8 +35,8 @@ extension Module {
           interpret(endProject: user, in: &context)
         case is EndProject:
           interpret(endProjectWitness: user, in: &context)
-        case is GenericArgument:
-          interpret(genericArgument: user, in: &context)
+        case is GenericParameter:
+          interpret(genericParameter: user, in: &context)
         case is GlobalAddr:
           interpret(globalAddr: user, in: &context)
         case is OpenCapture:
@@ -213,7 +213,7 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(genericArgument i: InstructionID, in context: inout Context) {
+    func interpret(genericParameter i: InstructionID, in context: inout Context) {
       context.declareStorage(assignedTo: i, in: self, initially: .unique)
     }
 

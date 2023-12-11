@@ -1,7 +1,7 @@
 import Core
 
 /// Accesses the value passed to a generic parameter.
-public struct GenericArgument: Instruction {
+public struct GenericParameter: Instruction {
 
   /// The parameter whose value is accessed.
   public let parameter: GenericParameterDecl.ID
@@ -29,20 +29,21 @@ public struct GenericArgument: Instruction {
 
 }
 
-extension GenericArgument: CustomStringConvertible {
+extension GenericParameter: CustomStringConvertible {
 
   public var description: String {
-    "generic_argument @\(parameter)"
+    "generic_parameter @\(parameter)"
   }
 
 }
 
 extension Module {
 
-  /// Creates an `global_addr` anchored at `site` that returns the address of `binding`.
-  func makeGenericArgument(
+  /// Creates an `generic_parameter` anchored at `site` that returns the address of the generic
+  /// argument passed to `p`.
+  func makeGenericParameter(
     passedTo p: GenericParameterDecl.ID, at site: SourceRange
-  ) -> GenericArgument {
+  ) -> GenericParameter {
     .init(parameter: p, result: .address(program[p].type), site: site)
   }
 

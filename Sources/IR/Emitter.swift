@@ -2525,7 +2525,7 @@ struct Emitter {
 
     switch d.kind {
     case GenericParameterDecl.self:
-      return insert(module.makeGenericArgument(passedTo: .init(d)!, at: site))!
+      return insert(module.makeGenericParameter(passedTo: .init(d)!, at: site))!
 
     case VarDecl.self:
       let (root, subfied) = program.subfieldRelativeToRoot(of: .init(d)!)

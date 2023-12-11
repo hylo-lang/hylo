@@ -56,8 +56,8 @@ extension Module {
           pc = interpret(endProject: user, in: &context)
         case is EndProjectWitness:
           pc = interpret(endProjectWitness: user, in: &context)
-        case is GenericArgument:
-          pc = interpret(genericArgument: user, in: &context)
+        case is GenericParameter:
+          pc = interpret(genericParameter: user, in: &context)
         case is GlobalAddr:
           pc = interpret(globalAddr: user, in: &context)
         case is LLVMInstruction:
@@ -334,7 +334,7 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(genericArgument i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(genericParameter i: InstructionID, in context: inout Context) -> PC? {
       context.declareStorage(assignedTo: i, in: self, initially: .initialized)
       return successor(of: i)
     }
