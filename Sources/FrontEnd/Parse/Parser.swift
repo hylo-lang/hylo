@@ -418,13 +418,7 @@ public enum Parser {
   ) throws -> BindingDecl.ID? {
     // Parse the parts of the declaration.
     guard let pattern = try parseBindingPattern(in: &state) else { return nil }
-
-    let initializer: AnyExprID?
-    if state.take(.assign) != nil {
-      initializer = try state.expect("initializer", using: parseExpr(in:))
-    } else {
-      initializer = nil
-    }
+    let initializer = try parseDefaultValue(in: &state)
 
     // Create a new `BindingDecl`.
     assert(prologue.memberModifiers.count <= 1)
@@ -1236,12 +1230,7 @@ public enum Parser {
       annotation = nil
     }
 
-    let defaultValue: AnyExprID?
-    if state.take(.assign) != nil {
-      defaultValue = try state.expect("expression", using: parseExpr(in:))
-    } else {
-      defaultValue = nil
-    }
+    let defaultValue = try parseDefaultValue(in: &state)
 
     return state.insert(
       ParameterDecl(
@@ -1341,6 +1330,15 @@ public enum Parser {
   static let conformanceList =
     (take(.colon).and(nameTypeExpr).and(zeroOrMany(take(.comma).and(nameTypeExpr).second))
       .map({ (state, tree) -> [NameExpr.ID] in [tree.0.1] + tree.1 }))
+
+  /// Parses a binding initializer or a parameter default value.
+  private static func parseDefaultValue(in state: inout ParserState) throws -> AnyExprID? {
+    if state.take(.assign) != nil {
+      return try state.expect("expression", using: parseExpr(in:))
+    } else {
+      return nil
+    }
+  }
 
   // MARK: Expressions
 
