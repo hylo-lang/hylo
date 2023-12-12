@@ -3198,7 +3198,8 @@ public enum Parser {
     let startIndex = state.currentIndex
 
     let accessEffect = try passingConvention.parse(&state)
-    let attributes = try attributeList.parse(&state)
+    let isAutoClosure = state.take(attribute: "@autoclosure") != nil
+
     guard let bareType = try expr.parse(&state) else {
       state.restore(from: backup)
       return nil
@@ -3210,7 +3211,7 @@ public enum Parser {
           ?? SourceRepresentable(
             value: .let,
             range: state.lexer.sourceCode.emptyRange(at: startIndex)),
-        attributes: attributes ?? [],
+        isAutoclosure: isAutoClosure,
         bareType: bareType,
         site: state.range(from: startIndex)
       ))

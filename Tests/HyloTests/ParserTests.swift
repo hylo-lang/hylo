@@ -485,8 +485,7 @@ final class ParserTests: XCTestCase {
     XCTAssertEqual(decl.parameters.count, 1)
     let p = ast[decl.parameters[0]]
     let e = try XCTUnwrap(ast[p.annotation])
-    XCTAssertEqual(e.attributes.count, 1)
-    XCTAssertEqual(e.attributes[0].value.name.value, "@autoclosure")
+    XCTAssert(e.isAutoclosure)
   }
 
   func testMethodBundle() throws {
