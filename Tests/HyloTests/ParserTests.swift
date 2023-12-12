@@ -746,44 +746,41 @@ final class ParserTests: XCTestCase {
 
   func testParameterDecl() throws {
     let input: SourceFile = "_ foo"
-    let (declID, ast) = try apply(Parser.parameterDecl, on: input)
-    let decl = try XCTUnwrap(ast[declID])
-    XCTAssertEqual(decl.baseName, "foo")
+    let (d, ast) = try input.parse(with: Parser.parseParameterDecl(in:))
+    XCTAssertEqual(ast[d]?.baseName, "foo")
   }
 
   func testParameterDeclWithAnnotation() throws {
     let input: SourceFile = "_ foo: T"
-    let (declID, ast) = try apply(Parser.parameterDecl, on: input)
-    let decl = try XCTUnwrap(ast[declID])
-    XCTAssertNotNil(decl.annotation)
+    let (d, ast) = try input.parse(with: Parser.parseParameterDecl(in:))
+    XCTAssertNotNil(ast[d]?.annotation)
   }
 
   func testParameterDeclWithDefault() throws {
     let input: SourceFile = "_ foo: T = T()"
-    let (declID, ast) = try apply(Parser.parameterDecl, on: input)
-    let decl = try XCTUnwrap(ast[declID])
-    XCTAssertNotNil(decl.defaultValue)
+    let (d, ast) = try input.parse(with: Parser.parseParameterDecl(in:))
+    XCTAssertNotNil(ast[d]?.defaultValue)
   }
 
   func testParameterInterfaceLabelAndName() throws {
     let input: SourceFile = "for name"
-    let interface = try XCTUnwrap(try apply(Parser.parameterInterface, on: input).element)
-    XCTAssertEqual(interface.label?.value, "for")
-    XCTAssertEqual(interface.name.value, "name")
+    let tree = try XCTUnwrap(input.parse(with: Parser.parseParameterInterface(in:)).element)
+    XCTAssertEqual(tree.label?.value, "for")
+    XCTAssertEqual(tree.name.value, "name")
   }
 
   func testParameterInterfaceUnderscoreAndName() throws {
     let input: SourceFile = "_ name"
-    let interface = try XCTUnwrap(try apply(Parser.parameterInterface, on: input).element)
-    XCTAssertNil(interface.label)
-    XCTAssertEqual(interface.name.value, "name")
+    let tree = try XCTUnwrap(input.parse(with: Parser.parseParameterInterface(in:)).element)
+    XCTAssertNil(tree.label)
+    XCTAssertEqual(tree.name.value, "name")
   }
 
   func testParameterInterfaceOnlyName() throws {
     let input: SourceFile = "name"
-    let interface = try XCTUnwrap(try apply(Parser.parameterInterface, on: input).element)
-    XCTAssertEqual(interface.label?.value, "name")
-    XCTAssertEqual(interface.name.value, "name")
+    let tree = try XCTUnwrap(input.parse(with: Parser.parseParameterInterface(in:)).element)
+    XCTAssertEqual(tree.label?.value, "name")
+    XCTAssertEqual(tree.name.value, "name")
   }
 
   func testOperatorDecl() throws {
@@ -1386,16 +1383,16 @@ final class ParserTests: XCTestCase {
 
   func testParameterTypeExpr() throws {
     let input: SourceFile = "sink T"
-    let (exprID, ast) = try apply(Parser.parameterTypeExpr, on: input)
-    let expr = try XCTUnwrap(ast[exprID])
-    XCTAssertEqual(expr.convention.value, .sink)
+    let (e, ast) = try input.parse(with: Parser.parseParameterTypeExpr(in:))
+    let tree = try XCTUnwrap(ast[e])
+    XCTAssertEqual(tree.convention.value, .sink)
   }
 
   func testImplicitLetParameterTypeExpr() throws {
     let input: SourceFile = "T"
-    let (exprID, ast) = try apply(Parser.parameterTypeExpr, on: input)
-    let expr = try XCTUnwrap(ast[exprID])
-    XCTAssertEqual(expr.convention.value, .let)
+    let (e, ast) = try input.parse(with: Parser.parseParameterTypeExpr(in:))
+    let tree = try XCTUnwrap(ast[e])
+    XCTAssertEqual(tree.convention.value, .let)
   }
 
   func testStaticArgumentList() throws {
