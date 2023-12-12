@@ -17,11 +17,15 @@ public struct ParameterDecl: SingleEntityDecl {
   /// The default value of the declaration, if any.
   public let defaultValue: AnyExprID?
 
+  /// `true` if arguments to the parameter can be passed implicitly.
+  public let isImplicit: Bool
+
   public init(
     label: SourceRepresentable<Identifier>? = nil,
     identifier: SourceRepresentable<Identifier>,
     annotation: ParameterTypeExpr.ID? = nil,
     defaultValue: AnyExprID? = nil,
+    isImplicit: Bool = false,
     site: SourceRange
   ) {
     self.site = site
@@ -29,6 +33,7 @@ public struct ParameterDecl: SingleEntityDecl {
     self.identifier = identifier
     self.annotation = annotation
     self.defaultValue = defaultValue
+    self.isImplicit = isImplicit
   }
 
   public var baseName: String { identifier.value }
