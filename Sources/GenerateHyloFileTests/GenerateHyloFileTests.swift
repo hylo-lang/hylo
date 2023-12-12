@@ -40,6 +40,7 @@ struct GenerateHyloFileTests: ParsableCommand {
   }
 
   func run() throws {
+    print("ARGS:", CommandLine.arguments)
     var output =
       """
       import XCTest

@@ -171,18 +171,21 @@ let package = Package(
     .testTarget(
       name: "HyloTests",
       dependencies: ["Core", "FrontEnd", "IR", "TestUtils", "StandardLibrary"],
+      exclude: ["TestCases"],
       swiftSettings: allTargetsSwiftSettings,
       plugins: ["TestGeneratorPlugin"]),
 
     .testTarget(
       name: "EndToEndTests",
       dependencies: ["Driver", "TestUtils"],
+      exclude: ["TestCases"],
       swiftSettings: allTargetsSwiftSettings,
       plugins: ["TestGeneratorPlugin"]),
 
     .testTarget(
       name: "LibraryTests",
       dependencies: ["Driver", "TestUtils"],
+      exclude: ["TestCases"],
       swiftSettings: allTargetsSwiftSettings,
       plugins: ["TestGeneratorPlugin"]),
   ]
