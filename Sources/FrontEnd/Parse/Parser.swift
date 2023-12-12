@@ -109,7 +109,7 @@ public enum Parser {
     guard let startIndex = state.peek()?.site.start else { return nil }
 
     // Parse attributes.
-    let attributes = try attributeList.parse(&state) ?? []
+    let attributes = try parseDeclAttributeList(in: &state) ?? []
     var isPrologueEmpty = attributes.isEmpty
 
     // Parse modifiers.
@@ -3282,9 +3282,16 @@ public enum Parser {
 
   // MARK: Attributes
 
-  static let attributeList =
-    (zeroOrMany(Apply(parseDeclAttribute(in:)))
-      .map({ (_, tree) -> [SourceRepresentable<Attribute>] in tree }))
+  /// Parses a list of declaration attributes.
+  static func parseDeclAttributeList(
+    in state: inout ParserState
+  ) throws -> [SourceRepresentable<Attribute>]? {
+    var result: [SourceRepresentable<Attribute>] = []
+    while let e = try parseDeclAttribute(in: &state) {
+      result.append(e)
+    }
+    return result
+  }
 
   /// Parses a single declaration attribute.
   static func parseDeclAttribute(
