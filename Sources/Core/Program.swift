@@ -31,6 +31,11 @@ extension Program {
     return (s.kind == TranslationUnit.self) && isPublic(d) && (n == "main")
   }
 
+  /// `true` iff the `Builtin` module is visible in `s`.
+  public func builtinIsVisible(in s: AnyScopeID) -> Bool {
+    ast[module(containing: s)].canAccessBuiltins
+  }
+
   /// Returns whether `child` is contained in `ancestor`.
   ///
   /// Lexical scope containment is transitive and reflexive; this method returns `true` if:

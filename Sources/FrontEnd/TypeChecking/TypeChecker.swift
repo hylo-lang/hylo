@@ -2429,22 +2429,6 @@ struct TypeChecker {
 
   // MARK: Evaluation
 
-  /// Evaluates and returns the generic arguments in `s`.
-  ///
-  /// Wildcards are evaluated as fresh variables to support partial type inference. These may
-  /// be substituted by either a type or a value.
-  private mutating func evalGenericArguments(_ s: [LabeledArgument]) -> [CompileTimeValue] {
-    var result: [CompileTimeValue] = []
-    for a in s {
-      if a.value.kind == WildcardExpr.self {
-        result.append(.type(^freshVariable()))
-      } else {
-        result.append(.type(evalTypeAnnotation(a.value)))
-      }
-    }
-    return result
-  }
-
   /// Evaluates and returns the value of `e`, which is an annotation that may contain wildcards or
   /// elided generic arguments, using `hint` for context and updating `obligations` with new goals.
   private mutating func evalPartialTypeAnnotation(
@@ -2461,30 +2445,87 @@ struct TypeChecker {
     return ensureValidTypeAnnotation(e, inferredAs: t) ?? .error
   }
 
+  /// Evaluates and returns the generic arguments in `s`.
+  ///
+  /// Wildcards are evaluated as fresh variables to support partial type inference. These may
+  /// be substituted by either a type or a value.
+  private mutating func evalGenericArguments(_ s: [LabeledArgument]) -> [CompileTimeValue] {
+    var result: [CompileTimeValue] = []
+    for a in s {
+      result.append(evalGenericArgument(a))
+    }
+    return result
+  }
+
+  /// Evaluates and returns the value of `e`.
+  private mutating func evalGenericArgument(_ e: LabeledArgument) -> CompileTimeValue {
+    if e.value.kind == WildcardExpr.self {
+      return .type(^freshVariable())
+    }
+
+    let t = checkedType(of: e.value)
+    if let u = denotationAsType(expressionTyped: t) {
+      return .type(u)
+    } else {
+      return denotation(of: e.value)
+    }
+  }
+
   /// Ensures that `t` is a valid type for an annotation and returns its meaning iff it is;
   /// otherwise, returns `nil`.
   private mutating func ensureValidTypeAnnotation(
     _ e: AnyExprID, inferredAs t: AnyType
   ) -> AnyType? {
+    if let u = denotationAsType(expressionTyped: t) {
+      return u
+    } else {
+      report(.error(typeExprDenotesValue: e, in: program.ast))
+      return nil
+    }
+  }
+
+  /// Returns the value expressed by an expression of type `t` iff that value is a type.
+  private func denotationAsType(expressionTyped t: AnyType) -> AnyType? {
     switch t.base {
     case let u as MetatypeType:
       return u.instance
 
-    case is NamespaceType, is TraitType:
+    case is ErrorType, is NamespaceType, is TraitType:
       return t
 
     case let u as RemoteType where u.bareType.base is MetatypeType:
       // FIXME: Workaround to deal with the fact that `remote let T` is ambiguous.
       return ^RemoteType(u.access, MetatypeType(u.bareType)!.instance)
 
-    case is ErrorType:
-      // Diagnostic already reported.
-      return nil
-
     default:
-      report(.error(typeExprDenotesValue: e, in: program.ast))
       return nil
     }
+  }
+
+  /// Returns the value expressed by `e`.
+  private func denotation(of e: AnyExprID) -> CompileTimeValue {
+    switch e.kind {
+    case IntegerLiteralExpr.self:
+      return denotation(of: IntegerLiteralExpr.ID(e)!)
+    case NameExpr.self:
+      return denotation(of: NameExpr.ID(e)!)
+    default:
+      unexpected(e, in: program.ast)
+    }
+  }
+
+  /// Returns the value expressed by `e`
+  private func denotation(of e: IntegerLiteralExpr.ID) -> CompileTimeValue {
+    if cache.local.exprType[e]! == program.ast.coreType("Int")! {
+      return .compilerKnown(Int(program[e].value)!)
+    } else {
+      UNIMPLEMENTED("arbitrary compile-time literals")
+    }
+  }
+
+  /// Returns the value expressed by `e`
+  private func denotation(of e: NameExpr.ID) -> CompileTimeValue {
+    UNIMPLEMENTED()
   }
 
   /// Evaluates and returns the qualification of `e`, which is a type annotation.
@@ -3489,37 +3530,30 @@ struct TypeChecker {
     specializedBy arguments: [CompileTimeValue],
     exposedTo scopeOfUse: AnyScopeID
   ) -> NameResolutionResult.CandidateSet {
+    // TODO: Check labels and notations.
+    switch name.value.stem {
+    case "Any":
+      return nonGeneric(MetatypeType(of: .any))
+    case "Builtin":
+      return program.builtinIsVisible(in: scopeOfUse) ? [.builtinModule] : []
+    case "Metatype":
+      return resolve(metatype: name, specializedBy: arguments)
+    case "Never":
+      return nonGeneric(MetatypeType(of: .never))
+    case "Self":
+      return resolveReceiverMetatype(in: scopeOfUse).map(nonGeneric(_:)) ?? []
+    case "Union":
+      return resolve(union: name, specializedBy: arguments)
+    default:
+      return []
+    }
+
+    /// Returns a singleton containing a reference to `t`, which is not generic.
     func nonGeneric(_ t: MetatypeType) -> NameResolutionResult.CandidateSet {
       if arguments.count > 0 {
         report(.error(argumentToNonGenericType: t.instance, at: name.site))
       }
       return [.compilerKnown(^t)]
-    }
-
-    // TODO: Check labels and notations.
-    switch name.value.stem {
-    case "Any":
-      return nonGeneric(MetatypeType(of: .any))
-
-    case "Never":
-      return nonGeneric(MetatypeType(of: .never))
-
-    case "Builtin":
-      let b = program[program.module(containing: scopeOfUse)].canAccessBuiltins
-      return b ? [.builtinModule] : []
-
-    case "Union":
-      return resolve(union: name, specializedBy: arguments)
-
-    case "Self":
-      guard let t = resolveReceiverMetatype(in: scopeOfUse) else { return [] }
-      return nonGeneric(t)
-
-    case "Metatype":
-      return resolve(metatype: name, specializedBy: arguments)
-
-    default:
-      return []
     }
   }
 
@@ -4016,10 +4050,15 @@ struct TypeChecker {
     var cs = candidate.constraints.union(t.constraints)
 
     let r = candidate.reference.modifyingArguments(mutating: &substitutions) { (s, v) in
-      let w = v.asType ?? UNIMPLEMENTED()
-      let x = instantiate(w, in: ctx, cause: cause, updating: &s)
-      cs.formUnion(x.constraints)
-      return .type(x.shape)
+      switch v {
+      case .type(let w):
+        let x = instantiate(w, in: ctx, cause: cause, updating: &s)
+        cs.formUnion(x.constraints)
+        return .type(x.shape)
+
+      case .compilerKnown:
+        return v
+      }
     }
 
     instantiate(
