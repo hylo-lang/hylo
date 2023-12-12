@@ -416,7 +416,6 @@ public enum Parser {
     withPrologue prologue: DeclPrologue,
     in state: inout ParserState
   ) throws -> BindingDecl.ID? {
-    // Parse the parts of the declaration.
     guard let pattern = try parseBindingPattern(in: &state) else { return nil }
     let initializer = try parseDefaultValue(in: &state)
 
@@ -1222,7 +1221,6 @@ public enum Parser {
   static func parseParameterDecl(in state: inout ParserState) throws -> ParameterDecl.ID? {
     guard let interface = try parseParameterInterface(in: &state) else { return nil }
 
-    // Parse the type annotation, if any.
     let annotation: ParameterTypeExpr.ID?
     if state.take(.colon) != nil {
       annotation = try state.expect("type expression", using: parseParameterTypeExpr(in:))
