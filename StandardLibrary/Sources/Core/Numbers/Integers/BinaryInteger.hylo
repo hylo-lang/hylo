@@ -1,7 +1,5 @@
-// TODO: Make `BinaryInteger` a refinement of `Numeric` when #1047 is fixed
-
 /// An integer type with a binary representation.
-public trait BinaryInteger: Comparable {
+public trait BinaryInteger: Comparable, Numeric {
 
   /// Creates an instance with value `0`.
   init()
