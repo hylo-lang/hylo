@@ -1230,13 +1230,20 @@ public enum Parser {
 
     let defaultValue = try parseDefaultValue(in: &state)
 
+    let isImplicit = interface.implicitMarker != nil
+    if isImplicit {
+      if let e = state.ast[annotation]?.convention, e.value != .let {
+        state.diagnostics.insert(.error(illegalAccessModifierForImplicitParameter: e))
+      }
+    }
+
     return state.insert(
       ParameterDecl(
         label: interface.label,
         identifier: interface.name,
         annotation: annotation,
         defaultValue: defaultValue,
-        isImplicit: interface.implicitMarker != nil,
+        isImplicit: isImplicit,
         site: state.range(
           from: interface.label?.site.start ?? interface.name.site.start)))
   }
