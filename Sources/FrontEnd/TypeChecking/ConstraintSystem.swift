@@ -730,7 +730,7 @@ struct ConstraintSystem {
       }
 
       // Check for an implicit definition if the parameter accepts implicit definitions.
-      if callee.inputs[i].isImplict {
+      if callee.inputs[i].isImplicit {
         let t = ParameterType(callee.inputs[i].type)!
         if let d = checker.implicitArgument(to: t, exposedTo: scope) {
           pairings.append(.implicit(d))

@@ -2196,7 +2196,7 @@ struct TypeChecker {
       label: program[d].label?.value,
       type: uncheckedType(of: d, ignoringSharedCache: true),
       hasDefault: program[d].defaultValue != nil,
-      isImplict: program[d].isImplicit)
+      isImplicit: program[d].isImplicit)
   }
 
   /// Computes and returns the types of the inputs `ps` of `d`.
@@ -2212,7 +2212,7 @@ struct TypeChecker {
         label: program[p].label?.value,
         type: uncheckedType(of: p, ignoringSharedCache: true),
         hasDefault: program[p].defaultValue != nil,
-        isImplict: program[p].isImplicit)
+        isImplicit: program[p].isImplicit)
       result.append(i)
     }
     return result

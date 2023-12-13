@@ -1472,7 +1472,7 @@ struct Emitter {
     // Explicit arguments are evaluated first, from left to right.
     let explicitArguments = emitArguments(
       to: ast[e].callee, in: CallID(e),
-      usingExplict: ast[e].arguments, synthesizingDefaultAt: .empty(atEndOf: ast[e].site))
+      usingExplicit: ast[e].arguments, synthesizingDefaultAt: .empty(atEndOf: ast[e].site))
 
     // Callee and captures are evaluated next.
     let (callee, captures) = emit(functionCallee: ast[e].callee)
@@ -1788,7 +1788,7 @@ struct Emitter {
     // Arguments are evaluated first, from left to right.
     let arguments = emitArguments(
       to: ast[call].callee, in: CallID(call),
-      usingExplict: ast[call].arguments, synthesizingDefaultAt: .empty(atEndOf: ast[call].site))
+      usingExplicit: ast[call].arguments, synthesizingDefaultAt: .empty(atEndOf: ast[call].site))
 
     // Receiver is captured next.
     let receiver = insert(module.makeAccess(.set, from: s, at: ast[call].site))!
@@ -1840,7 +1840,7 @@ struct Emitter {
   /// `callee` is a name expression referring to a callable declaration.
   private mutating func emitArguments(
     to callee: AnyExprID, in call: CallID,
-    usingExplict arguments: [LabeledArgument],
+    usingExplicit arguments: [LabeledArgument],
     synthesizingDefaultAt syntheticSite: SourceRange
   ) -> [Operand] {
     let parameters = (canonical(program[callee].type).base as! CallableType).inputs
@@ -2467,7 +2467,7 @@ struct Emitter {
     // Explicit arguments are evaluated first, from left to right.
     let explicitArguments = emitArguments(
       to: ast[e].callee, in: CallID(e),
-      usingExplict: ast[e].arguments, synthesizingDefaultAt: .empty(atEndOf: ast[e].site))
+      usingExplicit: ast[e].arguments, synthesizingDefaultAt: .empty(atEndOf: ast[e].site))
 
     // Callee and captures are evaluated next.
     let (callee, captures) = emit(subscriptCallee: ast[e].callee)

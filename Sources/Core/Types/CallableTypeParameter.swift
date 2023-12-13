@@ -11,21 +11,21 @@ public struct CallableTypeParameter: Hashable {
   public let hasDefault: Bool
 
   /// `true` if arguments to the parameter can be passed implicitly.
-  public let isImplict: Bool
+  public let isImplicit: Bool
 
   /// Creates an instance with the given properties.
   public init(
-    label: String? = nil, type: AnyType, hasDefault: Bool = false, isImplict: Bool = false
+    label: String? = nil, type: AnyType, hasDefault: Bool = false, isImplicit: Bool = false
   ) {
     self.label = label
     self.type = type
     self.hasDefault = hasDefault
-    self.isImplict = isImplict
+    self.isImplicit = isImplicit
   }
 
   /// `true` iff the parameter is implicit or has a default argument.
   public var isElidible: Bool {
-    hasDefault || isImplict
+    hasDefault || isImplicit
   }
 
   /// Returns a copy of this instance with its type replaced by `transformer(&m, t)`.
@@ -35,7 +35,7 @@ public struct CallableTypeParameter: Hashable {
     mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction
   ) -> Self {
     let t = type.transform(mutating: &m, transformer)
-    return .init(label: label, type: t, hasDefault: hasDefault, isImplict: isImplict)
+    return .init(label: label, type: t, hasDefault: hasDefault, isImplicit: isImplicit)
   }
 
 }
