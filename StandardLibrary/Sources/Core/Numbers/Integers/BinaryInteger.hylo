@@ -4,10 +4,9 @@ public trait BinaryInteger: Comparable, Numeric {
   /// Creates an instance with value `0`.
   init()
 
-  // TODO: Uncomment when #1045 is fixed.
-  // /// Creates an instance with the bit representation of `source`, truncating or sign-extending it
-  // // to fit the bit representation of `Self`.
-  // init<T: BinaryInteger>(truncating_or_extending source: T)
+  /// Creates an instance with the bit representation of `source`, truncating or sign-extending it
+  /// to fit the bit representation of `Self`.
+  init<T: BinaryInteger>(truncating_or_extending source: T)
 
   // TODO: Rename to `bit_width` when #1041 is fixed.
   /// Returns the number of bits in the representation of `self`.
