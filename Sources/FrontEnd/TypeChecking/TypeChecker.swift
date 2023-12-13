@@ -865,7 +865,13 @@ struct TypeChecker {
   private mutating func _check(_ d: TypeAliasDecl.ID) {
     checkEnvironment(of: d)
     let aliased = MetatypeType(uncheckedType(of: d))!.instance
-    check(extensions(of: aliased, exposedTo: program[d].scope))
+
+    for e in extensions(of: aliased, exposedTo: program[d].scope) {
+      // The alias may be referring to the type being declared by a scope containing `d`, in which
+      // case type checking `e` may trigger infinite recursion.
+      if cache.declsUnderChecking.contains(e) { continue }
+      check(e)
+    }
   }
 
   /// Type checks the parameters `ps` of `d`.
