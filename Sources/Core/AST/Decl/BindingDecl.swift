@@ -20,6 +20,9 @@ public struct BindingDecl: ExposableDecl {
   /// The initializer of the declaration, if any.
   public let initializer: AnyExprID?
 
+  /// `true` iff the declaration is defining an implicit.
+  public let isGiven: Bool
+
   /// Creates an instance with the given properties.
   public init(
     attributes: [SourceRepresentable<Attribute>] = [],
@@ -35,6 +38,7 @@ public struct BindingDecl: ExposableDecl {
     self.memberModifier = memberModifier
     self.pattern = pattern
     self.initializer = initializer
+    self.isGiven = attributes.contains(where: { $0.value.name.value == "@given" })
   }
 
   /// Returns whether the declaration denotes a static member.
