@@ -4487,7 +4487,7 @@ struct TypeChecker {
     let output = ((callee.base as? CallableType)?.output ?? hint) ?? ^freshVariable()
     obligations.insert(
       CallConstraint(
-        arrow: callee, takes: arguments, gives: output,
+        arrow: callee, takes: arguments, gives: output, in: .ast(AnyExprID(e)),
         origin: .init(.callee, at: program[e].callee.site)))
 
     return constrain(e, to: output, in: &obligations)
@@ -4716,6 +4716,7 @@ struct TypeChecker {
           arrow: operatorType,
           takes: [.init(label: nil, type: rhsType, valueSite: program.ast.site(of: rhs))],
           gives: outputType,
+          in: .infix(e),
           origin: .init(.callee, at: program.ast.site(of: e))))
 
       return outputType
@@ -4793,7 +4794,7 @@ struct TypeChecker {
     let output = ((callee.base as? CallableType)?.output ?? hint) ?? ^freshVariable()
     obligations.insert(
       CallConstraint(
-        subscript: callee, takes: arguments, gives: output,
+        subscript: callee, takes: arguments, gives: output, in: .ast(AnyExprID(e)),
         origin: .init(.callee, at: program[e].callee.site)))
 
     return constrain(e, to: output, in: &obligations)

@@ -29,6 +29,9 @@ struct CallConstraint: Constraint, Hashable {
   /// The expected output type of `callee`.
   private(set) var output: AnyType
 
+  /// The call associated with this constraint.
+  let call: CallID
+
   /// `true` if `callee` is expected to be an arrow; `false` if it's expected to be a subscript.
   let isArrow: Bool
 
@@ -40,11 +43,13 @@ struct CallConstraint: Constraint, Hashable {
     arrow callee: AnyType,
     takes arguments: [Argument],
     gives output: AnyType,
+    in call: CallID,
     origin: ConstraintOrigin
   ) {
     self.callee = callee
     self.arguments = arguments
     self.output = output
+    self.call = call
     self.isArrow = true
     self.origin = origin
   }
@@ -55,11 +60,13 @@ struct CallConstraint: Constraint, Hashable {
     subscript callee: AnyType,
     takes arguments: [Argument],
     gives output: AnyType,
+    in call: CallID,
     origin: ConstraintOrigin
   ) {
     self.callee = callee
     self.arguments = arguments
     self.output = output
+    self.call = call
     self.isArrow = false
     self.origin = origin
   }
