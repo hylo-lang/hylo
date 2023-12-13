@@ -1,8 +1,13 @@
 //- lowerToFinishedIR expecting: success
 
+type A: Deinitializable {
+  public memberwise init
+}
+
 fun use(_ x: Any) {}
 
 public fun main() {
-  let a: Any = 0
+  // TODO: We can't use a type conforming to a trait with generic requirements (#1227)
+  let a: Any = A()
   use(a)
 }
