@@ -2195,7 +2195,8 @@ struct TypeChecker {
     .init(
       label: program[d].label?.value,
       type: uncheckedType(of: d, ignoringSharedCache: true),
-      hasDefault: program[d].defaultValue != nil)
+      hasDefault: program[d].defaultValue != nil,
+      isImplict: program[d].isImplicit)
   }
 
   /// Computes and returns the types of the inputs `ps` of `d`.
@@ -2210,7 +2211,8 @@ struct TypeChecker {
       let i = CallableTypeParameter(
         label: program[p].label?.value,
         type: uncheckedType(of: p, ignoringSharedCache: true),
-        hasDefault: program[p].defaultValue != nil)
+        hasDefault: program[p].defaultValue != nil,
+        isImplict: program[p].isImplicit)
       result.append(i)
     }
     return result
