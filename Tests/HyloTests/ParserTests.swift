@@ -1927,16 +1927,16 @@ final class ParserTests: XCTestCase {
 
   // MARK: Attributes
 
-  func testDeclAttribute() throws {
+  func testAttribute() throws {
     let input: SourceFile = "@attr"
-    let attribute = try XCTUnwrap(input.parse(with: Parser.parseDeclAttribute).element)
+    let attribute = try XCTUnwrap(input.parse(with: Parser.parseAttribute).element)
     XCTAssertEqual(attribute.value.name.value, "@attr")
     XCTAssertEqual(attribute.value.arguments.count, 0)
   }
 
-  func testDeclAttributeWithArguments() throws {
+  func testAttributeWithArguments() throws {
     let input: SourceFile = #"@attr(8, "Hylo")"#
-    let attribute = try XCTUnwrap(input.parse(with: Parser.parseDeclAttribute).element)
+    let attribute = try XCTUnwrap(input.parse(with: Parser.parseAttribute).element)
     XCTAssertEqual(attribute.value.name.value, "@attr")
     XCTAssertEqual(attribute.value.arguments.count, 2)
   }
