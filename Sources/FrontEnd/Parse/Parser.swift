@@ -3198,7 +3198,19 @@ public enum Parser {
     let startIndex = state.currentIndex
 
     let accessEffect = try passingConvention.parse(&state)
-    let isAutoClosure = state.take(attribute: "@autoclosure") != nil
+
+    var isAutoClosure = false
+    let attributes = try parseAttributeList(in: &state)!
+    for a in attributes {
+      if a.value.name.value == "@autoclosure" {
+        if !a.value.arguments.isEmpty {
+          state.diagnostics.insert(.error(attributeTakesNoArgument: a))
+        }
+        isAutoClosure = true
+      } else {
+        state.diagnostics.insert(.error(unexpectedAttribute: a))
+      }
+    }
 
     guard let bareType = try expr.parse(&state) else {
       state.restore(from: backup)

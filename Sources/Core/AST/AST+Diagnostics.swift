@@ -69,10 +69,6 @@ extension Diagnostic {
     .error("unexpected attribute '\(a.name.value)'", at: site)
   }
 
-  static func error(attributeTakesNoArgument a: Attribute, at site: SourceRange) -> Diagnostic {
-    .error("attribute '\(a.name.value)' takes no argument", at: site)
-  }
-
   public static func error(
     unexpectedMemberModifier m: SourceRepresentable<MemberModifier>
   ) -> Diagnostic {
