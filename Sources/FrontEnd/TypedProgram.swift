@@ -38,6 +38,9 @@ public struct TypedProgram {
   /// A map from name expression to its referred declaration.
   public internal(set) var referredDecl: BindingMap = [:]
 
+  /// A map from call expression to its operands after desugaring and implicit resolution.
+  public internal(set) var callOperands: [CallID: [ArgumentResolutionResult]] = [:]
+
   /// A map from sequence expressions to their evaluation order.
   public internal(set) var foldedForm: [SequenceExpr.ID: FoldedSequenceExpr] = [:]
 
