@@ -3975,6 +3975,28 @@ struct TypeChecker {
     }
   }
 
+  /// Returns the declaration defining the value that can be passed as an implicit argument to a
+  /// parameter of type `t` in scope `s`.
+  mutating func implicitArgument(to t: ParameterType, exposedTo s: AnyScopeID) -> AnyDeclID? {
+    for d in program[s].decls.withoutExtensions {
+      if !program.isImplicitDefinition(d) { continue }
+
+      let u = read(uncheckedType(of: d), { ParameterType($0)?.bareType ?? $0 })
+      if areEquivalent(t.bareType, u, in: s) {
+        return d
+      }
+    }
+
+    switch s.kind {
+    case FunctionDecl.self, InitializerDecl.self, MethodDecl.self, SubscriptDecl.self:
+      return nil
+    case ModuleDecl.self:
+      preconditionFailure("implicit resolution undefined in '\(s.kind)'")
+    default:
+      return implicitArgument(to: t, exposedTo: program[s].scope)
+    }
+  }
+
   // MARK: Quantifier elimination
 
   /// A context in which a generic parameter can be instantiated.
@@ -5227,6 +5249,10 @@ struct TypeChecker {
       }
 
       cache.write(s, at: \.referredDecl[n], ignoringSharedCache: ignoreSharedCache)
+    }
+
+    for (c, o) in solution.callOperands {
+      cache.write(o, at: \.callOperands[c], ignoringSharedCache: ignoreSharedCache)
     }
 
     for (e, t) in obligations.exprType {
