@@ -1470,9 +1470,9 @@ struct Emitter {
     }
 
     // Explicit arguments are evaluated first, from left to right.
-    let explicitArguments = emit(
-      arguments: ast[e].arguments, to: ast[e].callee,
-      synthesizingDefaultArgumentsAt: .empty(atEndOf: ast[e].site))
+    let explicitArguments = emitArguments(
+      to: ast[e].callee, in: CallID(e),
+      usingExplicit: ast[e].arguments, synthesizingDefaultAt: .empty(atEndOf: ast[e].site))
 
     // Callee and captures are evaluated next.
     let (callee, captures) = emit(functionCallee: ast[e].callee)
@@ -1786,9 +1786,9 @@ struct Emitter {
     }
 
     // Arguments are evaluated first, from left to right.
-    let arguments = emit(
-      arguments: ast[call].arguments, to: ast[call].callee,
-      synthesizingDefaultArgumentsAt: .empty(atEndOf: ast[call].site))
+    let arguments = emitArguments(
+      to: ast[call].callee, in: CallID(call),
+      usingExplicit: ast[call].arguments, synthesizingDefaultAt: .empty(atEndOf: ast[call].site))
 
     // Receiver is captured next.
     let receiver = insert(module.makeAccess(.set, from: s, at: ast[call].site))!
@@ -1832,36 +1832,48 @@ struct Emitter {
     }
   }
 
-  /// Inserts the IR for `arguments`, which is an argument passed to a function of type `callee`.
+  /// Inserts the IR preparing the run-time arguments passed to `callee` in `call`, lowering
+  /// `arguments` and synthesizing default values at `syntheticSite`.
   ///
-  /// - Parameters:
-  ///   - syntheticSite: The site at which default pragma arguments are anchored.
-  private mutating func emit(
-    arguments: [LabeledArgument], to callee: AnyExprID,
-    synthesizingDefaultArgumentsAt syntheticSite: SourceRange
+  /// Information about argument resolution is read from `program.callOperands`. Arguments passed
+  /// explicitly have a corresponding expression in `arguments`. If default arguments are used,
+  /// `callee` is a name expression referring to a callable declaration.
+  private mutating func emitArguments(
+    to callee: AnyExprID, in call: CallID,
+    usingExplicit arguments: [LabeledArgument],
+    synthesizingDefaultAt syntheticSite: SourceRange
   ) -> [Operand] {
-    let calleeType = canonical(program[callee].type).base as! CallableType
-    let calleeDecl = NameExpr.ID(callee).flatMap({ program[$0].referredDecl.decl! })
-    let defaults = calleeDecl.flatMap(ast.defaultArguments(of:))
+    let parameters = (canonical(program[callee].type).base as! CallableType).inputs
+    let inputs = program.callOperands[call]!
+    assert(parameters.count == inputs.count)
 
-    var result: [Operand] = []
-    var i = 0
-    for (j, p) in calleeType.inputs.enumerated() {
-      let a: AnyExprID
-      if (i < arguments.count) && (arguments[i].label?.value == p.label) {
-        a = arguments[i].value
-        i += 1
-      } else if let e = defaults?[j] {
-        a = e
-      } else {
-        unreachable()
-      }
+    // Nothing to do if the callee has no parameter.
+    if parameters.isEmpty { return [] }
 
-      let v = emit(argument: a, to: ParameterType(p.type)!, at: syntheticSite)
-      result.append(v)
+    // Parameter declarations are accessible iff `callee` is a direct reference to a callable.
+    let parameterDecls = NameExpr.ID(callee).flatMap { (n) in
+      program.ast.runtimeParameters(of: program[n].referredDecl.decl!)
     }
 
-    assert(i == arguments.count)
+    var result: [Operand] = []
+    for i in inputs.indices {
+      let p = ParameterType(parameters[i].type)!
+
+      switch inputs[i] {
+      case .explicit(let n):
+        let a = arguments[n].value
+        result.append(emit(argument: a, to: p, at: syntheticSite))
+
+      case .defaulted:
+        let a = program[parameterDecls![i]].defaultValue!
+        result.append(emit(argument: a, to: p, at: syntheticSite))
+
+      case .implicit(let d):
+        let s = emitLValue(directReferenceTo: d, at: syntheticSite)
+        result.append(insert(module.makeAccess(p.access, from: s, at: syntheticSite))!)
+      }
+    }
+
     return result
   }
 
@@ -2453,9 +2465,9 @@ struct Emitter {
   /// Inserts the IR for lvalue `e`.
   private mutating func emitLValue(_ e: SubscriptCallExpr.ID) -> Operand {
     // Explicit arguments are evaluated first, from left to right.
-    let explicitArguments = emit(
-      arguments: ast[e].arguments, to: ast[e].callee,
-      synthesizingDefaultArgumentsAt: .empty(atEndOf: ast[e].site))
+    let explicitArguments = emitArguments(
+      to: ast[e].callee, in: CallID(e),
+      usingExplicit: ast[e].arguments, synthesizingDefaultAt: .empty(atEndOf: ast[e].site))
 
     // Callee and captures are evaluated next.
     let (callee, captures) = emit(subscriptCallee: ast[e].callee)

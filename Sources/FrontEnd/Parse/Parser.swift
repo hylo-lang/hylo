@@ -1230,18 +1230,35 @@ public enum Parser {
 
     let defaultValue = try parseDefaultValue(in: &state)
 
+    let isImplicit = interface.implicitMarker != nil
+    if isImplicit {
+      if let e = state.ast[annotation]?.convention, e.value != .let {
+        state.diagnostics.insert(.error(illegalAccessModifierForImplicitParameter: e))
+      }
+    }
+
     return state.insert(
       ParameterDecl(
         label: interface.label,
         identifier: interface.name,
         annotation: annotation,
         defaultValue: defaultValue,
+        isImplicit: isImplicit,
         site: state.range(
           from: interface.label?.site.start ?? interface.name.site.start)))
   }
 
   /// Parses the (optional) label and name of a parameter declaration.
   static func parseParameterInterface(
+    in state: inout ParserState
+  ) throws -> ParameterInterface? {
+    guard let i = try parseParameterNameAndLabel(in: &state) else { return nil }
+    let q = state.takePostfixQuestionMark()
+    return ParameterInterface(label: i.label, name: i.name, implicitMarker: q)
+  }
+
+  /// Parses the (optional) label and name of a parameter declaration.
+  private static func parseParameterNameAndLabel(
     in state: inout ParserState
   ) throws -> (label: SourceRepresentable<Identifier>?, name: SourceRepresentable<Identifier>)? {
     guard let labelCandidate = state.take(if: { $0.isLabel || $0.kind == .under }) else {
@@ -3460,6 +3477,20 @@ struct NameExprComponent {
 
   /// The static arguments of the component.
   let arguments: [LabeledArgument]
+
+}
+
+/// The name and argument label of a parameter declaration.
+struct ParameterInterface {
+
+  /// The argument label of the parameter, if any.
+  let label: SourceRepresentable<Identifier>?
+
+  /// The name of the parameter.
+  let name: SourceRepresentable<Identifier>
+
+  /// The implicit marker of the parameter, if any.
+  let implicitMarker: Token?
 
 }
 

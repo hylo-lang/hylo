@@ -2201,7 +2201,8 @@ struct TypeChecker {
     .init(
       label: program[d].label?.value,
       type: uncheckedType(of: d, ignoringSharedCache: true),
-      hasDefault: program[d].defaultValue != nil)
+      hasDefault: program[d].defaultValue != nil,
+      isImplicit: program[d].isImplicit)
   }
 
   /// Computes and returns the types of the inputs `ps` of `d`.
@@ -2216,7 +2217,8 @@ struct TypeChecker {
       let i = CallableTypeParameter(
         label: program[p].label?.value,
         type: uncheckedType(of: p, ignoringSharedCache: true),
-        hasDefault: program[p].defaultValue != nil)
+        hasDefault: program[p].defaultValue != nil,
+        isImplicit: program[p].isImplicit)
       result.append(i)
     }
     return result
@@ -3979,6 +3981,28 @@ struct TypeChecker {
     }
   }
 
+  /// Returns the declaration defining the value that can be passed as an implicit argument to a
+  /// parameter of type `t` in scope `s`.
+  mutating func implicitArgument(to t: ParameterType, exposedTo s: AnyScopeID) -> AnyDeclID? {
+    for d in program[s].decls.withoutExtensions {
+      if !program.isImplicitDefinition(d) { continue }
+
+      let u = read(uncheckedType(of: d), { ParameterType($0)?.bareType ?? $0 })
+      if areEquivalent(t.bareType, u, in: s) {
+        return d
+      }
+    }
+
+    switch s.kind {
+    case FunctionDecl.self, InitializerDecl.self, MethodDecl.self, SubscriptDecl.self:
+      return nil
+    case ModuleDecl.self:
+      preconditionFailure("implicit resolution undefined in '\(s.kind)'")
+    default:
+      return implicitArgument(to: t, exposedTo: program[s].scope)
+    }
+  }
+
   // MARK: Quantifier elimination
 
   /// A context in which a generic parameter can be instantiated.
@@ -4491,7 +4515,7 @@ struct TypeChecker {
     let output = ((callee.base as? CallableType)?.output ?? hint) ?? ^freshVariable()
     obligations.insert(
       CallConstraint(
-        arrow: callee, takes: arguments, gives: output,
+        arrow: callee, takes: arguments, gives: output, in: .ast(AnyExprID(e)),
         origin: .init(.callee, at: program[e].callee.site)))
 
     return constrain(e, to: output, in: &obligations)
@@ -4720,6 +4744,7 @@ struct TypeChecker {
           arrow: operatorType,
           takes: [.init(label: nil, type: rhsType, valueSite: program.ast.site(of: rhs))],
           gives: outputType,
+          in: .infix(e),
           origin: .init(.callee, at: program.ast.site(of: e))))
 
       return outputType
@@ -4797,7 +4822,7 @@ struct TypeChecker {
     let output = ((callee.base as? CallableType)?.output ?? hint) ?? ^freshVariable()
     obligations.insert(
       CallConstraint(
-        subscript: callee, takes: arguments, gives: output,
+        subscript: callee, takes: arguments, gives: output, in: .ast(AnyExprID(e)),
         origin: .init(.callee, at: program[e].callee.site)))
 
     return constrain(e, to: output, in: &obligations)
@@ -5230,6 +5255,10 @@ struct TypeChecker {
       }
 
       cache.write(s, at: \.referredDecl[n], ignoringSharedCache: ignoreSharedCache)
+    }
+
+    for (c, o) in solution.callOperands {
+      cache.write(o, at: \.callOperands[c], ignoringSharedCache: ignoreSharedCache)
     }
 
     for (e, t) in obligations.exprType {

@@ -335,6 +335,17 @@ extension Program {
     }
   }
 
+  /// Returns `true` iff `d` declares a value usable as an implicit parameter.
+  public func isImplicitDefinition(_ d: AnyDeclID) -> Bool {
+    if let i = VarDecl.ID(d) {
+      return ast[varToBinding[i]]!.isGiven
+    } else if let i = ParameterDecl.ID(d) {
+      return ast[i].isImplicit
+    } else {
+      return false
+    }
+  }
+
   /// If `s` is in a member context, returns the innermost receiver declaration exposed to `s`.
   /// Otherwise, returns `nil`
   public func innermostReceiver(in useScope: AnyScopeID) -> ParameterDecl.ID? {

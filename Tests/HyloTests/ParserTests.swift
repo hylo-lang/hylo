@@ -761,11 +761,19 @@ final class ParserTests: XCTestCase {
     XCTAssertNotNil(ast[d]?.defaultValue)
   }
 
+  func testParameterDeclImplicit() throws {
+    let input: SourceFile = "_ foo?: T"
+    let (d, ast) = try input.parse(with: Parser.parseParameterDecl(in:))
+    let tree = try XCTUnwrap(ast[d])
+    XCTAssert(tree.isImplicit)
+  }
+
   func testParameterInterfaceLabelAndName() throws {
     let input: SourceFile = "for name"
     let tree = try XCTUnwrap(input.parse(with: Parser.parseParameterInterface(in:)).element)
     XCTAssertEqual(tree.label?.value, "for")
     XCTAssertEqual(tree.name.value, "name")
+    XCTAssertNil(tree.implicitMarker)
   }
 
   func testParameterInterfaceUnderscoreAndName() throws {
@@ -773,6 +781,7 @@ final class ParserTests: XCTestCase {
     let tree = try XCTUnwrap(input.parse(with: Parser.parseParameterInterface(in:)).element)
     XCTAssertNil(tree.label)
     XCTAssertEqual(tree.name.value, "name")
+    XCTAssertNil(tree.implicitMarker)
   }
 
   func testParameterInterfaceOnlyName() throws {
@@ -780,6 +789,15 @@ final class ParserTests: XCTestCase {
     let tree = try XCTUnwrap(input.parse(with: Parser.parseParameterInterface(in:)).element)
     XCTAssertEqual(tree.label?.value, "name")
     XCTAssertEqual(tree.name.value, "name")
+    XCTAssertNil(tree.implicitMarker)
+  }
+
+  func testParameterInterfaceImplicit() throws {
+    let input: SourceFile = "in context?"
+    let tree = try XCTUnwrap(input.parse(with: Parser.parseParameterInterface(in:)).element)
+    XCTAssertEqual(tree.label?.value, "in")
+    XCTAssertEqual(tree.name.value, "context")
+    XCTAssertNotNil(tree.implicitMarker)
   }
 
   func testOperatorDecl() throws {

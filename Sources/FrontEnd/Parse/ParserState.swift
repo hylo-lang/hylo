@@ -207,6 +207,15 @@ struct ParserState {
     return take(kind)
   }
 
+  /// Consumes and returns the next token iff it is a single question mark nor preceded by any
+  /// whitespace.
+  mutating func takePostfixQuestionMark() -> Token? {
+    if hasLeadingWhitespace { return nil }
+    return take(if: { [source = lexer.sourceCode] in
+      ($0.kind == .oper) && (source[$0.site] == "?")
+    })
+  }
+
   /// Consumes and returns the next token if it satisfies `predicate`.
   mutating func take(if predicate: (Token) -> Bool) -> Token? {
     if let token = peek(), predicate(token) {
