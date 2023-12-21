@@ -7,9 +7,10 @@ public struct GenericClause: Codable {
   /// The where clause of the generic clause, if any.
   public let whereClause: SourceRepresentable<WhereClause>?
 
+  /// Creates an instance with the given properties.
   public init(
     parameters: [GenericParameterDecl.ID],
-    whereClause: SourceRepresentable<WhereClause>? = nil
+    whereClause: SourceRepresentable<WhereClause>?
   ) {
     self.parameters = parameters
     self.whereClause = whereClause
