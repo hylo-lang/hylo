@@ -1,7 +1,7 @@
 import Utils
 
 /// The factors that influence conditional compilation.
-public struct ConditionalCompilationFactors: Codable {
+public struct ConditionalCompilationFactors: Codable, Equatable, Hashable {
 
   /// The target operating system.
   let operatingSystem: Host.OperatingSystem
@@ -12,10 +12,10 @@ public struct ConditionalCompilationFactors: Codable {
   /// The version of the compiler.
   let compilerVersion: SemanticVersion
 
-  /// The version of the Hylo language version we are targeting.
+  /// The version of the Hylo language recognized by the compiler.
   let hyloVersion: SemanticVersion
 
-  /// `true` if we are compiling for freestanding mode.
+  /// `true` if the standard library exposes only non-OS-dependent parts.
   let freestanding: Bool
 
   public init(

@@ -706,7 +706,7 @@ extension AST {
   public func traverse<O: ASTWalkObserver>(
     _ n: ConditionalCompilationStmt, notifying o: inout O
   ) {
-    walk(roots: n.expansion(for: factors), notifying: &o)
+    walk(roots: n.expansion(for: expansionFilter), notifying: &o)
   }
 
   /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.

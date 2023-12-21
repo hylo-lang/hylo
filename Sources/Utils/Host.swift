@@ -6,6 +6,7 @@ public enum Host {
 
     case macOS, linux, windows
 
+    /// String representation that matches the possible values used for conditional compilation.
     public var description: String {
       switch self {
       case .macOS: return "macOS"
@@ -21,6 +22,7 @@ public enum Host {
 
     case i386, x86_64, arm, arm64
 
+    /// String representation that matches the possible values used for conditional compilation.
     public var description: String {
       return rawValue
     }

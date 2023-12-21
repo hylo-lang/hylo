@@ -20,12 +20,12 @@ public struct AST {
     /// The module containing Hylo's core library, if any.
     public var coreLibrary: ModuleDecl.ID?
 
-    /// Conditional compilation factors for processing `self`.
-    public let factors: ConditionalCompilationFactors
+    /// The expansion filter used while processing conditional compilation statements in `self`.
+    public let expansionFilter: ConditionalCompilationFactors
 
-    /// Creates an empty AST for given conditional compilation factors.
-    public init(_ factors: ConditionalCompilationFactors) {
-      self.factors = factors
+    /// Creates an empty instance, using `expansionFilter` for expanding conditional compilation statements.
+    public init(_ expansionFilter: ConditionalCompilationFactors) {
+      self.expansionFilter = expansionFilter
     }
 
   }
@@ -58,16 +58,16 @@ public struct AST {
     set { storage.coreLibrary = newValue }
   }
 
-  /// Conditional compilation factors for processing `self`.
-  public var factors: ConditionalCompilationFactors {
-    return storage.factors
+  /// The expansion filter used while processing conditional compilation statements in `self`.
+  public var expansionFilter: ConditionalCompilationFactors {
+    return storage.expansionFilter
   }
 
-  /// Creates an empty AST.
+  /// Creates an empty AST, using `expansionFilter` for expanding conditional compilation statements.
   public init(
-    _ factors: ConditionalCompilationFactors = ConditionalCompilationFactors()
+    _ expansionFilter: ConditionalCompilationFactors = ConditionalCompilationFactors()
   ) {
-    self.storage = Storage(factors)
+    self.storage = Storage(expansionFilter)
   }
 
   /// Inserts `n` into `self`, updating `diagnostics` if `n` is ill-formed.
