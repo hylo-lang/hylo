@@ -68,7 +68,17 @@ extension DeclReference: Monotonic {}
 
 extension FoldedSequenceExpr: Monotonic {}
 
-extension GenericEnvironment: Monotonic {}
+extension GenericEnvironment: Monotonic {
+
+  mutating func updateMonotonically(_ other: GenericEnvironment) {
+    if (self.decl == other.decl) && (self.generation < other.generation) {
+      self = other
+    } else {
+      assert(self == other)
+    }
+  }
+
+}
 
 extension ImplicitCapture: Monotonic {}
 

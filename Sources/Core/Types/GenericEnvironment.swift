@@ -1,6 +1,6 @@
 import Utils
 
-/// An object that provides context to interpret the generic parameters of a declaration.
+/// Context to interpret the generic parameters of a declaration.
 public struct GenericEnvironment {
 
   /// An equivalence class and its associated conformances.
@@ -13,6 +13,16 @@ public struct GenericEnvironment {
     var conformances: Set<TraitType> = []
 
   }
+
+  /// The declaration associated with the environment.
+  public let decl: AnyDeclID
+
+  /// A number reflecting the number of times the environment has been updated.
+  ///
+  /// A generic environments is built incrementally by inserting constraints on generic parameters.
+  /// Each update increments the generation number until all constraints have been inserted, at
+  /// which point the environment must be finalized, setting its generation to `UInt.max`.
+  public private(set) var generation: UInt = 0
 
   /// The generic parameters introduced in the environment, in the order there declaration appears
   /// in Hylo sources.
@@ -28,11 +38,20 @@ public struct GenericEnvironment {
   private var entries: [EquivalenceClass] = []
 
   /// Creates an environment that introduces `parameters` in a declaration space.
-  public init(introducing parameters: [GenericParameterDecl.ID]) {
+  public init(
+    of id: AnyDeclID,
+    introducing parameters: [GenericParameterDecl.ID]
+  ) {
+    self.decl = id
     self.parameters = parameters
   }
 
-  /// Returns the set of traits to which `type` conforms in the environment.
+  /// `true` iff `self` has been fully constructed and type checked.
+  public var isFinalized: Bool {
+    generation == .max
+  }
+
+  /// Returns the set of traits to which `type` conforms in t`self`.
   public func conformedTraits(of type: AnyType) -> Set<TraitType> {
     if let i = ledger[type] {
       return entries[i].conformances
@@ -41,20 +60,31 @@ public struct GenericEnvironment {
     }
   }
 
+  /// Marks that `self` has been fully constructed.
+  ///
+  /// - Requires: `self` has not been finalized yet.
+  public mutating func finalize() {
+    precondition(!isFinalized)
+    generation = .max
+  }
+
   /// Inserts constraint `c` to the environment, updating equivalence classes.
   public mutating func insertConstraint(_ c: GenericConstraint) {
+    // TODO: Eliminate duplicates
     constraints.append(c)
     switch c.value {
     case .equality(let lhs, let rhs):
-      registerEquivalence(lhs, rhs)
+      establishEquivalence(lhs, rhs)
     case .conformance(let lhs, let rhs):
-      registerConformance(lhs, to: rhs)
+      establishConformance(lhs, to: rhs)
     default:
       break
     }
+    generation += 1
   }
 
-  private mutating func registerEquivalence(_ l: AnyType, _ r: AnyType) {
+  /// Registers the fact that `l` is equivalent to `r` in the context of this environment.
+  public mutating func establishEquivalence(_ l: AnyType, _ r: AnyType) {
     if let i = ledger[l] {
       // `l` is part of a class.
       if let j = ledger[r] {
@@ -79,17 +109,20 @@ public struct GenericEnvironment {
       ledger[l] = entries.count
       entries.append(.init(equivalences: [l, r], conformances: []))
     }
+    generation += 1
   }
 
-  private mutating func registerConformance(_ l: AnyType, to trait: TraitType) {
+  /// Registers the fact that `l` conforms to `r` in the context of this environment.
+  public mutating func establishConformance(_ l: AnyType, to r: TraitType) {
     if let i = ledger[l] {
       // `l` is part of a class.
-      entries[i].conformances.insert(trait)
+      entries[i].conformances.insert(r)
     } else {
       // `l` isn't part of a class.
       ledger[l] = entries.count
-      entries.append(.init(equivalences: [l], conformances: [trait]))
+      entries.append(.init(equivalences: [l], conformances: [r]))
     }
+    generation += 1
   }
 
 }
