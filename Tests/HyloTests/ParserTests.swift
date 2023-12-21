@@ -1439,7 +1439,7 @@ final class ParserTests: XCTestCase {
   func testWhereClauseConformanceConstraint() throws {
     let input: SourceFile = "T : U & V"
     let constraint = try XCTUnwrap(try apply(Parser.typeConstraint, on: input).element)
-    if case .conformance(let lhs, _) = constraint.value {
+    if case .bound(let lhs, _) = constraint.value {
       XCTAssertEqual(lhs.kind, .init(NameExpr.self))
     } else {
       XCTFail()
