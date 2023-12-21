@@ -4,10 +4,10 @@ import Utils
 public struct ConditionalCompilationFactors: Codable, Equatable, Hashable {
 
   /// The target operating system.
-  let operatingSystem: Host.OperatingSystem
+  let operatingSystem: Platform.OperatingSystem
 
   /// The target architecture.
-  let architecture: Host.Architecture
+  let architecture: Platform.Architecture
 
   /// The version of the compiler.
   let compilerVersion: SemanticVersion
@@ -19,8 +19,8 @@ public struct ConditionalCompilationFactors: Codable, Equatable, Hashable {
   let freestanding: Bool
 
   public init(
-    operatingSystem os: Host.OperatingSystem = Host.operatingSystem,
-    architecture a: Host.Architecture = Host.architecture,
+    operatingSystem os: Platform.OperatingSystem = Platform.hostOperatingSystem,
+    architecture a: Platform.Architecture = Platform.hostArchitecture,
     compilerVersion cv: SemanticVersion = SemanticVersion(major: 0, minor: 1, patch: 0),
     hyloVersion hv: SemanticVersion = SemanticVersion(major: 0, minor: 1, patch: 0),
     freestanding f: Bool = false
