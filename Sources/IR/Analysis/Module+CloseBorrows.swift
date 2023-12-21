@@ -141,6 +141,8 @@ extension Access: LifetimeExtender {}
 
 extension AdvancedByBytes: LifetimeExtender {}
 
+extension AdvancedByStrides: LifetimeExtender {}
+
 extension OpenCapture: LifetimeExtender {}
 
 extension OpenUnion: LifetimeExtender {}

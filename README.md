@@ -1,7 +1,4 @@
-# Hylo
-
-> **Warning**
-> Val is getting renamed to Hylo. We apologize for any broken links and confusion this may cause. We're working on it.
+# Hylo (formerly Val)
 
 Hylo is a programming language that leverages [mutable value semantics](https://www.jot.fm/issues/issue_2022_02/article2.pdf) and [generic programming](https://fm2gp.com) for high-level systems programming.
 
@@ -15,7 +12,7 @@ You will need Swift 5.7 or higher to build the compiler from sources.
 The repository contains [submodules](https://git-scm.com/book/en/v2/Git-Tools-Submodules), so when you clone it, be sure you've got them.
 
 **Windows users:** 
-1. although this project is **not** Unix-specific, Windows support is not guaranteed due to the instability of continuous integration (see [issue 252](https://github.com/hylo-lang/hylo/issues/252) and [issue 805](https://github.com/hylo-lang/hylo/issues/805)).
+1. Although this project is **not** Unix-specific, Windows support is not guaranteed due to the instability of continuous integration (see [issue 252](https://github.com/hylo-lang/hylo/issues/252) and [Swifty-LLVM/issue 24](https://github.com/hylo-lang/Swifty-LLVM/issues/24)).
 2. This repository contains symbolic links, so you'll need to [enable support](https://stackoverflow.com/questions/5917249/git-symbolic-links-in-windows/59761201#59761201) for them before checking it out.
 
 ### Prerequisites

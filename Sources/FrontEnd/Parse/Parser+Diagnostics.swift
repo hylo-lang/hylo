@@ -89,7 +89,7 @@ extension Diagnostic {
   }
 
   static func error(unexpectedAttribute a: SourceRepresentable<Attribute>) -> Diagnostic {
-    .error("unexpected attribute modifier '\(a.value.name.value)'", at: a.value.name.site)
+    .error("unexpected attribute '\(a.value.name.value)'", at: a.value.name.site)
   }
 
   static func error(unexpectedInitializerDecl d: InitializerDecl) -> Diagnostic {
@@ -108,6 +108,16 @@ extension Diagnostic {
 
   static func error(unknownPragma n: Substring, at site: SourceRange) -> Diagnostic {
     .error("unknown pragma '\(n)'", at: site)
+  }
+
+  static func error(attributeTakesNoArgument a: SourceRepresentable<Attribute>) -> Diagnostic {
+    .error("attribute '\(a.value.name.value)' takes no argument", at: a.site)
+  }
+
+  static func error(
+    illegalAccessModifierForImplicitParameter e: SourceRepresentable<AccessEffect>
+  ) -> Diagnostic {
+    .error("'\(e.value)'-parameter cannot be implicit", at: e.site)
   }
 
 }

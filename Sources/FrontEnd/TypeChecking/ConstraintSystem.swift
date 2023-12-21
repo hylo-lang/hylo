@@ -42,6 +42,9 @@ struct ConstraintSystem {
   /// to derive a complete name binding map w.r.t. its unresolved name expressions.
   private var bindingAssumptions: [NameExpr.ID: DeclReference]
 
+  /// A map from call expression to its operands after desugaring and implicit resolution.
+  private var callOperands: [CallID: [ArgumentResolutionResult]] = [:]
+
   /// The penalties associated with the constraint system.
   ///
   /// This value serves to prune explorations that cannot produce a better solution than one
@@ -177,7 +180,7 @@ struct ConstraintSystem {
     }
 
     return Solution(
-      substitutions: m, bindings: bindingAssumptions,
+      substitutions: m, bindings: bindingAssumptions, callOperands: callOperands,
       penalties: penalties, diagnostics: d, stale: stale.map({ goals[$0] }))
   }
 
@@ -197,7 +200,7 @@ struct ConstraintSystem {
     let goal = goals[g] as! ConformanceConstraint
 
     // Nothing to do if the subject is still a type variable.
-    if goal.model.isTypeVariable {
+    if goal.model.base is TypeVariable {
       postpone(g)
       return nil
     }
@@ -225,7 +228,7 @@ struct ConstraintSystem {
   /// - Requires: `goal.model` is not a type variable.
   private mutating func solve(structuralConformance goal: ConformanceConstraint) -> Outcome {
     let model = checker.canonical(goal.model, in: scope)
-    assert(!model.isTypeVariable)
+    assert(!(model.base is TypeVariable))
 
     switch model.base {
     case let t as TupleType:
@@ -337,7 +340,7 @@ struct ConstraintSystem {
       // - if the goal strict, `L` must be subtype of some strict subset of `R`;
       // - otherwise, `L` must be equal to `R` or a subtype of a subset of `R`.
       var candidates: [DisjunctionConstraint.Predicate] = []
-      if !goal.left.isTypeVariable {
+      if !(goal.left.base is TypeVariable) {
         for e in r.elements {
           let c = SubtypingConstraint(goal.left, e, origin: o)
           candidates.append(.init(constraints: [c], penalties: 1))
@@ -675,23 +678,22 @@ struct ConstraintSystem {
       return .failure(invalidCallee(goal))
     }
 
-    // Make sure `F` structurally matches the given parameter list.
-    guard let argumentsToParameter = matchArgumentsToParameter(goal.labels, by: callee) else {
+    guard let argumentMatching = match(argumentsOf: goal, parametersOf: callee) else {
       return .failure { (d, m, _) in
         d.insert(
           .error(labels: goal.labels, incompatibleWith: callee.labels, at: goal.origin.site))
       }
     }
 
-    // Break down the goal.
+    callOperands[goal.call] = argumentMatching.pairings
+
     var subordinates: [GoalIdentity] = []
-    for (a, j) in zip(goal.arguments, argumentsToParameter) {
-      let b = callee.inputs[j]
-      let o = ConstraintOrigin(.argument, at: a.valueSite)
-      subordinates.append(schedule(ParameterConstraint(a.type, b.type, origin: o)))
+    for c in argumentMatching.constraints {
+      subordinates.append(schedule(c))
     }
     subordinates.append(
       schedule(EqualityConstraint(callee.output, goal.output, origin: goal.origin.subordinate())))
+
     return delegate(to: subordinates)
   }
 
@@ -706,28 +708,52 @@ struct ConstraintSystem {
     }
   }
 
-  /// Returns a table from argument position to its corresponding parameter position iff `callee`
-  /// accepts an argument list with given `labels`; returns `nil` otherwise.
-  ///
-  /// For example, given a callee whose parameters are `(x: Int, y: Int = 0, z: Int)` and an
-  /// argument list with labels `[x, z]`, this function returns `[0, 2]`.
-  private func matchArgumentsToParameter<T: Collection>(
-    _ labels: T, by callee: CallableType
-  ) -> [Int]?
-  where T.Element == String? {
-    var result: [Int] = []
-    var i = labels.startIndex
+  /// Returns how the arguments in `goal` match the parameters of `callee`.
+  private mutating func match(
+    argumentsOf goal: CallConstraint, parametersOf callee: CallableType
+  ) -> (constraints: [ParameterConstraint], pairings: [ArgumentResolutionResult])? {
+    var constraints: [ParameterConstraint] = []
+    var pairings: [ArgumentResolutionResult] = []
 
-    for (j, p) in callee.inputs.enumerated() {
-      if (i != labels.endIndex) && (labels[i] == p.label) {
-        result.append(j)
-        i = labels.index(after: i)
-      } else if !p.hasDefault {
-        return nil
+    var i = 0
+    for j in callee.inputs.indices {
+      let p = callee.inputs[j]
+
+      // If there's an explicit argument, use it unless if has a different label.
+      if (goal.arguments.count > i) && (goal.arguments[i].label?.value == p.label) {
+        let a = goal.arguments[i]
+        let o = ConstraintOrigin(.argument, at: goal.arguments[i].valueSite)
+        constraints.append(ParameterConstraint(a.type, p.type, origin: o))
+        pairings.append(.explicit(i))
+        i += 1
+        continue
       }
+
+      // Check for an implicit definition if the parameter accepts implicit definitions.
+      if callee.inputs[i].isImplicit {
+        let t = ParameterType(callee.inputs[i].type)!
+        if let d = checker.implicitArgument(to: t, exposedTo: scope) {
+          pairings.append(.implicit(d))
+          continue
+        }
+      }
+
+      // Use the parameter's default value if available.
+      if callee.inputs[i].hasDefault {
+        pairings.append(.defaulted)
+        continue
+      }
+
+      // Argument list does not match the parameter list.
+      return nil
     }
 
-    return (i == labels.endIndex) ? result : nil
+    assert(pairings.count == callee.inputs.count)
+    if i == goal.arguments.count {
+      return (constraints, pairings)
+    } else {
+      return nil
+    }
   }
 
   private mutating func solve(merging g: GoalIdentity) -> Outcome? {

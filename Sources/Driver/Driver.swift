@@ -45,13 +45,10 @@ public struct Driver: ParsableCommand {
   private var importBuiltinModule: Bool = false
 
   @Flag(
-    name: [.customLong("unhosted")],
-    help: "Load only the core library, omitting any definitions that depend on OS support.")
-  private var unhosted: Bool = false
-
-  @Flag(
     name: [.customLong("freestanding")],
-    help: "Compile in freestanding mode (no libc).")
+    help:
+      "Import only the freestanding core of the standard library, omitting any definitions that depend on having an operating system."
+  )
   private var freestanding: Bool = false
 
   @Flag(
@@ -160,10 +157,9 @@ public struct Driver: ParsableCommand {
     }
 
     let productName = makeProductName(inputs)
+
     /// An instance that includes just the standard library.
-    var ast = AST(
-      libraryRoot: unhosted ? coreLibrarySourceRoot : standardLibrarySourceRoot,
-      ConditionalCompilationFactors(freestanding: freestanding))
+    var ast = try (freestanding ? Host.freestandingLibraryAST : Host.hostedLibraryAST).get()
 
     // The module whose Hylo files were given on the command-line
     let sourceModule = try ast.makeModule(
@@ -398,8 +394,8 @@ public struct Driver: ParsableCommand {
     UNIMPLEMENTED()
   }
 
-  /// Returns the path of the executable that is invoked at the command-line with the name given by
-  /// `invocationName`.
+  /// Returns the path of the binary executable that is invoked at the command-line with the name
+  /// given by `invocationName`.
   private func findExecutable(invokedAs invocationName: String) throws -> URL {
     if let cached = Driver.executableLocationCache[invocationName] { return cached }
 
@@ -407,19 +403,10 @@ public struct Driver: ParsableCommand {
       invocationName.hasSuffix(Host.executableSuffix)
       ? invocationName : invocationName + Host.executableSuffix
 
-    // Search in the current working directory.
-    var candidate = currentDirectory.appendingPathComponent(executableFileName)
-    if FileManager.default.fileExists(atPath: candidate.fileSystemPath) {
-      Driver.executableLocationCache[invocationName] = candidate
-      return candidate
-    }
-
     // Search in the PATH.
-    let environment =
-      ProcessInfo.processInfo.environment[Host.pathEnvironmentVariable] ?? ""
-    for root in environment.split(separator: Host.pathEnvironmentSeparator) {
-      candidate = URL(fileURLWithPath: String(root)).appendingPathComponent(
-        invocationName + Host.executableSuffix)
+    let path = ProcessInfo.processInfo.environment[Host.pathEnvironmentVariable] ?? ""
+    for root in path.split(separator: Host.pathEnvironmentSeparator) {
+      let candidate = URL(fileURLWithPath: String(root)).appendingPathComponent(executableFileName)
       if FileManager.default.fileExists(atPath: candidate.fileSystemPath) {
         Driver.executableLocationCache[invocationName] = candidate
         return candidate

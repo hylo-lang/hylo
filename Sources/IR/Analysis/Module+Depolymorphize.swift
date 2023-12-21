@@ -1,5 +1,6 @@
 import Core
 import FrontEnd
+import OrderedCollections
 import Utils
 
 extension Module {
@@ -154,6 +155,13 @@ extension Module {
         self[result].appendBlock(in: sourceModule[source].scope, taking: inputs))
     }
 
+    /// A table from generic value parameter to the allocation of the storage containing its value.
+    ///
+    /// Generic value parameters are rewritten as local variables initialized at the beginning of
+    /// the monomorphized function. Generic value arguments don't require deinitialization. Their
+    /// local storage is deallocated before each rewritten return instruction.
+    let rewrittenGenericValues = defineGenericValueArguments(specialization, in: result)
+
     // Iterate over the basic blocks of the source function in a way that guarantees we always
     // visit definitions before their uses.
     let cfg = sourceModule[f].cfg()
@@ -172,234 +180,250 @@ extension Module {
     func rewrite(_ i: InstructionID, to b: Block.ID) {
       switch sourceModule[i] {
       case is Access:
-        rewrite(access: i, to: b)
+        rewrittenInstructions[i] = rewrite(access: i, to: b)
       case is AddressToPointer:
-        rewrite(addressToPointer: i, to: b)
+        rewrittenInstructions[i] = rewrite(addressToPointer: i, to: b)
       case is AdvancedByBytes:
-        rewrite(advancedByBytes: i, to: b)
+        rewrittenInstructions[i] = rewrite(advancedByBytes: i, to: b)
+      case is AdvancedByStrides:
+        rewrittenInstructions[i] = rewrite(advancedByStrides: i, to: b)
       case is AllocStack:
-        rewrite(allocStack: i, to: b)
+        rewrittenInstructions[i] = rewrite(allocStack: i, to: b)
       case is Branch:
-        rewrite(branch: i, to: b)
+        rewrittenInstructions[i] = rewrite(branch: i, to: b)
       case is Call:
-        rewrite(call: i, to: b)
+        rewrittenInstructions[i] = rewrite(call: i, to: b)
       case is CallFFI:
-        rewrite(callFFI: i, to: b)
+        rewrittenInstructions[i] = rewrite(callFFI: i, to: b)
       case is CaptureIn:
-        rewrite(captureIn: i, to: b)
+        rewrittenInstructions[i] = rewrite(captureIn: i, to: b)
       case is CloseCapture:
-        rewrite(closeUnion: i, to: b)
+        rewrittenInstructions[i] = rewrite(closeUnion: i, to: b)
       case is CloseUnion:
-        rewrite(closeUnion: i, to: b)
+        rewrittenInstructions[i] = rewrite(closeUnion: i, to: b)
       case is CondBranch:
-        rewrite(condBranch: i, to: b)
+        rewrittenInstructions[i] = rewrite(condBranch: i, to: b)
       case is ConstantString:
-        rewrite(constantString: i, to: b)
+        rewrittenInstructions[i] = rewrite(constantString: i, to: b)
       case is DeallocStack:
-        rewrite(deallocStack: i, to: b)
+        rewrittenInstructions[i] = rewrite(deallocStack: i, to: b)
       case is EndAccess:
-        rewrite(endBorrow: i, to: b)
+        rewrittenInstructions[i] = rewrite(endBorrow: i, to: b)
       case is EndProject:
-        rewrite(endProject: i, to: b)
+        rewrittenInstructions[i] = rewrite(endProject: i, to: b)
+      case is GenericParameter:
+        rewrittenInstructions[i] = rewrite(genericParameter: i, to: b)
       case is GlobalAddr:
-        rewrite(globalAddr: i, to: b)
+        rewrittenInstructions[i] = rewrite(globalAddr: i, to: b)
       case is LLVMInstruction:
-        rewrite(llvm: i, to: b)
+        rewrittenInstructions[i] = rewrite(llvm: i, to: b)
       case is Load:
-        rewrite(load: i, to: b)
+        rewrittenInstructions[i] = rewrite(load: i, to: b)
       case is MarkState:
-        rewrite(markState: i, to: b)
+        rewrittenInstructions[i] = rewrite(markState: i, to: b)
       case is OpenCapture:
-        rewrite(openCapture: i, to: b)
+        rewrittenInstructions[i] = rewrite(openCapture: i, to: b)
       case is OpenUnion:
-        rewrite(openUnion: i, to: b)
+        rewrittenInstructions[i] = rewrite(openUnion: i, to: b)
       case is PointerToAddress:
-        rewrite(pointerToAddress: i, to: b)
+        rewrittenInstructions[i] = rewrite(pointerToAddress: i, to: b)
       case is Project:
-        rewrite(project: i, to: b)
+        rewrittenInstructions[i] = rewrite(project: i, to: b)
       case is ReleaseCaptures:
-        rewrite(releaseCaptures: i, to: b)
+        rewrittenInstructions[i] = rewrite(releaseCaptures: i, to: b)
       case is Return:
-        rewrite(return: i, to: b)
+        rewrittenInstructions[i] = rewrite(return: i, to: b)
       case is Store:
-        rewrite(store: i, to: b)
+        rewrittenInstructions[i] = rewrite(store: i, to: b)
       case is SubfieldView:
-        rewrite(subfieldView: i, to: b)
+        rewrittenInstructions[i] = rewrite(subfieldView: i, to: b)
       case is Switch:
-        rewrite(switch: i, to: b)
+        rewrittenInstructions[i] = rewrite(switch: i, to: b)
       case is UnionDiscriminator:
-        rewrite(unionDiscriminator: i, to: b)
+        rewrittenInstructions[i] = rewrite(unionDiscriminator: i, to: b)
       case is Unreachable:
-        rewrite(unreachable: i, to: b)
+        rewrittenInstructions[i] = rewrite(unreachable: i, to: b)
       case is Yield:
-        rewrite(yield: i, to: b)
+        rewrittenInstructions[i] = rewrite(yield: i, to: b)
       default:
         UNIMPLEMENTED()
       }
-      rewrittenInstructions[i] = InstructionID(b, self[b].instructions.lastAddress!)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
-    func rewrite(access i: InstructionID, to b: Block.ID) {
+    func rewrite(access i: InstructionID, to b: Block.ID) -> InstructionID {
       let s = sourceModule[i] as! Access
       let newInstruction = makeAccess(s.capabilities, from: rewritten(s.source), at: s.site)
-      append(newInstruction, to: b)
+      return append(newInstruction, to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
-    func rewrite(addressToPointer i: InstructionID, to b: Block.ID) {
+    func rewrite(addressToPointer i: InstructionID, to b: Block.ID) -> InstructionID {
       let s = sourceModule[i] as! AddressToPointer
       let newInstruction = makeAddressToPointer(rewritten(s.source), at: s.site)
-      append(newInstruction, to: b)
+      return append(newInstruction, to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
-    func rewrite(advancedByBytes i: InstructionID, to b: Block.ID) {
+    func rewrite(advancedByBytes i: InstructionID, to b: Block.ID) -> InstructionID {
       let s = sourceModule[i] as! AdvancedByBytes
       let u = rewritten(s.base)
       let v = rewritten(s.byteOffset)
-      append(makeAdvancedByBytes(source: u, offset: v, at: s.site), to: b)
+      return append(makeAdvancedByBytes(source: u, offset: v, at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
-    func rewrite(allocStack i: InstructionID, to b: Block.ID) {
+    func rewrite(advancedByStrides i: InstructionID, to b: Block.ID) -> InstructionID {
+      let s = sourceModule[i] as! AdvancedByStrides
+      let u = rewritten(s.base)
+      return append(makeAdvanced(u, byStrides: s.offset, at: s.site), to: b)
+    }
+
+    /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
+    func rewrite(allocStack i: InstructionID, to b: Block.ID) -> InstructionID {
       let s = sourceModule[i] as! AllocStack
       let t = monomorphize(s.allocatedType, for: specialization, in: scopeOfUse)
-      append(makeAllocStack(t, at: s.site), to: b)
+      return append(makeAllocStack(t, at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
-    func rewrite(branch i: InstructionID, to b: Block.ID) {
+    func rewrite(branch i: InstructionID, to b: Block.ID) -> InstructionID {
       let s = sourceModule[i] as! Branch
-      append(makeBranch(to: rewrittenBlocks[s.target]!, at: s.site), to: b)
+      return append(makeBranch(to: rewrittenBlocks[s.target]!, at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
-    func rewrite(call i: InstructionID, to b: Block.ID) {
+    func rewrite(call i: InstructionID, to b: Block.ID) -> InstructionID {
       let s = sourceModule[i] as! Call
       let f = rewritten(s.callee)
       let a = s.arguments.map(rewritten(_:))
       let o = rewritten(s.output)
-      append(makeCall(applying: f, to: a, writingResultTo: o, at: s.site), to: b)
+      return append(makeCall(applying: f, to: a, writingResultTo: o, at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
-    func rewrite(callFFI i: InstructionID, to b: Block.ID) {
+    func rewrite(callFFI i: InstructionID, to b: Block.ID) -> InstructionID {
       let s = sourceModule[i] as! CallFFI
       let t = monomorphize(s.returnType, for: specialization, in: scopeOfUse)
       let o = s.operands.map(rewritten(_:))
-      append(makeCallFFI(returning: t, applying: s.callee, to: o, at: s.site), to: b)
+      return append(makeCallFFI(returning: t, applying: s.callee, to: o, at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
-    func rewrite(captureIn i: InstructionID, to b: Block.ID) {
+    func rewrite(captureIn i: InstructionID, to b: Block.ID) -> InstructionID {
       let s = sourceModule[i] as! CaptureIn
       let newInstruction = makeCapture(rewritten(s.source), in: rewritten(s.target), at: s.site)
-      append(newInstruction, to: b)
+      return append(newInstruction, to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
-    func rewrite(closeCapture i: InstructionID, to b: Block.ID) {
+    func rewrite(closeCapture i: InstructionID, to b: Block.ID) -> InstructionID {
       let s = sourceModule[i] as! CloseCapture
-      append(makeCloseCapture(rewritten(s.start), at: s.site), to: b)
+      return append(makeCloseCapture(rewritten(s.start), at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
-    func rewrite(closeUnion i: InstructionID, to b: Block.ID) {
+    func rewrite(closeUnion i: InstructionID, to b: Block.ID) -> InstructionID {
       let s = sourceModule[i] as! CloseUnion
-      append(makeCloseUnion(rewritten(s.start), at: s.site), to: b)
+      return append(makeCloseUnion(rewritten(s.start), at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
-    func rewrite(condBranch i: InstructionID, to b: Block.ID) {
+    func rewrite(condBranch i: InstructionID, to b: Block.ID) -> InstructionID {
       let s = sourceModule[i] as! CondBranch
       let c = rewritten(s.condition)
 
       let newInstruction = makeCondBranch(
         if: c, then: rewrittenBlocks[s.targetIfTrue]!, else: rewrittenBlocks[s.targetIfFalse]!,
         at: s.site)
-      append(newInstruction, to: b)
+      return append(newInstruction, to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
-    func rewrite(constantString i: InstructionID, to b: Block.ID) {
+    func rewrite(constantString i: InstructionID, to b: Block.ID) -> InstructionID {
       let s = sourceModule[i] as! ConstantString
-      append(makeConstantString(utf8: s.value, at: s.site), to: b)
+      return append(makeConstantString(utf8: s.value, at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
-    func rewrite(deallocStack i: InstructionID, to b: Block.ID) {
+    func rewrite(deallocStack i: InstructionID, to b: Block.ID) -> InstructionID {
       let s = sourceModule[i] as! DeallocStack
       let newInstruction = makeDeallocStack(for: rewritten(s.location), at: s.site)
-      append(newInstruction, to: b)
+      return append(newInstruction, to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
-    func rewrite(endBorrow i: InstructionID, to b: Block.ID) {
+    func rewrite(endBorrow i: InstructionID, to b: Block.ID) -> InstructionID {
       let s = sourceModule[i] as! EndAccess
-      append(makeEndAccess(rewritten(s.start), at: s.site), to: b)
+      return append(makeEndAccess(rewritten(s.start), at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
-    func rewrite(endProject i: InstructionID, to b: Block.ID) {
+    func rewrite(endProject i: InstructionID, to b: Block.ID) -> InstructionID {
       let s = sourceModule[i] as! EndProject
-      append(makeEndProject(rewritten(s.start), at: s.site), to: b)
+      return append(makeEndProject(rewritten(s.start), at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
-    func rewrite(globalAddr i: InstructionID, to b: Block.ID) {
+    func rewrite(genericParameter i: InstructionID, to b: Block.ID) -> InstructionID {
+      let s = sourceModule[i] as! GenericParameter
+      return rewrittenGenericValues[s.parameter]!
+    }
+
+    /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
+    func rewrite(globalAddr i: InstructionID, to b: Block.ID) -> InstructionID {
       let s = sourceModule[i] as! GlobalAddr
-      append(makeGlobalAddr(of: s.binding, at: s.site), to: b)
+      return append(makeGlobalAddr(of: s.binding, at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
-    func rewrite(llvm i: InstructionID, to b: Block.ID) {
+    func rewrite(llvm i: InstructionID, to b: Block.ID) -> InstructionID {
       let s = sourceModule[i] as! LLVMInstruction
       let o = s.operands.map(rewritten(_:))
-      append(makeLLVM(applying: s.instruction, to: o, at: s.site), to: b)
+      return append(makeLLVM(applying: s.instruction, to: o, at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
-    func rewrite(markState i: InstructionID, to b: Block.ID) {
+    func rewrite(markState i: InstructionID, to b: Block.ID) -> InstructionID {
       let s = sourceModule[i] as! MarkState
       let o = rewritten(s.storage)
-      append(makeMarkState(o, initialized: s.initialized, at: s.site), to: b)
+      return append(makeMarkState(o, initialized: s.initialized, at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
-    func rewrite(load i: InstructionID, to b: Block.ID) {
+    func rewrite(load i: InstructionID, to b: Block.ID) -> InstructionID {
       let s = sourceModule[i] as! Load
-      append(makeLoad(rewritten(s.source), at: s.site), to: b)
+      return append(makeLoad(rewritten(s.source), at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
-    func rewrite(openCapture i: InstructionID, to b: Block.ID) {
+    func rewrite(openCapture i: InstructionID, to b: Block.ID) -> InstructionID {
       let s = sourceModule[i] as! OpenCapture
       let newInstruction = makeOpenCapture(rewritten(s.source), at: s.site)
-      append(newInstruction, to: b)
+      return append(newInstruction, to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
-    func rewrite(openUnion i: InstructionID, to b: Block.ID) {
+    func rewrite(openUnion i: InstructionID, to b: Block.ID) -> InstructionID {
       let s = sourceModule[i] as! OpenUnion
       let t = monomorphize(s.payloadType, for: specialization, in: scopeOfUse)
       let c = rewritten(s.container)
       let newInstruction = makeOpenUnion(
         c, as: t, forInitialization: s.isUsedForInitialization, at: s.site)
-      append(newInstruction, to: b)
+      return append(newInstruction, to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
-    func rewrite(pointerToAddress i: InstructionID, to b: Block.ID) {
+    func rewrite(pointerToAddress i: InstructionID, to b: Block.ID) -> InstructionID {
       let s = sourceModule[i] as! PointerToAddress
       let t = monomorphize(^s.target, for: specialization, in: scopeOfUse)
       let newInstruction = makePointerToAddress(
         rewritten(s.source), to: RemoteType(t)!, at: s.site)
-      append(newInstruction, to: b)
+      return append(newInstruction, to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
-    func rewrite(project i: InstructionID, to b: Block.ID) {
+    func rewrite(project i: InstructionID, to b: Block.ID) -> InstructionID {
       let s = sourceModule[i] as! Project
 
       let newCallee: Function.ID
@@ -414,65 +438,69 @@ extension Module {
       let a = s.operands.map(rewritten(_:))
       let newInstruction = makeProject(
         projection, applying: newCallee, specializedBy: [:], to: a, at: s.site)
-      append(newInstruction, to: b)
+      return append(newInstruction, to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
-    func rewrite(releaseCaptures i: InstructionID, to b: Block.ID) {
+    func rewrite(releaseCaptures i: InstructionID, to b: Block.ID) -> InstructionID {
       let s = sourceModule[i] as! ReleaseCaptures
       let newInstruction = makeReleaseCapture(rewritten(s.container), at: s.site)
-      append(newInstruction, to: b)
+      return append(newInstruction, to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
-    func rewrite(return i: InstructionID, to b: Block.ID) {
+    func rewrite(return i: InstructionID, to b: Block.ID) -> InstructionID {
       let s = sourceModule[i] as! Return
-      append(makeReturn(at: s.site), to: b)
+
+      for i in rewrittenGenericValues.values.reversed() {
+        append(makeDeallocStack(for: .register(i), at: s.site), to: b)
+      }
+      return append(makeReturn(at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
-    func rewrite(store i: InstructionID, to b: Block.ID) {
+    func rewrite(store i: InstructionID, to b: Block.ID) -> InstructionID {
       let s = sourceModule[i] as! Store
       let v = rewritten(s.object)
       let u = rewritten(s.target)
-      append(makeStore(v, at: u, at: s.site), to: b)
+      return append(makeStore(v, at: u, at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
-    func rewrite(subfieldView i: InstructionID, to b: Block.ID) {
+    func rewrite(subfieldView i: InstructionID, to b: Block.ID) -> InstructionID {
       let s = sourceModule[i] as! SubfieldView
       let a = rewritten(s.recordAddress)
       let newInstruction = makeSubfieldView(of: a, subfield: s.subfield, at: s.site)
-      append(newInstruction, to: b)
+      return append(newInstruction, to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
-    func rewrite(switch i: InstructionID, to b: Block.ID) {
+    func rewrite(switch i: InstructionID, to b: Block.ID) -> InstructionID {
       let s = sourceModule[i] as! Switch
       let n = rewritten(s.index)
       let newInstruction = makeSwitch(
         on: n, toOneOf: s.successors.map({ rewrittenBlocks[$0]! }), at: s.site)
-      append(newInstruction, to: b)
+      return append(newInstruction, to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
-    func rewrite(unionDiscriminator i: InstructionID, to b: Block.ID) {
+    func rewrite(unionDiscriminator i: InstructionID, to b: Block.ID) -> InstructionID {
       let s = sourceModule[i] as! UnionDiscriminator
       let newInstruction = makeUnionDiscriminator(rewritten(s.container), at: s.site)
-      append(newInstruction, to: b)
+      return append(newInstruction, to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
-    func rewrite(unreachable i: InstructionID, to b: Block.ID) {
+    func rewrite(unreachable i: InstructionID, to b: Block.ID) -> InstructionID {
       let s = sourceModule[i] as! Unreachable
-      append(makeUnreachable(at: s.site), to: b)
+      return append(makeUnreachable(at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
-    func rewrite(yield i: InstructionID, to b: Block.ID) {
+    func rewrite(yield i: InstructionID, to b: Block.ID) -> InstructionID {
       let s = sourceModule[i] as! Yield
       let newInstruction = makeYield(s.capability, rewritten(s.projection), at: s.site)
-      append(newInstruction, to: b)
+      return append(newInstruction, to: b)
     }
 
     /// Returns a monomorphized copy of `c` monomorphized for use in `scopeOfuse`.
@@ -530,7 +558,7 @@ extension Module {
     requirement: AnyDeclID, of trait: TraitType, in ir: IR.Program,
     for specialization: GenericArguments, in scopeOfUse: AnyScopeID
   ) -> Function.ID {
-    let model = specialization[program[trait.decl].receiver]! as! AnyType
+    let model = specialization[program[trait.decl].receiver]!.asType!
     let c = program.conformance(of: model, to: trait, exposedTo: scopeOfUse)!
 
     let lowered = demandDeclaration(lowering: c.implementations[requirement]!)!
@@ -570,6 +598,40 @@ extension Module {
 
     addFunction(entity, for: result)
     return result
+  }
+
+  /// Allocates and initializes storage for each generic value argument in `specialization` in the
+  /// entry of `monomorphized`, returning a map from a generic value parameter to its corresponding
+  /// allocation that preserves the order of `specialization`.
+  private mutating func defineGenericValueArguments(
+    _ specialization: GenericArguments,
+    in monomorphized: Function.ID
+  ) -> OrderedDictionary<GenericParameterDecl.ID, InstructionID> {
+    let insertionSite = SourceRange.empty(at: self[monomorphized].site.first())
+    let entry = Block.ID(monomorphized, self[monomorphized].entry!)
+
+    var genericValues = OrderedDictionary<GenericParameterDecl.ID, InstructionID>()
+
+    for (k, v) in specialization {
+      if v.asType != nil { continue }
+
+      guard let w = v.asCompilerKnown(Int.self) else {
+        UNIMPLEMENTED("arbitrary compile-time values")
+      }
+
+      let s = append(makeAllocStack(^program.ast.coreType("Int")!, at: insertionSite), to: entry)
+
+      var log = DiagnosticSet()
+      Emitter.withInstance(insertingIn: &self, reportingDiagnosticsTo: &log) { (e) in
+        e.insertionPoint = .end(of: entry)
+        e.emitStore(int: w, to: .register(s), at: insertionSite)
+      }
+      assert(log.isEmpty)
+
+      genericValues[k] = s
+    }
+
+    return genericValues
   }
 
 }

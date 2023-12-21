@@ -219,6 +219,12 @@ extension Diagnostic {
   }
 
   static func error(
+    invalidBufferTypeArgumentCount found: Int, at site: SourceRange
+  ) -> Diagnostic {
+    .error("buffer type requires exactly one generic argument (found \(found))", at: site)
+  }
+
+  static func error(
     noViableCandidateToResolve entity: SourceRepresentable<Name>, notes: [Diagnostic]
   ) -> Diagnostic {
     .error("no viable candidate to resolve '\(entity.value)'", at: entity.site, notes: notes)

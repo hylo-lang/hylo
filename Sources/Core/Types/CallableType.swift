@@ -35,7 +35,7 @@ private func accepts<S: Collection>(
     return rhs.isEmpty
   } else if lhs.first!.label == rhs.first {
     return accepts(lhs.dropFirst(), rhs.dropFirst())
-  } else if lhs.first!.hasDefault {
+  } else if lhs.first!.isElidible {
     return accepts(lhs.dropFirst(), rhs)
   } else {
     return false

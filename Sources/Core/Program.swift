@@ -31,6 +31,11 @@ extension Program {
     return (s.kind == TranslationUnit.self) && isPublic(d) && (n == "main")
   }
 
+  /// `true` iff the `Builtin` module is visible in `s`.
+  public func builtinIsVisible(in s: AnyScopeID) -> Bool {
+    ast[module(containing: s)].canAccessBuiltins
+  }
+
   /// Returns whether `child` is contained in `ancestor`.
   ///
   /// Lexical scope containment is transitive and reflexive; this method returns `true` if:
@@ -326,6 +331,17 @@ extension Program {
     case SubscriptImpl.self:
       return isRequirement(SubscriptDecl.ID(nodeToScope[d]!)!)
     default:
+      return false
+    }
+  }
+
+  /// Returns `true` iff `d` declares a value usable as an implicit parameter.
+  public func isImplicitDefinition(_ d: AnyDeclID) -> Bool {
+    if let i = VarDecl.ID(d) {
+      return ast[varToBinding[i]]!.isGiven
+    } else if let i = ParameterDecl.ID(d) {
+      return ast[i].isImplicit
+    } else {
       return false
     }
   }

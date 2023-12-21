@@ -1,0 +1,10 @@
+//- compileAndRun expecting: success
+
+public fun foo(x?: let Int) -> Int { bar() }
+
+public fun bar(x?: let Int) -> Int { x.copy() }
+
+public fun main() {
+  @given var x = 42
+  precondition(foo() == 42)
+}

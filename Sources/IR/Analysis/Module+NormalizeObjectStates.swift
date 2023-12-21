@@ -28,6 +28,8 @@ extension Module {
           pc = interpret(addressToPointer: user, in: &context)
         case is AdvancedByBytes:
           pc = interpret(advancedByBytes: user, in: &context)
+        case is AdvancedByStrides:
+          pc = interpret(advancedByStrides: user, in: &context)
         case is AllocStack:
           pc = interpret(allocStack: user, in: &context)
         case is Branch:
@@ -54,6 +56,8 @@ extension Module {
           pc = interpret(endProject: user, in: &context)
         case is EndProjectWitness:
           pc = interpret(endProjectWitness: user, in: &context)
+        case is GenericParameter:
+          pc = interpret(genericParameter: user, in: &context)
         case is GlobalAddr:
           pc = interpret(globalAddr: user, in: &context)
         case is LLVMInstruction:
@@ -143,16 +147,10 @@ extension Module {
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(allocStack i: InstructionID, in context: inout Context) -> PC? {
-      // Create an abstract location denoting the newly allocated memory.
+      // A stack leak may occur if this instruction is in a loop.
       let l = AbstractLocation.root(.register(i))
       precondition(context.memory[l] == nil, "stack leak")
-
-      // Update the context.
-      let s = self[i] as! AllocStack
-      let t = AbstractTypeLayout(of: s.allocatedType, definedIn: program)
-
-      context.memory[l] = .init(layout: t, value: .full(.uninitialized))
-      context.locals[.register(i)] = .locations([l])
+      context.declareStorage(assignedTo: i, in: self, initially: .uninitialized)
       return successor(of: i)
     }
 
@@ -162,6 +160,23 @@ extension Module {
       consume(s.base, with: i, at: s.site, in: &context)
       consume(s.byteOffset, with: i, at: s.site, in: &context)
       initializeRegister(createdBy: i, in: &context)
+      return successor(of: i)
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(advancedByStrides i: InstructionID, in context: inout Context) -> PC? {
+      let s = self[i] as! AdvancedByStrides
+
+      // Operand must a location.
+      let locations: [AbstractLocation]
+      if case .constant = s.base {
+        // Operand is a constant.
+        UNIMPLEMENTED()
+      } else {
+        locations = context.locals[s.base]!.unwrapLocations()!.map({ $0.appending([s.offset]) })
+      }
+
+      context.locals[.register(i)] = .locations(Set(locations))
       return successor(of: i)
     }
 
@@ -319,13 +334,14 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(genericParameter i: InstructionID, in context: inout Context) -> PC? {
+      context.declareStorage(assignedTo: i, in: self, initially: .initialized)
+      return successor(of: i)
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(globalAddr i: InstructionID, in context: inout Context) -> PC? {
-      let l = AbstractLocation.root(.register(i))
-      context.memory[l] = .init(
-        layout: AbstractTypeLayout(
-          of: (self[i] as! GlobalAddr).valueType, definedIn: program),
-        value: .full(.initialized))
-      context.locals[.register(i)] = .locations([l])
+      context.declareStorage(assignedTo: i, in: self, initially: .initialized)
       return successor(of: i)
     }
 

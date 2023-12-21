@@ -88,7 +88,6 @@ let package = Package(
       dependencies: [
         "Utils",
         "Core",
-        "StandardLibrary",
         .product(name: "Collections", package: "swift-collections"),
         .product(name: "Durian", package: "Durian"),
         .product(name: "BigInt", package: "BigInt"),
@@ -135,8 +134,9 @@ let package = Package(
 
     .target(
       name: "StandardLibrary",
+      dependencies: ["FrontEnd", "Utils"],
       path: "StandardLibrary",
-      resources: [.copy("Sources")],
+      exclude: ["Sources"],
       swiftSettings: allTargetsSwiftSettings),
 
     .plugin(
@@ -171,18 +171,21 @@ let package = Package(
     .testTarget(
       name: "HyloTests",
       dependencies: ["Core", "FrontEnd", "IR", "TestUtils", "StandardLibrary"],
+      exclude: ["TestCases"],
       swiftSettings: allTargetsSwiftSettings,
       plugins: ["TestGeneratorPlugin"]),
 
     .testTarget(
       name: "EndToEndTests",
       dependencies: ["Driver", "TestUtils"],
+      exclude: ["TestCases"],
       swiftSettings: allTargetsSwiftSettings,
       plugins: ["TestGeneratorPlugin"]),
 
     .testTarget(
       name: "LibraryTests",
       dependencies: ["Driver", "TestUtils"],
+      exclude: ["TestCases"],
       swiftSettings: allTargetsSwiftSettings,
       plugins: ["TestGeneratorPlugin"]),
   ]

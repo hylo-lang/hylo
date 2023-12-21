@@ -5,7 +5,7 @@ final class LazyTests: XCTestCase {
 
   func testComputedOnceNoCopy() {
     var counter = 0
-    let l = Lazy { (counter, counter += 1).0 }
+    let l = Lazy { readAndIncrement(&counter) }
 
     XCTAssertEqual(l[], 0)
     XCTAssertEqual(counter, 1)
@@ -15,7 +15,7 @@ final class LazyTests: XCTestCase {
 
   func testComputedOnceWithCopy() {
     var counter = 0
-    let l = Lazy { (counter, counter += 1).0 }
+    let l = Lazy { readAndIncrement(&counter) }
     let l1 = l
     XCTAssertEqual(l[], 0)
     XCTAssertEqual(counter, 1)
@@ -27,7 +27,7 @@ final class LazyTests: XCTestCase {
 
   func testComputedOnceWithPostCallCopy() {
     var counter = 0
-    let l = Lazy { (counter, counter += 1).0 }
+    let l = Lazy { readAndIncrement(&counter) }
     XCTAssertEqual(l[], 0)
     XCTAssertEqual(counter, 1)
     let l1 = l
@@ -43,7 +43,7 @@ final class LazyThrowingTests: XCTestCase {
 
   func testComputedOnceNoCopyNoThrow() throws {
     var counter = 0
-    let l = LazyThrowing { (counter, counter += 1).0 }
+    let l = LazyThrowing { readAndIncrement(&counter) }
 
     XCTAssertEqual(try l[], 0)
     XCTAssertEqual(counter, 1)
@@ -53,7 +53,7 @@ final class LazyThrowingTests: XCTestCase {
 
   func testComputedOnceWithCopyNoThrow() throws {
     var counter = 0
-    let l = LazyThrowing { (counter, counter += 1).0 }
+    let l = LazyThrowing { readAndIncrement(&counter) }
     let l1 = l
     XCTAssertEqual(try l[], 0)
     XCTAssertEqual(counter, 1)
@@ -65,7 +65,7 @@ final class LazyThrowingTests: XCTestCase {
 
   func testComputedOnceWithPostCallCopyNoThrow() throws {
     var counter = 0
-    let l = LazyThrowing { (counter, counter += 1).0 }
+    let l = LazyThrowing { readAndIncrement(&counter) }
     XCTAssertEqual(try l[], 0)
     XCTAssertEqual(counter, 1)
     let l1 = l
@@ -151,4 +151,10 @@ final class LazyThrowingTests: XCTestCase {
     XCTAssertEqual(counter, 1)
   }
 
+}
+
+/// Returns the current value of `counter` and increments it.
+private func readAndIncrement(_ counter: inout Int) -> Int {
+  defer { counter += 1 }
+  return counter
 }

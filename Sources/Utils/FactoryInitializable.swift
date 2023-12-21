@@ -1,15 +1,19 @@
 /// Classes whose initializers actually create derived classes
 public protocol FactoryInitializable {
+
   /// The type of the least-derived class declared to be FactoryInitializable.
   ///
   /// - Warning: Do not define this in your FactoryInitializable type!
   associatedtype FactoryBase: AnyObject, FactoryInitializable = Self
+
   // This associatedtype is a trick that captures `Self` at the point where
   // `FactoryInitializable` enters a class hierarchy; in other contexts, `Self`
   // refers to the most-derived type.
+
 }
 
 extension FactoryInitializable where Self: AnyObject {
+
   /// Optimally “creates” an instance that is just another reference to `me`.
   ///
   /// - Requires: `me is Self`.
@@ -32,4 +36,5 @@ extension FactoryInitializable where Self: AnyObject {
   public init(aliasing me: FactoryBase) {
     self = me as! Self
   }
+
 }

@@ -27,6 +27,8 @@ struct Demangler {
         demangled = take(AssociatedValueDecl.self, qualifiedBy: qualification, from: &stream)
       case .boundGenericType:
         demangled = takeBoundGenericType(from: &stream)
+      case .bufferType:
+        demangled = takeBufferType(from: &stream)
       case .builtinIntegerType:
         demangled = takeBuiltinIntegerType(from: &stream)
       case .builtinFloatType:
@@ -379,6 +381,15 @@ struct Demangler {
     }
 
     return .type(.boundGeneric(base: b, arguments: parameterization))
+  }
+
+  /// Demangles a buffer type from `stream`.
+  private mutating func takeBufferType(from stream: inout Substring) -> DemangledSymbol? {
+    guard
+      let element = demangleType(from: &stream),
+      let count = takeInteger(from: &stream)  // TODO: arbitrary compile-time values
+    else { return nil }
+    return .type(.buffer(element: element, count: Int(count.rawValue)))
   }
 
   /// Demangles a built-in integer type from `stream`.

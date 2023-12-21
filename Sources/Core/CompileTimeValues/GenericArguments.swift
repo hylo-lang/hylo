@@ -2,13 +2,13 @@ import OrderedCollections
 import Utils
 
 /// A map from generic parameter to its argument.
-public struct GenericArguments {
+public struct GenericArguments: Hashable {
 
   /// A key in this map.
   public typealias Key = GenericParameterDecl.ID
 
   /// A value in this map.
-  public typealias Value = any CompileTimeValue
+  public typealias Value = CompileTimeValue
 
   /// The type of this map's contents.
   fileprivate typealias Contents = OrderedDictionary<GenericParameterDecl.ID, Value>
@@ -38,7 +38,7 @@ public struct GenericArguments {
   ) where S.Element == GenericParameterDecl.ID {
     self.contents = .init(
       uniqueKeysWithValues: parameters.map { (p) in
-        (key: p, value: ^GenericTypeParameterType(p, ast: ast))
+        (key: p, value: .type(^GenericTypeParameterType(p, ast: ast)))
       })
   }
 
@@ -79,7 +79,7 @@ public struct GenericArguments {
   /// Returns `self` merged with `other`, asserting that duplicate keys have the same value.
   public func merging(_ other: Self) -> Self {
     merging(other) { (a, b) in
-      assert(a.equals(b))
+      assert(a == b)
       return a
     }
   }
@@ -90,26 +90,6 @@ public struct GenericArguments {
   public mutating func append(_ suffix: Self) {
     // Note: `merging` preserves order.
     contents.merge(suffix.contents, uniquingKeysWith: { (_, _) in unreachable() })
-  }
-
-}
-
-extension GenericArguments: Equatable {
-
-  public static func == (l: Self, r: Self) -> Bool {
-    l.contents.elementsEqual(r.contents) { (a, b) in
-      (a.key == b.key) && a.value.equals(b.value)
-    }
-  }
-}
-
-extension GenericArguments: Hashable {
-
-  public func hash(into hasher: inout Hasher) {
-    for (k, v) in contents {
-      k.hash(into: &hasher)
-      v.hash(into: &hasher)
-    }
   }
 
 }
@@ -146,21 +126,6 @@ extension GenericArguments: CustomStringConvertible {
 
   public var description: String {
     String(describing: contents)
-  }
-
-}
-
-/// A type serving as a witness for `Constraint`s conformance to `Hashable`.
-private struct CompileTimeValueHashableWitness: HashableWitness {
-
-  typealias Element = any CompileTimeValue
-
-  static func hash(_ constraint: Element, into hasher: inout Hasher) {
-    constraint.hash(into: &hasher)
-  }
-
-  static func isEqual(_ left: Element, to right: Element) -> Bool {
-    left.equals(right)
   }
 
 }

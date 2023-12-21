@@ -21,6 +21,8 @@ extension Module {
         switch blockInstructions[i] {
         case is Access:
           interpret(access: user, in: &context)
+        case is AdvancedByStrides:
+          interpret(advancedByStrides: user, in: &context)
         case is AllocStack:
           interpret(allocStack: user, in: &context)
         case is CloseUnion:
@@ -33,6 +35,8 @@ extension Module {
           interpret(endProject: user, in: &context)
         case is EndProject:
           interpret(endProjectWitness: user, in: &context)
+        case is GenericParameter:
+          interpret(genericParameter: user, in: &context)
         case is GlobalAddr:
           interpret(globalAddr: user, in: &context)
         case is OpenCapture:
@@ -115,15 +119,26 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(allocStack i: InstructionID, in context: inout Context) {
-      let s = self[i] as! AllocStack
-      let l = AbstractLocation.root(.register(i))
-      precondition(context.memory[l] == nil, "stack leak")
+    func interpret(advancedByStrides i: InstructionID, in context: inout Context) {
+      let s = self[i] as! AdvancedByStrides
+      if case .constant = s.base {
+        // Operand is a constant.
+        UNIMPLEMENTED()
+      }
 
-      context.memory[l] = .init(
-        layout: AbstractTypeLayout(of: s.allocatedType, definedIn: program),
-        value: .full(.unique))
-      context.locals[.register(i)] = .locations([l])
+      // Skip the instruction if an error occurred upstream.
+      guard let base = context.locals[s.base] else {
+        assert(diagnostics.containsError)
+        return
+      }
+
+      let newLocations = base.unwrapLocations()!.map({ $0.appending([s.offset]) })
+      context.locals[.register(i)] = .locations(Set(newLocations))
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(allocStack i: InstructionID, in context: inout Context) {
+      context.declareStorage(assignedTo: i, in: self, initially: .unique)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
@@ -198,14 +213,13 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(globalAddr i: InstructionID, in context: inout Context) {
-      let s = self[i] as! GlobalAddr
-      let l = AbstractLocation.root(.register(i))
+    func interpret(genericParameter i: InstructionID, in context: inout Context) {
+      context.declareStorage(assignedTo: i, in: self, initially: .unique)
+    }
 
-      context.memory[l] = .init(
-        layout: AbstractTypeLayout(of: s.valueType, definedIn: program),
-        value: .full(.unique))
-      context.locals[.register(i)] = .locations([l])
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(globalAddr i: InstructionID, in context: inout Context) {
+      context.declareStorage(assignedTo: i, in: self, initially: .unique)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.

@@ -1301,6 +1301,8 @@ struct Emitter {
     switch e.kind {
     case BooleanLiteralExpr.self:
       emitStore(BooleanLiteralExpr.ID(e)!, to: storage)
+    case BufferLiteralExpr.self:
+      emitStore(BufferLiteralExpr.ID(e)!, to: storage)
     case CastExpr.self:
       emitStore(CastExpr.ID(e)!, to: storage)
     case ConditionalExpr.self:
@@ -1337,6 +1339,20 @@ struct Emitter {
     let x0 = emitSubfieldView(storage, at: [0], at: ast[e].site)
     let x1 = insert(module.makeAccess(.set, from: x0, at: ast[e].site))!
     insert(module.makeStore(.i1(ast[e].value), at: x1, at: ast[e].site))
+  }
+
+  /// Inserts the IR for storing the value of `e` to `storage`.
+  private mutating func emitStore(_ e: BufferLiteralExpr.ID, to storage: Operand) {
+    if program[e].elements.isEmpty {
+      insert(module.makeMarkState(storage, initialized: true, at: program[e].site))
+      return
+    }
+
+    // The elements of a buffer literal have the same type.
+    for (i, v) in program[e].elements.enumerated() {
+      let x0 = insert(module.makeAdvanced(storage, byStrides: i, at: program[v].site))!
+      emitStore(value: v, to: x0)
+    }
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
@@ -1454,9 +1470,9 @@ struct Emitter {
     }
 
     // Explicit arguments are evaluated first, from left to right.
-    let explicitArguments = emit(
-      arguments: ast[e].arguments, to: ast[e].callee,
-      synthesizingDefaultArgumentsAt: .empty(atEndOf: ast[e].site))
+    let explicitArguments = emitArguments(
+      to: ast[e].callee, in: CallID(e),
+      usingExplicit: ast[e].arguments, synthesizingDefaultAt: .empty(atEndOf: ast[e].site))
 
     // Callee and captures are evaluated next.
     let (callee, captures) = emit(functionCallee: ast[e].callee)
@@ -1689,10 +1705,11 @@ struct Emitter {
   /// Writes an instance of `Hylo.Int` with value `v` to `storage`.
   ///
   /// - Requires: `storage` is the address of uninitialized memory of type `Hylo.Int`.
-  private mutating func emitStore(int v: Int, to storage: Operand, at site: SourceRange) {
+  mutating func emitStore(int v: Int, to storage: Operand, at site: SourceRange) {
     let x0 = emitSubfieldView(storage, at: [0], at: site)
     let x1 = insert(module.makeAccess(.set, from: x0, at: site))!
     insert(module.makeStore(.word(v), at: x1, at: site))
+    insert(module.makeEndAccess(x1, at: site))
   }
 
   /// Writes an instance of `Hylo.String` with value `v` to `storage`.
@@ -1769,9 +1786,9 @@ struct Emitter {
     }
 
     // Arguments are evaluated first, from left to right.
-    let arguments = emit(
-      arguments: ast[call].arguments, to: ast[call].callee,
-      synthesizingDefaultArgumentsAt: .empty(atEndOf: ast[call].site))
+    let arguments = emitArguments(
+      to: ast[call].callee, in: CallID(call),
+      usingExplicit: ast[call].arguments, synthesizingDefaultAt: .empty(atEndOf: ast[call].site))
 
     // Receiver is captured next.
     let receiver = insert(module.makeAccess(.set, from: s, at: ast[call].site))!
@@ -1815,36 +1832,48 @@ struct Emitter {
     }
   }
 
-  /// Inserts the IR for `arguments`, which is an argument passed to a function of type `callee`.
+  /// Inserts the IR preparing the run-time arguments passed to `callee` in `call`, lowering
+  /// `arguments` and synthesizing default values at `syntheticSite`.
   ///
-  /// - Parameters:
-  ///   - syntheticSite: The site at which default pragma arguments are anchored.
-  private mutating func emit(
-    arguments: [LabeledArgument], to callee: AnyExprID,
-    synthesizingDefaultArgumentsAt syntheticSite: SourceRange
+  /// Information about argument resolution is read from `program.callOperands`. Arguments passed
+  /// explicitly have a corresponding expression in `arguments`. If default arguments are used,
+  /// `callee` is a name expression referring to a callable declaration.
+  private mutating func emitArguments(
+    to callee: AnyExprID, in call: CallID,
+    usingExplicit arguments: [LabeledArgument],
+    synthesizingDefaultAt syntheticSite: SourceRange
   ) -> [Operand] {
-    let calleeType = canonical(program[callee].type).base as! CallableType
-    let calleeDecl = NameExpr.ID(callee).flatMap({ program[$0].referredDecl.decl! })
-    let defaults = calleeDecl.flatMap(ast.defaultArguments(of:))
+    let parameters = (canonical(program[callee].type).base as! CallableType).inputs
+    let inputs = program.callOperands[call]!
+    assert(parameters.count == inputs.count)
 
-    var result: [Operand] = []
-    var i = 0
-    for (j, p) in calleeType.inputs.enumerated() {
-      let a: AnyExprID
-      if (i < arguments.count) && (arguments[i].label?.value == p.label) {
-        a = arguments[i].value
-        i += 1
-      } else if let e = defaults?[j] {
-        a = e
-      } else {
-        unreachable()
-      }
+    // Nothing to do if the callee has no parameter.
+    if parameters.isEmpty { return [] }
 
-      let v = emit(argument: a, to: ParameterType(p.type)!, at: syntheticSite)
-      result.append(v)
+    // Parameter declarations are accessible iff `callee` is a direct reference to a callable.
+    let parameterDecls = NameExpr.ID(callee).flatMap { (n) in
+      program.ast.runtimeParameters(of: program[n].referredDecl.decl!)
     }
 
-    assert(i == arguments.count)
+    var result: [Operand] = []
+    for i in inputs.indices {
+      let p = ParameterType(parameters[i].type)!
+
+      switch inputs[i] {
+      case .explicit(let n):
+        let a = arguments[n].value
+        result.append(emit(argument: a, to: p, at: syntheticSite))
+
+      case .defaulted:
+        let a = program[parameterDecls![i]].defaultValue!
+        result.append(emit(argument: a, to: p, at: syntheticSite))
+
+      case .implicit(let d):
+        let s = emitLValue(directReferenceTo: d, at: syntheticSite)
+        result.append(insert(module.makeAccess(p.access, from: s, at: syntheticSite))!)
+      }
+    }
+
     return result
   }
 
@@ -2436,9 +2465,9 @@ struct Emitter {
   /// Inserts the IR for lvalue `e`.
   private mutating func emitLValue(_ e: SubscriptCallExpr.ID) -> Operand {
     // Explicit arguments are evaluated first, from left to right.
-    let explicitArguments = emit(
-      arguments: ast[e].arguments, to: ast[e].callee,
-      synthesizingDefaultArgumentsAt: .empty(atEndOf: ast[e].site))
+    let explicitArguments = emitArguments(
+      to: ast[e].callee, in: CallID(e),
+      usingExplicit: ast[e].arguments, synthesizingDefaultAt: .empty(atEndOf: ast[e].site))
 
     // Callee and captures are evaluated next.
     let (callee, captures) = emit(subscriptCallee: ast[e].callee)
@@ -2497,13 +2526,6 @@ struct Emitter {
       return s
     }
 
-    // Handle global bindings.
-    if d.kind == VarDecl.self {
-      let (root, subfied) = program.subfieldRelativeToRoot(of: .init(d)!)
-      let s = insert(module.makeGlobalAddr(of: root, at: site))!
-      return emitSubfieldView(s, at: subfied, at: site)
-    }
-
     // Handle references to type declarations.
     if let t = MetatypeType(program[d].type) {
       let s = emitAllocStack(for: ^t, at: site)
@@ -2511,8 +2533,20 @@ struct Emitter {
       return s
     }
 
-    // Handle references to global functions.
-    UNIMPLEMENTED()
+    assert(program.isGlobal(d), "unhandled local declaration")
+
+    switch d.kind {
+    case GenericParameterDecl.self:
+      return insert(module.makeGenericParameter(passedTo: .init(d)!, at: site))!
+
+    case VarDecl.self:
+      let (root, subfied) = program.subfieldRelativeToRoot(of: .init(d)!)
+      let s = insert(module.makeGlobalAddr(of: root, at: site))!
+      return emitSubfieldView(s, at: subfied, at: site)
+
+    default:
+      unexpected(d, in: program.ast)
+    }
   }
 
   /// Inserts IR to return the address of the member declared by `d`, bound to `receiver`, and
@@ -2727,10 +2761,10 @@ struct Emitter {
 
     if program.isTriviallyDeinitializable(t, in: insertionScope!) {
       insert(module.makeMarkState(storage, initialized: false, at: site))
-    } else if t.hasRecordLayout {
-      emitDeinitRecordParts(of: storage, at: site)
     } else if t.base is UnionType {
       emitDeinitUnionPayload(of: storage, at: site)
+    } else if t.hasRecordLayout {
+      emitDeinitRecordParts(of: storage, at: site)
     } else {
       report(.error(t, doesNotConformTo: ast.core.deinitializable.type, at: site))
     }
@@ -2760,7 +2794,7 @@ struct Emitter {
     }
   }
 
-  /// If `storage`, which stores a union. is deinitializable in `self.insertionScope`, inserts
+  /// If `storage`, which stores a union, is deinitializable in `self.insertionScope`, inserts
   /// the IR for deinitializing it; reports a diagnostic for each part that isn't
   /// deinitializable otherwise.
   ///

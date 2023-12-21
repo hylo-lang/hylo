@@ -20,7 +20,7 @@ public enum Operand {
 
   /// Returns a built-in integer constant with the size of a machine word.
   public static func word(_ v: Int) -> Operand {
-    .constant(IntegerConstant(v, bitWidth: 64))
+    .constant(WordConstant(v))
   }
 
   /// The ID of the function in which the operand is defined, if any.

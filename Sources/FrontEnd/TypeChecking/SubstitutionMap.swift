@@ -130,10 +130,10 @@ struct SubstitutionMap {
   /// Returns `v` with its type variables replaced by their their corresponding value in `self`,
   /// applying `substitutionPolicy` to handle free variables.
   private func reify(
-    value v: any CompileTimeValue, withVariables substitutionPolicy: SubstitutionPolicy
-  ) -> any CompileTimeValue {
-    if let t = v as? AnyType {
-      return reify(t, withVariables: substitutionPolicy)
+    value v: CompileTimeValue, withVariables substitutionPolicy: SubstitutionPolicy
+  ) -> CompileTimeValue {
+    if case .type(let t) = v {
+      return .type(reify(t, withVariables: substitutionPolicy))
     } else {
       return v
     }

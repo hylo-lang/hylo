@@ -109,7 +109,7 @@ public enum Parser {
     guard let startIndex = state.peek()?.site.start else { return nil }
 
     // Parse attributes.
-    let attributes = try attributeList.parse(&state) ?? []
+    let attributes = try parseAttributeList(in: &state) ?? []
     var isPrologueEmpty = attributes.isEmpty
 
     // Parse modifiers.
@@ -416,15 +416,8 @@ public enum Parser {
     withPrologue prologue: DeclPrologue,
     in state: inout ParserState
   ) throws -> BindingDecl.ID? {
-    // Parse the parts of the declaration.
     guard let pattern = try parseBindingPattern(in: &state) else { return nil }
-
-    let initializer: AnyExprID?
-    if state.take(.assign) != nil {
-      initializer = try state.expect("initializer", using: parseExpr(in:))
-    } else {
-      initializer = nil
-    }
+    let initializer = try parseDefaultValue(in: &state)
 
     // Create a new `BindingDecl`.
     assert(prologue.memberModifiers.count <= 1)
@@ -1224,53 +1217,74 @@ public enum Parser {
 
   static let subscriptImpl = (implIntroducer.and(maybe(functionBody)))
 
-  static let parameterDecl =
-    (parameterInterface
-      .and(maybe(take(.colon).and(parameterTypeExpr)))
-      .and(maybe(take(.assign).and(expr)))
-      .map({ (state, tree) -> ParameterDecl.ID in
-        state.insert(
-          ParameterDecl(
-            label: tree.0.0.label,
-            identifier: tree.0.0.name,
-            annotation: tree.0.1?.1,
-            defaultValue: tree.1?.1,
-            site: state.range(
-              from: tree.0.0.label?.site.start ?? tree.0.0.name.site.start)))
-      }))
+  /// Parses a parameter declaration.
+  static func parseParameterDecl(in state: inout ParserState) throws -> ParameterDecl.ID? {
+    guard let interface = try parseParameterInterface(in: &state) else { return nil }
 
-  typealias ParameterInterface = (
-    label: SourceRepresentable<Identifier>?,
-    name: SourceRepresentable<Identifier>
-  )
+    let annotation: ParameterTypeExpr.ID?
+    if state.take(.colon) != nil {
+      annotation = try state.expect("type expression", using: parseParameterTypeExpr(in:))
+    } else {
+      annotation = nil
+    }
 
-  static let parameterInterface =
-    (Apply<ParserState, ParameterInterface>({ (state) in
-      // Parse a label or bail out.
-      guard let labelCandidate = state.take(if: { $0.isLabel || $0.kind == .under }) else {
-        return nil
+    let defaultValue = try parseDefaultValue(in: &state)
+
+    let isImplicit = interface.implicitMarker != nil
+    if isImplicit {
+      if let e = state.ast[annotation]?.convention, e.value != .let {
+        state.diagnostics.insert(.error(illegalAccessModifierForImplicitParameter: e))
       }
+    }
 
-      // Assume the first token is a label and attempt to parse a name.
-      if let nameCandidate = state.take(.name) {
-        if labelCandidate.kind == .under {
-          // case `_ name`
-          return (label: nil, name: state.token(nameCandidate))
-        } else {
-          // case `label name`
-          return (label: state.token(labelCandidate), name: state.token(nameCandidate))
-        }
+    return state.insert(
+      ParameterDecl(
+        label: interface.label,
+        identifier: interface.name,
+        annotation: annotation,
+        defaultValue: defaultValue,
+        isImplicit: isImplicit,
+        site: state.range(
+          from: interface.label?.site.start ?? interface.name.site.start)))
+  }
+
+  /// Parses the (optional) label and name of a parameter declaration.
+  static func parseParameterInterface(
+    in state: inout ParserState
+  ) throws -> ParameterInterface? {
+    guard let i = try parseParameterNameAndLabel(in: &state) else { return nil }
+    let q = state.takePostfixQuestionMark()
+    return ParameterInterface(label: i.label, name: i.name, implicitMarker: q)
+  }
+
+  /// Parses the (optional) label and name of a parameter declaration.
+  private static func parseParameterNameAndLabel(
+    in state: inout ParserState
+  ) throws -> (label: SourceRepresentable<Identifier>?, name: SourceRepresentable<Identifier>)? {
+    guard let labelCandidate = state.take(if: { $0.isLabel || $0.kind == .under }) else {
+      return nil
+    }
+
+    // Assume the first token is a label and attempt to parse a name.
+    if let nameCandidate = state.take(.name) {
+      if labelCandidate.kind == .under {
+        // case `_ name`
+        return (label: nil, name: state.token(nameCandidate))
+      } else {
+        // case `label name`
+        return (label: state.token(labelCandidate), name: state.token(nameCandidate))
       }
+    }
 
-      // Assume the first token is the name.
-      if labelCandidate.kind == .name {
-        // case `<no-label> name`
-        let name = state.token(labelCandidate)
-        return (label: name, name: name)
-      }
+    // Assume the first token is the name.
+    if labelCandidate.kind == .name {
+      // case `<no-label> name`
+      let name = state.token(labelCandidate)
+      return (label: name, name: name)
+    }
 
-      throw [.error(expected: "parameter name", at: labelCandidate.site.first())] as DiagnosticSet
-    }))
+    throw [.error(expected: "parameter name", at: labelCandidate.site.first())] as DiagnosticSet
+  }
 
   static let memberModifier =
     (take(.static)
@@ -1331,6 +1345,15 @@ public enum Parser {
   static let conformanceList =
     (take(.colon).and(nameTypeExpr).and(zeroOrMany(take(.comma).and(nameTypeExpr).second))
       .map({ (state, tree) -> [NameExpr.ID] in [tree.0.1] + tree.1 }))
+
+  /// Parses a binding initializer or a parameter default value.
+  private static func parseDefaultValue(in state: inout ParserState) throws -> AnyExprID? {
+    if state.take(.assign) != nil {
+      return try state.expect("expression", using: parseExpr(in:))
+    } else {
+      return nil
+    }
+  }
 
   // MARK: Expressions
 
@@ -2436,7 +2459,7 @@ public enum Parser {
     openerKind: .lParen,
     closerKind: .rParen,
     closerDescription: ")",
-    elementParser: parameterDecl)
+    elementParser: Apply(parseParameterDecl(in:)))
 
   private static func parseParameterList(
     in state: inout ParserState
@@ -3169,7 +3192,7 @@ public enum Parser {
     // Parse a labeled parameter.
     if let label = state.take(if: { $0.isLabel }) {
       if state.take(.colon) != nil {
-        if let type = try parameterTypeExpr.parse(&state) {
+        if let type = try parseParameterTypeExpr(in: &state) {
           return LambdaTypeExpr.Parameter(label: state.token(label), type: type)
         }
       }
@@ -3177,23 +3200,35 @@ public enum Parser {
 
     // Backtrack and parse an unlabeled parameter.
     state.restore(from: backup)
-    if let type = try parameterTypeExpr.parse(&state) {
+    if let type = try parseParameterTypeExpr(in: &state) {
       return LambdaTypeExpr.Parameter(type: type)
     }
 
     return nil
   }
 
-  static let parameterTypeExpr = Apply(parseParameterTypeExpr(in:))
-
-  private static func parseParameterTypeExpr(
+  /// Parses the type annotation of a parameter declaration.
+  static func parseParameterTypeExpr(
     in state: inout ParserState
   ) throws -> NodeID<ParameterTypeExpr>? {
     let backup = state.backup()
     let startIndex = state.currentIndex
 
     let accessEffect = try passingConvention.parse(&state)
-    let attributes = try attributeList.parse(&state)
+
+    var isAutoClosure = false
+    let attributes = try parseAttributeList(in: &state)!
+    for a in attributes {
+      if a.value.name.value == "@autoclosure" {
+        if !a.value.arguments.isEmpty {
+          state.diagnostics.insert(.error(attributeTakesNoArgument: a))
+        }
+        isAutoClosure = true
+      } else {
+        state.diagnostics.insert(.error(unexpectedAttribute: a))
+      }
+    }
+
     guard let bareType = try expr.parse(&state) else {
       state.restore(from: backup)
       return nil
@@ -3205,7 +3240,7 @@ public enum Parser {
           ?? SourceRepresentable(
             value: .let,
             range: state.lexer.sourceCode.emptyRange(at: startIndex)),
-        attributes: attributes ?? [],
+        isAutoclosure: isAutoClosure,
         bareType: bareType,
         site: state.range(from: startIndex)
       ))
@@ -3276,11 +3311,19 @@ public enum Parser {
 
   // MARK: Attributes
 
-  static let attributeList =
-    (zeroOrMany(Apply(parseDeclAttribute(in:)))
-      .map({ (_, tree) -> [SourceRepresentable<Attribute>] in tree }))
+  /// Parses a list of attributes.
+  static func parseAttributeList(
+    in state: inout ParserState
+  ) throws -> [SourceRepresentable<Attribute>]? {
+    var result: [SourceRepresentable<Attribute>] = []
+    while let e = try parseAttribute(in: &state) {
+      result.append(e)
+    }
+    return result
+  }
 
-  static func parseDeclAttribute(
+  /// Parses a single attribute.
+  static func parseAttribute(
     in state: inout ParserState
   ) throws -> SourceRepresentable<Attribute>? {
     guard let introducer = state.take(.attribute) else { return nil }
@@ -3434,6 +3477,20 @@ struct NameExprComponent {
 
   /// The static arguments of the component.
   let arguments: [LabeledArgument]
+
+}
+
+/// The name and argument label of a parameter declaration.
+struct ParameterInterface {
+
+  /// The argument label of the parameter, if any.
+  let label: SourceRepresentable<Identifier>?
+
+  /// The name of the parameter.
+  let name: SourceRepresentable<Identifier>
+
+  /// The implicit marker of the parameter, if any.
+  let implicitMarker: Token?
 
 }
 

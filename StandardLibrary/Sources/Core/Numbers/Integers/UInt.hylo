@@ -103,10 +103,9 @@ public conformance UInt: AdditiveArithmetic {
 
 }
 
-// TODO: Rewrite as a conformance to `Numeric` when #1047 is fixed
-public extension UInt {
+public conformance UInt: Numeric {
 
-//   public typealias Magnitude = UInt
+  public typealias Magnitude = UInt
 
   public fun magnitude() -> UInt {
     self.copy()

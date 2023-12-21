@@ -472,7 +472,7 @@ public struct Module {
   ) -> FunctionReference {
     var a = witness.arguments
     if let m = program.traitMember(referredBy: d) {
-      a = a.merging([program[m.trait.decl].receiver: witness.model])
+      a = a.merging([program[m.trait.decl].receiver: .type(witness.model)])
     }
     return FunctionReference(to: d, in: self, specializedBy: a, in: witness.scope)
   }
@@ -604,7 +604,7 @@ public struct Module {
         UNIMPLEMENTED()
       }
 
-      result[p] = ^u
+      result[p] = .type(^u)
     }
     return result
   }
