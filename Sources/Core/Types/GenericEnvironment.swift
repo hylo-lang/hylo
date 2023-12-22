@@ -17,13 +17,6 @@ public struct GenericEnvironment {
   /// The declaration associated with the environment.
   public let decl: AnyDeclID
 
-  /// A number reflecting the number of times the environment has been updated.
-  ///
-  /// A generic environments is built incrementally by inserting constraints on generic parameters.
-  /// Each update increments the generation number until all constraints have been inserted, at
-  /// which point the environment must be finalized, setting its generation to `UInt.max`.
-  public private(set) var generation: UInt = 0
-
   /// The generic parameters introduced in the environment, in the order there declaration appears
   /// in Hylo sources.
   public let parameters: [GenericParameterDecl.ID]
@@ -46,11 +39,6 @@ public struct GenericEnvironment {
     self.parameters = parameters
   }
 
-  /// `true` iff `self` has been fully constructed and type checked.
-  public var isFinalized: Bool {
-    generation == .max
-  }
-
   /// Returns the set of traits to which `type` conforms in t`self`.
   public func conformedTraits(of type: AnyType) -> Set<TraitType> {
     if let i = ledger[type] {
@@ -58,14 +46,6 @@ public struct GenericEnvironment {
     } else {
       return []
     }
-  }
-
-  /// Marks that `self` has been fully constructed.
-  ///
-  /// - Requires: `self` has not been finalized yet.
-  public mutating func finalize() {
-    precondition(!isFinalized)
-    generation = .max
   }
 
   /// Inserts constraint `c` to the environment, updating equivalence classes.
@@ -80,7 +60,6 @@ public struct GenericEnvironment {
     default:
       break
     }
-    generation += 1
   }
 
   /// Registers the fact that `l` is equivalent to `r` in the context of this environment.
@@ -109,7 +88,6 @@ public struct GenericEnvironment {
       ledger[l] = entries.count
       entries.append(.init(equivalences: [l, r], conformances: []))
     }
-    generation += 1
   }
 
   /// Registers the fact that `l` conforms to `r` in the context of this environment.
@@ -122,7 +100,6 @@ public struct GenericEnvironment {
       ledger[l] = entries.count
       entries.append(.init(equivalences: [l], conformances: [r]))
     }
-    generation += 1
   }
 
 }

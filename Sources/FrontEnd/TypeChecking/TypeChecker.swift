@@ -1768,11 +1768,9 @@ struct TypeChecker {
   }
 
   /// Ensures `e` is consistent and writes it to the cache.
-  private mutating func commit(_ e: GenericEnvironment) -> GenericEnvironment {
-    var finalResult = e
-    finalResult.finalize()
-    cache.partiallyFormedEnvironment[e.decl] = nil
-    cache.write(finalResult, at: \.environment[e.decl])
+  private mutating func commit(_ finalResult: GenericEnvironment) -> GenericEnvironment {
+    cache.partiallyFormedEnvironment[finalResult.decl] = nil
+    cache.write(finalResult, at: \.environment[finalResult.decl])
     return finalResult
   }
 
