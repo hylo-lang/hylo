@@ -297,7 +297,7 @@ struct TypeChecker {
       // cache, so that lookup queries related by the environment construction can't trigger
       // infinite recursion.
       let d = AnyDeclID(s)!
-      let e = cache.local.environment[d] ?? environment(of: s)!
+      let e = cache.partiallyFormedEnvironment[d] ?? environment(of: s)!
       result.formUnion(e.conformedTraits(of: ^t))
 
       // Note: `s` might be extending the type whose declaration introduced the generic environment
@@ -1665,18 +1665,15 @@ struct TypeChecker {
   private mutating func environment<T: GenericDecl & LexicalScope>(
     of d: T.ID
   ) -> GenericEnvironment {
-    var partialResult = partiallyConstructedEnvironment(of: d) { (ast, d) in
-      let ps = ast[d].genericClause?.value.parameters ?? []
-      return GenericEnvironment(of: AnyDeclID(d), introducing: ps)
-    }
-    if partialResult.isFinalized { return partialResult }
+    if let e = cache.read(\.environment[d]) { return e }
 
     // Nothing to do if the declaration has no generic clause.
     guard let clause = program[d].genericClause?.value else {
-      partialResult.finalize()
-      cache.write(partialResult, at: \.environment[d])
-      return partialResult
+      return commit(GenericEnvironment(of: AnyDeclID(d), introducing: []))
     }
+
+    var partialResult = partiallyConstructedEnvironment(
+      of: d, default: GenericEnvironment(of: AnyDeclID(d), introducing: clause.parameters))
 
     for p in clause.parameters {
       let lhs = uncheckedType(of: p)
@@ -1692,27 +1689,23 @@ struct TypeChecker {
     }
 
     if let w = clause.whereClause {
-      // Commit the current result before processing the where clause.
-      cache.write(partialResult, at: \.environment[d], ignoringSharedCache: true)
       for c in w.value.constraints {
         insertConstraint(c, in: &partialResult)
       }
     }
 
-    partialResult.finalize()
-    cache.write(partialResult, at: \.environment[d])
-    return partialResult
+    return commit(partialResult)
   }
 
   /// Returns the generic environment introduced by `d`.
   private mutating func environment(of d: TraitDecl.ID) -> GenericEnvironment {
-    var partialResult = partiallyConstructedEnvironment(of: d) { (ast, d) in
-      GenericEnvironment(of: AnyDeclID(d), introducing: [ast[d].receiver])
-    }
-    if partialResult.isFinalized { return partialResult }
+    if let e = cache.read(\.environment[d]) { return e }
+
+    let r = program[d].receiver.id
+    var partialResult = partiallyConstructedEnvironment(
+      of: d, default: GenericEnvironment(of: AnyDeclID(d), introducing: [r]))
 
     // Synthesize `Self: T`.
-    let r = program[d].receiver.id
     let s = GenericTypeParameterType(selfParameterOf: d, in: program.ast)
     cache.write(^MetatypeType(of: s), at: \.declType[r], ignoringSharedCache: true)
 
@@ -1731,25 +1724,21 @@ struct TypeChecker {
       }
     }
 
-    partialResult.finalize()
-    cache.write(partialResult, at: \.environment[d])
-    return partialResult
+    return commit(partialResult)
   }
 
   /// Returns the generic environment introduced by `d`.
   private mutating func environment<T: TypeExtendingDecl>(of d: T.ID) -> GenericEnvironment {
-    var partialResult = partiallyConstructedEnvironment(of: d) { (_, d) in
-      GenericEnvironment(of: AnyDeclID(d), introducing: [])
-    }
-    if partialResult.isFinalized { return partialResult }
+    if let e = cache.read(\.environment[d]) { return e }
+
+    var partialResult = partiallyConstructedEnvironment(
+      of: d, default: GenericEnvironment(of: AnyDeclID(d), introducing: []))
 
     for c in (program[d].whereClause?.value.constraints ?? []) {
       insertConstraint(c, in: &partialResult)
     }
 
-    partialResult.finalize()
-    cache.write(partialResult, at: \.environment[d])
-    return partialResult
+    return commit(partialResult)
   }
 
   /// Returns the generic environment introduced by the declaration of `t`, if any.
@@ -1768,15 +1757,23 @@ struct TypeChecker {
 
   /// Returns the latest computed version of the generic environment introduced by `d`.
   private mutating func partiallyConstructedEnvironment<T: Decl>(
-    of d: T.ID, default makeInitial: (AST, T.ID) -> GenericEnvironment
+    of d: T.ID, default initialResult: @autoclosure () -> GenericEnvironment
   ) -> GenericEnvironment {
-    if let e = cache.read(\.environment[d]) {
-      return e
-    } else {
-      let e = makeInitial(program.ast, d)
-      cache.write(e, at: \.environment[d], ignoringSharedCache: true)
-      return e
+    modify(&cache.partiallyFormedEnvironment[d]) { (e) in
+      precondition(e == nil, "infinite recursion")
+      let r = initialResult()
+      e = r
+      return r
     }
+  }
+
+  /// Ensures `e` is consistent and writes it to the cache.
+  private mutating func commit(_ e: GenericEnvironment) -> GenericEnvironment {
+    var finalResult = e
+    finalResult.finalize()
+    cache.partiallyFormedEnvironment[e.decl] = nil
+    cache.write(finalResult, at: \.environment[e.decl])
+    return finalResult
   }
 
   /// Returns the generic environment introduced by `m` or its immediate parent if `m` is a variant
@@ -1888,7 +1885,7 @@ struct TypeChecker {
     }
 
     e.insertConstraint(c)
-    cache.write(e, at: \.environment[e.decl], ignoringSharedCache: true)
+    cache.partiallyFormedEnvironment[e.decl] = e
   }
 
   /// Returns `(trait, hasError)` where `trait` is the trait to which `bound` resolves or `nil` if
@@ -5790,6 +5787,9 @@ struct TypeChecker {
     ///
     /// This map serves as cache for `refinements(of:)`
     var traitToRefinements: [TraitType: RefinementCluster] = [:]
+
+    /// A map from generic declarations to their (partially formed) environment.
+    var partiallyFormedEnvironment: [AnyDeclID: GenericEnvironment] = [:]
 
     /// Creates an instance for memoizing type checking results in `local` and comminicating them
     /// to concurrent type checkers using `shared`.
