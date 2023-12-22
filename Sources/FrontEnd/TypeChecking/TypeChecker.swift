@@ -293,14 +293,12 @@ struct TypeChecker {
   ) -> Set<TraitType> {
     var result = Set<TraitType>()
     for s in program.scopes(from: scopeOfUse) where s.kind.value is GenericScope.Type {
+      // Only ask the computation of the environment if we have no (possibly partial) result in
+      // cache, so that lookup queries related by the environment construction can't trigger
+      // infinite recursion.
       let d = AnyDeclID(s)!
-
-      // If an environment has been computed already, use it.
-      if let e = cache.read(\.environment[d]) {
-        result.formUnion(e.conformedTraits(of: ^t))
-      } else {
-        // TODO
-      }
+      let e = cache.local.environment[d] ?? environment(of: s)!
+      result.formUnion(e.conformedTraits(of: ^t))
 
       // Note: `s` might be extending the type whose declaration introduced the generic environment
       // that declared `t`.
@@ -1667,21 +1665,18 @@ struct TypeChecker {
   private mutating func environment<T: GenericDecl & LexicalScope>(
     of d: T.ID
   ) -> GenericEnvironment {
-    // Check if work has to be done.
-    if let e = cache.read(\.environment[d]) { return e }
+    var partialResult = partiallyConstructedEnvironment(of: d) { (ast, d) in
+      let ps = ast[d].genericClause?.value.parameters ?? []
+      return GenericEnvironment(of: AnyDeclID(d), introducing: ps)
+    }
+    if partialResult.isFinalized { return partialResult }
 
     // Nothing to do if the declaration has no generic clause.
     guard let clause = program[d].genericClause?.value else {
-      var e = GenericEnvironment(of: AnyDeclID(d), introducing: [])
-      e.finalize()
-      cache.write(e, at: \.environment[d])
-      return e
+      partialResult.finalize()
+      cache.write(partialResult, at: \.environment[d])
+      return partialResult
     }
-
-    var partialResult = GenericEnvironment(
-      of: AnyDeclID(d),
-      introducing: clause.parameters)
-    cache.write(partialResult, at: \.environment[d], ignoringSharedCache: true)
 
     for p in clause.parameters {
       let lhs = uncheckedType(of: p)
@@ -1711,15 +1706,15 @@ struct TypeChecker {
 
   /// Returns the generic environment introduced by `d`.
   private mutating func environment(of d: TraitDecl.ID) -> GenericEnvironment {
-    // Check if work has to be done.
-    if let e = cache.read(\.environment[d]) { return e }
-
-    let receiver = program[d].receiver.id
-    var partialResult = GenericEnvironment(of: AnyDeclID(d), introducing: [receiver])
+    var partialResult = partiallyConstructedEnvironment(of: d) { (ast, d) in
+      GenericEnvironment(of: AnyDeclID(d), introducing: [ast[d].receiver])
+    }
+    if partialResult.isFinalized { return partialResult }
 
     // Synthesize `Self: T`.
+    let r = program[d].receiver.id
     let s = GenericTypeParameterType(selfParameterOf: d, in: program.ast)
-    cache.write(^MetatypeType(of: s), at: \.declType[receiver], ignoringSharedCache: true)
+    cache.write(^MetatypeType(of: s), at: \.declType[r], ignoringSharedCache: true)
 
     let t = TraitType(uncheckedType(of: d))!
     let c = GenericConstraint(.conformance(^s, t), at: program[d].identifier.site)
@@ -1743,10 +1738,11 @@ struct TypeChecker {
 
   /// Returns the generic environment introduced by `d`.
   private mutating func environment<T: TypeExtendingDecl>(of d: T.ID) -> GenericEnvironment {
-    // Check if work has to be done.
-    if let e = cache.read(\.environment[d]) { return e }
+    var partialResult = partiallyConstructedEnvironment(of: d) { (_, d) in
+      GenericEnvironment(of: AnyDeclID(d), introducing: [])
+    }
+    if partialResult.isFinalized { return partialResult }
 
-    var partialResult = GenericEnvironment(of: AnyDeclID(d), introducing: [])
     for c in (program[d].whereClause?.value.constraints ?? []) {
       insertConstraint(c, in: &partialResult)
     }
@@ -1767,6 +1763,19 @@ struct TypeChecker {
       return environment(of: u.decl)
     default:
       return nil
+    }
+  }
+
+  /// Returns the latest computed version of the generic environment introduced by `d`.
+  private mutating func partiallyConstructedEnvironment<T: Decl>(
+    of d: T.ID, default makeInitial: (AST, T.ID) -> GenericEnvironment
+  ) -> GenericEnvironment {
+    if let e = cache.read(\.environment[d]) {
+      return e
+    } else {
+      let e = makeInitial(program.ast, d)
+      cache.write(e, at: \.environment[d], ignoringSharedCache: true)
+      return e
     }
   }
 
