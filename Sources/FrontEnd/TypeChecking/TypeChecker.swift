@@ -1683,65 +1683,25 @@ struct TypeChecker {
       introducing: clause.parameters)
     cache.write(partialResult, at: \.environment[d], ignoringSharedCache: true)
 
-    var nameToParameter: [String: GenericParameterDecl.ID] = [:]
     for p in clause.parameters {
-      cache.declsUnderChecking.insert(AnyDeclID(p))
-      nameToParameter[program[p].baseName] = p
-    }
+      let lhs = uncheckedType(of: p)
 
-    var hasError = false
+      // Nothing more to do if the parameter isn't type-kinded or doesn't have trait bounds.
+      let bounds = program[p].conformances
+      guard !bounds.isEmpty, let t = MetatypeType(lhs) else { continue }
 
-    for p in clause.parameters {
-      // If `p` is introduced without any bounds, it is assumed to be type-kinded.
-      guard let bounds = program[p].conformances.headAndTail else {
-        _ = assumeTypeKinded(p)
-        continue
-      }
-
-      // Otherwise, the first bound of `p` determines its kind.
-      let (firstBoundAsTrait, nameResolutionFailed) = resolveTrait(
-        expressedBy: bounds.head, inEnvironmentIntroducing: nameToParameter)
-
-      // Register failures so we can fail fast.
-      if nameResolutionFailed {
-        _ = assumeTypeKinded(p)
-        hasError = true
-        continue
-      }
-
-      // If the first bound is a trait, then `p` is type-kinded.
-      if let rhs = firstBoundAsTrait {
-        let lhs = assumeTypeKinded(p)
-        let c = GenericConstraint(.conformance(lhs, rhs), at: program[bounds.head].site)
+      for (n, u) in evalTraitComposition(bounds) {
+        let c = GenericConstraint(.conformance(t.instance, u), at: program[n].site)
         insertConstraint(c, in: &partialResult)
-
-        for (n, t) in evalTraitComposition(bounds.tail) {
-          let c = GenericConstraint(.conformance(lhs, t), at: program[n].site)
-          insertConstraint(c, in: &partialResult)
-        }
-      }
-
-      // Otherwise, `p` is value-kinded.
-      else {
-        let rhs = evalTypeAnnotation(AnyExprID(bounds.head))
-        _ = assumeValueKinded(p, instanceOf: rhs)
-        if let n = bounds.tail.first {
-          report(.error(tooManyAnnotationsOnGenericValueParametersAt: program[n].site))
-        }
       }
     }
 
-    // Commit the current result and bail out if there are errors already.
-    if !hasError {
+    if let w = clause.whereClause {
+      // Commit the current result before processing the where clause.
       cache.write(partialResult, at: \.environment[d], ignoringSharedCache: true)
-    } else {
-      cache.write(partialResult, at: \.environment[d])
-      return partialResult
-    }
-
-    // Otherwise, proceed with the constraints of the where clause.
-    for c in (clause.whereClause?.value.constraints ?? []) {
-      insertConstraint(c, in: &partialResult)
+      for c in w.value.constraints {
+        insertConstraint(c, in: &partialResult)
+      }
     }
 
     partialResult.finalize()
@@ -1758,7 +1718,9 @@ struct TypeChecker {
     var partialResult = GenericEnvironment(of: AnyDeclID(d), introducing: [receiver])
 
     // Synthesize `Self: T`.
-    let s = assumeTypeKinded(receiver)
+    let s = GenericTypeParameterType(selfParameterOf: d, in: program.ast)
+    cache.write(^MetatypeType(of: s), at: \.declType[receiver], ignoringSharedCache: true)
+
     let t = TraitType(uncheckedType(of: d))!
     let c = GenericConstraint(.conformance(^s, t), at: program[d].identifier.site)
     insertConstraint(c, in: &partialResult)
@@ -1789,6 +1751,7 @@ struct TypeChecker {
       insertConstraint(c, in: &partialResult)
     }
 
+    partialResult.finalize()
     cache.write(partialResult, at: \.environment[d])
     return partialResult
   }
@@ -1930,20 +1893,26 @@ struct TypeChecker {
   /// - Parameters:
   ///   - bound: The expression of a bound on a generic parameter declaration or the RHS of a
   ///     conformance constraint in a where clause.
-  ///   - siblings: A map from the name of each generic parameter introduced by the environment
-  ///     in which `bound` occurs to its declarations.
+  ///   - scopeOfUse: The declaration defining the environment in which `bound` occurs.
   private mutating func resolveTrait(
     expressedBy bound: NameExpr.ID,
-    inEnvironmentIntroducing siblings: [String: GenericParameterDecl.ID]
+    inEnvironmentOf scopeOfUse: AnyScopeID
   ) -> (trait: TraitType?, hasError: Bool) {
     let (n, d) = program.ast.splitNominalComponents(of: bound)
 
-    // Traits can't be declared as type members.
-    if (d != .none) || (siblings[program[n.last!].name.value.stem] != nil) {
+    // `bound` can't denote a trait if it contains a non-nominal component.
+    if d != .none {
       return (nil, false)
     }
 
-    // We can apply name resolution on the components of the bound as long as they don't have
+    // `bound` can't denote a trait if it refers to a generic parameter.
+    if let ns = names(introducedIn: scopeOfUse)[program[n.last!].name.value.stem] {
+      if ns.contains(where: { $0.kind == GenericParameterDecl.self }) {
+        return (nil, false)
+      }
+    }
+
+    // We can apply name resolution on the components of `bound` as long as they don't have
     // generic arguments. A name expression with arguments can't denote a trait.
     var parent: NameResolutionContext? = nil
     for component in n.reversed() {
@@ -1969,23 +1938,6 @@ struct TypeChecker {
     }
 
     return (TraitType(parent?.type), false)
-  }
-
-  private mutating func assumeTypeKinded(
-    _ p: GenericParameterDecl.ID
-  ) -> AnyType {
-    let t = ^GenericTypeParameterType(p, ast: program.ast)
-    cache.write(^MetatypeType(of: t), at: \.declType[p])
-    cache.declsUnderChecking.remove(AnyDeclID(p))
-    return t
-  }
-
-  private mutating func assumeValueKinded(
-    _ p: GenericParameterDecl.ID, instanceOf t: AnyType
-  ) -> AnyType {
-    cache.write(t, at: \.declType[p])
-    cache.declsUnderChecking.remove(AnyDeclID(p))
-    return t
   }
 
   /// Returns the type of `d`, computing it if necessary, without type checking `d`.
@@ -2136,8 +2088,33 @@ struct TypeChecker {
 
   /// Computes and returns the type of `d`.
   private mutating func _uncheckedType(of d: GenericParameterDecl.ID) -> AnyType {
-    _ = environment(of: program[d].scope)!
-    return cache.local.declType[d]!
+    // If `p` is introduced without any bounds, it is assumed to be type-kinded.
+    guard let bounds = program[d].conformances.headAndTail else {
+      return ^MetatypeType(of: GenericTypeParameterType(d, ast: program.ast))
+    }
+
+    // Otherwise, the first bound of `p` determines its kind.
+    let (firstBoundAsTrait, nameResolutionFailed) = resolveTrait(
+      expressedBy: bounds.head, inEnvironmentOf: program[d].scope)
+
+    // Register failures so we can fail fast.
+    if nameResolutionFailed {
+      return ^MetatypeType(of: GenericTypeParameterType(d, ast: program.ast))
+    }
+
+    // If the first bound is a trait, then `p` is type-kinded.
+    if firstBoundAsTrait != nil {
+      return ^MetatypeType(of: GenericTypeParameterType(d, ast: program.ast))
+    }
+
+    // Otherwise, `p` is value-kinded.
+    else {
+      let rhs = evalTypeAnnotation(AnyExprID(bounds.head))
+      if let n = bounds.tail.first {
+        report(.error(tooManyAnnotationsOnGenericValueParametersAt: program[n].site))
+      }
+      return rhs
+    }
   }
 
   /// Computes and returns the type of `d`.
