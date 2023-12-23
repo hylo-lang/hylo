@@ -67,12 +67,11 @@ struct Emitter {
 
   /// The address of the return value in the current function, if any.
   private var returnValue: Operand? {
-    guard
-      let f = insertionFunction,
-      let b = module.entry(of: f),
-      !module[f].isSubscript
-    else { return nil }
-    return .parameter(b, module[f].inputs.count)
+    if let f = insertionFunction, let b = module.entry(of: f), !module[f].isSubscript {
+      return .parameter(b, module[f].inputs.count)
+    } else {
+      return nil
+    }
   }
 
   /// Reports the given diagnostic.
