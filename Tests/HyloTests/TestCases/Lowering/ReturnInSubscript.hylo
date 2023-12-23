@@ -1,0 +1,6 @@
+//- lowerToFinishedIR expecting: failure
+
+public subscript s(x: Int): Int {
+  //! @+1 diagnostic return statement in subscript
+  return x
+}
