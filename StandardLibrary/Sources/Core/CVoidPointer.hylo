@@ -40,3 +40,8 @@ public conformance CVoidPointer: Equatable {
   }
 
 }
+
+/// The address of `x`.
+public subscript c_void_pointer<T>(to x: T): CVoidPointer {
+  let { yield CVoidPointer(base: Builtin.address(of: x)) }
+}
