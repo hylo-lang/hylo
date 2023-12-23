@@ -1227,7 +1227,13 @@ struct Emitter {
     return (startIndex: start, endIndex: end)
   }
 
+  /// Inserts the IR for `s`, returning its effect on control flow.
   private mutating func emit(returnStmt s: ReturnStmt.ID) -> ControlFlow {
+    if module[insertionFunction!].isSubscript {
+      report(.error(returnInSubscript: s, in: ast))
+      return .next
+    }
+
     if let e = ast[s].value {
       emitStore(value: e, to: returnValue!)
     } else {
@@ -3068,6 +3074,10 @@ extension Diagnostic {
     at site: SourceRange
   ) -> Diagnostic {
     .error("integer literal '\(s)' overflows when stored into '\(t)'", at: site)
+  }
+
+  fileprivate static func error(returnInSubscript s: ReturnStmt.ID, in ast: AST) -> Diagnostic {
+    .error("return statement in subscript", at: ast[s].introducerSite)
   }
 
   fileprivate static func warning(unreachableStatement s: AnyStmtID, in ast: AST) -> Diagnostic {
