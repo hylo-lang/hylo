@@ -38,7 +38,7 @@ public struct FunctionDecl: CapturingDecl, ExposableDecl, GenericDecl, GenericSc
 
   /// The parameters of the function.
   ///
-  /// These declarations must have a type annotation unless `self.isInExprContext` is `true`.
+  /// All parameters must have a type annotation unless `isInExprContext` is `true`.
   public let parameters: [ParameterDecl.ID]
 
   /// The declaration of the implicit receiver parameter, if any.
