@@ -2011,7 +2011,7 @@ struct Emitter {
       let f = FunctionReference(to: d, in: &module, specializedBy: a, in: insertionScope!)
       return (.direct(f), [])
 
-    case .member(let d, let a, let s):
+    case .member(let d, let a, let s) where d.isCallable:
       // Callee is a member reference to a function or method. Its receiver is the only capture.
       let receiver = emitLValue(receiver: s, at: ast[callee].site)
       let k = receiverCapabilities(program[callee].type)
