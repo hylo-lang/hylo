@@ -95,16 +95,16 @@ public struct FunctionDecl: CapturingDecl, ExposableDecl, GenericDecl, GenericSc
   /// `true` iff `self` is a definition of the entity that it declares.
   public var isDefinition: Bool { body != nil }
 
-  /// Returns whether the declaration denotes a static member function.
+  /// `true` iff `self` denotes a static member function.
   public var isStatic: Bool { memberModifier?.value == .static }
 
-  /// Returns whether the declaration denotes an `inout` member function.
+  /// `true` iff `self` denotes an `inout` member function.
   public var isInout: Bool { receiverEffect?.value == .inout }
 
-  /// Returns whether the declaration denotes a `sink` member function.
+  /// `true` iff `self` denotes a `sink` member function.
   public var isSink: Bool { receiverEffect?.value == .sink }
 
-  /// Returns whether `self` is a foreign function interface.
+  /// `true` iff `self` is a foreign function interface.
   public var isForeignInterface: Bool {
     api.contains(.isForeignInterface)
   }
