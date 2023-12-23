@@ -115,16 +115,6 @@ public struct FunctionDecl: CapturingDecl, ExposableDecl, GenericDecl, GenericSc
     }
   }
 
-  /// The LLVM name of this function if this instance has the `@_llvm` attribute.
-  public var llvmName: String? {
-    if let a = attributes.first(where: { $0.value.name.value == "@_llvm" }) {
-      guard case .string(let n) = a.value.arguments[0] else { unreachable() }
-      return n.value
-    } else {
-      return nil
-    }
-  }
-
   public func validateForm(in ast: AST, reportingDiagnosticsTo log: inout DiagnosticSet) {
     if !isInExprContext {
       // Parameter declarations must have a type annotation.
