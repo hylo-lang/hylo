@@ -729,8 +729,8 @@ struct TypeChecker {
       check(b, asBodyOfCallableProducing: r)
 
     case nil:
-      // Only requirements and FFIs can be without a body.
-      if !program.isRequirement(d) && !program[d].isForeignInterface {
+      // Only requirements, FFIs, and external functions can be without a body.
+      if requiresBody(d) {
         report(.error(declarationRequiresBodyAt: program[d].introducerSite))
       }
     }
@@ -5691,6 +5691,11 @@ struct TypeChecker {
   /// Returns `true` iff `t` is the receiver of a trait declaration.
   private func isTraitReceiver(_ t: GenericTypeParameterType) -> Bool {
     program[t.decl].scope.kind == TraitDecl.self
+  }
+
+  /// Returns `true` if `d` isn't a trait requirement, an FFI, or an external function.
+  private func requiresBody(_ d: FunctionDecl.ID) -> Bool {
+    !(program.isRequirement(d) || program[d].isForeignInterface || program[d].isExternal)
   }
 
   /// If `t` is the type of a mutating bundle in `scopeOfUse`, returns the output of a mutating

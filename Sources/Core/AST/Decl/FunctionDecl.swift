@@ -53,6 +53,9 @@ public struct FunctionDecl: CapturingDecl, ExposableDecl, GenericDecl, GenericSc
   /// Indicates whether the declaration appears in an expression context.
   public let isInExprContext: Bool
 
+  /// Properties about the API described by the function.
+  public let api: APIFlags
+
   /// Creates an instance with the given properties.
   public init(
     introducerSite: SourceRange,
@@ -86,6 +89,7 @@ public struct FunctionDecl: CapturingDecl, ExposableDecl, GenericDecl, GenericSc
     self.output = output
     self.body = body
     self.isInExprContext = isInExprContext
+    self.api = .init(attributes)
   }
 
   /// `true` iff `self` is a definition of the entity that it declares.
@@ -102,16 +106,27 @@ public struct FunctionDecl: CapturingDecl, ExposableDecl, GenericDecl, GenericSc
 
   /// Returns whether `self` is a foreign function interface.
   public var isForeignInterface: Bool {
-    foreignName != nil
+    api.contains(.isForeignInterface)
   }
 
-  /// The name of this foreign function if this instance is a foreign function interface.
+  /// `self` iff `self` declares a function whose implementation is defined externally.
+  public var isExternal: Bool {
+    api.contains(.isExternal)
+  }
+
+  /// The name of the entity interfaced by the declared function if it is an FFI.
   public var foreignName: String? {
-    if let a = attributes.first(where: { $0.value.name.value == "@ffi" }) {
+    return attributes.first(where: { $0.value.name.value == "@ffi" }).map { (a) in
       guard case .string(let n) = a.value.arguments[0] else { unreachable() }
       return n.value
-    } else {
-      return nil
+    }
+  }
+
+  /// The name of entity defining the implementation of the declared function if it is external.
+  public var externalName: String? {
+    return attributes.first(where: { $0.value.name.value == "@external" }).map { (a) in
+      guard case .string(let n) = a.value.arguments[0] else { unreachable() }
+      return n.value
     }
   }
 
@@ -124,6 +139,45 @@ public struct FunctionDecl: CapturingDecl, ExposableDecl, GenericDecl, GenericSc
         }
       }
     }
+  }
+
+}
+
+extension FunctionDecl {
+
+  /// A set of properties about the API described by a function declaration.
+  public struct APIFlags: OptionSet, Codable, RawRepresentable {
+
+    public typealias RawValue = UInt8
+
+    public let rawValue: UInt8
+
+    public init(rawValue: UInt8) {
+      self.rawValue = rawValue
+    }
+
+    /// Creates an instance describing the API of a declaration with given `attributes`.
+    public init(_ attributes: [SourceRepresentable<Attribute>]) {
+      var result = APIFlags()
+      for a in attributes {
+        switch a.value.name.value {
+        case "@ffi":
+          result.insert(.isForeignInterface)
+        case "@external":
+          result.insert(.isExternal)
+        default:
+          continue
+        }
+      }
+      self = result
+    }
+
+    /// The declaration is a foreign function interface.
+    public static let isForeignInterface = APIFlags(rawValue: 1)
+
+    /// The declaration defined externally.
+    public static let isExternal = APIFlags(rawValue: 2)
+
   }
 
 }
