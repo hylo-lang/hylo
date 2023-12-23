@@ -10,14 +10,10 @@ public struct WhereClause: Codable {
   public enum ConstraintExpr: Codable {
 
     /// An equality constraint involving one or two skolems.
-    case equality(
-      l: NameExpr.ID,
-      r: AnyExprID)
+    case equality(l: NameExpr.ID, r: AnyExprID)
 
-    /// A conformance constraint on a skolem.
-    case conformance(
-      l: NameExpr.ID,
-      traits: TraitComposition)
+    /// A conformance or instance constraint on a skolem.
+    case bound(l: NameExpr.ID, r: [AnyExprID])
 
     /// A constraint on a value parameter.
     case value(AnyExprID)

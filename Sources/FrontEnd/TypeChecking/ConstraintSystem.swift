@@ -165,10 +165,10 @@ struct ConstraintSystem {
   }
 
   /// Creates a solution from the current state.
+  ///
+  /// - Requires: There is no fresh goal to solve left.
   private mutating func formSolution() -> Solution {
-    assert(fresh.isEmpty)
     assert(outcomes.enumerated().allSatisfy({ (i, o) in (o != nil) || stale.contains(i) }))
-
     for g in stale {
       setOutcome(.failure({ (_, _, _) in () }), for: g)
     }

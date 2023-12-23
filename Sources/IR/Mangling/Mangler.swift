@@ -307,7 +307,7 @@ struct Mangler {
     case .value:
       UNIMPLEMENTED()
 
-    case .conformance(let lhs, let rhs):
+    case .bound(let lhs, let rhs):
       write(operator: .conformanceConstraint, to: &output)
       mangle(type: program[lhs].type, to: &output)
       write(integer: rhs.count, to: &output)

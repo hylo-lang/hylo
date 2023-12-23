@@ -167,6 +167,12 @@ struct TypeChecker {
 
   /// Returns the traits to which `t` is declared conforming in `scopeOfUse`.
   mutating func conformedTraits(of t: AnyType, in scopeOfUse: AnyScopeID) -> Set<TraitType> {
+    // Computation is not memoized for generic type parameters because queries might come from
+    // generic arguments under construction.
+    if let u = GenericTypeParameterType(t) {
+      return conformedTraits(of: u, in: scopeOfUse)
+    }
+
     let key = Cache.TypeLookupKey(t, in: scopeOfUse)
     if let r = cache.typeToConformedTraits[key] {
       return r
@@ -179,8 +185,6 @@ struct TypeChecker {
     case let u as BoundGenericType:
       result = conformedTraits(of: u.base, in: scopeOfUse)
     case let u as BuiltinType:
-      result = conformedTraits(of: u, in: scopeOfUse)
-    case let u as GenericTypeParameterType:
       result = conformedTraits(of: u, in: scopeOfUse)
     case let u as ProductType:
       result = conformedTraits(of: u, in: scopeOfUse)
@@ -289,14 +293,12 @@ struct TypeChecker {
   ) -> Set<TraitType> {
     var result = Set<TraitType>()
     for s in program.scopes(from: scopeOfUse) where s.kind.value is GenericScope.Type {
+      // Only ask the computation of the environment if we have no (possibly partial) result in
+      // cache, so that lookup queries related by the environment construction can't trigger
+      // infinite recursion.
       let d = AnyDeclID(s)!
-
-      // If an environment has been computed already, use it.
-      if let e = cache.read(\.environment[d]) {
-        result.formUnion(e.conformedTraits(of: ^t))
-      } else {
-        // TODO
-      }
+      let e = cache.partiallyFormedEnvironment[d] ?? environment(of: s)!
+      result.formUnion(e.conformedTraits(of: ^t))
 
       // Note: `s` might be extending the type whose declaration introduced the generic environment
       // that declared `t`.
@@ -1663,72 +1665,80 @@ struct TypeChecker {
   private mutating func environment<T: GenericDecl & LexicalScope>(
     of d: T.ID
   ) -> GenericEnvironment {
-    // Check if work has to be done.
     if let e = cache.read(\.environment[d]) { return e }
 
     // Nothing to do if the declaration has no generic clause.
     guard let clause = program[d].genericClause?.value else {
-      return commit(GenericEnvironment(introducing: []))
+      return commit(GenericEnvironment(of: AnyDeclID(d), introducing: []))
     }
 
-    var result = GenericEnvironment(introducing: clause.parameters)
+    var partialResult = partiallyConstructedEnvironment(
+      of: d, default: GenericEnvironment(of: AnyDeclID(d), introducing: clause.parameters))
+
     for p in clause.parameters {
-      insertAnnotatedConstraints(on: p, in: &result)
-    }
-    for c in (clause.whereClause?.value.constraints ?? []) {
-      insertConstraint(c, in: &result)
-    }
-    return commit(result)
+      let lhs = uncheckedType(of: p)
 
-    /// Commits `e` as the environment of `d` to the cache.
-    func commit(_ e: GenericEnvironment) -> GenericEnvironment {
-      cache.write(e, at: \.environment[d])
-      return e
+      // Nothing more to do if the parameter isn't type-kinded or doesn't have trait bounds.
+      let bounds = program[p].conformances
+      guard !bounds.isEmpty, let t = MetatypeType(lhs) else { continue }
+
+      for (n, u) in evalTraitComposition(bounds) {
+        let c = GenericConstraint(.conformance(t.instance, u), at: program[n].site)
+        insertConstraint(c, in: &partialResult)
+      }
     }
+
+    if let w = clause.whereClause {
+      for c in w.value.constraints {
+        insertConstraint(c, in: &partialResult)
+      }
+    }
+
+    return commit(partialResult)
   }
 
   /// Returns the generic environment introduced by `d`.
   private mutating func environment(of d: TraitDecl.ID) -> GenericEnvironment {
-    // Check if work has to be done.
     if let e = cache.read(\.environment[d]) { return e }
 
-    let receiver = program[d].receiver.id
-    var result = GenericEnvironment(introducing: [receiver])
+    let r = program[d].receiver.id
+    var partialResult = partiallyConstructedEnvironment(
+      of: d, default: GenericEnvironment(of: AnyDeclID(d), introducing: [r]))
+
+    // Synthesize `Self: T`.
+    let s = GenericTypeParameterType(selfParameterOf: d, in: program.ast)
+    cache.write(^MetatypeType(of: s), at: \.declType[r], ignoringSharedCache: true)
+
+    let t = TraitType(uncheckedType(of: d))!
+    let c = GenericConstraint(.conformance(^s, t), at: program[d].identifier.site)
+    insertConstraint(c, in: &partialResult)
 
     for m in program[d].members {
       switch m.kind {
       case AssociatedTypeDecl.self:
-        insertConstraints(of: AssociatedTypeDecl.ID(m)!, in: &result)
+        insertConstraints(of: AssociatedTypeDecl.ID(m)!, in: &partialResult)
       case AssociatedValueDecl.self:
-        insertConstraints(of: AssociatedValueDecl.ID(m)!, in: &result)
+        insertConstraints(of: AssociatedValueDecl.ID(m)!, in: &partialResult)
       default:
         continue
       }
     }
 
-    // Synthesize `Self: T`.
-    let s = GenericTypeParameterType(receiver, ast: program.ast)
-    let t = TraitType(uncheckedType(of: d))!
-    for c in refinements(of: t).unordered {
-      result.insertConstraint(.init(.conformance(^s, c), at: program[d].identifier.site))
-    }
-
-    cache.write(result, at: \.environment[d])
-    return result
+    return commit(partialResult)
   }
 
-  /// Returns the generic environment introduced by `s`.
+  /// Returns the generic environment introduced by `d`.
   private mutating func environment<T: TypeExtendingDecl>(of d: T.ID) -> GenericEnvironment {
-    // Check if work has to be done.
     if let e = cache.read(\.environment[d]) { return e }
 
-    var result = GenericEnvironment(introducing: [])
+    var partialResult = partiallyConstructedEnvironment(
+      of: d, default: GenericEnvironment(of: AnyDeclID(d), introducing: []))
+
     for c in (program[d].whereClause?.value.constraints ?? []) {
-      insertConstraint(c, in: &result)
+      insertConstraint(c, in: &partialResult)
     }
 
-    cache.write(result, at: \.environment[d])
-    return result
+    return commit(partialResult)
   }
 
   /// Returns the generic environment introduced by the declaration of `t`, if any.
@@ -1743,6 +1753,25 @@ struct TypeChecker {
     default:
       return nil
     }
+  }
+
+  /// Returns the latest computed version of the generic environment introduced by `d`.
+  private mutating func partiallyConstructedEnvironment<T: Decl>(
+    of d: T.ID, default initialResult: @autoclosure () -> GenericEnvironment
+  ) -> GenericEnvironment {
+    modify(&cache.partiallyFormedEnvironment[d]) { (e) in
+      precondition(e == nil, "infinite recursion")
+      let r = initialResult()
+      e = r
+      return r
+    }
+  }
+
+  /// Ensures `e` is consistent and writes it to the cache.
+  private mutating func commit(_ finalResult: GenericEnvironment) -> GenericEnvironment {
+    cache.partiallyFormedEnvironment[finalResult.decl] = nil
+    cache.write(finalResult, at: \.environment[finalResult.decl])
+    return finalResult
   }
 
   /// Returns the generic environment introduced by `m` or its immediate parent if `m` is a variant
@@ -1793,13 +1822,12 @@ struct TypeChecker {
 
     // Synthesize sugared conformance constraint, if any.
     for (n, t) in evalTraitComposition(program[p].conformances) {
-      for c in refinements(of: t).unordered {
-        e.insertConstraint(.init(.conformance(lhs, c), at: program[n].site))
-      }
+      let c = GenericConstraint(.conformance(lhs, t), at: program[n].site)
+      insertConstraint(c, in: &e)
     }
   }
 
-  /// Inserts `c` in `e`.
+  /// Evaluates `c` as a generic constraint and inserts it in `e`.
   private mutating func insertConstraint(
     _ c: SourceRepresentable<WhereClause.ConstraintExpr>, in e: inout GenericEnvironment
   ) {
@@ -1811,26 +1839,109 @@ struct TypeChecker {
       else { return }
 
       if lhs.isTypeParameter || rhs.isTypeParameter {
-        e.insertConstraint(.init(.equality(lhs, rhs), at: c.site))
+        insertConstraint(.init(.equality(lhs, rhs), at: c.site), in: &e)
       } else {
         report(.error(invalidEqualityConstraintBetween: lhs, and: rhs, at: c.site))
       }
 
-    case .conformance(let l, let r):
+    case .bound(let l, let r):
       guard let lhs = evalTypeAnnotation(AnyExprID(l)).errorFree else { return }
       guard lhs.isTypeParameter else {
         report(.error(invalidConformanceConstraintTo: lhs, at: c.site))
         return
       }
 
-      for (_, rhs) in evalTraitComposition(r) {
-        e.insertConstraint(.init(.conformance(lhs, rhs), at: c.site))
+      let r2 = r.map({ (e) in NameExpr.ID.init(e)! })
+      for (_, rhs) in evalTraitComposition(r2) {
+        insertConstraint(.init(.conformance(lhs, rhs), at: c.site), in: &e)
       }
 
     case .value(let p):
       // TODO: Symbolic execution
-      return e.insertConstraint(.init(.predicate(p), at: c.site))
+      insertConstraint(.init(.predicate(p), at: c.site), in: &e)
     }
+  }
+
+  /// Inserts `c` in `e` and registers the conformances and equalities that `c` implies.
+  private mutating func insertConstraint(
+    _ c: GenericConstraint, in e: inout GenericEnvironment
+  ) {
+    switch c.value {
+    case .conformance(let lhs, let rhs):
+      for c in refinements(of: rhs).unordered {
+        e.establishConformance(lhs, to: c)
+      }
+
+    case .equality(let lhs, let rhs):
+      e.establishEquivalence(lhs, rhs)
+
+    case .instance:
+      break
+
+    case .predicate:
+      UNIMPLEMENTED("generic value constraints")
+    }
+
+    e.insertConstraint(c)
+    cache.partiallyFormedEnvironment[e.decl] = e
+  }
+
+  /// Returns `(trait, hasError)` where `trait` is the trait to which `bound` resolves or `nil` if
+  /// it resolves to another entity, and `hasError` is `true` iff name resolution failed.
+  ///
+  /// This method does not run standard name resolution on `bound`, as it may require information
+  /// in which `bound` occurs. Instead, it processes the components of `bound` one by one, bailing
+  /// out as soon as it find one that denotes a type or expression since trait declarations can
+  /// only occur at global scope.
+  ///
+  /// - Parameters:
+  ///   - bound: The expression of a bound on a generic parameter declaration or the RHS of a
+  ///     conformance constraint in a where clause.
+  ///   - scopeOfUse: The declaration defining the environment in which `bound` occurs.
+  private mutating func resolveTrait(
+    expressedBy bound: NameExpr.ID,
+    inEnvironmentOf scopeOfUse: AnyScopeID
+  ) -> (trait: TraitType?, hasError: Bool) {
+    let (n, d) = program.ast.splitNominalComponents(of: bound)
+
+    // `bound` can't denote a trait if it contains a non-nominal component.
+    if d != .none {
+      return (nil, false)
+    }
+
+    // `bound` can't denote a trait if it refers to a generic parameter.
+    if let ns = names(introducedIn: scopeOfUse)[program[n.last!].name.value.stem] {
+      if ns.contains(where: { $0.kind == GenericParameterDecl.self }) {
+        return (nil, false)
+      }
+    }
+
+    // We can apply name resolution on the components of `bound` as long as they don't have
+    // generic arguments. A name expression with arguments can't denote a trait.
+    var parent: NameResolutionContext? = nil
+    for component in n.reversed() {
+      if !program[component].arguments.isEmpty {
+        return (nil, false)
+      }
+
+      let candidates = resolve(component, in: parent, usedAs: .unapplied)
+      if candidates.isEmpty {
+        return (nil, true)
+      }
+
+      guard let pick = candidates.uniqueElement else {
+        return (nil, false)
+      }
+
+      switch pick.type.base {
+      case is ModuleType, is NamespaceType, is TraitType:
+        parent = .init(type: pick.type, arguments: [:], receiver: .explicit(AnyExprID(component)))
+      default:
+        return (nil, false)
+      }
+    }
+
+    return (TraitType(parent?.type), false)
   }
 
   /// Returns the type of `d`, computing it if necessary, without type checking `d`.
@@ -1981,18 +2092,32 @@ struct TypeChecker {
 
   /// Computes and returns the type of `d`.
   private mutating func _uncheckedType(of d: GenericParameterDecl.ID) -> AnyType {
-    let bounds = program[d].conformances.map({ evalTypeAnnotation(AnyExprID($0)) })
-
-    // The declaration introduces a value if it's first annotation isn't a trait. Otherwise, it
-    // introduces a type.
-    if let first = bounds.first, !(first.base is TraitType) {
-      if bounds.count > 1 {
-        let s = program[program[d].conformances[1]].site
-        report(.error(tooManyAnnotationsOnGenericValueParametersAt: s))
-      }
-      return first
-    } else {
+    // If `p` is introduced without any bounds, it is assumed to be type-kinded.
+    guard let bounds = program[d].conformances.headAndTail else {
       return ^MetatypeType(of: GenericTypeParameterType(d, ast: program.ast))
+    }
+
+    // Otherwise, the first bound of `p` determines its kind.
+    let (firstBoundAsTrait, nameResolutionFailed) = resolveTrait(
+      expressedBy: bounds.head, inEnvironmentOf: program[d].scope)
+
+    // Register failures so we can fail fast.
+    if nameResolutionFailed {
+      return ^MetatypeType(of: GenericTypeParameterType(d, ast: program.ast))
+    }
+
+    // If the first bound is a trait, then `p` is type-kinded.
+    if firstBoundAsTrait != nil {
+      return ^MetatypeType(of: GenericTypeParameterType(d, ast: program.ast))
+    }
+
+    // Otherwise, `p` is value-kinded.
+    else {
+      let rhs = evalTypeAnnotation(AnyExprID(bounds.head))
+      if let n = bounds.tail.first {
+        report(.error(tooManyAnnotationsOnGenericValueParametersAt: program[n].site))
+      }
+      return rhs
     }
   }
 
@@ -2608,8 +2733,8 @@ struct TypeChecker {
   ///
   /// The returned sequence contains an element for each valid trait expression in `composition`.
   /// A diagnostic is reported each invalid expression.
-  private mutating func evalTraitComposition(
-    _ composition: [NameExpr.ID]
+  private mutating func evalTraitComposition<S: Sequence<NameExpr.ID>>(
+    _ composition: S
   ) -> [(name: NameExpr.ID, trait: TraitType)] {
     var result: [(name: NameExpr.ID, trait: TraitType)] = []
 
@@ -5660,6 +5785,9 @@ struct TypeChecker {
     ///
     /// This map serves as cache for `refinements(of:)`
     var traitToRefinements: [TraitType: RefinementCluster] = [:]
+
+    /// A map from generic declarations to their (partially formed) environment.
+    var partiallyFormedEnvironment: [AnyDeclID: GenericEnvironment] = [:]
 
     /// Creates an instance for memoizing type checking results in `local` and comminicating them
     /// to concurrent type checkers using `shared`.

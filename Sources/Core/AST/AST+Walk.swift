@@ -823,7 +823,7 @@ extension AST {
     constraintExpr c: WhereClause.ConstraintExpr, notifying o: inout O
   ) {
     switch c {
-    case .conformance(let lhs, let traits):
+    case .bound(let lhs, let traits):
       walk(lhs, notifying: &o)
       for t in traits { walk(t, notifying: &o) }
     case .equality(let lhs, let rhs):

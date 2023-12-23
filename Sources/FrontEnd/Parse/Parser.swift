@@ -3286,11 +3286,11 @@ public enum Parser {
           range: state.ast[lhs].site.extended(upTo: state.currentIndex))
       }
 
-      // conformance-constraint
+      // bound-constraint
       if state.take(.colon) != nil {
-        let traits = try state.expect("trait composition", using: traitComposition)
+        let rhs = try state.expect("type expression", using: boundList)
         return SourceRepresentable(
-          value: .conformance(l: lhs, traits: traits),
+          value: .bound(l: lhs, r: rhs),
           range: state.ast[lhs].site.extended(upTo: state.currentIndex))
       }
 
@@ -3308,6 +3308,10 @@ public enum Parser {
   static let traitComposition =
     (nameTypeExpr.and(zeroOrMany(take(.ampersand).and(nameTypeExpr).second))
       .map({ (state, tree) -> TraitComposition in [tree.0] + tree.1 }))
+
+  private static let boundList =
+    (expr.and(zeroOrMany(take(.ampersand).and(expr).second))
+      .map({ (state, tree) -> [AnyExprID] in [tree.0] + tree.1 }))
 
   // MARK: Attributes
 
