@@ -1,0 +1,121 @@
+/// A type whose values can be awaited.
+public trait Future {
+
+  /// The type of the value produced by `Self`.
+  type Result
+
+  /// Awaits the completion of `Self`, returning the produced value.
+  fun await() sink -> Result
+
+}
+
+/// A future type that allows cancelling the computation that produces its value.
+public trait CancellableFuture: Future {
+
+  /// Cancels `Self`.
+  fun cancel() sink
+
+}
+
+@external("concore2full_spawn")
+fun concore2full_spawn(_ frame: set SpawnFrameBase, _ f: Int); // TODO: f is a pointer to a function
+@external("concore2full_spawn2")
+fun concore2full_spawn2(_ frame: set SpawnFrameBase, _ f: [](SpawnFrameBase) let -> Void);
+@external("concore2full_await")
+fun concore2full_await(_ frame: SpawnFrameBase);
+
+public type SpawnFrameBase {
+
+  let task_function: CVoidPointer
+
+  let next_task: CVoidPointer
+
+  let sync_state : Int32
+
+  let originator_context: CVoidPointer
+
+  let originator_thread_reclaimer: CVoidPointer
+
+  let target_context: CVoidPointer
+
+  let target_thread_reclaimer: CVoidPointer
+
+  let user_function: CVoidPointer
+
+  init() {}
+
+}
+
+public type LocalFuture<E>: Future {
+
+  public typealias Result = Int
+
+  private var base_frame: SpawnFrameBase
+
+  // private var f: [E]()->Int
+
+  private var r: Optional<Int>
+
+  public init() {
+    let local_f = fun (_ frame: SpawnFrameBase) -> Void {
+      print("# entering spawned function")
+      inout self = PointerToMutable<Self>(type_punning: mutable_pointer[to: frame]).unsafe[]
+      &self.do_call()
+      print("# exiting spawned function")
+    }
+    concore2full_spawn2(self.base_frame, local_f)
+  }
+  // public init(_ f: sink [E]()->Int) {
+  //   initialize(&self.f, to: f)
+  // }
+
+  private fun do_call() inout {
+    // TODO (#1242): Call `f` here.
+    // &self.r = self.f()
+    &r = do_greet()
+  }
+
+  public fun await() sink -> Result {
+    concore2full_await(self.base_frame)
+
+    if let r: Int = self.r {
+      return r.copy()
+    } else {
+      fatal_error("we don't have a result yet")
+      return 0 // TODO: without this we get: "et parameter not initialized before function returns"
+    }
+  }
+
+}
+
+fun spawn_<E>(_ f: sink [E]()->Int) -> LocalFuture<E> {
+  return LocalFuture<E>()
+  // return LocalFuture<E>(f)
+}
+
+// subscript spawn2<E, R>(_ f: yielded [E]() -> R): Future<E, R> { let inout sink }
+
+fun do_greet() -> Int {
+  print("Hello, concurrent world!")
+  return 17
+}
+fun prime_number() -> Int {
+  13
+}
+fun concurrent_greeting() -> Int {
+  var future = spawn_(fun() { do_greet() })
+  let x = prime_number()
+  print("Main threads says: hello!")
+  print("# before await")
+  let y = future.await() // switching threads
+  print("# after await")
+  return x + y
+}
+
+public fun main() {
+  print(concurrent_greeting())
+  print("Finishing...")
+}
+
+// Compile this with:
+// > hc conc.hylo -l concore2full -l context_core_api -l boost_context -l c++ -L <path-to-concore2full> -L <path-to-boost>
