@@ -505,7 +505,8 @@ struct Emitter {
       receiverEffect: .set, environment: ^TupleType(types: [^r]), inputs: [], output: .void)
     let f = SynthesizedFunctionDecl(.globalInitialization(d), typed: l, in: program[d].scope)
     let i = lower(globalBindingInitializer: f)
-    let s = StaticStorage(r.bareType, identifiedBy: AnyDeclID(d), initializedWith: i)
+    let t = program.canonical(r.bareType, in: program[d].scope)
+    let s = StaticStorage(t, identifiedBy: AnyDeclID(d), initializedWith: i)
     module.addStaticStorage(s)
   }
 
