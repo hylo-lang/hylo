@@ -221,16 +221,18 @@ struct ConstraintSystem {
     }
   }
 
-  /// Knowing types can conform to `goal.concept` structurally, if `goal.model` is a structural
-  /// type, creates and returns sub-goals checking that its parts conform to `goal.concept`; returns
-  /// `.failure` otherwise.
+  /// If `goal.model` is a structural type, creates and returns sub-goals checking that its parts
+  /// conform to `goal.concept`; returns `.failure` otherwise.
   ///
-  /// - Requires: `goal.model` is not a type variable.
+  /// - Requires: `goal.concept` is a trait supporting structural conformances and `goal.model` is
+  ///   not a type variable.
   private mutating func solve(structuralConformance goal: ConformanceConstraint) -> Outcome {
     let model = checker.canonical(goal.model, in: scope)
     assert(!(model.base is TypeVariable))
 
     switch model.base {
+    case let t as LambdaType:
+      return delegate(structuralConformance: goal, for: t.captures.lazy.map(\.type))
     case let t as TupleType:
       return delegate(structuralConformance: goal, for: t.elements.lazy.map(\.type))
     case let t as UnionType:
