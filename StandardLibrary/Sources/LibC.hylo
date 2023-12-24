@@ -5,27 +5,27 @@
 ///     the implementation.
 ///   - size: The number of bytes to allocate. Must be an integral multiple of `alignment`.
 @ffi("aligned_alloc")
-fun aligned_alloc(_ alignment: Int, _ size: Int) -> CVoidPointer
+fun aligned_alloc(_ alignment: Int, _ size: Int) -> MemoryAddress
 
 /// Allocates `size` bytes of uninitialized storage.
 @ffi("malloc")
-fun malloc(_ size: Int) -> CVoidPointer
+fun malloc(_ size: Int) -> MemoryAddress
 
 /// Deallocates the block of memory pointed at by `pointer`.
 @ffi("free")
-fun free(_ pointer: CVoidPointer)
+fun free(_ pointer: MemoryAddress)
 
 /// Terminates the program abnormally.
 @ffi("abort")
 public fun abort() -> Never
 
 @ffi("fdopen")
-public fun fdopen(_ descriptor: Int, _ mode: CVoidPointer) -> CVoidPointer
+public fun fdopen(_ descriptor: Int, _ mode: MemoryAddress) -> MemoryAddress
 
 /// Writes to `stream` the contents of `data`, which contains `count` elements of `size` bytes,
 /// returning the number of elements written.
 @ffi("fwrite")
-public fun fwrite(_ data: CVoidPointer, _ size: Int, _ count: Int, _ stream: CVoidPointer) -> Int
+public fun fwrite(_ data: MemoryAddress, _ size: Int, _ count: Int, _ stream: MemoryAddress) -> Int
 
 /// Copies `count` elements from the object pointed to by `source` to the object pointed to by
 /// `destination` and returns `destination`.
@@ -36,8 +36,8 @@ public fun fwrite(_ data: CVoidPointer, _ size: Int, _ count: Int, _ stream: CVo
 /// invalid or null, the behavior is undefined.
 @ffi("memcpy")
 public fun memcpy(
-  _ destination: CVoidPointer, _ source: CVoidPointer, _ count: Int
-) -> CVoidPointer
+  _ destination: MemoryAddress, _ source: MemoryAddress, _ count: Int
+) -> MemoryAddress
 
 /// Copies `count` elements from the object pointed to by `source` to the object pointed to by
 /// `destination` and returns `destination`.
@@ -49,5 +49,5 @@ public fun memcpy(
 /// invalid or null, the behavior is undefined.
 @ffi("memmove")
 public fun memmove(
-  _ destination: CVoidPointer, _ source: CVoidPointer, _ count: Int
-) -> CVoidPointer
+  _ destination: MemoryAddress, _ source: MemoryAddress, _ count: Int
+) -> MemoryAddress
