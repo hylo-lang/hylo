@@ -2364,17 +2364,16 @@ struct Emitter {
 
     switch foreignConvertibleConformance.implementations[r]! {
     case .concrete(let m):
-      let convert = FunctionReference(to: m, in: &module)
-      let t = LambdaType(convert.type.ast)!.output
+      let convert = module.demandDeclaration(lowering: m)!
+      let f = module.reference(to: convert, implementedFor: foreignConvertibleConformance)
 
       let x0 = emitAllocStack(for: ir, at: site)
       let x1 = insert(module.makeAccess(.set, from: x0, at: site))!
-      let x2 = emitAllocStack(for: t, at: site)
+      let x2 = emitAllocStack(for: LambdaType(f.type.ast)!.output, at: site)
       let x3 = insert(module.makeAccess(.set, from: x2, at: site))!
       let x4 = insert(module.makeAccess(.sink, from: source, at: site))!
 
-      let s = module.makeCall(
-        applying: .constant(convert), to: [x1, x4], writingResultTo: x3, at: site)
+      let s = module.makeCall(applying: .constant(f), to: [x1, x4], writingResultTo: x3, at: site)
       insert(s)
 
       insert(module.makeEndAccess(x4, at: site))
@@ -2403,14 +2402,13 @@ struct Emitter {
 
     switch foreignConvertibleConformance.implementations[r]! {
     case .concrete(let m):
-      let convert = FunctionReference(to: m, in: &module)
-      let t = LambdaType(convert.type.ast)!.output
+      let convert = module.demandDeclaration(lowering: m)!
+      let f = module.reference(to: convert, implementedFor: foreignConvertibleConformance)
 
       let x0 = insert(module.makeAccess(.let, from: o, at: site))!
-      let x1 = emitAllocStack(for: t, at: site)
+      let x1 = emitAllocStack(for: LambdaType(f.type.ast)!.output, at: site)
       let x2 = insert(module.makeAccess(.set, from: x1, at: site))!
-      insert(
-        module.makeCall(applying: .constant(convert), to: [x0], writingResultTo: x2, at: site))
+      insert(module.makeCall(applying: .constant(f), to: [x0], writingResultTo: x2, at: site))
       insert(module.makeEndAccess(x2, at: site))
       insert(module.makeEndAccess(x0, at: site))
 
