@@ -436,6 +436,11 @@ public struct AST {
     }
   }
 
+  /// Retutns the declaration of the implementation of `d` with effect `a`, if any.
+  public func implementation(_ a: AccessEffect, of d: SubscriptDecl.ID) -> SubscriptImpl.ID? {
+    self[d].impls.first(where: { (i) in self[i].introducer.value == a })
+  }
+
   /// Returns `true` iff `s` is a consuming for-loop.
   public func isConsuming(_ s: ForStmt.ID) -> Bool {
     self[self[self[s].binding].pattern].introducer.value.isConsuming
