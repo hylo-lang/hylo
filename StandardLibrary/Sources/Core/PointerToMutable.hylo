@@ -86,6 +86,20 @@ public conformance PointerToMutable: Equatable {
 
 }
 
+public conformance PointerToMutable: ForeignConvertible {
+
+  public typealias ForeignRepresentation = Builtin.ptr
+
+  public init(foreign_value: sink Builtin.ptr) {
+    &self.base = foreign_value
+  }
+
+  public fun foreign_value() -> Builtin.ptr {
+    base
+  }
+
+}
+
 public extension PointerToMutable where Pointee: Movable {
 
   /// Returns the value at the address represented by `self`, leaving the storage at this address

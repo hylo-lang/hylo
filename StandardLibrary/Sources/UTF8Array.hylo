@@ -29,7 +29,7 @@ public type UTF8Array {
   ///   ↓
   /// ┌────┬────┬────┬────┬────┬────┬────┬────┐
   /// | 05 | 53 | 61 | 6C | 75 | 74 | 00 | 00 |
-  /// └────┴────┴────┴────┴────┴────┴────┴────┘ 
+  /// └────┴────┴────┴────┴────┴────┴────┴────┘
   ///
   /// b62 indicates if the view owns its storage and is responsible for its deallocation if it is
   /// out-of-line. Unowned, out-of-line storage typically correspond to static allocations.
@@ -78,7 +78,7 @@ public extension UTF8Array {
 
         yield Pointer<Int8>(buffer)
       } else {
-        yield unsafe_heap_payload.0        
+        yield unsafe_heap_payload.0
       }
     }
   }
@@ -134,8 +134,8 @@ public conformance UTF8Array: Copyable {
         aligned_at: MemoryLayout<Int>.alignment())
 
       // Note: copy the entire payload at once.
-      let d = CVoidPointer(base: payload_clone.base)
-      let s = CVoidPointer(base: payload.0.copy().base)
+      let d = MemoryAddress(base: payload_clone.base)
+      let s = MemoryAddress(base: payload.0.copy().base)
       _ = memmove(d, s, payload_size)
 
       return .new(taking_ownership_of: payload_clone)
