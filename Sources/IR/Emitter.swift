@@ -1328,6 +1328,8 @@ struct Emitter {
       emitStore(RemoteExpr.ID(e)!, to: storage)
     case SequenceExpr.self:
       emitStore(SequenceExpr.ID(e)!, to: storage)
+    case SubscriptCallExpr.self:
+      emitStore(SubscriptCallExpr.ID(e)!, to: storage)
     case StringLiteralExpr.self:
       emitStore(StringLiteralExpr.ID(e)!, to: storage)
     case TupleExpr.self:
@@ -1597,6 +1599,19 @@ struct Emitter {
     case .leaf(let v):
       emitStore(value: v, to: storage)
     }
+  }
+
+  /// Inserts the IR for storing the value of `e` to `storage`.
+  private mutating func emitStore(_ e: SubscriptCallExpr.ID, to storage: Operand) {
+    let (callee, arguments) = emitOperands(e)
+    guard ast.implementation(.sink, of: callee.bundle) != nil else {
+      let n = ast.name(of: callee.bundle)
+      report(.error(n, hasNoSinkImplementationAt: program[e].callee.site))
+      return
+    }
+
+    _ = arguments
+    UNIMPLEMENTED("sink subscript")
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
@@ -1880,6 +1895,21 @@ struct Emitter {
     }
 
     return result
+  }
+
+  /// Inserts the IR generating the operands of the subscript call `e`.
+  private mutating func emitOperands(
+    _ e: SubscriptCallExpr.ID
+  ) -> (callee: BundleReference<SubscriptDecl>, arguments: [Operand]) {
+    // Explicit arguments are evaluated first, from left to right.
+    let explicitArguments = emitArguments(
+      to: ast[e].callee, in: CallID(e),
+      usingExplicit: ast[e].arguments, synthesizingDefaultAt: .empty(atEndOf: ast[e].site))
+
+    // Callee and captures are evaluated next.
+    let (callee, captures) = emit(subscriptCallee: ast[e].callee)
+
+    return (callee, captures + explicitArguments)
   }
 
   /// Inserts the IR for the argument `e` passed to a parameter of type `parameter`.
@@ -2469,15 +2499,7 @@ struct Emitter {
 
   /// Inserts the IR for lvalue `e`.
   private mutating func emitLValue(_ e: SubscriptCallExpr.ID) -> Operand {
-    // Explicit arguments are evaluated first, from left to right.
-    let explicitArguments = emitArguments(
-      to: ast[e].callee, in: CallID(e),
-      usingExplicit: ast[e].arguments, synthesizingDefaultAt: .empty(atEndOf: ast[e].site))
-
-    // Callee and captures are evaluated next.
-    let (callee, captures) = emit(subscriptCallee: ast[e].callee)
-    let arguments = captures + explicitArguments
-
+    let (callee, arguments) = emitOperands(e)
     let s = module.makeProjectBundle(
       applying: .init(callee, in: insertionScope!), to: arguments, at: ast[e].site)
     return insert(s)!
@@ -3078,6 +3100,12 @@ extension Diagnostic {
 
   fileprivate static func error(returnInSubscript s: ReturnStmt.ID, in ast: AST) -> Diagnostic {
     .error("return statement in subscript", at: ast[s].introducerSite)
+  }
+
+  fileprivate static func error(
+    _ n: Name, hasNoSinkImplementationAt site: SourceRange
+  ) -> Diagnostic {
+    .error("cannot use '\(n)' to form a rvalue: subscript has no 'sink' implementation", at: site)
   }
 
   fileprivate static func warning(unreachableStatement s: AnyStmtID, in ast: AST) -> Diagnostic {
