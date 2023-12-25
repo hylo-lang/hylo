@@ -206,8 +206,25 @@ struct TypeChecker {
   private mutating func conformedTraits(
     of t: AssociatedTypeType, in scopeOfUse: AnyScopeID
   ) -> Set<TraitType> {
-    var result = conformedTraits(declaredByConstraintsOn: ^t, exposedTo: scopeOfUse)
-    result.formUnion(conformedTraits(declaredInExtensionsOf: ^t, exposedTo: scopeOfUse))
+    let a = AnyType(t)
+    var result = conformedTraits(declaredByConstraintsOn: a, exposedTo: scopeOfUse)
+
+    switch t.domain.base {
+    case let u as GenericTypeParameterType:
+      let s = program[u.decl].scope
+      if !program.isContained(scopeOfUse, in: s) {
+        result.formUnion(conformedTraits(declaredByConstraintsOn: a, exposedTo: s))
+      }
+
+    case is AssociatedTypeType:
+      UNIMPLEMENTED("name lookup associated type conformance lenses")
+    case is ConformanceLensType:
+      UNIMPLEMENTED("name lookup into conformance lenses")
+    default:
+      unreachable()
+    }
+
+    result.formUnion(conformedTraits(declaredInExtensionsOf: a, exposedTo: scopeOfUse))
     return result
   }
 
@@ -3028,6 +3045,8 @@ struct TypeChecker {
     switch nominalScope.base {
     case is ErrorType:
       return []
+    case let t as AssociatedTypeType:
+      return lookup(stem, memberOf: t, exposedTo: scopeOfUse)
     case let t as BoundGenericType:
       return lookup(stem, memberOf: t.base, exposedTo: scopeOfUse)
     case let t as ConformanceLensType:
@@ -3069,6 +3088,19 @@ struct TypeChecker {
       matches.formUnion(lookup(stem, inExtensionsOf: nominalScope, exposedTo: scopeOfUse))
     }
 
+    return matches
+  }
+
+  /// Returns the declarations that introduce a name with given `stem` as member of `nominalScope`
+  /// and are exposed to `scopeOfUse`.
+  private mutating func lookup(
+    _ stem: String, memberOf nominalScope: AssociatedTypeType,
+    exposedTo scopeOfUse: AnyScopeID
+  ) -> Set<AnyDeclID> {
+    var matches = Set<AnyDeclID>()
+    for t in conformedTraits(of: nominalScope, in: scopeOfUse) {
+      matches.formUnion(lookup(stem, memberOf: ^t, exposedTo: scopeOfUse))
+    }
     return matches
   }
 
