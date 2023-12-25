@@ -37,5 +37,5 @@ public fun hylo_aligned_free(_ pointer: MemoryAddress) {
   let s = MemoryLayout<MemoryAddress>.size()
   let h = pointer.advance(by_bytes: -s)
   let p = PointerToMutable<MemoryAddress>(type_punning: h).unsafe[].copy()
-  free(CVoidPointer(base: p.base))
+  free(p)
 }

@@ -505,7 +505,8 @@ struct Emitter {
       receiverEffect: .set, environment: ^TupleType(types: [^r]), inputs: [], output: .void)
     let f = SynthesizedFunctionDecl(.globalInitialization(d), typed: l, in: program[d].scope)
     let i = lower(globalBindingInitializer: f)
-    let s = StaticStorage(r.bareType, identifiedBy: AnyDeclID(d), initializedWith: i)
+    let t = program.canonical(r.bareType, in: program[d].scope)
+    let s = StaticStorage(t, identifiedBy: AnyDeclID(d), initializedWith: i)
     module.addStaticStorage(s)
   }
 
@@ -1328,6 +1329,8 @@ struct Emitter {
       emitStore(RemoteExpr.ID(e)!, to: storage)
     case SequenceExpr.self:
       emitStore(SequenceExpr.ID(e)!, to: storage)
+    case SubscriptCallExpr.self:
+      emitStore(SubscriptCallExpr.ID(e)!, to: storage)
     case StringLiteralExpr.self:
       emitStore(StringLiteralExpr.ID(e)!, to: storage)
     case TupleExpr.self:
@@ -1597,6 +1600,19 @@ struct Emitter {
     case .leaf(let v):
       emitStore(value: v, to: storage)
     }
+  }
+
+  /// Inserts the IR for storing the value of `e` to `storage`.
+  private mutating func emitStore(_ e: SubscriptCallExpr.ID, to storage: Operand) {
+    let (callee, arguments) = emitOperands(e)
+    guard ast.implementation(.sink, of: callee.bundle) != nil else {
+      let n = ast.name(of: callee.bundle)
+      report(.error(n, hasNoSinkImplementationAt: program[e].callee.site))
+      return
+    }
+
+    _ = arguments
+    UNIMPLEMENTED("sink subscript")
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
@@ -1880,6 +1896,21 @@ struct Emitter {
     }
 
     return result
+  }
+
+  /// Inserts the IR generating the operands of the subscript call `e`.
+  private mutating func emitOperands(
+    _ e: SubscriptCallExpr.ID
+  ) -> (callee: BundleReference<SubscriptDecl>, arguments: [Operand]) {
+    // Explicit arguments are evaluated first, from left to right.
+    let explicitArguments = emitArguments(
+      to: ast[e].callee, in: CallID(e),
+      usingExplicit: ast[e].arguments, synthesizingDefaultAt: .empty(atEndOf: ast[e].site))
+
+    // Callee and captures are evaluated next.
+    let (callee, captures) = emit(subscriptCallee: ast[e].callee)
+
+    return (callee, captures + explicitArguments)
   }
 
   /// Inserts the IR for the argument `e` passed to a parameter of type `parameter`.
@@ -2333,17 +2364,16 @@ struct Emitter {
 
     switch foreignConvertibleConformance.implementations[r]! {
     case .concrete(let m):
-      let convert = FunctionReference(to: m, in: &module)
-      let t = LambdaType(convert.type.ast)!.output
+      let convert = module.demandDeclaration(lowering: m)!
+      let f = module.reference(to: convert, implementedFor: foreignConvertibleConformance)
 
       let x0 = emitAllocStack(for: ir, at: site)
       let x1 = insert(module.makeAccess(.set, from: x0, at: site))!
-      let x2 = emitAllocStack(for: t, at: site)
+      let x2 = emitAllocStack(for: LambdaType(f.type.ast)!.output, at: site)
       let x3 = insert(module.makeAccess(.set, from: x2, at: site))!
       let x4 = insert(module.makeAccess(.sink, from: source, at: site))!
 
-      let s = module.makeCall(
-        applying: .constant(convert), to: [x1, x4], writingResultTo: x3, at: site)
+      let s = module.makeCall(applying: .constant(f), to: [x1, x4], writingResultTo: x3, at: site)
       insert(s)
 
       insert(module.makeEndAccess(x4, at: site))
@@ -2372,14 +2402,13 @@ struct Emitter {
 
     switch foreignConvertibleConformance.implementations[r]! {
     case .concrete(let m):
-      let convert = FunctionReference(to: m, in: &module)
-      let t = LambdaType(convert.type.ast)!.output
+      let convert = module.demandDeclaration(lowering: m)!
+      let f = module.reference(to: convert, implementedFor: foreignConvertibleConformance)
 
       let x0 = insert(module.makeAccess(.let, from: o, at: site))!
-      let x1 = emitAllocStack(for: t, at: site)
+      let x1 = emitAllocStack(for: LambdaType(f.type.ast)!.output, at: site)
       let x2 = insert(module.makeAccess(.set, from: x1, at: site))!
-      insert(
-        module.makeCall(applying: .constant(convert), to: [x0], writingResultTo: x2, at: site))
+      insert(module.makeCall(applying: .constant(f), to: [x0], writingResultTo: x2, at: site))
       insert(module.makeEndAccess(x2, at: site))
       insert(module.makeEndAccess(x0, at: site))
 
@@ -2469,15 +2498,7 @@ struct Emitter {
 
   /// Inserts the IR for lvalue `e`.
   private mutating func emitLValue(_ e: SubscriptCallExpr.ID) -> Operand {
-    // Explicit arguments are evaluated first, from left to right.
-    let explicitArguments = emitArguments(
-      to: ast[e].callee, in: CallID(e),
-      usingExplicit: ast[e].arguments, synthesizingDefaultAt: .empty(atEndOf: ast[e].site))
-
-    // Callee and captures are evaluated next.
-    let (callee, captures) = emit(subscriptCallee: ast[e].callee)
-    let arguments = captures + explicitArguments
-
+    let (callee, arguments) = emitOperands(e)
     let s = module.makeProjectBundle(
       applying: .init(callee, in: insertionScope!), to: arguments, at: ast[e].site)
     return insert(s)!
@@ -3078,6 +3099,12 @@ extension Diagnostic {
 
   fileprivate static func error(returnInSubscript s: ReturnStmt.ID, in ast: AST) -> Diagnostic {
     .error("return statement in subscript", at: ast[s].introducerSite)
+  }
+
+  fileprivate static func error(
+    _ n: Name, hasNoSinkImplementationAt site: SourceRange
+  ) -> Diagnostic {
+    .error("cannot use '\(n)' to form a rvalue: subscript has no 'sink' implementation", at: site)
   }
 
   fileprivate static func warning(unreachableStatement s: AnyStmtID, in ast: AST) -> Diagnostic {
