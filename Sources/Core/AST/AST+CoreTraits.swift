@@ -1,5 +1,5 @@
 /// The description of a core trait that has been loaded in an AST.
-public protocol CoreTraitDescription {
+public protocol CoreTraitDescription: Codable {
 
   /// The identifier of the trait declaration in the AST.
   var decl: TraitDecl.ID { get }
@@ -7,7 +7,7 @@ public protocol CoreTraitDescription {
 }
 
 /// A view of the traits in Hylo's standard library that are known by the compiler.
-public struct CoreTraits {
+public struct CoreTraits: Codable {
 
   /// `Hylo.Collection`.
   public let collection: CollectionDescription
