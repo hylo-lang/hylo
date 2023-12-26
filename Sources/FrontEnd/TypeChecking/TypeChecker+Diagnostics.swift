@@ -363,6 +363,16 @@ extension Diagnostic {
     }
   }
 
+  static func error(
+    invalidReferenceToAssociatedType a: AssociatedTypeDecl.ID, at site: SourceRange, in ast: AST
+  ) -> Diagnostic {
+    .error(
+      """
+      associated type '\(ast[a].baseName)' can only be referred to with a concrete type or \
+      generic parameter base
+      """, at: site)
+  }
+
   static func warning(needlessImport d: ImportDecl.ID, in ast: AST) -> Diagnostic {
     let s = ast[d].identifier
     return .warning("needless import: source file is part of '\(s.value)'", at: s.site)
