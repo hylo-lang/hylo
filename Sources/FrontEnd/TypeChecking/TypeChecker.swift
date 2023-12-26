@@ -2527,10 +2527,14 @@ struct TypeChecker {
 
     var captures: [ImplicitCapture] = []
     var types: [TupleType.Element] = []
-    for (d, x) in captureToStemAndEffect {
-      guard let t = resolveType(of: d) else { continue }
+    for (c, x) in captureToStemAndEffect {
+      let t = resolveType(of: c, reportingDiagnosticsAt: program[d].site)
+      guard !t[.hasError] else {
+        continue
+      }
+
       let u = RemoteType(x.effect, t)
-      captures.append(ImplicitCapture(name: .init(stem: x.stem), type: u, decl: d))
+      captures.append(ImplicitCapture(name: .init(stem: x.stem), type: u, decl: c))
       types.append(.init(label: x.stem, type: ^u))
     }
 
@@ -3814,7 +3818,10 @@ struct TypeChecker {
     usedAs purpose: NameUse,
     reportingDiagnosticsTo log: inout DiagnosticSet
   ) -> (candidateType: AnyType, specialization: GenericArguments, isConstructor: Bool)? {
-    guard var candidateType = resolveType(of: d) else { return nil }
+    var candidateType = resolveType(of: d, lookedUpIn: context, reportingDiagnosticsAt: name.site)
+    guard !candidateType[.hasError] else {
+      return nil
+    }
 
     // The specialization of the match includes that of context in which it was looked up.
     var specialization = genericArguments(inScopeIntroducing: d, resolvedIn: context)
@@ -3867,22 +3874,56 @@ struct TypeChecker {
     return (candidateType, specialization, isConstructor)
   }
 
-  /// Returns the resolved type of the entity declared by `d` or `nil` if `d` is ill-formed.
-  private mutating func resolveType(of d: AnyDeclID) -> AnyType? {
-    var result = uncheckedType(of: d)
-    if result.isError { return nil }
+  /// Returns the generic type of a reference to `d`, found in `context`, reporting diagnostics
+  /// at `diagnosticSite`.
+  private mutating func resolveType(
+    of d: AnyDeclID, lookedUpIn context: NameResolutionContext? = nil,
+    reportingDiagnosticsAt diagnosticSite: SourceRange
+  ) -> AnyType {
+    switch d.kind {
+    case AssociatedTypeDecl.self:
+      return resolveType(
+        of: AssociatedTypeDecl.ID(d)!, lookedUpIn: context, reportingDiagnosticsAt: diagnosticSite)
+    case SubscriptDecl.self:
+      return resolveType(of: SubscriptDecl.ID(d)!, lookedUpIn: context)
+    default:
+      break
+    }
+
+    let result = uncheckedType(of: d)
+    if let t = ParameterType(result) {
+      return t.bareType
+    } else {
+      return result
+    }
+  }
+
+  /// Returns the generic type of a reference to `d`, found in `context`, reporting diagnostics
+  /// at `diagnosticSite`.
+  private mutating func resolveType(
+    of d: AssociatedTypeDecl.ID, lookedUpIn context: NameResolutionContext?,
+    reportingDiagnosticsAt diagnosticSite: SourceRange
+  ) -> AnyType {
+    guard let domain = context?.type else {
+      // Domain of associated type resolved without qualification is skolemized.
+      return uncheckedType(of: d)
+    }
+
+    return ^MetatypeType(of: AssociatedTypeType(d, domain: domain, ast: program.ast))
+  }
+
+  /// Returns the generic type of a reference to `d`, found in `context`.
+  private mutating func resolveType(
+    of d: SubscriptDecl.ID, lookedUpIn context: NameResolutionContext?
+  ) -> AnyType {
+    let result = uncheckedType(of: d)
 
     // Properties are not first-class.
-    if let s = SubscriptDecl.ID(d), program[s].isProperty {
-      result = SubscriptType(result)!.output
+    if let t = SubscriptType(result), t.isProperty {
+      return t.output
+    } else {
+      return result
     }
-
-    // Erase parameter conventions.
-    if let t = ParameterType(result) {
-      result = t.bareType
-    }
-
-    return result
   }
 
   /// Computes and returns the type of `Self` in `scopeOfUse`.
