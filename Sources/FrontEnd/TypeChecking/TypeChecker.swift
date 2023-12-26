@@ -3876,8 +3876,8 @@ struct TypeChecker {
       specialization[p] = a
     }
 
-    // If the match is a trait member looked, specialize its receiver.
-    // TODO: Remove `mayCaptureGenericParameters` when
+    // If the match is a trait member, specialize its receiver.
+    // TODO: Remove `mayCaptureGenericParameters`
     if let t = traitDeclaring(d), mayCaptureGenericParameters(d) {
       // DR: `mayCaptureGenericParameters` is used to avoid populating the specialization table
       // when `m` is an associated type declaration. Otherwise, `specialize` causes resolution
