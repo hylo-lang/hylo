@@ -3702,10 +3702,6 @@ struct TypeChecker {
         continue
       }
 
-      if (context?.type.base is TraitType) && (m.kind == AssociatedTypeDecl.self) {
-        log.insert(.error(invalidUseOfAssociatedType: name.value.stem, at: name.site))
-      }
-
       let cs = collectConstraints(
         associatedWith: m, specializedBy: specialization, in: scopeOfUse, at: name.site)
       candidates.insert(

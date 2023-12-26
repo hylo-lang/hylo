@@ -94,12 +94,6 @@ extension Diagnostic {
     .error("incompatible types '\(l)' and '\(r)'", at: site)
   }
 
-  static func error(invalidUseOfAssociatedType name: String, at site: SourceRange) -> Diagnostic {
-    .error(
-      "associated type '\(name)' can only be used with a concrete type or generic type parameter",
-      at: site)
-  }
-
   static func error(invalidDestructuringOfType type: AnyType, at site: SourceRange) -> Diagnostic {
     .error("invalid destructuring of type '\(type)'", at: site)
   }
