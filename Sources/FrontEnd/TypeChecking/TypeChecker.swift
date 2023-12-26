@@ -1689,7 +1689,7 @@ struct TypeChecker {
       return commit(GenericEnvironment(of: AnyDeclID(d), introducing: []))
     }
 
-    var partialResult = partiallyConstructedEnvironment(
+    var partialResult = initialEnvironment(
       of: d, default: GenericEnvironment(of: AnyDeclID(d), introducing: clause.parameters))
 
     for p in clause.parameters {
@@ -1719,7 +1719,7 @@ struct TypeChecker {
     if let e = cache.read(\.environment[d]) { return e }
 
     let r = program[d].receiver.id
-    var partialResult = partiallyConstructedEnvironment(
+    var partialResult = initialEnvironment(
       of: d, default: GenericEnvironment(of: AnyDeclID(d), introducing: [r]))
 
     // Synthesize `Self: T`.
@@ -1748,7 +1748,7 @@ struct TypeChecker {
   private mutating func environment<T: TypeExtendingDecl>(of d: T.ID) -> GenericEnvironment {
     if let e = cache.read(\.environment[d]) { return e }
 
-    var partialResult = partiallyConstructedEnvironment(
+    var partialResult = initialEnvironment(
       of: d, default: GenericEnvironment(of: AnyDeclID(d), introducing: []))
 
     for c in (program[d].whereClause?.value.constraints ?? []) {
@@ -1772,8 +1772,9 @@ struct TypeChecker {
     }
   }
 
-  /// Returns the latest computed version of the generic environment introduced by `d`.
-  private mutating func partiallyConstructedEnvironment<T: Decl>(
+  /// Calls `initialResult` to form a generic environment for `d` that doesn't contain any
+  /// constraint on its parameters.
+  private mutating func initialEnvironment<T: Decl>(
     of d: T.ID, default initialResult: @autoclosure () -> GenericEnvironment
   ) -> GenericEnvironment {
     modify(&cache.partiallyFormedEnvironment[d]) { (e) in
