@@ -206,26 +206,54 @@ struct TypeChecker {
   private mutating func conformedTraits(
     of t: AssociatedTypeType, in scopeOfUse: AnyScopeID
   ) -> Set<TraitType> {
-    let a = AnyType(t)
-    var result = conformedTraits(declaredByConstraintsOn: a, exposedTo: scopeOfUse)
+    var result = Set<TraitType>()
+    accumulateConformedTraits(declaredInTraitsRequiring: t, suffixedBy: [], in: &result)
+    result.formUnion(conformedTraits(declaredByConstraintsOn: ^t, exposedTo: scopeOfUse))
+    result.formUnion(conformedTraits(declaredInExtensionsOf: ^t, exposedTo: scopeOfUse))
+    return result
+  }
 
-    switch t.domain.base {
-    case let u as GenericTypeParameterType:
-      let s = program[u.decl].scope
-      if !program.isContained(scopeOfUse, in: s) {
-        result.formUnion(conformedTraits(declaredByConstraintsOn: a, exposedTo: s))
-      }
-
-    case is AssociatedTypeType:
-      UNIMPLEMENTED("name lookup associated type conformance lenses")
-    case is ConformanceLensType:
-      UNIMPLEMENTED("name lookup into conformance lenses")
-    default:
-      unreachable()
+  /// Gathers the traits to which the associated type identified by `base` and `suffix` conform.
+  ///
+  /// The traits to which an associated type conforms can be declared in the trait introducing it
+  /// as well as any of the trait defining its qualification. For example, given a type `T.X.Y`, a
+  /// a conformance `X.Y: P` could be declared in the trait introducing `X`. Hence, to collect all
+  /// possible traits, one must gather the conformances of `Y` in the trait defining `Y` **and**
+  /// the conformances of `X.Y` in the traits defining `X`.
+  ///
+  /// `base` is the qualification of the associated type composed `suffix`in reverse order. For
+  /// example, the base `T.X` and suffix `[Z, Y]` denote the associated type `T.X.Z.Y`.
+  private mutating func accumulateConformedTraits(
+    declaredInTraitsRequiring base: AssociatedTypeType,
+    suffixedBy suffix: [AssociatedTypeDecl.ID],
+    in accumulator: inout Set<TraitType>
+  ) {
+    // Gather the conformances declared in the trait definition `t`.
+    var definition = MetatypeType(uncheckedType(of: base.decl))!.instance
+    for a in suffix.reversed() {
+      definition = ^AssociatedTypeType(a, domain: definition, ast: program.ast)
     }
 
-    result.formUnion(conformedTraits(declaredInExtensionsOf: a, exposedTo: scopeOfUse))
-    return result
+    let d = TraitDecl.ID(program[base.decl].scope)!
+    let e = possiblyPartiallyFormedEnvironment(of: AnyDeclID(d))!
+    accumulator.formUnion(e.conformedTraits(of: definition))
+
+    // Gather the conformances declared as associated type constraints in the traits defining the
+    // domain of `t`.
+    switch base.domain.base {
+    case is GenericTypeParameterType:
+      break
+
+    case let u as AssociatedTypeType:
+      accumulateConformedTraits(
+        declaredInTraitsRequiring: u, suffixedBy: suffix + [base.decl], in: &accumulator)
+
+    case is ConformanceLensType:
+      UNIMPLEMENTED("name lookup into conformance lenses")
+
+    default:
+      unreachable("unexpected associated type domain '\(base.domain)'")
+    }
   }
 
   /// Returns the traits to which `t` is declared conforming in `scopeOfUse`.
@@ -1782,6 +1810,19 @@ struct TypeChecker {
       let r = initialResult()
       e = r
       return r
+    }
+  }
+
+  /// Returns the generic environment introduced by `d`, which may be partially formed.
+  private mutating func possiblyPartiallyFormedEnvironment(
+    of d: AnyDeclID
+  ) -> GenericEnvironment? {
+    if let e = cache.partiallyFormedEnvironment[d] {
+      return e
+    } else if let s = AnyScopeID(d) {
+      return environment(of: s)
+    } else {
+      return nil
     }
   }
 
