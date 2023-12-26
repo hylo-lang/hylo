@@ -3942,14 +3942,14 @@ struct TypeChecker {
       return uncheckedType(of: d)
     }
 
-     if isSkolem(domain) {
-       return ^MetatypeType(of: AssociatedTypeType(d, domain: domain, ast: program.ast))
-     } else if domain.base is TraitType {
-       report(.error(invalidReferenceToAssociatedType: d, at: diagnosticSite, in: program.ast))
-       return uncheckedType(of: d)
-     } else {
-       unreachable("unexpected associated type domain")
-     }
+    if isSkolem(domain) {
+      return ^MetatypeType(of: AssociatedTypeType(d, domain: domain, ast: program.ast))
+    } else if domain.base is TraitType {
+      report(.error(invalidReferenceToAssociatedType: d, at: diagnosticSite, in: program.ast))
+      return uncheckedType(of: d)
+    } else {
+      unreachable("unexpected associated type domain")
+    }
   }
 
   /// Returns the generic type of a reference to `d`, found in `context`.
