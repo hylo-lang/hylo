@@ -206,9 +206,54 @@ struct TypeChecker {
   private mutating func conformedTraits(
     of t: AssociatedTypeType, in scopeOfUse: AnyScopeID
   ) -> Set<TraitType> {
-    var result = conformedTraits(declaredByConstraintsOn: ^t, exposedTo: scopeOfUse)
+    var result = Set<TraitType>()
+    accumulateConformedTraits(declaredInTraitsRequiring: t, suffixedBy: [], in: &result)
+    result.formUnion(conformedTraits(declaredByConstraintsOn: ^t, exposedTo: scopeOfUse))
     result.formUnion(conformedTraits(declaredInExtensionsOf: ^t, exposedTo: scopeOfUse))
     return result
+  }
+
+  /// Gathers the traits to which the associated type identified by `base` and `suffix` conform.
+  ///
+  /// The traits to which an associated type conforms can be declared in the trait introducing it
+  /// as well as any of the trait defining its qualification. For example, given a type `T.X.Y`, a
+  /// a conformance `X.Y: P` could be declared in the trait introducing `X`. Hence, to collect all
+  /// possible traits, one must gather the conformances of `Y` in the trait defining `Y` **and**
+  /// the conformances of `X.Y` in the traits defining `X`.
+  ///
+  /// `base` is the qualification of the associated type composed `suffix`in reverse order. For
+  /// example, the base `T.X` and suffix `[Z, Y]` denote the associated type `T.X.Z.Y`.
+  private mutating func accumulateConformedTraits(
+    declaredInTraitsRequiring base: AssociatedTypeType,
+    suffixedBy suffix: [AssociatedTypeDecl.ID],
+    in accumulator: inout Set<TraitType>
+  ) {
+    // Gather the conformances declared in the trait definition `t`.
+    var definition = MetatypeType(uncheckedType(of: base.decl))!.instance
+    for a in suffix.reversed() {
+      definition = ^AssociatedTypeType(a, domain: definition, ast: program.ast)
+    }
+
+    let d = TraitDecl.ID(program[base.decl].scope)!
+    let e = possiblyPartiallyFormedEnvironment(of: AnyDeclID(d))!
+    accumulator.formUnion(e.conformedTraits(of: definition))
+
+    // Gather the conformances declared as associated type constraints in the traits defining the
+    // domain of `t`.
+    switch base.domain.base {
+    case is GenericTypeParameterType:
+      break
+
+    case let u as AssociatedTypeType:
+      accumulateConformedTraits(
+        declaredInTraitsRequiring: u, suffixedBy: suffix + [base.decl], in: &accumulator)
+
+    case is ConformanceLensType:
+      UNIMPLEMENTED("name lookup into conformance lenses")
+
+    default:
+      unreachable("unexpected associated type domain '\(base.domain)'")
+    }
   }
 
   /// Returns the traits to which `t` is declared conforming in `scopeOfUse`.
@@ -1423,7 +1468,7 @@ struct TypeChecker {
     func concreteImplementation(
       of requirement: AnyDeclID, withAPI expectedAPI: API
     ) -> AnyDeclID? {
-      guard !expectedAPI.type[.hasError] else { return nil }
+      if expectedAPI.type[.hasError] { return nil }
 
       switch requirement.kind {
       case FunctionDecl.self:
@@ -1672,7 +1717,7 @@ struct TypeChecker {
       return commit(GenericEnvironment(of: AnyDeclID(d), introducing: []))
     }
 
-    var partialResult = partiallyConstructedEnvironment(
+    var partialResult = initialEnvironment(
       of: d, default: GenericEnvironment(of: AnyDeclID(d), introducing: clause.parameters))
 
     for p in clause.parameters {
@@ -1702,7 +1747,7 @@ struct TypeChecker {
     if let e = cache.read(\.environment[d]) { return e }
 
     let r = program[d].receiver.id
-    var partialResult = partiallyConstructedEnvironment(
+    var partialResult = initialEnvironment(
       of: d, default: GenericEnvironment(of: AnyDeclID(d), introducing: [r]))
 
     // Synthesize `Self: T`.
@@ -1731,7 +1776,7 @@ struct TypeChecker {
   private mutating func environment<T: TypeExtendingDecl>(of d: T.ID) -> GenericEnvironment {
     if let e = cache.read(\.environment[d]) { return e }
 
-    var partialResult = partiallyConstructedEnvironment(
+    var partialResult = initialEnvironment(
       of: d, default: GenericEnvironment(of: AnyDeclID(d), introducing: []))
 
     for c in (program[d].whereClause?.value.constraints ?? []) {
@@ -1755,8 +1800,9 @@ struct TypeChecker {
     }
   }
 
-  /// Returns the latest computed version of the generic environment introduced by `d`.
-  private mutating func partiallyConstructedEnvironment<T: Decl>(
+  /// Calls `initialResult` to form a generic environment for `d` that doesn't contain any
+  /// constraint on its parameters.
+  private mutating func initialEnvironment<T: Decl>(
     of d: T.ID, default initialResult: @autoclosure () -> GenericEnvironment
   ) -> GenericEnvironment {
     modify(&cache.partiallyFormedEnvironment[d]) { (e) in
@@ -1764,6 +1810,19 @@ struct TypeChecker {
       let r = initialResult()
       e = r
       return r
+    }
+  }
+
+  /// Returns the generic environment introduced by `d`, which may be partially formed.
+  private mutating func possiblyPartiallyFormedEnvironment(
+    of d: AnyDeclID
+  ) -> GenericEnvironment? {
+    if let e = cache.partiallyFormedEnvironment[d] {
+      return e
+    } else if let s = AnyScopeID(d) {
+      return environment(of: s)
+    } else {
+      return nil
     }
   }
 
@@ -2509,10 +2568,12 @@ struct TypeChecker {
 
     var captures: [ImplicitCapture] = []
     var types: [TupleType.Element] = []
-    for (d, x) in captureToStemAndEffect {
-      guard let t = resolveType(of: d) else { continue }
+    for (c, x) in captureToStemAndEffect {
+      let t = resolveType(of: c, reportingDiagnosticsAt: program[d].site)
+      if t[.hasError] { continue }
+
       let u = RemoteType(x.effect, t)
-      captures.append(ImplicitCapture(name: .init(stem: x.stem), type: u, decl: d))
+      captures.append(ImplicitCapture(name: .init(stem: x.stem), type: u, decl: c))
       types.append(.init(label: x.stem, type: ^u))
     }
 
@@ -3028,6 +3089,8 @@ struct TypeChecker {
     switch nominalScope.base {
     case is ErrorType:
       return []
+    case let t as AssociatedTypeType:
+      return lookup(stem, memberOf: t, exposedTo: scopeOfUse)
     case let t as BoundGenericType:
       return lookup(stem, memberOf: t.base, exposedTo: scopeOfUse)
     case let t as ConformanceLensType:
@@ -3069,6 +3132,19 @@ struct TypeChecker {
       matches.formUnion(lookup(stem, inExtensionsOf: nominalScope, exposedTo: scopeOfUse))
     }
 
+    return matches
+  }
+
+  /// Returns the declarations that introduce a name with given `stem` as member of `nominalScope`
+  /// and are exposed to `scopeOfUse`.
+  private mutating func lookup(
+    _ stem: String, memberOf nominalScope: AssociatedTypeType,
+    exposedTo scopeOfUse: AnyScopeID
+  ) -> Set<AnyDeclID> {
+    var matches = Set<AnyDeclID>()
+    for t in conformedTraits(of: nominalScope, in: scopeOfUse) {
+      matches.formUnion(lookup(stem, memberOf: ^t, exposedTo: scopeOfUse))
+    }
     return matches
   }
 
@@ -3626,10 +3702,6 @@ struct TypeChecker {
         continue
       }
 
-      if (context?.type.base is TraitType) && (m.kind == AssociatedTypeDecl.self) {
-        log.insert(.error(invalidUseOfAssociatedType: name.value.stem, at: name.site))
-      }
-
       let cs = collectConstraints(
         associatedWith: m, specializedBy: specialization, in: scopeOfUse, at: name.site)
       candidates.insert(
@@ -3781,7 +3853,8 @@ struct TypeChecker {
     usedAs purpose: NameUse,
     reportingDiagnosticsTo log: inout DiagnosticSet
   ) -> (candidateType: AnyType, specialization: GenericArguments, isConstructor: Bool)? {
-    guard var candidateType = resolveType(of: d) else { return nil }
+    var candidateType = resolveType(of: d, lookedUpIn: context, reportingDiagnosticsAt: name.site)
+    if candidateType[.hasError] { return nil }
 
     // The specialization of the match includes that of context in which it was looked up.
     var specialization = genericArguments(inScopeIntroducing: d, resolvedIn: context)
@@ -3795,8 +3868,8 @@ struct TypeChecker {
       specialization[p] = a
     }
 
-    // If the match is a trait member looked, specialize its receiver.
-    // TODO: Remove `mayCaptureGenericParameters` when
+    // If the match is a trait member, specialize its receiver.
+    // TODO: Remove `mayCaptureGenericParameters`
     if let t = traitDeclaring(d), mayCaptureGenericParameters(d) {
       // DR: `mayCaptureGenericParameters` is used to avoid populating the specialization table
       // when `m` is an associated type declaration. Otherwise, `specialize` causes resolution
@@ -3834,22 +3907,63 @@ struct TypeChecker {
     return (candidateType, specialization, isConstructor)
   }
 
-  /// Returns the resolved type of the entity declared by `d` or `nil` if `d` is ill-formed.
-  private mutating func resolveType(of d: AnyDeclID) -> AnyType? {
-    var result = uncheckedType(of: d)
-    if result.isError { return nil }
+  /// Returns the generic type of a reference to `d`, found in `context`, reporting diagnostics
+  /// at `diagnosticSite`.
+  private mutating func resolveType(
+    of d: AnyDeclID, lookedUpIn context: NameResolutionContext? = nil,
+    reportingDiagnosticsAt diagnosticSite: SourceRange
+  ) -> AnyType {
+    switch d.kind {
+    case AssociatedTypeDecl.self:
+      return resolveType(
+        of: AssociatedTypeDecl.ID(d)!, lookedUpIn: context, reportingDiagnosticsAt: diagnosticSite)
+    case SubscriptDecl.self:
+      return resolveType(of: SubscriptDecl.ID(d)!, lookedUpIn: context)
+    default:
+      break
+    }
+
+    let result = uncheckedType(of: d)
+    if let t = ParameterType(result) {
+      return t.bareType
+    } else {
+      return result
+    }
+  }
+
+  /// Returns the generic type of a reference to `d`, found in `context`, reporting diagnostics
+  /// at `diagnosticSite`.
+  private mutating func resolveType(
+    of d: AssociatedTypeDecl.ID, lookedUpIn context: NameResolutionContext?,
+    reportingDiagnosticsAt diagnosticSite: SourceRange
+  ) -> AnyType {
+    guard let domain = context?.type else {
+      // Domain of associated type resolved without qualification is skolemized.
+      return uncheckedType(of: d)
+    }
+
+    if isSkolem(domain) {
+      return ^MetatypeType(of: AssociatedTypeType(d, domain: domain, ast: program.ast))
+    } else if domain.base is TraitType {
+      report(.error(invalidReferenceToAssociatedType: d, at: diagnosticSite, in: program.ast))
+      return uncheckedType(of: d)
+    } else {
+      unreachable("unexpected associated type domain")
+    }
+  }
+
+  /// Returns the generic type of a reference to `d`, found in `context`.
+  private mutating func resolveType(
+    of d: SubscriptDecl.ID, lookedUpIn context: NameResolutionContext?
+  ) -> AnyType {
+    let result = uncheckedType(of: d)
 
     // Properties are not first-class.
-    if let s = SubscriptDecl.ID(d), program[s].isProperty {
-      result = SubscriptType(result)!.output
+    if let t = SubscriptType(result), t.isProperty {
+      return t.output
+    } else {
+      return result
     }
-
-    // Erase parameter conventions.
-    if let t = ParameterType(result) {
-      result = t.bareType
-    }
-
-    return result
   }
 
   /// Computes and returns the type of `Self` in `scopeOfUse`.
@@ -5691,6 +5805,18 @@ struct TypeChecker {
   /// Returns `true` iff `t` is the receiver of a trait declaration.
   private func isTraitReceiver(_ t: GenericTypeParameterType) -> Bool {
     program[t.decl].scope.kind == TraitDecl.self
+  }
+
+  /// Returns `true` iff `t` is bound to an existential quantifier.
+  private func isSkolem(_ t: AnyType) -> Bool {
+    switch t.base {
+    case is AssociatedTypeType, is GenericTypeParameterType:
+      return true
+    case let u as ConformanceLensType:
+      return isSkolem(u.subject)
+    default:
+      return false
+    }
   }
 
   /// Returns `true` if `d` isn't a trait requirement, an FFI, or an external function.
