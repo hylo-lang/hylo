@@ -1468,7 +1468,7 @@ struct TypeChecker {
     func concreteImplementation(
       of requirement: AnyDeclID, withAPI expectedAPI: API
     ) -> AnyDeclID? {
-      guard !expectedAPI.type[.hasError] else { return nil }
+      if expectedAPI.type[.hasError] { return nil }
 
       switch requirement.kind {
       case FunctionDecl.self:
@@ -2570,9 +2570,7 @@ struct TypeChecker {
     var types: [TupleType.Element] = []
     for (c, x) in captureToStemAndEffect {
       let t = resolveType(of: c, reportingDiagnosticsAt: program[d].site)
-      guard !t[.hasError] else {
-        continue
-      }
+      if t[.hasError] { continue }
 
       let u = RemoteType(x.effect, t)
       captures.append(ImplicitCapture(name: .init(stem: x.stem), type: u, decl: c))
@@ -3860,9 +3858,7 @@ struct TypeChecker {
     reportingDiagnosticsTo log: inout DiagnosticSet
   ) -> (candidateType: AnyType, specialization: GenericArguments, isConstructor: Bool)? {
     var candidateType = resolveType(of: d, lookedUpIn: context, reportingDiagnosticsAt: name.site)
-    guard !candidateType[.hasError] else {
-      return nil
-    }
+    if candidateType[.hasError] { return nil }
 
     // The specialization of the match includes that of context in which it was looked up.
     var specialization = genericArguments(inScopeIntroducing: d, resolvedIn: context)
