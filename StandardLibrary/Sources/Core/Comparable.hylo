@@ -37,6 +37,15 @@ public extension Comparable {
 
 }
 
+extension Comparable where Self: Regular {
+
+  /// Creates a half-open interval from `self` up to, but not including, `upper_bound`.
+  public fun infix..< (_ upper_bound: Self) -> Range<Self> {
+    Range(from: copy(), up_to: upper_bound.copy())
+  }
+
+}
+
 /// Returns the lesser of `x` and `y`.
 public subscript min<T: Comparable>(_ x: T, _ y: T): T {
   if y < x { yield y } else { yield x }
