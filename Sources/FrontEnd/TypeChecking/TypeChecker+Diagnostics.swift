@@ -192,7 +192,7 @@ extension Diagnostic {
   static func note(
     trait x: TraitType, requiresAssociatedType n: String, at site: SourceRange
   ) -> Diagnostic {
-    return .note("trait '\(x)' requires associaed type '\(n)'", at: site)
+    return .note("trait '\(x)' requires associated type '\(n)'", at: site)
   }
 
   static func error(undefinedOperator name: String, at site: SourceRange) -> Diagnostic {
