@@ -129,8 +129,6 @@ extension AST {
       traverse(self[n] as! MatchExpr, notifying: &o)
     case NameExpr.self:
       traverse(self[n] as! NameExpr, notifying: &o)
-    case NilLiteralExpr.self:
-      traverse(self[n] as! NilLiteralExpr, notifying: &o)
     case ParameterTypeExpr.self:
       traverse(self[n] as! ParameterTypeExpr, notifying: &o)
     case PragmaLiteralExpr.self:
@@ -543,11 +541,6 @@ extension AST {
     if case .explicit(let e) = n.domain { walk(e, notifying: &o) }
     walk(roots: n.arguments.map(\.value), notifying: &o)
   }
-
-  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
-  public func traverse<O: ASTWalkObserver>(
-    _ n: NilLiteralExpr, notifying o: inout O
-  ) {}
 
   /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(

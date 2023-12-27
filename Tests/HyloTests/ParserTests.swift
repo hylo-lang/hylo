@@ -1160,12 +1160,6 @@ final class ParserTests: XCTestCase {
     XCTAssertEqual(expr.value, "Hylo")
   }
 
-  func testNilLiteralExpr() throws {
-    let input: SourceFile = "nil"
-    let (exprID, _) = try input.parse(with: Parser.parseExpr(in:))
-    XCTAssertEqual(exprID?.kind, .init(NilLiteralExpr.self))
-  }
-
   func testPragmaLiteralExpr() throws {
     let input: SourceFile = "#file"
     let (exprID, ast) = try input.parse(with: Parser.parseExpr(in:))

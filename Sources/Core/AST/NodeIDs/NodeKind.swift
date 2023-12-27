@@ -116,7 +116,6 @@ extension NodeKind {
     MapLiteralExpr.self,
     MatchExpr.self,
     NameExpr.self,
-    NilLiteralExpr.self,
     ParameterTypeExpr.self,
     PragmaLiteralExpr.self,
     RemoteExpr.self,
