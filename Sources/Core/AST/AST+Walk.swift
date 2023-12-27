@@ -153,8 +153,6 @@ extension AST {
       traverse(self[n] as! TupleTypeExpr, notifying: &o)
     case UnicodeScalarLiteralExpr.self:
       traverse(self[n] as! UnicodeScalarLiteralExpr, notifying: &o)
-    case UnionTypeExpr.self:
-      traverse(self[n] as! UnionTypeExpr, notifying: &o)
     case WildcardExpr.self:
       traverse(self[n] as! WildcardExpr, notifying: &o)
 
@@ -624,13 +622,6 @@ extension AST {
   public func traverse<O: ASTWalkObserver>(
     _ n: UnicodeScalarLiteralExpr, notifying o: inout O
   ) {}
-
-  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
-  public func traverse<O: ASTWalkObserver>(
-    _ n: UnionTypeExpr, notifying o: inout O
-  ) {
-    walk(roots: n.elements, notifying: &o)
-  }
 
   /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(

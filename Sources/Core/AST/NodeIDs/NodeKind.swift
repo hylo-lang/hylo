@@ -128,7 +128,6 @@ extension NodeKind {
     TupleMemberExpr.self,
     TupleTypeExpr.self,
     UnicodeScalarLiteralExpr.self,
-    UnionTypeExpr.self,
     WildcardExpr.self,
 
     BindingPattern.self,
