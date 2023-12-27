@@ -2700,7 +2700,7 @@ struct Emitter {
     }
   }
 
-  /// Inserts IR for move-initializing/assigning `storage` with `value`.
+  /// Inserts IR for move-initializing/assigning `storage` with `value` at `site`.
   ///
   /// The type of `value` must a built-in or conform to `Movable` in `insertionScope`.
   ///
@@ -2715,7 +2715,8 @@ struct Emitter {
   ) {
     precondition(!semantics.isEmpty && semantics.isSubset(of: [.set, .inout]))
 
-    let t = module.type(of: storage).ast
+    let t = module.type(of: value).ast
+    precondition(t == module.type(of: storage).ast)
 
     // Built-in types are handled as a special case.
     if t.isBuiltin {
@@ -2738,7 +2739,7 @@ struct Emitter {
     }
   }
 
-  /// Implements `emitMove` for built-in types.
+  /// Inserts IR for move-initializing/assigning `storage` with built-in `value` at `site`.
   private mutating func emitMoveBuiltIn(
     _ value: Operand, to storage: Operand, at site: SourceRange
   ) {
@@ -2751,8 +2752,8 @@ struct Emitter {
     insert(module.makeEndAccess(x0, at: site))
   }
 
-  /// Inserts IR for move-initializing/assigning `storage` with `value` using `movable` to locate
-  /// the implementations of these operations.
+  /// Inserts IR for move-initializing/assigning `storage` with `value` at `site` using `movable`
+  /// to locate the implementations of these operations.
   ///
   /// The value of `semantics` defines the type of move to emit:
   /// - `.set` emits move-initialization.
@@ -2763,7 +2764,7 @@ struct Emitter {
     _ semantics: AccessEffect, _ value: Operand, to storage: Operand,
     withMovableConformance movable: Core.Conformance, at site: SourceRange
   ) {
-    let d = module.demandTakeValueDeclaration(semantics, from: movable)
+    let d = module.demandTakeValueDeclaration(semantics, definedBy: movable)
     let f = module.reference(to: d, implementedFor: movable)
 
     let x0 = insert(module.makeAllocStack(.void, at: site))!

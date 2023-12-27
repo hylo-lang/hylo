@@ -437,19 +437,22 @@ public struct Module {
     return demandDeclaration(lowering: c.implementations[d]!)
   }
 
-  /// Returns the IR function implementing the `k` variant move-operation defined in `c`.
+  /// Returns the IR function implementing the `k` variant move-operation defined by
+  /// `conformanceToMovable`.
   ///
-  /// - Requires: `k` is either `.set` or `.inout`
+  /// - Parameters:
+  ///   - k: The semantics of a move operation. It must be either `.set` or `.inout`.
+  ///   - conformanceToMovable: A conformance to `Movable`.
   mutating func demandTakeValueDeclaration(
-    _ k: AccessEffect, from c: Core.Conformance
+    _ k: AccessEffect, definedBy conformanceToMovable: Core.Conformance
   ) -> Function.ID {
     switch k {
     case .set:
       let d = program.ast.core.movable.moveInitialize
-      return demandDeclaration(lowering: c.implementations[d]!)
+      return demandDeclaration(lowering: conformanceToMovable.implementations[d]!)
     case .inout:
       let d = program.ast.core.movable.moveAssign
-      return demandDeclaration(lowering: c.implementations[d]!)
+      return demandDeclaration(lowering: conformanceToMovable.implementations[d]!)
     default:
       preconditionFailure()
     }
