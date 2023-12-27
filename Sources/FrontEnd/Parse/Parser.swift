@@ -1661,12 +1661,6 @@ public enum Parser {
           site: head.site))
       return AnyExprID(expr)
 
-    case .nil:
-      // Nil literal.
-      _ = state.take()
-      let expr = state.insert(NilLiteralExpr(site: head.site))
-      return AnyExprID(expr)
-
     case .under:
       // Wildcard expression.
       _ = state.take()

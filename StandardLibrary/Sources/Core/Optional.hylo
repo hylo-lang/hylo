@@ -11,6 +11,15 @@ public type None<T> {
 
 }
 
+public extension Optional {
+
+  /// Returns a value denoting the absence of an instance.
+  public static fun none() -> Self {
+    None() as Optional
+  }
+
+}
+
 public conformance None: Regular {
 
   // TODO: Remove when #1078 is implemented.

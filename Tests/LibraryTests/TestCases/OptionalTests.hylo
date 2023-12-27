@@ -5,7 +5,7 @@ public fun main() {
   let y = if let i: Int = x { i.copy() } else { 0 }
   precondition(y == 42)
 
-  &x = None()
+  &x = .none()
   let z = if let i: Int = x { i.copy() } else { 0 }
   precondition(z == 0)
 }
