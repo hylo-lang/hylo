@@ -2083,13 +2083,8 @@ struct Emitter {
       let f = FunctionReference(to: d, in: &module, specializedBy: a, in: insertionScope!)
       return (.direct(f), [])
 
-    case .member(let d, let a, let s) where d.isCallable:
-      // Callee is a member reference to a function or method. Its receiver is the only capture.
-      let receiver = emitLValue(receiver: s, at: ast[callee].site)
-      let k = receiverCapabilities(program[callee].type)
-      let c = insert(module.makeAccess(k, from: receiver, at: ast[callee].site))!
-      let f = Callee(d, specializedBy: a, in: &module, usedIn: insertionScope!)
-      return (f, [c])
+    case .member(let d, _, _) where d.isCallable:
+      return emitMemberFunctionCallee(callee)
 
     case .builtinFunction, .builtinType:
       // Calls to built-ins should have been handled already.
@@ -2100,6 +2095,37 @@ struct Emitter {
       let f = emit(lambdaCallee: .init(callee))
       return (.lambda(f), [])
     }
+  }
+
+  /// Inserts the IR evaluating `callee`, which refers to a member function, returning `(c, [r])`
+  /// where `c` is the callee's value and `r` is the receiver of the call.
+  private mutating func emitMemberFunctionCallee(
+    _ callee: NameExpr.ID
+  ) -> (callee: Callee, captures: [Operand]) {
+    guard case .member(let d, let a, let s) = program[callee].referredDecl else {
+      unreachable()
+    }
+
+    let receiver = emitLValue(receiver: s, at: ast[callee].site)
+    let receiverType = module.type(of: receiver).ast
+    let scopeOfUse = program[callee].scope
+
+    let functionToCall: Callee
+
+    // Check if `d`'s implementation is synthethic.
+    if program.isRequirement(d) && !program.isSkolem(receiverType) {
+      let t = program.traitDeclaring(d)!
+      let c = program.conformance(of: receiverType, to: t, exposedTo: scopeOfUse)!
+      let irFunction = module.demandDeclaration(lowering: c.implementations[d]!)
+      functionToCall = .direct(
+        FunctionReference(to: irFunction, in: module, specializedBy: a, in: scopeOfUse))
+    } else {
+      functionToCall = Callee(d, specializedBy: a, in: &module, usedIn: insertionScope!)
+    }
+
+    let k = receiverCapabilities(program[callee].type)
+    let c = insert(module.makeAccess(k, from: receiver, at: ast[callee].site))!
+    return (functionToCall, [c])
   }
 
   /// Inserts the IR for given `callee` and returns its value.
