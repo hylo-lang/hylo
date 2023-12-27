@@ -380,16 +380,6 @@ public struct Module {
     return f
   }
 
-  /// Returns the identity of the IR function `i`.
-  mutating func demandDeclaration(lowering i: Core.Conformance.Implementation) -> Function.ID? {
-    switch i {
-    case .concrete(let d):
-      return demandDeclaration(lowering: d)
-    case .synthetic(let d):
-      return demandDeclaration(lowering: d)
-    }
-  }
-
   /// Returns the identity of the IR function corresponding to `d`.
   mutating func demandDeclaration(lowering d: SynthesizedFunctionDecl) -> Function.ID {
     let f = Function.ID(d)
@@ -597,7 +587,7 @@ public struct Module {
   private mutating func loweredConformance(_ c: Core.Conformance) -> IR.Conformance {
     var implementations = IR.Conformance.ImplementationMap()
     for (r, i) in c.implementations where (r.kind != AssociatedTypeDecl.self) {
-      let f = demandDeclaration(lowering: i)!
+      let f = demandDeclaration(lowering: i)
       implementations[r] = .function(FunctionReference(to: f, in: self))
     }
     return .init(concept: c.concept, implementations: implementations)
