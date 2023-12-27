@@ -706,14 +706,6 @@ struct Emitter {
     let argument = Operand.parameter(entry, 1)
     let object = module.type(of: receiver).ast
 
-    // Move-initialization of `Void` is a special case.
-    if object == .void {
-      insert(module.makeMarkState(argument, initialized: false, at: site))
-      insert(module.makeMarkState(receiver, initialized: true, at: site))
-      insert(module.makeReturn(at: site))
-      return
-    }
-
     if object.hasRecordLayout {
       emitMoveInitRecordParts(of: receiver, consuming: argument, at: site)
     } else if object.base is UnionType {
