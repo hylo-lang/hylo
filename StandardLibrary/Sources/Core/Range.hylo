@@ -45,16 +45,6 @@ public conformance Range: Equatable {
 
 }
 
-// TODO: Remove when #1111 is fixed
-extension Int {
-
-  /// Creates a half-open interval from `self` up to, but not including, `upper_bound`.
-  public fun infix..< (_ upper_bound: Self) -> Range<Self> {
-    Range(from: copy(), up_to: upper_bound.copy())
-  }
-
-}
-
 // TODO
 // public conformance: Iterator Range where: Bound: Strideable, Bound.Stride: SignedInteger {
 //
