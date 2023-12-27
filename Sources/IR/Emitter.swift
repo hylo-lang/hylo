@@ -2675,8 +2675,10 @@ struct Emitter {
     }
 
     // Other types must be movable.
-    let movable = program.conformance(
-      of: t, to: program.ast.core.movable.type, exposedTo: insertionScope!)!
+    guard
+      let movable = program.conformance(
+        of: t, to: program.ast.core.movable.type, exposedTo: insertionScope!)
+    else { preconditionFailure("expected '\(t)' to be 'Movable'") }
 
     // Insert a call to the approriate move implementation if its semantics is unambiguous.
     // Otherwise, insert a call to the method bundle.
