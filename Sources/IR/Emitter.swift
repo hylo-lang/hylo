@@ -655,10 +655,10 @@ struct Emitter {
       return withClearContext({ $0.lower(syntheticMoveInit: d) })
     case .moveAssignment:
       return withClearContext({ $0.lower(syntheticMoveAssign: d) })
+    case .copy:
+      return withClearContext({ $0.lower(syntheticCopy: d) })
     case .globalInitialization:
       return withClearContext({ $0.lower(globalBindingInitializer: d) })
-    case .copy:
-      UNIMPLEMENTED()
     case .autoclosure:
       // nothing do to here; expansion is done at the caller side.
       break
@@ -827,6 +827,55 @@ struct Emitter {
     insert(module.makeMarkState(returnValue!, initialized: true, at: site))
     emitDeallocTopFrame(at: site)
     insert(module.makeReturn(at: site))
+  }
+
+  /// Inserts the IR for `d`, which is a synthetic copy method.
+  private mutating func lower(syntheticCopy d: SynthesizedFunctionDecl) {
+    let f = module.demandDeclaration(lowering: d)
+    if !shouldEmitBody(of: d, loweredTo: f) { return }
+
+    let site = ast[module.id].site
+    let entry = module.appendEntry(in: d.scope, to: f)
+    insertionPoint = .end(of: entry)
+    self.frames.push()
+    defer {
+      self.frames.pop()
+      assert(self.frames.isEmpty)
+    }
+
+    let source = Operand.parameter(entry, 0)
+    let target = Operand.parameter(entry, 1)
+    let object = module.type(of: source).ast
+
+    if object.hasRecordLayout {
+      emitCopyRecordParts(from: source, to: target, at: site)
+    } else if object.base is UnionType {
+      UNIMPLEMENTED("synthetic copy for union types")
+    }
+
+    emitDeallocTopFrame(at: site)
+    insert(module.makeReturn(at: site))
+  }
+
+  /// Inserts the IR for copying the stored parts of `source`, which stores a record, to `target`
+  /// at `site`.
+  private mutating func emitCopyRecordParts(
+    from source: Operand, to target: Operand, at site: SourceRange
+  ) {
+    let layout = AbstractTypeLayout(of: module.type(of: source).ast, definedIn: program)
+
+    // If the object is empty, simply mark the initialized.
+    if layout.properties.isEmpty {
+      insert(module.makeMarkState(target, initialized: true, at: site))
+      return
+    }
+
+    // Otherwise, copy each property.
+    for i in layout.properties.indices {
+      let s = emitSubfieldView(source, at: [i], at: site)
+      let t = emitSubfieldView(target, at: [i], at: site)
+      emitCopy(s, to: t, at: site)
+    }
   }
 
   /// Inserts the IR for lowering `d`, which is a global binding initializer, returning the ID of
@@ -2726,6 +2775,43 @@ struct Emitter {
     insert(module.makeEndAccess(x2, at: site))
     insert(module.makeEndAccess(x1, at: site))
     insert(module.makeDeallocStack(for: x0, at: site))
+  }
+
+  /// Inserts IR for copying `source` to `target` at `site`.
+  private mutating func emitCopy(
+    _ source: Operand, to target: Operand, at site: SourceRange
+  ) {
+    let t = module.type(of: source).ast
+    precondition(t == module.type(of: target).ast)
+
+    // Built-in types are handled as a special case.
+    if t.isBuiltin {
+      emitMoveBuiltIn(source, to: target, at: site)
+      return
+    }
+
+    // Other types must be copyable.
+    guard
+      let copyable = program.conformance(
+        of: t, to: program.ast.core.copyable.type, exposedTo: insertionScope!)
+    else { preconditionFailure("expected '\(t)' to be 'Copyable'") }
+    emitCopy(source, to: target, withCopyableConformance: copyable, at: site)
+  }
+
+  /// Inserts IR for copying `source` to `target` at `site` using `copyable` to locate the
+  /// implementation of the copy operation.
+  private mutating func emitCopy(
+    _ source: Operand, to target: Operand,
+    withCopyableConformance copyable: Core.Conformance, at site: SourceRange
+  ) {
+    let d = module.demandCopyDeclaration(definedBy: copyable)
+    let f = module.reference(to: d, implementedFor: copyable)
+
+    let x0 = insert(module.makeAccess(.let, from: source, at: site))!
+    let x1 = insert(module.makeAccess(.set, from: target, at: site))!
+    insert(module.makeCall(applying: .constant(f), to: [x0], writingResultTo: x1, at: site))
+    insert(module.makeEndAccess(x1, at: site))
+    insert(module.makeEndAccess(x0, at: site))
   }
 
   // MARK: Deinitialization

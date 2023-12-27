@@ -455,6 +455,16 @@ public struct Module {
     }
   }
 
+  /// Returns the IR function implementing the copy oepration defined in `conformanceToCopyable`.
+  ///
+  /// - Parameter conformanceToCopyable: A conformance to `Copyable`.
+  mutating func demandCopyDeclaration(
+    definedBy conformanceToCopyable: Core.Conformance
+  ) -> Function.ID {
+    let d = program.ast.core.copyable.copy
+    return demandDeclaration(lowering: conformanceToCopyable.implementations[d]!)
+  }
+
   /// Returns a function reference to the implementation of the requirement `r` in `witness`.
   ///
   /// - Requires: `r` identifies a function or subscript requirement in the trait for which
