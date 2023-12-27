@@ -13,7 +13,10 @@ let allTargetsSwiftSettings: [SwiftSetting] = [
   .unsafeFlags(["-warnings-as-errors"])
 ]
 
-/// Most people don't need this; set it in your environment if you do.
+/// Dependencies for documentation extraction.
+///
+/// Most people don't need to extract documentation; set `HYLO_ENABLE_DOC_GENERATION` in your
+/// environment if you do.
 let docGenerationDependency: [Package.Dependency] =
   ProcessInfo.processInfo.environment["HYLO_ENABLE_DOC_GENERATION"] != nil
   ? [.package(url: "https://github.com/apple/swift-docc-plugin.git", from: "1.1.0")] : []
