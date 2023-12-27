@@ -1010,10 +1010,10 @@ final class ParserTests: XCTestCase {
     }
   }
 
-  func testConformanceLensTypeExpr() throws {
+  func testConformanceLensExpr() throws {
     let input: SourceFile = "{ T, U }::Baz"
     let (exprID, ast) = try input.parse(with: Parser.parseExpr(in:))
-    let expr = try XCTUnwrap(ast[exprID] as? ConformanceLensTypeExpr)
+    let expr = try XCTUnwrap(ast[exprID] as? ConformanceLensExpr)
     XCTAssertEqual(expr.subject.kind, .init(TupleTypeExpr.self))
     XCTAssertEqual(expr.lens.kind, .init(NameExpr.self))
   }
@@ -1025,7 +1025,7 @@ final class ParserTests: XCTestCase {
     XCTAssertEqual(expr.name.value.stem, "A")
 
     if case .explicit(let domain) = expr.domain {
-      let d = try XCTUnwrap(ast[domain] as? ConformanceLensTypeExpr)
+      let d = try XCTUnwrap(ast[domain] as? ConformanceLensExpr)
       XCTAssertEqual(d.subject.kind, .init(NameExpr.self))
       XCTAssertEqual(d.lens.kind, .init(NameExpr.self))
     } else {
