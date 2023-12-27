@@ -4521,9 +4521,8 @@ struct TypeChecker {
       return _inferredType(of: CastExpr.ID(e)!, withHint: hint, updating: &obligations)
     case ConditionalExpr.self:
       return _inferredType(of: ConditionalExpr.ID(e)!, withHint: hint, updating: &obligations)
-    case ConformanceLensTypeExpr.self:
-      return _inferredType(
-        of: ConformanceLensTypeExpr.ID(e)!, withHint: hint, updating: &obligations)
+    case ConformanceLensExpr.self:
+      return _inferredType(of: ConformanceLensExpr.ID(e)!, withHint: hint, updating: &obligations)
     case ExistentialTypeExpr.self:
       return _inferredType(of: ExistentialTypeExpr.ID(e)!, withHint: hint, updating: &obligations)
     case FloatLiteralExpr.self:
@@ -4663,7 +4662,7 @@ struct TypeChecker {
   }
 
   private mutating func _inferredType(
-    of e: ConformanceLensTypeExpr.ID, withHint hint: AnyType? = nil,
+    of e: ConformanceLensExpr.ID, withHint hint: AnyType? = nil,
     updating obligations: inout ProofObligations
   ) -> AnyType {
     guard

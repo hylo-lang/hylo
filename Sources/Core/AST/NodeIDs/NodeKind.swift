@@ -104,7 +104,7 @@ extension NodeKind {
     BufferLiteralExpr.self,
     CastExpr.self,
     ConditionalExpr.self,
-    ConformanceLensTypeExpr.self,
+    ConformanceLensExpr.self,
     ErrorExpr.self,
     ExistentialTypeExpr.self,
     FloatLiteralExpr.self,
@@ -128,7 +128,6 @@ extension NodeKind {
     TupleMemberExpr.self,
     TupleTypeExpr.self,
     UnicodeScalarLiteralExpr.self,
-    UnionTypeExpr.self,
     WildcardExpr.self,
 
     BindingPattern.self,
