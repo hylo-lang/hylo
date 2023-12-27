@@ -105,11 +105,15 @@ public struct CopyableDescription: CoreTraitDescription {
   /// The identifier of the trait declaration.
   public let decl: TraitDecl.ID
 
+  /// The `copy()` requirement.
+  public let copy: FunctionDecl.ID
+
   /// Creates an instance referring to the declaration of `Hylo.Copyable` in `ast`.
   ///
   /// - Requires: The standard library must have been loaded in `ast`.
   public init(_ ast: AST) {
     self.decl = ast.coreTrait("Copyable")!.decl
+    self.copy = FunctionDecl.ID(ast.requirements(Name(stem: "copy"), in: self.decl)[0])!
   }
 
 }
