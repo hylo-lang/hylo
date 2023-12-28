@@ -66,6 +66,8 @@ extension Module {
           pc = interpret(load: user, in: &context)
         case is MarkState:
           pc = interpret(markState: user, in: &context)
+        case is MemoryCopy:
+          pc = interpret(memoryCopy: user, in: &context)
         case is Move:
           pc = interpret(move: user, in: &context)
         case is OpenCapture:
@@ -371,6 +373,13 @@ extension Module {
         }
       }
 
+      return successor(of: i)
+    }
+
+    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
+    func interpret(memoryCopy i: InstructionID, in context: inout Context) -> PC? {
+      let s = self[i] as! MemoryCopy
+      initialize(s.target, in: &context)
       return successor(of: i)
     }
 
