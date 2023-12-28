@@ -850,7 +850,7 @@ struct Emitter {
     if object.hasRecordLayout {
       emitCopyRecordParts(from: source, to: target, at: site)
     } else if object.base is UnionType {
-      UNIMPLEMENTED("synthetic copy for union types")
+      emitCopyUnionPayload(from: source, to: target, at: site)
     }
 
     emitDeallocTopFrame(at: site)
@@ -864,7 +864,7 @@ struct Emitter {
   ) {
     let layout = AbstractTypeLayout(of: module.type(of: source).ast, definedIn: program)
 
-    // If the object is empty, simply mark the initialized.
+    // If the object is empty, simply mark the target as initialized.
     if layout.properties.isEmpty {
       insert(module.makeMarkState(target, initialized: true, at: site))
       return
@@ -876,6 +876,56 @@ struct Emitter {
       let t = emitSubfieldView(target, at: [i], at: site)
       emitCopy(s, to: t, at: site)
     }
+  }
+
+  /// Inserts the IR for copying `source`, which stores a union container, to `target` at `site`.
+  private mutating func emitCopyUnionPayload(
+    from source: Operand, to target: Operand, at site: SourceRange
+  ) {
+    let t = UnionType(module.type(of: source).ast)!
+
+    // If union is empty, simply mark the target as initialized.
+    if t.elements.isEmpty {
+      insert(module.makeMarkState(target, initialized: true, at: site))
+      return
+    }
+
+    // Trivial if the union has a single member.
+    if let e = t.elements.uniqueElement {
+      emitCopyUnionPayload(from: source, containing: e, to: target, at: site)
+      return
+    }
+
+    // Otherwise, use a switch to select the correct move-initialization.
+    let elements = program.discriminatorToElement(in: t)
+    var successors: [Block.ID] = []
+    for _ in t.elements {
+      successors.append(appendBlock())
+    }
+
+    let n = emitUnionDiscriminator(source, at: site)
+    insert(module.makeSwitch(on: n, toOneOf: successors, at: site))
+
+    let tail = appendBlock()
+    for i in 0 ..< elements.count {
+      insertionPoint = .end(of: successors[i])
+      emitCopyUnionPayload(from: source, containing: elements[i], to: target, at: site)
+      insert(module.makeBranch(to: tail, at: site))
+    }
+
+    insertionPoint = .end(of: tail)
+  }
+
+  /// Inserts the IR for copying `source`, which stores a union containing a `payload`, to `target`
+  /// at `site`.
+  private mutating func emitCopyUnionPayload(
+    from source: Operand, containing payload: AnyType, to target: Operand, at site: SourceRange
+  ) {
+    let x0 = insert(module.makeOpenUnion(source, as: payload, at: site))!
+    let x1 = insert(module.makeOpenUnion(target, as: payload, forInitialization: true, at: site))!
+    emitCopy(x0, to: x1, at: site)
+    insert(module.makeCloseUnion(x0, at: site))
+    insert(module.makeCloseUnion(x1, at: site))
   }
 
   /// Inserts the IR for lowering `d`, which is a global binding initializer, returning the ID of
