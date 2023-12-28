@@ -2749,6 +2749,17 @@ struct Emitter {
       return
     }
 
+    // Use memcpy of `source` is trivially movable.
+    if program.isTriviallyMovable(model, in: insertionScope!) {
+      let x0 = insert(module.makeAccess(.sink, from: value, at: site))!
+      let x1 = insert(module.makeAccess(.set, from: storage, at: site))!
+      insert(module.makeMemoryCopy(x0, x1, at: site))
+      insert(module.makeEndAccess(x1, at: site))
+      insert(module.makeMarkState(x0, initialized: false, at: site))
+      insert(module.makeEndAccess(x0, at: site))
+      return
+    }
+
     // Other types must be movable.
     guard
       let movable = program.conformance(

@@ -217,6 +217,11 @@ public struct TypedProgram {
     isTrivialModel(t, of: ast.core.deinitializable.type, in: scopeOfUse)
   }
 
+  /// Returns `true` iff instances of `t` can be moved with a byte-wise copy.
+  public func isTriviallyMovable(_ t: AnyType, in scopeOfUse: AnyScopeID) -> Bool {
+    isTrivialModel(t, of: ast.core.movable.type, in: scopeOfUse)
+  }
+
   /// Returns `true` iff `t` models `coreConcept` without any user-defined semantics.
   private func isTrivialModel(
     _ t: AnyType, of coreConcept: TraitType, in scopeOfUse: AnyScopeID
