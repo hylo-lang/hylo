@@ -3942,7 +3942,7 @@ struct TypeChecker {
       return uncheckedType(of: d)
     }
 
-    if isSkolem(domain) {
+    if program.isSkolem(domain) {
       return ^MetatypeType(of: AssociatedTypeType(d, domain: domain, ast: program.ast))
     } else if domain.base is TraitType {
       report(.error(invalidReferenceToAssociatedType: d, at: diagnosticSite, in: program.ast))
@@ -5804,18 +5804,6 @@ struct TypeChecker {
   /// Returns `true` iff `t` is the receiver of a trait declaration.
   private func isTraitReceiver(_ t: GenericTypeParameterType) -> Bool {
     program[t.decl].scope.kind == TraitDecl.self
-  }
-
-  /// Returns `true` iff `t` is bound to an existential quantifier.
-  private func isSkolem(_ t: AnyType) -> Bool {
-    switch t.base {
-    case is AssociatedTypeType, is GenericTypeParameterType:
-      return true
-    case let u as ConformanceLensType:
-      return isSkolem(u.subject)
-    default:
-      return false
-    }
   }
 
   /// Returns `true` if `d` isn't a trait requirement, an FFI, or an external function.

@@ -1,0 +1,15 @@
+//- compileAndRun expecting: success
+
+type A: Regular {
+  public var x: Int
+  public memberwise init
+  public fun infix== (_ other: Self) -> Bool { self.x == other.x }
+}
+
+public fun main() {
+  var a = A(x: 42)
+  let b = a.copy()
+  &a.x = 1337
+  precondition(a.x == 1337)
+  precondition(b.x == 42)
+}

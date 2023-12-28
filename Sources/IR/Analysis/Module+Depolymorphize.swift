@@ -561,7 +561,7 @@ extension Module {
     let model = specialization[program[trait.decl].receiver]!.asType!
     let c = program.conformance(of: model, to: trait, exposedTo: scopeOfUse)!
 
-    let lowered = demandDeclaration(lowering: c.implementations[requirement]!)!
+    let lowered = demandDeclaration(lowering: c.implementations[requirement]!)
     if self[lowered].genericParameters.isEmpty {
       return lowered
     } else {
