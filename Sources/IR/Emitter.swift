@@ -2803,6 +2803,8 @@ struct Emitter {
     insert(module.makeDeallocStack(for: x0, at: site))
   }
 
+  // MARK: Copy
+
   /// Inserts IR for copying `source` to `target` at `site`.
   private mutating func emitCopy(
     _ source: Operand, to target: Operand, at site: SourceRange
@@ -2850,7 +2852,7 @@ struct Emitter {
   mutating func emitDeinit(_ storage: Operand, at site: SourceRange) {
     let model = module.type(of: storage).ast
 
-    // Use a no-ip if the object is trivially deinitializable.
+    // Use a no-op if the object is trivially deinitializable.
     if program.isTriviallyDeinitializable(model, in: insertionScope!) {
       insert(module.makeMarkState(storage, initialized: false, at: site))
       return
