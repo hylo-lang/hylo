@@ -221,6 +221,8 @@ extension Module {
         rewrittenInstructions[i] = rewrite(load: i, to: b)
       case is MarkState:
         rewrittenInstructions[i] = rewrite(markState: i, to: b)
+      case is MemoryCopy:
+        rewrittenInstructions[i] = rewrite(memoryCopy: i, to: b)
       case is OpenCapture:
         rewrittenInstructions[i] = rewrite(openCapture: i, to: b)
       case is OpenUnion:
@@ -388,6 +390,14 @@ extension Module {
       let s = sourceModule[i] as! MarkState
       let o = rewritten(s.storage)
       return append(makeMarkState(o, initialized: s.initialized, at: s.site), to: b)
+    }
+
+    /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
+    func rewrite(memoryCopy i: InstructionID, to b: Block.ID) -> InstructionID {
+      let s = sourceModule[i] as! MemoryCopy
+      let source = rewritten(s.source)
+      let target = rewritten(s.target)
+      return append(makeMemoryCopy(source, target, at: s.site), to: b)
     }
 
     /// Rewrites `i`, which is in `r.function`, into `result`, at the end of `b`.
