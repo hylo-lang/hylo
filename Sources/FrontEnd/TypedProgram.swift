@@ -214,24 +214,34 @@ public struct TypedProgram {
   /// deinitializable parts are trivially deinitializable unless there exists a non-synthetic
   /// conformance to `Deinitializable` in scope.
   public func isTriviallyDeinitializable(_ t: AnyType, in scopeOfUse: AnyScopeID) -> Bool {
-    let model = canonical(t, in: scopeOfUse)
-    let deinitializable = ast.core.deinitializable.type
+    isTrivialModel(t, of: ast.core.deinitializable.type, in: scopeOfUse)
+  }
 
-    // Built-in types have no conformance to `Deinitializable`.
-    guard let c = conformance(of: model, to: deinitializable, exposedTo: scopeOfUse) else {
+  /// Returns `true` iff `t` models `coreConcept` without any user-defined semantics.
+  private func isTrivialModel(
+    _ t: AnyType, of coreConcept: TraitType, in scopeOfUse: AnyScopeID
+  ) -> Bool {
+    let model = canonical(t, in: scopeOfUse)
+
+    // Built-ins have no conformances, but they are trivial.
+    guard let c = conformance(of: model, to: coreConcept, exposedTo: scopeOfUse) else {
       return model.isBuiltinOrRawTuple
     }
 
     // Non-synthethic conformances are not trivial.
-    if !c.implementations.uniqueElement!.value.isSynthetic { return false }
+    if !c.isSynthethic {
+      return false
+    }
 
+    // Structural types are trivial if their parts are. Other types are trivial if they have their
+    // conformance to `coreConcept` was synthesized.
     switch model.base {
     case let u as BufferType:
-      return isTriviallyDeinitializable(u.element, in: scopeOfUse)
+      return isTrivialModel(u.element, of: coreConcept, in: scopeOfUse)
     case let u as TupleType:
-      return u.elements.allSatisfy({ isTriviallyDeinitializable($0.type, in: scopeOfUse) })
+      return u.elements.allSatisfy({ isTrivialModel($0.type, of: coreConcept, in: scopeOfUse) })
     case let u as UnionType:
-      return u.elements.allSatisfy({ isTriviallyDeinitializable($0, in: scopeOfUse) })
+      return u.elements.allSatisfy({ isTrivialModel($0, of: coreConcept, in: scopeOfUse) })
     case is MetatypeType:
       return true
     case is ProductType:
