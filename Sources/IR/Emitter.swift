@@ -2740,12 +2740,11 @@ struct Emitter {
     _ semantics: AccessEffectSet, _ value: Operand, to storage: Operand, at site: SourceRange
   ) {
     precondition(!semantics.isEmpty && semantics.isSubset(of: [.set, .inout]))
-
-    let t = module.type(of: value).ast
-    precondition(t == module.type(of: storage).ast)
+    let model = module.type(of: value).ast
+    precondition(model == module.type(of: storage).ast)
 
     // Built-in types are handled as a special case.
-    if t.isBuiltin {
+    if model.isBuiltin {
       emitMoveBuiltIn(value, to: storage, at: site)
       return
     }
@@ -2753,8 +2752,8 @@ struct Emitter {
     // Other types must be movable.
     guard
       let movable = program.conformance(
-        of: t, to: program.ast.core.movable.type, exposedTo: insertionScope!)
-    else { preconditionFailure("expected '\(t)' to be 'Movable'") }
+        of: model, to: program.ast.core.movable.type, exposedTo: insertionScope!)
+    else { preconditionFailure("expected '\(model)' to be 'Movable'") }
 
     // Insert a call to the approriate move implementation if its semantics is unambiguous.
     // Otherwise, insert a call to the method bundle.
@@ -2808,11 +2807,11 @@ struct Emitter {
   private mutating func emitCopy(
     _ source: Operand, to target: Operand, at site: SourceRange
   ) {
-    let t = module.type(of: source).ast
-    precondition(t == module.type(of: target).ast)
+    let model = module.type(of: source).ast
+    precondition(model == module.type(of: target).ast)
 
     // Built-in types are handled as a special case.
-    if t.isBuiltin {
+    if model.isBuiltin {
       emitMoveBuiltIn(source, to: target, at: site)
       return
     }
@@ -2820,8 +2819,8 @@ struct Emitter {
     // Other types must be copyable.
     guard
       let copyable = program.conformance(
-        of: t, to: program.ast.core.copyable.type, exposedTo: insertionScope!)
-    else { preconditionFailure("expected '\(t)' to be 'Copyable'") }
+        of: model, to: program.ast.core.copyable.type, exposedTo: insertionScope!)
+    else { preconditionFailure("expected '\(model)' to be 'Copyable'") }
     emitCopy(source, to: target, withCopyableConformance: copyable, at: site)
   }
 
