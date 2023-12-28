@@ -219,14 +219,7 @@ public struct TypedProgram {
 
     // Built-in types have no conformance to `Deinitializable`.
     guard let c = conformance(of: model, to: deinitializable, exposedTo: scopeOfUse) else {
-      switch model.base {
-      case is BuiltinType:
-        return true
-      case let u as TupleType:
-        return u.elements.allSatisfy(\.type.isBuiltin)
-      default:
-        return false
-      }
+      return model.isBuiltinOrRawTuple
     }
 
     // Non-synthethic conformances are not trivial.
