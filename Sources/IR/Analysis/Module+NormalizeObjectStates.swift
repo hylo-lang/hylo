@@ -366,10 +366,15 @@ extension Module {
     func interpret(markState i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! MarkState
 
-      let locations = context.locals[s.storage]!.unwrapLocations()!
-      for l in locations {
-        context.withObject(at: l) { (o) in
-          o.value = .full(s.initialized ? .initialized : .uninitialized)
+      // Built-in values are never consumed.
+      let isBuiltin = type(of: s.storage).ast.isBuiltin
+
+      context.forEachObject(at: s.storage) { (o) in
+        if s.initialized {
+          o.value = .full(.initialized)
+        } else if !isBuiltin {
+          // `mark_state` is treated as a consumer so that we can detect and diagnose escapes.
+          o.value = .full(.consumed(by: [i]))
         }
       }
 
@@ -616,11 +621,13 @@ extension Module {
 
       switch access {
       case .let, .inout:
+        assert(projection.value == .full(.initialized) || !projection.value.consumers.isEmpty)
         for c in projection.value.consumers {
           diagnostics.insert(.error(cannotConsume: access, at: self[c].site))
         }
 
       case .set:
+        assert(projection.value == .full(.initialized) || !projection.value.consumers.isEmpty)
         for c in projection.value.consumers {
           diagnostics.insert(.error(cannotConsume: access, at: self[c].site))
         }
