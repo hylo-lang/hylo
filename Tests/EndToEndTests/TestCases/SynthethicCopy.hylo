@@ -1,15 +1,22 @@
 //- compileAndRun expecting: success
 
 type A: Regular {
-  public var x: Int
+  public var x: Optional<Int>
+  public var y: Int
   public memberwise init
-  public fun infix== (_ other: Self) -> Bool { self.x == other.x }
+  public fun infix== (_ other: Self) -> Bool { false }
 }
 
 public fun main() {
-  var a = A(x: 42)
-  let b = a.copy()
-  &a.x = 1337
-  precondition(a.x == 1337)
-  precondition(b.x == 42)
+  var a = A(x: 42 as Optional, y: 1)
+  var b = a.copy()
+  &a.y = 1337
+
+  let ax = if let x: Int = a.x { x } else { 0 }
+  precondition(ax == 42)
+  precondition(a.y == 1337)
+
+  let bx = if let x: Int = b.x { x } else { 0 }
+  precondition(bx == 42)
+  precondition(b.y == 1)
 }
