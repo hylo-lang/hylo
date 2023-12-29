@@ -1506,12 +1506,19 @@ struct TypeChecker {
     func resolveFunctionalImplementation(of requirement: AnyDeclID) {
       let expectedAPI = canonicaAPI(of: requirement)
 
+      // Look for a user-defined implementation.
       if let d = concreteImplementation(of: requirement, withAPI: expectedAPI) {
         implementations[requirement] = .concrete(d)
-      } else if let d = syntheticImplementation(of: requirement, withAPI: expectedAPI) {
+      }
+
+      // Build a synthethic implementation if possible.
+      else if let d = syntheticImplementation(of: requirement, withAPI: expectedAPI) {
         implementations[requirement] = .synthetic(d)
         registerSynthesizedDecl(d, in: program.module(containing: program[origin.source].scope))
-      } else {
+      }
+
+      // No implementation matches the requirement.
+      else {
         let t = expectedType(of: requirement)
         let n = Diagnostic.note(
           trait: trait, requires: requirement.kind,
