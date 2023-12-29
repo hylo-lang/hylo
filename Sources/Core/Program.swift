@@ -428,6 +428,17 @@ extension Program {
     unreachable()
   }
 
+  /// Returns the declarations of the stored part of `p`.
+  public func storedParts(of p: ProductTypeDecl.ID) -> [VarDecl.ID] {
+    var result: [VarDecl.ID] = []
+    for m in ast[p].members.filter(BindingDecl.self) {
+      for (_, n) in ast.names(in: ast[m].pattern) {
+        result.append(self[n].decl)
+      }
+    }
+    return result
+  }
+
   /// Returns a textual description of `n` suitable for debugging.
   public func debugDescription<T: NodeIDProtocol>(_ n: T) -> String {
     switch n.kind {

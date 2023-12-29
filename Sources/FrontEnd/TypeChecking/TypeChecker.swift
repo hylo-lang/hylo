@@ -356,6 +356,77 @@ struct TypeChecker {
     return result
   }
 
+  /// Returns `true` if `model` is declared conforming to `trait` or if its conformance can be
+  /// synthesized in `scopeOfUse`.
+  ///
+  /// A conformance *M: T* is synthesizable iff *M* structurally conforms to *T*.
+  private mutating func conforms(
+    _ model: AnyType, to trait: TraitType, in scopeOfUse: AnyScopeID
+  ) -> Bool {
+    conformedTraits(of: model, in: scopeOfUse).contains(trait)
+      || structurallyConforms(model, to: trait, in: scopeOfUse)
+  }
+
+  /// Returns `true` if `model` structurally conforms to `trait` in `scopeOfUse`.
+  ///
+  /// Given a trait describing basis operations (e.g., copy) of values, a structural conformance
+  /// *M: T* holds iff all the stored parts of *M* conform to *T*, structurally or otherwise. In
+  /// that case, the conformance can be synthesized because its implementation is obvious.
+  ///
+  /// Note that this method is intended to test whether a conformance is synthesizable. It does not
+  /// look for explicit conformances of `model` to `trait`.
+  private mutating func structurallyConforms(
+    _ model: AnyType, to trait: TraitType, in scopeOfUse: AnyScopeID
+  ) -> Bool {
+    switch model.base {
+    case let m as BoundGenericType:
+      return structurallyConforms(m, to: trait, in: scopeOfUse)
+    case let m as BufferType:
+      // FIXME: To remove once conditional conformance is implemented
+      return conforms(m.element, to: trait, in: scopeOfUse)
+    case let m as LambdaType:
+      return m.captures.allSatisfy({ conforms($0.type, to: trait, in: scopeOfUse) })
+    case is MetatypeType:
+      return true
+    case let m as ProductType:
+      return structurallyConforms(m, to: trait, in: scopeOfUse)
+    case let m as RemoteType:
+      return conforms(m.bareType, to: trait, in: scopeOfUse)
+    case let m as TupleType:
+      return m.elements.allSatisfy({ conforms($0.type, to: trait, in: scopeOfUse) })
+    case let m as TypeAliasType:
+      return structurallyConforms(m.aliasee.value, to: trait, in: scopeOfUse)
+    case let m as UnionType:
+      return m.elements.allSatisfy({ conforms($0, to: trait, in: scopeOfUse) })
+    default:
+      return false
+    }
+  }
+
+  /// Returns `true` if `model` structurally conforms to `trait` in `scopeOfUse`.
+  private mutating func structurallyConforms(
+    _ model: BoundGenericType, to trait: TraitType, in scopeOfUse: AnyScopeID
+  ) -> Bool {
+    guard let base = ProductType(canonical(model.base, in: scopeOfUse)) else {
+      return false
+    }
+
+    let s = AnyScopeID(base.decl)
+    return program.storedParts(of: base.decl).allSatisfy { (p) in
+      let t = specialize(uncheckedType(of: p), for: model.arguments, in: s)
+      return conforms(t, to: trait, in: s)
+    }
+  }
+
+  /// Returns `true` if `model` structurally conforms to `trait` in `scopeOfUse`.
+  private mutating func structurallyConforms(
+    _ model: ProductType, to trait: TraitType, in scopeOfUse: AnyScopeID
+  ) -> Bool {
+    program.storedParts(of: model.decl).allSatisfy { (p) in
+      conforms(uncheckedType(of: p), to: trait, in: scopeOfUse)
+    }
+  }
+
   /// Returns the checked conformance of `model` to `trait` that is exposed to `scopeOfUse`, or
   /// `nil` if such a conformance doesn't exist.
   private mutating func demandConformance(
@@ -1457,6 +1528,7 @@ struct TypeChecker {
     ) -> SynthesizedFunctionDecl? {
       guard
         let k = program.ast.synthesizedKind(of: requirement),
+        structurallyConforms(model, to: trait, in: scopeOfDefinition)
       else { return nil }
 
       // Note: compiler-known requirement is assumed to be well-typed.
