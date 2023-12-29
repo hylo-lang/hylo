@@ -1455,9 +1455,9 @@ struct TypeChecker {
     func syntheticImplementation(
       of requirement: AnyDeclID, withAPI expectedAPI: API
     ) -> SynthesizedFunctionDecl? {
-      guard let k = program.ast.synthesizedKind(of: requirement, definedBy: trait) else {
-        return nil
-      }
+      guard
+        let k = program.ast.synthesizedKind(of: requirement),
+      else { return nil }
 
       // Note: compiler-known requirement is assumed to be well-typed.
       return .init(k, typed: LambdaType(expectedAPI.type)!, in: AnyScopeID(origin.source)!)
