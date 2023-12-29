@@ -407,14 +407,19 @@ struct TypeChecker {
   private mutating func structurallyConforms(
     _ model: BoundGenericType, to trait: TraitType, in scopeOfUse: AnyScopeID
   ) -> Bool {
-    guard let base = ProductType(canonical(model.base, in: scopeOfUse)) else {
-      return false
-    }
+    let base = canonical(model.base, in: scopeOfUse)
 
-    let s = AnyScopeID(base.decl)
-    return program.storedParts(of: base.decl).allSatisfy { (p) in
-      let t = specialize(uncheckedType(of: p), for: model.arguments, in: s)
-      return conforms(t, to: trait, in: s)
+    // If the base is a product type, we specialize each stored part individually to check whether
+    // the conformance holds for a specialized whole. Othwrwise, we specialize the base directly.
+    if let b = ProductType(base) {
+      let s = AnyScopeID(b.decl)
+      return program.storedParts(of: b.decl).allSatisfy { (p) in
+        let t = specialize(uncheckedType(of: p), for: model.arguments, in: s)
+        return conforms(t, to: trait, in: s)
+      }
+    } else {
+      let t = specialize(base, for: model.arguments, in: scopeOfUse)
+      return structurallyConforms(t, to: trait, in: scopeOfUse)
     }
   }
 
