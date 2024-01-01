@@ -4192,8 +4192,8 @@ struct TypeChecker {
     return result
   }
 
-  /// Returns the type checking constraints associated with a reference to `d` in `scopeOfUse`,
-  /// anchoring those constraints at `site`.
+  /// Returns the type checking constraints associated with a reference to `d` with the given
+  /// `specialization` in `scopeOfUse`, anchoring those constraints at `site`.
   private mutating func collectConstraints(
     associatedWith d: AnyDeclID, specializedBy specialization: GenericArguments,
     in scopeOfUse: AnyScopeID, at site: SourceRange
