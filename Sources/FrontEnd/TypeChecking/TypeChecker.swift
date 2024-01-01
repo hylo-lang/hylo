@@ -4202,30 +4202,39 @@ struct TypeChecker {
     case ModuleDecl.self:
       // Modules have no constraints.
       return []
-
     case AssociatedTypeDecl.self, AssociatedValueDecl.self:
-      // A reference to an associated type and value must already satisfied the constraints
-      // associated with its scope.
+      // Constraints on associated types and values are assumed satisfied in their scope.
       return []
-
+    case TraitDecl.self:
+      // References to traits are unconstrained.
+      return []
     default:
       break
     }
 
-    let lca = program.innermostCommonScope(program[d].scope, scopeOfUse)
     let origin = ConstraintOrigin(.whereClause, at: site)
     var result = ConstraintSet()
 
+    if let e = possiblyPartiallyFormedEnvironment(of: d) {
+      insertConstraints(declaredIn: e)
+    }
+
+    let lca = program.innermostCommonScope(program[d].scope, scopeOfUse)
     for s in program.scopes(from: program[d].scope) {
       if s == lca { break }
-      if let e = environment(of: s) {
-        for g in e.constraints {
-          let c = specialize(g, for: specialization, in: scopeOfUse, origin: origin)
-          result.insert(c)
-        }
+      if let d = AnyDeclID(s), let e = possiblyPartiallyFormedEnvironment(of: d) {
+        insertConstraints(declaredIn: e)
       }
     }
     return result
+
+    /// Inserts the constraints declared in `e` in `result`.
+    func insertConstraints(declaredIn e: GenericEnvironment) {
+      for g in e.constraints {
+        let c = specialize(g, for: specialization, in: scopeOfUse, origin: origin)
+        result.insert(c)
+      }
+    }
   }
 
   /// Returns generic parameters captured by `s` and the scopes semantically containing `s`.
