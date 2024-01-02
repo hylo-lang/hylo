@@ -22,6 +22,6 @@ public fun main() {
   let a1 = A(n: 1)
   let a2 = A(n: 2)
   precondition(a1 == a1)
-  precondition(!(a1 == a2))
+  precondition(!(a1 == a2))  // See #1269
   precondition(a1 < a2)
 }
