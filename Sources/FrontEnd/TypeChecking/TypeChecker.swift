@@ -3978,7 +3978,9 @@ struct TypeChecker {
       // when the associated type is rooted at a trait. Substitution of associated type should
       // rely on conformances rather than lookup.
       if let r = context?.type ?? resolveReceiverMetatype(in: scopeOfUse)?.instance {
-        specialization[program[t.decl].receiver] = .type(r)
+        for u in refinements(of: t).unordered {
+          specialization[program[u.decl].receiver] = .type(r)
+        }
       }
     }
 
