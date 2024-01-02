@@ -344,16 +344,34 @@ struct TypeChecker {
       let d = AnyDeclID(s)!
       let e = possiblyPartiallyFormedEnvironment(of: d)!
       result.formUnion(e.conformedTraits(of: ^t))
-
-      // Note: `s` might be extending the type whose declaration introduced the generic environment
-      // that declared `t`.
-      if s.kind.value is TypeExtendingDecl.Type {
-        if let g = environment(introducedByDeclOf: uncheckedType(of: d)) {
-          result.formUnion(g.conformedTraits(of: ^t))
-        }
-      }
+      result.formUnion(conformedTraits(declaredByConstraintsOn: t, inScopeExtendedBy: d))
     }
     return result
+  }
+
+  /// Returns the traits to which `t` is declared conforming in the scope extended by `d` iff `d`
+  /// is an extension.
+  private mutating func conformedTraits(
+    declaredByConstraintsOn t: AnyType, inScopeExtendedBy d: AnyDeclID
+  ) -> Set<TraitType> {
+    let extendedScope: AnyScopeID?
+
+    switch d.kind {
+    case ConformanceDecl.self:
+      extendedScope = scopeExtended(by: ConformanceDecl.ID(d)!)
+    case ExtensionDecl.self:
+      extendedScope = scopeExtended(by: ExtensionDecl.ID(d)!)
+    default:
+      return []
+    }
+
+    if let s = extendedScope {
+      return conformedTraits(of: t, in: s)
+    } else if let e = environment(introducedByDeclOf: uncheckedType(of: d)) {
+      return e.conformedTraits(of: t)
+    } else {
+      return []
+    }
   }
 
   /// Returns `true` if `model` is declared conforming to `trait` or if its conformance can be
