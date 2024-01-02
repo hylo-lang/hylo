@@ -2778,8 +2778,6 @@ struct Emitter {
 
   /// Inserts IR for move-initializing/assigning `storage` with `value` at `site`.
   ///
-  /// The type of `value` must a built-in or conform to `Movable` in `insertionScope`.
-  ///
   /// The value of `semantics` defines the type of move to emit:
   /// - `[.set]` emits move-initialization.
   /// - `[.inout]` emits move-assignment.
@@ -2799,6 +2797,13 @@ struct Emitter {
       return
     }
 
+    // Other types must be movable.
+    let m = program.ast.core.movable.type
+    guard let movable = program.conformance(of: model, to: m, exposedTo: insertionScope!) else {
+      report(.error(model, doesNotConformTo: m, at: site))
+      return
+    }
+
     // Use memcpy of `source` is trivially movable.
     if program.isTriviallyMovable(model, in: insertionScope!) {
       let x0 = insert(module.makeAccess(.sink, from: value, at: site))!
@@ -2809,12 +2814,6 @@ struct Emitter {
       insert(module.makeEndAccess(x0, at: site))
       return
     }
-
-    // Other types must be movable.
-    guard
-      let movable = program.conformance(
-        of: model, to: program.ast.core.movable.type, exposedTo: insertionScope!)
-    else { preconditionFailure("expected '\(model)' to be 'Movable'") }
 
     // Insert a call to the approriate move implementation if its semantics is unambiguous.
     // Otherwise, insert a call to the method bundle.
