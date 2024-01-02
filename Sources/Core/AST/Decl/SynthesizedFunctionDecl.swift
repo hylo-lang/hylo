@@ -43,16 +43,20 @@ public struct SynthesizedFunctionDecl: Hashable {
   }
 
   /// The type of the declaration's receiver.
+  ///
+  /// - Requires: `self` is a synthethic implementation of a member function.
   public var receiver: AnyType {
-    // Synthesized are members, so their receiver is part of their captures.
     let r = type.captures[0].type
     return RemoteType(r)?.bareType ?? r
   }
 
   /// Returns the generic parameters of the declaration.
   public var genericParameters: [GenericParameterDecl.ID] {
-    guard !type.captures.isEmpty else { return [] }
-    guard let t = BoundGenericType(receiver) else { return [] }
+    guard
+      !type.captures.isEmpty,
+      let t = BoundGenericType(receiver)
+    else { return [] }
+
     return t.arguments.compactMap { (k, v) -> GenericParameterDecl.ID? in
       if case .type(let u) = v {
         return GenericTypeParameterType(u)?.decl == k ? k : nil

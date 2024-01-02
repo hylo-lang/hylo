@@ -13,7 +13,9 @@ protocol Monotonic: Equatable {
 extension Monotonic where Self: Equatable {
 
   /// Asserts that `self == other`.
-  func updateMonotonically(_ other: Self) { assert(self == other) }
+  func updateMonotonically(_ other: Self) {
+    assert(self == other, "non-monotonic update of \(type(of: self))")
+  }
 
 }
 

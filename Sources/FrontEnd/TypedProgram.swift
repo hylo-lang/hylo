@@ -410,11 +410,16 @@ public struct TypedProgram {
   private func impliedConformance(
     of model: AnyType, to concept: TraitType, exposedTo scopeOfUse: AnyScopeID
   ) -> Conformance? {
+    // No implied conformance unless `model` is a generic parameter or associated type.
+    if !(model.base is AssociatedTypeType) && !(model.base is GenericTypeParameterType) {
+      return nil
+    }
+
     var checker = TypeChecker(asContextFor: self)
     let bounds = checker.conformedTraits(
       declaredByConstraintsOn: model,
       exposedTo: scopeOfUse)
-    guard bounds.contains(concept) else { return nil }
+    if !bounds.contains(concept) { return nil }
 
     var implementations = Conformance.ImplementationMap()
     for requirement in ast.requirements(of: concept.decl) {

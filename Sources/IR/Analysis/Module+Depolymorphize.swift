@@ -128,14 +128,6 @@ extension Module {
     _ f: Function.ID, in ir: IR.Program,
     for specialization: GenericArguments, in scopeOfUse: AnyScopeID
   ) -> Function.ID {
-    // TODO: Avoid monomorphizing non-generic entities (#
-    // let parameters = ir.base.liftedGenericParameters(of: f)
-    // if parameters.isEmpty {
-    //   return f
-    // }
-    // let specialization = GenericArguments(
-    //   uniqueKeysWithValues: parameters.map({ ($0, specialization[$0]!) }))
-
     let result = demandMonomorphizedDeclaration(of: f, in: ir, for: specialization, in: scopeOfUse)
     if self[result].entry != nil {
       return result
@@ -535,13 +527,13 @@ extension Module {
       return FunctionReference(to: f, in: self)
     }
 
-    /// Returns a monomorphized copy of `f` specialized by `a` for use in `scopeOfUse`.
+    /// Returns a monomorphized copy of `f` specialized by `z` for use in `scopeOfUse`.
     ///
     /// If `f` is a trait requirement, the result is a monomorphized version of that requirement's
     /// implementation, using `a` to identify the requirement's receiver. Otherwise, the result is
     /// a monomorphized copy of `f`.
-    func rewritten(_ f: Function.ID, specializedBy a: GenericArguments) -> Function.ID {
-      let p = program.specialize(a, for: specialization, in: scopeOfUse)
+    func rewritten(_ f: Function.ID, specializedBy z: GenericArguments) -> Function.ID {
+      let p = program.specialize(z, for: specialization, in: scopeOfUse)
       if let m = program.requirementDeclaring(memberReferredBy: f) {
         return monomorphize(requirement: m.decl, of: m.trait, in: ir, for: p, in: scopeOfUse)
       } else {
@@ -562,21 +554,35 @@ extension Module {
     }
   }
 
-  /// Returns a reference to the monomorphized form of `requirement` for `specialization` in
+  /// Returns a reference to the monomorphized form of `requirement` for specialization `z` in
   /// `scopeOfUse`, reading definitions from `ir`.
   private mutating func monomorphize(
     requirement: AnyDeclID, of trait: TraitType, in ir: IR.Program,
-    for specialization: GenericArguments, in scopeOfUse: AnyScopeID
+    for z: GenericArguments, in scopeOfUse: AnyScopeID
   ) -> Function.ID {
-    let model = specialization[program[trait.decl].receiver]!.asType!
-    let c = program.conformance(of: model, to: trait, exposedTo: scopeOfUse)!
+    let receiver = ir.base[trait.decl].receiver.id
+    let model = z[receiver]!.asType!
 
-    let lowered = demandDeclaration(lowering: c.implementations[requirement]!)
-    if self[lowered].genericParameters.isEmpty {
-      return lowered
-    } else {
-      return monomorphize(lowered, in: ir, for: specialization, in: scopeOfUse)
+    let c = ir.base.conformance(of: model, to: trait, exposedTo: scopeOfUse)!
+    let i = c.implementations[requirement]!
+    let d = demandDeclaration(lowering: i)
+
+    // Nothing to do if the implementation isn't generic.
+    if self[d].genericParameters.isEmpty {
+      return d
     }
+
+    // Otherwise, the generic arguments of the implementation are supplied by the conformance,
+    // except for the argument to the receiver parameter. This parameter may be associated with
+    // a trait other the one declaring the requirement if the implementation is in an extension.
+    var monomorphizationArguments = c.arguments
+    if case .concrete(let d) = i, let t = ir.base.traitDeclaring(d), t != trait {
+      monomorphizationArguments[ir.base[t.decl].receiver] = .type(model)
+    } else {
+      monomorphizationArguments[receiver] = .type(model)
+    }
+
+    return monomorphize(d, in: ir, for: monomorphizationArguments, in: scopeOfUse)
   }
 
   /// Returns the IR function monomorphizing `f` for `specialization` in `scopeOfUse`.
@@ -584,11 +590,18 @@ extension Module {
     of f: Function.ID, in ir: IR.Program,
     for specialization: GenericArguments, in scopeOfUse: AnyScopeID
   ) -> Function.ID {
-    let result = Function.ID(monomorphized: f, for: specialization)
-    if functions[result] != nil { return result }
+    let sourceModule = ir.modules[ir.module(defining: f)]!
+    let source = sourceModule[f]
 
-    let m = ir.modules[ir.module(defining: f)]!
-    let source = m[f]
+    precondition(!source.genericParameters.isEmpty, "function is not generic")
+    precondition(
+      source.genericParameters.allSatisfy({ specialization[$0] != nil }),
+      "incomplete monomorphization arguments")
+
+    let result = Function.ID(monomorphized: f, for: specialization)
+    if functions[result] != nil {
+      return result
+    }
 
     let inputs = source.inputs.map { (p) in
       let t = monomorphize(p.type.bareType, for: specialization, in: scopeOfUse)

@@ -344,16 +344,34 @@ struct TypeChecker {
       let d = AnyDeclID(s)!
       let e = possiblyPartiallyFormedEnvironment(of: d)!
       result.formUnion(e.conformedTraits(of: ^t))
-
-      // Note: `s` might be extending the type whose declaration introduced the generic environment
-      // that declared `t`.
-      if s.kind.value is TypeExtendingDecl.Type {
-        if let g = environment(introducedByDeclOf: uncheckedType(of: d)) {
-          result.formUnion(g.conformedTraits(of: ^t))
-        }
-      }
+      result.formUnion(conformedTraits(declaredByConstraintsOn: t, inScopeExtendedBy: d))
     }
     return result
+  }
+
+  /// Returns the traits to which `t` is declared conforming in the scope extended by `d` iff `d`
+  /// is an extension.
+  private mutating func conformedTraits(
+    declaredByConstraintsOn t: AnyType, inScopeExtendedBy d: AnyDeclID
+  ) -> Set<TraitType> {
+    let extendedScope: AnyScopeID?
+
+    switch d.kind {
+    case ConformanceDecl.self:
+      extendedScope = scopeExtended(by: ConformanceDecl.ID(d)!)
+    case ExtensionDecl.self:
+      extendedScope = scopeExtended(by: ExtensionDecl.ID(d)!)
+    default:
+      return []
+    }
+
+    if let s = extendedScope {
+      return conformedTraits(of: t, in: s)
+    } else if let e = environment(introducedByDeclOf: uncheckedType(of: d)) {
+      return e.conformedTraits(of: t)
+    } else {
+      return []
+    }
   }
 
   /// Returns `true` if `model` is declared conforming to `trait` or if its conformance can be
@@ -3960,7 +3978,9 @@ struct TypeChecker {
       // when the associated type is rooted at a trait. Substitution of associated type should
       // rely on conformances rather than lookup.
       if let r = context?.type ?? resolveReceiverMetatype(in: scopeOfUse)?.instance {
-        specialization[program[t.decl].receiver] = .type(r)
+        for u in refinements(of: t).unordered.sorted(by: \.decl.rawValue) {
+          specialization[program[u.decl].receiver] = .type(r)
+        }
       }
     }
 
@@ -4145,8 +4165,7 @@ struct TypeChecker {
     }
   }
 
-  /// Returns the list of generic arguments passed to a symbol occurring in `scope` of use and
-  /// looked up in `context`.
+  /// Returns the generic arguments passed to symbols occurring in `d` and looked up in `context`.
   ///
   /// The arguments of `context` are returned if the latter isn't `nil`. Otherwise, the arguments
   /// captured in the scope introducing `d` are returned in the form of a table mapping accumulated
