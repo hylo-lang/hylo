@@ -342,7 +342,7 @@ struct TypeChecker {
       // cache, so that lookup queries related by the environment construction can't trigger
       // infinite recursion.
       let d = AnyDeclID(s)!
-      let e = possiblyPartiallyFormedEnvironment(of: AnyDeclID(d))!
+      let e = possiblyPartiallyFormedEnvironment(of: d)!
       result.formUnion(e.conformedTraits(of: ^t))
 
       // Note: `s` might be extending the type whose declaration introduced the generic environment
