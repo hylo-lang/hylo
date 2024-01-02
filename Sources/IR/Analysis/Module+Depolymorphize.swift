@@ -584,11 +584,14 @@ extension Module {
     of f: Function.ID, in ir: IR.Program,
     for specialization: GenericArguments, in scopeOfUse: AnyScopeID
   ) -> Function.ID {
-    let result = Function.ID(monomorphized: f, for: specialization)
-    if functions[result] != nil { return result }
+    let sourceModule = ir.modules[ir.module(defining: f)]!
+    let source = sourceModule[f]
+    precondition(!source.genericParameters.isEmpty, "function is not generic")
 
-    let m = ir.modules[ir.module(defining: f)]!
-    let source = m[f]
+    let result = Function.ID(monomorphized: f, for: specialization)
+    if functions[result] != nil {
+      return result
+    }
 
     let inputs = source.inputs.map { (p) in
       let t = monomorphize(p.type.bareType, for: specialization, in: scopeOfUse)
