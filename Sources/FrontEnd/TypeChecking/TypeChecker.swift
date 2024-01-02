@@ -4165,8 +4165,7 @@ struct TypeChecker {
     }
   }
 
-  /// Returns the list of generic arguments passed to a symbol occurring in `scope` of use and
-  /// looked up in `context`.
+  /// Returns the generic arguments passed to symbols occurring in `d` and looked up in `context`.
   ///
   /// The arguments of `context` are returned if the latter isn't `nil`. Otherwise, the arguments
   /// captured in the scope introducing `d` are returned in the form of a table mapping accumulated
