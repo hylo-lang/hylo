@@ -1,0 +1,27 @@
+//- compileAndRun expecting: success
+
+public type A: Deinitializable, Strideable {
+
+  public var n: Int
+
+  public memberwise init
+
+  public typealias Stride = Int
+
+  fun offset(to other: Self) -> Stride {
+    other.n - self.n
+  }
+
+  fun advance(by offset: Stride) -> Self {
+    A(n: n + offset)
+  }
+
+}
+
+public fun main() {
+  let a1 = A(n: 1)
+  let a2 = A(n: 2)
+  precondition(a1 == a1)
+  precondition(!(a1 == a2))
+  precondition(a1 < a2)
+}
