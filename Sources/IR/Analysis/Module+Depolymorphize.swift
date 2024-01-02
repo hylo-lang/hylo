@@ -535,13 +535,13 @@ extension Module {
       return FunctionReference(to: f, in: self)
     }
 
-    /// Returns a monomorphized copy of `f` specialized by `a` for use in `scopeOfUse`.
+    /// Returns a monomorphized copy of `f` specialized by `z` for use in `scopeOfUse`.
     ///
     /// If `f` is a trait requirement, the result is a monomorphized version of that requirement's
     /// implementation, using `a` to identify the requirement's receiver. Otherwise, the result is
     /// a monomorphized copy of `f`.
-    func rewritten(_ f: Function.ID, specializedBy a: GenericArguments) -> Function.ID {
-      let p = program.specialize(a, for: specialization, in: scopeOfUse)
+    func rewritten(_ f: Function.ID, specializedBy z: GenericArguments) -> Function.ID {
+      let p = program.specialize(z, for: specialization, in: scopeOfUse)
       if let m = program.requirementDeclaring(memberReferredBy: f) {
         return monomorphize(requirement: m.decl, of: m.trait, in: ir, for: p, in: scopeOfUse)
       } else {
@@ -562,20 +562,28 @@ extension Module {
     }
   }
 
-  /// Returns a reference to the monomorphized form of `requirement` for `specialization` in
+  /// Returns a reference to the monomorphized form of `requirement` for specialization `z` in
   /// `scopeOfUse`, reading definitions from `ir`.
   private mutating func monomorphize(
     requirement: AnyDeclID, of trait: TraitType, in ir: IR.Program,
-    for specialization: GenericArguments, in scopeOfUse: AnyScopeID
+    for z: GenericArguments, in scopeOfUse: AnyScopeID
   ) -> Function.ID {
-    let model = specialization[program[trait.decl].receiver]!.asType!
-    let c = program.conformance(of: model, to: trait, exposedTo: scopeOfUse)!
+    let model = z[ir.base[trait.decl].receiver]!.asType!
+    let c = ir.base.conformance(of: model, to: trait, exposedTo: scopeOfUse)!
+    let i = c.implementations[requirement]!
 
-    let lowered = demandDeclaration(lowering: c.implementations[requirement]!)
-    if self[lowered].genericParameters.isEmpty {
-      return lowered
+    // The implementation may be defined in the extension of another trait.
+    var monomorphizationArguments = z
+    if case .concrete(let d) = i, let t = ir.base.traitDeclaring(d), t != trait {
+      monomorphizationArguments[ir.base[t.decl].receiver] = .type(model)
+      monomorphizationArguments[ir.base[trait.decl].receiver] = nil
+    }
+
+    let d = demandDeclaration(lowering: i)
+    if self[d].genericParameters.isEmpty {
+      return d
     } else {
-      return monomorphize(lowered, in: ir, for: specialization, in: scopeOfUse)
+      return monomorphize(d, in: ir, for: monomorphizationArguments, in: scopeOfUse)
     }
   }
 
