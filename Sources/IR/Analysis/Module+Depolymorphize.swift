@@ -560,23 +560,29 @@ extension Module {
     requirement: AnyDeclID, of trait: TraitType, in ir: IR.Program,
     for z: GenericArguments, in scopeOfUse: AnyScopeID
   ) -> Function.ID {
-    let model = z[ir.base[trait.decl].receiver]!.asType!
+    let receiver = ir.base[trait.decl].receiver.id
+    let model = z[receiver]!.asType!
+
     let c = ir.base.conformance(of: model, to: trait, exposedTo: scopeOfUse)!
     let i = c.implementations[requirement]!
-
-    // The implementation may be defined in the extension of another trait.
-    var monomorphizationArguments = z
-    if case .concrete(let d) = i, let t = ir.base.traitDeclaring(d), t != trait {
-      monomorphizationArguments[ir.base[t.decl].receiver] = .type(model)
-      monomorphizationArguments[ir.base[trait.decl].receiver] = nil
-    }
-
     let d = demandDeclaration(lowering: i)
+
+    // Nothing to do if the implementation isn't generic.
     if self[d].genericParameters.isEmpty {
       return d
-    } else {
-      return monomorphize(d, in: ir, for: monomorphizationArguments, in: scopeOfUse)
     }
+
+    // Otherwise, the generic arguments of the implementation are supplied by the conformance,
+    // except for the argument to the receiver parameter. This parameter may be associated with
+    // a trait other the one declaring the requirement if the implementation is in an extension.
+    var monomorphizationArguments = c.arguments
+    if case .concrete(let d) = i, let t = ir.base.traitDeclaring(d), t != trait {
+      monomorphizationArguments[ir.base[t.decl].receiver] = .type(model)
+    } else {
+      monomorphizationArguments[receiver] = .type(model)
+    }
+
+    return monomorphize(d, in: ir, for: monomorphizationArguments, in: scopeOfUse)
   }
 
   /// Returns the IR function monomorphizing `f` for `specialization` in `scopeOfUse`.
@@ -586,7 +592,11 @@ extension Module {
   ) -> Function.ID {
     let sourceModule = ir.modules[ir.module(defining: f)]!
     let source = sourceModule[f]
+
     precondition(!source.genericParameters.isEmpty, "function is not generic")
+    precondition(
+      source.genericParameters.allSatisfy({ specialization[$0] != nil }),
+      "incomplete monomorphization arguments")
 
     let result = Function.ID(monomorphized: f, for: specialization)
     if functions[result] != nil {
