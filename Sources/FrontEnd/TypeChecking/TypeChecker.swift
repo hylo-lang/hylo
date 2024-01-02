@@ -1421,10 +1421,9 @@ struct TypeChecker {
     /// The diagnostics of the errors found during conformance checking.
     var conformanceDiagnostics = DiagnosticSet()
 
-    /// A map associating the "Self" parameter of each trait in the refinement cluster of `trait`
-    /// to the type.
+    /// A map associating the "Self" parameter of each trait to which `model` conforms to `model`.
     var traitReceiverToModel = GenericArguments()
-    for t in refinements(of: trait).unordered {
+    for t in conformedTraits(of: model, in: scopeOfDefinition) {
       traitReceiverToModel[program[t.decl].receiver] = .type(model)
     }
 
