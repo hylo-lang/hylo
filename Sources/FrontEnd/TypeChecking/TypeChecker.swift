@@ -4222,7 +4222,7 @@ struct TypeChecker {
     let lca = program.innermostCommonScope(program[d].scope, scopeOfUse)
     for s in program.scopes(from: program[d].scope) {
       if s == lca { break }
-      if let d = AnyDeclID(s), let e = possiblyPartiallyFormedEnvironment(of: d) {
+      if let g = AnyDeclID(s), let e = possiblyPartiallyFormedEnvironment(of: g) {
         insertConstraints(declaredIn: e)
       }
     }
