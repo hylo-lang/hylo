@@ -663,11 +663,15 @@ struct TypeChecker {
         }
       }
 
-      if let selected = candidates.uniqueElement {
-        return MetatypeType(me.uncheckedType(of: selected))?.instance ?? .error
-      } else {
-        return .error
+      if let s = candidates.uniqueElement, let u = MetatypeType(me.uncheckedType(of: s)) {
+        if let b = BoundGenericType(me.canonical(d, in: scopeOfUse)) {
+          return me.specialize(u.instance, for: b.arguments, in: scopeOfUse)
+        } else {
+          return u.instance
+        }
       }
+
+      return .error
     }
 
     func transform(mutating me: inout Self, _ t: BoundGenericType) -> AnyType {
