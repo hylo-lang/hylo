@@ -1268,10 +1268,10 @@ struct Emitter {
     insertionPoint = .end(of: enter)
     let x6 = insert(module.makeAccess(.let, from: domain, at: introducer))!
     let x7 = insert(module.makeAccess(.let, from: currentPosition, at: introducer))!
+
+    let t = RemoteType(.let, collectionWitness.element)
     let x8 = insert(
-      module.makeProject(
-        .init(.let, collectionWitness.element), applying: collectionWitness.access,
-        specializedBy: collectionConformance.arguments, to: [x6, x7], at: introducer))!
+      module.makeProject(t, applying: collectionWitness.access, to: [x6, x7], at: introducer))!
 
     if module.type(of: x8).ast != collectionWitness.element {
       UNIMPLEMENTED("narrowing projections #1099")
