@@ -12,3 +12,50 @@ trait MutableCollection: Collection {
   fun swap_at(_ i: Position, _ j: Position) inout
 
 }
+
+public extension MutableCollection {
+
+  /// Shifts the elements of `self` so that the element currently at `middle` becomes first.
+  ///
+  /// The contents of `self` is reordered so that the elements in the range [`middle`, `end`) occur
+  /// before the elements in the range [`start`, `middle`) and the orders of the elements in these
+  /// ranges  are preserved.
+  ///
+  /// - Requires: `middle != end_position()`.
+  /// - Complexity: O(n), where n is the number of elements in `self`.
+  public fun rotate(to_start_at middle: Position) inout {
+    var s = start_position()
+    var m = middle.copy()
+    var i = middle.copy()
+
+    // Nothing to do if `middle` is already pointing at the start of `self`.
+    if s == m { return }
+
+    // Bring the back range to the front.
+    while true {
+      swap_at(s, i)
+      &s = position(after: s)
+      &i = position(after: i)
+      if i == end_position() { break }
+      if s == m { &m = i.copy() }
+    }
+
+    // Nothing more to do; the order of the front range was maintained.
+    if s == m { return }
+
+    // Reestablish the order of the front range (now at the back).
+    &i = m.copy()
+    while true {
+      swap_at(s, i)
+      &s = position(after: s)
+      &i = position(after: i)
+      if i == end_position() {
+        if s == m { break }
+        &i = m.copy()
+      } else if s == m {
+        &m = i.copy()
+      }
+    }
+  }
+
+}
