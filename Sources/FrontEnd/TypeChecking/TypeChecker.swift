@@ -3979,13 +3979,7 @@ struct TypeChecker {
     }
 
     // If the match is a trait member, specialize its receiver.
-    // TODO: Remove `mayCaptureGenericParameters`
-    if let t = traitDeclaring(d), mayCaptureGenericParameters(d) {
-      // DR: `mayCaptureGenericParameters` is used to avoid populating the specialization table
-      // when `m` is an associated type declaration. Otherwise, `specialize` causes resolution
-      // to systematically pick the default value. I suspect that `specialize` shouldn't do that
-      // when the associated type is rooted at a trait. Substitution of associated type should
-      // rely on conformances rather than lookup.
+    if let t = traitDeclaring(d) {
       if let r = context?.type ?? resolveReceiverMetatype(in: scopeOfUse)?.instance {
         specialization[program[t.decl].receiver] = .type(r)
       }
