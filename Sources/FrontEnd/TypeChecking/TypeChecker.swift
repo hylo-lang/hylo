@@ -4183,7 +4183,7 @@ struct TypeChecker {
 
   /// Returns the list of generic arguments passed to `d`, which has type `t` and is being referred
   /// to by `name`, reporting diagnostics to `log`.
-  private mutating func genericArguments(
+  private func genericArguments(
     passedTo d: AnyDeclID, typed t: AnyType,
     referredToBy name: SourceRepresentable<Name>, specializedBy arguments: [CompileTimeValue],
     reportingDiagnosticsTo log: inout DiagnosticSet
@@ -4221,7 +4221,7 @@ struct TypeChecker {
   /// Associates `parameters`, which are introduced by `name`'s declaration, to corresponding
   /// values in `arguments` if the two arrays have the same length; returns `nil` otherwise,
   /// reporting diagnostics to `log`.
-  private mutating func associateGenericParameters(
+  private func associateGenericParameters(
     _ parameters: [GenericParameterDecl.ID], of name: SourceRepresentable<Name>,
     to arguments: [CompileTimeValue],
     reportingDiagnosticsTo log: inout DiagnosticSet
