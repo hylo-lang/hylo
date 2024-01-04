@@ -536,34 +536,29 @@ struct TypeChecker {
   }
 
   /// Returns the origins of the conformances of `model` to `trait` exposed to `scopeOfUse`.
-  ///
-  /// - Requires: `model` is canonical.
   private mutating func originsOfConformance(
     of model: AnyType, to trait: TraitType, exposedTo scopeOfUse: AnyScopeID
   ) -> [ConformanceOrigin] {
-    assert(model[.isCanonical])
-
-    var result: [ConformanceOrigin]
-
     switch model.base {
     case let t as BoundGenericType:
       return originsOfConformance(of: t.base, to: trait, exposedTo: scopeOfUse)
     case let t as ProductType:
-      let d = ProductTypeDecl.ID(t.decl)!
-      result = originsOfConformance(to: trait, declaredBy: d, exposedTo: scopeOfUse)
+      return originsOfConformance(of: t, to: trait, exposedTo: scopeOfUse)
     case let t as TypeAliasType:
       return originsOfConformance(of: t.resolved, to: trait, exposedTo: scopeOfUse)
     default:
-      result = []
+      return originsOfConformance(to: trait, declaredInExtensionsOf: model, exposedTo: scopeOfUse)
     }
+  }
 
-    for e in extensions(of: model, exposedTo: scopeOfUse) {
-      guard let d = ConformanceDecl.ID(e) else { continue }
-      let s = originsOfConformance(to: trait, declaredBy: d, exposedTo: scopeOfUse)
-      result.append(contentsOf: s)
-    }
-
-    return result
+  /// Returns the origins of the conformances of `model` to `trait` exposed to `scopeOfUse`.
+  private mutating func originsOfConformance(
+    of model: ProductType, to trait: TraitType, exposedTo scopeOfUse: AnyScopeID
+  ) -> [ConformanceOrigin] {
+    let d = ProductTypeDecl.ID(model.decl)!
+    let r = originsOfConformance(to: trait, declaredBy: d, exposedTo: scopeOfUse)
+    let s = originsOfConformance(to: trait, declaredInExtensionsOf: ^model, exposedTo: scopeOfUse)
+    return r + s
   }
 
   /// Returns the origins of conformances to `trait` exposed to `scopeOfUse` and declared `d`.
@@ -576,6 +571,20 @@ struct TypeChecker {
       if conformedTraits(of: ^t, in: scopeOfUse).contains(trait) {
         result.append(.init(d, at: program[n].site))
       }
+    }
+    return result
+  }
+
+  /// Returns the origins of the conformances of `model` to `trait` that are declared in extensions
+  /// exposed to `scopeOfUse`.
+  private mutating func originsOfConformance(
+    to trait: TraitType, declaredInExtensionsOf model: AnyType, exposedTo scopeOfUse: AnyScopeID
+  ) -> [ConformanceOrigin] {
+    var result: [ConformanceOrigin] = []
+    for e in extensions(of: model, exposedTo: scopeOfUse) {
+      guard let d = ConformanceDecl.ID(e) else { continue }
+      let s = originsOfConformance(to: trait, declaredBy: d, exposedTo: scopeOfUse)
+      result.append(contentsOf: s)
     }
     return result
   }
