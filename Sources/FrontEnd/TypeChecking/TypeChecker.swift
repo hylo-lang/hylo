@@ -4149,7 +4149,7 @@ struct TypeChecker {
   ) -> GenericTypeParameterType? {
     resolveReceiverMetatype(in: scopeOfUse)
       .flatMap({ (t) in GenericTypeParameterType(t.instance) })
-      .flatMap({ (t) in isTraitReceiver(t) ? t : nil})
+      .flatMap({ (t) in isTraitReceiver(t) ? t : nil })
   }
 
   /// Returns `true` if references to `d` are captured if they occur in `scopeOfUse`.
