@@ -589,18 +589,28 @@ struct TypeChecker {
     return result
   }
 
-  /// Returns the type satisfying `requirement` for `model` in `scopeOfUse`, or `nil` if `model`
-  /// does not satisfy such a requirement.
+  /// Returns the type implementing requirement `r` for the model `m` in `scopeOfUse`, or `nil` if
+  /// `m` does not implement `r`.
   private mutating func demandImplementation(
-    of requirement: AssociatedTypeDecl.ID, for model: AnyType, in scopeOfUse: AnyScopeID
+    of r: AssociatedTypeDecl.ID, for m: AnyType, in scopeOfUse: AnyScopeID
   ) -> AnyType? {
-    let trait = traitDeclaring(requirement)!
-    guard
-      let c = demandConformance(of: model, to: trait, exposedTo: scopeOfUse),
-      let a = MetatypeType(uncheckedType(of: c.implementations[requirement]!.decl!))
-    else { return nil }
+    if let c = demandConformance(of: m, to: traitDeclaring(r)!, exposedTo: scopeOfUse) {
+      return demandImplementation(of: r, in: c)
+    } else if m.base is GenericTypeParameterType {
+      return ^AssociatedTypeType(r, domain: m, ast: program.ast)
+    } else {
+      return nil
+    }
+  }
 
-    return specialize(a.instance, for: c.arguments, in: c.scope)
+  /// Returns the type implementing requirement `r` in conformance `c` if `c` is well-formed.
+  private mutating func demandImplementation(
+    of r: AssociatedTypeDecl.ID, in c: Conformance
+  ) -> AnyType? {
+    let t = uncheckedType(of: c.implementations[r]!.decl!)
+    return MetatypeType(t).map { (a) in
+      specialize(a.instance, for: c.arguments, in: c.scope)
+    }
   }
 
   // MARK: Type transformations
