@@ -1,5 +1,6 @@
 import Utils
 import XCTest
+import Algorithms
 
 final class CollectionExtensionsTests: XCTestCase {
 
@@ -65,23 +66,26 @@ final class BidirectionalCollectionExtensionsTests: XCTestCase {
 final class MutableCollectionExtensionsTests: XCTestCase {
 
   func testRotateRange() {
-    var a = Array(0 ..< 7)
-    XCTAssertEqual(a.rotate(0 ..< 5, toStartAt: 3), 2)
-    XCTAssertEqual(a, [3, 4, 0, 1, 2, 5, 6])
+    for l in 0..<11 {
+      let a = Array(0..<l)
 
-    let b = a
-    XCTAssertEqual(a.rotate(0 ..< 1, toStartAt: 0), 0)
-    XCTAssertEqual(a, b)
-  }
+      for p in a.startIndex...a.endIndex {
+        let prefix = a[..<p]
+        for q in p...l {
+          let suffix = a[q...]
 
-  func testRotateWhole() {
-    var a = Array(0 ..< 7)
-    XCTAssertEqual(a.rotate(0 ..< 7, toStartAt: 4), 3)
-    XCTAssertEqual(a, [4, 5, 6, 0, 1, 2, 3])
+          // Should be p...q but the existing rotate asserts if the pivot is the end position
+          for m in p ..< q {
+            var b = a
 
-    let b = a
-    XCTAssertEqual(a.rotate(toStartAt: 0), 0)
-    XCTAssertEqual(a, b)
+            let r = b[p..<q].rotate(subrange: p ..< q, toStartAt: m)
+            let rotated = Array([prefix, a[m..<q], a[p..<m], suffix].joined())
+            XCTAssertEqual(b, rotated)
+            XCTAssertEqual(r, a.index(p, offsetBy: a[m..<q].count))
+          }
+        }
+      }
+    }
   }
 
 }

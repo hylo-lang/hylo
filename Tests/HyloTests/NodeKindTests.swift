@@ -1,4 +1,5 @@
 import XCTest
+import Algorithms
 
 @testable import Core
 
