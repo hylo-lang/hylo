@@ -1,0 +1,25 @@
+//- compileAndRun expecting: success
+
+fun test_rotate() {
+  var a = Array<Int>()
+
+  &a.append(0)
+  &a.append(1)
+  &a.append(2)
+  &a.append(3)
+  &a.append(4)
+  &a.append(5)
+
+  &a.rotate(to_start_at: 2)
+
+  precondition(a[0] == 2)
+  precondition(a[1] == 3)
+  precondition(a[2] == 4)
+  precondition(a[3] == 5)
+  precondition(a[4] == 0)
+  precondition(a[5] == 1)
+}
+
+public fun main() {
+  test_rotate()
+}
