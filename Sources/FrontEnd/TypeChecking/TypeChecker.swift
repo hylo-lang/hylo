@@ -650,6 +650,8 @@ struct TypeChecker {
         return ^AssociatedTypeType(t.decl, domain: d, ast: me.program.ast)
       }
 
+      // DR: Maybe we could use `d`'s conformance if it has already been established.
+
       // Otherwise, look for the member of the domain that implements the associated type.
       var candidates = me.lookup(me.program[t.decl].baseName, memberOf: d, exposedTo: scopeOfUse)
 
