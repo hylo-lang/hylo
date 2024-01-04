@@ -5,18 +5,18 @@ import Algorithms
 final class CollectionExtensionsTests: XCTestCase {
 
   func testPartitionIndexAt() {
-    XCTAssertEqual([].partitioningIndex(at: 42), 0)
+    XCTAssertEqual([].partitioningIndex { x in x < 42 }, 0)
 
-    XCTAssertEqual([0].partitioningIndex(at: 0), 1)
-    XCTAssertEqual([0].partitioningIndex(at: 1), 1)
+    XCTAssertEqual([0].upperBound(0), 1)
+    XCTAssertEqual([0].upperBound(1), 1)
 
-    XCTAssertEqual([1].partitioningIndex(at: 0), 0)
-    XCTAssertEqual([1].partitioningIndex(at: 1), 1)
+    XCTAssertEqual([1].upperBound(0), 0)
+    XCTAssertEqual([1].upperBound(1), 1)
 
-    XCTAssertEqual([0, 2].partitioningIndex(at: 0), 1)
-    XCTAssertEqual([0, 2].partitioningIndex(at: 1), 1)
-    XCTAssertEqual([0, 2].partitioningIndex(at: 2), 2)
-    XCTAssertEqual([0, 2].partitioningIndex(at: 3), 2)
+    XCTAssertEqual([0, 2].upperBound(0), 1)
+    XCTAssertEqual([0, 2].upperBound(1), 1)
+    XCTAssertEqual([0, 2].upperBound(2), 2)
+    XCTAssertEqual([0, 2].upperBound(3), 2)
   }
 
   func testMinimalElements() {

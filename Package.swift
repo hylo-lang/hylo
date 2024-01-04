@@ -130,6 +130,7 @@ let package = Package(
       dependencies: [
         .product(name: "BigInt", package: "BigInt"),
         .product(name: "Collections", package: "swift-collections"),
+        .product(name: "Algorithms", package: "swift-algorithms")
       ],
       swiftSettings: allTargetsSwiftSettings),
 

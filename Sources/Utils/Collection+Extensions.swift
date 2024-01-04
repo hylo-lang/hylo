@@ -1,3 +1,5 @@
+import Algorithms
+
 extension Collection {
 
   /// Accesses the unique element of the collection.
@@ -11,33 +13,6 @@ extension Collection {
   public var headAndTail: (head: Element, tail: SubSequence)? {
     if isEmpty { return nil }
     return (head: self[startIndex], tail: self[index(after: startIndex)...])
-  }
-
-  /// Returns the index of the first element in the collection that matches the predicate.
-  ///
-  /// The collection must already be partitioned according to the predicate, as if
-  /// `self.partition(by: predicate)` had already been called.
-  ///
-  /// - Complexity: At most log(N) invocations of `predicate`, where N is the length of `self`;
-  ///   at most log(N) index offsetting operations if `self` conforms to `RandomAccessCollection`;
-  ///   at most N such operations otherwise.
-  public func partitioningIndex(
-    where predicate: (Element) throws -> Bool
-  ) rethrows -> Index {
-    var n = distance(from: startIndex, to: endIndex)
-    var l = startIndex
-
-    while n > 0 {
-      let half = n / 2
-      let mid = index(l, offsetBy: half)
-      if try predicate(self[mid]) {
-        n = half
-      } else {
-        l = index(after: mid)
-        n -= half + 1
-      }
-    }
-    return l
   }
 
   /// Returns the minimal elements of `self` using `compare` to order them.
@@ -89,52 +64,17 @@ extension Collection {
 
 }
 
-extension Collection where Index == Int {
+extension Collection where Element: Comparable {
 
-  /// Returns the index `i` that partitions `self` in two halves so that elements in `self[..<i]`
-  /// and `self[i...]` are ordered before and after `pivot`, respectively.
+  /// Returns the first index `i` such that `self[i] >= x`, or `endIndex` if no such index exists.
   ///
   /// - Complexity: O(log *n*) where *n* is the length of `self`.
-  /// - Requires: For any pair of indices `(i, j)` in `self`, `i < j` implies that
-  ///   `areInIncreasingOrder(self[i], self[j])` is true.
-  /// - Returns: `self.firstIndex(where: { areInIncreasingOrder(pivot, e) })`
-  public func partitioningIndex(
-    at pivot: Element,
-    orderedBy areInIncreasingOrder: (Element, Element) throws -> Bool
-  ) rethrows -> Int {
-    var lower = 0
-    var upper = count
-
-    while lower < upper {
-      let middle = (lower + upper) / 2
-      if try areInIncreasingOrder(pivot, self[middle]) {
-        upper = middle
-      } else {
-        lower = middle + 1
-      }
-    }
-
-    return lower
-  }
+  /// - Requires: For any pair of indices `(i, j)` in `self`, `i < j` implies that `self[i] <=
+  ///   self[j]`.
+  public func upperBound(_ x: Element) -> Index { partitioningIndex { x < $0 } }
 
 }
 
-extension Collection where Index == Int, Element: Comparable {
-
-  /// Returns the index `i` that partitions `self` in two halves so that elements in `self[..<i]`
-  /// and `self[i...]` are ordered before and after `pivot`, respectively.
-  ///
-  /// If `pivot` is contained in `self`, this method returns the index after that of last
-  /// occurrence of `pivot`.
-  ///
-  /// - Complexity: O(log *n*) where *n* is the length of `self`.
-  /// - Requires: For any pair of indices `(i, j)` in `self`, `i < j` implies `self[i] < self[j]`.
-  /// - Returns: `self.firstIndex(where: { pivot < e }) ?? self.endIndex`
-  public func partitioningIndex(at pivot: Element) -> Int {
-    partitioningIndex(at: pivot, orderedBy: <)
-  }
-
-}
 
 extension BidirectionalCollection {
 

@@ -887,9 +887,9 @@ struct ConstraintSystem {
     goals.append(g)
     outcomes.append(nil)
 
-    let i = fresh.partitioningIndex(
-      at: newIdentity,
-      orderedBy: { (a, b) in !goals[a].isSimpler(than: goals[b]) })
+    // fresh is sorted in order of increasing simplicity.
+    let newIdentityGoal = goals[newIdentity]
+    let i = fresh.partitioningIndex(where: { goals[$0].isSimpler(than: newIdentityGoal) })
     fresh.insert(newIdentity, at: i)
     return newIdentity
   }
