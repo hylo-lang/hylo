@@ -229,10 +229,15 @@ public struct TypedProgram {
     let model = canonical(t, in: scopeOfUse)
 
     // Built-ins have no conformances, but they are trivial.
-    guard let c = conformance(of: model, to: coreConcept, exposedTo: scopeOfUse) else {
+    if let c = conformance(of: model, to: coreConcept, exposedTo: scopeOfUse) {
+      return isTrivial(c)
+    } else {
       return model.isBuiltinOrRawTuple
     }
+  }
 
+  /// Returns `true` iff `c` has no user-defined semantics.
+  public func isTrivial(_ c: Conformance) -> Bool {
     // Non-synthethic conformances are not trivial.
     if !c.isSynthethic {
       return false
@@ -240,13 +245,13 @@ public struct TypedProgram {
 
     // Structural types are trivial if their parts are. Other types are trivial if they have their
     // conformance to `coreConcept` was synthesized.
-    switch model.base {
+    switch c.model.base {
     case let u as BufferType:
-      return isTrivialModel(u.element, of: coreConcept, in: scopeOfUse)
+      return isTrivialModel(u.element, of: c.concept, in: c.scope)
     case let u as TupleType:
-      return u.elements.allSatisfy({ isTrivialModel($0.type, of: coreConcept, in: scopeOfUse) })
+      return u.elements.allSatisfy({ isTrivialModel($0.type, of: c.concept, in: c.scope) })
     case let u as UnionType:
-      return u.elements.allSatisfy({ isTrivialModel($0, of: coreConcept, in: scopeOfUse) })
+      return u.elements.allSatisfy({ isTrivialModel($0, of: c.concept, in: c.scope) })
     case is MetatypeType:
       return true
     case is ProductType:
