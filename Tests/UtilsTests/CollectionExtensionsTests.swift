@@ -74,8 +74,7 @@ final class MutableCollectionExtensionsTests: XCTestCase {
         for q in p...l {
           let suffix = a[q...]
 
-          // Should be p...q but the existing rotate asserts if the pivot is the end position
-          for m in p ..< q {
+          for m in p ... q {
             var b = a
 
             let r = b[p..<q].rotate(subrange: p ..< q, toStartAt: m)
