@@ -421,9 +421,7 @@ public struct TypedProgram {
     }
 
     var checker = TypeChecker(asContextFor: self)
-    let bounds = checker.conformedTraits(
-      declaredByConstraintsOn: model,
-      exposedTo: scopeOfUse)
+    let bounds = checker.conformedTraits(declaredByConstraintsOn: model, exposedTo: scopeOfUse)
     if !bounds.contains(concept) { return nil }
 
     var implementations = Conformance.ImplementationMap()
