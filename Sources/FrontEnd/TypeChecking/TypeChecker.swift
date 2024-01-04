@@ -624,6 +624,14 @@ struct TypeChecker {
 
     func transform(mutating me: inout Self, _ t: AssociatedTypeType) -> AnyType {
       let d = t.domain.transform(mutating: &me, transform)
+
+      // There's nothing to do if `d` is a trait receiver or another associated type. The latter
+      // case happens if we have `T.X.Y` where `T` is a trait receiver.
+      if me.isAbstractAssociatedDomain(d) {
+        return ^AssociatedTypeType(t.decl, domain: d, ast: me.program.ast)
+      }
+
+      // Otherwise, look for the member of the domain that implements the associated type.
       var candidates = me.lookup(me.program[t.decl].baseName, memberOf: d, exposedTo: scopeOfUse)
 
       // Ignore associated type declaration unless they define a default value that isn't
@@ -2670,7 +2678,7 @@ struct TypeChecker {
     var captures: [ImplicitCapture] = []
     var types: [TupleType.Element] = []
     for (c, x) in captureToStemAndEffect {
-      let t = resolveType(of: c, reportingDiagnosticsAt: program[d].site)
+      let t = resolveType(of: c, exposedTo: AnyScopeID(d), reportingDiagnosticsAt: program[d].site)
       if t[.hasError] { continue }
 
       let u = RemoteType(x.effect, t)
@@ -3954,7 +3962,8 @@ struct TypeChecker {
     usedAs purpose: NameUse,
     reportingDiagnosticsTo log: inout DiagnosticSet
   ) -> (candidateType: AnyType, specialization: GenericArguments, isConstructor: Bool)? {
-    var candidateType = resolveType(of: d, lookedUpIn: context, reportingDiagnosticsAt: name.site)
+    var candidateType = resolveType(
+      of: d, lookedUpIn: context, exposedTo: scopeOfUse, reportingDiagnosticsAt: name.site)
     if candidateType[.hasError] { return nil }
 
     // The specialization of the match includes that of context in which it was looked up.
@@ -3978,9 +3987,7 @@ struct TypeChecker {
       // when the associated type is rooted at a trait. Substitution of associated type should
       // rely on conformances rather than lookup.
       if let r = context?.type ?? resolveReceiverMetatype(in: scopeOfUse)?.instance {
-        for u in refinements(of: t).unordered.sorted(by: \.decl.rawValue) {
-          specialization[program[u.decl].receiver] = .type(r)
-        }
+        specialization[program[t.decl].receiver] = .type(r)
       }
     }
 
@@ -4014,14 +4021,18 @@ struct TypeChecker {
   /// at `diagnosticSite`.
   private mutating func resolveType(
     of d: AnyDeclID, lookedUpIn context: NameResolutionContext? = nil,
+    exposedTo scopeOfUse: AnyScopeID,
     reportingDiagnosticsAt diagnosticSite: SourceRange
   ) -> AnyType {
     switch d.kind {
     case AssociatedTypeDecl.self:
       return resolveType(
-        of: AssociatedTypeDecl.ID(d)!, lookedUpIn: context, reportingDiagnosticsAt: diagnosticSite)
+        of: AssociatedTypeDecl.ID(d)!, lookedUpIn: context, exposedTo: scopeOfUse,
+        reportingDiagnosticsAt: diagnosticSite)
+
     case SubscriptDecl.self:
       return resolveType(of: SubscriptDecl.ID(d)!, lookedUpIn: context)
+
     default:
       break
     }
@@ -4038,21 +4049,32 @@ struct TypeChecker {
   /// at `diagnosticSite`.
   private mutating func resolveType(
     of d: AssociatedTypeDecl.ID, lookedUpIn context: NameResolutionContext?,
+    exposedTo scopeOfUse: AnyScopeID,
     reportingDiagnosticsAt diagnosticSite: SourceRange
   ) -> AnyType {
+    // The domain of associated type resolved without qualification is skolem bound by the trait in
+    // which the reference to `d` occurs.
     guard let domain = context?.type else {
-      // Domain of associated type resolved without qualification is skolemized.
+      if let s = resolveTraitReceiver(in: scopeOfUse) {
+        return ^MetatypeType(of: AssociatedTypeType(d, domain: ^s, ast: program.ast))
+      } else {
+        report(.error(invalidReferenceToAssociatedType: d, at: diagnosticSite, in: program.ast))
+        return .error
+      }
+    }
+
+    // Skolems are valid associated type domains.
+    if program.isSkolem(domain) {
+      return ^MetatypeType(of: AssociatedTypeType(d, domain: domain, ast: program.ast))
+    }
+
+    // Associated type declarations shall not be referred to outside of a generic context.
+    if domain.base is TraitType {
+      report(.error(invalidReferenceToAssociatedType: d, at: diagnosticSite, in: program.ast))
       return uncheckedType(of: d)
     }
 
-    if program.isSkolem(domain) {
-      return ^MetatypeType(of: AssociatedTypeType(d, domain: domain, ast: program.ast))
-    } else if domain.base is TraitType {
-      report(.error(invalidReferenceToAssociatedType: d, at: diagnosticSite, in: program.ast))
-      return uncheckedType(of: d)
-    } else {
-      unreachable("unexpected associated type domain")
-    }
+    unreachable("unexpected associated type domain")
   }
 
   /// Returns the generic type of a reference to `d`, found in `context`.
@@ -4124,6 +4146,16 @@ struct TypeChecker {
   /// Computes and returns the type of `Self` in `scopeOfUse`.
   private mutating func resolveReceiverMetatype(in scopeOfUse: TraitDecl.ID) -> MetatypeType? {
     MetatypeType(of: GenericTypeParameterType(selfParameterOf: scopeOfUse, in: program.ast))
+  }
+
+  /// Computes and returns the type of `Self` as a trait receiver in `scopeOfUse`, returning `nil`
+  /// if `scopeOfUse` isn't logically contained in a trait.
+  private mutating func resolveTraitReceiver(
+    in scopeOfUse: AnyScopeID
+  ) -> GenericTypeParameterType? {
+    resolveReceiverMetatype(in: scopeOfUse)
+      .flatMap({ (t) in GenericTypeParameterType(t.instance) })
+      .flatMap({ (t) in isTraitReceiver(t) ? t : nil})
   }
 
   /// Returns `true` if references to `d` are captured if they occur in `scopeOfUse`.
@@ -5915,6 +5947,20 @@ struct TypeChecker {
   /// Returns `true` iff `t` is the receiver of a trait declaration.
   private func isTraitReceiver(_ t: GenericTypeParameterType) -> Bool {
     program[t.decl].scope.kind == TraitDecl.self
+  }
+
+  /// Returns `true` iff `t` is a trait receiver or an associated type rooted at a trait receiver.
+  private func isAbstractAssociatedDomain(_ t: AnyType) -> Bool {
+    switch t.base {
+    case let u as AssociatedTypeType:
+      return isAbstractAssociatedDomain(u.domain)
+    case let u as ConformanceLensType:
+      return isAbstractAssociatedDomain(u.subject)
+    case let u as GenericTypeParameterType:
+      return isTraitReceiver(u)
+    default:
+      return false
+    }
   }
 
   /// Returns `true` if `d` isn't a trait requirement, an FFI, or an external function.
