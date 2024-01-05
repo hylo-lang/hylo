@@ -3331,8 +3331,12 @@ struct TypeChecker {
   ) -> Set<AnyDeclID> {
     if let d = names(introducedIn: nominalScope.decl)[stem] {
       return d
-    } else {
+    } else if program[nominalScope.decl].genericParameters.isEmpty {
       return lookup(stem, memberOf: nominalScope.aliasee.value, exposedTo: scopeOfUse)
+    } else {
+      let t = MetatypeType(uncheckedType(of: nominalScope.decl))!
+      let a = TypeAliasType(t.instance)!.aliasee.value
+      return lookup(stem, memberOf: a, exposedTo: scopeOfUse)
     }
   }
 
