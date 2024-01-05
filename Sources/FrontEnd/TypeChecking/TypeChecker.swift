@@ -536,34 +536,29 @@ struct TypeChecker {
   }
 
   /// Returns the origins of the conformances of `model` to `trait` exposed to `scopeOfUse`.
-  ///
-  /// - Requires: `model` is canonical.
   private mutating func originsOfConformance(
     of model: AnyType, to trait: TraitType, exposedTo scopeOfUse: AnyScopeID
   ) -> [ConformanceOrigin] {
-    assert(model[.isCanonical])
-
-    var result: [ConformanceOrigin]
-
     switch model.base {
     case let t as BoundGenericType:
       return originsOfConformance(of: t.base, to: trait, exposedTo: scopeOfUse)
     case let t as ProductType:
-      let d = ProductTypeDecl.ID(t.decl)!
-      result = originsOfConformance(to: trait, declaredBy: d, exposedTo: scopeOfUse)
+      return originsOfConformance(of: t, to: trait, exposedTo: scopeOfUse)
     case let t as TypeAliasType:
       return originsOfConformance(of: t.resolved, to: trait, exposedTo: scopeOfUse)
     default:
-      result = []
+      return originsOfConformance(to: trait, declaredInExtensionsOf: model, exposedTo: scopeOfUse)
     }
+  }
 
-    for e in extensions(of: model, exposedTo: scopeOfUse) {
-      guard let d = ConformanceDecl.ID(e) else { continue }
-      let s = originsOfConformance(to: trait, declaredBy: d, exposedTo: scopeOfUse)
-      result.append(contentsOf: s)
-    }
-
-    return result
+  /// Returns the origins of the conformances of `model` to `trait` exposed to `scopeOfUse`.
+  private mutating func originsOfConformance(
+    of model: ProductType, to trait: TraitType, exposedTo scopeOfUse: AnyScopeID
+  ) -> [ConformanceOrigin] {
+    let d = ProductTypeDecl.ID(model.decl)!
+    let r = originsOfConformance(to: trait, declaredBy: d, exposedTo: scopeOfUse)
+    let s = originsOfConformance(to: trait, declaredInExtensionsOf: ^model, exposedTo: scopeOfUse)
+    return r + s
   }
 
   /// Returns the origins of conformances to `trait` exposed to `scopeOfUse` and declared `d`.
@@ -580,18 +575,42 @@ struct TypeChecker {
     return result
   }
 
-  /// Returns the type satisfying `requirement` for `model` in `scopeOfUse`, or `nil` if `model`
-  /// does not satisfy such a requirement.
-  private mutating func demandImplementation(
-    of requirement: AssociatedTypeDecl.ID, for model: AnyType, in scopeOfUse: AnyScopeID
-  ) -> AnyType? {
-    let trait = traitDeclaring(requirement)!
-    guard
-      let c = demandConformance(of: model, to: trait, exposedTo: scopeOfUse),
-      let a = MetatypeType(uncheckedType(of: c.implementations[requirement]!.decl!))
-    else { return nil }
+  /// Returns the origins of the conformances of `model` to `trait` that are declared in extensions
+  /// exposed to `scopeOfUse`.
+  private mutating func originsOfConformance(
+    to trait: TraitType, declaredInExtensionsOf model: AnyType, exposedTo scopeOfUse: AnyScopeID
+  ) -> [ConformanceOrigin] {
+    var result: [ConformanceOrigin] = []
+    for e in extensions(of: model, exposedTo: scopeOfUse) {
+      guard let d = ConformanceDecl.ID(e) else { continue }
+      let s = originsOfConformance(to: trait, declaredBy: d, exposedTo: scopeOfUse)
+      result.append(contentsOf: s)
+    }
+    return result
+  }
 
-    return specialize(a.instance, for: c.arguments, in: c.scope)
+  /// Returns the type implementing requirement `r` for the model `m` in `scopeOfUse`, or `nil` if
+  /// `m` does not implement `r`.
+  private mutating func demandImplementation(
+    of r: AssociatedTypeDecl.ID, for m: AnyType, in scopeOfUse: AnyScopeID
+  ) -> AnyType? {
+    if let c = demandConformance(of: m, to: traitDeclaring(r)!, exposedTo: scopeOfUse) {
+      return demandImplementation(of: r, in: c)
+    } else if m.base is GenericTypeParameterType {
+      return ^AssociatedTypeType(r, domain: m, ast: program.ast)
+    } else {
+      return nil
+    }
+  }
+
+  /// Returns the type implementing requirement `r` in conformance `c` if `c` is well-formed.
+  private mutating func demandImplementation(
+    of r: AssociatedTypeDecl.ID, in c: Conformance
+  ) -> AnyType? {
+    let t = uncheckedType(of: c.implementations[r]!.decl!)
+    return MetatypeType(t).map { (a) in
+      specialize(a.instance, for: c.arguments, in: c.scope)
+    }
   }
 
   // MARK: Type transformations
@@ -631,6 +650,8 @@ struct TypeChecker {
         return ^AssociatedTypeType(t.decl, domain: d, ast: me.program.ast)
       }
 
+      // DR: Maybe we could use `d`'s conformance if it has already been established.
+
       // Otherwise, look for the member of the domain that implements the associated type.
       var candidates = me.lookup(me.program[t.decl].baseName, memberOf: d, exposedTo: scopeOfUse)
 
@@ -644,11 +665,15 @@ struct TypeChecker {
         }
       }
 
-      if let selected = candidates.uniqueElement {
-        return MetatypeType(me.uncheckedType(of: selected))?.instance ?? .error
-      } else {
-        return .error
+      if let s = candidates.uniqueElement, let u = MetatypeType(me.uncheckedType(of: s)) {
+        if let b = BoundGenericType(me.canonical(d, in: scopeOfUse)) {
+          return me.specialize(u.instance, for: b.arguments, in: scopeOfUse)
+        } else {
+          return u.instance
+        }
       }
+
+      return .error
     }
 
     func transform(mutating me: inout Self, _ t: BoundGenericType) -> AnyType {

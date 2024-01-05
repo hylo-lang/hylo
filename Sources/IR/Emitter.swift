@@ -1268,10 +1268,10 @@ struct Emitter {
     insertionPoint = .end(of: enter)
     let x6 = insert(module.makeAccess(.let, from: domain, at: introducer))!
     let x7 = insert(module.makeAccess(.let, from: currentPosition, at: introducer))!
+
+    let t = RemoteType(.let, collectionWitness.element)
     let x8 = insert(
-      module.makeProject(
-        .init(.let, collectionWitness.element), applying: collectionWitness.access,
-        specializedBy: collectionConformance.arguments, to: [x6, x7], at: introducer))!
+      module.makeProject(t, applying: collectionWitness.access, to: [x6, x7], at: introducer))!
 
     if module.type(of: x8).ast != collectionWitness.element {
       UNIMPLEMENTED("narrowing projections #1099")
@@ -2805,7 +2805,7 @@ struct Emitter {
     }
 
     // Use memcpy of `source` is trivially movable.
-    if program.isTriviallyMovable(model, in: insertionScope!) {
+    if program.isTrivial(movable) {
       let x0 = insert(module.makeAccess(.sink, from: value, at: site))!
       let x1 = insert(module.makeAccess(.set, from: storage, at: site))!
       insert(module.makeMemoryCopy(x0, x1, at: site))
@@ -2911,22 +2911,19 @@ struct Emitter {
   /// exposed to `self.insertionScope`.
   mutating func emitDeinit(_ storage: Operand, at site: SourceRange) {
     let model = module.type(of: storage).ast
+    let deinitializable = program.ast.core.deinitializable.type
 
-    // Use a no-op if the object is trivially deinitializable.
-    if program.isTriviallyDeinitializable(model, in: insertionScope!) {
+    if let c = program.conformance(of: model, to: deinitializable, exposedTo: insertionScope!) {
+      if program.isTrivial(c) {
+        insert(module.makeMarkState(storage, initialized: false, at: site))
+      } else {
+        emitDeinit(storage, withDeinitializableConformance: c, at: site)
+      }
+    } else if model.isBuiltinOrRawTuple {
       insert(module.makeMarkState(storage, initialized: false, at: site))
-      return
+    } else {
+      report(.error(module.type(of: storage).ast, doesNotConformTo: deinitializable, at: site))
     }
-
-    // Use custom conformance to `Deinitializable` if possible.
-    let concept = program.ast.core.deinitializable.type
-    if let c = module.program.conformance(of: model, to: concept, exposedTo: insertionScope!) {
-      emitDeinit(storage, withDeinitializableConformance: c, at: site)
-      return
-    }
-
-    // Object is not deinitializable.
-    report(.error(module.type(of: storage).ast, doesNotConformTo: concept, at: site))
   }
 
   /// Inserts the IR for deinitializing `storage`, using `deinitializable` to identify the locate

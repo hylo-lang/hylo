@@ -217,11 +217,6 @@ public struct TypedProgram {
     isTrivialModel(t, of: ast.core.deinitializable.type, in: scopeOfUse)
   }
 
-  /// Returns `true` iff instances of `t` can be moved with a byte-wise copy.
-  public func isTriviallyMovable(_ t: AnyType, in scopeOfUse: AnyScopeID) -> Bool {
-    isTrivialModel(t, of: ast.core.movable.type, in: scopeOfUse)
-  }
-
   /// Returns `true` iff `t` models `coreConcept` without any user-defined semantics.
   private func isTrivialModel(
     _ t: AnyType, of coreConcept: TraitType, in scopeOfUse: AnyScopeID
@@ -229,10 +224,15 @@ public struct TypedProgram {
     let model = canonical(t, in: scopeOfUse)
 
     // Built-ins have no conformances, but they are trivial.
-    guard let c = conformance(of: model, to: coreConcept, exposedTo: scopeOfUse) else {
+    if let c = conformance(of: model, to: coreConcept, exposedTo: scopeOfUse) {
+      return isTrivial(c)
+    } else {
       return model.isBuiltinOrRawTuple
     }
+  }
 
+  /// Returns `true` iff `c` has no user-defined semantics.
+  public func isTrivial(_ c: Conformance) -> Bool {
     // Non-synthethic conformances are not trivial.
     if !c.isSynthethic {
       return false
@@ -240,13 +240,13 @@ public struct TypedProgram {
 
     // Structural types are trivial if their parts are. Other types are trivial if they have their
     // conformance to `coreConcept` was synthesized.
-    switch model.base {
+    switch c.model.base {
     case let u as BufferType:
-      return isTrivialModel(u.element, of: coreConcept, in: scopeOfUse)
+      return isTrivialModel(u.element, of: c.concept, in: c.scope)
     case let u as TupleType:
-      return u.elements.allSatisfy({ isTrivialModel($0.type, of: coreConcept, in: scopeOfUse) })
+      return u.elements.allSatisfy({ isTrivialModel($0.type, of: c.concept, in: c.scope) })
     case let u as UnionType:
-      return u.elements.allSatisfy({ isTrivialModel($0, of: coreConcept, in: scopeOfUse) })
+      return u.elements.allSatisfy({ isTrivialModel($0, of: c.concept, in: c.scope) })
     case is MetatypeType:
       return true
     case is ProductType:
@@ -416,9 +416,7 @@ public struct TypedProgram {
     }
 
     var checker = TypeChecker(asContextFor: self)
-    let bounds = checker.conformedTraits(
-      declaredByConstraintsOn: model,
-      exposedTo: scopeOfUse)
+    let bounds = checker.conformedTraits(declaredByConstraintsOn: model, exposedTo: scopeOfUse)
     if !bounds.contains(concept) { return nil }
 
     var implementations = Conformance.ImplementationMap()
