@@ -1,6 +1,6 @@
+import Algorithms
 import Utils
 import XCTest
-import Algorithms
 
 final class CollectionExtensionsTests: XCTestCase {
 

@@ -130,7 +130,7 @@ let package = Package(
       dependencies: [
         .product(name: "BigInt", package: "BigInt"),
         .product(name: "Collections", package: "swift-collections"),
-        .product(name: "Algorithms", package: "swift-algorithms")
+        .product(name: "Algorithms", package: "swift-algorithms"),
       ],
       swiftSettings: allTargetsSwiftSettings),
 
@@ -177,7 +177,10 @@ let package = Package(
 
     .testTarget(
       name: "HyloTests",
-      dependencies: ["Core", "FrontEnd", "IR", "TestUtils", "StandardLibrary", .product(name: "Algorithms", package: "swift-algorithms")],
+      dependencies: [
+        "Core", "FrontEnd", "IR", "TestUtils", "StandardLibrary",
+        .product(name: "Algorithms", package: "swift-algorithms"),
+      ],
       exclude: ["TestCases"],
       swiftSettings: allTargetsSwiftSettings,
       plugins: ["TestGeneratorPlugin"]),
