@@ -145,7 +145,23 @@ Before we tackle this one, let's make a few observations:
 
 - The LHS and/or RHS of an equality constraint must be rooted at a generic parameter.
   That means we do not have to infer `T == U` from `Array<T> == Array<U>`.
-  However, we must accept constraints on parameters introduced by logically enclosing environments (e.g., `Element == Int` in an extension of `Array`).
+
+Extensions must accept constraints on parameters introduced by logically enclosing environments (e.g., `Element == Int` in an extension of `Array`) but other declarations don't.
+For example, the following declaration is illegal:
+
+```hylo
+extension Collection {
+  fun f<T where Element == Int>(_ x: T) {}
+}
+```
+
+Nonetheless, a legal equality constraint may imply a conformance of a generic parameter introduced by an enclosed environment:
+
+```hylo
+extension Collection {
+  fun f<T: Equatable where Element == T>(_ x: T) {}
+}
+```
 
 ### Determining the kind of generic parameters
 
