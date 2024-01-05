@@ -64,22 +64,6 @@ extension Collection {
 
 }
 
-extension BidirectionalCollection {
-
-  /// Returns `self` sans any suffix elements satisfying `predicate`.
-  public func dropLast(while predicate: (Element) throws -> Bool) rethrows -> Self.SubSequence {
-    let head = try self.reversed().drop(while: predicate)
-    return self[head.endIndex.base ..< head.startIndex.base]
-  }
-
-  /// Returns the slice of self that remains after dropping leading and trailing whitespace.
-  public func strippingWhitespace() -> SubSequence
-  where Element == Character {
-    self.drop(while: { $0.isWhitespace }).dropLast(while: { $0.isWhitespace })
-  }
-
-}
-
 extension BidirectionalCollection where Element: Equatable {
 
   /// Returns `(head: a, tail: b)` where `a` is the prefix up to the last occurrence of `element`
