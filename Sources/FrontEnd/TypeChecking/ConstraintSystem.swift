@@ -348,7 +348,7 @@ struct ConstraintSystem {
           candidates.append(.init(constraints: [c], penalties: 1))
         }
       } else {
-        for subset in r.elements.combinations(of: r.elements.count - 1) {
+        for subset in r.elements.combinations(ofCount: r.elements.count - 1) {
           let c = SubtypingConstraint(goal.left, ^UnionType(subset), origin: o)
           candidates.append(.init(constraints: [c], penalties: 1))
         }

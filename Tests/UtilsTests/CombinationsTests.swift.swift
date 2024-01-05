@@ -1,28 +1,20 @@
 import Utils
 import XCTest
+import Algorithms
 
 final class CombinationsTests: XCTestCase {
 
-  func testIsEmpty() {
-    XCTAssertFalse("".combinations(of: 0).isEmpty)
-  }
-
   func testCount() {
-    XCTAssertEqual("".combinations(of: 0).count, 1)
-    XCTAssertEqual("abc".combinations(of: 1).count, 3)
-    XCTAssertEqual("abc".combinations(of: 2).count, 3)
-    XCTAssertEqual("abc".combinations(of: 3).count, 1)
-  }
-
-  func testUnderstimatedCount() {
-    let c = "abc".combinations(of: 2)
-    XCTAssertEqual(c.count, c.underestimatedCount)
+    XCTAssertEqual("".combinations(ofCount: 0).count, 1)
+    XCTAssertEqual("abc".combinations(ofCount: 1).count, 3)
+    XCTAssertEqual("abc".combinations(ofCount: 2).count, 3)
+    XCTAssertEqual("abc".combinations(ofCount: 3).count, 1)
   }
 
   func testContents() {
-    XCTAssertEqual(Set("".combinations(of: 0)), Set([[]]))
+    XCTAssertEqual(Set("".combinations(ofCount: 0)), Set([[]]))
     XCTAssertEqual(
-      Set((0 ..< 6).combinations(of: 4)),
+      Set((0 ..< 6).combinations(ofCount: 4)),
       Set([
         [0, 1, 2, 3],
         [0, 1, 2, 4],
