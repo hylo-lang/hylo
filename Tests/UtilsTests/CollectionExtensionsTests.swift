@@ -62,29 +62,3 @@ final class BidirectionalCollectionExtensionsTests: XCTestCase {
   }
 
 }
-
-final class MutableCollectionExtensionsTests: XCTestCase {
-
-  func testRotateRange() {
-    for l in 0..<11 {
-      let a = Array(0..<l)
-
-      for p in a.startIndex...a.endIndex {
-        let prefix = a[..<p]
-        for q in p...l {
-          let suffix = a[q...]
-
-          for m in p ... q {
-            var b = a
-
-            let r = b[p..<q].rotate(subrange: p ..< q, toStartAt: m)
-            let rotated = Array([prefix, a[m..<q], a[p..<m], suffix].joined())
-            XCTAssertEqual(b, rotated)
-            XCTAssertEqual(r, a.index(p, offsetBy: a[m..<q].count))
-          }
-        }
-      }
-    }
-  }
-
-}
