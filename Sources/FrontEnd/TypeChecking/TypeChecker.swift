@@ -2529,6 +2529,11 @@ struct TypeChecker {
   private mutating func uncheckedInputTypes<T: Decl & LexicalScope>(
     of ps: [ParameterDecl.ID], declaredBy d: T.ID
   ) -> [CallableTypeParameter] {
+    // The generic environement of the declaration is built before we can resolve the types of the
+    // parameter annotations to avoid infinite recursion in cases the bounds of a generic parameter
+    // lead name resolution back to environment (e.g., `<T: P>(x: T)` in a trait extension.)
+    _ = environment(of: AnyScopeID(d))
+
     var result: [CallableTypeParameter] = []
     for p in ps {
       precondition(program[p].annotation != nil)
