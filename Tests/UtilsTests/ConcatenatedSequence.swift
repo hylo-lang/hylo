@@ -1,5 +1,20 @@
 import Utils
 import XCTest
+import Algorithms
+
+extension Sequence {
+
+  /// Returns the elements of this sequence concatenated with the elements in `tail`.
+  public func concatenated<Tail>(with tail: Tail) -> Chain2Sequence<Self, Tail> {
+    chain(self, tail)
+  }
+
+  /// Returns the concatenation of `head` and `tail`.
+  public static func ++ <Tail>(head: Self, tail: Tail) -> Chain2Sequence<Self, Tail> {
+    head.concatenated(with: tail)
+  }
+
+}
 
 final class ConcatenatedSequenceTests: XCTestCase {
 
