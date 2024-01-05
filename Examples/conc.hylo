@@ -24,25 +24,34 @@ fun concore2full_spawn2(_ frame: set SpawnFrameBase, _ f: [](SpawnFrameBase) let
 @external("concore2full_await")
 fun concore2full_await(_ frame: SpawnFrameBase);
 
-public type SpawnFrameBase {
+public type SpawnFrameBase: Deinitializable {
 
-  let task_function: CVoidPointer
+  let task_function: MemoryAddress
 
-  let next_task: CVoidPointer
+  let next_task: MemoryAddress
 
   let sync_state : Int32
 
-  let originator_context: CVoidPointer
+  let originator_context: MemoryAddress
 
-  let originator_thread_reclaimer: CVoidPointer
+  let originator_thread_reclaimer: MemoryAddress
 
-  let target_context: CVoidPointer
+  let target_context: MemoryAddress
 
-  let target_thread_reclaimer: CVoidPointer
+  let target_thread_reclaimer: MemoryAddress
 
-  let user_function: CVoidPointer
+  let user_function: MemoryAddress
 
   init() {}
+
+}
+
+// TODO: #1246
+type FWrapper<E, R>: Movable, Deinitializable {
+
+  let f: [E]()->R
+
+  memberwise init
 
 }
 
@@ -52,11 +61,12 @@ public type LocalFuture<E>: Future {
 
   private var base_frame: SpawnFrameBase
 
-  // private var f: [E]()->Int
+  private var f: FWrapper<E, Int>
 
   private var r: Optional<Int>
 
-  public init() {
+  public init(_ f: sink FWrapper<E, Int>) {
+    &self.f = f
     let local_f = fun (_ frame: SpawnFrameBase) -> Void {
       print("# entering spawned function")
       inout self = PointerToMutable<Self>(type_punning: mutable_pointer[to: frame]).unsafe[]
@@ -65,14 +75,9 @@ public type LocalFuture<E>: Future {
     }
     concore2full_spawn2(self.base_frame, local_f)
   }
-  // public init(_ f: sink [E]()->Int) {
-  //   initialize(&self.f, to: f)
-  // }
 
   private fun do_call() inout {
-    // TODO (#1242): Call `f` here.
-    // &self.r = self.f()
-    &r = do_greet()
+    &r = self.f.f()
   }
 
   public fun await() sink -> Result {
@@ -82,15 +87,14 @@ public type LocalFuture<E>: Future {
       return r.copy()
     } else {
       fatal_error("we don't have a result yet")
-      return 0 // TODO: without this we get: "et parameter not initialized before function returns"
+      return 0 // TODO: without this we get: "set parameter not initialized before function returns"
     }
   }
 
 }
 
 fun spawn_<E>(_ f: sink [E]()->Int) -> LocalFuture<E> {
-  return LocalFuture<E>()
-  // return LocalFuture<E>(f)
+  return LocalFuture<E>(FWrapper<E>(f: f))
 }
 
 // subscript spawn2<E, R>(_ f: yielded [E]() -> R): Future<E, R> { let inout sink }
