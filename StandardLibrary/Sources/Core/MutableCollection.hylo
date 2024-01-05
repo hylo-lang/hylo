@@ -21,15 +21,15 @@ public extension MutableCollection {
   /// before the elements in the range [`start`, `middle`) and the orders of the elements in these
   /// ranges  are preserved.
   ///
-  /// - Requires: `middle != end_position()`.
   /// - Complexity: O(n), where n is the number of elements in `self`.
   public fun rotate(to_start_at middle: Position) inout {
+    // Handle the trivial cases
+    if middle == start_position() { return }
+    if middle == end_position() { return }
+
     var s = start_position()
     var m = middle.copy()
     var i = middle.copy()
-
-    // Nothing to do if `middle` is already pointing at the start of `self`.
-    if s == m { return }
 
     // Bring the back range to the front.
     while true {
