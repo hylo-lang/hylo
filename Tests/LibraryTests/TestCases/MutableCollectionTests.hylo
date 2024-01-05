@@ -21,7 +21,8 @@ fun test_rotate(length N: Int) {
     var a = Array<Int>()
     appendCount(up_to: N, to: &a)
 
-    &a.rotate(to_start_at: pivot)
+    let newPivot = &a.rotate(regions_separated_by: pivot)
+    if newPivot != N - pivot { &failed = true }
 
     // Verify the results
     var j = 0
