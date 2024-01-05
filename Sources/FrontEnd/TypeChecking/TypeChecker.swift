@@ -5036,7 +5036,8 @@ struct TypeChecker {
     let resolution = resolve(e, usedAs: purpose) { (me, n) in
       switch me.program[n].domain {
       case .explicit(let e):
-        return me.inferredType(of: e, updating: &obligations)
+        let h = me.program.ast.isImplicitlyQualified(e) ? implicitNominalScope : nil
+        return me.inferredType(of: e, withHint: h, updating: &obligations)
       case .implicit:
         return implicitNominalScope
       case .none, .operand:

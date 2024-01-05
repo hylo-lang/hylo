@@ -427,6 +427,30 @@ public struct AST {
     self[self[self[s].binding].pattern].introducer.value.isConsuming
   }
 
+  /// Returns `true` if `e` is an expression starting with an implicit name qualification.
+  public func isImplicitlyQualified(_ e: AnyExprID) -> Bool {
+    switch e.kind {
+    case FunctionCallExpr.self:
+      return isImplicitlyQualified(self[FunctionCallExpr.ID(e)!].callee)
+    case NameExpr.self:
+      return isImplicitlyQualified(NameExpr.ID(e)!)
+    default:
+      return false
+    }
+  }
+
+  /// Returns `true` if `e` is an expression starting with an implicit name qualification.
+  public func isImplicitlyQualified(_ e: NameExpr.ID) -> Bool {
+    switch self[e].domain {
+    case .implicit:
+      return true
+    case .explicit(let e):
+      return isImplicitlyQualified(e)
+    case .none, .operand:
+      return false
+    }
+  }
+
   /// Returns the source site of `expr`.
   public func site(of expr: FoldedSequenceExpr) -> SourceRange {
     switch expr {
