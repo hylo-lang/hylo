@@ -1,5 +1,5 @@
 /// A collection containing a single element.
-public type CollectionOfOne<Element: Movable & Deinitializable>: Deinitializable {
+public type CollectionOfOne<Element: Movable & Deinitializable>: Movable, Deinitializable {
 
   /// The element contained in `self`.
   var contents: Element

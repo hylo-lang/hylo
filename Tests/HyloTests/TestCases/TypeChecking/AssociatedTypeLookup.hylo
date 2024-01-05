@@ -8,7 +8,7 @@ trait U: T {
 
   property x1: Self.X { let }
 
-  //! @+1 diagnostic associated type 'X' can only be used with a concrete type or generic type parameter
+  //! @+1 diagnostic associated type 'X' can only be referred to with a concrete type or generic parameter base
   property x2: T.X { let }
 
   property x3: Self::T.X { let }

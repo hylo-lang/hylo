@@ -1,4 +1,9 @@
 /// A contiguous, one-dimensional space whose values can be offset and measured.
+///
+/// - Important: Default implementations of `infix==` and `infix<` are available if `Stride`
+///   conforms to `Deinitializable`. These implementations depend on `Stride`'s implementation,
+///   meaning that if a type conforming to `Strideable` is its own `Stride` type, it must also
+///   provide its own implementations of `infix==` and `infix<` to avoid infinite recursion.
 public trait Strideable: Comparable {
 
   /// A distance between two instances of `Self`.
@@ -17,5 +22,17 @@ public trait Strideable: Comparable {
   ///
   /// - Complexity: O(1).
   fun advance(by offset: Stride) -> Self
+
+}
+
+public extension Strideable where Stride: Deinitializable {
+
+  public fun infix== (_ other: Self) -> Bool {
+    offset(to: other) == Stride.zero()
+  }
+
+  public fun infix< (_ other: Self) -> Bool {
+    offset(to: other) > Stride.zero()
+  }
 
 }

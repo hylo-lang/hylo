@@ -348,7 +348,7 @@ struct ConstraintSystem {
           candidates.append(.init(constraints: [c], penalties: 1))
         }
       } else {
-        for subset in r.elements.combinations(of: r.elements.count - 1) {
+        for subset in r.elements.combinations(ofCount: r.elements.count - 1) {
           let c = SubtypingConstraint(goal.left, ^UnionType(subset), origin: o)
           candidates.append(.init(constraints: [c], penalties: 1))
         }
@@ -887,9 +887,9 @@ struct ConstraintSystem {
     goals.append(g)
     outcomes.append(nil)
 
-    let i = fresh.partitioningIndex(
-      at: newIdentity,
-      orderedBy: { (a, b) in !goals[a].isSimpler(than: goals[b]) })
+    // fresh is sorted in order of increasing simplicity.
+    let newIdentityGoal = goals[newIdentity]
+    let i = fresh.partitioningIndex(where: { goals[$0].isSimpler(than: newIdentityGoal) })
     fresh.insert(newIdentity, at: i)
     return newIdentity
   }

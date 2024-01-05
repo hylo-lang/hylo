@@ -41,7 +41,6 @@ public struct Token {
     case `let`
     case `match`
     case `namespace`
-    case `nil`
     case `operator`
     case `poundElse`
     case `poundElseif`

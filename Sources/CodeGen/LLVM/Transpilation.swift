@@ -644,6 +644,8 @@ extension LLVM.Module {
         insert(load: i)
       case is IR.MarkState:
         return
+      case is IR.MemoryCopy:
+        insert(memoryCopy: i)
       case is IR.OpenCapture:
         insert(openCapture: i)
       case is IR.OpenUnion:
@@ -1045,6 +1047,20 @@ extension LLVM.Module {
       let t = ir.llvm(s.objectType.ast, in: &self)
       let source = llvm(s.source)
       register[.register(i)] = insertLoad(t, from: source, at: insertionPoint)
+    }
+
+    /// Inserts the transpilation of `i` at `insertionPoint`.
+    func insert(memoryCopy i: IR.InstructionID) {
+      let s = m[i] as! MemoryCopy
+
+      let memcpy = LLVM.Function(
+        intrinsic(named: Intrinsic.llvm.memcpy, for: [ptr, ptr, i32])!)!
+      let source = llvm(s.source)
+      let target = llvm(s.target)
+
+      let l = ConcreteTypeLayout(of: m.type(of: s.source).ast, definedIn: ir, forUseIn: &self)
+      let byteCount = i32.constant(l.size)
+      _ = insertCall(memcpy, on: [target, source, byteCount, i1.zero], at: insertionPoint)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.

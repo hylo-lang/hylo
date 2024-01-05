@@ -94,12 +94,6 @@ extension Diagnostic {
     .error("incompatible types '\(l)' and '\(r)'", at: site)
   }
 
-  static func error(invalidUseOfAssociatedType name: String, at site: SourceRange) -> Diagnostic {
-    .error(
-      "associated type '\(name)' can only be used with a concrete type or generic type parameter",
-      at: site)
-  }
-
   static func error(invalidDestructuringOfType type: AnyType, at site: SourceRange) -> Diagnostic {
     .error("invalid destructuring of type '\(type)'", at: site)
   }
@@ -192,7 +186,7 @@ extension Diagnostic {
   static func note(
     trait x: TraitType, requiresAssociatedType n: String, at site: SourceRange
   ) -> Diagnostic {
-    return .note("trait '\(x)' requires associaed type '\(n)'", at: site)
+    return .note("trait '\(x)' requires associated type '\(n)'", at: site)
   }
 
   static func error(undefinedOperator name: String, at site: SourceRange) -> Diagnostic {
@@ -361,6 +355,16 @@ extension Diagnostic {
       return .error(
         "non-consuming for loop requires '\(m)' to conform to 'Collection' or 'Iterator'", at: site)
     }
+  }
+
+  static func error(
+    invalidReferenceToAssociatedType a: AssociatedTypeDecl.ID, at site: SourceRange, in ast: AST
+  ) -> Diagnostic {
+    .error(
+      """
+      associated type '\(ast[a].baseName)' can only be referred to with a concrete type or \
+      generic parameter base
+      """, at: site)
   }
 
   static func warning(needlessImport d: ImportDecl.ID, in ast: AST) -> Diagnostic {

@@ -57,6 +57,9 @@ public struct Conformance {
   /// `true` iff the conformance is implicitly synthesized for a structural type.
   public let isStructural: Bool
 
+  /// `true` iff all implementations in the conformance are synthethic.
+  public let isSynthethic: Bool
+
   /// Creates an instance with the given properties.
   public init(
     model: AnyType,
@@ -75,6 +78,7 @@ public struct Conformance {
     self.scope = scope
     self.implementations = implementations
     self.isStructural = isStructural
+    self.isSynthethic = implementations.values.allSatisfy(\.isSynthetic)
     self.origin = origin
   }
 

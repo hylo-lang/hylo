@@ -109,7 +109,6 @@ public struct Lexer: IteratorProtocol, Sequence {
       case "let": token.kind = .`let`
       case "match": token.kind = .`match`
       case "namespace": token.kind = .`namespace`
-      case "nil": token.kind = .`nil`
       case "operator": token.kind = .`operator`
       case "postfix": token.kind = .`postfix`
       case "prefix": token.kind = .`prefix`

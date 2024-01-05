@@ -161,6 +161,18 @@ public struct AnyType {
     }
   }
 
+  /// `true` iff `self` is a built-in type or tuple thereof.
+  ///
+  /// - Requires: `self` is canonical.
+  public var isBuiltinOrRawTuple: Bool {
+    precondition(self[.isCanonical])
+    if let b = TupleType(self) {
+      return b.elements.allSatisfy(\.type.isBuiltin)
+    } else {
+      return base is BuiltinType
+    }
+  }
+
   /// Indicates whether `self` is Hylo's `Void` or `Never` type.
   ///
   /// - Requires: `self` is canonical.

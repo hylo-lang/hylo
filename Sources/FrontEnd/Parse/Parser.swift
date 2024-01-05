@@ -1544,7 +1544,7 @@ public enum Parser {
         // that `A::P.T` is parsed as `(A::P).T`.
         let lens = try state.expect("expression", using: parsePrimaryExpr(in:))
         let expr = state.insert(
-          ConformanceLensTypeExpr(
+          ConformanceLensExpr(
             subject: head,
             lens: lens,
             site: state.range(from: headOrigin.start)))
@@ -1659,12 +1659,6 @@ public enum Parser {
         StringLiteralExpr(
           value: String(state.lexer.sourceCode[head.site].dropFirst().dropLast()),
           site: head.site))
-      return AnyExprID(expr)
-
-    case .nil:
-      // Nil literal.
-      _ = state.take()
-      let expr = state.insert(NilLiteralExpr(site: head.site))
       return AnyExprID(expr)
 
     case .under:

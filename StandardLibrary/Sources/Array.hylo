@@ -77,7 +77,7 @@ public type Array<Element: Movable & Deinitializable>: Deinitializable {
   ///
   /// The projected pointer is valid only for the duration of the projection and can be advanced up
   /// to `count()`. It may be null if `self` is empty.
-  public fun with_mutable_contiguous_storage<E, T>(
+  public fun with_mutable_contiguous_storage<E, T: Movable>(
     _ action: inout [E](PointerToMutable<Element>) inout -> T
   ) inout -> T {
     if capacity() == 0 { &action(.null()) } else { &action(pointer_to_element[at: 0]) }
