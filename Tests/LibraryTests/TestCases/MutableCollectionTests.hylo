@@ -1,25 +1,38 @@
 //- compileAndRun expecting: success
 
-fun test_rotate() {
-  var a = Array<Int>()
+fun fill(_ a: inout Array<Int>, to limit: Int) {
+  var i = 0
+  while i < limit {
+    &a.append(i.copy())
+    i += 1
+  }
+}
 
-  &a.append(0)
-  &a.append(1)
-  &a.append(2)
-  &a.append(3)
-  &a.append(4)
-  &a.append(5)
+fun test_rotate() -> Bool {
 
-  &a.rotate(to_start_at: 2)
+  let N = 17
 
-  precondition(a[0] == 2)
-  precondition(a[1] == 3)
-  precondition(a[2] == 4)
-  precondition(a[3] == 5)
-  precondition(a[4] == 0)
-  precondition(a[5] == 1)
+  var failed = false
+  var i = 0
+  while i < N {
+
+    var a = Array<Int>()
+    fill(&a, to: N)
+
+    &a.rotate(to_start_at: i)
+    var j = 0
+
+    while j < N {
+      if a[j] != (i + j) % N {
+        &failed = true
+      }
+      j += 1
+    }
+    i += 1
+  }
+  return !failed
 }
 
 public fun main() {
-  test_rotate()
+  precondition(test_rotate())
 }
