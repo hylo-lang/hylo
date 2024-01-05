@@ -64,18 +64,6 @@ extension Collection {
 
 }
 
-extension Collection where Element: Comparable {
-
-  /// Returns the first index `i` such that `self[i] >= x`, or `endIndex` if no such index exists.
-  ///
-  /// - Complexity: O(log *n*) where *n* is the length of `self`.
-  /// - Requires: For any pair of indices `(i, j)` in `self`, `i < j` implies that `self[i] <=
-  ///   self[j]`.
-  public func upperBound(_ x: Element) -> Index { partitioningIndex { x < $0 } }
-
-}
-
-
 extension BidirectionalCollection {
 
   /// Returns `self` sans any suffix elements satisfying `predicate`.
