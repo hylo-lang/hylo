@@ -1,6 +1,7 @@
 //- compileAndRun expecting: success
 
-fun fill(_ a: inout Array<Int>, to limit: Int) {
+/// Appends `0 ..< limit` to `a`
+fun appendCount(up_to limit: Int, to a: inout Array<Int>) {
   var i = 0
   while i < limit {
     &a.append(i.copy())
@@ -8,31 +9,44 @@ fun fill(_ a: inout Array<Int>, to limit: Int) {
   }
 }
 
-fun test_rotate() -> Bool {
-
-  let N = 17
-
+/// Tests rotate on collections of length N
+fun test_rotate(length N: Int) {
   var failed = false
-  var i = 0
-  while i <= N {
 
+  // For all possible pivot points
+  var pivot = 0
+  while pivot <= N {
+
+    // A collection to work on
     var a = Array<Int>()
-    fill(&a, to: N)
+    appendCount(up_to: N, to: &a)
 
-    &a.rotate(to_start_at: i)
+    &a.rotate(to_start_at: pivot)
+
+    // Verify the results
     var j = 0
-
     while j < N {
-      if a[j] != (i + j) % N {
+      if a[j] != (pivot + j) % N {
         &failed = true
       }
       j += 1
     }
-    i += 1
+
+    pivot += 1
   }
-  return !failed
+  precondition(!failed)
+}
+
+/// Tests rotate on a variety of lengths
+fun test_rotate() {
+  var failed = false
+  var n = 0
+  while n < 17 {
+    test_rotate(length: n)
+    n += 1
+  }
 }
 
 public fun main() {
-  precondition(test_rotate())
+  test_rotate()
 }
