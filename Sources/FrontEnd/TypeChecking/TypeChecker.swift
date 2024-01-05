@@ -337,7 +337,7 @@ struct TypeChecker {
     declaredByConstraintsOn t: AnyType, exposedTo scopeOfUse: AnyScopeID
   ) -> Set<TraitType> {
     var result = Set<TraitType>()
-    for s in program.scopes(from: scopeOfUse) where s.kind.value is GenericScope.Type {
+    for s in program.scopes(from: scopeOfUse) where s.isGenericScope {
       // Only ask the computation of the environment if we have no (possibly partial) result in
       // cache, so that lookup queries related by the environment construction can't trigger
       // infinite recursion.
@@ -4239,7 +4239,7 @@ struct TypeChecker {
   /// Returns `true` if a reference to `d` may capture generic parameters from the surrounding
   /// lookup context.
   private func mayCaptureGenericParameters(_ d: AnyDeclID) -> Bool {
-    d.kind.value is GenericScope.Type
+    d.isGenericScope
   }
 
   /// Associates `parameters`, which are introduced by `name`'s declaration, to corresponding
