@@ -249,6 +249,14 @@ public conformance Int8: BinaryInteger {
 
 }
 
+public conformance Int8: SignedInteger {
+
+  public fun successor() -> Self {
+    self + 1
+  }
+
+}
+
 public conformance Int8: FixedWidthInteger {
 
   public fun matches(_ mask: Self) -> Bool {
@@ -334,6 +342,20 @@ public conformance Int8: FixedWidthInteger {
 
   public static fun min() -> Self {
     -128
+  }
+
+}
+
+public conformance Int8: Strideable {
+
+  public typealias Stride = Int8
+
+  public fun offset(to other: Self) -> Int8 {
+    other - self
+  }
+
+  public fun advance(by offset: Int8) -> Self {
+    self + offset
   }
 
 }
