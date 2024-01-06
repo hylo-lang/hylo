@@ -3757,10 +3757,14 @@ struct TypeChecker {
     while let component = unresolved.popLast() {
       // `purpose` only applies to the last component.
       let u = unresolved.isEmpty ? purpose : .unapplied
-      let candidates = resolve(component, in: parent, usedAs: u)
+      var candidates = resolve(component, in: parent, usedAs: u)
 
       // Resolution failed if we found no candidates.
       if candidates.isEmpty { return .failed }
+
+      if candidates.count > 1 {
+        candidates = filterResolutionCandidates(candidates, in: program[component].scope)
+      }
 
       // Append the resolved component to the nominal prefix.
       resolved.append(.init(component, candidates))
@@ -3998,6 +4002,31 @@ struct TypeChecker {
     default:
       return nil
     }
+  }
+
+  /// Returns the candidates `cs` that are viable picks for overload resolution in `scopeOfUse`.
+  private mutating func filterResolutionCandidates(
+    _ cs: [NameResolutionResult.Candidate], in scopeOfUse: AnyScopeID
+  ) -> [NameResolutionResult.Candidate] {
+    var candidatesByType: [AnyType: [Int]] = [:]
+    for (i, c) in cs.enumerated() {
+      let t = canonical(c.type, in: scopeOfUse)
+      candidatesByType[t, default: []].append(i)
+    }
+
+    var result: [NameResolutionResult.Candidate] = []
+    for (_, group) in candidatesByType {
+      let viable = group.minimalElements { (a, b) in
+        guard
+          let lhs = cs[a].reference.decl,
+          let rhs = cs[b].reference.decl
+        else { return nil }
+        return compareDepth(lhs, rhs, in: scopeOfUse)
+      }
+      result.append(contentsOf: viable.map({ (i) in cs[i] }))
+    }
+
+    return result
   }
 
   /// Returns the resolved type of the entity declared by `d` when referred to by `name` with
