@@ -80,10 +80,10 @@ struct TypeChecker {
     if t[.isCanonical] { return t }
 
     switch t.base {
-    case let u as TypeAliasType:
-      return canonical(u.aliasee.value, in: scopeOfUse)
     case let u as BoundGenericType:
       return canonical(u, in: scopeOfUse)
+    case let u as TypeAliasType:
+      return canonical(u.aliasee.value, in: scopeOfUse)
     case let u as UnionType:
       return canonical(u, in: scopeOfUse)
     default:
