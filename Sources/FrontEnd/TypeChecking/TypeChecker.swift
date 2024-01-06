@@ -4131,8 +4131,8 @@ struct TypeChecker {
     exposedTo scopeOfUse: AnyScopeID,
     reportingDiagnosticsAt diagnosticSite: SourceRange
   ) -> AnyType {
-    // The domain of associated type resolved without qualification is skolem bound by the trait in
-    // which the reference to `d` occurs.
+    // The domain of associated type resolved without qualification is a skolem bound by the trait
+    // in which the reference to `d` occurs.
     guard let domain = context?.type else {
       if let s = resolveTraitReceiver(in: scopeOfUse) {
         return ^MetatypeType(of: AssociatedTypeType(d, domain: ^s, ast: program.ast))
