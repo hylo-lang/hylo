@@ -17,9 +17,9 @@ extension Collection {
 
   /// Returns the minimal elements of `self` using `compare` to order them.
   ///
-  /// A minimal element of a set *S* with a strict partial order *R* is an element is not smaller
-  /// than any other element in *S*. If *S* is a finite set and *R* is a strict total order, the
-  /// notions of minimal element and minimum coincide.
+  /// A minimal element of a set *S* with a strict partial order *R* is an element not smaller than
+  /// any other element in *S*. If *S* is a finite set and *R* is a strict total order, the notions
+  /// of minimal element and minimum coincide.
   ///
   /// - Complexity: O(*n*^2) where *n* is the length of `self`.
   public func minimalElements(

@@ -80,10 +80,10 @@ struct TypeChecker {
     if t[.isCanonical] { return t }
 
     switch t.base {
-    case let u as TypeAliasType:
-      return canonical(u.aliasee.value, in: scopeOfUse)
     case let u as BoundGenericType:
       return canonical(u, in: scopeOfUse)
+    case let u as TypeAliasType:
+      return canonical(u.aliasee.value, in: scopeOfUse)
     case let u as UnionType:
       return canonical(u, in: scopeOfUse)
     default:
@@ -337,7 +337,7 @@ struct TypeChecker {
     declaredByConstraintsOn t: AnyType, exposedTo scopeOfUse: AnyScopeID
   ) -> Set<TraitType> {
     var result = Set<TraitType>()
-    for s in program.scopes(from: scopeOfUse) where s.kind.value is GenericScope.Type {
+    for s in program.scopes(from: scopeOfUse) where s.isGenericScope {
       // Only ask the computation of the environment if we have no (possibly partial) result in
       // cache, so that lookup queries related by the environment construction can't trigger
       // infinite recursion.
@@ -635,7 +635,7 @@ struct TypeChecker {
       case let u as ProductType:
         return .stepOver(transform(mutating: &me, u, declaredBy: u.decl))
       case let u as TypeAliasType:
-        return .stepOver(transform(mutating: &me, u, declaredBy: u.decl))
+        return .stepOver(transform(mutating: &me, u))
       default:
         return .stepInto(t)
       }
@@ -677,10 +677,25 @@ struct TypeChecker {
     }
 
     func transform(mutating me: inout Self, _ t: BoundGenericType) -> AnyType {
-      ^t.transformArguments(mutating: &me) { (me, v) in
-        let w = v.asType ?? UNIMPLEMENTED()
-        return .type(w.transform(mutating: &me, transform))
+      let b: AnyType
+
+      switch t.base.base {
+      case is ProductType:
+        b = t.base
+      case let u as TypeAliasType:
+        let aliasee = u.aliasee.value.transform(mutating: &me, transform)
+        b = ^TypeAliasType(aliasing: aliasee, declaredBy: u.decl, in: me.program.ast)
+      default:
+        b = t.base.transform(mutating: &me, transform)
       }
+
+      var a = GenericArguments()
+      for (p, v) in t.arguments {
+        let w = v.asType ?? UNIMPLEMENTED("generic value arguments")
+        a[p] = .type(w.transform(mutating: &me, transform))
+      }
+
+      return ^BoundGenericType(b, arguments: a)
     }
 
     func transform(mutating me: inout Self, _ t: GenericTypeParameterType) -> AnyType {
@@ -689,6 +704,13 @@ struct TypeChecker {
       } else {
         return ^t
       }
+    }
+
+    func transform(mutating me: inout Self, _ t: TypeAliasType) -> AnyType {
+      let u = t.aliasee.value.transform(mutating: &me, transform)
+      return transform(
+        mutating: &me,
+        TypeAliasType(aliasing: u, declaredBy: t.decl, in: me.program.ast), declaredBy: t.decl)
     }
 
     /// If `t` is an unspecialized generic type, returns its specialization taking the arguments in
@@ -3331,8 +3353,12 @@ struct TypeChecker {
   ) -> Set<AnyDeclID> {
     if let d = names(introducedIn: nominalScope.decl)[stem] {
       return d
-    } else {
+    } else if program[nominalScope.decl].genericParameters.isEmpty {
       return lookup(stem, memberOf: nominalScope.aliasee.value, exposedTo: scopeOfUse)
+    } else {
+      let t = MetatypeType(uncheckedType(of: nominalScope.decl))!
+      let a = TypeAliasType(t.instance)!.aliasee.value
+      return lookup(stem, memberOf: a, exposedTo: scopeOfUse)
     }
   }
 
@@ -3731,10 +3757,14 @@ struct TypeChecker {
     while let component = unresolved.popLast() {
       // `purpose` only applies to the last component.
       let u = unresolved.isEmpty ? purpose : .unapplied
-      let candidates = resolve(component, in: parent, usedAs: u)
+      var candidates = resolve(component, in: parent, usedAs: u)
 
       // Resolution failed if we found no candidates.
       if candidates.isEmpty { return .failed }
+
+      if candidates.count > 1 {
+        candidates = filterResolutionCandidates(candidates, in: program[component].scope)
+      }
 
       // Append the resolved component to the nominal prefix.
       resolved.append(.init(component, candidates))
@@ -3974,6 +4004,31 @@ struct TypeChecker {
     }
   }
 
+  /// Returns the candidates `cs` that are viable picks for overload resolution in `scopeOfUse`.
+  private mutating func filterResolutionCandidates(
+    _ cs: [NameResolutionResult.Candidate], in scopeOfUse: AnyScopeID
+  ) -> [NameResolutionResult.Candidate] {
+    var candidatesByType: [AnyType: [Int]] = [:]
+    for (i, c) in cs.enumerated() {
+      let t = canonical(c.type, in: scopeOfUse)
+      candidatesByType[t, default: []].append(i)
+    }
+
+    var result: [NameResolutionResult.Candidate] = []
+    for (_, group) in candidatesByType {
+      let viable = group.minimalElements { (a, b) in
+        guard
+          let lhs = cs[a].reference.decl,
+          let rhs = cs[b].reference.decl
+        else { return nil }
+        return compareDepth(lhs, rhs, in: scopeOfUse)
+      }
+      result.append(contentsOf: viable.map({ (i) in cs[i] }))
+    }
+
+    return result
+  }
+
   /// Returns the resolved type of the entity declared by `d` when referred to by `name` with
   /// the given `arguments`, or `nil` if `d` is ill-formed.
   ///
@@ -4076,8 +4131,8 @@ struct TypeChecker {
     exposedTo scopeOfUse: AnyScopeID,
     reportingDiagnosticsAt diagnosticSite: SourceRange
   ) -> AnyType {
-    // The domain of associated type resolved without qualification is skolem bound by the trait in
-    // which the reference to `d` occurs.
+    // The domain of associated type resolved without qualification is a skolem bound by the trait
+    // in which the reference to `d` occurs.
     guard let domain = context?.type else {
       if let s = resolveTraitReceiver(in: scopeOfUse) {
         return ^MetatypeType(of: AssociatedTypeType(d, domain: ^s, ast: program.ast))
@@ -4239,7 +4294,7 @@ struct TypeChecker {
   /// Returns `true` if a reference to `d` may capture generic parameters from the surrounding
   /// lookup context.
   private func mayCaptureGenericParameters(_ d: AnyDeclID) -> Bool {
-    d.kind.value is GenericScope.Type
+    d.isGenericScope
   }
 
   /// Associates `parameters`, which are introduced by `name`'s declaration, to corresponding
@@ -5036,7 +5091,8 @@ struct TypeChecker {
     let resolution = resolve(e, usedAs: purpose) { (me, n) in
       switch me.program[n].domain {
       case .explicit(let e):
-        return me.inferredType(of: e, updating: &obligations)
+        let h = me.program.ast.isImplicitlyQualified(e) ? implicitNominalScope : nil
+        return me.inferredType(of: e, withHint: h, updating: &obligations)
       case .implicit:
         return implicitNominalScope
       case .none, .operand:
@@ -5973,17 +6029,15 @@ struct TypeChecker {
     program[t.decl].scope.kind == TraitDecl.self
   }
 
-  /// Returns `true` iff `t` is a trait receiver or an associated type rooted at a trait receiver.
+  /// Returns `true` iff `t` is a generic type parameter an associated type rooted at one.
   private func isAbstractAssociatedDomain(_ t: AnyType) -> Bool {
     switch t.base {
     case let u as AssociatedTypeType:
       return isAbstractAssociatedDomain(u.domain)
     case let u as ConformanceLensType:
       return isAbstractAssociatedDomain(u.subject)
-    case let u as GenericTypeParameterType:
-      return isTraitReceiver(u)
-    default:
-      return false
+    case let u:
+      return u is GenericTypeParameterType
     }
   }
 
