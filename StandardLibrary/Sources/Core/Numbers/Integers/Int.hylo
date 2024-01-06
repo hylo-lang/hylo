@@ -351,6 +351,20 @@ public conformance Int: FixedWidthInteger {
 
 }
 
+public conformance Int: Strideable {
+
+  public typealias Stride = Int
+
+  public fun offset(to other: Self) -> Int {
+    other - self
+  }
+
+  public fun advance(by offset: Int) -> Self {
+    self + offset
+  }
+
+}
+
 public conformance Int: ForeignConvertible {
 
   public typealias ForeignRepresentation = Builtin.word

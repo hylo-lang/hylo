@@ -345,3 +345,17 @@ public conformance Int8: FixedWidthInteger {
   }
 
 }
+
+public conformance Int8: Strideable {
+
+  public typealias Stride = Int8
+
+  public fun offset(to other: Self) -> Int8 {
+    other - self
+  }
+
+  public fun advance(by offset: Int8) -> Self {
+    self + offset
+  }
+
+}
