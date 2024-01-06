@@ -21,7 +21,6 @@ struct BuildStandardLibrary: ParsableCommand {
   var hyloSourceFiles: [URL]
 
   func run() throws {
-    print(CommandLine.arguments)
     try CBOREncoder().forAST
       .encode(AST(sources: hyloSourceFiles, for: CompilerConfiguration([])))
       .write(to: outputURL, options: .atomic)
