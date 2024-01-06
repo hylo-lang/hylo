@@ -1,0 +1,12 @@
+/// An integer type capable of representing both positive and negative values.
+public trait SignedInteger: BinaryInteger, SignedNumeric {
+
+  // The `successor` requirement is a workaround to construct instances equal to "1" in generic
+  // contexts requiring discrete domain represented as `Strideable` type with a `SigntedInteger`
+  // stride (e.g., `Range`'s conformance to `Iterator`'). Another cleaner way to construct such
+  // values would be to use a conformance to `ExpressibleByIntegerLiteral`.
+
+  /// Returns the smallest value strictly greater than `self`.
+  fun successor() -> Self
+
+}
