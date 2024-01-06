@@ -1,7 +1,7 @@
 //- compileAndRun expecting: success
 
 /// Appends `0 ..< limit` to `a`
-fun appendCount(up_to limit: Int, to a: inout Array<Int>) {
+fun append_count(up_to limit: Int, to a: inout Array<Int>) {
   var i = 0
   while i < limit {
     &a.append(i.copy())
@@ -19,7 +19,7 @@ fun test_rotate(length N: Int) {
 
     // A collection to work on
     var a = Array<Int>()
-    appendCount(up_to: N, to: &a)
+    append_count(up_to: N, to: &a)
 
     let newPivot = &a.rotate(regions_separated_by: pivot)
     if newPivot != N - pivot { &failed = true }
