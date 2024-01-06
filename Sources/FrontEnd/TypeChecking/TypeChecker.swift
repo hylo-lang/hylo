@@ -635,7 +635,7 @@ struct TypeChecker {
       case let u as ProductType:
         return .stepOver(transform(mutating: &me, u, declaredBy: u.decl))
       case let u as TypeAliasType:
-        return .stepOver(transform(mutating: &me, u, declaredBy: u.decl))
+        return .stepOver(transform(mutating: &me, u))
       default:
         return .stepInto(t)
       }
@@ -677,10 +677,25 @@ struct TypeChecker {
     }
 
     func transform(mutating me: inout Self, _ t: BoundGenericType) -> AnyType {
-      ^t.transformArguments(mutating: &me) { (me, v) in
-        let w = v.asType ?? UNIMPLEMENTED()
-        return .type(w.transform(mutating: &me, transform))
+      let b: AnyType
+
+      switch t.base.base {
+      case is ProductType:
+        b = t.base
+      case let u as TypeAliasType:
+        let aliasee = u.aliasee.value.transform(mutating: &me, transform)
+        b = ^TypeAliasType(aliasing: aliasee, declaredBy: u.decl, in: me.program.ast)
+      default:
+        b = t.base.transform(mutating: &me, transform)
       }
+
+      var a = GenericArguments()
+      for (p, v) in t.arguments {
+        let w = v.asType ?? UNIMPLEMENTED("generic value arguments")
+        a[p] = .type(w.transform(mutating: &me, transform))
+      }
+
+      return ^BoundGenericType(b, arguments: a)
     }
 
     func transform(mutating me: inout Self, _ t: GenericTypeParameterType) -> AnyType {
@@ -689,6 +704,13 @@ struct TypeChecker {
       } else {
         return ^t
       }
+    }
+
+    func transform(mutating me: inout Self, _ t: TypeAliasType) -> AnyType {
+      let u = t.aliasee.value.transform(mutating: &me, transform)
+      return transform(
+        mutating: &me,
+        TypeAliasType(aliasing: u, declaredBy: t.decl, in: me.program.ast), declaredBy: t.decl)
     }
 
     /// If `t` is an unspecialized generic type, returns its specialization taking the arguments in
