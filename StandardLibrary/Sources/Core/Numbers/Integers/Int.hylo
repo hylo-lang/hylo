@@ -258,6 +258,14 @@ public conformance Int: BinaryInteger {
 
 }
 
+public conformance Int: SignedInteger {
+
+  public fun successor() -> Self {
+    self + 1
+  }
+
+}
+
 public conformance Int: FixedWidthInteger {
 
   public fun matches(_ mask: Self) -> Bool {

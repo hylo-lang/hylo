@@ -249,6 +249,14 @@ public conformance Int8: BinaryInteger {
 
 }
 
+public conformance Int8: SignedInteger {
+
+  public fun successor() -> Self {
+    self + 1
+  }
+
+}
+
 public conformance Int8: FixedWidthInteger {
 
   public fun matches(_ mask: Self) -> Bool {
