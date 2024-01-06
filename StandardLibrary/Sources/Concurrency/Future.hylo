@@ -1,0 +1,11 @@
+/// A type whose values can be awaited.
+public trait Future {
+
+  /// The type of the value produced by `Self`.
+  type Result
+
+  /// Awaits the completion of `Self`, returning the produced value.
+  fun await() sink -> Result
+  // TODO: transform this into a projection
+
+}

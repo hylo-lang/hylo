@@ -1,0 +1,8 @@
+
+/// A future type that allows cancelling the computation that produces its value.
+public trait CancellableFuture: Future {
+
+  /// Cancels `Self`.
+  fun cancel() sink
+
+}
