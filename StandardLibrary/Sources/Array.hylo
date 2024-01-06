@@ -1,5 +1,5 @@
 /// An ordered, random-access collection.
-public type Array<Element: Movable & Deinitializable>: Deinitializable {
+public type Array<Element: Movable & Deinitializable>: Deinitializable, Movable {
 
   /// The out-of-line storage of the array.
   ///
@@ -138,6 +138,16 @@ public conformance Array: Collection {
     inout {
       // precondition(position >= 0 && position < count(), "position is out of bounds")
       pointer_to_element[at: position].unsafe[]
+    }
+  }
+
+  /// Gives `self` the value of a consumed `source`.
+  fun take_value(from source: sink Self) -> {self: Self, Void} {
+    set {
+      &self.storage = source.storage
+    }
+    inout {
+      &self.storage = source.storage
     }
   }
 
