@@ -17,10 +17,8 @@ public type LocalFuture<E>: Future {
   public init(_ f: sink FWrapper<E, Int>) {
     &self.f = f
     let local_f = fun (_ frame: SpawnFrameBase) -> Void {
-      print("# entering spawned function")
       inout self = PointerToMutable<Self>(type_punning: mutable_pointer[to: frame]).unsafe[]
       &self.do_call()
-      print("# exiting spawned function")
     }
     concore2full_spawn2(self.base_frame, local_f)
   }
