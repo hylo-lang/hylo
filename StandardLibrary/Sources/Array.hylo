@@ -141,16 +141,6 @@ public conformance Array: Collection {
     }
   }
 
-  /// Gives `self` the value of a consumed `source`.
-  fun take_value(from source: sink Self) -> {self: Self, Void} {
-    set {
-      &self.storage = source.storage
-    }
-    inout {
-      &self.storage = source.storage
-    }
-  }
-
 }
 
 public conformance Array: MutableCollection {
