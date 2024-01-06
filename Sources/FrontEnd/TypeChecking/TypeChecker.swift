@@ -6029,17 +6029,15 @@ struct TypeChecker {
     program[t.decl].scope.kind == TraitDecl.self
   }
 
-  /// Returns `true` iff `t` is a trait receiver or an associated type rooted at a trait receiver.
+  /// Returns `true` iff `t` is a generic type parameter an associated type rooted at one.
   private func isAbstractAssociatedDomain(_ t: AnyType) -> Bool {
     switch t.base {
     case let u as AssociatedTypeType:
       return isAbstractAssociatedDomain(u.domain)
     case let u as ConformanceLensType:
       return isAbstractAssociatedDomain(u.subject)
-    case let u as GenericTypeParameterType:
-      return isTraitReceiver(u)
-    default:
-      return false
+    case let u:
+      return u is GenericTypeParameterType
     }
   }
 
