@@ -12,7 +12,6 @@ struct StandardLibraryBuilderPlugin: SPMBuildToolPlugin {
       .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
       / "StandardLibrary" / "Sources"
 
-    print("SourceDirectory: ", sourceDirectory)
     let hostedSources = FileManager.default.enumerator(
       at: sourceDirectory,
       includingPropertiesForKeys: [.isRegularFileKey],
