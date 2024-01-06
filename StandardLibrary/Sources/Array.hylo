@@ -11,6 +11,23 @@ public type Array<Element: Movable & Deinitializable>: Deinitializable {
     &storage = .new()
   }
 
+  /// Creates an array of `count` element, calling `initialize` to initialize its contents.
+  ///
+  /// `initialize` accepts an index and returns the element that should be inserted at that index.
+  ///
+  /// - Requires: `count >= 0`.
+  public init<E>(count: Int, initialized_with initialize: inout [E](Int) inout -> Element) {
+    // precondition(count >= 0)
+    &storage = .new()
+    &reserve_capacity(count)
+
+    var i = 0
+    while i != count {
+      &append(&initialize(i))
+      &i += 1
+    }
+  }
+
   /// Deinitializes `self`.
   public fun deinit() sink {
     var i = 0

@@ -5,6 +5,13 @@ fun test_init_empty() {
   precondition(d.count() == 0)
 }
 
+fun test_init_with_lambda() {
+  let d = Array<Int>(count: 10, initialized_with: fun (_ i) { i * 2 })
+  precondition(d.count() == 10)
+  precondition(d[0] == 0)
+  precondition(d[2] == 4)
+}
+
 fun test_append() {
   var d = Array<Int>()
   &d.append(21)
