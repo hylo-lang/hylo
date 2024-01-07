@@ -45,14 +45,18 @@ public conformance Range: Equatable {
 
 }
 
-// TODO
-// public conformance: Iterator Range where: Bound: Strideable, Bound.Stride: SignedInteger {
-//
-//   public fun next() inout -> Optional<Bound> {
-//     if lower_bound == upper_bound { return None() }
-//     let r = lower_bound.copy()
-//     &lower_bound += (1 as Bound)
-//     return r
-//   }
-//
-// }
+public conformance Range: Iterator where
+  Bound: Strideable, Bound: Copyable,
+  Bound.Stride: SignedInteger, Bound.Stride: Deinitializable
+{
+
+  public typealias Element = Bound
+
+  public fun next() inout -> Optional<Bound> {
+    if lower_bound == upper_bound { return .none() }
+    let r = lower_bound.copy()
+    &lower_bound = lower_bound.advance(by: .zero().successor())
+    return r as Optional
+  }
+
+}

@@ -36,9 +36,27 @@ fun test_reverse() {
   precondition(a[2] == 21)
 }
 
+fun test_array_is_movable() {
+  var a = Array<Int>()
+  &a.append(21)
+  &a.append(42)
+  &a.append(84)
+
+  var b = Array<Int>()
+  &b.append(1)
+  &b.append(2)
+  &b.append(3)
+
+  &b = a
+  precondition(b[0] == 21)
+  precondition(b[1] == 42)
+  precondition(b[2] == 84)
+}
+
 public fun main() {
   test_init_empty()
   test_append()
   test_swap_at()
   test_reverse()
+  test_array_is_movable()
 }

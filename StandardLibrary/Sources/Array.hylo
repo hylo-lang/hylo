@@ -1,5 +1,5 @@
 /// An ordered, random-access collection.
-public type Array<Element: Movable & Deinitializable>: Deinitializable {
+public type Array<Element: Movable & Deinitializable>: Deinitializable, Movable {
 
   /// The out-of-line storage of the array.
   ///

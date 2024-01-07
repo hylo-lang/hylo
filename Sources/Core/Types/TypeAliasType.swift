@@ -15,12 +15,17 @@ public struct TypeAliasType: TypeProtocol {
   /// A set of flags describing recursive properties.
   public let flags: TypeFlags
 
-  /// Creates a type alias resolving to `resolved` and declared by `d` in `ast`.
-  public init(aliasing resolved: AnyType, declaredBy d: TypeAliasDecl.ID, in ast: AST) {
-    self.decl = d
-    self.name = Incidental(ast[decl].baseName)
-    self.aliasee = Incidental(resolved)
-    self.flags = resolved.flags.removing(.isCanonical)
+  /// Creates a type alias resolving to `aliasee` and declared by `d` in `ast`.
+  public init(aliasing aliasee: AnyType, declaredBy d: TypeAliasDecl.ID, in ast: AST) {
+    self.init(decl: d, name: ast[d].baseName, aliasee: aliasee)
+  }
+
+  /// Creates an instance with the given properties.
+  private init(decl: TypeAliasDecl.ID, name: String, aliasee: AnyType) {
+    self.decl = decl
+    self.name = Incidental(name)
+    self.aliasee = Incidental(aliasee)
+    self.flags = aliasee.flags.removing(.isCanonical)
   }
 
   /// The transitive aliasee of this alias.
@@ -33,6 +38,14 @@ public struct TypeAliasType: TypeProtocol {
     } else {
       return aliasee.value
     }
+  }
+
+  /// Applies `TypeProtocol.transform(mutating:_:)` on `m` and the types that are part of `self`.
+  public func transformParts<M>(
+    mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction
+  ) -> Self {
+    let a = aliasee.value.transform(mutating: &m, transformer)
+    return TypeAliasType(decl: decl, name: name.value, aliasee: a)
   }
 
 }
