@@ -3,9 +3,11 @@ fun do_greet() -> Int {
   print("Hello, concurrent world!")
   return 17
 }
+
 fun prime_number() -> Int {
   13
 }
+
 fun concurrent_greeting() -> Int {
   var future = spawn_(fun() { do_greet() })
   let x = prime_number()
