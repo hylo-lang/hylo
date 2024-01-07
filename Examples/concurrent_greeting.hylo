@@ -19,6 +19,7 @@ fun concurrent_greeting() -> Int {
 }
 
 public fun main() {
+  print("Starting...")
   print(concurrent_greeting())
   print("Finishing...")
 }

@@ -2,6 +2,6 @@
 /// Spawns a computation and returns a future that can be used to await its completion.
 ///
 /// The future cannot escape the current scope.
-public fun spawn_<E>(_ f: sink [E]()->Int) -> LocalFuture<E> {
-  return LocalFuture<E>(FWrapper<E>(f: f))
+public fun spawn_<E>(_ f: sink [E]()->Int) -> Future<E> {
+  return Future<E>(FunctionWrapper<E>(f: f))
 }
