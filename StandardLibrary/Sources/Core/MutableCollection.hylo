@@ -16,12 +16,8 @@ trait MutableCollection: Collection {
 public extension MutableCollection {
 
   /// Swaps the order in which the values `self[..<p]` and `self[p...]` occur, so that the end of
-  /// the latter sequence of element values is the start of the former sequence, and returns that
-  /// position.
-  ///
-  /// The value originally at `self[p]` (if any) ends up first.  The value originally located at
-  /// `p`'s predecessor (if any) ends up last.  The return value is the new position of the value
-  /// originally at `start_position()` (if any).
+  /// the latter sequence of element values is the start of the former sequence; returns that
+  /// position, where the sequences coincide.
   ///
   /// - Complexity: O(n), where n is the number of elements in `self`.
   public fun rotate(regions_separated_by p: Position) inout -> Position {
