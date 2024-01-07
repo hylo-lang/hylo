@@ -1,4 +1,3 @@
-import CBORCoding
 import Core
 import Foundation
 import Utils
@@ -41,20 +40,20 @@ extension Utils.Host {
   /// An AST representing the whole standard library, conditionally compiled for targeting the host
   /// platform.
   public static let hostedLibraryAST = Result {
-    try CBORDecoder().forAST.decode(
+    try JSONDecoder().forAST.decode(
       AST.self,
       from: Data(
-        contentsOf: resource("hosted", withExtension: "cbor"),
+        contentsOf: resource("hosted", withExtension: "json"),
         options: .alwaysMapped))
   }
 
   /// An AST representing the freestanding core of standard library, conditionally compiled for
   /// targeting the host platform.
   public static let freestandingLibraryAST = Result {
-    try CBORDecoder().forAST.decode(
+    try JSONDecoder().forAST.decode(
       AST.self,
       from: Data(
-        contentsOf: resource("freestanding", withExtension: "cbor"),
+        contentsOf: resource("freestanding", withExtension: "json"),
         options: .alwaysMapped))
   }
 

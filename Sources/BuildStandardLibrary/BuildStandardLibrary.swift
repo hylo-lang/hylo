@@ -1,5 +1,4 @@
 import ArgumentParser
-import CBORCoding
 import Core
 import Foundation
 import FrontEnd
@@ -20,7 +19,7 @@ struct BuildStandardLibrary: ParsableCommand {
   var hyloSourceFiles: [URL]
 
   func run() throws {
-    try CBOREncoder().forAST
+    try JSONEncoder().forAST
       .encode(AST(sources: hyloSourceFiles, for: CompilerConfiguration([])))
       .write(to: outputURL, options: .atomic)
   }

@@ -10,7 +10,7 @@ import PackageDescription
 
 /// Settings to be passed to swiftc for all targets.
 let allTargetsSwiftSettings: [SwiftSetting] = [
-  .unsafeFlags(["-warnings-as-errors"])
+  .unsafeFlags(["-warnings-as-errors", "-enable-testing"])
 ]
 
 /// Dependencies for documentation extraction.
@@ -52,7 +52,7 @@ let package = Package(
     .package(
       url: "https://github.com/apple/swift-format",
       from: "508.0.1"),
-    .package(url: "https://github.com/dabrahams/CBORCoding.git", branch: "main"),
+//    .package(url: "https://github.com/dabrahams/CBORCoding.git", branch: "main"),
     .package(
       url: "https://github.com/SwiftPackageIndex/SPIManifest.git",
       from: "0.12.0"),
@@ -127,7 +127,7 @@ let package = Package(
       name: "Utils",
       dependencies: [
         .product(name: "BigInt", package: "BigInt"),
-        .product(name: "CBORCoding", package: "CBORCoding"),
+//        .product(name: "CBORCoding", package: "CBORCoding"),
         .product(name: "Collections", package: "swift-collections"),
       ],
       swiftSettings: allTargetsSwiftSettings),
@@ -139,7 +139,7 @@ let package = Package(
 
     .target(
       name: "StandardLibrary",
-      dependencies: ["FrontEnd", "Utils", .product(name: "CBORCoding", package: "CBORCoding")],
+      dependencies: ["FrontEnd", "Utils", /*.product(name: "CBORCoding", package: "CBORCoding")*/],
       path: "StandardLibrary",
       exclude: ["Sources"],
       swiftSettings: allTargetsSwiftSettings,
@@ -167,10 +167,10 @@ let package = Package(
       name: "BuildStandardLibrary",
       dependencies: [
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
-        .product(name: "CBORCoding", package: "CBORCoding"),
+//        .product(name: "CBORCoding", package: "CBORCoding"),
         "Core", "Utils", "FrontEnd",
       ],
-      swiftSettings: allTargetsSwiftSettings + [.unsafeFlags(["-parse-as-library"])]),
+      swiftSettings: allTargetsSwiftSettings),
 
     // Test targets.
     .testTarget(

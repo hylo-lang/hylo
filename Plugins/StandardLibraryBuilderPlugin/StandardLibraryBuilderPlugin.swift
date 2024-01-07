@@ -23,7 +23,7 @@ struct StandardLibraryBuilderPlugin: SPMBuildToolPlugin {
     let freestandingSources = hostedSources.filter { $0.pathComponents.starts(with: freestandingRoot) }
 
     func buildLibrary(name: String, sources: [URL]) -> SPMBuildCommand {
-      let output = context.pluginWorkDirectory.url / (name + ".cbor")
+      let output = context.pluginWorkDirectory.url / (name + ".json")
       return .buildCommand(
         displayName: "Building \(name) standard library module into \(output.platformString)",
         executable:  .targetInThisPackage("BuildStandardLibrary"),
