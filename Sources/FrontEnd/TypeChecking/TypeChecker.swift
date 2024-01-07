@@ -4143,7 +4143,7 @@ struct TypeChecker {
     }
 
     // Skolems are valid associated type domains.
-    if program.isSkolem(domain) {
+    if domain.isSkolem {
       return ^MetatypeType(of: AssociatedTypeType(d, domain: domain, ast: program.ast))
     }
 

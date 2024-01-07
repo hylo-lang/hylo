@@ -2163,7 +2163,7 @@ struct Emitter {
     let functionToCall: Callee
 
     // Check if `d`'s implementation is synthethic.
-    if program.isRequirement(d) && !program.isSkolem(receiverType) {
+    if program.isRequirement(d) && !receiverType.isSkolem {
       let t = program.traitDeclaring(d)!
       let c = program.conformance(of: receiverType, to: t, exposedTo: scopeOfUse)!
       let irFunction = module.demandDeclaration(lowering: c.implementations[d]!)

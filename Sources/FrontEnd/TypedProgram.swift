@@ -195,18 +195,6 @@ public struct TypedProgram {
     }
   }
 
-  /// Returns `true` iff `t` is bound to an existential quantifier.
-  public func isSkolem(_ t: AnyType) -> Bool {
-    switch t.base {
-    case is AssociatedTypeType, is GenericTypeParameterType:
-      return true
-    case let u as ConformanceLensType:
-      return isSkolem(u.subject)
-    default:
-      return false
-    }
-  }
-
   /// Returns `true` iff deinitializing an instance of `t` in `scopeOfUse` is a no-op.
   ///
   /// A type is "trivially deinitializable" if deinitializing its instances doesn't have runtime
