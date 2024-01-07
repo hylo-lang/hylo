@@ -11,7 +11,8 @@ public type Array<Element: Movable & Deinitializable>: Deinitializable {
     &storage = .new()
   }
 
-  /// Creates an array of `count` element, calling `initialize` to initialize its contents.
+  /// Creates an array whose contents are the results, of calling `initialize` with the values
+  /// `0 ..< count`, in order.
   ///
   /// `initialize` accepts an index and returns the element that should be inserted at that index.
   ///
