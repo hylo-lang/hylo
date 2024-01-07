@@ -133,7 +133,7 @@ public struct DeinitializableDescription: CoreTraitDescription {
   public init(_ ast: AST) {
     self.decl = ast.coreTrait("Deinitializable")!.decl
     self.deinitialize = FunctionDecl.ID(ast[self.decl].members[0])!
-    assert(ast[self.deinitialize].identifier?.value == "deinit")
+    precondition(ast[self.deinitialize].identifier?.value == "deinit")
   }
 
 }
@@ -153,7 +153,7 @@ public struct EquatableDescription: CoreTraitDescription {
   public init(_ ast: AST) {
     self.decl = ast.coreTrait("Equatable")!.decl
     self.equal = FunctionDecl.ID(ast[self.decl].members[0])!
-    assert(ast[self.equal].identifier?.value == "==")
+    precondition(ast[self.equal].identifier?.value == "==")
   }
 
 }
@@ -264,7 +264,7 @@ public struct MovableDescription: CoreTraitDescription {
     self.decl = ast.coreTrait("Movable")!.decl
 
     let move = MethodDecl.ID(ast[self.decl].members[0])!
-    assert(ast[move].identifier.value == "take_value")
+    precondition(ast[move].identifier.value == "take_value")
 
     self.moveInitialize = MethodImpl.ID(
       ast[move].impls.first(where: { ast[$0].introducer.value == .set })!)!

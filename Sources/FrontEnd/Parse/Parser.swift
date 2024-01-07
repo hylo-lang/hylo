@@ -87,7 +87,7 @@ public enum Parser {
     }
 
     // Make sure the entire input was consumed.
-    assert(state.peek() == nil, "expected EOF")
+    precondition(state.peek() == nil, "expected EOF")
 
     let translation = state.insert(
       TranslationUnit(
@@ -420,7 +420,7 @@ public enum Parser {
     let initializer = try parseDefaultValue(in: &state)
 
     // Create a new `BindingDecl`.
-    assert(prologue.memberModifiers.count <= 1)
+    precondition(prologue.memberModifiers.count <= 1)
     return state.insert(
       BindingDecl(
         attributes: prologue.attributes,
@@ -564,7 +564,7 @@ public enum Parser {
     }
 
     // Create a new `FunctionDecl`.
-    assert(prologue.memberModifiers.count <= 1)
+    precondition(prologue.memberModifiers.count <= 1)
     return state.insert(
       FunctionDecl(
         introducerSite: head.introducerSite,
@@ -678,7 +678,7 @@ public enum Parser {
         site: introducer.site))
 
     // Create a new `InitializerDecl`.
-    assert(prologue.memberModifiers.isEmpty)
+    precondition(prologue.memberModifiers.isEmpty)
     return state.insert(
       InitializerDecl(
         introducer: SourceRepresentable(value: .`init`, range: introducer.site),
@@ -805,7 +805,7 @@ public enum Parser {
       using: { (s) in try parseSubscriptDeclBody(in: &s, asNonStaticMember: isNonStatic) })
 
     // Create a new `SubscriptDecl`.
-    assert(prologue.memberModifiers.count <= 1)
+    precondition(prologue.memberModifiers.count <= 1)
     return state.insert(
       SubscriptDecl(
         introducer: head.introducer,
@@ -838,7 +838,7 @@ public enum Parser {
       using: { (s) in try parseSubscriptDeclBody(in: &s, asNonStaticMember: isNonStatic) })
 
     // Create a new `SubscriptDecl`.
-    assert(prologue.memberModifiers.count <= 1)
+    precondition(prologue.memberModifiers.count <= 1)
     return state.insert(
       SubscriptDecl(
         introducer: head.introducer,
@@ -1065,7 +1065,7 @@ public enum Parser {
     in state: inout ParserState
   ) -> SourceRepresentable<AccessModifier> {
     // Declarations are private by default.
-    assert(prologue.accessModifiers.count <= 1)
+    precondition(prologue.accessModifiers.count <= 1)
     return prologue.accessModifiers.first
       ?? SourceRepresentable(
         value: .private, range: state.lexer.sourceCode.emptyRange(at: prologue.startIndex))

@@ -6,7 +6,6 @@ import FrontEnd
 import Utils
 
 /// A command-line tool that generates a Hylo standard library module as part of our build process.
-@main
 struct BuildStandardLibrary: ParsableCommand {
 
   @Option(
@@ -39,8 +38,17 @@ extension AST {
       sourceCode: sources.map(SourceFile.init(contentsOf:)),
       builtinModuleAccess: true,
       diagnostics: &diagnostics)
-    assert(isCoreModuleLoaded)
+    precondition(isCoreModuleLoaded)
     self.coreTraits = .init(self)
   }
 
+}
+
+public func main() {
+  do {
+    try BuildStandardLibrary().run()
+  }
+  catch let e {
+    fatalError("\(e)")
+  }
 }

@@ -272,7 +272,7 @@ public struct TypedProgram {
     case let u as TypeAliasType:
       return storage(of: u.resolved)
     default:
-      assert(!t.hasRecordLayout)
+      precondition(!t.hasRecordLayout)
       return []
     }
   }
@@ -436,7 +436,7 @@ public struct TypedProgram {
   private func structuralConformance(
     of model: AnyType, to concept: TraitType, exposedTo scopeOfUse: AnyScopeID
   ) -> Conformance? {
-    assert(model[.isCanonical])
+    precondition(model[.isCanonical])
 
     switch model.base {
     case let m as BufferType:

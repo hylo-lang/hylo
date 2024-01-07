@@ -109,7 +109,7 @@ extension IR.Program {
 
     let n = base.mangled(val)
     if let t = module.type(named: n) {
-      assert(LLVM.StructType(t) != nil)
+      precondition(LLVM.StructType(t) != nil)
       return t
     }
 

@@ -61,7 +61,7 @@ extension Base64VarUInt: TextOutputStreamable {
       digits.reserveCapacity(11)
 
       var m = rawValue - 4209
-      assert(m > 0)
+      precondition(m > 0)
       while m > 0 {
         digits.append(Base64Digit(m % 64)!)
         m /= 64

@@ -90,7 +90,7 @@ struct AbstractObject<Domain: AbstractDomain>: Equatable {
         return .full(lhs && rhs)
 
       case (.partial(let lhs), .partial(let rhs)):
-        assert(lhs.count == rhs.count)
+        precondition(lhs.count == rhs.count)
         return .partial(zip(lhs, rhs).map(&&))
 
       case (.partial(let lhs), _):

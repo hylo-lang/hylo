@@ -109,7 +109,7 @@ extension XCTestCase {
     // FIXME: clarify/explain this code
     let thrownError = checkAnnotations(in: f, checkingAnnotationCommands: []) {
       (f, annotationsToHandle, diagnostics) in
-      assert(annotationsToHandle.isEmpty)
+      precondition(annotationsToHandle.isEmpty)
       try process(f, &diagnostics)
       return []
     }

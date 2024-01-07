@@ -69,7 +69,7 @@ extension Module {
 
       // Skip the instruction if an error occurred upstream.
       guard context.locals[s.source] != nil else {
-        assert(diagnostics.containsError)
+        precondition(diagnostics.containsError)
         return
       }
 
@@ -128,7 +128,7 @@ extension Module {
 
       // Skip the instruction if an error occurred upstream.
       guard let base = context.locals[s.base] else {
-        assert(diagnostics.containsError)
+        precondition(diagnostics.containsError)
         return
       }
 
@@ -174,7 +174,7 @@ extension Module {
 
       // Skip the instruction if an error occurred upstream.
       guard context.locals[end.start] != nil else {
-        assert(diagnostics.containsError)
+        precondition(diagnostics.containsError)
         return
       }
 
@@ -188,7 +188,7 @@ extension Module {
         if let s = former {
           switch start.capabilities.uniqueElement! {
           case .let:
-            assert(o.value.borrowers.contains(s))
+            precondition(o.value.borrowers.contains(s))
           case .set, .inout, .sink:
             o.value.insertBorrower(s)
           case .yielded:
@@ -281,7 +281,7 @@ extension Module {
 
       // Skip the instruction if an error occurred upstream.
       guard let base = context.locals[s.recordAddress] else {
-        assert(diagnostics.containsError)
+        precondition(diagnostics.containsError)
         return
       }
 
@@ -308,7 +308,7 @@ extension Module {
     ) {
       // Skip the instruction if an error occurred upstream.
       guard let v = context.locals[start] else {
-        assert(diagnostics.containsError)
+        precondition(diagnostics.containsError)
         return
       }
       context.memory[v.unwrapLocations()!.uniqueElement!] = nil

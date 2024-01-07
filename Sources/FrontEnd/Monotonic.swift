@@ -14,7 +14,7 @@ extension Monotonic where Self: Equatable {
 
   /// Asserts that `self == other`.
   func updateMonotonically(_ other: Self) {
-    assert(self == other, "non-monotonic update of \(type(of: self))")
+    precondition(self == other, "non-monotonic update of \(type(of: self))")
   }
 
 }
@@ -23,7 +23,7 @@ extension Optional: Monotonic where Wrapped: Monotonic {
 
   mutating func updateMonotonically(_ other: Self) {
     guard let v = other else {
-      assert(self == nil, "non-monotonic update")
+      precondition(self == nil, "non-monotonic update")
       return
     }
 
@@ -40,7 +40,7 @@ extension Optional: Monotonic where Wrapped: Monotonic {
 extension Array: Monotonic where Element: Monotonic {
 
   mutating func updateMonotonically(_ other: [Element]) {
-    assert(elementsEqual(other.prefix(count)))
+    precondition(elementsEqual(other.prefix(count)))
     append(contentsOf: other.suffix(from: count))
   }
 
@@ -78,7 +78,7 @@ extension Memo: Monotonic where T: Monotonic {
 
   mutating func updateMonotonically(_ other: Self) {
     guard let v = other.computed else {
-      assert(self == .inProgress, "non-monotonic update")
+      precondition(self == .inProgress, "non-monotonic update")
       return
     }
 

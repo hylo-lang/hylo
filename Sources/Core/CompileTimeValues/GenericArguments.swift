@@ -79,7 +79,7 @@ public struct GenericArguments: Hashable {
   /// Returns `self` merged with `other`, asserting that duplicate keys have the same value.
   public func merging(_ other: Self) -> Self {
     merging(other) { (a, b) in
-      assert(a == b)
+      precondition(a == b)
       return a
     }
   }

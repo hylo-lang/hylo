@@ -14,7 +14,7 @@ extension Module {
 
   private mutating func reify(callBundle i: InstructionID, for k: AccessEffect) {
     let s = self[i] as! CallBundle
-    assert(s.capabilities.contains(k))
+    precondition(s.capabilities.contains(k))
 
     var arguments = Array(s.arguments)
     let r = makeAccess(k, from: arguments[0], at: s.site)

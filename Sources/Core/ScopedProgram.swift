@@ -47,7 +47,7 @@ private struct ScopeVisitor: ASTWalkObserver {
 
   /// Inserts `child` into `scope`.
   private mutating func insert(child: AnyNodeID, into scope: AnyScopeID) {
-    assert(child.kind != ModuleDecl.self)
+    precondition(child.kind != ModuleDecl.self)
     nodeToScope[child] = scope
 
     if let d = AnyDeclID(child) {
@@ -96,7 +96,7 @@ private struct ScopeVisitor: ASTWalkObserver {
   mutating func willExit(_ n: AnyNodeID, in ast: AST) {
     if let d = BindingDecl.ID(n) {
       let x = bindingDecls.removeLast() == d
-      assert(x)
+      precondition(x)
     }
     if let s = AnyScopeID(n) {
       innermost = nodeToScope[s]!
@@ -144,7 +144,7 @@ private struct ScopeVisitor: ASTWalkObserver {
   }
 
   private mutating func visit(moduleDecl d: ModuleDecl.ID, in ast: AST) -> Bool {
-    assert(innermost == nil)
+    precondition(innermost == nil)
 
     innermost = AnyScopeID(d)
     ast.traverse(ast[d], notifying: &self)

@@ -270,7 +270,7 @@ struct Emitter {
     self.frames.push()
     defer {
       self.frames.pop()
-      assert(self.frames.isEmpty)
+      precondition(self.frames.isEmpty)
     }
 
     let site = ast[d].site
@@ -676,7 +676,7 @@ struct Emitter {
     self.frames.push()
     defer {
       self.frames.pop()
-      assert(self.frames.isEmpty)
+      precondition(self.frames.isEmpty)
     }
 
     // The receiver is a sink parameter representing the object to deinitialize.
@@ -699,7 +699,7 @@ struct Emitter {
     self.frames.push()
     defer {
       self.frames.pop()
-      assert(self.frames.isEmpty)
+      precondition(self.frames.isEmpty)
     }
 
     let receiver = Operand.parameter(entry, 0)
@@ -813,7 +813,7 @@ struct Emitter {
     self.frames.push()
     defer {
       self.frames.pop()
-      assert(self.frames.isEmpty)
+      precondition(self.frames.isEmpty)
     }
 
     let receiver = Operand.parameter(entry, 0)
@@ -840,7 +840,7 @@ struct Emitter {
     self.frames.push()
     defer {
       self.frames.pop()
-      assert(self.frames.isEmpty)
+      precondition(self.frames.isEmpty)
     }
 
     let source = Operand.parameter(entry, 0)
@@ -942,7 +942,7 @@ struct Emitter {
     self.frames.push()
     defer {
       self.frames.pop()
-      assert(self.frames.isEmpty)
+      precondition(self.frames.isEmpty)
     }
 
     let storage = Operand.parameter(entry, 0)
@@ -968,7 +968,7 @@ struct Emitter {
     self.frames.push()
     defer {
       self.frames.pop()
-      assert(self.frames.isEmpty)
+      precondition(self.frames.isEmpty)
     }
 
     // Emit the body.
@@ -1468,7 +1468,7 @@ struct Emitter {
 
   /// Inserts the IR for storing the value of `e` to `storage`.
   private mutating func emitStore(upcast e: CastExpr.ID, to storage: Operand) {
-    assert(ast[e].direction == .up)
+    precondition(ast[e].direction == .up)
     let target = canonical(program[e].type)
     let source = canonical(program[ast[e].left].type)
 
@@ -1493,7 +1493,7 @@ struct Emitter {
 
   /// Inserts the IR for storing the value of `e` to `storage`.
   private mutating func emitStore(downcast e: CastExpr.ID, to storage: Operand) {
-    assert(ast[e].direction == .down)
+    precondition(ast[e].direction == .down)
     let target = program[ast[e].right].type
 
     // Store the LHS to `storage` if it already has the desired type.
@@ -1957,7 +1957,7 @@ struct Emitter {
   ) -> [Operand] {
     let parameters = (canonical(program[callee].type).base as! CallableType).inputs
     let inputs = program.callOperands[call]!
-    assert(parameters.count == inputs.count)
+    precondition(parameters.count == inputs.count)
 
     // Nothing to do if the callee has no parameter.
     if parameters.isEmpty { return [] }
@@ -2676,7 +2676,7 @@ struct Emitter {
       return s
     }
 
-    assert(program.isGlobal(d), "unhandled local declaration")
+    precondition(program.isGlobal(d), "unhandled local declaration")
 
     switch d.kind {
     case GenericParameterDecl.self:

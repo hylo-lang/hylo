@@ -649,7 +649,7 @@ extension Module {
         e.insertionPoint = .end(of: entry)
         e.emitStore(int: w, to: .register(s), at: insertionSite)
       }
-      assert(log.isEmpty)
+      precondition(log.isEmpty)
 
       genericValues[k] = s
     }

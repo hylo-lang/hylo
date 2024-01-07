@@ -192,9 +192,9 @@ extension Module {
 
       switch callee.receiverEffect {
       case .let:
-        assert(f.isConstant || self[f.instruction!].isAccess(callee.receiverEffect))
+        precondition(f.isConstant || self[f.instruction!].isAccess(callee.receiverEffect))
       case .inout:
-        assert(self[f.instruction!].isAccess(callee.receiverEffect))
+        precondition(self[f.instruction!].isAccess(callee.receiverEffect))
       default:
         UNIMPLEMENTED()
       }
@@ -207,7 +207,7 @@ extension Module {
         case .sink:
           sink(a, with: i, in: &context)
         case let request:
-          assert(self[a.instruction!].isAccess(request))
+          precondition(self[a.instruction!].isAccess(request))
         }
       }
 
@@ -518,14 +518,14 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(yield i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! Yield
-      assert(self[s.projection.instruction!].isAccess(s.capability))
+      precondition(self[s.projection.instruction!].isAccess(s.capability))
       return successor(of: i)
     }
 
     /// Updates `context` to mark all objects at `source`, which is an `access [.set]`, as having
     /// been fully initialized.
     func initialize(_ source: Operand, in context: inout Context) {
-      assert(self[source.instruction!].isAccess(.set), "bad source")
+      precondition(self[source.instruction!].isAccess(.set), "bad source")
       context.forEachObject(at: source) { (o) in
         o.value = .full(.initialized)
       }
@@ -534,7 +534,7 @@ extension Module {
     /// Updates `context` to mark all objects at `source`, which is an `access [.sink]`, as having
     /// been consumed by `consumer`.
     func sink(_ source: Operand, with consumer: InstructionID, in context: inout Context) {
-      assert(self[source.instruction!].isAccess(.sink), "bad source")
+      precondition(self[source.instruction!].isAccess(.sink), "bad source")
 
       // Built-in values are copied implicitly.
       if !type(of: source).ast.isBuiltin {
@@ -612,7 +612,7 @@ extension Module {
     ) {
       // Skip the instruction if an error occurred upstream.
       guard let v = context.locals[start] else {
-        assert(diagnostics.containsError)
+        precondition(diagnostics.containsError)
         return
       }
 
@@ -621,13 +621,13 @@ extension Module {
 
       switch access {
       case .let, .inout:
-        assert(projection.value == .full(.initialized) || !projection.value.consumers.isEmpty)
+        precondition(projection.value == .full(.initialized) || !projection.value.consumers.isEmpty)
         for c in projection.value.consumers {
           diagnostics.insert(.error(cannotConsume: access, at: self[c].site))
         }
 
       case .set:
-        assert(projection.value == .full(.initialized) || !projection.value.consumers.isEmpty)
+        precondition(projection.value == .full(.initialized) || !projection.value.consumers.isEmpty)
         for c in projection.value.consumers {
           diagnostics.insert(.error(cannotConsume: access, at: self[c].site))
         }
@@ -756,7 +756,7 @@ extension Context {
     let locations = locals[a]!.unwrapLocations()!
 
     let v = withObject(at: locations.first!, \.value)
-    assert(
+    precondition(
       locations.allSatisfy({ (l) in withObject(at: l, { $0.value == v }) }),
       "bad context")
 
@@ -939,7 +939,7 @@ extension AbstractObject.Value where Domain == State {
       return .full(lhs && rhs)
 
     case (.partial(let lhs), .partial(let rhs)):
-      assert(lhs.count == rhs.count)
+      precondition(lhs.count == rhs.count)
       return .partial(zip(lhs, rhs).map(&&))
 
     case (.partial(let lhs), _):
@@ -981,7 +981,7 @@ extension AbstractObject.Value where Domain == State {
 
     case (.partial(let lhs), .partial(let rhs)):
       // LHS and RHS are partially initialized.
-      assert(lhs.count == rhs.count)
+      precondition(lhs.count == rhs.count)
       return (0 ..< lhs.count).reduce(into: []) { (result, i) in
         result.append(contentsOf: (lhs[i] - rhs[i]).map({ [i] + $0 }))
       }

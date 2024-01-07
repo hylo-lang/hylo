@@ -516,7 +516,7 @@ extension LLVM.Module {
     _ llvmParameters: LLVM.Function.Parameters.SubSequence,
     transpiledFrom f: IR.Function.ID, in m: IR.Module
   ) {
-    assert(llvmParameters.count == m[f].inputs.count)
+    precondition(llvmParameters.count == m[f].inputs.count)
     for (p, l) in llvmParameters.enumerated() {
       configureInputAttributes(l, transpiledFrom: p, in: f, in: m)
     }
@@ -808,7 +808,7 @@ extension LLVM.Module {
     func insert(endProjection i: IR.InstructionID) {
       let s = m[i] as! EndProject
       let start = s.start.instruction!
-      assert(m[start] is Project)
+      precondition(m[start] is Project)
 
       let t = LLVM.FunctionType(from: [ptr, i1], to: void, in: &self)
       let p = byproduct[start]!

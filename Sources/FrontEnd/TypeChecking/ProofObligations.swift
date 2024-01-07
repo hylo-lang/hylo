@@ -29,19 +29,19 @@ struct ProofObligations {
   /// Assigns `t` to `self.varType[d]`.
   mutating func assign(_ t: AnyType, to d: AnyDeclID) {
     let b = declType.updateValue(t, forKey: d)
-    assert(b == nil, "non-monotonic update")
+    precondition(b == nil, "non-monotonic update")
   }
 
   /// Assigns `t` to `self.exprType[e]`.
   mutating func assign(_ t: AnyType, to e: AnyExprID) {
     let b = exprType.updateValue(t, forKey: e)
-    assert(b == nil, "non-monotonic update")
+    precondition(b == nil, "non-monotonic update")
   }
 
   /// Assigns `r` to `self.referredDecl[n]`.
   mutating func assign(_ r: DeclReference, to n: NameExpr.ID) {
     let b = referredDecl.updateValue(r, forKey: n)
-    assert(b == nil, "non-monotonic update")
+    precondition(b == nil, "non-monotonic update")
   }
 
   /// Inserts `c` into this set.

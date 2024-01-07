@@ -480,7 +480,7 @@ struct TypeChecker {
   func cachedConformance(
     of model: AnyType, to trait: TraitType, exposedTo scopeOfUse: AnyScopeID
   ) -> Conformance? {
-    assert(model[.isCanonical])
+    precondition(model[.isCanonical])
 
     // `A<X>: T` iff `A: T`.
     if let t = BoundGenericType(model) {
@@ -541,7 +541,7 @@ struct TypeChecker {
   private mutating func originsOfConformance(
     of model: AnyType, to trait: TraitType, exposedTo scopeOfUse: AnyScopeID
   ) -> [ConformanceOrigin] {
-    assert(model[.isCanonical])
+    precondition(model[.isCanonical])
 
     var result: [ConformanceOrigin]
 
@@ -666,7 +666,7 @@ struct TypeChecker {
     func transform<T: TypeProtocol, D: GenericScope>(
       mutating me: inout Self, _ t: T, declaredBy d: D.ID
     ) -> AnyType {
-      assert(!(t is TraitType))
+      precondition(!(t is TraitType))
       let parameters = me.program[d].genericParameters
       if parameters.isEmpty {
         return ^t
@@ -1060,7 +1060,7 @@ struct TypeChecker {
 
   /// Type checks `d`, which declares a lambda, after its type has been inferred.
   private mutating func checkPostInference(_ d: FunctionDecl.ID, solution: Solution) {
-    assert(program[d].isInExprContext, "expected lambda")
+    precondition(program[d].isInExprContext, "expected lambda")
     for c in program[d].explicitCaptures {
       reifyUncheckedType(of: c, withAssignmentsIn: solution)
     }
@@ -1677,7 +1677,7 @@ struct TypeChecker {
         expectedType = a.type
       }
 
-      assert(expectedType[.isCanonical] && b.type[.isCanonical])
+      precondition(expectedType[.isCanonical] && b.type[.isCanonical])
       if program[d].isDefinition && (b.type == expectedType) {
         s.append(AnyDeclID(d))
       }
@@ -1692,7 +1692,7 @@ struct TypeChecker {
     let inserted = modify(&traitToConformance[c.concept, default: []]) { (s) in
       if !s.contains(where: { program.areOverlapping($0.scope, c.scope) }) {
         let i = s.insert(c).inserted
-        assert(i)
+        precondition(i)
         return true
       } else {
         return false
@@ -1743,7 +1743,7 @@ struct TypeChecker {
     defer {
       cache.declsUnderChecking.remove(AnyDeclID(d))
       cache.declsUnderChecking.subtract(names)
-      assert(names.allSatisfy({ cache.local.declType[$0] != nil }))
+      precondition(names.allSatisfy({ cache.local.declType[$0] != nil }))
     }
 
     var obligations = ProofObligations(scope: program[d].scope)
@@ -2179,7 +2179,7 @@ struct TypeChecker {
     /// Commits `t` as the unchecked type of `d` to the local cache.
     func commit(_ t: AnyType) -> AnyType {
       modify(&cache.uncheckedType[d]!) { (old) in
-        if let u = old.computed { assert(u == t, "non-monotonic update") }
+        if let u = old.computed { precondition(u == t, "non-monotonic update") }
         old = .computed(t)
       }
       return t
@@ -2244,7 +2244,7 @@ struct TypeChecker {
       return ^LambdaType(receiverEffect: k, environment: ^e, inputs: inputs, output: output)
     }
 
-    assert(program[d].receiver == nil)
+    precondition(program[d].receiver == nil)
     let captures = uncheckedCaptureTypes(of: d)
     let e = TupleType(captures.explicit + captures.implicit)
     return ^LambdaType(environment: ^e, inputs: inputs, output: output)
@@ -2328,7 +2328,7 @@ struct TypeChecker {
     }
 
     let k = program[d].introducer.value
-    assert(bundle.capabilities.contains(k))
+    precondition(bundle.capabilities.contains(k))
 
     let r = bundle.receiver
     cache.write(^ParameterType(k, r), at: \.declType[program[d].receiver])
@@ -2424,7 +2424,7 @@ struct TypeChecker {
     }
 
     let k = program[d].introducer.value
-    assert(bundle.capabilities.contains(k))
+    precondition(bundle.capabilities.contains(k))
 
     let t = bundle.transformParts { (t) in
       switch t.base {
@@ -2922,7 +2922,7 @@ struct TypeChecker {
       return eval(existentialBound: n)
     } else {
       let t = evalTypeAnnotation(e)
-      assert(!(t.base is BoundGenericType), "unexpected bound generic type")
+      precondition(!(t.base is BoundGenericType), "unexpected bound generic type")
       return (t, [])
     }
   }
@@ -3542,7 +3542,7 @@ struct TypeChecker {
         c!.typeToExtension[extended, default: []].append(d)
       }
 
-      assert(c!.unbound[i])
+      precondition(c!.unbound[i])
       c!.unbound[i] = false
     }
 
@@ -4157,7 +4157,7 @@ struct TypeChecker {
     reportingDiagnosticsTo log: inout DiagnosticSet
   ) -> GenericArguments {
     if let g = BoundGenericType(t) {
-      assert(arguments.isEmpty, "generic declaration bound twice")
+      precondition(arguments.isEmpty, "generic declaration bound twice")
       return g.arguments
     } else {
       let p = program.ast.genericParameters(introducedBy: d)
@@ -4313,7 +4313,7 @@ struct TypeChecker {
   /// Returns the trait of which `d` is a member, or `nil` if `d` isn't member of a trait.
   mutating func traitDeclaring<T: DeclID>(_ d: T) -> TraitType? {
     guard let p = program.nodeToScope[d] else {
-      assert(d.kind == ModuleDecl.self)
+      precondition(d.kind == ModuleDecl.self)
       return nil
     }
 
@@ -4572,7 +4572,7 @@ struct TypeChecker {
     guard let i = program[d].initializer else {
       switch purpose {
       case .irrefutable:
-        assert(p.annotation != nil, "expected type annotation")
+        precondition(p.annotation != nil, "expected type annotation")
         if !p.introducer.value.isConsuming && program.isLocal(d) {
           report(.error(binding: p.introducer.value, requiresInitializerAt: p.introducer.site))
           return .error
@@ -4581,7 +4581,7 @@ struct TypeChecker {
         }
 
       case .condition:
-        assert(p.annotation != nil, "expected type annotation")
+        precondition(p.annotation != nil, "expected type annotation")
         return pattern
 
       case .filter:
@@ -4590,7 +4590,7 @@ struct TypeChecker {
     }
 
     // Note: `i` should not have been assigned a type if before `d` is checked.
-    assert(cache.local.exprType[i] == nil)
+    precondition(cache.local.exprType[i] == nil)
     let initializer = constrain(i, to: ^freshVariable(), in: &obligations)
 
     // If `d` has no annotation, its type is inferred as that of its initializer. Otherwise, the
@@ -4621,7 +4621,7 @@ struct TypeChecker {
   ) -> AnyType {
     // Preserve choices already committed to the AST.
     if let t = cache.local.exprType[e] { return t }
-    defer { assert(obligations.exprType[e] != nil) }
+    defer { precondition(obligations.exprType[e] != nil) }
 
     switch e.kind {
     case BooleanLiteralExpr.self:
@@ -5253,7 +5253,7 @@ struct TypeChecker {
     ofCallee callee: AnyExprID, usedAs purpose: NameUse, withHint hint: AnyType?,
     updating obligations: inout ProofObligations
   ) -> AnyType {
-    assert(purpose != .unapplied)
+    precondition(purpose != .unapplied)
     if let e = NameExpr.ID(callee) {
       return _inferredType(of: e, inImplicitScope: hint, usedAs: purpose, updating: &obligations)
     } else {
@@ -5555,7 +5555,7 @@ struct TypeChecker {
     _ e: T, to t: AnyType, in obligations: inout ProofObligations
   ) -> AnyType {
     if t[.hasError] { obligations.setUnsatisfiable() }
-    assert(cache.local.exprType[e] == nil, "type already inferred")
+    precondition(cache.local.exprType[e] == nil, "type already inferred")
 
     // Accumulate constraints on previous choices.
     if let u = obligations.exprType[e] {
@@ -5625,7 +5625,7 @@ struct TypeChecker {
     }
 
     report(solution.diagnostics.elements)
-    assert(solution.isSound || diagnostics.containsError, "inference failed without diagnostics")
+    precondition(solution.isSound || diagnostics.containsError, "inference failed without diagnostics")
   }
 
   /// Commits `r` in the program, where `r` is the name resolution result for a name component

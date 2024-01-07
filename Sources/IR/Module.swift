@@ -304,7 +304,7 @@ public struct Module {
 
     // Determine if the new function is the module's entry.
     if program.isModuleEntry(d) {
-      assert(entryFunction == nil)
+      precondition(entryFunction == nil)
       entryFunction = f
     }
 
@@ -625,7 +625,7 @@ public struct Module {
   @discardableResult
   mutating func appendEntry<T: ScopeID>(in scope: T, to f: Function.ID) -> Block.ID {
     let ir = functions[f]!
-    assert(ir.blocks.isEmpty)
+    precondition(ir.blocks.isEmpty)
 
     // In functions, the last parameter of the entry denotes the function's return value.
     var parameters = ir.inputs.map({ IR.`Type`.address($0.type.bareType) })

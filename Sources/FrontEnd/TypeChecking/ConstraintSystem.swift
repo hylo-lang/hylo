@@ -156,7 +156,7 @@ struct ConstraintSystem {
   /// Records the outcome `o` for the goal `key`.
   private mutating func setOutcome(_ o: Outcome?, for key: GoalIdentity) {
     log(outcome: o)
-    assert(outcomes[key] == nil)
+    precondition(outcomes[key] == nil)
     outcomes[key] = o
 
     if isFailureRoot(key) {
@@ -168,7 +168,7 @@ struct ConstraintSystem {
   ///
   /// - Requires: There is no fresh goal to solve left.
   private mutating func formSolution() -> Solution {
-    assert(outcomes.enumerated().allSatisfy({ (i, o) in (o != nil) || stale.contains(i) }))
+    precondition(outcomes.enumerated().allSatisfy({ (i, o) in (o != nil) || stale.contains(i) }))
     for g in stale {
       setOutcome(.failure({ (_, _, _) in () }), for: g)
     }
@@ -228,7 +228,7 @@ struct ConstraintSystem {
   ///   not a type variable.
   private mutating func solve(structuralConformance goal: ConformanceConstraint) -> Outcome {
     let model = checker.canonical(goal.model, in: scope)
-    assert(!(model.base is TypeVariable))
+    precondition(!(model.base is TypeVariable))
 
     switch model.base {
     case let t as LambdaType:
@@ -750,7 +750,7 @@ struct ConstraintSystem {
       return nil
     }
 
-    assert(pairings.count == callee.inputs.count)
+    precondition(pairings.count == callee.inputs.count)
     if i == goal.arguments.count {
       return (constraints, pairings)
     } else {

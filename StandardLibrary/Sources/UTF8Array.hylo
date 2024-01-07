@@ -100,7 +100,7 @@ public extension UTF8Array {
   property unsafe_heap_payload: {start: Pointer<Int8>, count: Int} {
     let {
       // TODO: uncomment when #1046 is implemented
-      // assert(!is_inline())
+      // precondition(!is_inline())
       let buffer = Pointer<Int>(
         bit_pattern: UInt(truncating_or_extending: units & ~((0xff as UInt64) << 56)))
       yield (

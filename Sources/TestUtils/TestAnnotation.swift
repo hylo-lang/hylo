@@ -135,7 +135,7 @@ public struct TestAnnotation: Hashable {
         }
 
         // Otherwise, check if the next character is `!` or interpret as a regular block comment.
-        assert(indexAfterAnnotationBlockOpener == nil)
+        precondition(indexAfterAnnotationBlockOpener == nil)
         if (index != stream.endIndex) && (stream[index] == "!") {
           indexAfterAnnotationBlockOpener = stream.index(after: index)
         }

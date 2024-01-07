@@ -143,7 +143,7 @@ public struct Driver: ParsableCommand {
     do {
       try executeCommand(diagnostics: &diagnostics)
     } catch let d as DiagnosticSet {
-      assert(d.containsError, "Diagnostics containing no errors were thrown")
+      precondition(d.containsError, "Diagnostics containing no errors were thrown")
       return (ExitCode.failure, diagnostics)
     }
     return (ExitCode.success, diagnostics)
@@ -241,7 +241,7 @@ public struct Driver: ParsableCommand {
 
     // Executables
 
-    assert(outputType == .binary)
+    precondition(outputType == .binary)
 
     let objectDir = try FileManager.default.makeTemporaryDirectory()
     let objectFiles = try llvmProgram.write(.objectFile, to: objectDir)

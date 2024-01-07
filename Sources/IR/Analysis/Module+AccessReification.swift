@@ -125,7 +125,7 @@ extension Module {
   /// Narrows the capabilities requested by `i`, which is an `access` instruction, to just `k`.
   private mutating func reify(access i: InstructionID, as k: AccessEffect) {
     let s = self[i] as! Access
-    assert(s.capabilities.contains(k))
+    precondition(s.capabilities.contains(k))
 
     // Nothing to do if the request set is already a singleton.
     if s.capabilities == [k] { return }
@@ -136,7 +136,7 @@ extension Module {
 
   private mutating func reify(projectBundle i: InstructionID, as k: AccessEffect) {
     let s = self[i] as! ProjectBundle
-    assert(s.capabilities.contains(k))
+    precondition(s.capabilities.contains(k))
 
     // Generate the proper instructions to prepare the projection's arguments.
     var arguments = s.operands

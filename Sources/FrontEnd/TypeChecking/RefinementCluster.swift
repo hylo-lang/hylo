@@ -39,7 +39,7 @@ struct RefinementCluster: Equatable {
   ///   the cluster.
   mutating func insert(_ t: TraitType, refining u: TraitType) {
     if t == u { return }
-    assert(!refinements.isReachable(u, from: t), "refinement cycle")
+    precondition(!refinements.isReachable(u, from: t), "refinement cycle")
     refinements.insertEdge(from: u, to: t)
     unordered.insert(t)
   }
