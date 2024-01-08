@@ -126,6 +126,8 @@ struct ConstraintSystem {
       setOutcome(solve(member: g), for: g)
     case is TupleMemberConstraint:
       setOutcome(solve(tupleMember: g), for: g)
+    case is AssociatedMemberConstraint:
+      setOutcome(solve(associatedMember: g), for: g)
     case is CallConstraint:
       setOutcome(solve(call: g), for: g)
     case is MergingConstraint:
@@ -275,11 +277,32 @@ struct ConstraintSystem {
   /// Returns eiteher `.success` if `g.left` is unifiable with `g.right` or `.failure` otherwise.
   private mutating func solve(equality g: GoalIdentity) -> Outcome {
     let goal = goals[g] as! EqualityConstraint
+
+    if goal.left[.hasVariable], let a = AssociatedTypeType(goal.left) {
+      return delegate(equalityOnAssociatedType: goal, between: a, goal.right)
+    }
+    if goal.right[.hasVariable], let a = AssociatedTypeType(goal.right) {
+      return delegate(equalityOnAssociatedType: goal, between: a, goal.left)
+    }
+
     if unify(goal.left, goal.right) {
       return .success
     } else {
       return .failure(failureToSolve(goal))
     }
+  }
+
+  /// Returns the outcome of breaking down `goal`, which is an equality constraint between on an
+  /// associated type `a` and an arbitrary type `b`, into an associated member constraint.
+  private mutating func delegate(
+    equalityOnAssociatedType goal: EqualityConstraint,
+    between a: AssociatedTypeType, _ b: AnyType
+  ) -> Outcome {
+    let c = AssociatedMemberConstraint(
+      a.domain, hasAssociatedMember: b, declaredBy: a.decl, in: checker.program.ast,
+      origin: goal.origin.subordinate())
+    let s = schedule(c)
+    return delegate(to: [s])
   }
 
   /// Returns a closure diagnosing a failure to solve `goal`.
@@ -663,6 +686,26 @@ struct ConstraintSystem {
       let s = m.reify(goal.subject)
       d.insert(.error(undefinedName: goal.elementIndex, in: s, at: goal.origin.site))
     }
+  }
+
+  /// Returns the goal simplifying `g` as an equality constraint between `g.memberType` and the
+  /// implementation of the associated type `g.memberDecl` in `g.subject`.
+  private mutating func solve(associatedMember g: GoalIdentity) -> Outcome? {
+    let goal = goals[g] as! AssociatedMemberConstraint
+
+    if goal.subject.base is TypeVariable {
+      postpone(g)
+      return nil
+    }
+
+    let p = checker.program.ast[TraitDecl.ID(checker.program[goal.memberDecl].scope)!].receiver
+    let z = GenericArguments(uniqueKeysWithValues: [(p, .type(goal.subject))])
+    let l = checker.specialize(
+      ^AssociatedTypeType(goal.memberDecl, domain: goal.subject, ast: checker.program.ast),
+       for: z, in: scope)
+
+    let s = schedule(EqualityConstraint(l, goal.memberType, origin: goal.origin.subordinate()))
+    return delegate(to: [s])
   }
 
   /// Returns either `.success` if `g.callee` is a callable type with parameters `g.parameters`
