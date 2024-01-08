@@ -1,0 +1,88 @@
+/// A future that cannot escape the local scope.
+public type Future<E> {
+
+  // TODO
+  public typealias Result = Int
+
+  /// The base frame object needed by the underlying implementation. 
+  private var base_frame: SpawnFrameBase
+
+  /// What needs to be called to produce the value in the future.
+  private var f: FunctionWrapper<E, Int>
+
+  /// The result of the computation.
+  private var r: Optional<Int>
+
+  /// Initializes `self` with `f`, and spawns the computation.
+  public init(_ f: sink FunctionWrapper<E, Int>) {
+    &self.f = f
+    let local_f = fun (_ frame: SpawnFrameBase) -> Void {
+      inout self = PointerToMutable<Self>(type_punning: mutable_pointer[to: frame]).unsafe[]
+      &self.do_call()
+    }
+    concore2full_spawn2(self.base_frame, local_f)
+  }
+
+  /// Awaits the result of the computation.
+  ///
+  /// - Note: May return on a different OS thread than the one that called this.
+  public fun await() sink -> Result {
+    concore2full_await(self.base_frame)
+
+    if let r: Int = self.r {
+      return r.copy()
+    } else {
+      fatal_error()
+      return 0 // TODO: without this we get: "set parameter not initialized before function returns"
+    }
+  }
+
+  private fun do_call() inout {
+    &r = self.f.f()
+  }
+
+}
+
+/// Describes the frame needed to spawn a computation. Mimics the C implementation.
+type SpawnFrameBase: Deinitializable {
+
+  let task_function: MemoryAddress
+
+  let next_task: MemoryAddress
+
+  let sync_state: Int32
+
+  let originator_context: MemoryAddress
+
+  let originator_thread_reclaimer: MemoryAddress
+
+  let target_context: MemoryAddress
+
+  let target_thread_reclaimer: MemoryAddress
+
+  let user_function: MemoryAddress
+
+  init() {}
+
+}
+
+// TODO: #1246
+type FunctionWrapper<E, R>: Movable, Deinitializable {
+
+  let f: [E]()->R
+
+  memberwise init
+
+}
+
+// @external("concore2full_spawn")
+// fun concore2full_spawn(_ frame: set SpawnFrameBase, _ f: Int); // TODO: f is a pointer to a function
+
+/// Spawns the execution of `f` using control data `frame`.
+@external("concore2full_spawn2")
+fun concore2full_spawn2(_ frame: set SpawnFrameBase, _ f: [](SpawnFrameBase) let -> Void);
+
+/// Awaits the completion of the computation started in `frame`.
+@external("concore2full_await")
+fun concore2full_await(_ frame: SpawnFrameBase);
+
