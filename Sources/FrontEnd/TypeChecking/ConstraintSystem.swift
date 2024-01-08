@@ -232,7 +232,7 @@ struct ConstraintSystem {
 
     switch model.base {
     case let t as LambdaType:
-      return delegate(structuralConformance: goal, for: t.captures.lazy.map(\.type))
+      return delegate(structuralConformance: goal, for: [t.environment])
     case let t as TupleType:
       return delegate(structuralConformance: goal, for: t.elements.lazy.map(\.type))
     case let t as UnionType:

@@ -403,7 +403,7 @@ struct TypeChecker {
       // FIXME: To remove once conditional conformance is implemented
       return conforms(m.element, to: trait, in: scopeOfUse)
     case let m as LambdaType:
-      return m.captures.allSatisfy({ conforms($0.type, to: trait, in: scopeOfUse) })
+      return conforms(m.environment, to: trait, in: scopeOfUse)
     case is MetatypeType:
       return true
     case let m as ProductType:

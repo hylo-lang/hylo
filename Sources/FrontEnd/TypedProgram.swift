@@ -441,7 +441,7 @@ public struct TypedProgram {
       // FIXME: To remove once conditional conformance is implemented
       guard conforms(m.element, to: concept, in: scopeOfUse) else { return nil }
     case let m as LambdaType:
-      guard allConform(m.captures.map(\.type), to: concept, in: scopeOfUse) else { return nil }
+      guard conforms(m.environment, to: concept, in: scopeOfUse) else { return nil }
     case let m as TupleType:
       guard allConform(m.elements.map(\.type), to: concept, in: scopeOfUse) else { return nil }
     case let m as UnionType:
