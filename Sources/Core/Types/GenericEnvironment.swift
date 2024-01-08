@@ -39,6 +39,11 @@ public struct GenericEnvironment {
     self.parameters = parameters
   }
 
+  /// Returns the set of types in `t`'s equivalence class.
+  public func equivalences(of t: AnyType) -> Set<AnyType> {
+    ledger[t].map(default: [], { (i) in entries[i].equivalences })
+  }
+
   /// Returns the set of traits to which `type` conforms in t`self`.
   public func conformedTraits(of type: AnyType) -> Set<TraitType> {
     if let i = ledger[type] {

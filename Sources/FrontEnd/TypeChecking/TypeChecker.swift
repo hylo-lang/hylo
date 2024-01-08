@@ -132,7 +132,45 @@ struct TypeChecker {
 
   /// Returns `true` iff `t` and `u` are equivalent types in `scopeOfUse`.
   mutating func areEquivalent(_ t: AnyType, _ u: AnyType, in scopeOfUse: AnyScopeID) -> Bool {
-    canonical(t, in: scopeOfUse) == canonical(u, in: scopeOfUse)
+    let lhs = canonical(t, in: scopeOfUse)
+    let rhs = canonical(u, in: scopeOfUse)
+
+    switch (lhs.base, rhs.base) {
+    case (let a as AssociatedTypeType, _):
+      return areEquivalent(a, rhs, in: scopeOfUse)
+    case (_, let a as AssociatedTypeType):
+      return areEquivalent(a, lhs, in: scopeOfUse)
+    default :
+      return lhs == rhs
+    }
+  }
+
+  /// Returns `true` iff `t` and `u`, which are canonical, are equivalent types in `scopeOfUse`.
+  private mutating func areEquivalent(
+    _ t: AssociatedTypeType, _ u: AnyType, in scopeOfUse: AnyScopeID
+  ) -> Bool {
+    // Handle trivial cases.
+    if let v = AssociatedTypeType(u), t == v { return true }
+
+    // Go through equivalence classes.
+    for s in program.scopes(from: scopeOfUse) where s.isGenericScope {
+      let e = environment(of: s)!
+      if areEquivalent(t, u, in: e) { return true }
+
+      let d = AnyDeclID(s)!
+      if d.isTypeExtendingDecl, let g = environment(introducedByDeclOf: uncheckedType(of: d)) {
+        if areEquivalent(t, u, in: g) { return true }
+      }
+    }
+    return false
+  }
+
+  /// Returns `true` iff `t` and `u`, which are canonical, are equivalent types in `scopeOfUse`.
+  private mutating func areEquivalent(
+    _ t: AssociatedTypeType, _ u: AnyType, in e: GenericEnvironment
+  ) -> Bool {
+    assert(t[.isCanonical] && u[.isCanonical])
+    return e.equivalences(of: ^t).contains(where: { (v) in (v != t) && (v == u) })
   }
 
   /// Returns `true` iff `t` is a refinement of `u` and `t != u`.

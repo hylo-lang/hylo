@@ -938,7 +938,7 @@ struct ConstraintSystem {
       return unify(t, checker.canonical(u, in: scope))
     }
 
-    return t == u
+    return checker.areEquivalent(t, u, in: scope)
   }
 
   /// Extends the type substution table to map `tau` to `substitute`.
