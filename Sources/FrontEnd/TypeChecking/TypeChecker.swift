@@ -2545,7 +2545,7 @@ struct TypeChecker {
   /// Computes and returns the types of the inputs of `e`'s underlying declaration, using `hint`
   /// to guess the passing conventions of unanotated parameters.
   ///
-  /// `hint` is used as contextual information to refine guesses if it is a lambda type with the
+  /// `hint` is used as contextual information to refine guesses iff it is a lambda type with the
   /// same number of parameters as `e`. Parameter annotations take precedence in case of conflict.
   ///
   /// After the call, `cache.uncheckedType[p]` may be assigned to a type variable if `p` has no
