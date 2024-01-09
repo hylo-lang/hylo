@@ -2888,7 +2888,7 @@ struct TypeChecker {
     if program[e].isAutoclosure {
       let s = program[program[e].bareType].site
       guard let u = ArrowType(t), u.inputs.isEmpty else {
-        report(.error(autoclosureExpectsEmptyArrowAt: s, given: t))
+        report(.error(autoclosureExpectsEmptyEnvironment: s, given: t))
         return .error
       }
     }
