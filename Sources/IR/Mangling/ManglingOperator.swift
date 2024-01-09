@@ -86,7 +86,7 @@ public enum ManglingOperator: String {
 
   case methodType = "hT"
 
-  case lambdaType = "lT"
+  case arrowType = "lT"
 
   case metatypeType = "mT"
 

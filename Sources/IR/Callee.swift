@@ -9,8 +9,8 @@ enum Callee {
   /// A reference to a variant in a method bundle.
   case bundle(BundleReference<MethodDecl>)
 
-  /// A lambda.
-  case lambda(Operand)
+  /// An arrow.
+  case arrow(Operand)
 
   /// Creates an instance representing a reference to the lowered form of `d` in `module`,
   /// specialized by`a` in `scopeOfUse`.

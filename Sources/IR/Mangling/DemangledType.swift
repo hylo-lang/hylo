@@ -16,6 +16,13 @@ public indirect enum DemangledType: Hashable {
   /// The `Void` type.
   case void
 
+  /// An arrow type.
+  case arrow(
+    effect: AccessEffect,
+    environment: DemangledType,
+    inputs: [Parameter],
+    output: DemangledType)
+
   /// An associated type.
   case associatedType(domain: DemangledType, name: String)
 
@@ -35,13 +42,6 @@ public indirect enum DemangledType: Hashable {
   case existentialTrait([DemangledType])
 
   /// An existential trait type.
-
-  /// A lambda type.
-  case lambda(
-    effect: AccessEffect,
-    environment: DemangledType,
-    inputs: [Parameter],
-    output: DemangledType)
 
   /// A metatype.
   case metatype(DemangledType)
@@ -94,6 +94,12 @@ extension DemangledType: CustomStringConvertible {
     case .void:
       return "Void"
 
+    case .arrow(let effect, let environment, let inputs, let output):
+      let i = inputs.map { (p) -> String in
+        (p.label.map({ $0 + ": " }) ?? "") + p.type.description
+      }
+      return "[\(environment)](\(list: i) \(effect) -> \(output)"
+
     case .associatedType(let domain, let name):
       return "\(domain).\(name)"
 
@@ -111,12 +117,6 @@ extension DemangledType: CustomStringConvertible {
 
     case .existentialTrait(let interface):
       return "any \(list: interface)"
-
-    case .lambda(let effect, let environment, let inputs, let output):
-      let i = inputs.map { (p) -> String in
-        (p.label.map({ $0 + ": " }) ?? "") + p.type.description
-      }
-      return "[\(environment)](\(list: i) \(effect) -> \(output)"
 
     case .metatype(let t):
       return "Metatype<\(t)>"

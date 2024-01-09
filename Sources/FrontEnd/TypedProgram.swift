@@ -263,7 +263,7 @@ public struct TypedProgram {
       return storage(of: u)
     case let u as BufferType:
       return storage(of: u)
-    case let u as LambdaType:
+    case let u as ArrowType:
       return storage(of: u)
     case let u as ProductType:
       return storage(of: u)
@@ -295,7 +295,7 @@ public struct TypedProgram {
   }
 
   /// Returns the names and types of `t`'s stored properties.
-  public func storage(of t: LambdaType) -> [TupleType.Element] {
+  public func storage(of t: ArrowType) -> [TupleType.Element] {
     let callee = TupleType.Element(label: "__f", type: .builtin(.ptr))
     return [callee] + t.captures
   }
@@ -440,7 +440,7 @@ public struct TypedProgram {
     case let m as BufferType:
       // FIXME: To remove once conditional conformance is implemented
       guard conforms(m.element, to: concept, in: scopeOfUse) else { return nil }
-    case let m as LambdaType:
+    case let m as ArrowType:
       guard allConform(m.captures.map(\.type), to: concept, in: scopeOfUse) else { return nil }
     case let m as TupleType:
       guard allConform(m.elements.map(\.type), to: concept, in: scopeOfUse) else { return nil }
@@ -459,7 +459,7 @@ public struct TypedProgram {
       guard let k = ast.synthesizedKind(of: requirement) else { return nil }
 
       let a: GenericArguments = [ast[concept.decl].receiver: .type(model)]
-      let t = LambdaType(specialize(declType[requirement]!, for: a, in: scopeOfUse))!
+      let t = ArrowType(specialize(declType[requirement]!, for: a, in: scopeOfUse))!
       let d = SynthesizedFunctionDecl(k, typed: t, in: scopeOfUse)
       implementations[requirement] = .synthetic(d)
     }

@@ -27,7 +27,7 @@ public struct SynthesizedFunctionDecl: Hashable {
   }
 
   /// The type of this declaration.
-  public let type: LambdaType
+  public let type: ArrowType
 
   /// The scope in which the declaration is defined.
   public let scope: AnyScopeID
@@ -36,7 +36,7 @@ public struct SynthesizedFunctionDecl: Hashable {
   public let kind: Kind
 
   /// Creates an instance with the given properties.
-  public init(_ kind: Kind, typed type: LambdaType, in scope: AnyScopeID) {
+  public init(_ kind: Kind, typed type: ArrowType, in scope: AnyScopeID) {
     self.kind = kind
     self.type = type
     self.scope = scope

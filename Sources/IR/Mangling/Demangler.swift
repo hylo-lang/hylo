@@ -61,8 +61,8 @@ struct Demangler {
         demangled = takeNominalType(declaredBy: GenericParameterDecl.self, from: &stream)
       case .importDecl:
         demangled = take(ImportDecl.self, qualifiedBy: qualification, from: &stream)
-      case .lambdaType:
-        demangled = takeLambdaType(from: &stream)
+      case .arrowType:
+        demangled = takeArrowType(from: &stream)
       case .lookup:
         demangled = takeLookup(from: &stream)
       case .memberwiseInitializerDecl:
@@ -450,8 +450,8 @@ struct Demangler {
     return .type(.existentialTrait(traits))
   }
 
-  /// Demangles a lambda type from `stream`.
-  private mutating func takeLambdaType(from stream: inout Substring) -> DemangledSymbol? {
+  /// Demangles an arrow type from `stream`.
+  private mutating func takeArrowType(from stream: inout Substring) -> DemangledSymbol? {
     guard
       let environment = demangleType(from: &stream),
       let inputCount = takeInteger(from: &stream)
@@ -471,7 +471,7 @@ struct Demangler {
       let output = demangleType(from: &stream)
     else { return nil }
 
-    return .type(.lambda(effect: .let, environment: environment, inputs: inputs, output: output))
+    return .type(.arrow(effect: .let, environment: environment, inputs: inputs, output: output))
   }
 
   /// Demangles a nominal type declared as an entity of type `T` from `stream`.

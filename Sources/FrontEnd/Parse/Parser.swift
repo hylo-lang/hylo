@@ -1708,14 +1708,14 @@ public enum Parser {
       return try parseTupleTypeExpr(in: &state).map(AnyExprID.init)
 
     case .lParen:
-      // A left parenthesis may start a type erased lambda type expression (e.g., `() -> T`), a
+      // A left parenthesis may start a type erased arrow type expression (e.g., `() -> T`), a
       // tuple expression (e.g., `(1, 2)`), or any parenthesized expression.
-      return try parseLambdaTypeOrTupleExpr(in: &state)
+      return try parseArrowTypeOrTupleExpr(in: &state)
 
     case .lBrack:
-      // A left bracket may start a lambda type expression (e.g., `[any Copyable] () -> T`) or a
+      // A left bracket may start an arrow type expression (e.g., `[any Copyable] () -> T`) or a
       // compound literal expression (e.g., `[x, y]`).
-      return try parseLambdaTypeOrCompoundLiteralExpr(in: &state)
+      return try parseArrowTypeOrCompoundLiteralExpr(in: &state)
 
     default:
       return nil
@@ -2148,7 +2148,7 @@ public enum Parser {
       SpawnExpr(decl: decl, site: state.ast[decl].site))
   }
 
-  private static func parseLambdaTypeOrTupleExpr(
+  private static func parseArrowTypeOrTupleExpr(
     in state: inout ParserState
   ) throws -> AnyExprID? {
     // Expect a left parenthesis.
@@ -2157,14 +2157,14 @@ public enum Parser {
       opener.kind == .lParen
     else { return nil }
 
-    // Assume we're parsing a lambda type expression until we reach the point where we should
+    // Assume we're parsing an arrow type expression until we reach the point where we should
     // consume a right arrow. Commit to that choice only if there's one.
     let backup = state.backup()
 
     // Parse the parameters or backtrack and parse a tuple expression.
-    let parameters: [LambdaTypeExpr.Parameter]
+    let parameters: [ArrowTypeExpr.Parameter]
     do {
-      parameters = try parseLambdaParameterList(in: &state)!
+      parameters = try parseArrowParameterList(in: &state)!
     } catch {
       state.restore(from: backup)
       return try parseTupleOrParenthesizedExpr(in: &state)
@@ -2191,7 +2191,7 @@ public enum Parser {
     let output = try state.expect("type expression", using: parseExpr(in:))
 
     let expr = state.insert(
-      LambdaTypeExpr(
+      ArrowTypeExpr(
         receiverEffect: effect,
         environment: nil,
         parameters: parameters,
@@ -2200,10 +2200,10 @@ public enum Parser {
     return AnyExprID(expr)
   }
 
-  private static func parseLambdaTypeOrCompoundLiteralExpr(
+  private static func parseArrowTypeOrCompoundLiteralExpr(
     in state: inout ParserState
   ) throws -> AnyExprID? {
-    // Assume we're parsing a lambda type expression until we reach the point where we should
+    // Assume we're parsing an arrow type expression until we reach the point where we should
     // consume an effect or a right arrow. Commit to that choice if we successfully parsed a
     // non-empty parameter list at that point.
     let backup = state.backup()
@@ -2230,9 +2230,9 @@ public enum Parser {
     }
 
     // Parse the parameters or backtrack and parse a compound literal.
-    let parameters: [LambdaTypeExpr.Parameter]
+    let parameters: [ArrowTypeExpr.Parameter]
     do {
-      parameters = try parseLambdaParameterList(in: &state)!
+      parameters = try parseArrowParameterList(in: &state)!
     } catch {
       state.restore(from: backup)
       return try parseCompoundLiteral(in: &state)
@@ -2254,7 +2254,7 @@ public enum Parser {
     let e = environment ?? AnyExprID(state.insert(TupleTypeExpr(elements: [], site: s)))
 
     let expr = state.insert(
-      LambdaTypeExpr(
+      ArrowTypeExpr(
         receiverEffect: effect,
         environment: e,
         parameters: parameters,
@@ -2461,16 +2461,16 @@ public enum Parser {
     try parseList(in: &state, with: parameterList)
   }
 
-  private static let lambdaParameterList = DelimitedCommaSeparatedList(
+  private static let arrowParameterList = DelimitedCommaSeparatedList(
     openerKind: .lParen,
     closerKind: .rParen,
     closerDescription: ")",
-    elementParser: Apply(parseLambdaParameter(in:)))
+    elementParser: Apply(parseArrowParameter(in:)))
 
-  private static func parseLambdaParameterList(
+  private static func parseArrowParameterList(
     in state: inout ParserState
-  ) throws -> [LambdaTypeExpr.Parameter]? {
-    try parseList(in: &state, with: lambdaParameterList)
+  ) throws -> [ArrowTypeExpr.Parameter]? {
+    try parseList(in: &state, with: arrowParameterList)
   }
 
   private static func parseList<C: Combinator>(
@@ -3178,16 +3178,16 @@ public enum Parser {
     }
   }
 
-  private static func parseLambdaParameter(
+  private static func parseArrowParameter(
     in state: inout ParserState
-  ) throws -> LambdaTypeExpr.Parameter? {
+  ) throws -> ArrowTypeExpr.Parameter? {
     let backup = state.backup()
 
     // Parse a labeled parameter.
     if let label = state.take(if: { $0.isLabel }) {
       if state.take(.colon) != nil {
         if let type = try parseParameterTypeExpr(in: &state) {
-          return LambdaTypeExpr.Parameter(label: state.token(label), type: type)
+          return ArrowTypeExpr.Parameter(label: state.token(label), type: type)
         }
       }
     }
@@ -3195,7 +3195,7 @@ public enum Parser {
     // Backtrack and parse an unlabeled parameter.
     state.restore(from: backup)
     if let type = try parseParameterTypeExpr(in: &state) {
-      return LambdaTypeExpr.Parameter(type: type)
+      return ArrowTypeExpr.Parameter(type: type)
     }
 
     return nil

@@ -402,7 +402,7 @@ struct TypeChecker {
     case let m as BufferType:
       // FIXME: To remove once conditional conformance is implemented
       return conforms(m.element, to: trait, in: scopeOfUse)
-    case let m as LambdaType:
+    case let m as ArrowType:
       return m.captures.allSatisfy({ conforms($0.type, to: trait, in: scopeOfUse) })
     case is MetatypeType:
       return true
@@ -897,7 +897,7 @@ struct TypeChecker {
       check(b)
 
     case .expr(let b):
-      let r = LambdaType(uncheckedType(of: d))!.output
+      let r = ArrowType(uncheckedType(of: d))!.output
       check(b, asBodyOfCallableProducing: r)
 
     case nil:
@@ -948,7 +948,7 @@ struct TypeChecker {
       check(b)
 
     case .expr(let b):
-      let r = LambdaType(uncheckedType(of: d))!.output
+      let r = ArrowType(uncheckedType(of: d))!.output
       check(b, asBodyOfCallableProducing: r)
 
     case nil:
@@ -1594,7 +1594,7 @@ struct TypeChecker {
       else { return nil }
 
       // Note: compiler-known requirement is assumed to be well-typed.
-      return .init(k, typed: LambdaType(expectedAPI.type)!, in: AnyScopeID(origin.source)!)
+      return .init(k, typed: ArrowType(expectedAPI.type)!, in: AnyScopeID(origin.source)!)
     }
 
     /// Returns a concrete implementation of `requirement` for `model` with given `expectedAPI`,
@@ -2274,13 +2274,13 @@ struct TypeChecker {
       cache.write(^ParameterType(k, r), at: \.declType[program[d].receiver!])
 
       let e = TupleType([.init(label: "self", type: k == .sink ? r : ^RemoteType(k, r))])
-      return ^LambdaType(receiverEffect: k, environment: ^e, inputs: inputs, output: output)
+      return ^ArrowType(receiverEffect: k, environment: ^e, inputs: inputs, output: output)
     }
 
     assert(program[d].receiver == nil)
     let captures = uncheckedCaptureTypes(of: d)
     let e = TupleType(captures.explicit + captures.implicit)
-    return ^LambdaType(environment: ^e, inputs: inputs, output: output)
+    return ^ArrowType(environment: ^e, inputs: inputs, output: output)
   }
 
   /// Computes and returns the type of `d`.
@@ -2338,7 +2338,7 @@ struct TypeChecker {
 
     let i = CallableTypeParameter(label: "self", type: t)
     let inputs = uncheckedInputTypes(of: program[d].parameters, declaredBy: d)
-    return ^LambdaType(environment: .void, inputs: [i] + inputs, output: .void)
+    return ^ArrowType(environment: .void, inputs: [i] + inputs, output: .void)
   }
 
   /// Computes and returns the type of `d`.
@@ -2389,7 +2389,7 @@ struct TypeChecker {
       unreachable()
     }
 
-    return ^LambdaType(receiverEffect: k, environment: e, inputs: bundle.inputs, output: o)
+    return ^ArrowType(receiverEffect: k, environment: e, inputs: bundle.inputs, output: o)
   }
 
   /// Computes and returns the type of `d`.
@@ -2543,16 +2543,16 @@ struct TypeChecker {
   }
 
   /// Computes and returns the types of the inputs of `e`'s underlying declaration, using `hint`
-  /// to guess the passing conventions of unnaotated parameters.
+  /// to guess the passing conventions of unanotated parameters.
   ///
-  /// `hint` is used as contextual information to refine guesses iff it is a lambda type with the
+  /// `hint` is used as contextual information to refine guesses if it is a lambda type with the
   /// same number of parameters as `e`. Parameter annotations take precedence in case of conflict.
   ///
   /// After the call, `cache.uncheckedType[p]` may be assigned to a type variable if `p` has no
   /// type annotation. Type checking is expected to reify such variables once the type of the
   /// expression in which `e` occurs has been checked.
   private mutating func uncheckedInputTypes(
-    of e: LambdaExpr.ID, withHint hint: LambdaType?
+    of e: LambdaExpr.ID, withHint hint: ArrowType?
   ) -> [CallableTypeParameter] {
     let d = program[e].decl.id
     let ps = program[d].parameters
@@ -2635,12 +2635,12 @@ struct TypeChecker {
 
   /// Computes and returns the type of values returned by `d`.
   private mutating func uncheckedOutputType(of d: FunctionDecl.ID) -> AnyType {
-    LambdaType(uncheckedType(of: d))?.output ?? .error
+    ArrowType(uncheckedType(of: d))?.output ?? .error
   }
 
   /// Computes and returns the type of values returned by `d`.
   private mutating func uncheckedOutputType(of d: MethodImpl.ID) -> AnyType {
-    LambdaType(uncheckedType(of: d))?.output ?? .error
+    ArrowType(uncheckedType(of: d))?.output ?? .error
   }
 
   /// Computes and returns the type of values projected by `d`.
@@ -2716,7 +2716,7 @@ struct TypeChecker {
   }
 
   /// Returns type of `d`'s memberwise initializer.
-  private mutating func memberwiseInitializer(of d: ProductTypeDecl.ID) -> LambdaType {
+  private mutating func memberwiseInitializer(of d: ProductTypeDecl.ID) -> ArrowType {
     let r = resolveReceiverMetatype(in: d)!.instance
     var inputs = [CallableTypeParameter(label: "self", type: ^ParameterType(.set, r))]
 
@@ -2729,7 +2729,7 @@ struct TypeChecker {
       }
     }
 
-    return LambdaType(environment: .void, inputs: inputs, output: .void)
+    return ArrowType(environment: .void, inputs: inputs, output: .void)
   }
 
   /// Returns the model for which `d` declares conformances.
@@ -2871,7 +2871,7 @@ struct TypeChecker {
 
   /// Evaluates and returns the parameter annotations of `e`.
   private mutating func evalParameterAnnotations(
-    of e: LambdaTypeExpr.ID
+    of e: ArrowTypeExpr.ID
   ) -> [CallableTypeParameter] {
     var result: [CallableTypeParameter] = []
     for p in program[e].parameters {
@@ -2887,8 +2887,8 @@ struct TypeChecker {
 
     if program[e].isAutoclosure {
       let s = program[program[e].bareType].site
-      guard let u = LambdaType(t), u.inputs.isEmpty else {
-        report(.error(autoclosureExpectsEmptyLambdaAt: s, given: t))
+      guard let u = ArrowType(t), u.inputs.isEmpty else {
+        report(.error(autoclosureExpectsEmptyArrowAt: s, given: t))
         return .error
       }
     }
@@ -3629,7 +3629,7 @@ struct TypeChecker {
 
   /// Returns the labels of `d`s name.
   private mutating func labels(_ d: InitializerDecl.ID) -> [String?] {
-    if let t = LambdaType(uncheckedType(of: d)) {
+    if let t = ArrowType(uncheckedType(of: d)) {
       return Array(t.labels)
     } else if !program[d].isMemberwise {
       return ["self"] + program.ast[program[d].parameters].map(\.label?.value)
@@ -4014,7 +4014,7 @@ struct TypeChecker {
     let isConstructor =
       (d.kind == InitializerDecl.self) && (purpose.isConstructor || (name.value.stem == "new"))
     if isConstructor {
-      candidateType = ^LambdaType(constructorFormOf: LambdaType(candidateType)!)
+      candidateType = ^ArrowType(constructorFormOf: ArrowType(candidateType)!)
     }
 
     // If the receiver is an existential, replace its receiver.
@@ -4194,7 +4194,7 @@ struct TypeChecker {
     // Capture-less functions are not captured.
     if d.kind == FunctionDecl.self {
       return areEquivalent(
-        LambdaType(uncheckedType(of: d))?.environment ?? .error, .void, in: scopeOfUse)
+        ArrowType(uncheckedType(of: d))?.environment ?? .error, .void, in: scopeOfUse)
     } else {
       return true
     }
@@ -4675,6 +4675,8 @@ struct TypeChecker {
     defer { assert(obligations.exprType[e] != nil) }
 
     switch e.kind {
+    case ArrowTypeExpr.self:
+      return _inferredType(of: ArrowTypeExpr.ID(e)!, withHint: hint, updating: &obligations)
     case BooleanLiteralExpr.self:
       return _inferredType(of: BooleanLiteralExpr.ID(e)!, withHint: hint, updating: &obligations)
     case BufferLiteralExpr.self:
@@ -4697,8 +4699,6 @@ struct TypeChecker {
       return _inferredType(of: IntegerLiteralExpr.ID(e)!, withHint: hint, updating: &obligations)
     case LambdaExpr.self:
       return _inferredType(of: LambdaExpr.ID(e)!, withHint: hint, updating: &obligations)
-    case LambdaTypeExpr.self:
-      return _inferredType(of: LambdaTypeExpr.ID(e)!, withHint: hint, updating: &obligations)
     case MatchExpr.self:
       return _inferredType(of: MatchExpr.ID(e)!, withHint: hint, updating: &obligations)
     case NameExpr.self:
@@ -4947,7 +4947,7 @@ struct TypeChecker {
     of e: LambdaExpr.ID, withHint hint: AnyType? = nil,
     updating obligations: inout ProofObligations
   ) -> AnyType {
-    let h = LambdaType(hint)
+    let h = ArrowType(hint)
     let d = program[e].decl.id
     let inputs = uncheckedInputTypes(of: e, withHint: h)
 
@@ -4970,7 +4970,7 @@ struct TypeChecker {
       effect = .let
     }
 
-    let result = ^LambdaType(
+    let result = ^ArrowType(
       receiverEffect: effect,
       environment: ^environment,
       inputs: inputs, output: output)
@@ -4981,7 +4981,7 @@ struct TypeChecker {
   /// Returns the inferred type of `e`, updating `obligations` and gathering contextual information
   /// from `hint`.
   private mutating func _inferredType(
-    of e: LambdaTypeExpr.ID, withHint hint: AnyType? = nil,
+    of e: ArrowTypeExpr.ID, withHint hint: AnyType? = nil,
     updating obligations: inout ProofObligations
   ) -> AnyType {
     let environment: AnyType
@@ -4994,7 +4994,7 @@ struct TypeChecker {
     let inputs = evalParameterAnnotations(of: e)
     let output = evalTypeAnnotation(program[e].output)
 
-    let r = ^LambdaType(
+    let r = ^ArrowType(
       receiverEffect: program[e].receiverEffect?.value ?? .let,
       environment: environment,
       inputs: inputs,

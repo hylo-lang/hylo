@@ -41,7 +41,7 @@ public struct SubscriptImplType: TypeProtocol {
   /// Indicates whether `self` has an empty environment.
   public var isThin: Bool { environment == .void }
 
-  /// Accesses the individual elements of the lambda's environment.
+  /// Accesses the individual elements of the arrow's environment.
   public var captures: [TupleType.Element] { TupleType(environment)?.elements ?? [] }
 
   public func transformParts<M>(
