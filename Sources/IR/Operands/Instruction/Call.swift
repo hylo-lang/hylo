@@ -3,7 +3,7 @@ import Utils
 
 /// Invokes `callee` with `arguments` and writes its result to `output`.
 ///
-/// `callee` must have an arrow type; the type of the instruction must be the same as output type
+/// `callee` must have a lambda type; the type of the instruction must be the same as output type
 /// of the callee. `operands` must contain as many operands as the callee's type.
 public struct Call: Instruction {
 

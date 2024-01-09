@@ -1581,7 +1581,7 @@ struct Emitter {
     switch callee {
     case .direct(let r):
       emitApply(.constant(r), to: arguments, writingResultTo: storage, at: ast[e].site)
-    case .arrow(let r):
+    case .lambda(let r):
       emitApply(r, to: arguments, writingResultTo: storage, at: ast[e].site)
     case .bundle(let r):
       emitApply(r, to: arguments, writingResultTo: storage, at: ast[e].site)
@@ -1605,8 +1605,8 @@ struct Emitter {
     let x1 = emitSubfieldView(storage, at: [0], at: site)
     emitInitialize(storage: x1, to: x0, at: ast[e].site)
 
-    let arrow = ArrowType(program.canonical(program[e].type, in: insertionScope!))!
-    if arrow.environment == .void { return }
+    let lambda = ArrowType(program.canonical(program[e].type, in: insertionScope!))!
+    if lambda.environment == .void { return }
 
     var i = 1
     for b in program[e].decl.explicitCaptures {
@@ -2101,7 +2101,7 @@ struct Emitter {
   /// Lifted arguments are produced if `callee` is a reference to a function with captures, such as
   /// a bound member function or a local function declaration with a non-empty environment.
   ///
-  /// - Requires: `callee` has an arrow type.
+  /// - Requires: `callee` has a lambda type.
   private mutating func emit(
     functionCallee callee: AnyExprID
   ) -> (callee: Callee, captures: [Operand]) {
@@ -2114,8 +2114,8 @@ struct Emitter {
       return emit(functionCallee: ast[InoutExpr.ID(callee)!].subject)
 
     default:
-      let f = emit(arrowCallee: callee)
-      return (.arrow(f), [])
+      let f = emit(lambdaCallee: callee)
+      return (.lambda(f), [])
     }
   }
 
@@ -2126,7 +2126,7 @@ struct Emitter {
   ) -> (callee: Callee, captures: [Operand]) {
     switch program[callee].referredDecl {
     case .direct(let d, let a) where d.isCallable:
-      // Callee is a direct reference to an arrow declaration.
+      // Callee is a direct reference to a lambda declaration.
       guard ArrowType(canonical(program[callee].type))!.environment == .void else {
         UNIMPLEMENTED("Generate IR for calls to local functions with captures #1088")
       }
@@ -2141,9 +2141,9 @@ struct Emitter {
       unreachable()
 
     default:
-      // Callee is an arrow.
-      let f = emit(arrowCallee: .init(callee))
-      return (.arrow(f), [])
+      // Callee is a lambda.
+      let f = emit(lambdaCallee: .init(callee))
+      return (.lambda(f), [])
     }
   }
 
@@ -2180,8 +2180,8 @@ struct Emitter {
 
   /// Inserts the IR for given `callee` and returns its value.
   ///
-  /// - Requires: `callee` has an arrow type.
-  private mutating func emit(arrowCallee callee: AnyExprID) -> Operand {
+  /// - Requires: `callee` has a lambda type.
+  private mutating func emit(lambdaCallee callee: AnyExprID) -> Operand {
     switch ArrowType(program[callee].type)!.receiverEffect {
     case .yielded:
       unreachable()
