@@ -12,3 +12,79 @@ trait MutableCollection: Collection {
   fun swap_at(_ i: Position, _ j: Position) inout
 
 }
+
+public extension MutableCollection {
+
+  /// Swaps the order in which the values `self[..<p]` and `self[p...]` occur, so that the end of
+  /// the latter sequence of element values is the start of the former sequence, and returns that
+  /// position.
+  ///
+  /// - Complexity: O(n), where n is the number of elements in `self`.
+  public fun rotate(regions_separated_by p: Position) inout -> Position {
+    var m = p.copy()
+    var s = start_position()
+    let e = end_position()
+
+    // Handle the trivial cases
+    if s == m { return e }
+    if m == e { return s }
+
+    // We have two regions of possibly-unequal length that need to be
+    // exchanged.  The return value of this method is going to be the
+    // position following that of the element that is currently last
+    // (element j).
+    //
+    //   [a b c d e f g|h i j]   or   [a b c|d e f g h i j]
+    //   ^             ^     ^        ^     ^             ^
+    //   s             m     e        s     m             e
+    //
+    var ret = e.copy() // start with a known incorrect result.
+    while true {
+      // Exchange the leading elements of each region (up to the
+      // length of the shorter region).
+      //
+      //   [a b c d e f g|h i j]   or   [a b c|d e f g h i j]
+      //    ^^^^^         ^^^^^          ^^^^^ ^^^^^
+      //   [h i j d e f g|a b c]   or   [d e f|a b c g h i j]
+      //   ^     ^       ^     ^         ^    ^     ^       ^
+      //   s    s1       m    m1/e       s   s1/m   m1      e
+      //
+
+      var s1 = s.copy()
+      var m1 = m.copy()
+      while true {
+        swap_at(s1, m1)
+        &s1 = position(after: &s1)
+        &m1 = position(after: &m1)
+        if s1 == m || m1 == e { break }
+      }
+
+
+      if m1 == e {
+        // Left-hand case: we have moved element j into position.  if
+        // we haven't already, we can capture the return value which
+        // is in s1.
+        //
+        // Note: the STL breaks the loop into two just to avoid this
+        // comparison once the return value is known.  I'm not sure
+        // it's a worthwhile optimization, though.
+        if ret == e { &ret = s1.copy() }
+
+        // If both regions were the same size, we're done.
+        if s1 == m { break }
+      }
+
+      // Now we have a smaller problem that is also a rotation, so we
+      // can adjust our bounds and repeat.
+      //
+      //    h i j[d e f g|a b c]   or    d e f[a b c|g h i j]
+      //         ^       ^     ^              ^     ^       ^
+      //         s       m     e              s     m       e
+      &s = s1.copy()
+      if s == m { &m = m1.copy() }
+    }
+
+    return ret
+  }
+
+}

@@ -165,10 +165,10 @@ struct ConstraintSystem {
   }
 
   /// Creates a solution from the current state.
+  ///
+  /// - Requires: There is no fresh goal to solve left.
   private mutating func formSolution() -> Solution {
-    assert(fresh.isEmpty)
     assert(outcomes.enumerated().allSatisfy({ (i, o) in (o != nil) || stale.contains(i) }))
-
     for g in stale {
       setOutcome(.failure({ (_, _, _) in () }), for: g)
     }
@@ -221,16 +221,18 @@ struct ConstraintSystem {
     }
   }
 
-  /// Knowing types can conform to `goal.concept` structurally, if `goal.model` is a structural
-  /// type, creates and returns sub-goals checking that its parts conform to `goal.concept`; returns
-  /// `.failure` otherwise.
+  /// If `goal.model` is a structural type, creates and returns sub-goals checking that its parts
+  /// conform to `goal.concept`; returns `.failure` otherwise.
   ///
-  /// - Requires: `goal.model` is not a type variable.
+  /// - Requires: `goal.concept` is a trait supporting structural conformances and `goal.model` is
+  ///   not a type variable.
   private mutating func solve(structuralConformance goal: ConformanceConstraint) -> Outcome {
     let model = checker.canonical(goal.model, in: scope)
     assert(!(model.base is TypeVariable))
 
     switch model.base {
+    case let t as LambdaType:
+      return delegate(structuralConformance: goal, for: t.captures.lazy.map(\.type))
     case let t as TupleType:
       return delegate(structuralConformance: goal, for: t.elements.lazy.map(\.type))
     case let t as UnionType:
@@ -346,7 +348,7 @@ struct ConstraintSystem {
           candidates.append(.init(constraints: [c], penalties: 1))
         }
       } else {
-        for subset in r.elements.combinations(of: r.elements.count - 1) {
+        for subset in r.elements.combinations(ofCount: r.elements.count - 1) {
           let c = SubtypingConstraint(goal.left, ^UnionType(subset), origin: o)
           candidates.append(.init(constraints: [c], penalties: 1))
         }
@@ -885,9 +887,9 @@ struct ConstraintSystem {
     goals.append(g)
     outcomes.append(nil)
 
-    let i = fresh.partitioningIndex(
-      at: newIdentity,
-      orderedBy: { (a, b) in !goals[a].isSimpler(than: goals[b]) })
+    // fresh is sorted in order of increasing simplicity.
+    let newIdentityGoal = goals[newIdentity]
+    let i = fresh.partitioningIndex(where: { goals[$0].isSimpler(than: newIdentityGoal) })
     fresh.insert(newIdentity, at: i)
     return newIdentity
   }

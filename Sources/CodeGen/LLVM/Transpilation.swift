@@ -61,7 +61,7 @@ extension LLVM.Module {
 
     // Define the addressor projecting the allocated access.
     incorporate(s.initializer, of: m, from: ir)
-    let initializer = function(named: ir.base.mangled(s.initializer))!
+    let initializer = function(named: ir.llvmName(of: s.initializer))!
     let addressor = declareFunction(prefix, .init(from: [], to: ptr, in: &self))
 
     let entry = appendBlock(to: addressor)
@@ -106,7 +106,7 @@ extension LLVM.Module {
     let b = appendBlock(to: main)
     let p = endOf(b)
 
-    let transpilation = function(named: ir.base.mangled(f))!
+    let transpilation = function(named: ir.llvmName(of: f))!
 
     let val32 = ir.ast.coreType("Int32")!
     switch m[f].output {
@@ -448,7 +448,7 @@ extension LLVM.Module {
     _ ref: IR.FunctionReference, from ir: IR.Program
   ) -> LLVM.Function {
     let t = transpiledType(LambdaType(ref.type.ast)!)
-    return declareFunction(ir.base.mangled(ref.function), t)
+    return declareFunction(ir.llvmName(of: ref.function), t)
   }
 
   /// Inserts and returns the transpiled declaration of `f`, which is a function of `m` in `ir`.
@@ -459,7 +459,7 @@ extension LLVM.Module {
 
     // Parameters and return values are passed by reference.
     let parameters = Array(repeating: ptr as LLVM.IRType, count: m[f].inputs.count + 1)
-    let transpilation = declareFunction(ir.base.mangled(f), .init(from: parameters, in: &self))
+    let transpilation = declareFunction(ir.llvmName(of: f), .init(from: parameters, in: &self))
 
     configureAttributes(transpilation, transpiledFrom: f, of: m)
     configureInputAttributes(transpilation.parameters.dropLast(), transpiledFrom: f, in: m)
@@ -479,7 +479,7 @@ extension LLVM.Module {
     let r = LLVM.StructType([ptr, ptr], in: &self)
     let parameters = Array(repeating: ptr as LLVM.IRType, count: m[f].inputs.count + 1)
     let transpilation = declareFunction(
-      ir.base.mangled(f), .init(from: parameters, to: r, in: &self))
+      ir.llvmName(of: f), .init(from: parameters, to: r, in: &self))
 
     configureAttributes(transpilation, transpiledFrom: f, of: m)
     configureInputAttributes(transpilation.parameters.dropFirst(), transpiledFrom: f, in: m)
@@ -644,6 +644,8 @@ extension LLVM.Module {
         insert(load: i)
       case is IR.MarkState:
         return
+      case is IR.MemoryCopy:
+        insert(memoryCopy: i)
       case is IR.OpenCapture:
         insert(openCapture: i)
       case is IR.OpenUnion:
@@ -1048,6 +1050,20 @@ extension LLVM.Module {
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
+    func insert(memoryCopy i: IR.InstructionID) {
+      let s = m[i] as! MemoryCopy
+
+      let memcpy = LLVM.Function(
+        intrinsic(named: Intrinsic.llvm.memcpy, for: [ptr, ptr, i32])!)!
+      let source = llvm(s.source)
+      let target = llvm(s.target)
+
+      let l = ConcreteTypeLayout(of: m.type(of: s.source).ast, definedIn: ir, forUseIn: &self)
+      let byteCount = i32.constant(l.size)
+      _ = insertCall(memcpy, on: [target, source, byteCount, i1.zero], at: insertionPoint)
+    }
+
+    /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(openCapture i: IR.InstructionID) {
       let s = m[i] as! OpenCapture
       register[.register(i)] = insertLoad(ptr, from: llvm(s.source), at: insertionPoint)
@@ -1271,5 +1287,18 @@ private struct LambdaContents {
 
   /// The lambda's environment.
   let environment: [LLVM.IRValue]
+
+}
+
+extension IR.Program {
+
+  /// Returns the name of `f` in LLVM IR.
+  func llvmName(of f: IR.Function.ID) -> String {
+    if case .lowered(let d) = f.value {
+      return FunctionDecl.ID(d).flatMap({ base[$0].externalName }) ?? base.mangled(f)
+    } else {
+      return base.mangled(f)
+    }
+  }
 
 }

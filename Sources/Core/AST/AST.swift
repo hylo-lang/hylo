@@ -243,41 +243,22 @@ public struct AST {
     })
   }
 
-  /// Returns the kind identifying synthesized declarations of `requirement`, which is defined by
-  /// `concept`, or `nil` if `requirement` is not synthesizable.
-  ///
-  /// - Requires: `requirement` must be a requirement of `concept`.
-  public func synthesizedKind<T: DeclID>(
-    of requirement: T, definedBy concept: TraitType
-  ) -> SynthesizedFunctionDecl.Kind? {
+  /// Returns the kind identifying synthesized declarations of `requirement`, or `nil` if
+  /// `requirement` is not synthesizable.
+  public func synthesizedKind<T: DeclID>(of requirement: T) -> SynthesizedFunctionDecl.Kind? {
     // If the requirement is defined in `Deinitializable`, it must be the deinitialization method.
-    if concept == core.deinitializable.type {
-      assert(requirement.kind == FunctionDecl.self)
+    switch requirement.rawValue {
+    case core.deinitializable.deinitialize.rawValue:
       return .deinitialize
-    }
-
-    // If the requirement is defined in `Movable`, it must be either the move-initialization or
-    // move-assignment method.
-    if concept == core.movable.type {
-      let d = MethodImpl.ID(requirement)!
-      switch self[d].introducer.value {
-      case .set:
-        return .moveInitialization
-      case .inout:
-        return .moveAssignment
-      default:
-        unreachable()
-      }
-    }
-
-    // If the requirement is defined in `Copyable`, it must be the copy method.
-    if concept == core.copyable.type {
-      assert(requirement.kind == FunctionDecl.self)
+    case core.movable.moveInitialize.rawValue:
+      return .moveInitialization
+    case core.movable.moveAssign.rawValue:
+      return .moveAssignment
+    case core.copyable.copy.rawValue:
       return .copy
+    default:
+      return nil
     }
-
-    // Requirement is not synthesizable.
-    return nil
   }
 
   /// Returns a table mapping each parameter of `d` to its default argument if `d` is a function,
@@ -438,9 +419,38 @@ public struct AST {
     }
   }
 
+  /// Retutns the declaration of the implementation of `d` with effect `a`, if any.
+  public func implementation(_ a: AccessEffect, of d: SubscriptDecl.ID) -> SubscriptImpl.ID? {
+    self[d].impls.first(where: { (i) in self[i].introducer.value == a })
+  }
+
   /// Returns `true` iff `s` is a consuming for-loop.
   public func isConsuming(_ s: ForStmt.ID) -> Bool {
     self[self[self[s].binding].pattern].introducer.value.isConsuming
+  }
+
+  /// Returns `true` if `e` is an expression starting with an implicit name qualification.
+  public func isImplicitlyQualified(_ e: AnyExprID) -> Bool {
+    switch e.kind {
+    case FunctionCallExpr.self:
+      return isImplicitlyQualified(self[FunctionCallExpr.ID(e)!].callee)
+    case NameExpr.self:
+      return isImplicitlyQualified(NameExpr.ID(e)!)
+    default:
+      return false
+    }
+  }
+
+  /// Returns `true` if `e` is an expression starting with an implicit name qualification.
+  public func isImplicitlyQualified(_ e: NameExpr.ID) -> Bool {
+    switch self[e].domain {
+    case .implicit:
+      return true
+    case .explicit(let e):
+      return isImplicitlyQualified(e)
+    case .none, .operand:
+      return false
+    }
   }
 
   /// Returns the source site of `expr`.

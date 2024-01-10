@@ -1,0 +1,53 @@
+//- compileAndRun expecting: success
+
+/// Appends `0 ..< limit` to `a`
+fun append_count(up_to limit: Int, to a: inout Array<Int>) {
+  var i = 0
+  while i < limit {
+    &a.append(i.copy())
+    i += 1
+  }
+}
+
+/// Tests rotate on collections of length N
+fun test_rotate(length N: Int) {
+  var failed = false
+
+  // For all possible pivot points
+  var pivot = 0
+  while pivot <= N {
+
+    // A collection to work on
+    var a = Array<Int>()
+    append_count(up_to: N, to: &a)
+
+    let newPivot = &a.rotate(regions_separated_by: pivot)
+    if newPivot != N - pivot { &failed = true }
+
+    // Verify the results
+    var j = 0
+    while j < N {
+      if a[j] != (pivot + j) % N {
+        &failed = true
+      }
+      j += 1
+    }
+
+    pivot += 1
+  }
+  precondition(!failed)
+}
+
+/// Tests rotate on a variety of lengths
+fun test_rotate() {
+  var failed = false
+  var n = 0
+  while n < 17 {
+    test_rotate(length: n)
+    n += 1
+  }
+}
+
+public fun main() {
+  test_rotate()
+}

@@ -13,7 +13,10 @@ let allTargetsSwiftSettings: [SwiftSetting] = [
   .unsafeFlags(["-warnings-as-errors"])
 ]
 
-/// Most people don't need this; set it in your environment if you do.
+/// Dependencies for documentation extraction.
+///
+/// Most people don't need to extract documentation; set `HYLO_ENABLE_DOC_GENERATION` in your
+/// environment if you do.
 let docGenerationDependency: [Package.Dependency] =
   ProcessInfo.processInfo.environment["HYLO_ENABLE_DOC_GENERATION"] != nil
   ? [.package(url: "https://github.com/apple/swift-docc-plugin.git", from: "1.1.0")] : []
@@ -37,6 +40,9 @@ let package = Package(
     .package(
       url: "https://github.com/apple/swift-collections.git",
       from: "1.0.0"),
+    .package(
+      url: "https://github.com/apple/swift-algorithms.git",
+      from: "1.2.0"),
     .package(
       url: "https://github.com/hylo-lang/Durian.git",
       from: "1.2.0"),
@@ -124,6 +130,7 @@ let package = Package(
       dependencies: [
         .product(name: "BigInt", package: "BigInt"),
         .product(name: "Collections", package: "swift-collections"),
+        .product(name: "Algorithms", package: "swift-algorithms"),
       ],
       swiftSettings: allTargetsSwiftSettings),
 
@@ -155,7 +162,7 @@ let package = Package(
     // Test targets.
     .testTarget(
       name: "UtilsTests",
-      dependencies: ["Utils"],
+      dependencies: ["Utils", .product(name: "Algorithms", package: "swift-algorithms")],
       swiftSettings: allTargetsSwiftSettings),
 
     .testTarget(
@@ -170,7 +177,10 @@ let package = Package(
 
     .testTarget(
       name: "HyloTests",
-      dependencies: ["Core", "FrontEnd", "IR", "TestUtils", "StandardLibrary"],
+      dependencies: [
+        "Core", "FrontEnd", "IR", "TestUtils", "StandardLibrary",
+        .product(name: "Algorithms", package: "swift-algorithms"),
+      ],
       exclude: ["TestCases"],
       swiftSettings: allTargetsSwiftSettings,
       plugins: ["TestGeneratorPlugin"]),

@@ -1010,10 +1010,10 @@ final class ParserTests: XCTestCase {
     }
   }
 
-  func testConformanceLensTypeExpr() throws {
+  func testConformanceLensExpr() throws {
     let input: SourceFile = "{ T, U }::Baz"
     let (exprID, ast) = try input.parse(with: Parser.parseExpr(in:))
-    let expr = try XCTUnwrap(ast[exprID] as? ConformanceLensTypeExpr)
+    let expr = try XCTUnwrap(ast[exprID] as? ConformanceLensExpr)
     XCTAssertEqual(expr.subject.kind, .init(TupleTypeExpr.self))
     XCTAssertEqual(expr.lens.kind, .init(NameExpr.self))
   }
@@ -1025,7 +1025,7 @@ final class ParserTests: XCTestCase {
     XCTAssertEqual(expr.name.value.stem, "A")
 
     if case .explicit(let domain) = expr.domain {
-      let d = try XCTUnwrap(ast[domain] as? ConformanceLensTypeExpr)
+      let d = try XCTUnwrap(ast[domain] as? ConformanceLensExpr)
       XCTAssertEqual(d.subject.kind, .init(NameExpr.self))
       XCTAssertEqual(d.lens.kind, .init(NameExpr.self))
     } else {
@@ -1158,12 +1158,6 @@ final class ParserTests: XCTestCase {
     let (exprID, ast) = try input.parse(with: Parser.parseExpr(in:))
     let expr = try XCTUnwrap(ast[exprID] as? StringLiteralExpr)
     XCTAssertEqual(expr.value, "Hylo")
-  }
-
-  func testNilLiteralExpr() throws {
-    let input: SourceFile = "nil"
-    let (exprID, _) = try input.parse(with: Parser.parseExpr(in:))
-    XCTAssertEqual(exprID?.kind, .init(NilLiteralExpr.self))
   }
 
   func testPragmaLiteralExpr() throws {
@@ -1439,7 +1433,7 @@ final class ParserTests: XCTestCase {
   func testWhereClauseConformanceConstraint() throws {
     let input: SourceFile = "T : U & V"
     let constraint = try XCTUnwrap(try apply(Parser.typeConstraint, on: input).element)
-    if case .conformance(let lhs, _) = constraint.value {
+    if case .bound(let lhs, _) = constraint.value {
       XCTAssertEqual(lhs.kind, .init(NameExpr.self))
     } else {
       XCTFail()

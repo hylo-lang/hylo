@@ -45,7 +45,8 @@ extension Module {
 
   /// Creates an `global_addr` anchored at `site` that returns the address of `binding`.
   func makeGlobalAddr(of binding: BindingDecl.ID, at anchor: SourceRange) -> GlobalAddr {
-    .init(binding: binding, valueType: program[binding].type, site: anchor)
+    let t = program.canonical(program[binding].type, in: program[binding].scope)
+    return .init(binding: binding, valueType: t, site: anchor)
   }
 
 }

@@ -4,7 +4,7 @@ type A<X>: Movable, Deinitializable {
   public memberwise init
 }
 
-type B<X>: Movable, Deinitializable {
+type B<X: Deinitializable & Movable>: Movable, Deinitializable {
   var foo: X
   public memberwise init
 

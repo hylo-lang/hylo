@@ -195,6 +195,18 @@ public struct TypedProgram {
     }
   }
 
+  /// Returns `true` iff `t` is bound to an existential quantifier.
+  public func isSkolem(_ t: AnyType) -> Bool {
+    switch t.base {
+    case is AssociatedTypeType, is GenericTypeParameterType:
+      return true
+    case let u as ConformanceLensType:
+      return isSkolem(u.subject)
+    default:
+      return false
+    }
+  }
+
   /// Returns `true` iff deinitializing an instance of `t` in `scopeOfUse` is a no-op.
   ///
   /// A type is "trivially deinitializable" if deinitializing its instances doesn't have runtime
@@ -202,31 +214,39 @@ public struct TypedProgram {
   /// deinitializable parts are trivially deinitializable unless there exists a non-synthetic
   /// conformance to `Deinitializable` in scope.
   public func isTriviallyDeinitializable(_ t: AnyType, in scopeOfUse: AnyScopeID) -> Bool {
-    let model = canonical(t, in: scopeOfUse)
-    let deinitializable = ast.core.deinitializable.type
+    isTrivialModel(t, of: ast.core.deinitializable.type, in: scopeOfUse)
+  }
 
-    // Built-in types have no conformance to `Deinitializable`.
-    guard let c = conformance(of: model, to: deinitializable, exposedTo: scopeOfUse) else {
-      switch model.base {
-      case is BuiltinType:
-        return true
-      case let u as TupleType:
-        return u.elements.allSatisfy(\.type.isBuiltin)
-      default:
-        return false
-      }
+  /// Returns `true` iff `t` models `coreConcept` without any user-defined semantics.
+  private func isTrivialModel(
+    _ t: AnyType, of coreConcept: TraitType, in scopeOfUse: AnyScopeID
+  ) -> Bool {
+    let model = canonical(t, in: scopeOfUse)
+
+    // Built-ins have no conformances, but they are trivial.
+    if let c = conformance(of: model, to: coreConcept, exposedTo: scopeOfUse) {
+      return isTrivial(c)
+    } else {
+      return model.isBuiltinOrRawTuple
+    }
+  }
+
+  /// Returns `true` iff `c` has no user-defined semantics.
+  public func isTrivial(_ c: Conformance) -> Bool {
+    // Non-synthethic conformances are not trivial.
+    if !c.isSynthethic {
+      return false
     }
 
-    // Non-synthethic conformances are not trivial.
-    if !c.implementations.uniqueElement!.value.isSynthetic { return false }
-
-    switch model.base {
+    // Structural types are trivial if their parts are. Other types are trivial if they have their
+    // conformance to `coreConcept` was synthesized.
+    switch c.model.base {
     case let u as BufferType:
-      return isTriviallyDeinitializable(u.element, in: scopeOfUse)
+      return isTrivialModel(u.element, of: c.concept, in: c.scope)
     case let u as TupleType:
-      return u.elements.allSatisfy({ isTriviallyDeinitializable($0.type, in: scopeOfUse) })
+      return u.elements.allSatisfy({ isTrivialModel($0.type, of: c.concept, in: c.scope) })
     case let u as UnionType:
-      return u.elements.allSatisfy({ isTriviallyDeinitializable($0, in: scopeOfUse) })
+      return u.elements.allSatisfy({ isTrivialModel($0, of: c.concept, in: c.scope) })
     case is MetatypeType:
       return true
     case is ProductType:
@@ -390,11 +410,14 @@ public struct TypedProgram {
   private func impliedConformance(
     of model: AnyType, to concept: TraitType, exposedTo scopeOfUse: AnyScopeID
   ) -> Conformance? {
+    // No implied conformance unless `model` is a generic parameter or associated type.
+    if !(model.base is AssociatedTypeType) && !(model.base is GenericTypeParameterType) {
+      return nil
+    }
+
     var checker = TypeChecker(asContextFor: self)
-    let bounds = checker.conformedTraits(
-      declaredByConstraintsOn: model,
-      exposedTo: scopeOfUse)
-    guard bounds.contains(concept) else { return nil }
+    let bounds = checker.conformedTraits(declaredByConstraintsOn: model, exposedTo: scopeOfUse)
+    if !bounds.contains(concept) { return nil }
 
     var implementations = Conformance.ImplementationMap()
     for requirement in ast.requirements(of: concept.decl) {
@@ -433,7 +456,7 @@ public struct TypedProgram {
 
     var implementations = Conformance.ImplementationMap()
     for requirement in ast.requirements(of: concept.decl) {
-      guard let k = ast.synthesizedKind(of: requirement, definedBy: concept) else { return nil }
+      guard let k = ast.synthesizedKind(of: requirement) else { return nil }
 
       let a: GenericArguments = [ast[concept.decl].receiver: .type(model)]
       let t = LambdaType(specialize(declType[requirement]!, for: a, in: scopeOfUse))!

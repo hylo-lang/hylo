@@ -1,8 +1,8 @@
 /// Writes the textual representation of `item` to the standard output.
 public fun print(_ item: String, terminator: String = "\n") {
   let o = stdout
-  _ = fwrite(CVoidPointer(base: item.utf8.base), 1, item.size, CVoidPointer(base: o.base))
-  _ = fwrite(CVoidPointer(base: terminator.utf8.base), 1, terminator.size, CVoidPointer(base: o.base))
+  _ = fwrite(item.utf8, 1, item.size, o)
+  _ = fwrite(terminator.utf8, 1, terminator.size, o)
 }
 
 /// Writes the textual representation of `item` to the standard output.
@@ -28,9 +28,9 @@ public fun print(_ item: Int, radix: Int = 10, terminator: String = "\n") {
 
   let o = stdout
   let buffer = a.contiguous_storage.base
-  _ = fwrite(CVoidPointer(base: buffer), 1, a.count(), CVoidPointer(base: o.base))
-  _ = fwrite(CVoidPointer(base: terminator.utf8.base), 1, terminator.size, CVoidPointer(base: o.base))
+  _ = fwrite(MemoryAddress(base: buffer), 1, a.count(), o)
+  _ = fwrite(terminator.utf8, 1, terminator.size, o)
 }
 
 /// The standard output of the current process.
-let stdout = MemoryAddress.new(base: fdopen(1, CVoidPointer(base: "w".utf8.base)).base)
+let stdout = fdopen(1, "w".utf8)

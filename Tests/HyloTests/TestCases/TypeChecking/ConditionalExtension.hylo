@@ -1,10 +1,23 @@
 //- typeCheck expecting: failure
 
-type A<X> {}
-
 trait T {
   fun foo()
 }
 
+type A<X> {}
+
+type B<X>: Deinitializable {
+  memberwise init
+}
+
 //! @+1 diagnostic undefined name 'S' in this scope
 extension A where X: S {}
+
+extension B where X: T {
+  fun foo() {}
+}
+
+public fun main() {
+  //! @+1 diagnostic type 'Bool' does not conform to trait 'T'
+  B<Bool>().foo()
+}

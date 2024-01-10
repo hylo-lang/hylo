@@ -31,3 +31,20 @@ public struct GenericConstraint: Hashable {
   }
 
 }
+
+extension GenericConstraint: CustomStringConvertible {
+
+  public var description: String {
+    switch value {
+    case .equality(let l, let r):
+      return "\(l) == \(r)"
+    case .instance(let l, let r):
+      return "\(l): \(r)"
+    case .conformance(let l, let r):
+      return "\(l): \(r)"
+    case .predicate(let e):
+      return e.description
+    }
+  }
+
+}

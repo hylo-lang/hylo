@@ -105,8 +105,8 @@ extension AST {
       traverse(self[n] as! CastExpr, notifying: &o)
     case ConditionalExpr.self:
       traverse(self[n] as! ConditionalExpr, notifying: &o)
-    case ConformanceLensTypeExpr.self:
-      traverse(self[n] as! ConformanceLensTypeExpr, notifying: &o)
+    case ConformanceLensExpr.self:
+      traverse(self[n] as! ConformanceLensExpr, notifying: &o)
     case ErrorExpr.self:
       traverse(self[n] as! ErrorExpr, notifying: &o)
     case ExistentialTypeExpr.self:
@@ -129,8 +129,6 @@ extension AST {
       traverse(self[n] as! MatchExpr, notifying: &o)
     case NameExpr.self:
       traverse(self[n] as! NameExpr, notifying: &o)
-    case NilLiteralExpr.self:
-      traverse(self[n] as! NilLiteralExpr, notifying: &o)
     case ParameterTypeExpr.self:
       traverse(self[n] as! ParameterTypeExpr, notifying: &o)
     case PragmaLiteralExpr.self:
@@ -153,8 +151,6 @@ extension AST {
       traverse(self[n] as! TupleTypeExpr, notifying: &o)
     case UnicodeScalarLiteralExpr.self:
       traverse(self[n] as! UnicodeScalarLiteralExpr, notifying: &o)
-    case UnionTypeExpr.self:
-      traverse(self[n] as! UnionTypeExpr, notifying: &o)
     case WildcardExpr.self:
       traverse(self[n] as! WildcardExpr, notifying: &o)
 
@@ -458,7 +454,7 @@ extension AST {
 
   /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
-    _ n: ConformanceLensTypeExpr, notifying o: inout O
+    _ n: ConformanceLensExpr, notifying o: inout O
   ) {
     walk(n.subject, notifying: &o)
     walk(n.lens, notifying: &o)
@@ -546,11 +542,6 @@ extension AST {
 
   /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
-    _ n: NilLiteralExpr, notifying o: inout O
-  ) {}
-
-  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
-  public func traverse<O: ASTWalkObserver>(
     _ n: ParameterTypeExpr, notifying o: inout O
   ) {
     walk(n.bareType, notifying: &o)
@@ -624,13 +615,6 @@ extension AST {
   public func traverse<O: ASTWalkObserver>(
     _ n: UnicodeScalarLiteralExpr, notifying o: inout O
   ) {}
-
-  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
-  public func traverse<O: ASTWalkObserver>(
-    _ n: UnionTypeExpr, notifying o: inout O
-  ) {
-    walk(roots: n.elements, notifying: &o)
-  }
 
   /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
@@ -823,7 +807,7 @@ extension AST {
     constraintExpr c: WhereClause.ConstraintExpr, notifying o: inout O
   ) {
     switch c {
-    case .conformance(let lhs, let traits):
+    case .bound(let lhs, let traits):
       walk(lhs, notifying: &o)
       for t in traits { walk(t, notifying: &o) }
     case .equality(let lhs, let rhs):

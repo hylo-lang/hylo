@@ -1,10 +1,14 @@
 //- typeCheck expecting: failure
 
+trait P { fun foo() }
+
 fun f<X, Y>(_ x: sink X, _ y: sink Y) -> X { x }
 
 fun g<X>(_ a: X, _ b: X) -> X {}
 
 fun h<X>(_ x0: sink X, _ x1: sink { b: X }) {}
+
+fun i<X: P>(_ x: X) { x.foo() }
 
 fun check<T>(_ x: T) {}
 
@@ -25,4 +29,7 @@ public fun main() {
 
   //! @+1 diagnostic cannot pass value of type '{b: Float64}' to parameter 'sink {b: Int}'
   h<Int>(0, (b: x2))
+
+  //! @+1 diagnostic type 'Bool' does not conform to trait 'P'
+  i(true)
 }

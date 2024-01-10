@@ -15,6 +15,11 @@ public protocol NodeIDProtocol: Hashable, Codable, CustomStringConvertible {
 
 extension NodeIDProtocol {
 
+  /// `true` iff `self` denotes a generic scope.
+  public var isGenericScope: Bool {
+    kind.value is GenericScope.Type
+  }
+
   public var description: String { "\(kind)(\(rawValue))" }
 
 }

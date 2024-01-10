@@ -1,0 +1,21 @@
+//- typeCheck expecting: success
+
+trait P { type X }
+trait Q { type Y }
+
+type A<E>: Deinitializable {
+  public memberwise init
+}
+
+extension A where E: P, E.X: Q {
+  fun foo() {}
+}
+
+type B<X: Q>: P {}
+type C: Q {
+  public typealias Y = Bool
+}
+
+public fun main() {
+  A<B<C>>.foo()
+}
