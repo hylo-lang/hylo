@@ -282,9 +282,9 @@ struct ParserState {
 
   /// Applies `parse`, propagating thrown errors, and returns non-`nil` results or throws an error
   /// diagnosing that we expected `expectedConstruct`.
-  mutating func expect<T>(
-    _ expectedConstruct: String,
-    using parse: (inout ParserState) throws -> T?
+  mutating func apply<T>(
+    _ parse: (inout ParserState) throws -> T?,
+    expecting expectedConstruct: String
   ) throws -> T {
     if let element = try parse(&self) {
       return element
@@ -296,11 +296,11 @@ struct ParserState {
 
   /// Applies `parser.parse`, propagating thrown errors, and returns non-`nil` results or throws
   /// an error diagnosing that we expected `expectedConstruct`.
-  mutating func expect<C: Combinator>(
-    _ expectedConstruct: String,
-    using parser: C
+  mutating func apply<C: Combinator>(
+    _ parser: C,
+    expecting expectedConstruct: String
   ) throws -> C.Element where C.Context == Self {
-    try expect(expectedConstruct, using: parser.parse(_:))
+    try apply(parser.parse(_:), expecting: expectedConstruct)
   }
 
   /// Consumes tokens as long as they satisfy `predicate`.
