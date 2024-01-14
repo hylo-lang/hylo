@@ -12,6 +12,10 @@ type Pair<X, Y> {
 }
 
 public fun main() {
+
+  //! @+1 diagnostic not enough contextual information to infer generic arguments
+  let x = Box
+
   //! @+1 diagnostic too many generic arguments to entity 'Box' (found 2, expected 1)
   let x = Box<Int, Int>
 
