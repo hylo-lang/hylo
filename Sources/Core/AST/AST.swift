@@ -128,13 +128,13 @@ public struct AST {
   // MARK: Core library
 
   /// Indicates whether the Core library has been loaded.
-  public var isCoreModuleLoaded: Bool { coreLibrary != nil }
+  public var coreModuleIsLoaded: Bool { coreLibrary != nil }
 
   /// Returns the type named `name` defined in the core library or `nil` it does not exist.
   ///
   /// - Requires: The Core library must have been loaded.
   public func coreType(_ name: String) -> ProductType? {
-    precondition(isCoreModuleLoaded, "Core library is not loaded")
+    precondition(coreModuleIsLoaded, "Core library is not loaded")
 
     for d in topLevelDecls(coreLibrary!) where d.kind == ProductTypeDecl.self {
       let d = ProductTypeDecl.ID(d)!
@@ -150,7 +150,7 @@ public struct AST {
   ///
   /// - Requires: The Core library must have been loaded.
   public func coreTrait(_ name: String) -> TraitType? {
-    precondition(isCoreModuleLoaded, "Core library is not loaded")
+    precondition(coreModuleIsLoaded, "Core library is not loaded")
 
     for id in topLevelDecls(coreLibrary!) where id.kind == TraitDecl.self {
       let id = TraitDecl.ID(id)!
