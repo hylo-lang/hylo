@@ -93,7 +93,20 @@ public struct LambdaType: TypeProtocol {
   }
 
   /// Accesses the individual elements of the lambda's environment.
-  public var captures: [TupleType.Element] { TupleType(environment)?.elements ?? [] }
+  public var captures: [TupleType.Element] {
+    func elements(_ t: AnyType) -> [TupleType.Element] {
+      switch t.base {
+      case let u as TupleType:
+        return u.elements
+      case let u as TypeAliasType:
+        return elements(u.resolved)
+      default:
+        return [.init(label: nil, type: t)]
+      }
+    }
+
+    return elements(environment)
+  }
 
   public func transformParts<M>(
     mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction
