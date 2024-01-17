@@ -25,3 +25,21 @@ public trait Collection {
   subscript(_ i: Position): Element { let }
 
 }
+
+public extension Collection {
+
+  /// Returns the result of applying `combine` on an accumulator, initialized with `initial_value`,
+  /// and each element of `self`, in order.
+  ///
+  /// - Complexity: O(n), where n is the number of elements in `self`.
+  public fun reduce<E, T: Movable>(
+    _ accumulator: sink T,
+    _ combine: [E](sink T, Element) -> T
+  ) -> T {
+    for let e in self {
+      &accumulator = combine(accumulator, e)
+    }
+    return accumulator
+  }
+
+}

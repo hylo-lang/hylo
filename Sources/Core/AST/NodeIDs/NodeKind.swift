@@ -100,6 +100,7 @@ extension NodeKind {
     TypeAliasDecl.self,
     VarDecl.self,
 
+    ArrowTypeExpr.self,
     BooleanLiteralExpr.self,
     BufferLiteralExpr.self,
     CastExpr.self,
@@ -112,7 +113,6 @@ extension NodeKind {
     InoutExpr.self,
     IntegerLiteralExpr.self,
     LambdaExpr.self,
-    LambdaTypeExpr.self,
     MapLiteralExpr.self,
     MatchExpr.self,
     NameExpr.self,

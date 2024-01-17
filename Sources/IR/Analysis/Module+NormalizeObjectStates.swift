@@ -186,7 +186,7 @@ extension Module {
     func interpret(call i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! Call
       let f = s.callee
-      let callee = LambdaType(type(of: f).ast)!
+      let callee = ArrowType(type(of: f).ast)!
 
       // Evaluate the callee.
 

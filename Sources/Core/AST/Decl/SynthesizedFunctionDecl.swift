@@ -27,7 +27,7 @@ public struct SynthesizedFunctionDecl: Hashable {
   }
 
   /// The type of this declaration.
-  public let type: LambdaType
+  public let type: ArrowType
 
   /// The generic parameters of the declaration.
   public let genericParameters: [GenericParameterDecl.ID]
@@ -43,7 +43,7 @@ public struct SynthesizedFunctionDecl: Hashable {
   /// - Requires: The environment of `type` is a tuple.
   public init(
     _ kind: Kind,
-    typed type: LambdaType,
+    typed type: ArrowType,
     parameterizedBy genericParameters: [GenericParameterDecl.ID],
     in scope: AnyScopeID
   ) {

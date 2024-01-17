@@ -18,8 +18,8 @@ extension IR.Program {
       return llvm(builtinType: t, in: &module)
     case let t as BoundGenericType:
       return llvm(boundGenericType: t, in: &module)
-    case let t as LambdaType:
-      return llvm(lambdaType: t, in: &module)
+    case let t as ArrowType:
+      return llvm(arrowType: t, in: &module)
     case is MetatypeType:
       return module.ptr
     case let t as ProductType:
@@ -94,7 +94,7 @@ extension IR.Program {
   /// Returns the LLVM form of `val` in `module`.
   ///
   /// - Requires: `val` is representable in LLVM.
-  func llvm(lambdaType val: LambdaType, in module: inout LLVM.Module) -> LLVM.IRType {
+  func llvm(arrowType val: ArrowType, in module: inout LLVM.Module) -> LLVM.IRType {
     precondition(val[.isCanonical])
 
     let fields = Array(repeating: module.ptr, count: base.storage(of: val).count)

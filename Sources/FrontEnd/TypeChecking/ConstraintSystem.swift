@@ -231,7 +231,7 @@ struct ConstraintSystem {
     assert(!(model.base is TypeVariable))
 
     switch model.base {
-    case let t as LambdaType:
+    case let t as ArrowType:
       return delegate(structuralConformance: goal, for: [t.environment])
     case let t as TupleType:
       return delegate(structuralConformance: goal, for: t.elements.lazy.map(\.type))
@@ -318,7 +318,7 @@ struct ConstraintSystem {
     case (_, let r as TypeAliasType):
       return simplify(goal, as: goal.left, isSubtypeOf: r.resolved)
 
-    case (let l as LambdaType, let r as LambdaType):
+    case (let l as ArrowType, let r as ArrowType):
       return solve(subtyping: g, between: l, and: r)
 
     case (let l as UnionType, let r as UnionType):
@@ -454,9 +454,9 @@ struct ConstraintSystem {
     }
   }
 
-  /// Implements of `solve(subtyping:)` for two `LambdaType`s.
+  /// Implements of `solve(subtyping:)` for two `ArrowType`s.
   private mutating func solve(
-    subtyping g: GoalIdentity, between l: LambdaType, and r: LambdaType
+    subtyping g: GoalIdentity, between l: ArrowType, and r: ArrowType
   ) -> Outcome? {
     let goal = goals[g] as! SubtypingConstraint
 
@@ -559,7 +559,7 @@ struct ConstraintSystem {
   private mutating func solve(
     autoclosureParameter goal: ParameterConstraint, ofType p: ParameterType
   ) -> Outcome? {
-    let t = LambdaType(p.bareType)!
+    let t = ArrowType(p.bareType)!
     let s = schedule(
       ParameterConstraint(
         goal.left, AnyType(ParameterType(.`let`, t.output)), origin: goal.origin.subordinate()))

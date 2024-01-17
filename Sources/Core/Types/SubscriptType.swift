@@ -44,7 +44,7 @@ public struct SubscriptType: TypeProtocol {
   public var captures: [TupleType.Element] { TupleType(environment)?.elements ?? [] }
 
   /// Returns the type of the thin function corresponding to `self`.
-  public var pure: LambdaType {
+  public var pure: ArrowType {
     let captures = TupleType(environment).map(\.elements) ?? [.init(label: nil, type: environment)]
     let p = captures.map { (e) -> CallableTypeParameter in
       if let t = RemoteType(e.type) {

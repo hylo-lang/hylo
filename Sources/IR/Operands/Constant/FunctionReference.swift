@@ -20,7 +20,7 @@ public struct FunctionReference: Constant, Hashable {
     precondition(module[f].genericParameters.isEmpty, "underspecialized function reference")
 
     let v = module[f]
-    let t = LambdaType(inputs: v.inputs.map({ .init(type: ^$0.type) }), output: v.output)
+    let t = ArrowType(inputs: v.inputs.map({ .init(type: ^$0.type) }), output: v.output)
     assert(t[.isCanonical])
 
     self.function = f
@@ -43,7 +43,7 @@ public struct FunctionReference: Constant, Hashable {
     }
 
     let v = module[f]
-    let t = LambdaType(inputs: v.inputs.map({ .init(type: ^$0.type) }), output: v.output)
+    let t = ArrowType(inputs: v.inputs.map({ .init(type: ^$0.type) }), output: v.output)
     let u = module.program.canonical(
       module.program.specialize(^t, for: a, in: scopeOfUse), in: scopeOfUse)
 
