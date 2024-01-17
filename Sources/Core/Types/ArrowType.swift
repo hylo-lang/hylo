@@ -1,6 +1,6 @@
 import Utils
 
-/// A type denoting arrow-like objects.
+/// A type expressed with an arrow.
 public struct ArrowType: TypeProtocol {
 
   /// The effect of the arrow's call operator.
