@@ -66,13 +66,13 @@ public enum Parser {
       case .unterminatedBlockComment:
         // Nothing to parse after an unterminated block comment.
         state.diagnostics.insert(
-          .error(unterminatedCommentEndingAt: head.site.start))
+          .error(unterminatedCommentStartingAt: head.site.start))
         break
 
       case .unterminatedString:
         // Nothing to parse after an unterminated string.
         state.diagnostics.insert(
-          .error(unterminatedStringEndingAt: head.site.start))
+          .error(unterminatedStringStartingAt: head.site.start))
         break
 
       default:

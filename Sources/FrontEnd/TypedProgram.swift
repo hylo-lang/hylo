@@ -441,18 +441,23 @@ public struct TypedProgram {
       // FIXME: To remove once conditional conformance is implemented
       guard conforms(m.element, to: concept, in: scopeOfUse) else { return nil }
     case let m as ArrowType:
-      guard allConform(m.captures.map(\.type), to: concept, in: scopeOfUse) else { return nil }
+      guard conforms(m.environment, to: concept, in: scopeOfUse) else { return nil }
     case let m as TupleType:
       guard allConform(m.elements.map(\.type), to: concept, in: scopeOfUse) else { return nil }
     case let m as UnionType:
       guard allConform(m.elements, to: concept, in: scopeOfUse) else { return nil }
     case is MetatypeType:
       break
-    case is RemoteType:
+    case is RemoteType where concept == ast.core.deinitializable.type:
       break
     default:
       return nil
     }
+
+    // We could predict that codegen won't need some of the skolems we gather here to reduce the
+    // number of generic functions that we define.
+    let g = accumulatedGenericParameters(in: scopeOfUse)
+    let h = g.filter(model.skolems.contains(_:))
 
     var implementations = Conformance.ImplementationMap()
     for requirement in ast.requirements(of: concept.decl) {
@@ -460,12 +465,13 @@ public struct TypedProgram {
 
       let a: GenericArguments = [ast[concept.decl].receiver: .type(model)]
       let t = ArrowType(specialize(declType[requirement]!, for: a, in: scopeOfUse))!
-      let d = SynthesizedFunctionDecl(k, typed: t, in: scopeOfUse)
+      let d = SynthesizedFunctionDecl(k, typed: t, parameterizedBy: h, in: scopeOfUse)
       implementations[requirement] = .synthetic(d)
     }
 
+    let z = GenericArguments(skolemizing: h, in: ast)
     return .init(
-      model: model, concept: concept, arguments: [:], conditions: [], scope: scopeOfUse,
+      model: model, concept: concept, arguments: z, conditions: [], scope: scopeOfUse,
       implementations: implementations, isStructural: true, origin: nil)
   }
 

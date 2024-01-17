@@ -403,7 +403,7 @@ struct TypeChecker {
       // FIXME: To remove once conditional conformance is implemented
       return conforms(m.element, to: trait, in: scopeOfUse)
     case let m as ArrowType:
-      return m.captures.allSatisfy({ conforms($0.type, to: trait, in: scopeOfUse) })
+      return conforms(m.environment, to: trait, in: scopeOfUse)
     case is MetatypeType:
       return true
     case let m as ProductType:
@@ -1615,8 +1615,11 @@ struct TypeChecker {
         structurallyConforms(model, to: trait, in: scopeOfDefinition)
       else { return nil }
 
+      let t = ArrowType(expectedAPI.type)!
+      let h = Array(t.environment.skolems)
+
       // Note: compiler-known requirement is assumed to be well-typed.
-      return .init(k, typed: ArrowType(expectedAPI.type)!, in: AnyScopeID(origin.source)!)
+      return .init(k, typed: t, parameterizedBy: h, in: AnyScopeID(origin.source)!)
     }
 
     /// Returns a concrete implementation of `requirement` for `model` with given `expectedAPI`,

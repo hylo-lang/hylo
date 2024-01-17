@@ -29,6 +29,9 @@ public struct SynthesizedFunctionDecl: Hashable {
   /// The type of this declaration.
   public let type: ArrowType
 
+  /// The generic parameters of the declaration.
+  public let genericParameters: [GenericParameterDecl.ID]
+
   /// The scope in which the declaration is defined.
   public let scope: AnyScopeID
 
@@ -36,34 +39,26 @@ public struct SynthesizedFunctionDecl: Hashable {
   public let kind: Kind
 
   /// Creates an instance with the given properties.
-  public init(_ kind: Kind, typed type: ArrowType, in scope: AnyScopeID) {
-    self.kind = kind
+  ///
+  /// - Requires: The environment of `type` is a tuple.
+  public init(
+    _ kind: Kind,
+    typed type: ArrowType,
+    parameterizedBy genericParameters: [GenericParameterDecl.ID],
+    in scope: AnyScopeID
+  ) {
+    precondition(type.environment.base is TupleType)
     self.type = type
+    self.genericParameters = genericParameters
     self.scope = scope
+    self.kind = kind
   }
 
   /// The type of the declaration's receiver.
   ///
   /// - Requires: `self` is a synthethic implementation of a member function.
   public var receiver: AnyType {
-    let r = type.captures[0].type
-    return RemoteType(r)?.bareType ?? r
-  }
-
-  /// Returns the generic parameters of the declaration.
-  public var genericParameters: [GenericParameterDecl.ID] {
-    guard
-      !type.captures.isEmpty,
-      let t = BoundGenericType(receiver)
-    else { return [] }
-
-    return t.arguments.compactMap { (k, v) -> GenericParameterDecl.ID? in
-      if case .type(let u) = v {
-        return GenericTypeParameterType(u)?.decl == k ? k : nil
-      } else {
-        UNIMPLEMENTED("compile time values")
-      }
-    }
+    read(type.captures[0].type, { RemoteType($0)?.bareType ?? $0 })
   }
 
 }
