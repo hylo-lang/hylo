@@ -1074,7 +1074,7 @@ struct Emitter {
   private mutating func emit(assignStmt s: AssignStmt.ID) -> ControlFlow {
     // The LHS should must be marked for mutation even if the statement denotes initialization.
     guard program[s].left.kind == InoutExpr.self else {
-      let p = program[s].left.site.first()
+      let p = program[s].left.site.start
       report(.error(assignmentLHSRequiresMutationMarkerAt: .empty(at: p)))
       return .next
     }
@@ -1171,7 +1171,7 @@ struct Emitter {
     loops.append(LoopID(depth: frames.depth, exit: exit))
     defer { loops.removeLast() }
 
-    insert(module.makeBranch(to: body, at: .empty(at: ast[s].site.first())))
+    insert(module.makeBranch(to: body, at: .empty(at: ast[s].site.start)))
     insertionPoint = .end(of: body)
 
     // We're not using `emit(braceStmt:into:)` because we need to evaluate the loop condition
@@ -1339,7 +1339,7 @@ struct Emitter {
   private mutating func emit(whileStmt s: WhileStmt.ID) -> ControlFlow {
     // Enter the loop.
     let head = appendBlock(in: s)
-    insert(module.makeBranch(to: head, at: .empty(at: ast[s].site.first())))
+    insert(module.makeBranch(to: head, at: .empty(at: ast[s].site.start)))
 
     // Test the conditions.
     insertionPoint = .end(of: head)
@@ -1645,7 +1645,7 @@ struct Emitter {
     case .file:
       emitStore(string: anchor.file.url.absoluteURL.fileSystemPath, to: storage, at: anchor)
     case .line:
-      emitStore(int: anchor.first().line.number, to: storage, at: anchor)
+      emitStore(int: anchor.start.line.number, to: storage, at: anchor)
     }
   }
 
@@ -3273,7 +3273,7 @@ extension Diagnostic {
   }
 
   fileprivate static func warning(unreachableStatement s: AnyStmtID, in ast: AST) -> Diagnostic {
-    .error("statement will never be executed", at: .empty(at: ast[s].site.first()))
+    .error("statement will never be executed", at: .empty(at: ast[s].site.start))
   }
 
 }

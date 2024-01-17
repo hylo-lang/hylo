@@ -70,11 +70,7 @@ public struct Diagnostic: Hashable {
 extension Diagnostic: CustomStringConvertible {
 
   public var description: String {
-    let prefix: String
-    let l = site.first()
-    let (line, column) = l.lineAndColumn
-    prefix = "\(l.file.url.fileSystemPath):\(line):\(column): "
-    return prefix + "\(level): \(message)"
+    "\(site.gnuStandardText): \(level): \(message)"
   }
 
 }

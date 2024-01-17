@@ -630,7 +630,7 @@ extension Module {
     _ specialization: GenericArguments,
     in monomorphized: Function.ID
   ) -> OrderedDictionary<GenericParameterDecl.ID, InstructionID> {
-    let insertionSite = SourceRange.empty(at: self[monomorphized].site.first())
+    let insertionSite = SourceRange.empty(at: self[monomorphized].site.start)
     let entry = Block.ID(monomorphized, self[monomorphized].entry!)
 
     var genericValues = OrderedDictionary<GenericParameterDecl.ID, InstructionID>()

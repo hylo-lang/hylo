@@ -66,13 +66,13 @@ public enum Parser {
       case .unterminatedBlockComment:
         // Nothing to parse after an unterminated block comment.
         state.diagnostics.insert(
-          .error(unterminatedCommentEndingAt: head.site.last() ?? head.site.first()))
+          .error(unterminatedCommentEndingAt: head.site.end))
         break
 
       case .unterminatedString:
         // Nothing to parse after an unterminated string.
         state.diagnostics.insert(
-          .error(unterminatedStringEndingAt: head.site.last() ?? head.site.first()))
+          .error(unterminatedStringEndingAt: head.site.end))
         break
 
       default:
@@ -106,7 +106,7 @@ public enum Parser {
     in state: inout ParserState,
     then continuation: (_ prologue: DeclPrologue, _ state: inout ParserState) throws -> R?
   ) throws -> R? {
-    guard let startIndex = state.peek()?.site.start else { return nil }
+    guard let startIndex = state.peek()?.site.startIndex else { return nil }
 
     // Parse attributes.
     let attributes = try parseAttributeList(in: &state) ?? []
@@ -321,7 +321,7 @@ public enum Parser {
       }
 
       // Diagnose the error.
-      state.diagnostics.insert(.error(expected: "declaration", at: head.site.first()))
+      state.diagnostics.insert(.error(expected: "declaration", at: head.site.start))
 
       // Skip tokens until we find a right delimiter or the start of another declaration.
       state.skip(while: { (next) in !next.mayBeginDecl && (next.kind != .rBrace) })
@@ -900,7 +900,7 @@ public enum Parser {
       in: &state,
       introducedBy: SourceRepresentable(
         value: .let,
-        range: state.lexer.sourceCode.emptyRange(at: state.ast[body.base].site.start)),
+        range: state.lexer.sourceCode.emptyRange(at: state.ast[body.base].site.startIndex)),
       body: body,
       asNonStaticMember: isNonStaticMember)
     return [i]
@@ -1245,7 +1245,7 @@ public enum Parser {
         defaultValue: defaultValue,
         isImplicit: isImplicit,
         site: state.range(
-          from: interface.label?.site.start ?? interface.name.site.start)))
+          from: interface.label?.site.startIndex ?? interface.name.site.startIndex)))
   }
 
   /// Parses the (optional) label and name of a parameter declaration.
@@ -1283,7 +1283,7 @@ public enum Parser {
       return (label: name, name: name)
     }
 
-    throw [.error(expected: "parameter name", at: labelCandidate.site.first())] as DiagnosticSet
+    throw [.error(expected: "parameter name", at: labelCandidate.site.start)] as DiagnosticSet
   }
 
   static let memberModifier =
@@ -1339,7 +1339,7 @@ public enum Parser {
             conformances: tree.0.1?.1 ?? [],
             defaultValue: tree.1?.1,
             site: state.range(
-              from: tree.0.0.0?.site.start ?? tree.0.0.1.site.start)))
+              from: tree.0.0.0?.site.startIndex ?? tree.0.0.1.site.startIndex)))
       }))
 
   static let conformanceList =
@@ -1427,7 +1427,7 @@ public enum Parser {
       if !state.hasLeadingWhitespace {
         // If there isn't any leading whitespace before the next expression but the operator is on
         // a different line, we may be looking at the start of a prefix expression.
-        let rangeBefore = state.ast[lhs].site.end ..< operatorStem.site.start
+        let rangeBefore = state.ast[lhs].site.endIndex ..< operatorStem.site.startIndex
         if state.lexer.sourceCode.text[rangeBefore].contains(where: { $0.isNewline }) {
           state.restore(from: backup)
           break
@@ -1483,7 +1483,7 @@ public enum Parser {
           name: SourceRepresentable(
             value: Name(stem: op.value, notation: .prefix),
             range: op.site),
-          site: state.range(from: op.site.start)))
+          site: state.range(from: op.site.startIndex)))
 
       let call = state.insert(
         FunctionCallExpr(
@@ -1514,7 +1514,7 @@ public enum Parser {
           name: SourceRepresentable(
             value: Name(stem: op.value, notation: .postfix),
             range: op.site),
-          site: state.range(from: state.ast[operand].site.start)))
+          site: state.range(from: state.ast[operand].site.startIndex)))
 
       let call = state.insert(
         FunctionCallExpr(
@@ -1547,7 +1547,7 @@ public enum Parser {
           ConformanceLensExpr(
             subject: head,
             lens: lens,
-            site: state.range(from: headOrigin.start)))
+            site: state.range(from: headOrigin.startIndex)))
         head = AnyExprID(expr)
         continue
       }
@@ -1562,7 +1562,7 @@ public enum Parser {
           FunctionCallExpr(
             callee: head,
             arguments: arguments,
-            site: state.range(from: headOrigin.start)))
+            site: state.range(from: headOrigin.startIndex)))
         head = AnyExprID(expr)
         continue
       }
@@ -1574,7 +1574,7 @@ public enum Parser {
           SubscriptCallExpr(
             callee: head,
             arguments: arguments,
-            site: state.range(from: headOrigin.start)))
+            site: state.range(from: headOrigin.startIndex)))
         head = AnyExprID(expr)
         continue
       }
@@ -1602,7 +1602,7 @@ public enum Parser {
         InoutExpr(
           operatorSite: op.site,
           subject: operand,
-          site: state.range(from: op.site.start))))
+          site: state.range(from: op.site.startIndex))))
   }
 
   /// If the next token is a dot, parses a tuple or name components, and returns respectively a
@@ -1618,7 +1618,7 @@ public enum Parser {
         TupleMemberExpr(
           tuple: head,
           index: index,
-          site: state.range(from: state.ast[head].site.start)))
+          site: state.range(from: state.ast[head].site.startIndex)))
       return AnyExprID(e)
     }
 
@@ -1628,7 +1628,7 @@ public enum Parser {
           domain: .explicit(head),
           name: component.name,
           arguments: component.arguments,
-          site: state.range(from: state.ast[head].site.start)))
+          site: state.range(from: state.ast[head].site.startIndex)))
       return AnyExprID(e)
     }
 
@@ -1820,7 +1820,7 @@ public enum Parser {
         domain: .implicit,
         name: component.name,
         arguments: component.arguments,
-        site: state.range(from: head.site.start)))
+        site: state.range(from: head.site.startIndex)))
   }
 
   private static func parseNameExprComponent(
@@ -1937,7 +1937,7 @@ public enum Parser {
         stem: String(state.lexer.sourceCode[identifier.site]),
         labels: labels,
         introducer: introducer?.value),
-      range: state.range(from: identifier.site.start))
+      range: state.range(from: identifier.site.startIndex))
   }
 
   private static func parseOperatorEntityName(
@@ -1956,7 +1956,7 @@ public enum Parser {
 
     return SourceRepresentable(
       value: Name(stem: identifier.value, notation: OperatorNotation(notation)!),
-      range: state.range(from: identifier.site.start))
+      range: state.range(from: identifier.site.startIndex))
   }
 
   private static func parseLambdaExpr(in state: inout ParserState) throws -> LambdaExpr.ID? {
@@ -1978,7 +1978,7 @@ public enum Parser {
         output: signature.output,
         body: body,
         isInExprContext: true,
-        site: state.range(from: introducer.site.start)))
+        site: state.range(from: introducer.site.startIndex)))
     return state.insert(
       LambdaExpr(decl: decl, site: state.ast[decl].site))
   }
@@ -2013,7 +2013,7 @@ public enum Parser {
     return state.insert(
       ConditionalExpr(
         introducerSite: introducer.site, condition: c, success: a, failure: elseClause,
-        site: state.range(from: introducer.site.start)))
+        site: state.range(from: introducer.site.startIndex)))
   }
 
   /// Parses a single expression enclosed in curly braces.
@@ -2041,7 +2041,7 @@ public enum Parser {
         introducerSite: introducer.site,
         subject: subject,
         cases: cases,
-        site: state.range(from: introducer.site.start)))
+        site: state.range(from: introducer.site.startIndex)))
   }
 
   private static func parseMatchBody(in state: inout ParserState) throws -> [MatchCase.ID]? {
@@ -2077,7 +2077,7 @@ public enum Parser {
         pattern: pattern,
         condition: condition,
         body: body,
-        site: state.range(from: state.ast[pattern].site.start)))
+        site: state.range(from: state.ast[pattern].site.startIndex)))
   }
 
   private static func parseMatchCaseBody(in state: inout ParserState) throws -> MatchCase.Body? {
@@ -2113,7 +2113,7 @@ public enum Parser {
         introducerSite: introducer.site,
         convention: convention,
         operand: operand,
-        site: state.range(from: introducer.site.start)))
+        site: state.range(from: introducer.site.startIndex)))
   }
 
   private static func parseSpawnExpr(in state: inout ParserState) throws -> SpawnExpr.ID? {
@@ -2143,7 +2143,7 @@ public enum Parser {
         output: output,
         body: body,
         isInExprContext: true,
-        site: state.range(from: introducer.site.start)))
+        site: state.range(from: introducer.site.startIndex)))
     return state.insert(
       SpawnExpr(decl: decl, site: state.ast[decl].site))
   }
@@ -2180,7 +2180,7 @@ public enum Parser {
         let expr = state.insert(
           TupleExpr(
             elements: [],
-            site: state.range(from: opener.site.start)))
+            site: state.range(from: opener.site.startIndex)))
         return AnyExprID(expr)
       }
 
@@ -2196,7 +2196,7 @@ public enum Parser {
         environment: nil,
         parameters: parameters,
         output: output,
-        site: state.range(from: opener.site.start)))
+        site: state.range(from: opener.site.startIndex)))
     return AnyExprID(expr)
   }
 
@@ -2225,7 +2225,7 @@ public enum Parser {
       let expr = state.insert(
         BufferLiteralExpr(
           elements: environment != nil ? [environment!] : [],
-          site: state.range(from: opener.site.start)))
+          site: state.range(from: opener.site.startIndex)))
       return AnyExprID(expr)
     }
 
@@ -2250,7 +2250,7 @@ public enum Parser {
     let output = try state.expect("type expression", using: parseExpr(in:))
 
     // Synthesize the environment as an empty tuple if we parsed `[]`.
-    let s = state.lexer.sourceCode.emptyRange(at: opener.site.start)
+    let s = state.lexer.sourceCode.emptyRange(at: opener.site.startIndex)
     let e = environment ?? AnyExprID(state.insert(TupleTypeExpr(elements: [], site: s)))
 
     let expr = state.insert(
@@ -2259,7 +2259,7 @@ public enum Parser {
         environment: e,
         parameters: parameters,
         output: output,
-        site: state.range(from: opener.site.start)))
+        site: state.range(from: opener.site.startIndex)))
     return AnyExprID(expr)
   }
 
@@ -2281,7 +2281,7 @@ public enum Parser {
     let expr = state.insert(
       TupleExpr(
         elements: elementList.elements,
-        site: state.range(from: elementList.opener.site.start)))
+        site: state.range(from: elementList.opener.site.startIndex)))
     return AnyExprID(expr)
   }
 
@@ -2317,7 +2317,7 @@ public enum Parser {
     return state.insert(
       TupleTypeExpr(
         elements: elementList.elements,
-        site: state.range(from: elementList.opener.site.start)))
+        site: state.range(from: elementList.opener.site.startIndex)))
   }
 
   private static func parseTupleTypeExprElement(
@@ -2352,7 +2352,7 @@ public enum Parser {
       let expr = state.insert(
         BufferLiteralExpr(
           elements: buffer.elements,
-          site: state.range(from: buffer.opener.site.start)))
+          site: state.range(from: buffer.opener.site.startIndex)))
       return AnyExprID(expr)
     }
 
@@ -2613,7 +2613,7 @@ public enum Parser {
         introducer: introducer,
         subpattern: subpattern,
         annotation: annotation,
-        site: state.range(from: introducer.site.start)))
+        site: state.range(from: introducer.site.startIndex)))
   }
 
   private static func parseBindingIntroducer(
@@ -2685,7 +2685,7 @@ public enum Parser {
         state.insert(
           TuplePattern(
             elements: tree.0.1 ?? [],
-            site: tree.0.0.site.extended(upTo: tree.1.site.end)))
+            site: tree.0.0.site.extended(upTo: tree.1.site.endIndex)))
       }))
 
   static let tuplePatternElementList =
@@ -2796,7 +2796,7 @@ public enum Parser {
       ConditionalStmt(
         introducerSite: introducer.site,
         condition: c, success: a, failure: b,
-        site: state.range(from: introducer.site.start)))
+        site: state.range(from: introducer.site.startIndex)))
   }
 
   static let doWhileStmt =
@@ -2968,7 +2968,7 @@ public enum Parser {
       AssignStmt(
         left: lhs,
         right: rhs,
-        site: state.range(from: state.ast[lhs].site.start)))
+        site: state.range(from: state.ast[lhs].site.startIndex)))
     return AnyStmtID(stmt)
   }
 
@@ -3130,7 +3130,7 @@ public enum Parser {
         case "<":
           comparison = .less(p.1)
         default:
-          throw [.error(expected: "'>=' or '<'", at: p.0.site.first())] as DiagnosticSet
+          throw [.error(expected: "'>=' or '<'", at: p.0.site.start)] as DiagnosticSet
         }
         switch conditionName {
         case "compiler_version":
@@ -3174,7 +3174,7 @@ public enum Parser {
     if let converted = NameExpr.ID(expr) {
       return converted
     } else {
-      throw [.error(expected: "name", at: state.ast[expr].site.first())] as DiagnosticSet
+      throw [.error(expected: "name", at: state.ast[expr].site.start)] as DiagnosticSet
     }
   }
 
@@ -3329,7 +3329,7 @@ public enum Parser {
 
     return SourceRepresentable(
       value: Attribute(name: state.token(introducer), arguments: arguments),
-      range: state.range(from: introducer.site.start))
+      range: state.range(from: introducer.site.startIndex))
   }
 
   private static func parseAttributeArgument(
@@ -3597,7 +3597,7 @@ struct DelimitedCommaSeparatedList<E: Combinator>: Combinator where E.Context ==
       let h = state.peek()
       if let element = try elementParser.parse(&state) {
         if !elements.isEmpty && trailingSeparator == nil {
-          state.diagnostics.insert(.error(expected: "',' separator", at: h!.site.first()))
+          state.diagnostics.insert(.error(expected: "',' separator", at: h!.site.start))
         }
 
         elements.append(element)

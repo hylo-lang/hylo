@@ -393,7 +393,7 @@ public struct Module {
 
     let entity = Function(
       isSubscript: false,
-      site: .empty(at: program.ast[id].site.first()),
+      site: .empty(at: program.ast[id].site.start),
       linkage: .external,
       genericParameters: d.genericParameters,
       inputs: inputs,
