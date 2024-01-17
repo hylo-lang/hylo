@@ -503,7 +503,8 @@ struct Emitter {
     let r = RemoteType(.set, program[d].type)
     let l = LambdaType(
       receiverEffect: .set, environment: ^TupleType(types: [^r]), inputs: [], output: .void)
-    let f = SynthesizedFunctionDecl(.globalInitialization(d), typed: l, in: program[d].scope)
+    let f = SynthesizedFunctionDecl(
+      .globalInitialization(d), typed: l, parameterizedBy: [], in: program[d].scope)
     let i = lower(globalBindingInitializer: f)
     let t = program.canonical(r.bareType, in: program[d].scope)
     let s = StaticStorage(t, identifiedBy: AnyDeclID(d), initializedWith: i)
@@ -2037,9 +2038,10 @@ struct Emitter {
     autoclosureFor argument: AnyExprID, to parameter: ParameterType, at site: SourceRange? = nil
   ) -> Operand {
     // Emit synthesized function declaration.
+    let t = LambdaType(parameter.bareType)!
+    let h = Array(t.environment.skolems)
     let f = SynthesizedFunctionDecl(
-      .autoclosure(argument), typed: parameter.bareType.base as! LambdaType,
-      in: program[argument].scope)
+      .autoclosure(argument), typed: t, parameterizedBy: h, in: program[argument].scope)
     let callee = withClearContext({ $0.lower(syntheticAutoclosure: f) })
 
     // Emit the IR code to reference tha function declaration.
@@ -2910,19 +2912,21 @@ struct Emitter {
   /// Let `T` be the type of `storage`, `storage` is deinitializable iff `T` has a deinitializer
   /// exposed to `self.insertionScope`.
   mutating func emitDeinit(_ storage: Operand, at site: SourceRange) {
-    let model = module.type(of: storage).ast
-    let deinitializable = program.ast.core.deinitializable.type
+    let m = module.type(of: storage).ast
+    let d = program.ast.core.deinitializable.type
 
-    if let c = program.conformance(of: model, to: deinitializable, exposedTo: insertionScope!) {
+    if m.base is RemoteType {
+      insert(module.makeMarkState(storage, initialized: false, at: site))
+    } else if let c = program.conformance(of: m, to: d, exposedTo: insertionScope!) {
       if program.isTrivial(c) {
         insert(module.makeMarkState(storage, initialized: false, at: site))
       } else {
         emitDeinit(storage, withDeinitializableConformance: c, at: site)
       }
-    } else if model.isBuiltinOrRawTuple {
+    } else if m.isBuiltinOrRawTuple {
       insert(module.makeMarkState(storage, initialized: false, at: site))
     } else {
-      report(.error(module.type(of: storage).ast, doesNotConformTo: deinitializable, at: site))
+      report(.error(module.type(of: storage).ast, doesNotConformTo: d, at: site))
     }
   }
 

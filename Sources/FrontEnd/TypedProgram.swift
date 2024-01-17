@@ -448,11 +448,14 @@ public struct TypedProgram {
       guard allConform(m.elements, to: concept, in: scopeOfUse) else { return nil }
     case is MetatypeType:
       break
-    case is RemoteType:
+    case is RemoteType where concept == ast.core.deinitializable.type:
       break
     default:
       return nil
     }
+
+    let g = accumulatedGenericParameters(in: scopeOfUse)
+    let h = g.filter(model.skolems.contains(_:))
 
     var implementations = Conformance.ImplementationMap()
     for requirement in ast.requirements(of: concept.decl) {
@@ -460,12 +463,13 @@ public struct TypedProgram {
 
       let a: GenericArguments = [ast[concept.decl].receiver: .type(model)]
       let t = LambdaType(specialize(declType[requirement]!, for: a, in: scopeOfUse))!
-      let d = SynthesizedFunctionDecl(k, typed: t, in: scopeOfUse)
+      let d = SynthesizedFunctionDecl(k, typed: t, parameterizedBy: h, in: scopeOfUse)
       implementations[requirement] = .synthetic(d)
     }
 
+    let z = GenericArguments(skolemizing: h, in: ast)
     return .init(
-      model: model, concept: concept, arguments: [:], conditions: [], scope: scopeOfUse,
+      model: model, concept: concept, arguments: z, conditions: [], scope: scopeOfUse,
       implementations: implementations, isStructural: true, origin: nil)
   }
 

@@ -1615,8 +1615,11 @@ struct TypeChecker {
         structurallyConforms(model, to: trait, in: scopeOfDefinition)
       else { return nil }
 
+      let t = LambdaType(expectedAPI.type)!
+      let h = Array(t.environment.skolems)
+
       // Note: compiler-known requirement is assumed to be well-typed.
-      return .init(k, typed: LambdaType(expectedAPI.type)!, in: AnyScopeID(origin.source)!)
+      return .init(k, typed: t, parameterizedBy: h, in: AnyScopeID(origin.source)!)
     }
 
     /// Returns a concrete implementation of `requirement` for `model` with given `expectedAPI`,
