@@ -1,4 +1,4 @@
-/// A parameter in a lambda type expression.
+/// A parameter in an arrow type expression.
 public struct ParameterTypeExpr: Expr {
 
   public let site: SourceRange

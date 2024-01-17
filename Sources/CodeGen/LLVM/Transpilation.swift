@@ -196,7 +196,7 @@ extension LLVM.Module {
   ///
   /// - Note: the type of a function in Hylo IR typically doesn't match the type of its transpiled
   ///   form 1-to-1, as return values are often passed by references.
-  private mutating func transpiledType(_ t: LambdaType) -> LLVM.FunctionType {
+  private mutating func transpiledType(_ t: ArrowType) -> LLVM.FunctionType {
     // Return value is passed by reference.
     var parameters: Int = t.inputs.count + 1
 
@@ -447,7 +447,7 @@ extension LLVM.Module {
   private mutating func declare(
     _ ref: IR.FunctionReference, from ir: IR.Program
   ) -> LLVM.Function {
-    let t = transpiledType(LambdaType(ref.type.ast)!)
+    let t = transpiledType(ArrowType(ref.type.ast)!)
     return declareFunction(ir.llvmName(of: ref.function), t)
   }
 
@@ -1204,28 +1204,28 @@ extension LLVM.Module {
     }
 
     /// Returns the callee of `s`.
-    func unpackCallee(of s: Operand) -> LambdaContents {
+    func unpackCallee(of s: Operand) -> ArrowContents {
       if case .constant(let f) = s {
         let f = transpiledConstant(f, usedIn: m, from: ir)
         let t = LLVM.Function(f)!.valueType
         return .init(function: f, type: t, environment: [])
       }
 
-      // `s` is a lambda.
-      let hyloType = LambdaType(m.type(of: s).ast)!
+      // `s` is an arrow.
+      let hyloType = ArrowType(m.type(of: s).ast)!
       let llvmType = StructType(ir.llvm(hyloType, in: &self))!
-      let lambda = llvm(s)
+      let arrow = llvm(s)
 
       // The first element of the representation is the function pointer.
       var f = insertGetStructElementPointer(
-        of: lambda, typed: llvmType, index: 0, at: insertionPoint)
+        of: arrow, typed: llvmType, index: 0, at: insertionPoint)
       f = insertLoad(ptr, from: f, at: insertionPoint)
 
       // Following elements constitute the environment.
       var environment: [LLVM.IRValue] = []
       for (i, c) in hyloType.captures.enumerated() {
         var x = insertGetStructElementPointer(
-          of: lambda, typed: llvmType, index: i + 1, at: insertionPoint)
+          of: arrow, typed: llvmType, index: i + 1, at: insertionPoint)
 
         // Remote captures are passed deferenced.
         if c.type.base is RemoteType {
@@ -1276,8 +1276,8 @@ extension LLVMProgram: CustomStringConvertible {
 
 }
 
-/// The contents of a lambda.
-private struct LambdaContents {
+/// The contents of an arrow.
+private struct ArrowContents {
 
   /// A pointer to the underlying thin function.
   let function: LLVM.IRValue
@@ -1285,7 +1285,7 @@ private struct LambdaContents {
   /// The type `function`.
   let type: LLVM.IRType
 
-  /// The lambda's environment.
+  /// The arrow's environment.
   let environment: [LLVM.IRValue]
 
 }

@@ -210,7 +210,7 @@ struct Emitter {
     // Emit the body.
     switch b {
     case .block(let s):
-      let returnType = LambdaType(program[d].type)!.output
+      let returnType = ArrowType(program[d].type)!.output
       let returnSite = pushing(bodyFrame, { $0.lowerStatements(s, expecting: returnType) })
       insert(module.makeReturn(at: returnSite))
 
@@ -372,7 +372,7 @@ struct Emitter {
     self.insertionPoint = .end(of: entry)
     switch b {
     case .block(let s):
-      let returnType = LambdaType(program[d].type)!.output
+      let returnType = ArrowType(program[d].type)!.output
       let returnSite = pushing(bodyFrame, { $0.lowerStatements(s, expecting: returnType) })
       insert(module.makeReturn(at: returnSite))
 
@@ -501,7 +501,7 @@ struct Emitter {
     precondition(read(program[d].pattern.introducer.value, { ($0 == .let) || ($0 == .sinklet) }))
 
     let r = RemoteType(.set, program[d].type)
-    let l = LambdaType(
+    let l = ArrowType(
       receiverEffect: .set, environment: ^TupleType(types: [^r]), inputs: [], output: .void)
     let f = SynthesizedFunctionDecl(.globalInitialization(d), typed: l, in: program[d].scope)
     let i = lower(globalBindingInitializer: f)
@@ -1605,7 +1605,7 @@ struct Emitter {
     let x1 = emitSubfieldView(storage, at: [0], at: site)
     emitInitialize(storage: x1, to: x0, at: ast[e].site)
 
-    let lambda = LambdaType(program.canonical(program[e].type, in: insertionScope!))!
+    let lambda = ArrowType(program.canonical(program[e].type, in: insertionScope!))!
     if lambda.environment == .void { return }
 
     var i = 1
@@ -1669,7 +1669,7 @@ struct Emitter {
     switch e {
     case .infix(let callee, let lhs, let rhs):
       let t = program[callee.expr].type
-      let calleeType = LambdaType(canonical(t))!.lifted
+      let calleeType = ArrowType(canonical(t))!.lifted
 
       // Emit the operands, starting with RHS.
       let r = emit(infixOperand: rhs, passed: ParameterType(calleeType.inputs[1].type)!.access)
@@ -1925,7 +1925,7 @@ struct Emitter {
   private mutating func emit(
     memberwiseInitializerCall call: FunctionCallExpr.ID, initializing receiver: Operand
   ) {
-    let callee = LambdaType(canonical(program[ast[call].callee].type))!
+    let callee = ArrowType(canonical(program[ast[call].callee].type))!
 
     if callee.inputs.isEmpty {
       insert(module.makeMarkState(receiver, initialized: true, at: ast[call].site))
@@ -2038,7 +2038,7 @@ struct Emitter {
   ) -> Operand {
     // Emit synthesized function declaration.
     let f = SynthesizedFunctionDecl(
-      .autoclosure(argument), typed: parameter.bareType.base as! LambdaType,
+      .autoclosure(argument), typed: parameter.bareType.base as! ArrowType,
       in: program[argument].scope)
     let callee = withClearContext({ $0.lower(syntheticAutoclosure: f) })
 
@@ -2062,7 +2062,7 @@ struct Emitter {
 
     switch e {
     case .infix(let callee, _, _):
-      let t = LambdaType(canonical(program[callee.expr].type))!.lifted
+      let t = ArrowType(canonical(program[callee.expr].type))!.lifted
       storage = emitAllocStack(for: t.output, at: ast.site(of: e))
       emitStore(e, to: storage)
 
@@ -2126,8 +2126,8 @@ struct Emitter {
   ) -> (callee: Callee, captures: [Operand]) {
     switch program[callee].referredDecl {
     case .direct(let d, let a) where d.isCallable:
-      // Callee is a direct reference to an arrow declaration.
-      guard LambdaType(canonical(program[callee].type))!.environment == .void else {
+      // Callee is a direct reference to a lambda declaration.
+      guard ArrowType(canonical(program[callee].type))!.environment == .void else {
         UNIMPLEMENTED("Generate IR for calls to local functions with captures #1088")
       }
       let f = FunctionReference(to: d, in: &module, specializedBy: a, in: insertionScope!)
@@ -2182,7 +2182,7 @@ struct Emitter {
   ///
   /// - Requires: `callee` has a lambda type.
   private mutating func emit(lambdaCallee callee: AnyExprID) -> Operand {
-    switch LambdaType(program[callee].type)!.receiverEffect {
+    switch ArrowType(program[callee].type)!.receiverEffect {
     case .yielded:
       unreachable()
     case .set, .sink:
@@ -2390,7 +2390,7 @@ struct Emitter {
     switch rhs.base {
     case let t as ExistentialType:
       return _emitCoerce(source, to: t, at: site)
-    case let t as LambdaType:
+    case let t as ArrowType:
       return _emitCoerce(source, to: t, at: site)
     case let t as UnionType:
       return _emitCoerce(source, to: t, at: site)
@@ -2417,15 +2417,15 @@ struct Emitter {
   ///
   /// - Requires: `target` is canonical.
   private mutating func _emitCoerce(
-    _ source: Operand, to target: LambdaType, at site: SourceRange
+    _ source: Operand, to target: ArrowType, at site: SourceRange
   ) -> Operand {
     let t = module.type(of: source).ast
-    guard let lhs = LambdaType(t) else {
+    guard let lhs = ArrowType(t) else {
       unexpectedCoercion(from: t, to: ^target)
     }
 
     // TODO: Handle variance
-    let rhs = LambdaType(
+    let rhs = ArrowType(
       receiverEffect: lhs.receiverEffect,
       environment: target.environment,
       inputs: target.inputs,
@@ -2486,7 +2486,7 @@ struct Emitter {
 
       let x0 = emitAllocStack(for: ir, at: site)
       let x1 = insert(module.makeAccess(.set, from: x0, at: site))!
-      let x2 = emitAllocStack(for: LambdaType(f.type.ast)!.output, at: site)
+      let x2 = emitAllocStack(for: ArrowType(f.type.ast)!.output, at: site)
       let x3 = insert(module.makeAccess(.set, from: x2, at: site))!
       let x4 = insert(module.makeAccess(.sink, from: source, at: site))!
 
@@ -2523,7 +2523,7 @@ struct Emitter {
       let f = module.reference(to: convert, implementedFor: foreignConvertibleConformance)
 
       let x0 = insert(module.makeAccess(.let, from: o, at: site))!
-      let x1 = emitAllocStack(for: LambdaType(f.type.ast)!.output, at: site)
+      let x1 = emitAllocStack(for: ArrowType(f.type.ast)!.output, at: site)
       let x2 = insert(module.makeAccess(.set, from: x1, at: site))!
       insert(module.makeCall(applying: .constant(f), to: [x0], writingResultTo: x2, at: site))
       insert(module.makeEndAccess(x2, at: site))
@@ -3055,7 +3055,7 @@ struct Emitter {
   /// function or method bundle.
   private func receiverCapabilities(_ callee: AnyType) -> AccessEffectSet {
     switch canonical(callee).base {
-    case let t as LambdaType:
+    case let t as ArrowType:
       return [RemoteType(t.captures[0].type)?.access ?? .sink]
     case let t as MethodType:
       return t.capabilities

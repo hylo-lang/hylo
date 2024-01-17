@@ -482,7 +482,7 @@ public struct Module {
 
   /// Returns the lowered declarations of `d`'s parameters.
   private func loweredParameters(of d: FunctionDecl.ID) -> [Parameter] {
-    let captures = LambdaType(program[d].type)!.captures.lazy.map { (e) in
+    let captures = ArrowType(program[d].type)!.captures.lazy.map { (e) in
       program.canonical(e.type, in: program[d].scope)
     }
     var result: [Parameter] = zip(program.captures(of: d), captures).map({ (c, e) in

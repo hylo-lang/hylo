@@ -97,6 +97,8 @@ extension AST {
     case VarDecl.self:
       traverse(self[n] as! VarDecl, notifying: &o)
 
+    case ArrowTypeExpr.self:
+      traverse(self[n] as! ArrowTypeExpr, notifying: &o)
     case BooleanLiteralExpr.self:
       traverse(self[n] as! BooleanLiteralExpr, notifying: &o)
     case BufferLiteralExpr.self:
@@ -121,8 +123,6 @@ extension AST {
       traverse(self[n] as! IntegerLiteralExpr, notifying: &o)
     case LambdaExpr.self:
       traverse(self[n] as! LambdaExpr, notifying: &o)
-    case LambdaTypeExpr.self:
-      traverse(self[n] as! LambdaTypeExpr, notifying: &o)
     case MapLiteralExpr.self:
       traverse(self[n] as! MapLiteralExpr, notifying: &o)
     case MatchExpr.self:
@@ -507,7 +507,7 @@ extension AST {
 
   /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
-    _ n: LambdaTypeExpr, notifying o: inout O
+    _ n: ArrowTypeExpr, notifying o: inout O
   ) {
     walk(n.environment, notifying: &o)
     walk(roots: n.parameters.map(\.type), notifying: &o)

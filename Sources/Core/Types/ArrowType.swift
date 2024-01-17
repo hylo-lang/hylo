@@ -1,18 +1,18 @@
 import Utils
 
-/// The type of a lambda.
-public struct LambdaType: TypeProtocol {
+/// A type expressed with an arrow.
+public struct ArrowType: TypeProtocol {
 
-  /// The effect of the lambda's call operator.
+  /// The effect of the arrow's call operator.
   public let receiverEffect: AccessEffect
 
-  /// The environment of the lambda.
+  /// The environment of the arrow.
   public let environment: AnyType
 
-  /// The input labels and types of the lambda.
+  /// The input labels and types of the arrow.
   public let inputs: [CallableTypeParameter]
 
-  /// The output type of the lambda.
+  /// The output type of the arrow.
   public let output: AnyType
 
   public let flags: TypeFlags
@@ -45,7 +45,7 @@ public struct LambdaType: TypeProtocol {
   /// Given an initializer type `t`, creates the corresponding constructor type.
   ///
   /// - Requires: `t` is an initializer type of the form `[](self: set A, B...) -> Void`.
-  public init(constructorFormOf t: LambdaType) {
+  public init(constructorFormOf t: ArrowType) {
     let r = ParameterType(t.inputs.first!.type)!
     precondition(r.access == .set)
     self.init(inputs: Array(t.inputs[1...]), output: r.bareType)
@@ -54,13 +54,13 @@ public struct LambdaType: TypeProtocol {
   /// Given an constructor type `t`, creates the corresponding initializer type.
   ///
   /// - Requires: `t` is a constructor type of the form `[](A...) -> B`.
-  public init(initializerFormOf t: LambdaType) {
+  public init(initializerFormOf t: ArrowType) {
     let r = CallableTypeParameter(label: "self", type: ^ParameterType(.set, t.output))
     self.init(receiverEffect: .let, inputs: [r] + t.inputs, output: .void)
   }
 
   /// Returns a thin type accepting `self`'s environment as parameters.
-  public var lifted: LambdaType {
+  public var lifted: ArrowType {
     let elements = TupleType(environment).map(\.elements) ?? [.init(label: nil, type: environment)]
     let p = elements.map { (e) -> CallableTypeParameter in
       if let t = RemoteType(e.type) {
@@ -73,8 +73,8 @@ public struct LambdaType: TypeProtocol {
   }
 
   /// `self` sans environment.
-  public var strippingEnvironment: LambdaType {
-    LambdaType(receiverEffect: receiverEffect, environment: .void, inputs: inputs, output: output)
+  public var strippingEnvironment: ArrowType {
+    ArrowType(receiverEffect: receiverEffect, environment: .void, inputs: inputs, output: output)
   }
 
   /// `self` transformed as the type of a member of `receiver`, which is existential.
@@ -86,19 +86,19 @@ public struct LambdaType: TypeProtocol {
       r = ^receiver
     }
 
-    return ^LambdaType(
+    return ^ArrowType(
       receiverEffect: receiverEffect,
       environment: ^TupleType(labelsAndTypes: [("self", r)]),
       inputs: inputs, output: output)
   }
 
-  /// Accesses the individual elements of the lambda's environment.
+  /// Accesses the individual elements of the arrow's environment.
   public var captures: [TupleType.Element] { TupleType(environment)?.elements ?? [] }
 
   public func transformParts<M>(
     mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction
   ) -> Self {
-    LambdaType(
+    ArrowType(
       receiverEffect: receiverEffect,
       environment: environment.transform(mutating: &m, transformer),
       inputs: inputs.map({ $0.transform(mutating: &m, transformer) }),
@@ -106,13 +106,13 @@ public struct LambdaType: TypeProtocol {
   }
 }
 
-extension LambdaType: CallableType {
+extension ArrowType: CallableType {
 
   public var isArrow: Bool { true }
 
 }
 
-extension LambdaType: CustomStringConvertible {
+extension ArrowType: CustomStringConvertible {
 
   public var description: String {
     "[\(environment)] (\(list: inputs)) \(receiverEffect) -> \(output)"
