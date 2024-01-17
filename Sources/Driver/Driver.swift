@@ -92,7 +92,7 @@ public struct Driver: ParsableCommand {
   @Option(
     name: [.customShort("l")],
     help: ArgumentHelp(
-      "Link the generated crate(s) to the specified native library.",
+      "Link the generated module(s) to the specified native library.",
       valueName: "name"))
   private var libraries: [String] = []
 
