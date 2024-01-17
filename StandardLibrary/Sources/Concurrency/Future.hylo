@@ -1,10 +1,10 @@
 /// A future that cannot escape the local scope.
-public type Future<E> {
+public type Future<E: Movable & Deinitializable> {
 
   // TODO
   public typealias Result = Int
 
-  /// The base frame object needed by the underlying implementation. 
+  /// The base frame object needed by the underlying implementation.
   private var base_frame: SpawnFrameBase
 
   /// What needs to be called to produce the value in the future.
@@ -67,9 +67,9 @@ type SpawnFrameBase: Deinitializable {
 }
 
 // TODO: #1246
-type FunctionWrapper<E, R>: Movable, Deinitializable {
+type FunctionWrapper<E: Movable & Deinitializable, R>: Movable, Deinitializable {
 
-  let f: [E]()->R
+  let f: [E]() -> R
 
   memberwise init
 
@@ -85,4 +85,3 @@ fun concore2full_spawn2(_ frame: set SpawnFrameBase, _ f: [](SpawnFrameBase) let
 /// Awaits the completion of the computation started in `frame`.
 @external("concore2full_await")
 fun concore2full_await(_ frame: SpawnFrameBase);
-
