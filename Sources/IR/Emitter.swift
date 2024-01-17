@@ -246,7 +246,7 @@ struct Emitter {
     switch emit(braceStmt: b) {
     case .next:
       if canonical(returnType).isVoidOrNever {
-        let anchor = SourceRange.empty(atEndOf: ast[b].site)
+        let anchor = SourceRange.empty(at: ast[b].site.end)
         insert(module.makeMarkState(returnValue!, initialized: true, at: anchor))
       }
       return ast[b].site
@@ -447,7 +447,7 @@ struct Emitter {
   private mutating func lower(body b: BraceStmt.ID, of d: SubscriptImpl.ID, in f: Frame) {
     switch pushing(f, { $0.emit(braceStmt: b) }) {
     case .next:
-      insert(module.makeReturn(at: .empty(atEndOf: ast[b].site)))
+      insert(module.makeReturn(at: .empty(at: ast[b].site.end)))
     case .return(let s):
       insert(module.makeReturn(at: ast[s].site))
     default:
@@ -1075,7 +1075,7 @@ struct Emitter {
   private mutating func emit(assignStmt s: AssignStmt.ID) -> ControlFlow {
     // The LHS should must be marked for mutation even if the statement denotes initialization.
     guard program[s].left.kind == InoutExpr.self else {
-      let p = program[s].left.site.first()
+      let p = program[s].left.site.start
       report(.error(assignmentLHSRequiresMutationMarkerAt: .empty(at: p)))
       return .next
     }
@@ -1093,7 +1093,7 @@ struct Emitter {
   private mutating func emit(braceStmt s: BraceStmt.ID) -> ControlFlow {
     frames.push()
     defer {
-      emitDeallocTopFrame(at: .empty(atEndOf: ast[s].site))
+      emitDeallocTopFrame(at: .empty(at: ast[s].site.end))
       frames.pop()
     }
 
@@ -1172,7 +1172,7 @@ struct Emitter {
     loops.append(LoopID(depth: frames.depth, exit: exit))
     defer { loops.removeLast() }
 
-    insert(module.makeBranch(to: body, at: .empty(at: ast[s].site.first())))
+    insert(module.makeBranch(to: body, at: .empty(at: ast[s].site.start)))
     insertionPoint = .end(of: body)
 
     // We're not using `emit(braceStmt:into:)` because we need to evaluate the loop condition
@@ -1285,7 +1285,7 @@ struct Emitter {
 
     let flow = emit(braceStmt: ast[s].body)
     emitControlFlow(flow) { (me) in
-      me.insert(me.module.makeBranch(to: tail, at: .empty(atEndOf: me.program[s].body.site)))
+      me.insert(me.module.makeBranch(to: tail, at: .empty(at: me.program[s].body.site.end)))
     }
 
     insertionPoint = .end(of: tail)
@@ -1340,7 +1340,7 @@ struct Emitter {
   private mutating func emit(whileStmt s: WhileStmt.ID) -> ControlFlow {
     // Enter the loop.
     let head = appendBlock(in: s)
-    insert(module.makeBranch(to: head, at: .empty(at: ast[s].site.first())))
+    insert(module.makeBranch(to: head, at: .empty(at: ast[s].site.start)))
 
     // Test the conditions.
     insertionPoint = .end(of: head)
@@ -1354,7 +1354,7 @@ struct Emitter {
     insertionPoint = .end(of: body)
     let flow = emit(braceStmt: ast[s].body)
     emitControlFlow(flow) { (me) in
-      me.insert(me.module.makeBranch(to: head, at: .empty(atEndOf: me.program[s].body.site)))
+      me.insert(me.module.makeBranch(to: head, at: .empty(at: me.program[s].body.site.end)))
     }
 
     // Exit.
@@ -1572,7 +1572,7 @@ struct Emitter {
     // Explicit arguments are evaluated first, from left to right.
     let explicitArguments = emitArguments(
       to: ast[e].callee, in: CallID(e),
-      usingExplicit: ast[e].arguments, synthesizingDefaultAt: .empty(atEndOf: ast[e].site))
+      usingExplicit: ast[e].arguments, synthesizingDefaultAt: .empty(at: ast[e].site.end))
 
     // Callee and captures are evaluated next.
     let (callee, captures) = emit(functionCallee: ast[e].callee)
@@ -1646,7 +1646,7 @@ struct Emitter {
     case .file:
       emitStore(string: anchor.file.url.absoluteURL.fileSystemPath, to: storage, at: anchor)
     case .line:
-      emitStore(int: anchor.first().line.number, to: storage, at: anchor)
+      emitStore(int: anchor.start.line.number, to: storage, at: anchor)
     }
   }
 
@@ -1901,7 +1901,7 @@ struct Emitter {
     // Arguments are evaluated first, from left to right.
     let arguments = emitArguments(
       to: ast[call].callee, in: CallID(call),
-      usingExplicit: ast[call].arguments, synthesizingDefaultAt: .empty(atEndOf: ast[call].site))
+      usingExplicit: ast[call].arguments, synthesizingDefaultAt: .empty(at: ast[call].site.end))
 
     // Receiver is captured next.
     let receiver = insert(module.makeAccess(.set, from: s, at: ast[call].site))!
@@ -1997,7 +1997,7 @@ struct Emitter {
     // Explicit arguments are evaluated first, from left to right.
     let explicitArguments = emitArguments(
       to: ast[e].callee, in: CallID(e),
-      usingExplicit: ast[e].arguments, synthesizingDefaultAt: .empty(atEndOf: ast[e].site))
+      usingExplicit: ast[e].arguments, synthesizingDefaultAt: .empty(at: ast[e].site.end))
 
     // Callee and captures are evaluated next.
     let (callee, captures) = emit(subscriptCallee: ast[e].callee)
@@ -3134,7 +3134,7 @@ struct Emitter {
   private mutating func pushing<T>(_ newFrame: Frame, _ action: (inout Self) -> T) -> T {
     frames.push(newFrame)
     defer {
-      emitDeallocTopFrame(at: .empty(atEndOf: ast[insertionScope!].site))
+      emitDeallocTopFrame(at: .empty(at: ast[insertionScope!].site.end))
       frames.pop()
     }
     return action(&self)
@@ -3277,7 +3277,7 @@ extension Diagnostic {
   }
 
   fileprivate static func warning(unreachableStatement s: AnyStmtID, in ast: AST) -> Diagnostic {
-    .error("statement will never be executed", at: .empty(at: ast[s].site.first()))
+    .error("statement will never be executed", at: .empty(at: ast[s].site.start))
   }
 
 }

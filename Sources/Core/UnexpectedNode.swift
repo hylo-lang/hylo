@@ -3,5 +3,5 @@ public func unexpected<ID: NodeIDProtocol>(
   _ n: ID, in nodes: AST,
   file: StaticString = #filePath, line: UInt = #line
 ) -> Never {
-  fatalError("unexpected \(n.kind) at location: \(nodes[n].site.first())", file: file, line: line)
+  fatalError("\n\(nodes[n].site.gnuStandardText): error: unexpected \(n.kind)", file: file, line: line)
 }

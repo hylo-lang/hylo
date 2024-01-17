@@ -460,7 +460,7 @@ public struct AST {
     case .infix(_, let lhs, let rhs):
       let lhsSite = site(of: lhs)
       let rhsSite = site(of: rhs)
-      return lhsSite.extended(upTo: rhsSite.end)
+      return lhsSite.extended(upTo: rhsSite.endIndex)
     }
   }
 

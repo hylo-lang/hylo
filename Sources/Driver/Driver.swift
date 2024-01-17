@@ -265,7 +265,7 @@ public struct Driver: ParsableCommand {
   /// Returns `true` if type inference related to `n`, which is in `p`, would be traced.
   private func shouldTraceInference(_ n: AnyNodeID, _ p: TypedProgram) -> Bool {
     if let s = inferenceTracingSite {
-      return s.bounds.contains(p[n].site.first())
+      return s.bounds.contains(p[n].site.start)
     } else {
       return false
     }

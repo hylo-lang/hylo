@@ -463,7 +463,7 @@ extension Module {
       if !self[f].isSubscript {
         ensureInitializedOnExit(
           .parameter(entry, self[f].inputs.count), passed: .set, in: &context,
-          reportingDiagnosticsAt: .empty(at: self[f].site.first()))
+          reportingDiagnosticsAt: .empty(at: self[f].site.start))
       }
 
       return successor(of: i)
@@ -734,7 +734,7 @@ extension Module {
 
   /// Returns the site at which diagnostics related to the parameter `p` should be reported in `f`.
   private func diagnosticSite(for p: Parameter, in f: Function.ID) -> SourceRange {
-    guard let d = p.decl else { return .empty(at: self[f].site.first()) }
+    guard let d = p.decl else { return .empty(at: self[f].site.start) }
     switch d.kind {
     case ParameterDecl.self:
       return program.ast[ParameterDecl.ID(d)!].identifier.site

@@ -9,7 +9,7 @@ extension Diagnostic {
   fileprivate var expectation: TestAnnotation {
     TestAnnotation(
       in: site.file.url,
-      atLine: site.first().line.number,
+      atLine: site.start.line.number,
       parsing: "diagnostic " + message
     )
   }
