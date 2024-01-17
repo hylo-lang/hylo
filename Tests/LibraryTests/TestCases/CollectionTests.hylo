@@ -1,0 +1,15 @@
+//- compileAndRun expecting: success
+
+fun test_reduce() {
+  var a = Array<Int>()
+  &a.append(1)
+  &a.append(2)
+  &a.append(3)
+
+  let sum = a.reduce(0, fun (_ x: sink Int, _ y) { x + y })
+  precondition(sum == 6)
+}
+
+public fun main() {
+  test_reduce()
+}
