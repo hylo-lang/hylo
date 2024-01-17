@@ -144,6 +144,7 @@ public struct Driver: ParsableCommand {
       try executeCommand(diagnostics: &diagnostics)
     } catch let d as DiagnosticSet {
       assert(d.containsError, "Diagnostics containing no errors were thrown")
+      diagnostics.formUnion(d)
       return (ExitCode.failure, diagnostics)
     }
     return (ExitCode.success, diagnostics)
