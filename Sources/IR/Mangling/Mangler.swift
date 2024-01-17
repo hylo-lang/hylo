@@ -43,7 +43,7 @@ struct Mangler {
     self.program = program
     self.scopeOfUse = scopeOfUse
 
-    if program.ast.isCoreModuleLoaded {
+    if program.ast.coreModuleIsLoaded {
       self.reserved[.node(AnyNodeID(program.ast.coreLibrary!))] = .hylo
       register(coreType: "Bool", as: .bool)
       register(coreType: "Int", as: .int)
