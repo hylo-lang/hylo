@@ -454,6 +454,8 @@ public struct TypedProgram {
       return nil
     }
 
+    // We could predict that codegen won't need some of the skolems we gather here to reduce the
+    // number of generic functions that we define.
     let g = accumulatedGenericParameters(in: scopeOfUse)
     let h = g.filter(model.skolems.contains(_:))
 
