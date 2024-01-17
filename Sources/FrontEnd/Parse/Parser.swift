@@ -2912,7 +2912,7 @@ public enum Parser {
       throw [
         .error(
           "conditional binding requires an initializer",
-          at: .empty(atEndOf: state.ast[d].site))
+          at: state.ast[d].site)
       ] as DiagnosticSet
     }
 
