@@ -6,7 +6,8 @@ extension Diagnostic {
     .error("ambiguous disjunction", at: site)
   }
 
-  static func error(autoclosureExpectsEmptyEnvironment site: SourceRange, given: AnyType) -> Diagnostic
+  static func error(autoclosureExpectsEmptyEnvironment site: SourceRange, given: AnyType)
+    -> Diagnostic
   {
     .error(
       "autoclosure parameter expects arrow type with no parameters (given type: \(given))",
