@@ -4600,7 +4600,8 @@ struct TypeChecker {
     func transform(
       mutating me: inout Self, _ t: AssociatedTypeType
     ) -> TypeTransformAction {
-      UNIMPLEMENTED("quantifier elimination for associated types (#1043)")
+      let d = t.domain.transform(mutating: &me, transform)
+      return .stepOver(^AssociatedTypeType(t.decl, domain: d, ast: me.program.ast))
     }
 
     func transform(
