@@ -136,19 +136,19 @@ let package = Package(
         .product(name: "Collections", package: "swift-collections"),
         .product(name: "Algorithms", package: "swift-algorithms"),
       ],
-      swiftSettings: noWMO),
+      swiftSettings: allTargetsSwiftSettings),
 
     .target(
       name: "TestUtils",
       dependencies: ["Core", "Driver", "Utils"],
-      swiftSettings: noWMO),
+      swiftSettings: allTargetsSwiftSettings),
 
     .target(
       name: "StandardLibrary",
       dependencies: ["FrontEnd", "Utils", .product(name: "CBORCoding", package: "CBORCoding")],
       path: "StandardLibrary",
       exclude: ["Sources"],
-      swiftSettings: noWMO,
+      swiftSettings: allTargetsSwiftSettings,
       plugins: ["StandardLibraryBuilderPlugin"]
     ),
 
