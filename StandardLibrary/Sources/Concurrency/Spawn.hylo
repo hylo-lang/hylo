@@ -3,5 +3,5 @@
 ///
 /// The future cannot escape the current scope.
 public fun spawn_<E: Movable & Deinitializable>(_ f: sink [E]() -> Int) -> Future<E> {
-  Future<E>(FunctionWrapper<E>(f: f))
+  Future<E>(f)
 }
