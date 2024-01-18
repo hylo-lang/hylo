@@ -79,7 +79,7 @@ jobs:
               https://github.com/apple/swift-package-manager/issues/6595" && false) )
 
     - name: Check code coverage
-      uses: mattpolzin/swift-codecov-action@0.7.3
+      uses: mattpolzin/swift-codecov-action@0.7.5
       with:
         SORT_ORDER: +cov
         MINIMUM_COVERAGE: 84
