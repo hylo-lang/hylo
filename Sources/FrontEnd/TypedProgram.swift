@@ -51,24 +51,24 @@ public struct TypedProgram {
   /// `log` and throwing iff an error was found.
   ///
   /// - Parameters:
-  ///   - isTypeCheckingParallel: if `true`, the program is partitioned into chucks that are type
+  ///   - typeCheckingIsParallel: if `true`, the program is partitioned into chucks that are type
   ///     checked separately. Otherwise, type checking is performed sequentially. Either way, the
   ///     order in which declarations are being checked is undeterministic.
   ///   - shouldTraceInference: A closure accepting a node and its containing program, returning
   ///     `true` if a trace of type inference should be logged on the console for that node. The
-  ///     closure is not called if `isTypeCheckingParallel` is `true`.
+  ///     closure is not called if `typeCheckingIsParallel` is `true`.
   public init(
     annotating base: ScopedProgram,
-    inParallel isTypeCheckingParallel: Bool = false,
+    inParallel typeCheckingIsParallel: Bool = false,
     reportingDiagnosticsTo log: inout DiagnosticSet,
     tracingInferenceIf shouldTraceInference: ((AnyNodeID, TypedProgram) -> Bool)? = nil
   ) throws {
     let instanceUnderConstruction = SharedMutable(TypedProgram(partiallyFormedFrom: base))
     #if os(macOS) && DEBUG
-      let isTypeCheckingParallel = isTypeCheckingParallel && false
+      let typeCheckingIsParallel = typeCheckingIsParallel && false
     #endif
 
-    if isTypeCheckingParallel {
+    if typeCheckingIsParallel {
       let sources = base.ast[base.ast.modules].map(\.sources).joined()
       var tasks: [TypeCheckTask] = []
 
@@ -91,7 +91,7 @@ public struct TypedProgram {
 
       var checker = TypeChecker(
         constructing: $0,
-        tracingInferenceIf: isTypeCheckingParallel ? nil : shouldTraceInference)
+        tracingInferenceIf: typeCheckingIsParallel ? nil : shouldTraceInference)
       checker.checkAllDeclarations()
 
       log.formUnion(checker.diagnostics)

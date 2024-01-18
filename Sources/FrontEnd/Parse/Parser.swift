@@ -110,14 +110,14 @@ public enum Parser {
 
     // Parse attributes.
     let attributes = try parseAttributeList(in: &state) ?? []
-    var isPrologueEmpty = attributes.isEmpty
+    var prologueIsEmpty = attributes.isEmpty
 
     // Parse modifiers.
     var accessModifiers: Set<SourceRepresentable<AccessModifier>> = []
     var memberModifiers: Set<SourceRepresentable<MemberModifier>> = []
     while true {
       if let access = try Parser.accessModifier.parse(&state) {
-        isPrologueEmpty = false
+        prologueIsEmpty = false
 
         // Catch access modifiers declared after member modifiers.
         if let member = memberModifiers.first {
@@ -145,7 +145,7 @@ public enum Parser {
       }
 
       if let member = try Parser.memberModifier.parse(&state) {
-        isPrologueEmpty = false
+        prologueIsEmpty = false
 
         // Catch member modifiers declared at non-type scope.
         if !state.isAtTypeScope {
@@ -166,7 +166,7 @@ public enum Parser {
 
     // Apply the continuation.
     let prologue = DeclPrologue(
-      isEmpty: isPrologueEmpty,
+      isEmpty: prologueIsEmpty,
       startIndex: startIndex,
       attributes: attributes,
       accessModifiers: accessModifiers,

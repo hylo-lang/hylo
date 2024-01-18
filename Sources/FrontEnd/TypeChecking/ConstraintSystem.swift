@@ -52,17 +52,17 @@ struct ConstraintSystem {
   private var penalties: Int = 0
 
   /// Indicates whether this instance should log a trace.
-  private let isLoggingEnabled: Bool
+  private let loggingIsEnabled: Bool
 
   /// The current indentation level for logging messages.
   private var indentation = 0
 
   /// Creates an instance for solving the constraints in `obligations`, logging a trace of the
-  /// deduction process if `isLoggingEnabled` is `true`.
-  init(_ obligations: ProofObligations, logging isLoggingEnabled: Bool) {
+  /// deduction process if `loggingIsEnabled` is `true`.
+  init(_ obligations: ProofObligations, logging loggingIsEnabled: Bool) {
     self.scope = obligations.scope
     self.bindingAssumptions = obligations.referredDecl
-    self.isLoggingEnabled = isLoggingEnabled
+    self.loggingIsEnabled = loggingIsEnabled
     _ = insert(fresh: obligations.constraints)
   }
 
@@ -962,13 +962,13 @@ struct ConstraintSystem {
     }
   }
 
-  /// Logs a line of text in the standard output if `self.isLoggingEnabled` is `true`.
+  /// Logs a line of text in the standard output if `self.loggingIsEnabled` is `true`.
   private func log(_ line: @autoclosure () -> String) {
-    if !isLoggingEnabled { return }
+    if !loggingIsEnabled { return }
     print(String(repeating: "  ", count: indentation) + line())
   }
 
-  /// Logs `outcome` in the standard output if `self.isLoggingEnabled` is `true`.
+  /// Logs `outcome` in the standard output if `self.loggingIsEnabled` is `true`.
   private func log(outcome: Outcome?) {
     switch outcome {
     case nil:
@@ -982,9 +982,9 @@ struct ConstraintSystem {
     }
   }
 
-  /// Logs `self`'s current state in the standard output if `self.isLoggingEnabled` is `true`.
+  /// Logs `self`'s current state in the standard output if `self.loggingIsEnabled` is `true`.
   private func logState() {
-    if !isLoggingEnabled { return }
+    if !loggingIsEnabled { return }
     log("fresh:")
     for g in fresh {
       log("- \"\(goals[g])\"")
