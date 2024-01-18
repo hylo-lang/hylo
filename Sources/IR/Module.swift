@@ -199,10 +199,10 @@ public struct Module {
   public mutating func applyMandatoryPasses(
     reportingDiagnosticsTo log: inout DiagnosticSet
   ) throws {
+    // We only go over user implementations. Synthesized functions are assumed well-formed.
+    let work = functions.compactMap({ (f, i) in !(f.isSynthesized || i.entry == nil) ? f : nil })
     func run(_ pass: (Function.ID) -> Void) throws {
-      for (k, f) in functions where f.entry != nil {
-        pass(k)
-      }
+      for f in work { pass(f) }
       try log.throwOnError()
     }
 
