@@ -197,6 +197,7 @@ let package = Package(
       dependencies: [
         "Core", "FrontEnd", "IR", "TestUtils", "StandardLibrary",
         .product(name: "Algorithms", package: "swift-algorithms"),
+        .product(name: "CBORCoding", package: "CBORCoding"),
       ],
       exclude: ["TestCases"],
       swiftSettings: allTargetsSwiftSettings,
