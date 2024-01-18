@@ -110,12 +110,12 @@ let package = Package(
         .product(name: "Collections", package: "swift-collections"),
         .product(name: "LLVM", package: "Swifty-LLVM"),
       ],
-      swiftSettings: allTargetsSwiftSettings),
+      swiftSettings: noWMO),
 
     .target(
       name: "IR",
       dependencies: ["Utils", "Core", "FrontEnd"],
-      swiftSettings: allTargetsSwiftSettings),
+      swiftSettings: noWMO),
 
     .target(
       name: "CodeGenLLVM",
@@ -126,7 +126,7 @@ let package = Package(
         .product(name: "LLVM", package: "Swifty-LLVM"),
       ],
       path: "Sources/CodeGen/LLVM",
-      swiftSettings: allTargetsSwiftSettings),
+      swiftSettings: noWMO),
 
     .target(
       name: "Utils",
@@ -136,19 +136,19 @@ let package = Package(
         .product(name: "Collections", package: "swift-collections"),
         .product(name: "Algorithms", package: "swift-algorithms"),
       ],
-      swiftSettings: allTargetsSwiftSettings),
+      swiftSettings: noWMO),
 
     .target(
       name: "TestUtils",
       dependencies: ["Core", "Driver", "Utils"],
-      swiftSettings: allTargetsSwiftSettings),
+      swiftSettings: noWMO),
 
     .target(
       name: "StandardLibrary",
       dependencies: ["FrontEnd", "Utils", .product(name: "CBORCoding", package: "CBORCoding")],
       path: "StandardLibrary",
       exclude: ["Sources"],
-      swiftSettings: allTargetsSwiftSettings,
+      swiftSettings: noWMO,
       plugins: ["StandardLibraryBuilderPlugin"]
     ),
 
