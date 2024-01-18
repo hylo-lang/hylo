@@ -56,7 +56,7 @@ public struct SynthesizedFunctionDecl: Hashable {
 
   /// The type of the declaration's receiver.
   ///
-  /// - Requires: `self` is a synthethic implementation of a member function.
+  /// - Requires: `self` is a synthetic implementation of a member function.
   public var receiver: AnyType {
     read(type.captures[0].type, { RemoteType($0)?.bareType ?? $0 })
   }

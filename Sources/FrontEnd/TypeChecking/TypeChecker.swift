@@ -1588,7 +1588,7 @@ struct TypeChecker {
         implementations[requirement] = .concrete(d)
       }
 
-      // Build a synthethic implementation if possible.
+      // Build a synthetic implementation if possible.
       else if let d = syntheticImplementation(of: requirement, withAPI: expectedAPI) {
         implementations[requirement] = .synthetic(d)
         registerSynthesizedDecl(d, in: program.module(containing: program[origin.source].scope))
