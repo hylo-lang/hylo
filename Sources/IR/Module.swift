@@ -218,7 +218,7 @@ public struct Module {
 
   /// Inserts the IR for the synthesized declarations defined in this module, reporting diagnostics
   /// to `log` and throwing if a an error occurred.
-  mutating func generateSyntheticImplementations(
+  private mutating func generateSyntheticImplementations(
     reportingDiagnosticsTo log: inout DiagnosticSet
   ) throws {
     Emitter.withInstance(insertingIn: &self, reportingDiagnosticsTo: &log) { (e) in
