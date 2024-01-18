@@ -325,13 +325,14 @@ struct Emitter {
     let bodyFrame = Frame(locals: locals)
     let returnSite = pushing(bodyFrame, { $0.lowerStatements($0.ast[d].body!, expecting: .void) })
 
-    let receiverLayout = AbstractTypeLayout(of: program[d].receiver.type, definedIn: program)
-
     // If the object is empty, simply mark it initialized.
-    if receiverLayout.properties.isEmpty {
+    let r = module.type(of: .parameter(entry, 0)).ast
+    let l = AbstractTypeLayout(of: r, definedIn: program)
+    if l.properties.isEmpty {
       let receiver = entry.parameter(0)
       insert(module.makeMarkState(receiver, initialized: true, at: ast[d].site))
     }
+
     insert(module.makeReturn(at: returnSite))
   }
 
