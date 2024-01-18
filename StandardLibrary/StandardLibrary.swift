@@ -38,24 +38,24 @@ private let freestandingLibrarySourceRoot = hostedLibrarySourceRoot.appendingPat
 
 extension Utils.Host {
 
+  /// Returns an AST representing the given standard library `variant` (either `"freestanding"` or
+  /// `"hosted"`), conditionally compiled for targeting the host platform.
+  private static func libraryAST(_ variant: String) -> Result<AST, Error> {
+    Result {
+      try CBORDecoder().forAST.decode(
+        AST.self,
+        from: Data(
+          contentsOf: resource(variant, withExtension: "cbor"),
+          options: .alwaysMapped))
+    }
+  }
+
   /// An AST representing the whole standard library, conditionally compiled for targeting the host
   /// platform.
-  public static let hostedLibraryAST = Result {
-    try CBORDecoder().forAST.decode(
-      AST.self,
-      from: Data(
-        contentsOf: resource("hosted", withExtension: "cbor"),
-        options: .alwaysMapped))
-  }
+  public static let hostedLibraryAST: Result<AST, Error> = libraryAST("hosted")
 
   /// An AST representing the freestanding core of standard library, conditionally compiled for
   /// targeting the host platform.
-  public static let freestandingLibraryAST = Result {
-    try CBORDecoder().forAST.decode(
-      AST.self,
-      from: Data(
-        contentsOf: resource("freestanding", withExtension: "cbor"),
-        options: .alwaysMapped))
-  }
+  public static let freestandingLibraryAST: Result<AST, Error> = libraryAST("freestanding")
 
 }
