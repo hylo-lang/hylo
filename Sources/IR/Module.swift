@@ -32,9 +32,6 @@ public struct Module {
   /// The functions in the module.
   public private(set) var functions: [Function.ID: Function] = [:]
 
-  /// The synthesized declarations used and defined in the module.
-  public private(set) var synthesizedDecls = OrderedSet<SynthesizedFunctionDecl>()
-
   /// The module's entry function, if any.
   ///
   /// An entry function is the lowered form of a program's entry point, that is the `main` function
@@ -399,13 +396,17 @@ public struct Module {
       inputs: inputs,
       output: output,
       blocks: [])
+    addFunction(entity, for: f)
 
     // Determine if the new function is defined in this module.
     if program.module(containing: d.scope) == id {
-      synthesizedDecls.append(d)
+      var log = DiagnosticSet()
+      Emitter.withInstance(insertingIn: &self, reportingDiagnosticsTo: &log) { (emitter) in
+        emitter.lower(synthetic: d)
+      }
+      assert(log.isEmpty, "unexpected diagnostic in synthesized declaration")
     }
 
-    addFunction(entity, for: f)
     return f
   }
 

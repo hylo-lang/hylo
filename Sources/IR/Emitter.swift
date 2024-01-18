@@ -132,13 +132,6 @@ struct Emitter {
     for d in program.synthesizedDecls[module.id, default: []] {
       lower(synthetic: d)
     }
-
-    // `lower(synthetic:)` may append additional declarations to `module.synthesizedDecls`.
-    var i = 0
-    while i < module.synthesizedDecls.count {
-      lower(synthetic: module.synthesizedDecls[i])
-      i += 1
-    }
   }
 
   // MARK: Declarations
@@ -648,7 +641,7 @@ struct Emitter {
   // MARK: Synthetic declarations
 
   /// Synthesizes the implementation of `d`.
-  private mutating func lower(synthetic d: SynthesizedFunctionDecl) {
+  mutating func lower(synthetic d: SynthesizedFunctionDecl) {
     switch d.kind {
     case .deinitialize:
       return withClearContext({ $0.lower(syntheticDeinit: d) })
