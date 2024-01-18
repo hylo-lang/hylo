@@ -13,6 +13,8 @@ let allTargetsSwiftSettings: [SwiftSetting] = [
   .unsafeFlags(["-warnings-as-errors"])
 ]
 
+let noWMO: [SwiftSetting] = [.unsafeFlags(["-warnings-as-errors", "-no-whole-module-optimization"])]
+
 /// Dependencies for documentation extraction.
 ///
 /// Most people don't need to extract documentation; set `HYLO_ENABLE_DOC_GENERATION` in your
@@ -69,14 +71,14 @@ let package = Package(
       dependencies: [
         "Driver"
       ],
-      swiftSettings: allTargetsSwiftSettings),
+      swiftSettings: noWMO),
 
     .executableTarget(
       name: "hylo-demangle",
       dependencies: [
         "IR"
       ],
-      swiftSettings: allTargetsSwiftSettings),
+      swiftSettings: noWMO),
 
     .target(
       name: "Driver",
@@ -87,7 +89,7 @@ let package = Package(
         "StandardLibrary",
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
       ],
-      swiftSettings: allTargetsSwiftSettings),
+      swiftSettings: noWMO),
 
     // Targets related to the compiler's internal library.
     .target(
@@ -99,7 +101,7 @@ let package = Package(
         .product(name: "Durian", package: "Durian"),
         .product(name: "BigInt", package: "BigInt"),
       ],
-      swiftSettings: allTargetsSwiftSettings),
+      swiftSettings: noWMO),
 
     .target(
       name: "Core",
