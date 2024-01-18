@@ -174,7 +174,7 @@ let package = Package(
         .product(name: "CBORCoding", package: "CBORCoding"),
         "Core", "Utils", "FrontEnd",
       ],
-      swiftSettings: allTargetsSwiftSettings + [.unsafeFlags(["-parse-as-library"])]),
+      swiftSettings: allTargetsSwiftSettings),
 
     // Test targets.
     .testTarget(
