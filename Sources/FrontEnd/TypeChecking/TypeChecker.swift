@@ -5690,12 +5690,12 @@ struct TypeChecker {
     _ obligations: ProofObligations, relatedTo n: T,
     ignoringSharedCache ignoreSharedCache: Bool = false
   ) -> Solution {
-    let solution = tracingInference(relatedTo: n) { (me, isLoggingEnabled) in
+    let solution = tracingInference(relatedTo: n) { (me, loggingIsEnabled) in
       if obligations.isUnsatisfiable {
         // Nothing to do if the obligations are known unsatisfiable.
         return .init()
       } else {
-        var system = ConstraintSystem(obligations, logging: isLoggingEnabled)
+        var system = ConstraintSystem(obligations, logging: loggingIsEnabled)
         return system.solution(querying: &me)
       }
     }
