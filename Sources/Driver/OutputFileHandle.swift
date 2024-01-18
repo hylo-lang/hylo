@@ -18,5 +18,5 @@ struct OutputFileHandle: TextOutputStream {
   }
 }
 
-/// An instance whose writes are difrected to the standard error stream.
+/// An instance whose writes are directed to the standard error stream.
 var standardError = OutputFileHandle(.standardError)
