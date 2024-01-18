@@ -52,7 +52,8 @@ extension Diagnostic {
     if !(firstMarkedLine.last?.isNewline ?? false) { output.write("\n") }
 
     // Write the column indication for that line, followed by a newline.
-    let startColumn = firstMarkedLine.distance(from: firstMarkedLine.startIndex, to: site.startIndex)
+    let startColumn = firstMarkedLine.distance(
+      from: firstMarkedLine.startIndex, to: site.startIndex)
     output.write(String(repeating: " ", count: startColumn))
     let markWidth = firstMarkedLine.distance(
       from: site.startIndex, to: min(site.endIndex, firstMarkedLine.endIndex))

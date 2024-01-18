@@ -233,8 +233,8 @@ public struct TypedProgram {
 
   /// Returns `true` iff `c` has no user-defined semantics.
   public func isTrivial(_ c: Conformance) -> Bool {
-    // Non-synthethic conformances are not trivial.
-    if !c.isSynthethic {
+    // Non-synthetic conformances are not trivial.
+    if !c.isSynthetic {
       return false
     }
 

@@ -261,7 +261,7 @@ public struct AnyType {
         return .stepOver(t)
 
       default:
-        return t[.hasGenericTypeParameter] ? .stepInto(t) :.stepOver(t)
+        return t[.hasGenericTypeParameter] ? .stepInto(t) : .stepOver(t)
       }
     }
   }

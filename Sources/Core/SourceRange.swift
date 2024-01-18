@@ -43,7 +43,8 @@ public struct SourceRange: Hashable {
   /// Returns a copy of `self` extended to cover `other`.
   public func extended(toCover other: SourceRange) -> SourceRange {
     precondition(file == other.file, "incompatible ranges")
-    return file.range(Swift.min(startIndex, other.startIndex) ..< Swift.max(endIndex, other.endIndex))
+    return file.range(
+      Swift.min(startIndex, other.startIndex) ..< Swift.max(endIndex, other.endIndex))
   }
 
   /// Increases (if necessary) the end of `self` so that it equals `newEnd`.
