@@ -52,9 +52,9 @@ public struct Driver: ParsableCommand {
   private var freestanding: Bool = false
 
   @Flag(
-    name: [.customLong("sequential")],
-    help: "Execute the compilation pipeline sequentially.")
-  private var compileSequentially: Bool = false
+    name: [.customLong("experimental-parallel-typechecking")],
+    help: "Parallelize the type checker")
+  private var experimentalParallelTypeChecking: Bool = false
 
   @Flag(
     name: [.customLong("typecheck")],
@@ -173,7 +173,7 @@ public struct Driver: ParsableCommand {
     }
 
     let program = try TypedProgram(
-      annotating: ScopedProgram(ast), inParallel: !compileSequentially,
+      annotating: ScopedProgram(ast), inParallel: experimentalParallelTypeChecking,
       reportingDiagnosticsTo: &diagnostics,
       tracingInferenceIf: shouldTraceInference)
     if typeCheckOnly { return }
