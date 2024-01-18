@@ -617,6 +617,18 @@ public struct Module {
     functions[f]!.entry.map({ Block.ID(f, $0) })
   }
 
+  /// Returns the operand representing the return value of `f`.
+  ///
+  /// - Requires: `f` is declared in `self`.
+  public func returnValue(of f: Function.ID) -> Operand? {
+    let i = functions[f]!
+    if !i.isSubscript, let e = entry(of: f) {
+      return Operand.parameter(e, i.inputs.count)
+    } else {
+      return nil
+    }
+  }
+
   /// Appends to `f` an entry block that is in `scope`, returning its identifier.
   ///
   /// - Requires: `f` is declared in `self` and doesn't have an entry block.
