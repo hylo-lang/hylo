@@ -2016,7 +2016,7 @@ struct Emitter {
 
     if let a = PragmaLiteralExpr.ID(e) {
       argumentSite = site ?? ast[a].site
-      storage = insert(module.makeAllocStack(program[a].type, at: argumentSite))!
+      storage = emitAllocStack(for: program[a].type, at: argumentSite)
       emitStore(a, to: storage, at: argumentSite)
     } else {
       argumentSite = ast[e].site
