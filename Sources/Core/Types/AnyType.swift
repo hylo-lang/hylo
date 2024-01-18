@@ -187,6 +187,20 @@ public struct AnyType {
     (base is AssociatedTypeType) || (base is GenericTypeParameterType)
   }
 
+  /// Returns `true` iff `self` is bound to an existential quantifier.
+  public var isSkolem: Bool {
+    switch base {
+    case let u as AssociatedTypeType:
+      return u.domain.isSkolem
+    case is GenericTypeParameterType:
+      return true
+    case let u as ConformanceLensType:
+      return u.subject.isSkolem
+    default:
+      return false
+    }
+  }
+
   /// Indicates whether `self` has a record layout.
   public var hasRecordLayout: Bool {
     switch base {
