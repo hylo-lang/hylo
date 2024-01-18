@@ -327,7 +327,6 @@ public struct Module {
       output: output,
       blocks: [])
     addFunction(entity, for: f)
-
     return f
   }
 
@@ -349,7 +348,6 @@ public struct Module {
       inputs: inputs,
       output: output,
       blocks: [])
-
     addFunction(entity, for: f)
     return f
   }
@@ -372,7 +370,6 @@ public struct Module {
       inputs: inputs,
       output: .void,
       blocks: [])
-
     addFunction(entity, for: f)
     return f
   }
