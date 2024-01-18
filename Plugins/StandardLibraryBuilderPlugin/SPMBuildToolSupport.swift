@@ -1,0 +1,1 @@
+../../SPMBuildToolSupport/SPMBuildToolSupport.swift

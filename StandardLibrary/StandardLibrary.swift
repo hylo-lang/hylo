@@ -1,6 +1,24 @@
+import CBORCoding
 import Core
 import Foundation
 import Utils
+
+/// An error thrown when a resource couldn't be found on the host.
+private struct ResourceNotFound: Error {
+
+  /// An identifier for the resource that wasn't found.
+  let resource: String
+
+}
+
+/// Returns the URL of the resource with given name and extension in the bundle associated with the
+/// current Swift module.
+private func resource(_ name: String, withExtension ext: String) throws -> URL {
+  guard let u = Bundle.module.url(forResource: name, withExtension: ext) else {
+    throw ResourceNotFound(resource: "\(name).\(ext)")
+  }
+  return u
+}
 
 // This path points into the source tree rather than to some copy so that when diagnostics are
 // issued for the standard library, they point to the original source files and edits to those
