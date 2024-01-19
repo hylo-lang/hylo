@@ -36,7 +36,6 @@ public type Future<E: Movable & Deinitializable> {
       return r.copy()
     } else {
       fatal_error()
-      return 0 // TODO: without this we get: "set parameter not initialized before function returns"
     }
   }
 
