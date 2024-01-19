@@ -27,6 +27,8 @@ on:
       - "README.md"
       - "LICENSE"
       - ".gitignore"
+    tags:
+      - v*
   pull_request:
     branches: [ "**" ]
     paths-ignore:
@@ -37,7 +39,23 @@ on:
       - ".gitignore"
 
 jobs:
+  determine-version:
+    name: "Determine compiler version from git tag"
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get-tag.outputs.version }}
+    steps:
+    - id: get-tag
+      run: |
+        if [[ $GITHUB_REF == refs/tags/* ]]; then
+          version=${GITHUB_REF#refs/tags/}
+        else
+          version=""
+        fi
+        echo "version=$version" >> $GITHUB_OUTPUT
+
   build-devcontainer:
+    needs: determine-version
     name: "Devcontainer: ${{ matrix.host.os }}/${{ matrix.configuration }}"
     strategy:
       fail-fast: false
@@ -63,6 +81,9 @@ jobs:
         submodules: true
         show-progress: false
 
+    - name: Set compiler version
+      run: ./Tools/set-hc-version.sh ${{ needs.determine-version.outputs.version }}
+
     - name: Build and Test
       uses: devcontainers/ci@v0.3
       with:
@@ -77,6 +98,7 @@ jobs:
               (grep -q "[.']EndToEndTests[/. ]test_" testoutput.txt && grep -q "[.']HyloTests[/. ]test_" testoutput.txt) ||
               (echo "error: generated tests failed to run; see
               https://github.com/apple/swift-package-manager/issues/6595" && false) )
+          .build/${{ matrix.configuration }}/hc --version
 
     - name: Check code coverage
       uses: mattpolzin/swift-codecov-action@0.7.3
@@ -86,6 +108,7 @@ jobs:
         CODECOV_JSON: .build/${{ matrix.configuration }}/codecov/*.json
 
   build-native-macos:
+    needs: determine-version
     name: "Native: ${{ matrix.host.os }}/${{ matrix.configuration }}"
     strategy:
       fail-fast: false
@@ -110,6 +133,9 @@ jobs:
       with:
         submodules: true
         show-progress: false
+
+    - name: Set compiler version
+      run: ./Tools/set-hc-version.sh ${{ needs.determine-version.outputs.version }}
 
     - name: Setup swift
       uses: swift-actions/setup-swift@v1
@@ -147,8 +173,12 @@ jobs:
             (grep -q "[.']EndToEndTests[/. ]test_" testoutput.txt && grep -q "[.']HyloTests[/. ]test_" testoutput.txt) ||
             (echo "error: generated tests failed to run; see
             https://github.com/apple/swift-package-manager/issues/6595" && false) )
-          
+
+    - name: Output compiler version
+      run: .build/${{ matrix.configuration }}/hc --version
+
   build-native-windows:
+    needs: determine-version
     name: "Native: windows-latest, debug"
     strategy:
       fail-fast: false
@@ -166,6 +196,10 @@ jobs:
       with:
         submodules: true
         show-progress: false
+
+    - name: Set compiler version
+      run: |
+        & "C:\Program Files\Git\bin\bash.exe" Tools/set-hc-version.sh ${{ needs.determine-version.outputs.version }}
 
     - name: Swift version
       run: swift --version
@@ -198,3 +232,6 @@ jobs:
 
     - name: Test
       run: swift test --parallel --skip-build --pkg-config-path . 
+
+    - name: Output compiler version
+      run: .build/debug/hc --version
