@@ -94,3 +94,7 @@ Write output to `<file>`.
 ### `-v`, `--verbose`
 
 Use verbose output.
+
+### `-V`, `--version`
+
+Output the compiler version.
