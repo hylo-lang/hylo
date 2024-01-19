@@ -461,9 +461,7 @@ extension Module {
 
       // Make sure that the return value is initialized on exit.
       if !self[f].isSubscript {
-        ensureInitializedOnExit(
-          .parameter(entry, self[f].inputs.count), passed: .set, in: &context,
-          reportingDiagnosticsAt: .empty(at: self[f].site.start))
+        ensureReturnValueIsInitialized(in: &context, at: self[i].site)
       }
 
       return successor(of: i)
@@ -571,26 +569,28 @@ extension Module {
       context.withObject(at: .root(p)) { (o) in
         if o.value == .full(.initialized) { return }
 
-        if k == .set {
-          // If the parameter is a return value (index == 0) we emit specialized diagnostics.
-          if case .parameter(_, 0) = p {
-            let t = self[f].output
-            if !t.isVoidOrNever {
-              diagnostics.insert(
-                .missingFunctionReturn(expectedReturnType: t, at: site)
-              )
-              return
-            }
-          }
-          diagnostics.insert(
-            .uninitializedSetParameter(beforeReturningFrom: f, in: self, at: site))
-          return
-        }
-
         // If the parameter is `let` or `inout`, it's been (partially) consumed since it was
         // initialized in the entry context.
-        diagnostics.insert(
-          .illegalParameterEscape(consumedBy: o.value.consumers, in: self, at: site))
+        if k == .set {
+          diagnostics.insert(
+            .uninitializedSetParameter(beforeReturningFrom: f, in: self, at: site))
+        } else {
+          diagnostics.insert(
+            .illegalParameterEscape(consumedBy: o.value.consumers, in: self, at: site))
+        }
+      }
+    }
+
+    /// Checks that the return value is initialized in `context`.
+    func ensureReturnValueIsInitialized(
+      in context: inout Context, at site: SourceRange
+    ) {
+      let p = returnValue(of: f)!
+      let isInitialized = context.withObject(at: .root(p)) { (o) in
+        o.value == .full(.initialized)
+      }
+      if !isInitialized {
+        diagnostics.insert(.missingReturn(inFunctionReturning: self[f].output, at: site))
       }
     }
 
@@ -1041,8 +1041,8 @@ extension Diagnostic {
     .error("use of uninitialized object", at: site)
   }
 
-  fileprivate static func missingFunctionReturn(
-    expectedReturnType: AnyType,
+  fileprivate static func missingReturn(
+    inFunctionReturning expectedReturnType: AnyType,
     at site: SourceRange
   ) -> Diagnostic {
     .error("missing return in function expected to return '\(expectedReturnType)'", at: site)

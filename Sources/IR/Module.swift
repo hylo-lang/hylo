@@ -617,6 +617,18 @@ public struct Module {
     functions[f]!.entry.map({ Block.ID(f, $0) })
   }
 
+  /// Returns the operand representing the return value of `f`.
+  ///
+  /// - Requires: `f` is declared in `self`.
+  public func returnValue(of f: Function.ID) -> Operand? {
+    let i = functions[f]!
+    if !i.isSubscript, let e = entry(of: f) {
+      return Operand.parameter(e, i.inputs.count)
+    } else {
+      return nil
+    }
+  }
+
   /// Appends to `f` an entry block that is in `scope`, returning its identifier.
   ///
   /// - Requires: `f` is declared in `self` and doesn't have an entry block.
@@ -805,7 +817,7 @@ public struct Module {
   ///
   /// - Requires: Let `S` be the set of removed instructions, all users of a result of `j` in `S`
   ///   are also in `S`.
-  mutating func removeAllInstructionsAfter(_ i: InstructionID) {
+  mutating func removeAllInstructions(after i: InstructionID) {
     while let a = self[i.function][i.block].instructions.lastAddress, a != i.address {
       removeInstruction(.init(i.function, i.block, a))
     }
