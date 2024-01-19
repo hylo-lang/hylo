@@ -6,42 +6,58 @@ extension Module {
   ///
   /// - Requires: `f` is in `self`.
   public mutating func removeDeadCode(in f: Function.ID, diagnostics: inout DiagnosticSet) {
-    var cfg: ControlFlowGraph
-    var changed = false
-
-    repeat {
-      cfg = self[f].cfg()
-      changed = false
-
-      for b in blocks(in: f) where b.address != self[f].entry {
-        if cfg.predecessors(of: b.address).isEmpty {
-          removeBlock(b)
-          changed = true
-          continue
-        }
-
-        changed = removeDeadCode(in: b)
-      }
-    } while changed
+    removeCodeAfterCallsReturningNever(from: f)
+    removeUnreachableBlocks(from: f)
   }
 
-  /// Removes unreachable code from `b`, reporting errors and warnings to `diagnostics` and
-  /// returning `true` iff a changed occurred.
-  private mutating func removeDeadCode(in b: Block.ID) -> Bool {
-    let t = terminator(of: b)
-    for i in instructions(in: b) where i != t {
-      switch self[i] {
-      case is Unreachable:
-        removeAllInstructionsAfter(i)
-        return true
+  /// Removes the basic blocks that have no predecessor from `f`, except its entry.
+  private mutating func removeUnreachableBlocks(from f: Function.ID) {
+    // Nothing to do if there isn't more than one block in the function.
+    if self[f].blocks.count < 2 { return }
 
-      default:
-        continue
+    // Process all blocks except the entry.
+    var work = Array(self[f].blocks.addresses.dropFirst())
+    var e = work.count
+    var changed = true
+    while changed {
+      // CFG is computed the first time and recomputed every time a mutation happened.
+      let cfg = self[f].cfg()
+      changed = false
+
+      var i = 0
+      while i < e {
+        if cfg.predecessors(of: work[i]).isEmpty {
+          removeBlock(.init(f, work[i]))
+          work.swapAt(i, e - 1)
+          changed = true
+          e -= 1
+        } else {
+          i += 1
+        }
       }
     }
+  }
 
-    // No change occurred.
-    return false
+  /// Removes the code after calls returning `Never` from `f`.
+  private mutating func removeCodeAfterCallsReturningNever(from f: Function.ID) {
+    for b in blocks(in: f) {
+      if let i = instructions(in: b).first(where: returnsNever) {
+        removeAllInstructions(after: i)
+        insert(makeUnreachable(at: self[i].site), at: .after(i))
+      }
+    }
+  }
+
+  /// Returns `true` iff `i` never returns control flow.
+  private func returnsNever(_ i: InstructionID) -> Bool {
+    switch self[i] {
+    case is Call:
+      return type(of: (self[i] as! Call).output).ast == .never
+    case is CallFFI:
+      return (self[i] as! CallFFI).returnType.ast == .never
+    default:
+      return false
+    }
   }
 
 }
