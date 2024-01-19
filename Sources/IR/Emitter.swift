@@ -2008,7 +2008,7 @@ struct Emitter {
     _ e: AnyExprID, to p: ParameterType, at site: SourceRange? = nil
   ) -> Operand {
     if p.isAutoclosure {
-      return emit(autoclosureFor: e, to: p, at: site)
+      return emitAutoclosureArgument(e, to: p)
     }
 
     let argumentSite: SourceRange
@@ -2027,14 +2027,13 @@ struct Emitter {
     return insert(module.makeAccess(p.access, from: s, at: argumentSite))!
   }
 
-  private mutating func emit(
-    autoclosureFor argument: AnyExprID, to parameter: ParameterType, at site: SourceRange? = nil
-  ) -> Operand {
+  /// Inserts the IR for the argument `e` passed to an autoclosure parameter of type `p`.
+  private mutating func emitAutoclosureArgument(_ e: AnyExprID, to p: ParameterType) -> Operand {
     // Emit synthesized function declaration.
-    let t = ArrowType(parameter.bareType)!
+    let t = ArrowType(p.bareType)!
     let h = Array(t.environment.skolems)
     let f = SynthesizedFunctionDecl(
-      .autoclosure(argument), typed: t, parameterizedBy: h, in: program[argument].scope)
+      .autoclosure(e), typed: t, parameterizedBy: h, in: program[e].scope)
     let callee = withClearContext({ $0.lower(syntheticAutoclosure: f) })
 
     // Emit the IR code to reference tha function declaration.
@@ -2042,11 +2041,11 @@ struct Emitter {
       to: callee, in: module,
       specializedBy: module.specialization(in: insertionFunction!), in: insertionScope!)
 
-    let site = ast[argument].site
-    let s1 = insert(module.makeAddressToPointer(.constant(r), at: site))!
-    let s2 = emitAllocStack(for: parameter.bareType, at: site)
-    emitInitialize(storage: s2, to: s1, at: site)
-    return insert(module.makeAccess(parameter.access, from: s2, at: site))!
+    let argumentSite = ast[e].site
+    let s1 = insert(module.makeAddressToPointer(.constant(r), at: argumentSite))!
+    let s2 = emitAllocStack(for: p.bareType, at: argumentSite)
+    emitInitialize(storage: s2, to: s1, at: argumentSite)
+    return insert(module.makeAccess(p.access, from: s2, at: argumentSite))!
   }
 
   /// Inserts the IR for infix operand `e` passed with convention `access`.
