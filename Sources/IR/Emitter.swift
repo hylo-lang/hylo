@@ -1969,11 +1969,11 @@ struct Emitter {
       switch inputs[i] {
       case .explicit(let n):
         let a = arguments[n].value
-        result.append(emit(argument: a, to: p, at: syntheticSite))
+        result.append(emitArgument(a, to: p, at: syntheticSite))
 
       case .defaulted:
         let a = program[parameterDecls![i]].defaultValue!
-        result.append(emit(argument: a, to: p, at: syntheticSite))
+        result.append(emitArgument(a, to: p, at: syntheticSite))
 
       case .implicit(let d):
         let s = emitLValue(directReferenceTo: d, at: syntheticSite)
@@ -1999,17 +1999,16 @@ struct Emitter {
     return (callee, captures + explicitArguments)
   }
 
-  /// Inserts the IR for the argument `e` passed to a parameter of type `parameter`.
+  /// Inserts the IR for the argument `e` passed to a parameter of type `p`.
   ///
   /// - Parameters:
   ///   - site: The source range in which `e` is being evaluated if it's a pragma literals.
   ///     Defaults to `e.site`.
-  private mutating func emit(
-    argument e: AnyExprID, to parameter: ParameterType, at site: SourceRange? = nil
+  private mutating func emitArgument(
+    _ e: AnyExprID, to p: ParameterType, at site: SourceRange? = nil
   ) -> Operand {
-
-    if parameter.isAutoclosure {
-      return emit(autoclosureFor: e, to: parameter, at: site)
+    if p.isAutoclosure {
+      return emit(autoclosureFor: e, to: p, at: site)
     }
 
     let argumentSite: SourceRange
@@ -2024,8 +2023,8 @@ struct Emitter {
       storage = emitLValue(e)
     }
 
-    let s = emitCoerce(storage, to: parameter.bareType, at: argumentSite)
-    return insert(module.makeAccess(parameter.access, from: s, at: argumentSite))!
+    let s = emitCoerce(storage, to: p.bareType, at: argumentSite)
+    return insert(module.makeAccess(p.access, from: s, at: argumentSite))!
   }
 
   private mutating func emit(
