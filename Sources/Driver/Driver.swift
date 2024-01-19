@@ -12,19 +12,19 @@ public struct Driver: ParsableCommand {
 
   /// A validation error that includes the command's full help message.
   struct ValidationErrorWithHelp: Error, CustomStringConvertible {
-      var message: String
+    var message: String
 
-      init(_ message: String) {
-          self.message = message
-      }
+    init(_ message: String) {
+      self.message = message
+    }
 
-      var description: String {
-          """
-          \(message)
+    var description: String {
+      """
+      \(message)
 
-          \(Driver.helpMessage())
-          """
-      }
+      \(Driver.helpMessage())
+      """
+    }
   }
 
   /// The type of the output files to generate.
@@ -181,7 +181,7 @@ public struct Driver: ParsableCommand {
     }
 
     guard !inputs.isEmpty else {
-        throw ValidationErrorWithHelp("Missing expected argument '<inputs> ...'")
+      throw ValidationErrorWithHelp("Missing expected argument '<inputs> ...'")
     }
 
     if compileInputAsModules {
