@@ -17,6 +17,9 @@ public struct AST {
     /// - Invariant: All referred modules have a different name.
     public var modules: [ModuleDecl.ID] = []
 
+    /// The traits in Hylo's standard library that are known by the compiler.
+    var coreTraits: CoreTraits?
+
     /// The module containing Hylo's core library, if any.
     public var coreLibrary: ModuleDecl.ID?
 
@@ -34,7 +37,11 @@ public struct AST {
   private var storage: Storage
 
   /// The traits in Hylo's standard library that are known by the compiler.
-  public var coreTraits: CoreTraits?
+  public var coreTraits: CoreTraits? {
+    get { storage.coreTraits }
+    set { storage.coreTraits = newValue }
+    _modify { yield &storage.coreTraits }
+  }
 
   /// The nodes in `self`.
   private var nodes: [AnyNode] {
