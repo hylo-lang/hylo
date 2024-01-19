@@ -18,4 +18,8 @@ extension AST {
     self.coreTraits = .init(self)
   }
 
+  /// Returns a deserialization of a serialization of `self` (i.e. a copy of `self`).
+  func roundTripSerialized() throws -> Self {
+    try JSONDecoder().forAST.decode(AST.self, from: JSONEncoder().forAST.encode(self))
+  }
 }
