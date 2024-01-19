@@ -817,7 +817,7 @@ public struct Module {
   ///
   /// - Requires: Let `S` be the set of removed instructions, all users of a result of `j` in `S`
   ///   are also in `S`.
-  mutating func removeAllInstructionsAfter(_ i: InstructionID) {
+  mutating func removeAllInstructions(after i: InstructionID) {
     while let a = self[i.function][i.block].instructions.lastAddress, a != i.address {
       removeInstruction(.init(i.function, i.block, a))
     }
