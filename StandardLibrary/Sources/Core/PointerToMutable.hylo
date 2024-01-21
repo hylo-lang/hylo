@@ -55,7 +55,7 @@ public type PointerToMutable<Pointee>: Regular {
   /// - Requires: the `MemoryLayout<Pointee>.size()` bytes starting at the address are uninitialized
   ///   and suitably aligned for `Pointee`.
   public fun unsafe_initialize_pointee<E, R>(_ initialize: inout [E](set Pointee) -> R) -> R {
-    initialize(base as* (remote set Pointee))
+    initialize(&(base as* (remote set Pointee)))
   }
 
 }

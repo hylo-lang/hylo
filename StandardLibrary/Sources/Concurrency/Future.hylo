@@ -19,11 +19,11 @@ public type Future<E: Movable & Deinitializable> {
     &self.f = f
     &self.r = .none()
 
-    let local_f = fun (_ frame: SpawnFrameBase) -> Void {
-      inout this = PointerToMutable<Self>(type_punning: mutable_pointer[to: frame]).unsafe[]
+    let local_f = fun (_ frame: inout SpawnFrameBase) -> Void {
+      inout this = PointerToMutable<Self>(type_punning: mutable_pointer[to: &frame]).unsafe[]
       &this.do_call()
     }
-    concore2full_spawn2(self.base_frame, local_f)
+    concore2full_spawn2(&self.base_frame, local_f)
   }
 
   /// Awaits the result of the computation.
@@ -82,7 +82,7 @@ type SpawnFrameBase: Deinitializable, Movable {
 
 /// Spawns the execution of `f` using control data `frame`.
 @external("concore2full_spawn2")
-fun concore2full_spawn2(_ frame: set SpawnFrameBase, _ f: [](SpawnFrameBase) let -> Void);
+fun concore2full_spawn2(_ frame: set SpawnFrameBase, _ f: [](inout SpawnFrameBase) let -> Void);
 
 /// Awaits the completion of the computation started in `frame`.
 @external("concore2full_await")
