@@ -244,11 +244,11 @@ public struct TypedProgram {
   /// If `t` has a record layout, returns the names and types of its stored properties.
   public func storage(of t: AnyType) -> [TupleType.Element] {
     switch t.base {
+    case let u as ArrowType:
+      return storage(of: u)
     case let u as BoundGenericType:
       return storage(of: u)
     case let u as BufferType:
-      return storage(of: u)
-    case let u as ArrowType:
       return storage(of: u)
     case let u as ProductType:
       return storage(of: u)
@@ -260,6 +260,14 @@ public struct TypedProgram {
       assert(!t.hasRecordLayout)
       return []
     }
+  }
+
+  /// Returns the names and types of `t`'s stored properties.
+  public func storage(of t: ArrowType) -> [TupleType.Element] {
+    return [
+      TupleType.Element(label: "__f", type: .builtin(.ptr)),
+      TupleType.Element(label: "__e", type: t.environment),
+    ]
   }
 
   /// Returns the names and types of `t`'s stored properties.
@@ -277,12 +285,6 @@ public struct TypedProgram {
     } else {
       return []
     }
-  }
-
-  /// Returns the names and types of `t`'s stored properties.
-  public func storage(of t: ArrowType) -> [TupleType.Element] {
-    let callee = TupleType.Element(label: "__f", type: .builtin(.ptr))
-    return [callee] + t.captures
   }
 
   /// Returns the names and types of `t`'s stored properties.

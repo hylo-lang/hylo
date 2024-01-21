@@ -1600,14 +1600,21 @@ struct Emitter {
     let x1 = emitSubfieldView(storage, at: [0], at: site)
     emitInitialize(storage: x1, to: x0, at: ast[e].site)
 
-    let lambda = ArrowType(program.canonical(program[e].type, in: insertionScope!))!
-    if lambda.environment == .void { return }
+    let arrow = ArrowType(program.canonical(program[e].type, in: insertionScope!))!
+    let x2 = emitSubfieldView(storage, at: [1], at: site)
 
-    var i = 1
+    // Simply mark the lambda's environment initialized if it's empty.
+    if arrow.environment == .void {
+      insert(module.makeMarkState(x2, initialized: true, at: site))
+      return
+    }
+
+    // Otherwise, initialize each capture individually.
+    var i = 0
     for b in program[e].decl.explicitCaptures {
       // TODO: See #878
       guard program[b].pattern.subpattern.kind == NamePattern.self else { UNIMPLEMENTED() }
-      let y0 = emitSubfieldView(storage, at: [i], at: site)
+      let y0 = emitSubfieldView(x2, at: [i], at: site)
       emitStore(value: program[b].initializer!, to: y0)
       i += 1
     }
@@ -1615,7 +1622,7 @@ struct Emitter {
     for c in program[e].decl.implicitCaptures {
       let y0 = emitLValue(directReferenceTo: c.decl, at: site)
       let y1 = insert(module.makeAccess(c.type.access, from: y0, at: site))!
-      let y2 = emitSubfieldView(storage, at: [i], at: site)
+      let y2 = emitSubfieldView(x2, at: [i], at: site)
       emitStore(access: y1, to: y2, at: site)
       i += 1
     }
