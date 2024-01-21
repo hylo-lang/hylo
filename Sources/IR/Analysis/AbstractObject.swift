@@ -68,19 +68,17 @@ struct AbstractObject<Domain: AbstractDomain>: Equatable {
 
     /// The canonical form of `self`.
     var canonical: Value {
-      switch self {
-      case .full:
-        return self
+      // Nothing do do if the object is already canonical.
+      guard case .partial(var subobjects) = self else { return self }
 
-      case .partial(var subobjects):
-        var isUniform = true
-        subobjects[0] = subobjects[0].canonical
-        for i in 1 ..< subobjects.count {
-          subobjects[i] = subobjects[i].canonical
-          isUniform = isUniform && subobjects[i] == subobjects[0]
-        }
-        return isUniform ? subobjects[0] : .partial(subobjects)
+      // Compute the canonical form of each part and unify if possible.
+      subobjects[0] = subobjects[0].canonical
+      var partsAreUniform = subobjects[0].isUniform
+      for i in 1 ..< subobjects.count {
+        subobjects[i] = subobjects[i].canonical
+        partsAreUniform = partsAreUniform && subobjects[i] == subobjects[0]
       }
+      return partsAreUniform ? subobjects[0] : .partial(subobjects)
     }
 
     /// Returns `lhs` merged with `rhs`.
@@ -98,6 +96,15 @@ struct AbstractObject<Domain: AbstractDomain>: Equatable {
 
       case (_, .partial(let rhs)):
         return .partial(rhs.map({ lhs && $0 }))
+      }
+    }
+
+    /// `true` if `self` is uniformly initialized or deinitialzed.
+    private var isUniform: Bool {
+      if case .full = self {
+        return true
+      } else {
+        return false
       }
     }
 
