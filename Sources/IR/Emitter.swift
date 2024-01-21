@@ -1984,50 +1984,27 @@ struct Emitter {
     return result
   }
 
-  /// Inserts the IR generating the operands of the subscript call `e`.
-  private mutating func emitOperands(
-    _ e: SubscriptCallExpr.ID
-  ) -> (callee: BundleReference<SubscriptDecl>, arguments: [Operand]) {
-    // Explicit arguments are evaluated first, from left to right.
-    let explicitArguments = emitArguments(
-      to: ast[e].callee, in: CallID(e),
-      usingExplicit: ast[e].arguments, synthesizingDefaultAt: .empty(at: ast[e].site.end))
-
-    // Callee and captures are evaluated next.
-    let (callee, captures) = emit(subscriptCallee: ast[e].callee)
-
-    return (callee, captures + explicitArguments)
-  }
-
-  /// Inserts the IR for the argument `e` passed to a parameter of type `p`.
-  ///
-  /// - Parameters:
-  ///   - site: The source range in which `e` is being evaluated if it's a pragma literals.
-  ///     Defaults to `e.site`.
+  /// Inserts the IR for the argument `e` passed to a parameter of type `p`, anchoring instructions
+  /// at `syntheticSite ?? program[e].site`.
   private mutating func emitArgument(
-    _ e: AnyExprID, to p: ParameterType, at site: SourceRange? = nil
+    _ e: AnyExprID, to p: ParameterType, at syntheticSite: SourceRange?
   ) -> Operand {
     if p.isAutoclosure {
       return emitAutoclosureArgument(e, to: p)
     }
 
-    let argumentSite: SourceRange
-    let storage: Operand
-
+    // Pragma literals require extra care to adjust the site at which they are evaluated.
+    let anchor = syntheticSite ?? program[e].site
     if let a = PragmaLiteralExpr.ID(e) {
-      argumentSite = site ?? ast[a].site
-      storage = emitAllocStack(for: program[a].type, at: argumentSite)
-      emitStore(a, to: storage, at: argumentSite)
-    } else {
-      argumentSite = ast[e].site
-      storage = emitLValue(e)
+      return emitPragmaLiteralArgument(a, to: p, at: anchor)
     }
 
-    let s = emitCoerce(storage, to: p.bareType, at: argumentSite)
-    return insert(module.makeAccess(p.access, from: s, at: argumentSite))!
+    let x0 = emitLValue(e)
+    let x1 = emitCoerce(x0, to: p.bareType, at: anchor)
+    return insert(module.makeAccess(p.access, from: x1, at: anchor))!
   }
 
-  /// Inserts the IR for the argument `e` passed to an autoclosure parameter of type `p`.
+  /// Inserts the IR for argument `e` passed to an autoclosure parameter of type `p`.
   private mutating func emitAutoclosureArgument(_ e: AnyExprID, to p: ParameterType) -> Operand {
     // Emit synthesized function declaration.
     let t = ArrowType(p.bareType)!
@@ -2041,11 +2018,36 @@ struct Emitter {
       to: callee, in: module,
       specializedBy: module.specialization(in: insertionFunction!), in: insertionScope!)
 
-    let argumentSite = ast[e].site
-    let s1 = insert(module.makeAddressToPointer(.constant(r), at: argumentSite))!
-    let s2 = emitAllocStack(for: p.bareType, at: argumentSite)
-    emitInitialize(storage: s2, to: s1, at: argumentSite)
-    return insert(module.makeAccess(p.access, from: s2, at: argumentSite))!
+    let anchor = program[e].site
+    let x0 = insert(module.makeAddressToPointer(.constant(r), at: anchor))!
+    let x1 = emitAllocStack(for: p.bareType, at: anchor)
+    emitInitialize(storage: x1, to: x0, at: anchor)
+    return insert(module.makeAccess(p.access, from: x1, at: anchor))!
+  }
+
+  /// Inserts the IR for argument `e` passed to a parameter of type `p`, evaluating the literal's
+  /// value as though it appeared at `site`.
+  private mutating func emitPragmaLiteralArgument(
+    _ e: PragmaLiteralExpr.ID, to p: ParameterType, at site: SourceRange
+  ) -> Operand {
+    let x0 = emitAllocStack(for: program[e].type, at: site)
+    emitStore(e, to: x0, at: site)
+    return insert(module.makeAccess(p.access, from: x0, at: site))!
+  }
+
+  /// Inserts the IR generating the operands of the subscript call `e`.
+  private mutating func emitOperands(
+    _ e: SubscriptCallExpr.ID
+  ) -> (callee: BundleReference<SubscriptDecl>, arguments: [Operand]) {
+    // Explicit arguments are evaluated first, from left to right.
+    let explicitArguments = emitArguments(
+      to: ast[e].callee, in: CallID(e),
+      usingExplicit: ast[e].arguments, synthesizingDefaultAt: .empty(at: ast[e].site.end))
+
+    // Callee and captures are evaluated next.
+    let (callee, captures) = emit(subscriptCallee: ast[e].callee)
+
+    return (callee, captures + explicitArguments)
   }
 
   /// Inserts the IR for infix operand `e` passed with convention `access`.
