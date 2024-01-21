@@ -28,6 +28,11 @@ public struct ParameterType: TypeProtocol {
     self.init(t.access, t.bareType)
   }
 
+  /// `true` iff `self` is creates an access for initialization or mutation.
+  public var isSetOrInout: Bool {
+    (access == .set) || (access == .inout)
+  }
+
   public func transformParts<M>(
     mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction
   ) -> Self {

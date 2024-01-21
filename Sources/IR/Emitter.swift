@@ -1969,11 +1969,11 @@ struct Emitter {
       switch inputs[i] {
       case .explicit(let n):
         let a = arguments[n].value
-        result.append(emit(argument: a, to: p, at: syntheticSite))
+        result.append(emitArgument(a, to: p, at: syntheticSite))
 
       case .defaulted:
         let a = program[parameterDecls![i]].defaultValue!
-        result.append(emit(argument: a, to: p, at: syntheticSite))
+        result.append(emitArgument(a, to: p, at: syntheticSite))
 
       case .implicit(let d):
         let s = emitLValue(directReferenceTo: d, at: syntheticSite)
@@ -1982,6 +1982,63 @@ struct Emitter {
     }
 
     return result
+  }
+
+  /// Inserts the IR for the argument `e` passed to a parameter of type `p`, anchoring instructions
+  /// at `syntheticSite ?? program[e].site`.
+  private mutating func emitArgument(
+    _ e: AnyExprID, to p: ParameterType, at syntheticSite: SourceRange?
+  ) -> Operand {
+    if p.isAutoclosure {
+      return emitAutoclosureArgument(e, to: p)
+    }
+
+    // Make sure arguments to 'set' or 'inout' parameters have a mutation marker, unless it's a
+    // literal expression.
+    if p.isSetOrInout && !e.isLiteral && !program.ast.isMarkedForMutation(e) {
+      report(.error(argumentTo: p.access, requiresMutationMarkerAt: program[e].site))
+    }
+
+    // Pragma literals require extra care to adjust the site at which they are evaluated.
+    let anchor = syntheticSite ?? program[e].site
+    if let a = PragmaLiteralExpr.ID(e) {
+      return emitPragmaLiteralArgument(a, to: p, at: anchor)
+    }
+
+    let x0 = emitLValue(e)
+    let x1 = emitCoerce(x0, to: p.bareType, at: anchor)
+    return insert(module.makeAccess(p.access, from: x1, at: anchor))!
+  }
+
+  /// Inserts the IR for argument `e` passed to an autoclosure parameter of type `p`.
+  private mutating func emitAutoclosureArgument(_ e: AnyExprID, to p: ParameterType) -> Operand {
+    // Emit synthesized function declaration.
+    let t = ArrowType(p.bareType)!
+    let h = Array(t.environment.skolems)
+    let f = SynthesizedFunctionDecl(
+      .autoclosure(e), typed: t, parameterizedBy: h, in: program[e].scope)
+    let callee = withClearContext({ $0.lower(syntheticAutoclosure: f) })
+
+    // Emit the IR code to reference tha function declaration.
+    let r = FunctionReference(
+      to: callee, in: module,
+      specializedBy: module.specialization(in: insertionFunction!), in: insertionScope!)
+
+    let anchor = program[e].site
+    let x0 = insert(module.makeAddressToPointer(.constant(r), at: anchor))!
+    let x1 = emitAllocStack(for: p.bareType, at: anchor)
+    emitInitialize(storage: x1, to: x0, at: anchor)
+    return insert(module.makeAccess(p.access, from: x1, at: anchor))!
+  }
+
+  /// Inserts the IR for argument `e` passed to a parameter of type `p`, evaluating the literal's
+  /// value as though it appeared at `site`.
+  private mutating func emitPragmaLiteralArgument(
+    _ e: PragmaLiteralExpr.ID, to p: ParameterType, at site: SourceRange
+  ) -> Operand {
+    let x0 = emitAllocStack(for: program[e].type, at: site)
+    emitStore(e, to: x0, at: site)
+    return insert(module.makeAccess(p.access, from: x0, at: site))!
   }
 
   /// Inserts the IR generating the operands of the subscript call `e`.
@@ -1997,57 +2054,6 @@ struct Emitter {
     let (callee, captures) = emit(subscriptCallee: ast[e].callee)
 
     return (callee, captures + explicitArguments)
-  }
-
-  /// Inserts the IR for the argument `e` passed to a parameter of type `parameter`.
-  ///
-  /// - Parameters:
-  ///   - site: The source range in which `e` is being evaluated if it's a pragma literals.
-  ///     Defaults to `e.site`.
-  private mutating func emit(
-    argument e: AnyExprID, to parameter: ParameterType, at site: SourceRange? = nil
-  ) -> Operand {
-
-    if parameter.isAutoclosure {
-      return emit(autoclosureFor: e, to: parameter, at: site)
-    }
-
-    let argumentSite: SourceRange
-    let storage: Operand
-
-    if let a = PragmaLiteralExpr.ID(e) {
-      argumentSite = site ?? ast[a].site
-      storage = emitAllocStack(for: program[a].type, at: argumentSite)
-      emitStore(a, to: storage, at: argumentSite)
-    } else {
-      argumentSite = ast[e].site
-      storage = emitLValue(e)
-    }
-
-    let s = emitCoerce(storage, to: parameter.bareType, at: argumentSite)
-    return insert(module.makeAccess(parameter.access, from: s, at: argumentSite))!
-  }
-
-  private mutating func emit(
-    autoclosureFor argument: AnyExprID, to parameter: ParameterType, at site: SourceRange? = nil
-  ) -> Operand {
-    // Emit synthesized function declaration.
-    let t = ArrowType(parameter.bareType)!
-    let h = Array(t.environment.skolems)
-    let f = SynthesizedFunctionDecl(
-      .autoclosure(argument), typed: t, parameterizedBy: h, in: program[argument].scope)
-    let callee = withClearContext({ $0.lower(syntheticAutoclosure: f) })
-
-    // Emit the IR code to reference tha function declaration.
-    let r = FunctionReference(
-      to: callee, in: module,
-      specializedBy: module.specialization(in: insertionFunction!), in: insertionScope!)
-
-    let site = ast[argument].site
-    let s1 = insert(module.makeAddressToPointer(.constant(r), at: site))!
-    let s2 = emitAllocStack(for: parameter.bareType, at: site)
-    emitInitialize(storage: s2, to: s1, at: site)
-    return insert(module.makeAccess(parameter.access, from: s2, at: site))!
   }
 
   /// Inserts the IR for infix operand `e` passed with convention `access`.
@@ -3242,6 +3248,12 @@ extension Emitter {
 }
 
 extension Diagnostic {
+
+  fileprivate static func error(
+    argumentTo a: AccessEffect, requiresMutationMarkerAt site: SourceRange
+  ) -> Diagnostic {
+    .error("argument to '\(a)' parameter must be marked for mutation", at: site)
+  }
 
   fileprivate static func error(
     assignmentLHSRequiresMutationMarkerAt site: SourceRange
