@@ -1993,6 +1993,12 @@ struct Emitter {
       return emitAutoclosureArgument(e, to: p)
     }
 
+    // Make sure arguments to 'set' or 'inout' parameters have a mutation marker, unless it's a
+    // literal expression.
+    if p.isSetOrInout && !e.isLiteral && !program.ast.isMarkedForMutation(e) {
+      report(.error(argumentTo: p.access, requiresMutationMarkerAt: program[e].site))
+    }
+
     // Pragma literals require extra care to adjust the site at which they are evaluated.
     let anchor = syntheticSite ?? program[e].site
     if let a = PragmaLiteralExpr.ID(e) {
@@ -3242,6 +3248,12 @@ extension Emitter {
 }
 
 extension Diagnostic {
+
+  fileprivate static func error(
+    argumentTo a: AccessEffect, requiresMutationMarkerAt site: SourceRange
+  ) -> Diagnostic {
+    .error("argument to '\(a)' parameter must be marked for mutation", at: site)
+  }
 
   fileprivate static func error(
     assignmentLHSRequiresMutationMarkerAt site: SourceRange
