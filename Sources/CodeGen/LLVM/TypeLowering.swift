@@ -35,7 +35,6 @@ extension IR.Program {
     }
   }
 
-
   /// Returns the LLVM form of `t` in `module`.
   ///
   /// - Requires: `t` is representable in LLVM.
