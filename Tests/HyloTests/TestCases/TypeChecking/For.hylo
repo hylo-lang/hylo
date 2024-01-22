@@ -4,7 +4,9 @@ type Counter: Iterator, Deinitializable {
   public var n: Int
   public memberwise init
   public typealias Element = Int
-  public fun next() inout -> Optional<Int> { (n.copy(), &n += 1).0 }
+  public fun next() inout -> Optional<Int> {
+    (n.copy(), &n += 1).0 as _
+  }
 }
 
 fun check<T>(_ x: T) {}

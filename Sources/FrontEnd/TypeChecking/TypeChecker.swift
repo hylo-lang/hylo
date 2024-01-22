@@ -1145,7 +1145,6 @@ struct TypeChecker {
   /// Type checks `e` as the body of a function returning or susbscript projecting `r`.
   private mutating func check(_ e: AnyExprID, asBodyOfCallableProducing r: AnyType) {
     var obligations = ProofObligations(scope: program[e].scope)
-
     let body = inferredType(of: e, withHint: r, updating: &obligations)
 
     // Inline functions may return `Never` regardless of their return type.
@@ -1155,13 +1154,14 @@ struct TypeChecker {
     if areEquivalent(r, .never, in: program[e].scope) {
       obligations.insert(equalToNever)
     } else {
-      let c = DisjunctionConstraint(
+      let equalToOutput = EqualityConstraint(body, r, origin: o)
+      let equalToOutputOrNever = DisjunctionConstraint(
         between: [
-          .init(constraints: [SubtypingConstraint(body, r, origin: o)], penalties: 0),
+          .init(constraints: [equalToOutput], penalties: 0),
           .init(constraints: [equalToNever], penalties: 1),
         ],
         origin: o)
-      obligations.insert(c)
+      obligations.insert(equalToOutputOrNever)
     }
 
     discharge(obligations, relatedTo: e)
