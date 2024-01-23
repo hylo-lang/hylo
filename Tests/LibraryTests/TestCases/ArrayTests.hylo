@@ -60,10 +60,26 @@ fun test_array_is_movable() {
   precondition(b[2] == 84)
 }
 
+fun test_array_is_equatable() {
+  precondition(Array<Int>() == Array<Int>())
+
+  var a = Array<Int>()
+  &a.append(21)
+  &a.append(42)
+  precondition(a == a)
+  precondition(a != Array())
+
+  var b = Array<Int>()
+  &b.append(21)
+  &b.append(42)
+  precondition(a == b)
+}
+
 public fun main() {
   test_init_empty()
   test_append()
   test_swap_at()
   test_reverse()
   test_array_is_movable()
+  test_array_is_equatable()
 }

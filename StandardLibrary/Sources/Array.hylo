@@ -1,5 +1,5 @@
 /// An ordered, random-access collection.
-public type Array<Element: Movable & Deinitializable>: Deinitializable, Movable {
+public type Array<Element: SemiRegular>: Deinitializable, Movable {
 
   /// The out-of-line storage of the array.
   ///
@@ -130,6 +130,26 @@ public type Array<Element: Movable & Deinitializable>: Deinitializable, Movable 
 
 }
 
+public conformance Array: Equatable {
+
+  /// Returns `true` iff `other` has an equivalent value.
+  public fun infix== (_ other: Self) -> Bool {
+    if self.storage.first_element_address() == other.storage.first_element_address() {
+      return true
+    } else if count() != other.count() {
+      return false
+    } else {
+      var i = 0
+      while i < count() {
+        if self[i] != other[i] { return false }
+        &i += 1
+      }
+      return true
+    }
+  }
+
+}
+
 public conformance Array: Collection {
 
   public typealias Position = Int
@@ -178,16 +198,6 @@ public conformance Array: MutableCollection {
 // Currently that issue prevents the copy() function below from compiling.
 //
 // Error is "type 'Element' does not conform to trait 'Movable'"
-
-public conformance Array: Equatable {
-
-  /// Returns `true` iff `other` has an equivalent value.
-  public fun infix== (_ other: Self) -> Bool {
-    // TODO
-    return true
-  }
-
-}
 
 public conformance Array: Copyable {
   /// Returns an equivalent instance.
