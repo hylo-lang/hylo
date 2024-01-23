@@ -8,7 +8,7 @@ type B<T> { public memberwise init }
 extension MysteryBox {
 
   static fun make() -> Self {
-    A()
+    A() as _
   }
 
 }

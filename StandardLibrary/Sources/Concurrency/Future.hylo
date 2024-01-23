@@ -40,7 +40,7 @@ public type Future<E: Movable & Deinitializable> {
   }
 
   private fun do_call() inout {
-    &r = self.f()
+    &r = self.f() as _
   }
 
 }

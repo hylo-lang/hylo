@@ -918,27 +918,43 @@ struct ConstraintSystem {
     }
   }
 
-  /// Returns `true` iff `lhs` and `rhs`, which have different constructors, can be unified.
+  /// Returns `true` iff `lhs` and `rhs` can be unified.
   private mutating func unifySyntacticallyInequal(_ lhs: AnyType, _ rhs: AnyType) -> Bool {
     let t = typeAssumptions[lhs]
     let u = typeAssumptions[rhs]
 
-    if let v = TypeVariable(t) {
-      assume(v, equals: u)
+    switch (t.base, u.base) {
+    case (let l as TypeVariable, _):
+      assume(l, equals: u)
       return true
-    }
-    if let v = TypeVariable(u) {
-      assume(v, equals: t)
-      return true
-    }
-    if !t[.isCanonical] {
-      return unify(checker.canonical(t, in: scope), u)
-    }
-    if !u[.isCanonical] {
-      return unify(t, checker.canonical(u, in: scope))
-    }
 
-    return t == u
+    case (_, let r as TypeVariable):
+      assume(r, equals: t)
+      return true
+
+    case (let l as UnionType, let r as UnionType):
+      return unifySyntacticallyInequal(l, r)
+
+    case _ where !t[.isCanonical] || !u[.isCanonical]:
+      return unify(checker.canonical(t, in: scope), checker.canonical(u, in: scope))
+
+    default:
+      return t == u
+    }
+  }
+
+  /// Returns `true` iff `lhs` and `rhs` can be unified.
+  private mutating func unifySyntacticallyInequal(
+    _ lhs: UnionType, _ rhs: UnionType
+  ) -> Bool {
+    for a in lhs.elements {
+      var success = false
+      for b in rhs.elements where unify(a, b) {
+        success = true
+      }
+      if !success { return false }
+    }
+    return true
   }
 
   /// Extends the type substution table to map `tau` to `substitute`.
