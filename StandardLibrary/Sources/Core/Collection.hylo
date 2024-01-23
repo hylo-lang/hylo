@@ -42,4 +42,14 @@ public extension Collection {
     return accumulator
   }
 
+  /// Returns `true` iff `self` contains an element satisfying `predicate`.
+  ///
+  /// - Complexity: O(n), where n is the number of elements in `self`.
+  public fun contains<E>(where predicate: [E](Element) -> Bool) -> Bool {
+    for let e in self {
+      if predicate(e) { return true }
+    }
+    return false
+  }
+
 }
