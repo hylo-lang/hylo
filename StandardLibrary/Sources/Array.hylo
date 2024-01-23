@@ -127,6 +127,22 @@ public type Array<Element: SemiRegular>: SemiRegular {
     &storage.header += 1
   }
 
+  /// Removes and returns the element at `index`.
+  ///
+  /// - Requires: `index` is in the range `0 ..< count()`.
+  /// - Complexity: O(n), where n is the number of elements in `self`.
+  public fun remove(at index: Int) inout -> Element {
+    let result = pointer_to_element[at: index].unsafe_pointee()
+    var i = index + 1
+    while i < count() {
+      pointer_to_element[at: i - 1].unsafe_initialize_pointee(
+        pointer_to_element[at: i].unsafe_pointee())
+      &i += 1
+    }
+    &storage.header -= 1
+    return result
+  }
+
   /// Reverses the elements of `self` in place.
   ///
   /// - Complexity: O(n), where n is the number of elements in `self`.

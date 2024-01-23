@@ -38,6 +38,20 @@ fun test_insert_at() {
   precondition(a[2] == 21)
 }
 
+fun test_remove_at() {
+  var a = Array<Int>()
+  &a.append(21)
+  &a.append(42)
+  &a.append(84)
+
+  precondition(&a.remove(at: 1) == 42)
+  precondition(a[0] == 21)
+  precondition(a[1] == 84)
+
+  precondition(&a.remove(at: 1) == 84)
+  precondition(a[0] == 21)
+}
+
 fun test_swap_at() {
   var a = Array<Bool>()
   &a.append(false)
@@ -107,6 +121,7 @@ public fun main() {
   test_init_empty()
   test_append()
   test_insert_at()
+  test_remove_at()
   test_swap_at()
   test_reverse()
   test_array_is_movable()
