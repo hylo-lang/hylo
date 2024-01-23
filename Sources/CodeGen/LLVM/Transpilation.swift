@@ -136,6 +136,7 @@ extension LLVM.Module {
     let fields: [LLVM.IRType] = [
       word(),  // size
       word(),  // alignment
+      word(),  // stride
       ptr,  // representation
     ]
     return LLVM.StructType(fields, in: &self)
@@ -363,6 +364,7 @@ extension LLVM.Module {
       aggregating: [
         word().constant(layout.size),
         word().constant(layout.alignment),
+        word().constant(layout.stride),
         ptr.null,
       ],
       in: &self)
@@ -392,6 +394,7 @@ extension LLVM.Module {
       aggregating: [
         word().constant(layout.size),
         word().constant(layout.alignment),
+        word().constant(layout.stride),
         ptr.null,
       ],
       in: &self)
