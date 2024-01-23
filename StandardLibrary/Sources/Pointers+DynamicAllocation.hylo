@@ -7,18 +7,6 @@ public extension PointerToMutable where Pointee == Never {
 
 }
 
-public extension PointerToMutable where Pointee == Never {
-
-  // TODO: This function should be replaced with the normal advance function once #989 is fixed.
-  /// Returns a pointer advanced by `offset_in_bytes`.
-  public fun advance(by_bytes offset_in_bytes: Int) -> Self {
-    let offset_in_bytes = 1 * offset_in_bytes
-    return PointerToMutable<Pointee>.new(
-      base: Builtin.advanced_by_bytes_word(base, offset_in_bytes.value))
-  }
-
-}
-
 public extension PointerToMutable {
 
   /// Allocates memory for `count` instances of `Pointee`.
