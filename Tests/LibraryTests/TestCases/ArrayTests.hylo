@@ -67,6 +67,16 @@ fun test_remove_all() {
   precondition(a.capacity() == 0)
 }
 
+fun test_pop_last() {
+  var a = Array<Int>()
+  &a.append(21)
+
+  let y = if let x: Int = &a.pop_last() { x.copy() } else { -1 }
+  precondition(y == 21)
+  let z = if let x: Int = &a.pop_last() { x.copy() } else { -1 }
+  precondition(z == -1)
+}
+
 fun test_swap_at() {
   var a = Array<Bool>()
   &a.append(false)
@@ -138,6 +148,7 @@ public fun main() {
   test_insert_at()
   test_remove_at()
   test_remove_all()
+  test_pop_last()
   test_swap_at()
   test_reverse()
   test_array_is_movable()

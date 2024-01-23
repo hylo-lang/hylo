@@ -155,6 +155,18 @@ public type Array<Element: SemiRegular>: SemiRegular {
     if !keep_capacity { &storage = .new() }
   }
 
+  /// Removes and returns the last element of the array.
+  public fun pop_last() inout -> Optional<Element> {
+    let c = count()
+    if c > 0 {
+      let result = pointer_to_element[at: c - 1].unsafe_pointee()
+      &storage.header -= 1
+      return result as _
+    } else {
+      return .none()
+    }
+  }
+
   /// Reverses the elements of `self` in place.
   ///
   /// - Complexity: O(n), where n is the number of elements in `self`.
