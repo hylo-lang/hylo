@@ -1,6 +1,7 @@
 import Core
 import IR
 import LLVM
+import Utils
 
 /// The concrete layout of a type, describing the byte offsets of its stored properties.
 struct ConcreteTypeLayout {
@@ -10,6 +11,12 @@ struct ConcreteTypeLayout {
 
   /// The memory alignment of the type's instances, in bytes.
   let alignment: Int
+
+  /// The number of bytes from the start of one instance to the start of the next when stored in
+  /// contiguous memory.
+  var stride: Int {
+    max(1, size.round(upToNearestMultipleOf: alignment))
+  }
 
   /// Creates an instance with the given properties.
   init(size: Int, alignment: Int) {
