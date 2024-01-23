@@ -1964,11 +1964,6 @@ struct Emitter {
     // Nothing to do if the callee has no parameter.
     if parameters.isEmpty { return [] }
 
-    // Parameter declarations are accessible iff `callee` is a direct reference to a callable.
-    let parameterDecls = NameExpr.ID(callee).flatMap { (n) in
-      program.ast.runtimeParameters(of: program[n].referredDecl.decl!)
-    }
-
     var result: [Operand] = []
     for i in inputs.indices {
       let p = ParameterType(parameters[i].type)!
@@ -1979,7 +1974,8 @@ struct Emitter {
         result.append(emitArgument(a, to: p, at: syntheticSite))
 
       case .defaulted:
-        let a = program[parameterDecls![i]].defaultValue!
+        let parameterDecls = program.runtimeParameters(of: callee)!
+        let a = program[parameterDecls[i]].defaultValue!
         result.append(emitArgument(a, to: p, at: syntheticSite))
 
       case .implicit(let d):
