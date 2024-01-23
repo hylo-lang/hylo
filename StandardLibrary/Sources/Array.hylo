@@ -31,11 +31,7 @@ public type Array<Element: SemiRegular>: SemiRegular {
 
   /// Deinitializes `self`.
   public fun deinit() sink {
-    var i = 0
-    while i < count() {
-      &pointer_to_element[at: i].unsafe_pointee().deinit()
-      &i += 1
-    }
+    &remove_all()
   }
 
   /// Returns the number of elements in `self`.
@@ -141,6 +137,22 @@ public type Array<Element: SemiRegular>: SemiRegular {
     }
     &storage.header -= 1
     return result
+  }
+
+  /// Removes al elements in the array, keeping existing storage if `keep_capacity` is `true`.
+  public fun remove_all(keeping_capacity keep_capacity: Bool = false) inout {
+    if capacity() == 0 { return }
+
+    let c = count()
+    var i = 0
+    while i < c {
+      &pointer_to_element[at: i].unsafe_pointee().deinit()
+      &i += 1
+    }
+    &storage.header = 0
+
+    // Throw away the existing buffer unless `keep_capacity` is `true`.
+    if !keep_capacity { &storage = .new() }
   }
 
   /// Reverses the elements of `self` in place.

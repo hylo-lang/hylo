@@ -52,6 +52,21 @@ fun test_remove_at() {
   precondition(a[0] == 21)
 }
 
+fun test_remove_all() {
+  var a = Array<Int>()
+  &a.append(21)
+  &a.append(42)
+
+  &a.remove_all(keeping_capacity: true)
+  precondition(a == Array())
+  precondition(a.capacity() > 0)
+
+  &a.append(21)
+  &a.remove_all()
+  precondition(a == Array())
+  precondition(a.capacity() == 0)
+}
+
 fun test_swap_at() {
   var a = Array<Bool>()
   &a.append(false)
@@ -122,6 +137,7 @@ public fun main() {
   test_append()
   test_insert_at()
   test_remove_at()
+  test_remove_all()
   test_swap_at()
   test_reverse()
   test_array_is_movable()
