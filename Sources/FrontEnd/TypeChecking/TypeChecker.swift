@@ -1229,10 +1229,10 @@ struct TypeChecker {
     obligations.insert(
       ConformanceConstraint(lhs, conformsTo: program.ast.core.movable.type, origin: o))
 
-    // `rhs` must be subtype of `lhs`.
+    // `rhs` must be equal of `lhs`.
     let rhs = inferredType(
       of: program[s].right, withHint: lhs, updating: &obligations)
-    obligations.insert(SubtypingConstraint(rhs, lhs, origin: o))
+    obligations.insert(EqualityConstraint(rhs, lhs, origin: o))
 
     discharge(obligations, relatedTo: s)
   }
@@ -5405,7 +5405,7 @@ struct TypeChecker {
 
     let preferred: ConstraintSet = [
       EqualityConstraint(t, defaultType, origin: cause),
-      SubtypingConstraint(defaultType, h, origin: cause),
+      EqualityConstraint(defaultType, h, origin: cause),
     ]
     let alternative: ConstraintSet = [
       EqualityConstraint(t, h, origin: cause),

@@ -10,7 +10,7 @@ fun test(b: Bool, i: Int) {
   //! @+1 diagnostic 'Int' is not subtype of 'Bool'
   if i { use(b) }
 
-  let x: Union<Int, Bool> = 1
+  let x: Union<Int, Bool> = 1 as _
 
   if let y: Int = x, y != 0 { use(b) }
 
