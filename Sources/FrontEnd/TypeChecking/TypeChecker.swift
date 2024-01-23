@@ -1176,17 +1176,6 @@ struct TypeChecker {
     discharge(obligations, relatedTo: e)
   }
 
-  /// Checks that the type of `e` is subtype of `supertype`.
-  private mutating func check(_ e: AnyExprID, coercibleTo supertype: AnyType) {
-    var obligations = ProofObligations(scope: program[e].scope)
-
-    let t = inferredType(of: e, withHint: supertype, updating: &obligations)
-    obligations.insert(
-      SubtypingConstraint(t, supertype, origin: .init(.structural, at: program[e].site)))
-
-    discharge(obligations, relatedTo: e)
-  }
-
   /// Type checks `s`.
   private mutating func check<T: StmtID>(_ s: T) {
     switch s.kind {
@@ -1293,7 +1282,7 @@ struct TypeChecker {
   /// Type checks `s`.
   private mutating func check(_ s: DoWhileStmt.ID) {
     check(program[s].body)
-    check(program[s].condition.value, coercibleTo: ^program.ast.coreType("Bool")!)
+    check(program[s].condition.value, instanceOf: ^program.ast.coreType("Bool")!)
   }
 
   /// Type checks `s`.
@@ -1303,7 +1292,7 @@ struct TypeChecker {
     let e = checkedType(of: program[s].binding, usedAs: .filter(matching: element))
     checkedType(of: program[s].binding, usedAs: .filter(matching: e), ignoringSharedCache: true)
     if let e = program[s].filter {
-      check(e.value, coercibleTo: ^program.ast.coreType("Bool")!)
+      check(e.value, instanceOf: ^program.ast.coreType("Bool")!)
     }
     check(program[s].body)
   }
@@ -1337,7 +1326,7 @@ struct TypeChecker {
     for item in condition {
       switch item {
       case .expr(let e):
-        check(e, coercibleTo: bool)
+        check(e, instanceOf: bool)
       case .decl(let d):
         checkedType(of: d, usedAs: .condition, ignoringSharedCache: true)
       }

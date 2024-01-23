@@ -43,6 +43,6 @@ public fun main() {
   //! @+1 diagnostic consuming for loop requires 'CollectionOfOne<Optional<Int>>' to conform to 'Iterator'
   for sink let _ in a {}
 
-  //! @+1 diagnostic '{}' is not subtype of 'Bool'
+  //! @+1 diagnostic incompatible types 'Bool' and '{}'
   for let _ in a where () {}
 }
