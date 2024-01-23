@@ -52,4 +52,14 @@ public extension Collection {
     return false
   }
 
+  /// Returns `true` iff all elements in `self` satisfy `predicate`.
+  ///
+  /// - Complexity: O(n), where n is the number of elements in `self`.
+  public fun all_satisfy<E>(_ predicate: [E](Element) -> Bool) -> Bool {
+    for let e in self {
+      if !predicate(e) { return false }
+    }
+    return true
+  }
+
 }

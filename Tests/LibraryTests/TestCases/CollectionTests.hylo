@@ -20,7 +20,18 @@ fun test_contains_where() {
   precondition(!a.contains(where: fun(_ e: Int) { e == 10 }))
 }
 
+fun test_all_satisfy() {
+  var a = Array<Int>()
+  &a.append(1)
+  &a.append(2)
+  &a.append(3)
+
+  precondition(a.all_satisfy(fun(_ e: Int) { e > 0 }))
+  precondition(!a.all_satisfy(fun(_ e: Int) { e < 3 }))
+}
+
 public fun main() {
   test_reduce()
   test_contains_where()
+  test_all_satisfy()
 }
