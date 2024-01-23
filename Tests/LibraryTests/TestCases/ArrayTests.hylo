@@ -23,6 +23,21 @@ fun test_append() {
   precondition(d[2] == 84)
 }
 
+fun test_insert_at() {
+  var a = Array<Int>()
+  &a.insert(21, at: 0)
+  precondition(a[0] == 21)
+
+  &a.insert(42, at: 0)
+  precondition(a[0] == 42)
+  precondition(a[1] == 21)
+
+  &a.insert(84, at: 1)
+  precondition(a[0] == 42)
+  precondition(a[1] == 84)
+  precondition(a[2] == 21)
+}
+
 fun test_swap_at() {
   var a = Array<Bool>()
   &a.append(false)
@@ -91,6 +106,7 @@ fun test_array_is_copyable() {
 public fun main() {
   test_init_empty()
   test_append()
+  test_insert_at()
   test_swap_at()
   test_reverse()
   test_array_is_movable()

@@ -108,6 +108,25 @@ public type Array<Element: SemiRegular>: SemiRegular {
     &storage.header += 1
   }
 
+  /// Inserts `source` at `index`.
+  ///
+  /// The new element is inserted before the element currently at `index`. If `index` is equal to
+  /// `count()`, the new element is added at the end of the array.
+  ///
+  /// - Requires: `index` is in the range `0 ..< count()`.
+  /// - Complexity: O(n), where n is the number of elements in `self`.
+  public fun insert(_ source: sink Element, at index: Int) inout {
+    var c = count()
+    &reserve_capacity(c + 1)
+    while c > index {
+      pointer_to_element[at: c].unsafe_initialize_pointee(
+        pointer_to_element[at: c - 1].unsafe_pointee())
+      &c -= 1
+    }
+    pointer_to_element[at: c].unsafe_initialize_pointee(source)
+    &storage.header += 1
+  }
+
   /// Reverses the elements of `self` in place.
   ///
   /// - Complexity: O(n), where n is the number of elements in `self`.
