@@ -75,6 +75,19 @@ fun test_array_is_equatable() {
   precondition(a == b)
 }
 
+fun test_array_is_copyable() {
+  var a = Array<Int>()
+  &a.append(21)
+  &a.append(42)
+
+  var b = a.copy()
+  precondition(b[0] == 21)
+  precondition(b[1] == 42)
+
+  &b.append(84)
+  precondition(a.count() == 2)
+}
+
 public fun main() {
   test_init_empty()
   test_append()
@@ -82,4 +95,5 @@ public fun main() {
   test_reverse()
   test_array_is_movable()
   test_array_is_equatable()
+  test_array_is_copyable()
 }

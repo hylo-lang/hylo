@@ -1,5 +1,5 @@
 /// An ordered, random-access collection.
-public type Array<Element: SemiRegular>: Deinitializable, Movable {
+public type Array<Element: SemiRegular>: SemiRegular {
 
   /// The out-of-line storage of the array.
   ///
@@ -150,6 +150,20 @@ public conformance Array: Equatable {
 
 }
 
+public conformance Array: Copyable where Element: Copyable {
+
+  /// Returns a copy of `self`.
+  public fun copy() -> Self {
+    var result = Array<Element>()
+    &result.reserve_capacity(count())
+    for let e in self {
+      &result.append(e.copy())
+    }
+    return result
+  }
+
+}
+
 public conformance Array: Collection {
 
   public typealias Position = Int
@@ -191,20 +205,3 @@ public conformance Array: MutableCollection {
   }
 
 }
-
-/*
-
-// TODO: Make Array conform to Regular instead of Deinitializable once #1002 is fixed.
-// Currently that issue prevents the copy() function below from compiling.
-//
-// Error is "type 'Element' does not conform to trait 'Movable'"
-
-public conformance Array: Copyable {
-  /// Returns an equivalent instance.
-  public fun copy() -> Self {
-    // TODO
-    .new()
-  }
-}
-
-*/
