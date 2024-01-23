@@ -1167,6 +1167,15 @@ struct TypeChecker {
     discharge(obligations, relatedTo: e)
   }
 
+  /// Checks that `e` is an instance of `t`.
+  private mutating func check(_ e: AnyExprID, instanceOf t: AnyType) {
+    var obligations = ProofObligations(scope: program[e].scope)
+    let u = inferredType(of: e, withHint: t, updating: &obligations)
+    obligations.insert(
+      EqualityConstraint(t, u, origin: .init(.structural, at: program[e].site)))
+    discharge(obligations, relatedTo: e)
+  }
+
   /// Checks that the type of `e` is subtype of `supertype`.
   private mutating func check(_ e: AnyExprID, coercibleTo supertype: AnyType) {
     var obligations = ProofObligations(scope: program[e].scope)
@@ -1304,7 +1313,7 @@ struct TypeChecker {
     let output = uncheckedOutputType(in: program[s].scope)!
 
     if let v = program[s].value {
-      check(v, coercibleTo: output)
+      check(v, instanceOf: output)
     } else if !areEquivalent(output, .void, in: program[s].scope) {
       report(.error(missingReturnValueAt: program[s].site))
     }
@@ -1319,7 +1328,7 @@ struct TypeChecker {
   /// Type checks `s`.
   private mutating func check(_ s: YieldStmt.ID) {
     let output = uncheckedOutputType(in: program[s].scope)!
-    check(program[s].value, coercibleTo: output)
+    check(program[s].value, instanceOf: output)
   }
 
   /// Type checks `condition`.
@@ -2852,7 +2861,7 @@ struct TypeChecker {
       return t
 
     case let u as RemoteType where u.bareType.base is MetatypeType:
-      // FIXME: Workaround to deal with the fact that `remote let T` is ambiguous.
+      // FIXME: Workaround to deal with the fact that `remote let T` is ambiguous (#1326).
       return ^RemoteType(u.access, MetatypeType(u.bareType)!.instance)
 
     default:
@@ -4848,26 +4857,26 @@ struct TypeChecker {
       // Note: constraining the type of the LHS to be above the RHS wouldn't contribute any useful
       // information to the constraint system.
       _ = inferredType(of: program[e].left, updating: &obligations)
+      return constrain(e, to: rhs.shape, in: &obligations)
 
     case .up:
       // The type of the LHS must be statically known to subtype of the RHS.
       let lhs = inferredType(
         of: program[e].left, withHint: ^freshVariable(), updating: &obligations)
       obligations.insert(SubtypingConstraint(lhs, rhs.shape, origin: cause))
+      return constrain(e, to: rhs.shape, in: &obligations)
 
     case .pointerConversion:
       // The LHS be a `Builtin.ptr`. The RHS must be a remote type.
-      if !(rhs.shape.base is RemoteType) {
+      guard let s = RemoteType(rhs.shape) else {
         report(.error(invalidPointerConversionAt: program[e].right.site))
         return constrain(e, to: .error, in: &obligations)
       }
 
       let lhs = inferredType(of: program[e].left, updating: &obligations)
       obligations.insert(EqualityConstraint(lhs, .builtin(.ptr), origin: cause))
+      return constrain(e, to: s.bareType, in: &obligations)
     }
-
-    // Unless an error occurred, the inferred type is `rhs`.
-    return constrain(e, to: rhs.shape, in: &obligations)
   }
 
   /// Returns the inferred type of `e`, updating `obligations` and gathering contextual information
