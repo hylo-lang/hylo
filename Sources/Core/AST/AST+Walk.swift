@@ -111,8 +111,6 @@ extension AST {
       traverse(self[n] as! ConditionalExpr, notifying: &o)
     case ConformanceLensExpr.self:
       traverse(self[n] as! ConformanceLensExpr, notifying: &o)
-    case ErrorExpr.self:
-      traverse(self[n] as! ErrorExpr, notifying: &o)
     case ExistentialTypeExpr.self:
       traverse(self[n] as! ExistentialTypeExpr, notifying: &o)
     case FloatLiteralExpr.self:
@@ -468,11 +466,6 @@ extension AST {
     walk(n.subject, notifying: &o)
     walk(n.lens, notifying: &o)
   }
-
-  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
-  public func traverse<O: ASTWalkObserver>(
-    _ n: ErrorExpr, notifying o: inout O
-  ) {}
 
   /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
