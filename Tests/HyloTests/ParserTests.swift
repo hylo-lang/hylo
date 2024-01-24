@@ -1202,6 +1202,14 @@ final class ParserTests: XCTestCase {
     XCTAssertEqual(syntax.convention.value, .let)
   }
 
+  func testCaptureExpr() throws {
+    let input: SourceFile = "[let x.y]"
+    let (e, ast) = try input.parse(with: Parser.parseExpr(in:))
+    XCTAssertEqual(e?.kind, .init(CaptureExpr.self))
+    let syntax = try XCTUnwrap(ast[e] as? CaptureExpr)
+    XCTAssertEqual(syntax.access.value, .let)
+  }
+
   func testBufferLiteral() throws {
     let input: SourceFile = "[]"
     let (exprID, ast) = try input.parse(with: Parser.parseExpr(in:))

@@ -103,6 +103,7 @@ extension NodeKind {
     ArrowTypeExpr.self,
     BooleanLiteralExpr.self,
     BufferLiteralExpr.self,
+    CaptureExpr.self,
     CastExpr.self,
     ConditionalExpr.self,
     ConformanceLensExpr.self,

@@ -103,6 +103,8 @@ extension AST {
       traverse(self[n] as! BooleanLiteralExpr, notifying: &o)
     case BufferLiteralExpr.self:
       traverse(self[n] as! BufferLiteralExpr, notifying: &o)
+    case CaptureExpr.self:
+      traverse(self[n] as! CaptureExpr, notifying: &o)
     case CastExpr.self:
       traverse(self[n] as! CastExpr, notifying: &o)
     case ConditionalExpr.self:
@@ -433,6 +435,13 @@ extension AST {
     _ n: BufferLiteralExpr, notifying o: inout O
   ) {
     walk(roots: n.elements, notifying: &o)
+  }
+
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
+  public func traverse<O: ASTWalkObserver>(
+    _ n: CaptureExpr, notifying o: inout O
+  ) {
+    walk(n.source, notifying: &o)
   }
 
   /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
