@@ -1395,6 +1395,8 @@ struct Emitter {
       emitStore(BooleanLiteralExpr.ID(e)!, to: storage)
     case BufferLiteralExpr.self:
       emitStore(BufferLiteralExpr.ID(e)!, to: storage)
+    case CaptureExpr.self:
+      emitStore(CaptureExpr.ID(e)!, to: storage)
     case CastExpr.self:
       emitStore(CastExpr.ID(e)!, to: storage)
     case ConditionalExpr.self:
@@ -1447,6 +1449,16 @@ struct Emitter {
       let x0 = insert(module.makeAdvanced(storage, byStrides: i, at: program[v].site))!
       emitStore(value: v, to: x0)
     }
+  }
+
+  /// Inserts the IR for storing the value of `e` to `storage`.
+  private mutating func emitStore(_ e: CaptureExpr.ID, to storage: Operand) {
+    let t = RemoteType(program[e].type)!
+    let s = program[e].site
+
+    let x0 = emitLValue(program[e].source)
+    let x1 = insert(module.makeAccess(t.access, from: x0, at: s))!
+    emitStore(access: x1, to: storage, at: s)
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.

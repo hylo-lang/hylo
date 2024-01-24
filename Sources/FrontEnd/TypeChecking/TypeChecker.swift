@@ -4743,6 +4743,8 @@ struct TypeChecker {
       return _inferredType(of: BooleanLiteralExpr.ID(e)!, withHint: hint, updating: &obligations)
     case BufferLiteralExpr.self:
       return _inferredType(of: BufferLiteralExpr.ID(e)!, withHint: hint, updating: &obligations)
+    case CaptureExpr.self:
+      return _inferredType(of: CaptureExpr.ID(e)!, withHint: hint, updating: &obligations)
     case CastExpr.self:
       return _inferredType(of: CastExpr.ID(e)!, withHint: hint, updating: &obligations)
     case ConditionalExpr.self:
@@ -4825,6 +4827,17 @@ struct TypeChecker {
     } else {
       return constrain(e, to: ^BufferType(elementHint, .compilerKnown(0)), in: &obligations)
     }
+  }
+
+  /// Returns the inferred type of `e`, updating `obligations` and gathering contextual information
+  /// from `hint`.
+  private mutating func _inferredType(
+    of e: CaptureExpr.ID, withHint hint: AnyType? = nil,
+    updating obligations: inout ProofObligations
+  ) -> AnyType {
+    let t = inferredType(
+      of: program[e].source, withHint: RemoteType(hint)?.bareType, updating: &obligations)
+    return constrain(e, to: ^RemoteType(program[e].access.value, t), in: &obligations)
   }
 
   /// Returns the inferred type of `e`, updating `obligations` and gathering contextual information
