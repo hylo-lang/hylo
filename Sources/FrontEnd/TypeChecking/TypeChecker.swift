@@ -4763,8 +4763,8 @@ struct TypeChecker {
       return _inferredType(of: NameExpr.ID(e)!, withHint: hint, updating: &obligations)
     case PragmaLiteralExpr.self:
       return _inferredType(of: PragmaLiteralExpr.ID(e)!, withHint: hint, updating: &obligations)
-    case RemoteExpr.self:
-      return _inferredType(of: RemoteExpr.ID(e)!, withHint: hint, updating: &obligations)
+    case RemoteTypeExpr.self:
+      return _inferredType(of: RemoteTypeExpr.ID(e)!, withHint: hint, updating: &obligations)
     case SequenceExpr.self:
       return _inferredType(of: SequenceExpr.ID(e)!, withHint: hint, updating: &obligations)
     case StringLiteralExpr.self:
@@ -5159,7 +5159,7 @@ struct TypeChecker {
 
   /// Returns the inferred type of `e`, using `hint` for context and updating `obligations`.
   private mutating func _inferredType(
-    of e: RemoteExpr.ID, withHint hint: AnyType? = nil,
+    of e: RemoteTypeExpr.ID, withHint hint: AnyType? = nil,
     updating obligations: inout ProofObligations
   ) -> AnyType {
     let t = evalTypeAnnotation(program[e].operand)

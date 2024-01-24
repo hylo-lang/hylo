@@ -119,7 +119,7 @@ extension NodeKind {
     NameExpr.self,
     ParameterTypeExpr.self,
     PragmaLiteralExpr.self,
-    RemoteExpr.self,
+    RemoteTypeExpr.self,
     SequenceExpr.self,
     SpawnExpr.self,
     StringLiteralExpr.self,

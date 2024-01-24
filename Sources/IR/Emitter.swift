@@ -1413,8 +1413,8 @@ struct Emitter {
       emitStore(NameExpr.ID(e)!, to: storage)
     case PragmaLiteralExpr.self:
       emitStore(PragmaLiteralExpr.ID(e)!, to: storage)
-    case RemoteExpr.self:
-      emitStore(RemoteExpr.ID(e)!, to: storage)
+    case RemoteTypeExpr.self:
+      emitStore(RemoteTypeExpr.ID(e)!, to: storage)
     case SequenceExpr.self:
       emitStore(SequenceExpr.ID(e)!, to: storage)
     case SubscriptCallExpr.self:
@@ -1664,7 +1664,7 @@ struct Emitter {
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
-  private mutating func emitStore(_ e: RemoteExpr.ID, to storage: Operand) {
+  private mutating func emitStore(_ e: RemoteTypeExpr.ID, to storage: Operand) {
     let t = RemoteType(program[e].type)!
     let s = program[e].site
 

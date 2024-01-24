@@ -2102,14 +2102,14 @@ public enum Parser {
 
   private static func parseRemoteExpr(
     in state: inout ParserState
-  ) throws -> RemoteExpr.ID? {
+  ) throws -> RemoteTypeExpr.ID? {
     guard let introducer = state.take(.remote) else { return nil }
 
     let convention = try state.expect("access effect", using: accessEffect)
     let operand = try state.expect("expression", using: parseExpr(in:))
 
     return state.insert(
-      RemoteExpr(
+      RemoteTypeExpr(
         introducerSite: introducer.site,
         convention: convention,
         operand: operand,
