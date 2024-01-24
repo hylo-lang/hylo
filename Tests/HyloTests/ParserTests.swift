@@ -1953,6 +1953,13 @@ final class ParserTests: XCTestCase {
     XCTAssertEqual(attribute.value.arguments.count, 2)
   }
 
+  func testAttributeWithExpressionArguments() throws {
+    let input: SourceFile = #"@attr(MemoryLayout<Int64>.alignment())"#
+    let attribute = try XCTUnwrap(input.parse(with: Parser.parseAttribute).element)
+    XCTAssertEqual(attribute.value.name.value, "@attr")
+    XCTAssertEqual(attribute.value.arguments.count, 1)
+  }
+
   // MARK: Helpers
 
   /// Applies `combinator` on `input`, optionally setting `context` in the parser state.

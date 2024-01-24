@@ -265,6 +265,30 @@ public struct AST {
     runtimeParameters(of: d)?.map({ self[$0].defaultValue })
   }
 
+  /// Returns the name of entity defining the implementation of the declared function if it is external.
+  public func externalName(of d: FunctionDecl.ID) -> String? {
+    return self[d].attributes.first(where: { $0.value.name.value == "@external" }).map { (a) in
+      if a.value.arguments[0].value.kind.value is StringLiteralExpr.Type {
+        let n = self[StringLiteralExpr.ID(a.value.arguments[0].value)]!
+        return n.value
+      } else {
+        unreachable()
+      }
+    }
+  }
+
+  /// Returns the name of the entity interfaced by the declared function if it is an FFI.
+  public func foreignName(of d: FunctionDecl.ID) -> String? {
+    return self[d].attributes.first(where: { $0.value.name.value == "@ffi" }).map { (a) in
+      if a.value.arguments[0].value.kind.value is StringLiteralExpr.Type {
+        let n = self[StringLiteralExpr.ID(a.value.arguments[0].value)]!
+        return n.value
+      } else {
+        unreachable()
+      }
+    }
+  }
+
   /// Returns the run-time parameters of `d` iff `d` is callable.
   public func runtimeParameters(of d: AnyDeclID) -> [ParameterDecl.ID]? {
     switch d.kind {

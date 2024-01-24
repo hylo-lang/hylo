@@ -3211,15 +3211,14 @@ public enum Parser {
     let accessEffect = try passingConvention.parse(&state)
 
     var isAutoClosure = false
-    let attributes = try parseAttributeList(in: &state)!
-    for a in attributes {
-      if a.value.name.value == "@autoclosure" {
-        if !a.value.arguments.isEmpty {
-          state.diagnostics.insert(.error(attributeTakesNoArgument: a))
-        }
+    if let introducer = state.take(if: { $0.kind == .attribute }) {
+      let attribute = SourceRepresentable(
+        value: Attribute(name: state.token(introducer), arguments: []),
+        range: state.range(from: introducer.site.start))
+      if attribute.value.name.value == "@autoclosure" {
         isAutoClosure = true
       } else {
-        state.diagnostics.insert(.error(unexpectedAttribute: a))
+        state.diagnostics.insert(.error(unexpectedAttribute: attribute))
       }
     }
 
@@ -3335,17 +3334,8 @@ public enum Parser {
   private static func parseAttributeArgument(
     in state: inout ParserState
   ) throws -> Attribute.Argument? {
-    if let token = state.take(.int) {
-      if let value = Int(state.lexer.sourceCode[token.site]) {
-        return .integer(SourceRepresentable(value: value, range: token.site))
-      } else {
-        throw [.error("invalid integer literal", at: token.site)] as DiagnosticSet
-      }
-    }
-
-    if let token = state.take(.string) {
-      let value = String(state.lexer.sourceCode[token.site].dropFirst().dropLast())
-      return .string(SourceRepresentable(value: value, range: token.site))
+    if let value = try parseExpr(in: &state) {
+      return Attribute.Argument(value: value)
     }
 
     return nil

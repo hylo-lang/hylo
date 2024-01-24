@@ -2,11 +2,14 @@
 public struct Attribute: Codable {
 
   /// An attribute argument.
-  public enum Argument: Codable {
+  public struct Argument: Codable {
 
-    case string(SourceRepresentable<String>)
+    /// The value of the argument.
+    public let value: AnyExprID
 
-    case integer(SourceRepresentable<Int>)
+    public init(value: AnyExprID) {
+      self.value = value
+    }
 
   }
 
