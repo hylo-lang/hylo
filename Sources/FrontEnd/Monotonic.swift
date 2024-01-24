@@ -91,3 +91,5 @@ extension Memo: Monotonic where T: Monotonic {
   }
 
 }
+
+extension String: Monotonic {}

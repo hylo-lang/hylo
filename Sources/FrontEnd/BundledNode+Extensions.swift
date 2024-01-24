@@ -44,3 +44,12 @@ extension BundledNode where T == SequenceExpr.ID, P == TypedProgram {
   }
 
 }
+
+extension BundledNode where T == FunctionDecl.ID, P == TypedProgram {
+
+  /// The foreign name of this function.
+  public var foreignName: String {
+    container.foreignName[id]!
+  }
+
+}

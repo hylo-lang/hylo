@@ -284,7 +284,7 @@ struct Emitter {
     // Emit the call to the foreign function.
     let foreignResult = insert(
       module.makeCallFFI(
-        returning: .object(returnType), applying: ast.foreignName(of: d)!, to: arguments, at: site))!
+        returning: .object(returnType), applying: program[d].foreignName, to: arguments, at: site))!
 
     // Convert the result of the FFI to its Hylo representation and return it.
     switch returnType {

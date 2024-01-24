@@ -44,6 +44,9 @@ public struct TypedProgram {
   /// A map from sequence expressions to their evaluation order.
   public internal(set) var foldedForm: [SequenceExpr.ID: FoldedSequenceExpr] = [:]
 
+  /// A map from functions to their foreign name.
+  public internal(set) var foreignName: [FunctionDecl.ID: String] = [:]
+
   /// The conformances in the program.
   public internal(set) var conformances: ConformanceSet = [:]
 
