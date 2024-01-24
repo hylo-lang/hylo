@@ -2845,14 +2845,8 @@ struct TypeChecker {
     switch t.base {
     case let u as MetatypeType:
       return u.instance
-
     case is ErrorType, is NamespaceType, is TraitType:
       return t
-
-    case let u as RemoteType where u.bareType.base is MetatypeType:
-      // FIXME: Workaround to deal with the fact that `remote let T` is ambiguous (#1326).
-      return ^RemoteType(u.access, MetatypeType(u.bareType)!.instance)
-
     default:
       return nil
     }
@@ -4743,6 +4737,8 @@ struct TypeChecker {
       return _inferredType(of: BooleanLiteralExpr.ID(e)!, withHint: hint, updating: &obligations)
     case BufferLiteralExpr.self:
       return _inferredType(of: BufferLiteralExpr.ID(e)!, withHint: hint, updating: &obligations)
+    case CaptureExpr.self:
+      return _inferredType(of: CaptureExpr.ID(e)!, withHint: hint, updating: &obligations)
     case CastExpr.self:
       return _inferredType(of: CastExpr.ID(e)!, withHint: hint, updating: &obligations)
     case ConditionalExpr.self:
@@ -4767,8 +4763,8 @@ struct TypeChecker {
       return _inferredType(of: NameExpr.ID(e)!, withHint: hint, updating: &obligations)
     case PragmaLiteralExpr.self:
       return _inferredType(of: PragmaLiteralExpr.ID(e)!, withHint: hint, updating: &obligations)
-    case RemoteExpr.self:
-      return _inferredType(of: RemoteExpr.ID(e)!, withHint: hint, updating: &obligations)
+    case RemoteTypeExpr.self:
+      return _inferredType(of: RemoteTypeExpr.ID(e)!, withHint: hint, updating: &obligations)
     case SequenceExpr.self:
       return _inferredType(of: SequenceExpr.ID(e)!, withHint: hint, updating: &obligations)
     case StringLiteralExpr.self:
@@ -4825,6 +4821,17 @@ struct TypeChecker {
     } else {
       return constrain(e, to: ^BufferType(elementHint, .compilerKnown(0)), in: &obligations)
     }
+  }
+
+  /// Returns the inferred type of `e`, updating `obligations` and gathering contextual information
+  /// from `hint`.
+  private mutating func _inferredType(
+    of e: CaptureExpr.ID, withHint hint: AnyType? = nil,
+    updating obligations: inout ProofObligations
+  ) -> AnyType {
+    let t = inferredType(
+      of: program[e].source, withHint: RemoteType(hint)?.bareType, updating: &obligations)
+    return constrain(e, to: ^RemoteType(program[e].access.value, t), in: &obligations)
   }
 
   /// Returns the inferred type of `e`, updating `obligations` and gathering contextual information
@@ -5152,12 +5159,12 @@ struct TypeChecker {
 
   /// Returns the inferred type of `e`, using `hint` for context and updating `obligations`.
   private mutating func _inferredType(
-    of e: RemoteExpr.ID, withHint hint: AnyType? = nil,
+    of e: RemoteTypeExpr.ID, withHint hint: AnyType? = nil,
     updating obligations: inout ProofObligations
   ) -> AnyType {
-    let t = inferredType(
-      of: program[e].operand, withHint: RemoteType(hint)?.bareType, updating: &obligations)
-    return constrain(e, to: ^RemoteType(program[e].convention.value, t), in: &obligations)
+    let t = evalTypeAnnotation(program[e].operand)
+    let r = RemoteType(program[e].convention.value, t)
+    return constrain(e, to: ^MetatypeType(of: r), in: &obligations)
   }
 
   /// Returns the inferred type of `e`, updating `obligations` and gathering contextual information

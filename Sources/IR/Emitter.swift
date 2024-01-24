@@ -1395,6 +1395,8 @@ struct Emitter {
       emitStore(BooleanLiteralExpr.ID(e)!, to: storage)
     case BufferLiteralExpr.self:
       emitStore(BufferLiteralExpr.ID(e)!, to: storage)
+    case CaptureExpr.self:
+      emitStore(CaptureExpr.ID(e)!, to: storage)
     case CastExpr.self:
       emitStore(CastExpr.ID(e)!, to: storage)
     case ConditionalExpr.self:
@@ -1411,8 +1413,8 @@ struct Emitter {
       emitStore(NameExpr.ID(e)!, to: storage)
     case PragmaLiteralExpr.self:
       emitStore(PragmaLiteralExpr.ID(e)!, to: storage)
-    case RemoteExpr.self:
-      emitStore(RemoteExpr.ID(e)!, to: storage)
+    case RemoteTypeExpr.self:
+      emitStore(RemoteTypeExpr.ID(e)!, to: storage)
     case SequenceExpr.self:
       emitStore(SequenceExpr.ID(e)!, to: storage)
     case SubscriptCallExpr.self:
@@ -1447,6 +1449,16 @@ struct Emitter {
       let x0 = insert(module.makeAdvanced(storage, byStrides: i, at: program[v].site))!
       emitStore(value: v, to: x0)
     }
+  }
+
+  /// Inserts the IR for storing the value of `e` to `storage`.
+  private mutating func emitStore(_ e: CaptureExpr.ID, to storage: Operand) {
+    let t = RemoteType(program[e].type)!
+    let s = program[e].site
+
+    let x0 = emitLValue(program[e].source)
+    let x1 = insert(module.makeAccess(t.access, from: x0, at: s))!
+    emitStore(access: x1, to: storage, at: s)
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
@@ -1510,9 +1522,9 @@ struct Emitter {
     let x0 = emitLValue(pointerConversion: e)
 
     // Consuming a pointee requires a conformance to `Movable`.
-    let target = pointerConversionTarget(of: e)
+    let u = canonical(program[e].type)
     let movable = program.ast.core.movable.type
-    if !program.conforms(target.bareType, to: movable, in: insertionScope!) {
+    if !program.conforms(u, to: movable, in: insertionScope!) {
       report(.error(module.type(of: x0).ast, doesNotConformTo: movable, at: ast[e].site))
       return
     }
@@ -1652,7 +1664,7 @@ struct Emitter {
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
-  private mutating func emitStore(_ e: RemoteExpr.ID, to storage: Operand) {
+  private mutating func emitStore(_ e: RemoteTypeExpr.ID, to storage: Operand) {
     let t = RemoteType(program[e].type)!
     let s = program[e].site
 
@@ -2604,8 +2616,8 @@ struct Emitter {
     let x2 = insert(module.makeLoad(x1, at: ast[e].site))!
     insert(module.makeEndAccess(x1, at: ast[e].site))
 
-    let target = pointerConversionTarget(of: e)
-    return insert(module.makePointerToAddress(x2, to: target, at: ast[e].site))!
+    let t = RemoteType(MetatypeType(canonical(program[e].right.type))!.instance)!
+    return insert(module.makePointerToAddress(x2, to: t, at: ast[e].site))!
   }
 
   /// Inserts the IR for lvalue `e`.
@@ -3044,15 +3056,6 @@ struct Emitter {
   }
 
   // MARK: Helpers
-
-  /// Returns the type to which `e` converts its LHS.
-  ///
-  /// This function works around the fact that `remote let T` is ambiguous (#1326).
-  private func pointerConversionTarget(of e: CastExpr.ID) -> RemoteType {
-    let t = RemoteType(canonical(program[e].right.type))!
-    let u = canonical(program[e].type)
-    return RemoteType(t.access, u)
-  }
 
   /// Returns the canonical form of `t` in the current insertion scope.
   private func canonical(_ t: AnyType) -> AnyType {

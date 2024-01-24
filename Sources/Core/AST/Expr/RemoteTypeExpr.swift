@@ -1,6 +1,7 @@
-/// The type expression of a remote type or value (e.g., `remote let Int`).
-public struct RemoteExpr: Expr {
+/// The type expression of a remote type (e.g., `remote let Int`).
+public struct RemoteTypeExpr: Expr {
 
+  /// The site from which `self` was parsed.
   public let site: SourceRange
 
   /// The site of the expression's introducer.
