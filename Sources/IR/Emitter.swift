@@ -1522,9 +1522,9 @@ struct Emitter {
     let x0 = emitLValue(pointerConversion: e)
 
     // Consuming a pointee requires a conformance to `Movable`.
-    let target = pointerConversionTarget(of: e)
+    let u = canonical(program[e].type)
     let movable = program.ast.core.movable.type
-    if !program.conforms(target.bareType, to: movable, in: insertionScope!) {
+    if !program.conforms(u, to: movable, in: insertionScope!) {
       report(.error(module.type(of: x0).ast, doesNotConformTo: movable, at: ast[e].site))
       return
     }
@@ -2616,8 +2616,8 @@ struct Emitter {
     let x2 = insert(module.makeLoad(x1, at: ast[e].site))!
     insert(module.makeEndAccess(x1, at: ast[e].site))
 
-    let target = pointerConversionTarget(of: e)
-    return insert(module.makePointerToAddress(x2, to: target, at: ast[e].site))!
+    let t = RemoteType(MetatypeType(canonical(program[e].right.type))!.instance)!
+    return insert(module.makePointerToAddress(x2, to: t, at: ast[e].site))!
   }
 
   /// Inserts the IR for lvalue `e`.
@@ -3056,15 +3056,6 @@ struct Emitter {
   }
 
   // MARK: Helpers
-
-  /// Returns the type to which `e` converts its LHS.
-  ///
-  /// This function works around the fact that `remote let T` is ambiguous (#1326).
-  private func pointerConversionTarget(of e: CastExpr.ID) -> RemoteType {
-    let t = RemoteType(canonical(program[e].right.type))!
-    let u = canonical(program[e].type)
-    return RemoteType(t.access, u)
-  }
 
   /// Returns the canonical form of `t` in the current insertion scope.
   private func canonical(_ t: AnyType) -> AnyType {

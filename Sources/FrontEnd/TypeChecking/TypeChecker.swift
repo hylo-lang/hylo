@@ -2845,14 +2845,8 @@ struct TypeChecker {
     switch t.base {
     case let u as MetatypeType:
       return u.instance
-
     case is ErrorType, is NamespaceType, is TraitType:
       return t
-
-    case let u as RemoteType where u.bareType.base is MetatypeType:
-      // FIXME: Workaround to deal with the fact that `remote let T` is ambiguous (#1326).
-      return ^RemoteType(u.access, MetatypeType(u.bareType)!.instance)
-
     default:
       return nil
     }
@@ -5168,9 +5162,9 @@ struct TypeChecker {
     of e: RemoteExpr.ID, withHint hint: AnyType? = nil,
     updating obligations: inout ProofObligations
   ) -> AnyType {
-    let t = inferredType(
-      of: program[e].operand, withHint: RemoteType(hint)?.bareType, updating: &obligations)
-    return constrain(e, to: ^RemoteType(program[e].convention.value, t), in: &obligations)
+    let t = evalTypeAnnotation(program[e].operand)
+    let r = RemoteType(program[e].convention.value, t)
+    return constrain(e, to: ^MetatypeType(of: r), in: &obligations)
   }
 
   /// Returns the inferred type of `e`, updating `obligations` and gathering contextual information
