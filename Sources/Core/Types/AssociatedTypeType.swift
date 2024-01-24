@@ -14,27 +14,44 @@ public struct AssociatedTypeType: TypeProtocol {
   /// The name of the associated type.
   public let name: Incidental<String>
 
+  /// A set of flags describing recursive properties.
+  public let flags: TypeFlags
+
   /// Creates an instance denoting the associated type declared by `decl` as a member of `domain`.
-  ///
-  /// - Requires: `domain` is an associated type, conformance lens, or generic type parameter.
   public init(_ decl: AssociatedTypeDecl.ID, domain: AnyType, ast: AST) {
-    switch domain.base {
-    case is AssociatedTypeType, is ConformanceLensType, is GenericTypeParameterType:
-      self.domain = domain
-    default:
-      preconditionFailure("invalid associated type domain")
+    self.init(decl: decl, domain: domain, name: ast[decl].baseName)
+  }
+
+  /// Creates an instance with the given properties.
+  init(decl: AssociatedTypeDecl.ID, domain: AnyType, name: String) {
+    var fs = domain.flags
+    if !domain.isSkolem && !(domain.base is TypeVariable) {
+      fs.remove(.isCanonical)
     }
 
     self.decl = decl
-    self.name = Incidental(ast[decl].baseName)
+    self.domain = domain
+    self.name = Incidental(name)
+    self.flags = fs
   }
 
-  public var flags: TypeFlags { .isCanonical }
+  public func transformParts<M>(
+    mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction
+  ) -> Self {
+    let d = domain.transform(mutating: &m, transformer)
+    return AssociatedTypeType(decl: decl, domain: d, name: name.value)
+  }
 
 }
 
 extension AssociatedTypeType: CustomStringConvertible {
 
-  public var description: String { "\(domain).\(name.value)" }
+  public var description: String {
+    if domain.base is ConformanceLensType {
+      return "(\(domain)).\(name.value)"
+    } else {
+      return "\(domain).\(name.value)"
+    }
+  }
 
 }

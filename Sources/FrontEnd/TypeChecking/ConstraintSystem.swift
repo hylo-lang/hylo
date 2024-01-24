@@ -52,17 +52,17 @@ struct ConstraintSystem {
   private var penalties: Int = 0
 
   /// Indicates whether this instance should log a trace.
-  private let isLoggingEnabled: Bool
+  private let loggingIsEnabled: Bool
 
   /// The current indentation level for logging messages.
   private var indentation = 0
 
   /// Creates an instance for solving the constraints in `obligations`, logging a trace of the
-  /// deduction process if `isLoggingEnabled` is `true`.
-  init(_ obligations: ProofObligations, logging isLoggingEnabled: Bool) {
+  /// deduction process if `loggingIsEnabled` is `true`.
+  init(_ obligations: ProofObligations, logging loggingIsEnabled: Bool) {
     self.scope = obligations.scope
     self.bindingAssumptions = obligations.referredDecl
-    self.isLoggingEnabled = isLoggingEnabled
+    self.loggingIsEnabled = loggingIsEnabled
     _ = insert(fresh: obligations.constraints)
   }
 
@@ -232,7 +232,7 @@ struct ConstraintSystem {
 
     switch model.base {
     case let t as ArrowType:
-      return delegate(structuralConformance: goal, for: t.captures.lazy.map(\.type))
+      return delegate(structuralConformance: goal, for: [t.environment])
     case let t as TupleType:
       return delegate(structuralConformance: goal, for: t.elements.lazy.map(\.type))
     case let t as UnionType:
@@ -918,27 +918,43 @@ struct ConstraintSystem {
     }
   }
 
-  /// Returns `true` iff `lhs` and `rhs`, which have different constructors, can be unified.
+  /// Returns `true` iff `lhs` and `rhs` can be unified.
   private mutating func unifySyntacticallyInequal(_ lhs: AnyType, _ rhs: AnyType) -> Bool {
     let t = typeAssumptions[lhs]
     let u = typeAssumptions[rhs]
 
-    if let v = TypeVariable(t) {
-      assume(v, equals: u)
+    switch (t.base, u.base) {
+    case (let l as TypeVariable, _):
+      assume(l, equals: u)
       return true
-    }
-    if let v = TypeVariable(u) {
-      assume(v, equals: t)
-      return true
-    }
-    if !t[.isCanonical] {
-      return unify(checker.canonical(t, in: scope), u)
-    }
-    if !u[.isCanonical] {
-      return unify(t, checker.canonical(u, in: scope))
-    }
 
-    return t == u
+    case (_, let r as TypeVariable):
+      assume(r, equals: t)
+      return true
+
+    case (let l as UnionType, let r as UnionType):
+      return unifySyntacticallyInequal(l, r)
+
+    case _ where !t[.isCanonical] || !u[.isCanonical]:
+      return unify(checker.canonical(t, in: scope), checker.canonical(u, in: scope))
+
+    default:
+      return t == u
+    }
+  }
+
+  /// Returns `true` iff `lhs` and `rhs` can be unified.
+  private mutating func unifySyntacticallyInequal(
+    _ lhs: UnionType, _ rhs: UnionType
+  ) -> Bool {
+    for a in lhs.elements {
+      var success = false
+      for b in rhs.elements where unify(a, b) {
+        success = true
+      }
+      if !success { return false }
+    }
+    return true
   }
 
   /// Extends the type substution table to map `tau` to `substitute`.
@@ -962,13 +978,13 @@ struct ConstraintSystem {
     }
   }
 
-  /// Logs a line of text in the standard output if `self.isLoggingEnabled` is `true`.
+  /// Logs a line of text in the standard output if `self.loggingIsEnabled` is `true`.
   private func log(_ line: @autoclosure () -> String) {
-    if !isLoggingEnabled { return }
+    if !loggingIsEnabled { return }
     print(String(repeating: "  ", count: indentation) + line())
   }
 
-  /// Logs `outcome` in the standard output if `self.isLoggingEnabled` is `true`.
+  /// Logs `outcome` in the standard output if `self.loggingIsEnabled` is `true`.
   private func log(outcome: Outcome?) {
     switch outcome {
     case nil:
@@ -982,9 +998,9 @@ struct ConstraintSystem {
     }
   }
 
-  /// Logs `self`'s current state in the standard output if `self.isLoggingEnabled` is `true`.
+  /// Logs `self`'s current state in the standard output if `self.loggingIsEnabled` is `true`.
   private func logState() {
-    if !isLoggingEnabled { return }
+    if !loggingIsEnabled { return }
     log("fresh:")
     for g in fresh {
       log("- \"\(goals[g])\"")

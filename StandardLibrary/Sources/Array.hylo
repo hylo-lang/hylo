@@ -1,5 +1,5 @@
 /// An ordered, random-access collection.
-public type Array<Element: Movable & Deinitializable>: Deinitializable, Movable {
+public type Array<Element: SemiRegular>: SemiRegular {
 
   /// The out-of-line storage of the array.
   ///
@@ -31,11 +31,7 @@ public type Array<Element: Movable & Deinitializable>: Deinitializable, Movable 
 
   /// Deinitializes `self`.
   public fun deinit() sink {
-    var i = 0
-    while i < count() {
-      &pointer_to_element[at: i].unsafe_pointee().deinit()
-      &i += 1
-    }
+    &remove_all()
   }
 
   /// Returns the number of elements in `self`.
@@ -108,6 +104,69 @@ public type Array<Element: Movable & Deinitializable>: Deinitializable, Movable 
     &storage.header += 1
   }
 
+  /// Inserts `source` at `index`.
+  ///
+  /// The new element is inserted before the element currently at `index`. If `index` is equal to
+  /// `count()`, the new element is added at the end of the array.
+  ///
+  /// - Requires: `index` is in the range `0 ..< count()`.
+  /// - Complexity: O(n), where n is the number of elements in `self`.
+  public fun insert(_ source: sink Element, at index: Int) inout {
+    var c = count()
+    &reserve_capacity(c + 1)
+    while c > index {
+      pointer_to_element[at: c].unsafe_initialize_pointee(
+        pointer_to_element[at: c - 1].unsafe_pointee())
+      &c -= 1
+    }
+    pointer_to_element[at: c].unsafe_initialize_pointee(source)
+    &storage.header += 1
+  }
+
+  /// Removes and returns the element at `index`.
+  ///
+  /// - Requires: `index` is in the range `0 ..< count()`.
+  /// - Complexity: O(n), where n is the number of elements in `self`.
+  public fun remove(at index: Int) inout -> Element {
+    let result = pointer_to_element[at: index].unsafe_pointee()
+    var i = index + 1
+    while i < count() {
+      pointer_to_element[at: i - 1].unsafe_initialize_pointee(
+        pointer_to_element[at: i].unsafe_pointee())
+      &i += 1
+    }
+    &storage.header -= 1
+    return result
+  }
+
+  /// Removes al elements in the array, keeping existing storage if `keep_capacity` is `true`.
+  public fun remove_all(keeping_capacity keep_capacity: Bool = false) inout {
+    if capacity() == 0 { return }
+
+    let c = count()
+    var i = 0
+    while i < c {
+      &pointer_to_element[at: i].unsafe_pointee().deinit()
+      &i += 1
+    }
+    &storage.header = 0
+
+    // Throw away the existing buffer unless `keep_capacity` is `true`.
+    if !keep_capacity { &storage = .new() }
+  }
+
+  /// Removes and returns the last element of the array.
+  public fun pop_last() inout -> Optional<Element> {
+    let c = count()
+    if c > 0 {
+      let result = pointer_to_element[at: c - 1].unsafe_pointee()
+      &storage.header -= 1
+      return result as _
+    } else {
+      return .none()
+    }
+  }
+
   /// Reverses the elements of `self` in place.
   ///
   /// - Complexity: O(n), where n is the number of elements in `self`.
@@ -126,6 +185,40 @@ public type Array<Element: Movable & Deinitializable>: Deinitializable, Movable 
   /// - Requires: `position` is in the range `0 ..< capacity()`.
   subscript pointer_to_element(at position: Int): PointerToMutable<Element> {
     storage.first_element_address().advance(by: position)
+  }
+
+}
+
+public conformance Array: Equatable {
+
+  /// Returns `true` iff `other` has an equivalent value.
+  public fun infix== (_ other: Self) -> Bool {
+    if self.storage.first_element_address() == other.storage.first_element_address() {
+      return true
+    } else if count() != other.count() {
+      return false
+    } else {
+      var i = 0
+      while i < count() {
+        if self[i] != other[i] { return false }
+        &i += 1
+      }
+      return true
+    }
+  }
+
+}
+
+public conformance Array: Copyable where Element: Copyable {
+
+  /// Returns a copy of `self`.
+  public fun copy() -> Self {
+    var result = Array<Element>()
+    &result.reserve_capacity(count())
+    for let e in self {
+      &result.append(e.copy())
+    }
+    return result
   }
 
 }
@@ -171,30 +264,3 @@ public conformance Array: MutableCollection {
   }
 
 }
-
-/*
-
-// TODO: Make Array conform to Regular instead of Deinitializable once #1002 is fixed.
-// Currently that issue prevents the copy() function below from compiling.
-//
-// Error is "type 'Element' does not conform to trait 'Movable'"
-
-public conformance Array: Equatable {
-
-  /// Returns `true` iff `other` has an equivalent value.
-  public fun infix== (_ other: Self) -> Bool {
-    // TODO
-    return true
-  }
-
-}
-
-public conformance Array: Copyable {
-  /// Returns an equivalent instance.
-  public fun copy() -> Self {
-    // TODO
-    .new()
-  }
-}
-
-*/

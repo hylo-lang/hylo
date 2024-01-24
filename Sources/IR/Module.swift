@@ -32,9 +32,6 @@ public struct Module {
   /// The functions in the module.
   public private(set) var functions: [Function.ID: Function] = [:]
 
-  /// The synthesized declarations used and defined in the module.
-  public private(set) var synthesizedDecls = OrderedSet<SynthesizedFunctionDecl>()
-
   /// The module's entry function, if any.
   ///
   /// An entry function is the lowered form of a program's entry point, that is the `main` function
@@ -202,10 +199,10 @@ public struct Module {
   public mutating func applyMandatoryPasses(
     reportingDiagnosticsTo log: inout DiagnosticSet
   ) throws {
+    // We only go over user implementations. Synthesized functions are assumed well-formed.
+    let work = functions.compactMap({ (f, i) in !(f.isSynthesized || i.entry == nil) ? f : nil })
     func run(_ pass: (Function.ID) -> Void) throws {
-      for (k, f) in functions where f.entry != nil {
-        pass(k)
-      }
+      for f in work { pass(f) }
       try log.throwOnError()
     }
 
@@ -221,7 +218,7 @@ public struct Module {
 
   /// Inserts the IR for the synthesized declarations defined in this module, reporting diagnostics
   /// to `log` and throwing if a an error occurred.
-  mutating func generateSyntheticImplementations(
+  private mutating func generateSyntheticImplementations(
     reportingDiagnosticsTo log: inout DiagnosticSet
   ) throws {
     Emitter.withInstance(insertingIn: &self, reportingDiagnosticsTo: &log) { (e) in
@@ -330,7 +327,6 @@ public struct Module {
       output: output,
       blocks: [])
     addFunction(entity, for: f)
-
     return f
   }
 
@@ -352,7 +348,6 @@ public struct Module {
       inputs: inputs,
       output: output,
       blocks: [])
-
     addFunction(entity, for: f)
     return f
   }
@@ -375,7 +370,6 @@ public struct Module {
       inputs: inputs,
       output: .void,
       blocks: [])
-
     addFunction(entity, for: f)
     return f
   }
@@ -393,19 +387,23 @@ public struct Module {
 
     let entity = Function(
       isSubscript: false,
-      site: .empty(at: program.ast[id].site.first()),
+      site: .empty(at: program.ast[id].site.start),
       linkage: .external,
       genericParameters: d.genericParameters,
       inputs: inputs,
       output: output,
       blocks: [])
+    addFunction(entity, for: f)
 
     // Determine if the new function is defined in this module.
     if program.module(containing: d.scope) == id {
-      synthesizedDecls.append(d)
+      var log = DiagnosticSet()
+      Emitter.withInstance(insertingIn: &self, reportingDiagnosticsTo: &log) { (emitter) in
+        emitter.lower(synthetic: d)
+      }
+      assert(log.isEmpty, "unexpected diagnostic in synthesized declaration")
     }
 
-    addFunction(entity, for: f)
     return f
   }
 
@@ -619,6 +617,18 @@ public struct Module {
     functions[f]!.entry.map({ Block.ID(f, $0) })
   }
 
+  /// Returns the operand representing the return value of `f`.
+  ///
+  /// - Requires: `f` is declared in `self`.
+  public func returnValue(of f: Function.ID) -> Operand? {
+    let i = functions[f]!
+    if !i.isSubscript, let e = entry(of: f) {
+      return Operand.parameter(e, i.inputs.count)
+    } else {
+      return nil
+    }
+  }
+
   /// Appends to `f` an entry block that is in `scope`, returning its identifier.
   ///
   /// - Requires: `f` is declared in `self` and doesn't have an entry block.
@@ -807,7 +817,7 @@ public struct Module {
   ///
   /// - Requires: Let `S` be the set of removed instructions, all users of a result of `j` in `S`
   ///   are also in `S`.
-  mutating func removeAllInstructionsAfter(_ i: InstructionID) {
+  mutating func removeAllInstructions(after i: InstructionID) {
     while let a = self[i.function][i.block].instructions.lastAddress, a != i.address {
       removeInstruction(.init(i.function, i.block, a))
     }

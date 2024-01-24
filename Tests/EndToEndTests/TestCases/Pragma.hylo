@@ -2,6 +2,14 @@
 
 fun f(_ f: sink Int = #line) -> Int { f }
 
+fun g() {
+  var i = true
+  while i {
+    f()
+    &i = false
+  }
+}
+
 public fun main() -> Int32 {
   Int32(f() - #line)
 }

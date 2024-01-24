@@ -1,3 +1,4 @@
+import OrderedCollections
 import Utils
 
 /// A box wrapping a type.
@@ -186,6 +187,20 @@ public struct AnyType {
     (base is AssociatedTypeType) || (base is GenericTypeParameterType)
   }
 
+  /// Returns `true` iff `self` is bound to an existential quantifier.
+  public var isSkolem: Bool {
+    switch base {
+    case let u as AssociatedTypeType:
+      return u.domain.isSkolem
+    case is GenericTypeParameterType:
+      return true
+    case let u as ConformanceLensType:
+      return u.subject.isSkolem
+    default:
+      return false
+    }
+  }
+
   /// Indicates whether `self` has a record layout.
   public var hasRecordLayout: Bool {
     switch base {
@@ -221,6 +236,46 @@ public struct AnyType {
         return .stepInto(t)
       } else {
         return .stepOver(t)
+      }
+    }
+  }
+
+  /// Returns the generic parameters occurring free in `self`.
+  public var skolems: OrderedSet<GenericParameterDecl.ID> {
+    var r = OrderedSet<GenericParameterDecl.ID>()
+    collectGenericTypeParameters(in: &r, ignoring: [])
+    return r
+  }
+
+  /// Inserts generic parameters occurring free in `self` into `open`, unless they're in `bound`.
+  private func collectGenericTypeParameters(
+    in open: inout OrderedSet<GenericParameterDecl.ID>,
+    ignoring bound: Set<GenericParameterDecl.ID>
+  ) {
+    var state = (bound: bound, open: open)
+    defer { open = state.open }
+
+    _ = self.transform(mutating: &state) { (s, t) in
+      switch t.base {
+      case let u as BoundGenericType:
+        var b = s.bound
+        for (k, v) in u.arguments {
+          b.insert(k)
+          if let g = GenericTypeParameterType(v.asType), g.decl == k {
+            if !s.bound.contains(k) { s.open.append(k) }
+          }
+        }
+        for a in u.arguments.values {
+          a.asType?.collectGenericTypeParameters(in: &s.open, ignoring: b)
+        }
+        return .stepOver(t)
+
+      case let u as GenericTypeParameterType:
+        if !s.bound.contains(u.decl) { s.open.append(u.decl) }
+        return .stepOver(t)
+
+      default:
+        return t[.hasGenericTypeParameter] ? .stepInto(t) : .stepOver(t)
       }
     }
   }

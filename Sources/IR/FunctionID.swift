@@ -55,6 +55,15 @@ extension Function {
       self.value = .monomorphized(base: base, arguments: arguments)
     }
 
+    /// `true` if `self` is the identity of a synthesized function.
+    public var isSynthesized: Bool {
+      if case .synthesized = value {
+        return true
+      } else {
+        return false
+      }
+    }
+
     /// `true` if `self` is the identity of a monomorphized function.
     public var isMonomorphized: Bool {
       switch value {

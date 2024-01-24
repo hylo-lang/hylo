@@ -563,7 +563,9 @@ extension Module {
     let receiver = ir.base[trait.decl].receiver.id
     let model = z[receiver]!.asType!
 
-    let c = ir.base.conformance(of: model, to: trait, exposedTo: scopeOfUse)!
+    guard let c = ir.base.conformance(of: model, to: trait, exposedTo: scopeOfUse) else {
+      fatalError("expected '\(model)' to conform to '\(trait)'")
+    }
     let i = c.implementations[requirement]!
     let d = demandDeclaration(lowering: i)
 
@@ -630,7 +632,7 @@ extension Module {
     _ specialization: GenericArguments,
     in monomorphized: Function.ID
   ) -> OrderedDictionary<GenericParameterDecl.ID, InstructionID> {
-    let insertionSite = SourceRange.empty(at: self[monomorphized].site.first())
+    let insertionSite = SourceRange.empty(at: self[monomorphized].site.start)
     let entry = Block.ID(monomorphized, self[monomorphized].entry!)
 
     var genericValues = OrderedDictionary<GenericParameterDecl.ID, InstructionID>()

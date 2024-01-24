@@ -1,12 +1,2 @@
 /// A memory address.
 typealias MemoryAddress = PointerToMutable<Never>
-
-public extension PointerToMutable where Pointee == Never {
-
-  /// Creates an instance pointing to the same address as `p`
-  public init<T>(_ p: PointerToMutable<T>) { &self.base = p.base }
-
-  /// Creates an instance pointing to the same address as `p`
-  public init<T>(_ p: Pointer<T>) { &self.base = p.base }
-
-}

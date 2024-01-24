@@ -6,7 +6,7 @@ extension Diagnostic {
     let rhs = r.site
 
     if lhs.file == rhs.file {
-      return lhs.first() < rhs.first()
+      return lhs.startIndex < rhs.startIndex
     } else {
       return lhs.file.url.fileSystemPath.lexicographicallyPrecedes(rhs.file.url.path)
     }

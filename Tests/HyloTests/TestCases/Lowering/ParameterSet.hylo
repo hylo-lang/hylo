@@ -9,3 +9,12 @@ fun f1(_ x: set Int) {}
 fun f2(_ x: set {Int, Int}) {
   &x.0 = 0
 }
+
+type A {
+
+  public var x: Int
+
+  //! @+1 diagnostic set parameter not initialized before function returns
+  public init() {}
+
+}

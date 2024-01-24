@@ -51,24 +51,21 @@ public struct TypedProgram {
   /// `log` and throwing iff an error was found.
   ///
   /// - Parameters:
-  ///   - isTypeCheckingParallel: if `true`, the program is partitioned into chucks that are type
+  ///   - typeCheckingIsParallel: if `true`, the program is partitioned into chucks that are type
   ///     checked separately. Otherwise, type checking is performed sequentially. Either way, the
   ///     order in which declarations are being checked is undeterministic.
   ///   - shouldTraceInference: A closure accepting a node and its containing program, returning
   ///     `true` if a trace of type inference should be logged on the console for that node. The
-  ///     closure is not called if `isTypeCheckingParallel` is `true`.
+  ///     closure is not called if `typeCheckingIsParallel` is `true`.
   public init(
     annotating base: ScopedProgram,
-    inParallel isTypeCheckingParallel: Bool = false,
+    inParallel typeCheckingIsParallel: Bool = false,
     reportingDiagnosticsTo log: inout DiagnosticSet,
     tracingInferenceIf shouldTraceInference: ((AnyNodeID, TypedProgram) -> Bool)? = nil
   ) throws {
     let instanceUnderConstruction = SharedMutable(TypedProgram(partiallyFormedFrom: base))
-    #if os(macOS) && DEBUG
-      let isTypeCheckingParallel = isTypeCheckingParallel && false
-    #endif
 
-    if isTypeCheckingParallel {
+    if typeCheckingIsParallel {
       let sources = base.ast[base.ast.modules].map(\.sources).joined()
       var tasks: [TypeCheckTask] = []
 
@@ -91,7 +88,7 @@ public struct TypedProgram {
 
       var checker = TypeChecker(
         constructing: $0,
-        tracingInferenceIf: isTypeCheckingParallel ? nil : shouldTraceInference)
+        tracingInferenceIf: typeCheckingIsParallel ? nil : shouldTraceInference)
       checker.checkAllDeclarations()
 
       log.formUnion(checker.diagnostics)
@@ -195,18 +192,6 @@ public struct TypedProgram {
     }
   }
 
-  /// Returns `true` iff `t` is bound to an existential quantifier.
-  public func isSkolem(_ t: AnyType) -> Bool {
-    switch t.base {
-    case is AssociatedTypeType, is GenericTypeParameterType:
-      return true
-    case let u as ConformanceLensType:
-      return isSkolem(u.subject)
-    default:
-      return false
-    }
-  }
-
   /// Returns `true` iff deinitializing an instance of `t` in `scopeOfUse` is a no-op.
   ///
   /// A type is "trivially deinitializable" if deinitializing its instances doesn't have runtime
@@ -233,8 +218,8 @@ public struct TypedProgram {
 
   /// Returns `true` iff `c` has no user-defined semantics.
   public func isTrivial(_ c: Conformance) -> Bool {
-    // Non-synthethic conformances are not trivial.
-    if !c.isSynthethic {
+    // Non-synthetic conformances are not trivial.
+    if !c.isSynthetic {
       return false
     }
 
@@ -259,11 +244,11 @@ public struct TypedProgram {
   /// If `t` has a record layout, returns the names and types of its stored properties.
   public func storage(of t: AnyType) -> [TupleType.Element] {
     switch t.base {
+    case let u as ArrowType:
+      return storage(of: u)
     case let u as BoundGenericType:
       return storage(of: u)
     case let u as BufferType:
-      return storage(of: u)
-    case let u as ArrowType:
       return storage(of: u)
     case let u as ProductType:
       return storage(of: u)
@@ -275,6 +260,14 @@ public struct TypedProgram {
       assert(!t.hasRecordLayout)
       return []
     }
+  }
+
+  /// Returns the names and types of `t`'s stored properties.
+  public func storage(of t: ArrowType) -> [TupleType.Element] {
+    return [
+      TupleType.Element(label: "__f", type: .builtin(.ptr)),
+      TupleType.Element(label: "__e", type: t.environment),
+    ]
   }
 
   /// Returns the names and types of `t`'s stored properties.
@@ -292,12 +285,6 @@ public struct TypedProgram {
     } else {
       return []
     }
-  }
-
-  /// Returns the names and types of `t`'s stored properties.
-  public func storage(of t: ArrowType) -> [TupleType.Element] {
-    let callee = TupleType.Element(label: "__f", type: .builtin(.ptr))
-    return [callee] + t.captures
   }
 
   /// Returns the names and types of `t`'s stored properties.
@@ -441,18 +428,23 @@ public struct TypedProgram {
       // FIXME: To remove once conditional conformance is implemented
       guard conforms(m.element, to: concept, in: scopeOfUse) else { return nil }
     case let m as ArrowType:
-      guard allConform(m.captures.map(\.type), to: concept, in: scopeOfUse) else { return nil }
+      guard conforms(m.environment, to: concept, in: scopeOfUse) else { return nil }
     case let m as TupleType:
       guard allConform(m.elements.map(\.type), to: concept, in: scopeOfUse) else { return nil }
     case let m as UnionType:
       guard allConform(m.elements, to: concept, in: scopeOfUse) else { return nil }
     case is MetatypeType:
       break
-    case is RemoteType:
+    case is RemoteType where concept == ast.core.deinitializable.type:
       break
     default:
       return nil
     }
+
+    // We could predict that codegen won't need some of the skolems we gather here to reduce the
+    // number of generic functions that we define.
+    let g = accumulatedGenericParameters(in: scopeOfUse)
+    let h = g.filter(model.skolems.contains(_:))
 
     var implementations = Conformance.ImplementationMap()
     for requirement in ast.requirements(of: concept.decl) {
@@ -460,12 +452,13 @@ public struct TypedProgram {
 
       let a: GenericArguments = [ast[concept.decl].receiver: .type(model)]
       let t = ArrowType(specialize(declType[requirement]!, for: a, in: scopeOfUse))!
-      let d = SynthesizedFunctionDecl(k, typed: t, in: scopeOfUse)
+      let d = SynthesizedFunctionDecl(k, typed: t, parameterizedBy: h, in: scopeOfUse)
       implementations[requirement] = .synthetic(d)
     }
 
+    let z = GenericArguments(skolemizing: h, in: ast)
     return .init(
-      model: model, concept: concept, arguments: [:], conditions: [], scope: scopeOfUse,
+      model: model, concept: concept, arguments: z, conditions: [], scope: scopeOfUse,
       implementations: implementations, isStructural: true, origin: nil)
   }
 
@@ -556,6 +549,19 @@ public struct TypedProgram {
       result.append(AnyDeclID(n.decl))
     }
     return result
+  }
+
+  /// Returns the run-time parameters of `e`, which is the callee of a function or subscript call,
+  /// if `e` is a reference to a callable declaration.
+  public func runtimeParameters(of callee: AnyExprID) -> [ParameterDecl.ID]? {
+    switch callee.kind {
+    case InoutExpr.self:
+      return runtimeParameters(of: ast[InoutExpr.ID(callee)!].subject)
+    case NameExpr.self:
+      return referredDecl[NameExpr.ID(callee)!]?.decl.flatMap(ast.runtimeParameters(of:))
+    default:
+      return nil
+    }
   }
 
   /// Applies `merge(self[keyPath: path], value)`.
