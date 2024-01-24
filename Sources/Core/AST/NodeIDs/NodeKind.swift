@@ -107,7 +107,6 @@ extension NodeKind {
     CastExpr.self,
     ConditionalExpr.self,
     ConformanceLensExpr.self,
-    ErrorExpr.self,
     ExistentialTypeExpr.self,
     FloatLiteralExpr.self,
     FunctionCallExpr.self,
