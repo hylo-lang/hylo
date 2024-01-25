@@ -30,9 +30,19 @@ private struct UseVisitor: ASTWalkObserver {
   private func root(_ lvalue: AnyExprID, in ast: AST) -> NameExpr.ID? {
     switch lvalue.kind {
     case NameExpr.self:
-      return NameExpr.ID(lvalue)!
+      return root(NameExpr.ID(lvalue)!, in: ast)
     case SubscriptCallExpr.self:
       return root(ast[SubscriptCallExpr.ID(lvalue)!].callee, in: ast)
+    default:
+      return nil
+    }
+  }
+
+  /// Returns the name at the root of the given `n`.
+  private func root(_ n: NameExpr.ID, in ast: AST) -> NameExpr.ID? {
+    switch ast[n].domain {
+    case .explicit(let e):
+      return root(e, in: ast)
     default:
       return nil
     }

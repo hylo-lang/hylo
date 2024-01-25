@@ -30,4 +30,13 @@ public fun main() {
   precondition(&borrowing_counter() == 42)
   let d = apply(&borrowing_counter)
   precondition(d == 43)
+
+  // Applies an lambda borrowing a pointer.
+  var z = 0
+  let p = mutable_pointer[to: &z]
+  var f = fun() -> Int {
+    &(p.unsafe[]) = 42
+    return p.unsafe[].copy()
+  }
+  precondition(f() == 42)
 }
