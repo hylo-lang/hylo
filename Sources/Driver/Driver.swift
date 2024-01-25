@@ -224,7 +224,7 @@ public struct Driver: ParsableCommand {
     if verbose {
       standardError.write("begin depolymorphization pass.\n")
     }
-    ir.applyPass(.depolymorphize)
+    ir.depolymorphize()
 
     if verbose {
       standardError.write("create LLVM target machine.\n")

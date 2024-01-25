@@ -91,14 +91,12 @@ public struct Module {
   /// Returns the type of `operand`.
   public func type(of operand: Operand) -> IR.`Type` {
     switch operand {
-    case .register(let instruction):
-      return functions[instruction.function]![instruction.block][instruction.address].result!
-
-    case .parameter(let block, let index):
-      return functions[block.function]![block.address].inputs[index]
-
-    case .constant(let constant):
-      return constant.type
+    case .register(let i):
+      return functions[i.function]![i.block][i.address].result!
+    case .parameter(let b, let n):
+      return functions[b.function]![b.address].inputs[n]
+    case .constant(let c):
+      return c.type
     }
   }
 
@@ -184,14 +182,6 @@ public struct Module {
   /// Use this method as a sanity check to verify the function's invariants.
   public func isWellFormed(function f: Function.ID) -> Bool {
     return true
-  }
-
-  /// Applies `p` to in this module, which is in `ir`.
-  public mutating func applyPass(_ p: ModulePass, in ir: IR.Program) {
-    switch p {
-    case .depolymorphize:
-      depolymorphize(in: ir)
-    }
   }
 
   /// Applies all mandatory passes in this module, accumulating diagnostics in `log` and throwing
