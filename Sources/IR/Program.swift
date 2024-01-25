@@ -35,6 +35,8 @@ public struct Program: Core.Program {
     switch p {
     case .depolymorphize:
       depolymorphize()
+    case .inline:
+      inlineCalls(where: .hasNoControlFlow)
     }
   }
 
