@@ -195,7 +195,7 @@ extension IR.Program {
         specializedBy: s.specialization, in: modules[m]!.scope(containing: i))
       let oldCallee = Operand.constant(r)
       let newCallee = t.transform(oldCallee, in: &self).constant as! FunctionReference
-      
+
       let x0 = RemoteType(t.transform(^s.projection, in: &self))!
       let x1 = t.transform(s.operands, in: &self)
       return insert(at: p, in: n) { (target) in

@@ -149,7 +149,7 @@ extension IR.Program {
     for b in sourceBlocks {
       let s = Block.ID(f, b)
       let t = rewrittenBlocks[s]!
-      
+
       for a in modules[source]![s].instructions.addresses {
         let i = InstructionID(s, a)
         switch modules[source]![i] {

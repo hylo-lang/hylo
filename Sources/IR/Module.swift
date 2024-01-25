@@ -91,14 +91,12 @@ public struct Module {
   /// Returns the type of `operand`.
   public func type(of operand: Operand) -> IR.`Type` {
     switch operand {
-    case .register(let instruction):
-      return functions[instruction.function]![instruction.block][instruction.address].result!
-
-    case .parameter(let block, let index):
-      return functions[block.function]![block.address].inputs[index]
-
-    case .constant(let constant):
-      return constant.type
+    case .register(let i):
+      return functions[i.function]![i.block][i.address].result!
+    case .parameter(let b, let n):
+      return functions[b.function]![b.address].inputs[n]
+    case .constant(let c):
+      return c.type
     }
   }
 
