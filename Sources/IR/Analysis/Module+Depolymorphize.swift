@@ -7,12 +7,12 @@ extension IR.Program {
   /// Generates the non-parametric reslient APIs of the modules in `self`.
   public mutating func depolymorphize() {
     for m in modules.keys {
-      depolymorphize(m: m)
+      depolymorphize(m)
     }
   }
 
   /// Generates the non-parametric resilient API of `m`.
-  public mutating func depolymorphize(m: ModuleDecl.ID) {
+  public mutating func depolymorphize(_ m: ModuleDecl.ID) {
     for k in modules[m]!.functions.keys {
       let f = modules[m]!.functions[k]!
 
