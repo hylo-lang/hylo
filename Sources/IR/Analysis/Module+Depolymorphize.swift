@@ -126,21 +126,21 @@ extension IR.Program {
     }
 
     let source = module(defining: f)
-    var rewrittenBlocks: [Block.ID: Block.ID] = [:]
+    var rewrittenBlock: [Block.ID: Block.ID] = [:]
     for b in modules[source]![f].blocks.addresses {
       let s = Block.ID(f, b)
       let inputs = modules[source]![s].inputs.map { (t) in
         monomorphize(t, for: specialization, usedIn: scopeOfUse)
       }
       let t = modules[target]![result].appendBlock(in: modules[source]![s].scope, taking: inputs)
-      rewrittenBlocks[s] = Block.ID(result, t)
+      rewrittenBlock[s] = Block.ID(result, t)
     }
 
-    let rewrittenGenericValues = modules[target]!.defineGenericValueArguments(
+    let rewrittenGenericValue = modules[target]!.defineGenericValueArguments(
       specialization, in: result)
     var monomorphizer = Monomorphizer(
       specialization: specialization, scopeOfUse: scopeOfUse,
-      rewrittenGenericValues: rewrittenGenericValues, rewrittenBlocks: rewrittenBlocks)
+      rewrittenGenericValue: rewrittenGenericValue, rewrittenBlock: rewrittenBlock)
 
     // Iterate over the basic blocks of the source function in a way that guarantees we always
     // visit definitions before their uses.
@@ -148,7 +148,7 @@ extension IR.Program {
     let sourceBlocks = DominatorTree(function: f, cfg: cfg, in: modules[source]!).bfs
     for b in sourceBlocks {
       let s = Block.ID(f, b)
-      let t = rewrittenBlocks[s]!
+      let t = rewrittenBlock[s]!
 
       for a in modules[source]![s].instructions.addresses {
         let i = InstructionID(s, a)
@@ -170,25 +170,25 @@ extension IR.Program {
       let j = self.rewrite(
         i, from: source, transformedBy: &monomorphizer,
         at: .end(of: b), in: target)
-      monomorphizer.rewrittenInstructions[i] = j
+      monomorphizer.rewrittenInstruction[i] = j
     }
 
     /// Rewrites `i`, which is in `source`, at the end of `b`, which is in `target`.
     func rewrite(genericParameter i: InstructionID, to b: Block.ID) {
       let s = modules[source]![i] as! GenericParameter
-      monomorphizer.rewrittenInstructions[i] = monomorphizer.rewrittenGenericValues[s.parameter]!
+      monomorphizer.rewrittenInstruction[i] = monomorphizer.rewrittenGenericValue[s.parameter]!
     }
 
     /// Rewrites `i`, which is in `source`, at the end of `b`, which is in `target`.
     func rewrite(return i: InstructionID, to b: Block.ID) {
       let s = modules[source]![i] as! Return
       let j = modify(&modules[target]!) { (m) in
-        for i in rewrittenGenericValues.values.reversed() {
+        for i in rewrittenGenericValue.values.reversed() {
           m.append(m.makeDeallocStack(for: .register(i), at: s.site), to: b)
         }
         return m.append(m.makeReturn(at: s.site), to: b)
       }
-      monomorphizer.rewrittenInstructions[i] = j
+      monomorphizer.rewrittenInstruction[i] = j
     }
   }
 
@@ -331,13 +331,13 @@ private struct Monomorphizer: InstructionTransformer {
   /// Generic value parameters are rewritten as local variables initialized at the beginning of
   /// the monomorphized function. Generic value arguments don't require deinitialization. Their
   /// local storage is deallocated before each rewritten return instruction.
-  let rewrittenGenericValues: OrderedDictionary<GenericParameterDecl.ID, InstructionID>
+  let rewrittenGenericValue: OrderedDictionary<GenericParameterDecl.ID, InstructionID>
 
   /// A map from basic block in `source` to its corresponding block in `result`.
-  let rewrittenBlocks: [Block.ID: Block.ID]
+  let rewrittenBlock: [Block.ID: Block.ID]
 
   /// A map from instruction in `source` to its corresponding instruction in `result`.
-  var rewrittenInstructions: [InstructionID: InstructionID] = [:]
+  var rewrittenInstruction: [InstructionID: InstructionID] = [:]
 
   /// Returns the canonical, monomorphized form of `t`.
   func transform(_ t: AnyType, in ir: inout IR.Program) -> AnyType {
@@ -350,15 +350,15 @@ private struct Monomorphizer: InstructionTransformer {
     case .constant(let c):
       return .constant(transform(c, in: &ir))
     case .parameter(let b, let i):
-      return .parameter(rewrittenBlocks[b]!, i)
+      return .parameter(rewrittenBlock[b]!, i)
     case .register(let s):
-      return .register(rewrittenInstructions[s]!)
+      return .register(rewrittenInstruction[s]!)
     }
   }
 
   /// Returns a monomorphized copy of `b`.
   func transform(_ b: Block.ID, in ir: inout IR.Program) -> Block.ID {
-    rewrittenBlocks[b]!
+    rewrittenBlock[b]!
   }
 
   /// Returns a monomorphized copy of `c`.
