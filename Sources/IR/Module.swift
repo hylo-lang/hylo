@@ -186,14 +186,6 @@ public struct Module {
     return true
   }
 
-  /// Applies `p` to in this module, which is in `ir`.
-  public mutating func applyPass(_ p: ModulePass, in ir: IR.Program) {
-    switch p {
-    case .depolymorphize:
-      depolymorphize(in: ir)
-    }
-  }
-
   /// Applies all mandatory passes in this module, accumulating diagnostics in `log` and throwing
   /// if a pass reports an error.
   public mutating func applyMandatoryPasses(

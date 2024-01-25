@@ -32,8 +32,9 @@ public struct Program: Core.Program {
 
   /// Applies `p` to the modules in `self`.
   public mutating func applyPass(_ p: ModulePass) {
-    for k in ast.modules {
-      modules[k]!.applyPass(p, in: self)
+    switch p {
+    case .depolymorphize:
+      depolymorphize()
     }
   }
 
