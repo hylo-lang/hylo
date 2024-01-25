@@ -3,4 +3,6 @@ public enum ModulePass: String {
 
   case depolymorphize
 
+  case inline
+
 }
