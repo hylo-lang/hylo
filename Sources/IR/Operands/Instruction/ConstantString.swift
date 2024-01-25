@@ -31,7 +31,7 @@ public struct ConstantString: Instruction {
 extension ConstantString: CustomStringConvertible {
 
   public var description: String {
-    "constant_string \(String(data: value, encoding: .utf8)!)"
+    "constant_string \(String(data: value, encoding: .utf8)!.debugDescription)"
   }
 
 }
