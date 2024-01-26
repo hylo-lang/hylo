@@ -6,8 +6,29 @@ extension Module {
   ///
   /// - Requires: `f` is in `self`.
   public mutating func removeDeadCode(in f: Function.ID, diagnostics: inout DiagnosticSet) {
+    removeUnusedDefinitions(from: f)
     removeCodeAfterCallsReturningNever(from: f)
     removeUnreachableBlocks(from: f)
+  }
+
+  /// Removes the instructions if `f` that have no user.
+  private mutating func removeUnusedDefinitions(from f: Function.ID) {
+    var s = Set<InstructionID>()
+    removeUnused(blocks(in: f).map(instructions(in:)).joined(), keepingTrackIn: &s)
+  }
+
+  /// Removes the instructions in `definitions` that have no user, accumulating the IDs of removed
+  /// elements in `removed`.
+  private mutating func removeUnused<S: Sequence<InstructionID>>(
+    _ definitions: S, keepingTrackIn removed: inout Set<InstructionID>
+  ) {
+    for i in definitions where !removed.contains(i) {
+      if allUses(of: i).isEmpty && isRemovableWhenUnused(i) {
+        removed.insert(i)
+        removeUnused(self[i].operands.compactMap(\.instruction), keepingTrackIn: &removed)
+        removeInstruction(i)
+      }
+    }
   }
 
   /// Removes the basic blocks that have no predecessor from `f`, except its entry.
@@ -57,6 +78,18 @@ extension Module {
       return (self[i] as! CallFFI).returnType.ast == .never
     default:
       return false
+    }
+  }
+
+  /// Returns `true` iff `i` can be removed if it has no use.
+  private func isRemovableWhenUnused(_ i: InstructionID) -> Bool {
+    switch self[i] {
+    case let s as Access:
+      return s.binding == nil
+    case is CallFFI:
+      return false
+    case let s:
+      return s.result != nil
     }
   }
 
