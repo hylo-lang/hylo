@@ -110,10 +110,6 @@ extension Diagnostic {
     .error("unknown pragma '\(n)'", at: site)
   }
 
-  static func error(attributeTakesNoArgument a: SourceRepresentable<Attribute>) -> Diagnostic {
-    .error("attribute '\(a.value.name.value)' takes no argument", at: a.site)
-  }
-
   static func error(
     illegalAccessModifierForImplicitParameter e: SourceRepresentable<AccessEffect>
   ) -> Diagnostic {
