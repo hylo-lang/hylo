@@ -919,6 +919,11 @@ struct TypeChecker {
       cache.write(foreignName!, at: \.foreignName[d], ignoringSharedCache: ignoreSharedCache)
     }
 
+    if program[d].isExternal {
+      let externalName = program.ast.externalName(of: d)
+      cache.write(externalName!, at: \.externalName[d], ignoringSharedCache: ignoreSharedCache)
+    }
+
     switch program[d].body {
     case .block(let b):
       check(b)

@@ -47,6 +47,9 @@ public struct TypedProgram {
   /// A map from functions to their foreign name.
   public internal(set) var foreignName: [FunctionDecl.ID: String] = [:]
 
+  /// A map from functions to their external name.
+  public internal(set) var externalName: [FunctionDecl.ID: String] = [:]
+
   /// The conformances in the program.
   public internal(set) var conformances: ConformanceSet = [:]
 

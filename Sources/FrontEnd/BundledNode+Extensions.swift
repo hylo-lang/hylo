@@ -53,3 +53,12 @@ extension BundledNode where T == FunctionDecl.ID, P == TypedProgram {
   }
 
 }
+
+extension BundledNode where T == FunctionDecl.ID, P == TypedProgram {
+
+  /// The external name of this function.
+  public var externalName: String? {
+    container.externalName[id]
+  }
+
+}
