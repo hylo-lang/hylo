@@ -99,8 +99,7 @@ extension Module {
 
   /// Calls `action` on the uses of a capability of the access at the origin of `i`.
   private func forEachClient(of i: InstructionID, _ action: (Use) -> Void) {
-    guard let uses = self.uses[.register(i)] else { return }
-    for u in uses {
+    for u in allUses(of: i) {
       if self[u.user].isTransparentOffset {
         forEachClient(of: u.user, action)
       } else {

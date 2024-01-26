@@ -199,6 +199,7 @@ public struct Module {
     try run({ removeDeadCode(in: $0, diagnostics: &log) })
     try run({ reifyCallsToBundles(in: $0, diagnostics: &log) })
     try run({ reifyAccesses(in: $0, diagnostics: &log) })
+    try run({ simplify($0) })
     try run({ closeBorrows(in: $0, diagnostics: &log) })
     try run({ normalizeObjectStates(in: $0, diagnostics: &log) })
     try run({ ensureExclusivity(in: $0, diagnostics: &log) })
@@ -814,7 +815,7 @@ public struct Module {
   }
 
   /// Returns the uses of all the registers assigned by `i`.
-  private func allUses(of i: InstructionID) -> [Use] {
+  func allUses(of i: InstructionID) -> [Use] {
     result(of: i).map(default: [], { uses[$0, default: []] })
   }
 
