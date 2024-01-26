@@ -1,5 +1,7 @@
 import Core
 import FrontEnd
+import StandardLibrary
+import Utils
 import XCTest
 
 final class ASTTests: XCTestCase {
@@ -40,28 +42,12 @@ final class ASTTests: XCTestCase {
   }
 
   func testCodableRoundtrip() throws {
-    let input: SourceFile = """
-      public fun main() {
-        print("Hello, World!")
-      }
-      """
-
-    var original = AST(for: CompilerConfiguration())
-    let m = try checkNoDiagnostic { (d) in
-      try original.makeModule("Main", sourceCode: [input], diagnostics: &d)
+    try checkNoDiagnostic { (d) in
+      let serialized = try JSONEncoder().forAST.encode(Host.hostedLibraryAST.get())
+      let deserialized = try JSONDecoder().forAST.decode(AST.self, from: serialized)
+      // Creation of TypedProgram validates that it contains well-formed coreTraits.
+      _ = try TypedProgram(annotating: ScopedProgram(deserialized), reportingDiagnosticsTo: &d)
     }
-
-    // Serialize the AST.
-    let encoder = JSONEncoder().forAST
-    let serialized = try encoder.encode(original)
-
-    // Deserialize the AST.
-    let decoder = JSONDecoder().forAST
-    let deserialized = try decoder.decode(AST.self, from: serialized)
-
-    // Deserialized AST should contain a `main` function.
-    let s = deserialized[m].sources.first!
-    XCTAssertEqual(deserialized[s].decls.first?.kind, NodeKind(FunctionDecl.self))
   }
 
   func testWalk() throws {

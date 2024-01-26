@@ -157,7 +157,7 @@ let package = Package(
         .product(name: "ArgumentParser", package: "swift-argument-parser"),
         "Utils",
       ],
-      swiftSettings: allTargetsSwiftSettings + [.unsafeFlags(["-parse-as-library"])]),
+      swiftSettings: allTargetsSwiftSettings),
 
     // Test targets.
     .testTarget(
@@ -178,7 +178,7 @@ let package = Package(
     .testTarget(
       name: "HyloTests",
       dependencies: [
-        "Core", "FrontEnd", "IR", "TestUtils", "StandardLibrary",
+        "Core", "FrontEnd", "IR", "TestUtils", "StandardLibrary", "Utils",
         .product(name: "Algorithms", package: "swift-algorithms"),
       ],
       exclude: ["TestCases"],

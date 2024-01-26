@@ -1,3 +1,4 @@
+import OrderedCollections
 import Utils
 
 /// A box wrapping a type.
@@ -102,7 +103,7 @@ public struct AnyType {
 
   /// `self` transformed as the type of a member of `receiver`, which is existential.
   public func asMember(of receiver: ExistentialType) -> AnyType {
-    let m = LambdaType(self) ?? UNIMPLEMENTED()
+    let m = ArrowType(self) ?? UNIMPLEMENTED()
     return ^m.asMember(of: receiver)
   }
 
@@ -125,7 +126,7 @@ public struct AnyType {
     switch base {
     case let t as BoundGenericType:
       return t.base.isLeaf
-    case is ExistentialType, is LambdaType, is TypeVariable:
+    case is ExistentialType, is ArrowType, is TypeVariable:
       return false
     case let t as TypeAliasType:
       return t.resolved.isLeaf
@@ -186,10 +187,24 @@ public struct AnyType {
     (base is AssociatedTypeType) || (base is GenericTypeParameterType)
   }
 
+  /// Returns `true` iff `self` is bound to an existential quantifier.
+  public var isSkolem: Bool {
+    switch base {
+    case let u as AssociatedTypeType:
+      return u.domain.isSkolem
+    case is GenericTypeParameterType:
+      return true
+    case let u as ConformanceLensType:
+      return u.subject.isSkolem
+    default:
+      return false
+    }
+  }
+
   /// Indicates whether `self` has a record layout.
   public var hasRecordLayout: Bool {
     switch base {
-    case is BufferType, is LambdaType, is ProductType, is TupleType:
+    case is BufferType, is ArrowType, is ProductType, is TupleType:
       return true
     case let type as BoundGenericType:
       return type.base.hasRecordLayout
@@ -221,6 +236,46 @@ public struct AnyType {
         return .stepInto(t)
       } else {
         return .stepOver(t)
+      }
+    }
+  }
+
+  /// Returns the generic parameters occurring free in `self`.
+  public var skolems: OrderedSet<GenericParameterDecl.ID> {
+    var r = OrderedSet<GenericParameterDecl.ID>()
+    collectGenericTypeParameters(in: &r, ignoring: [])
+    return r
+  }
+
+  /// Inserts generic parameters occurring free in `self` into `open`, unless they're in `bound`.
+  private func collectGenericTypeParameters(
+    in open: inout OrderedSet<GenericParameterDecl.ID>,
+    ignoring bound: Set<GenericParameterDecl.ID>
+  ) {
+    var state = (bound: bound, open: open)
+    defer { open = state.open }
+
+    _ = self.transform(mutating: &state) { (s, t) in
+      switch t.base {
+      case let u as BoundGenericType:
+        var b = s.bound
+        for (k, v) in u.arguments {
+          b.insert(k)
+          if let g = GenericTypeParameterType(v.asType), g.decl == k {
+            if !s.bound.contains(k) { s.open.append(k) }
+          }
+        }
+        for a in u.arguments.values {
+          a.asType?.collectGenericTypeParameters(in: &s.open, ignoring: b)
+        }
+        return .stepOver(t)
+
+      case let u as GenericTypeParameterType:
+        if !s.bound.contains(u.decl) { s.open.append(u.decl) }
+        return .stepOver(t)
+
+      default:
+        return t[.hasGenericTypeParameter] ? .stepInto(t) : .stepOver(t)
       }
     }
   }
@@ -262,7 +317,7 @@ public struct AnyType {
       }
       return result
 
-    case (let lhs as LambdaType, let rhs as LambdaType):
+    case (let lhs as ArrowType, let rhs as ArrowType):
       if !lhs.labels.elementsEqual(rhs.labels) { return false }
 
       var result = true

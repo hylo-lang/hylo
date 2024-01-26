@@ -152,7 +152,7 @@ public enum NativeInstruction: Hashable {
 extension NativeInstruction {
 
   /// The type of this instruction when used as a function.
-  public var type: LambdaType {
+  public var type: ArrowType {
     switch self {
     case .add(_, let t):
       return .init(^t, ^t, to: ^t)

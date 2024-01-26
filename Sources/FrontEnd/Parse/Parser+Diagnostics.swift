@@ -42,12 +42,12 @@ extension Diagnostic {
     .error("unexpected token '\(token.kind)'", at: token.site)
   }
 
-  static func error(unterminatedCommentEndingAt endLocation: SourcePosition) -> Diagnostic {
-    .error("unterminated comment", at: endLocation ..< endLocation)
+  static func error(unterminatedCommentStartingAt p: SourcePosition) -> Diagnostic {
+    .error("unterminated comment", at: p ..< p)
   }
 
-  static func error(unterminatedStringEndingAt endLocation: SourcePosition) -> Diagnostic {
-    .error("unterminated string", at: endLocation ..< endLocation)
+  static func error(unterminatedStringStartingAt p: SourcePosition) -> Diagnostic {
+    .error("unterminated string", at: p ..< p)
   }
 
   static func error(duplicateAccessModifier m: SourceRepresentable<AccessModifier>) -> Diagnostic {

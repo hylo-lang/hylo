@@ -8,7 +8,7 @@ public struct BuiltinFunction: Hashable {
   public let name: Name
 
   /// Returns the type of the function, calling `freshVariable` to create fresh type variables.
-  public func type(makingFreshVariableWith freshVariable: () -> TypeVariable) -> LambdaType {
+  public func type(makingFreshVariableWith freshVariable: () -> TypeVariable) -> ArrowType {
     switch self.name {
     case .addressOf:
       let p = ParameterType(.let, ^freshVariable())

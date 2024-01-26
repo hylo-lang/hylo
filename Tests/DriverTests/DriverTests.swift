@@ -29,7 +29,8 @@ final class DriverTests: XCTestCase {
   }
 
   func testNoInput() throws {
-    XCTAssertThrowsError(try Driver.parse([]))
+    let cli = try Driver.parse([])
+    XCTAssertThrowsError(try cli.execute())
   }
 
   func testRawAST() throws {

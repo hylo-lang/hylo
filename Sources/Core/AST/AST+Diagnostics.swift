@@ -52,7 +52,7 @@ extension Diagnostic {
   }
 
   static func error<T: Decl>(unexpected d: T.ID, in ast: AST) -> Diagnostic {
-    .error("\(T.constructDescription) is not allowed here", at: .empty(at: ast[d].site.first()))
+    .error("\(T.constructDescription) is not allowed here", at: .empty(at: ast[d].site.start))
   }
 
   public static func error(unexpectedCapture p: BindingPattern) -> Diagnostic {

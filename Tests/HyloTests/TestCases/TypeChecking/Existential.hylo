@@ -18,7 +18,7 @@ public fun main() {
   let x0: any A = A<Int>()
   check<any A>(x0)
 
-  let x1: any Copyable = 0
+  let x1: any Copyable = 0 as _
   check<any Copyable>(x1)
 
   let x2: any P1 & P2 = B()

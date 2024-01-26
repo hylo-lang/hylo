@@ -7,7 +7,8 @@ public fun main() {
   }
 
   var y = 1
-  while y {   //! diagnostic 'Int' is not subtype of 'Bool'
+  //! @+1 diagnostic incompatible types 'Bool' and 'Int'
+  while y {
     &y = 0
   }
 }

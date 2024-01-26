@@ -14,7 +14,7 @@ extension AST {
       sourceCode: sourceFiles(in: [libraryRoot]),
       builtinModuleAccess: true,
       diagnostics: &diagnostics)
-    assert(isCoreModuleLoaded)
+    assert(coreModuleIsLoaded)
     self.coreTraits = .init(self)
   }
 

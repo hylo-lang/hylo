@@ -56,7 +56,7 @@ public conformance Range: Iterator where
     if lower_bound == upper_bound { return .none() }
     let r = lower_bound.copy()
     &lower_bound = lower_bound.advance(by: .zero().successor())
-    return r as Optional
+    return r as _
   }
 
 }

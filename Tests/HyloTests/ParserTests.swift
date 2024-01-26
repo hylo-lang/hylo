@@ -1197,9 +1197,17 @@ final class ParserTests: XCTestCase {
   func testRemoteTypeExpr() throws {
     let input: SourceFile = "remote let T"
     let (e, ast) = try input.parse(with: Parser.parseExpr(in:))
-    XCTAssertEqual(e?.kind, .init(RemoteExpr.self))
-    let syntax = try XCTUnwrap(ast[e] as? RemoteExpr)
+    XCTAssertEqual(e?.kind, .init(RemoteTypeExpr.self))
+    let syntax = try XCTUnwrap(ast[e] as? RemoteTypeExpr)
     XCTAssertEqual(syntax.convention.value, .let)
+  }
+
+  func testCaptureExpr() throws {
+    let input: SourceFile = "[let x.y]"
+    let (e, ast) = try input.parse(with: Parser.parseExpr(in:))
+    XCTAssertEqual(e?.kind, .init(CaptureExpr.self))
+    let syntax = try XCTUnwrap(ast[e] as? CaptureExpr)
+    XCTAssertEqual(syntax.access.value, .let)
   }
 
   func testBufferLiteral() throws {
@@ -1347,37 +1355,37 @@ final class ParserTests: XCTestCase {
     XCTAssertEqual(expr.elements.count, 2)
   }
 
-  func testLambdaOrParenthesizedTypeExpr() throws {
+  func testArrowOrParenthesizedTypeExpr() throws {
     let input: SourceFile = "((A) -> (B)) -> C"
     let (exprID, ast) = try input.parse(with: Parser.parseExpr(in:))
-    let expr = try XCTUnwrap(ast[exprID] as? LambdaTypeExpr)
+    let expr = try XCTUnwrap(ast[exprID] as? ArrowTypeExpr)
     XCTAssertEqual(expr.output.kind, .init(NameExpr.self))
   }
 
-  func testLambdaTypeExpr() throws {
+  func testArrowTypeExpr() throws {
     let input: SourceFile = "[{ A, B }] (T, by: U) inout -> T"
     let (exprID, ast) = try input.parse(with: Parser.parseExpr(in:))
-    let expr = try XCTUnwrap(ast[exprID] as? LambdaTypeExpr)
+    let expr = try XCTUnwrap(ast[exprID] as? ArrowTypeExpr)
     XCTAssertEqual(expr.receiverEffect?.value, .inout)
     XCTAssertEqual(expr.environment?.kind, .init(TupleTypeExpr.self))
     XCTAssertEqual(expr.parameters.count, 2)
     XCTAssertEqual(expr.output.kind, .init(NameExpr.self))
   }
 
-  func testTypeErasedLambdaTypeExpr() throws {
+  func testTypeErasedArrowTypeExpr() throws {
     let input: SourceFile = "(T, by: U) inout -> T"
     let (exprID, ast) = try input.parse(with: Parser.parseExpr(in:))
-    let expr = try XCTUnwrap(ast[exprID] as? LambdaTypeExpr)
+    let expr = try XCTUnwrap(ast[exprID] as? ArrowTypeExpr)
     XCTAssertEqual(expr.receiverEffect?.value, .inout)
     XCTAssertEqual(expr.parameters.count, 2)
     XCTAssertEqual(expr.output.kind, .init(NameExpr.self))
     XCTAssertNil(expr.environment)
   }
 
-  func testThinLambdaTypeExpr() throws {
+  func testThinArrowTypeExpr() throws {
     let input: SourceFile = "[] () -> Int"
     let (exprID, ast) = try input.parse(with: Parser.parseExpr(in:))
-    let expr = try XCTUnwrap(ast[exprID] as? LambdaTypeExpr)
+    let expr = try XCTUnwrap(ast[exprID] as? ArrowTypeExpr)
     XCTAssertNil(expr.receiverEffect)
     XCTAssertEqual(expr.environment?.kind, .init(TupleTypeExpr.self))
     XCTAssert(expr.parameters.isEmpty)

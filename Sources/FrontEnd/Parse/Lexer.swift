@@ -159,7 +159,7 @@ public struct Lexer: IteratorProtocol, Sequence {
         _ = take(while: { $0.isLetter || $0.isDecDigit })
 
         if peek() == "`" {
-          let start = sourceCode.position(sourceCode.text.index(after: token.site.start))
+          let start = sourceCode.position(sourceCode.text.index(after: token.site.startIndex))
           token.kind = .name
           token.site = start ..< location
           discard()
@@ -243,7 +243,7 @@ public struct Lexer: IteratorProtocol, Sequence {
       case "<", ">":
         // Leading angle brackets are tokenized individually, to parse generic clauses.
         discard()
-        oper = sourceCode.text[token.site.start ..< index]
+        oper = sourceCode.text[token.site.startIndex ..< index]
 
       default:
         oper = take(while: { $0.isOperator })
