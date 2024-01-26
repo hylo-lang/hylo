@@ -3114,8 +3114,15 @@ struct Emitter {
     _ recordAddress: Operand, at subfield: RecordPath, at site: SourceRange
   ) -> Operand {
     if subfield.isEmpty { return recordAddress }
-    let s = module.makeSubfieldView(of: recordAddress, subfield: subfield, at: site)
-    return insert(s)!
+
+    if let r = module[recordAddress] as? SubfieldView {
+      let p = r.subfield + subfield
+      let s = module.makeSubfieldView(of: r.recordAddress, subfield: p, at: site)
+      return insert(s)!
+    } else {
+      let s = module.makeSubfieldView(of: recordAddress, subfield: subfield, at: site)
+      return insert(s)!
+    }
   }
 
   /// Emits the IR trapping iff `predicate`, which is an object of type `i1`.
