@@ -26,7 +26,7 @@ extension Module {
       return instruction(after: i)
     }
 
-    for u in uses[.register(i), default: []] where self[u.user] is EndAccess {
+    for u in allUses(of: i) where self[u.user] is EndAccess {
       removeInstruction(u.user)
     }
     replaceUses(of: .register(i), with: s.source, in: i.function)
@@ -36,4 +36,3 @@ extension Module {
   }
 
 }
-

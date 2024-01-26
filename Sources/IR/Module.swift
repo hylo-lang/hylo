@@ -815,7 +815,7 @@ public struct Module {
   }
 
   /// Returns the uses of all the registers assigned by `i`.
-  private func allUses(of i: InstructionID) -> [Use] {
+  func allUses(of i: InstructionID) -> [Use] {
     result(of: i).map(default: [], { uses[$0, default: []] })
   }
 
