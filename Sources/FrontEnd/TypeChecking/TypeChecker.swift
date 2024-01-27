@@ -4806,6 +4806,30 @@ struct TypeChecker {
   /// Returns the inferred type of `e`, updating `obligations` and gathering contextual information
   /// from `hint`.
   private mutating func _inferredType(
+    of e: ArrowTypeExpr.ID, withHint hint: AnyType? = nil,
+    updating obligations: inout ProofObligations
+  ) -> AnyType {
+    let environment: AnyType
+    if let v = program[e].environment {
+      environment = evalPartialTypeAnnotation(v, updating: &obligations) ?? .error
+    } else {
+      environment = .any
+    }
+
+    let inputs = evalParameterAnnotations(of: e)
+    let output = evalTypeAnnotation(program[e].output)
+
+    let r = ^ArrowType(
+      receiverEffect: program[e].receiverEffect?.value ?? .let,
+      environment: environment,
+      inputs: inputs,
+      output: output)
+    return constrain(e, to: ^MetatypeType(of: r), in: &obligations)
+  }
+
+  /// Returns the inferred type of `e`, updating `obligations` and gathering contextual information
+  /// from `hint`.
+  private mutating func _inferredType(
     of e: BooleanLiteralExpr.ID, withHint hint: AnyType? = nil,
     updating obligations: inout ProofObligations
   ) -> AnyType {
@@ -5064,30 +5088,6 @@ struct TypeChecker {
       inputs: inputs, output: output)
     obligations.assign(result, to: AnyDeclID(d))
     return constrain(e, to: result, in: &obligations)
-  }
-
-  /// Returns the inferred type of `e`, updating `obligations` and gathering contextual information
-  /// from `hint`.
-  private mutating func _inferredType(
-    of e: ArrowTypeExpr.ID, withHint hint: AnyType? = nil,
-    updating obligations: inout ProofObligations
-  ) -> AnyType {
-    let environment: AnyType
-    if let v = program[e].environment {
-      environment = evalPartialTypeAnnotation(v, updating: &obligations) ?? .error
-    } else {
-      environment = .any
-    }
-
-    let inputs = evalParameterAnnotations(of: e)
-    let output = evalTypeAnnotation(program[e].output)
-
-    let r = ^ArrowType(
-      receiverEffect: program[e].receiverEffect?.value ?? .let,
-      environment: environment,
-      inputs: inputs,
-      output: output)
-    return constrain(e, to: ^MetatypeType(of: r), in: &obligations)
   }
 
   /// Returns the inferred type of `e`, updating `obligations` and gathering contextual information
