@@ -67,10 +67,19 @@ struct ConstraintSystem {
   }
 
   /// Creates an instance copying the state of `other`.
-  private init(copying other: inout Self) {
-    let c = other.checker.release()
-    self = other
-    other.checker = c
+  private init(copying other: Self) {
+    self.scope = other.scope
+    self.goals = other.goals
+    self.outcomes = other.outcomes
+    self.fresh = other.fresh
+    self.stale = other.stale
+    self.failureRoots = other.failureRoots
+    self.typeAssumptions = other.typeAssumptions
+    self.bindingAssumptions = other.bindingAssumptions
+    self.callOperands = other.callOperands
+    self.penalties = other.penalties
+    self.loggingIsEnabled = other.loggingIsEnabled
+    self.indentation = other.indentation
   }
 
   /// Solves this instance, using `checker` to query type relations and resolve names and returning
@@ -85,7 +94,7 @@ struct ConstraintSystem {
     notWorseThan maxScore: Solution.Score,
     querying checker: inout TypeChecker
   ) -> Solution? {
-    self.checker = checker
+    self.checker = consume checker
     defer { checker = self.checker.release() }
 
     logState()
@@ -847,7 +856,7 @@ struct ConstraintSystem {
       defer { indentation -= 1 }
 
       // Explore the result of this choice.
-      var exploration = Self(copying: &self)
+      var exploration = Self(copying: self)
       let s = configureSubSystem(&exploration, choice)
       exploration.setOutcome(s.isEmpty ? .success : delegate(to: s), for: g)
       guard let new = exploration.solution(notWorseThan: results.score, querying: &checker) else {

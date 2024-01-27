@@ -109,7 +109,7 @@ struct Emitter {
     action: (inout Emitter) -> T
   ) -> T {
     var instance = Self()
-    instance.module = module
+    instance.module = consume module
     swap(&instance.diagnostics, &log)
 
     defer {
