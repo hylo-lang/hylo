@@ -2879,13 +2879,30 @@ struct TypeChecker {
   }
 
   /// Evaluates and returns the qualification of `e`, which is a type annotation.
-  private mutating func evalQualification(of e: NameExpr.ID) -> AnyType? {
+  private mutating func evalTypeQualification(of e: NameExpr.ID) -> AnyType? {
     switch program[e].domain {
     case .explicit(let q):
       return evalTypeAnnotation(q)
     case .implicit:
       report(.error(notEnoughContextToResolveMember: program[e].name))
       return .error
+    case .none, .operand:
+      unreachable()
+    }
+  }
+
+  /// Returns the inferred qualification of `e`, using `implictNominalScope` to resolve implicit
+  /// domains and updating `obligations`.
+  public mutating func inferredQualification(
+    of e: NameExpr.ID, implicitlyIn implicitNominalScope: AnyType?,
+    updating obligations: inout ProofObligations
+  ) -> AnyType? {
+    switch program[e].domain {
+    case .explicit(let q):
+      let h = program.ast.isImplicitlyQualified(q) ? implicitNominalScope : nil
+      return inferredType(of: q, withHint: h, updating: &obligations)
+    case .implicit:
+      return implicitNominalScope
     case .none, .operand:
       unreachable()
     }
@@ -2992,7 +3009,9 @@ struct TypeChecker {
   private mutating func eval(
     existentialBound e: NameExpr.ID
   ) -> (AnyType, Set<GenericConstraint>) {
-    let resolution = resolve(e, withNonNominalPrefix: { (me, p) in me.evalQualification(of: p) })
+    let resolution = resolve(e) { (me, n) in
+      me.evalTypeQualification(of: n)
+    }
 
     switch resolution {
     case .failed:
@@ -5092,21 +5111,13 @@ struct TypeChecker {
   ///     `e` is resolved if it is implicit (e.g., `.foo.bar`).
   ///   - purpose: How `e` is used.
   private mutating func _inferredType(
-    of e: NameExpr.ID, inImplicitScope implicitNominalScope: AnyType? = nil,
+    of e: NameExpr.ID, implicitlyIn implicitNominalScope: AnyType? = nil,
     usedAs purpose: NameUse = .unapplied,
     withHint hint: AnyType? = nil,
     updating obligations: inout ProofObligations
   ) -> AnyType {
     let resolution = resolve(e, usedAs: purpose) { (me, n) in
-      switch me.program[n].domain {
-      case .explicit(let e):
-        let h = me.program.ast.isImplicitlyQualified(e) ? implicitNominalScope : nil
-        return me.inferredType(of: e, withHint: h, updating: &obligations)
-      case .implicit:
-        return implicitNominalScope
-      case .none, .operand:
-        unreachable()
-      }
+      me.inferredQualification(of: n, implicitlyIn: implicitNominalScope, updating: &obligations)
     }
 
     let unresolved: [NameExpr.ID]
