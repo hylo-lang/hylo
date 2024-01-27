@@ -8,7 +8,7 @@ Please visit our [website](https://hylo-lang.org) to get more information about 
 ## Installation
 
 This project is written in [Swift](https://swift.org) and distributed in the form of a package, built with [Swift Package Manager](https://swift.org/package-manager/).
-You will need Swift 5.7 or higher to build the compiler from sources.
+You will need Swift 5.9 or higher to build the compiler from sources.
 The repository contains [submodules](https://git-scm.com/book/en/v2/Git-Tools-Submodules), so when you clone it, be sure you've got them.
 
 **Windows users:** 
