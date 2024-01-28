@@ -2891,18 +2891,18 @@ struct TypeChecker {
     }
   }
 
-  /// Returns the inferred qualification of `e`, using `implictNominalScope` to resolve implicit
+  /// Returns the inferred qualification of `e`, using `implicitQualification` to resolve implicit
   /// domains and updating `obligations`.
   public mutating func inferredQualification(
-    of e: NameExpr.ID, implicitlyIn implicitNominalScope: AnyType?,
+    of e: NameExpr.ID, implicitlyIn implicitQualification: AnyType?,
     updating obligations: inout ProofObligations
   ) -> AnyType? {
     switch program[e].domain {
     case .explicit(let q):
-      let h = program.ast.isImplicitlyQualified(q) ? implicitNominalScope : nil
+      let h = program.ast.isImplicitlyQualified(q) ? implicitQualification : nil
       return inferredType(of: q, withHint: h, updating: &obligations)
     case .implicit:
-      return implicitNominalScope
+      return implicitQualification
     case .none, .operand:
       unreachable()
     }
@@ -5024,7 +5024,7 @@ struct TypeChecker {
       arguments.append(.init(label: a.label, type: p, valueSite: program[a.value].site))
     }
 
-    let output = ((callee.base as? CallableType)?.output ?? hint) ?? ^freshVariable()
+    let output = (callee.base as? CallableType)?.output ?? hint ?? ^freshVariable()
     obligations.insert(
       CallConstraint(
         arrow: callee, takes: arguments, gives: output, in: .ast(AnyExprID(e)),
@@ -5036,7 +5036,7 @@ struct TypeChecker {
   /// Returns the inferred type of `e`, updating `obligations` and gathering contextual information
   /// from `hint`.
   private mutating func _inferredType(
-    of e: InoutExpr.ID, withHint hint: AnyType? = nil,
+    of e: InoutExpr.ID, usedAs purpose: NameUse = .unapplied, withHint hint: AnyType? = nil,
     updating obligations: inout ProofObligations
   ) -> AnyType {
     let t = inferredType(of: program[e].subject, withHint: hint, updating: &obligations)
@@ -5104,20 +5104,20 @@ struct TypeChecker {
   }
 
   /// Returns the inferred type of `e`, updating `obligations` and gathering contextual information
-  /// from `hint`.
+  /// from `hint` and `implicitQualification`.
   ///
-  /// - Parameters:
-  ///   - implicitNominalScope: the type of the nominal scope in which the leftmost component of
-  ///     `e` is resolved if it is implicit (e.g., `.foo.bar`).
-  ///   - purpose: How `e` is used.
+  /// If the leftmost component of `e` is implicit, (e.g., `.foo.bar`), then its next component is
+  /// resolved using qualified name lookup in `implicitQualification`. `purpose` describes the way
+  /// `e` is used.
   private mutating func _inferredType(
-    of e: NameExpr.ID, implicitlyIn implicitNominalScope: AnyType? = nil,
+    of e: NameExpr.ID,
+    implicitlyIn implicitQualification: AnyType? = nil,
     usedAs purpose: NameUse = .unapplied,
     withHint hint: AnyType? = nil,
     updating obligations: inout ProofObligations
   ) -> AnyType {
     let resolution = resolve(e, usedAs: purpose) { (me, n) in
-      me.inferredQualification(of: n, implicitlyIn: implicitNominalScope, updating: &obligations)
+      me.inferredQualification(of: n, implicitlyIn: implicitQualification, updating: &obligations)
     }
 
     let unresolved: [NameExpr.ID]
@@ -5377,8 +5377,8 @@ struct TypeChecker {
     return constrain(e, to: ^MetatypeType(of: r), in: &obligations)
   }
 
-  /// Returns the inferred type of `callee`, which is the callee of a function, initializer, or
-  /// subscript, updating `state` with inference facts and deferred type checking requests.
+  /// Returns the inferred type of `callee`, which is the callee of a call used as `purpose`,
+  /// gathering contextual information from `hint` and updating `obligations`.
   ///
   /// - Requires: `purpose` is either `.function` or `.subscript`.
   private mutating func _inferredType(
