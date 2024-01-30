@@ -193,7 +193,8 @@ class TestScraper: SyntaxVisitor {
   }
 
   override func visit(_ n: ExtensionDeclSyntax) -> SyntaxVisitorContinueKind {
-    enterScope(name: "\(n.extendedType)", possibleClass: true, modifiers: n.modifiers)
+    enterScope(
+      name: n.extendedType.trimmedDescription, possibleClass: true, modifiers: n.modifiers)
   }
 
   override func visitPost(_: ExtensionDeclSyntax) {
