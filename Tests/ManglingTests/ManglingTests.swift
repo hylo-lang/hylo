@@ -119,6 +119,9 @@ final class ManglingTests: XCTestCase {
       is: "any Hylo.Movable")
   }
 
+  func testMain() {
+    main()
+  }
 }
 
 /// An AST visitation callback that collects mangled symbols, asserting that they are unique.

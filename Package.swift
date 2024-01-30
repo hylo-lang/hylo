@@ -58,6 +58,7 @@ let package = Package(
     .package(
       url: "https://github.com/SwiftPackageIndex/SPIManifest.git",
       from: "0.12.0"),
+    .package(url: "https://github.com/apple/swift-syntax.git", branch: "main"),
   ]
     + docGenerationDependency,
 
@@ -159,21 +160,40 @@ let package = Package(
       ],
       swiftSettings: allTargetsSwiftSettings),
 
+
+    .plugin(
+      name: "TestDiscoveryPlugin", capability: .buildTool(),
+      // Workaround for SPM bug; see PortableBuildToolPlugin.swift
+      dependencies: osIsWindows ? [] : ["GenerateTestInvocations"]),
+
+    .executableTarget(
+      name: "GenerateTestInvocations",
+      dependencies: [
+        .product(name: "ArgumentParser", package: "swift-argument-parser"),
+        .product(name: "SwiftSyntax", package: "swift-syntax"),
+        .product(name: "SwiftSyntaxBuilder", package: "swift-syntax"),
+        .product(name: "SwiftOperators", package: "swift-syntax"),
+        .product(name: "SwiftParser", package: "swift-syntax"),
+        .product(name: "SwiftParserDiagnostics", package: "swift-syntax"),
+      ],
+      swiftSettings: allTargetsSwiftSettings),
+
     // Test targets.
     .testTarget(
       name: "UtilsTests",
       dependencies: ["Utils", .product(name: "Algorithms", package: "swift-algorithms")],
-      swiftSettings: allTargetsSwiftSettings),
+      swiftSettings: allTargetsSwiftSettings,
+      plugins: ["TestDiscoveryPlugin"]),
 
     .testTarget(
       name: "DriverTests",
       dependencies: ["Driver", "TestUtils"],
-      swiftSettings: allTargetsSwiftSettings),
+      swiftSettings: allTargetsSwiftSettings, plugins: ["TestDiscoveryPlugin"]),
 
     .testTarget(
       name: "ManglingTests",
       dependencies: ["Core", "FrontEnd", "IR", "TestUtils", "StandardLibrary"],
-      swiftSettings: allTargetsSwiftSettings),
+      swiftSettings: allTargetsSwiftSettings, plugins: ["TestDiscoveryPlugin"]),
 
     .testTarget(
       name: "HyloTests",
@@ -183,21 +203,21 @@ let package = Package(
       ],
       exclude: ["TestCases"],
       swiftSettings: allTargetsSwiftSettings,
-      plugins: ["TestGeneratorPlugin"]),
+      plugins: ["TestGeneratorPlugin", "TestDiscoveryPlugin"]),
 
     .testTarget(
       name: "EndToEndTests",
       dependencies: ["Driver", "TestUtils"],
       exclude: ["TestCases"],
       swiftSettings: allTargetsSwiftSettings,
-      plugins: ["TestGeneratorPlugin"]),
+      plugins: ["TestGeneratorPlugin", "TestDiscoveryPlugin"]),
 
     .testTarget(
       name: "LibraryTests",
       dependencies: ["Driver", "TestUtils"],
       exclude: ["TestCases"],
       swiftSettings: allTargetsSwiftSettings,
-      plugins: ["TestGeneratorPlugin"]),
+      plugins: ["TestGeneratorPlugin", "TestDiscoveryPlugin"]),
   ]
     // On Windows we have a dummy library target that can be used to build all the build tool
     // dependencies for non-reentrant builds.  See SPMBuildToolSupport/README.md for more info.
@@ -205,7 +225,7 @@ let package = Package(
       ? [
         .target(
           name: "BuildToolDependencies",
-          dependencies: ["GenerateHyloFileTests"],
+          dependencies: ["GenerateHyloFileTests", "GenerateTestInvocations"],
           swiftSettings: allTargetsSwiftSettings)
       ] : []) as [PackageDescription.Target]
 )
