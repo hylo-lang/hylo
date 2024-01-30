@@ -1,5 +1,5 @@
 /// The attributes of a function surfaced for its API.
-public struct FunctionAttributes : Hashable {
+public struct FunctionAttributes: Hashable {
 
   /// The external name of the function.
   public let externalName: String?
