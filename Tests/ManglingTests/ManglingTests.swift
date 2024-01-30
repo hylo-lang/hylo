@@ -122,6 +122,10 @@ final class ManglingTests: XCTestCase {
   func testMain() {
     main()
   }
+
+  func testDummy1(_: Int) {}
+
+  static func testDummy2() {}
 }
 
 /// An AST visitation callback that collects mangled symbols, asserting that they are unique.
@@ -143,6 +147,8 @@ private struct SymbolCollector: ASTWalkObserver {
     self.failuresReportingLine = l
   }
 
+  func testDummy0() {}
+
   mutating func willEnter(_ n: AnyNodeID, in ast: AST) -> Bool {
     // Binding declarations can't be mangled.
     if n.kind == BindingDecl.self {
@@ -159,5 +165,29 @@ private struct SymbolCollector: ASTWalkObserver {
 
     return true
   }
+
+}
+
+// Limitation: scraper will pick this symbol up unless the extension
+// is explicitly declared private.
+private extension SymbolCollector {
+
+  func testDummy3() {}
+
+}
+
+struct Dummy {
+
+  func testDummy4() {}
+
+}
+
+extension Dummy {
+
+  private func testDummy5() {}
+
+  // This one should get discarded dynamically; scraper doesn't know
+  // this isn't a class.
+  func testDummy6() {}
 
 }

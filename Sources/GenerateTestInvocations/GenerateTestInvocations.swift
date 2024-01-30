@@ -52,12 +52,14 @@ struct GenerateHyloFileTests: ParsableCommand {
 
   func allTestsExtension(testCaseName: String, testNames: [String]) -> String {
     """
-    extension \(testCaseName) {
+    private extension \(testCaseName) {
+
       static var allTests: AllTests<\(testCaseName)> {
         return [
     \(testNames.map { "      (\(String(reflecting: $0)), \($0))," }.joined(separator: "\n"))
         ]
       }
+
     }
     """
   }
@@ -71,30 +73,36 @@ struct GenerateHyloFileTests: ParsableCommand {
       import XCTest
       #if canImport(Darwin)
         import Darwin
+        // Portability to MacOS
+        private typealias XCTestCaseClosure = (XCTestCase) throws -> Void
+        private typealias XCTestCaseEntry = (testCaseClass: XCTestCase.Type, allTests: [(String, XCTestCaseClosure)])
       #elseif canImport(Glibc)
         import Glibc
       #elseif canImport(CRT)
         import CRT
       #endif
 
-      // Portability to MacOS
-      typealias XCTestCaseClosure = (XCTestCase) throws -> Void
-      typealias XCTestCaseEntry = (testCaseClass: XCTestCase.Type, allTests: [(String, XCTestCaseClosure)])
-      typealias AllTests<T: XCTestCase> = [(String, (T) -> () throws -> Void)]
+      private typealias AllTests<T> = [(String, (T) -> () throws -> Void)]
 
-      extension Array {
-        func eraseTestTypes<T: XCTestCase>() -> XCTestCaseEntry where Self == AllTests<T> {
+      private extension Array {
+
+        func eraseTestTypes<T>() -> XCTestCaseEntry where Self == AllTests<T> {
+          guard let t = T.self as? XCTestCase.Type else {
+            // Skip any methods scraped from non-XCTestCase types.
+            return (testCaseClass: XCTestCase.self, allTests: [])
+          }
           return (
-            testCaseClass: T.self,
+            testCaseClass: t,
             allTests: self.map { name_f in
               (name_f.0, { (x: XCTestCase) throws in try name_f.1(x as! T)() })
           })
         }
+
       }
 
       \(tests.map(allTestsExtension).joined(separator: "\n\n"))
 
-      let allTestCases: [XCTestCaseEntry] = [
+      private let allTestCases: [XCTestCaseEntry] = [
         \(tests.keys.map {"\($0).allTests.eraseTestTypes()"}.joined(separator: ",\n  "))
       ]
 
@@ -149,30 +157,35 @@ class TestScraper: SyntaxVisitor {
 
   init() { super.init(viewMode: .all) }
 
-  var scope: [String] = []
+  var scope: [(name: String, possibleClass: Bool)] = []
   var result: TestCatalog = [:]
 
+  private func enterScope(name: String, possibleClass: Bool, modifiers: DeclModifierListSyntax) -> SyntaxVisitorContinueKind {
+    scope.append((name, possibleClass))
+    return modifiers.contains(where: { $0.name.text == "private" }) ? .skipChildren
+      : .visitChildren
+  }
+
+  private func leaveScope() { scope.removeLast() }
+
   override func visit(_ n: ClassDeclSyntax) -> SyntaxVisitorContinueKind {
-    scope.append(n.name.text)
-    return .visitChildren
+    enterScope(name: n.name.text, possibleClass: true, modifiers: n.modifiers)
   }
 
   override func visitPost(_: ClassDeclSyntax) {
-    scope.removeLast()
+    leaveScope()
   }
 
   override func visit(_ n: StructDeclSyntax) -> SyntaxVisitorContinueKind {
-    scope.append(n.name.text)
-    return .visitChildren
+    enterScope(name: n.name.text, possibleClass: false, modifiers: n.modifiers)
   }
 
   override func visitPost(_: StructDeclSyntax) {
-    scope.removeLast()
+    leaveScope()
   }
 
   override func visit(_ n: EnumDeclSyntax) -> SyntaxVisitorContinueKind {
-    scope.append(n.name.text)
-    return .visitChildren
+    enterScope(name: n.name.text, possibleClass: false, modifiers: n.modifiers)
   }
 
   override func visitPost(_: EnumDeclSyntax) {
@@ -180,8 +193,7 @@ class TestScraper: SyntaxVisitor {
   }
 
   override func visit(_ n: ExtensionDeclSyntax) -> SyntaxVisitorContinueKind {
-    scope.append(String(decoding: n.extendedType.syntaxTextBytes, as: UTF8.self))
-    return .visitChildren
+    enterScope(name: "\(n.extendedType)", possibleClass: true, modifiers: n.modifiers)
   }
 
   override func visitPost(_: ExtensionDeclSyntax) {
@@ -189,8 +201,12 @@ class TestScraper: SyntaxVisitor {
   }
 
   override func visit(_ n: FunctionDeclSyntax) -> SyntaxVisitorContinueKind {
-    // Bail if at module scope
-    if scope.isEmpty { return .skipChildren }
+    // Bail if we can't possibly be in a class, or if the method is static or private.
+    if scope.isEmpty || !scope.last!.possibleClass
+         || n.modifiers.contains(where: { ["static", "private"].contains($0.name.text) })
+    {
+      return .skipChildren
+    }
 
     let baseName = n.name.text
     if baseName.starts(with: "test")
@@ -198,7 +214,7 @@ class TestScraper: SyntaxVisitor {
          && n.genericParameterClause == nil
          && n.genericWhereClause == nil
     {
-      result[scope.joined(separator: "."), default: []].append(baseName)
+      result[scope.lazy.map(\.name).joined(separator: "."), default: []].append(baseName)
     }
 
     return .skipChildren
