@@ -129,14 +129,6 @@ struct ParseFailure: Error {
 /// ignoring errors so that formatting can do something reasonable in the presence of unrecognized
 /// operators.
 ///
-/// - Parameters:
-///   - source: The Swift source code to be formatted.
-///   - url: A file URL denoting the filename/path that should be assumed for this syntax tree,
-///     which is associated with any diagnostics emitted during formatting. If this is nil, a
-///     dummy value will be used.
-///   - operatorTable: The operator table to use for sequence folding.
-///   - parsingDiagnosticHandler: An optional callback that will be notified if there are any
-///     errors when parsing the source code.
 /// - Throws: If an unrecoverable error occurs when formatting the code.
 func parseAndEmitDiagnostics(
   source: String,
