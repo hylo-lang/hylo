@@ -3,8 +3,9 @@ enum NameUse: Hashable {
 
   /// The name is used as the callee of an arbitrary function call.
   ///
-  /// `labels` contains the labels of the run-time arguments passed to the callee.
-  case function(labels: [String?])
+  /// `labels` contains the labels of the run-time arguments passed to the callee. `mutating` is
+  /// `true` iff the name is marked for mutation.
+  case function(labels: [String?], mutating: Bool)
 
   /// The name is used as the callee of a constructor call.
   ///
@@ -28,10 +29,15 @@ enum NameUse: Hashable {
     }
   }
 
+  /// `true` iff `self` denotes a name used for calling a mutating function.
+  var isMutating: Bool {
+    if case .function(_, let m) = self { m } else { false }
+  }
+
   /// Returns the associated labels if `self` denotes a use as a callee; otherwise returns `nil`.
   var labels: [String?]? {
     switch self {
-    case .function(let l), .constructor(let l), .subscript(let l):
+    case .function(let l, _), .constructor(let l), .subscript(let l):
       return l
     case .unapplied:
       return nil

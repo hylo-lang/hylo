@@ -3999,7 +3999,7 @@ struct TypeChecker {
     }
 
     switch purpose {
-    case .constructor(let ls), .function(let ls):
+    case .constructor(let ls), .function(let ls, _):
       guard let t = MetatypeType(parent.type)?.instance else { return nil }
       let n = SourceRepresentable(value: Name(stem: "init"), range: name.site)
       let p = NameResolutionContext(type: t, arguments: parent.arguments, receiver: nil)
