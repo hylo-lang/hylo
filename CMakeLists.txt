@@ -124,19 +124,19 @@ set(CMAKE_MODULE_PATH ${_HYLO_SAVED_CMAKE_MODULE_PATH})
 # )
 # FetchContent_MakeAvailable(SwiftSyntax)
 
-FetchContent_Declare(SwiftSystem
-  GIT_REPOSITORY https://github.com/apple/swift-system.git
-  GIT_TAG        1.1.1
-  FIND_PACKAGE_ARGS CONFIG
-)
-FetchContent_MakeAvailable(SwiftSystem)
+# FetchContent_Declare(SwiftSystem
+#   GIT_REPOSITORY https://github.com/apple/swift-system.git
+#   GIT_TAG        1.1.1
+#   FIND_PACKAGE_ARGS CONFIG
+# )
+# FetchContent_MakeAvailable(SwiftSystem)
 
-FetchContent_Declare(SwiftToolsSupportCore
-  GIT_REPOSITORY https://github.com/apple/swift-tools-support-core.git
-  GIT_TAG        0.5.2
-  FIND_PACKAGE_ARGS CONFIG
-)
-FetchContent_MakeAvailable(SwiftToolsSupportCore)
+# FetchContent_Declare(SwiftToolsSupportCore
+#   GIT_REPOSITORY https://github.com/apple/swift-tools-support-core.git
+#   GIT_TAG        0.5.2
+#   FIND_PACKAGE_ARGS CONFIG
+# )
+# FetchContent_MakeAvailable(SwiftToolsSupportCore)
 
 FetchContent_Declare(SwiftyLLVM
   GIT_REPOSITORY https://github.com/hylo-lang/Swifty-LLVM.git
