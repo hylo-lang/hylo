@@ -2,7 +2,7 @@
 public trait Movable {
 
   /// Gives `self` the value of a consumed `source`.
-  fun take_value(from source: sink Self) -> {self: Self, Void} {
+  fun take_value(from source: sink Self) {
     set
     inout
   }

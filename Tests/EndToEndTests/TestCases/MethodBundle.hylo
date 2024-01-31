@@ -7,14 +7,14 @@ type A: Deinitializable {
   public memberwise init
 
   public fun foo() -> Int {
-    let  { x.copy() }
-    sink { x }
+    let  { (self: A(x: x.copy()), x.copy()) }
+    sink { (self: A(x: x.copy()), x) }
   }
 
 }
 
 public fun main() {
   var a = A(x: 42)
-  precondition(a.foo() == 42)
-  precondition(a.foo() == 42)
+  precondition(a.foo().1 == 42)
+  precondition(a.foo().1 == 42)
 }

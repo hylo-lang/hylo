@@ -2384,35 +2384,8 @@ struct TypeChecker {
     }
 
     let k = program[d].introducer.value
-    assert(bundle.capabilities.contains(k))
-
-    let r = bundle.receiver
-    cache.write(^ParameterType(k, r), at: \.declType[program[d].receiver])
-
-    let e: AnyType
-    let o: AnyType
-    switch k {
-    case .let:
-      e = ^TupleType([.init(label: "self", type: ^RemoteType(k, r))])
-      o = bundle.output
-
-    case .sink:
-      e = ^TupleType([.init(label: "self", type: r)])
-      o = bundle.output
-
-    case .set, .inout:
-      guard let t = mutatingVariantOutput(of: bundle, in: program[d].scope) else {
-        diagnostics.insert(.error(mutatingBundleMustReturnTupleAt: program[d].introducer.site))
-        return .error
-      }
-      e = ^TupleType([.init(label: "self", type: ^RemoteType(k, r))])
-      o = t
-
-    case .yielded:
-      unreachable()
-    }
-
-    return ^ArrowType(receiverEffect: k, environment: e, inputs: bundle.inputs, output: o)
+    cache.write(^ParameterType(k, bundle.receiver), at: \.declType[program[d].receiver])
+    return ^bundle.variant(k)
   }
 
   /// Computes and returns the type of `d`.
@@ -4084,6 +4057,14 @@ struct TypeChecker {
       }
     }
 
+    // If the name resolves to a method bundle, determine whether it is used mutably.
+    if let t = MethodType(candidateType) {
+      let s = AccessEffectSet.forUseOfBundle(performingInPlaceMutation: purpose.isMutating)
+      if let k = t.capabilities.intersection(s).weakest {
+        candidateType = ^t.variant(k)
+      }
+    }
+
     // If the name resolves to an initializer, determine if it is used as a constructor.
     let isConstructor =
       (d.kind == InitializerDecl.self) && (purpose.isConstructor || (name.value.stem == "new"))
@@ -4992,11 +4973,8 @@ struct TypeChecker {
     of e: FunctionCallExpr.ID, withHint hint: AnyType? = nil,
     updating obligations: inout ProofObligations
   ) -> AnyType {
-    let u = NameUse.function(labels: program[e].arguments.map(\.label?.value))
-    let callee = _inferredType(
-      ofCallee: program[e].callee, usedAs: u, withHint: hint, updating: &obligations)
-
-    // We failed to infer the type of the callee. We can stop here.
+    // We need the type of the callee to infer anything further.
+    let callee = inferredCalleeType(of: e, implicitlyIn: hint, updating: &obligations)
     if callee.isError {
       return constrain(e, to: .error, in: &obligations)
     }
@@ -5250,11 +5228,8 @@ struct TypeChecker {
     of e: SubscriptCallExpr.ID, withHint hint: AnyType? = nil,
     updating obligations: inout ProofObligations
   ) -> AnyType {
-    let u = NameUse.subscript(labels: program[e].arguments.map(\.label?.value))
-    let callee = _inferredType(
-      ofCallee: program[e].callee, usedAs: u, withHint: hint, updating: &obligations)
-
-    // We failed to infer the type of the callee. We can stop here.
+    // We need the type of the callee to infer anything further.
+    let callee = inferredCalleeType(of: e, implicitlyIn: hint, updating: &obligations)
     if callee.isError {
       return constrain(e, to: .error, in: &obligations)
     }
@@ -5377,18 +5352,48 @@ struct TypeChecker {
     return constrain(e, to: ^MetatypeType(of: r), in: &obligations)
   }
 
-  /// Returns the inferred type of `callee`, which is the callee of a call used as `purpose`,
-  /// gathering contextual information from `hint` and updating `obligations`.
-  ///
-  /// - Requires: `purpose` is either `.function` or `.subscript`.
-  private mutating func _inferredType(
-    ofCallee callee: AnyExprID, usedAs purpose: NameUse, withHint hint: AnyType?,
+  /// Returns the inferred type of `e`'s callee using `q` to resolve implicit qualifications and
+  /// updating `obligations`.
+  private mutating func inferredCalleeType(
+    of e: FunctionCallExpr.ID, implicitlyIn q: AnyType?,
     updating obligations: inout ProofObligations
   ) -> AnyType {
-    assert(purpose != .unapplied)
-    if let e = NameExpr.ID(callee) {
-      return _inferredType(of: e, inImplicitScope: hint, usedAs: purpose, updating: &obligations)
-    } else {
+    let c = program[e].callee.id
+    let p = NameUse.function(
+      labels: program[e].arguments.map(\.label?.value), mutating: c.kind == InoutExpr.self)
+    return inferredType(ofCallee: c, usedAs: p, implicitlyIn: q, updating: &obligations)
+  }
+
+  /// Returns the inferred type of `e`'s callee using `q` to resolve implicit qualifications and
+  /// updating `obligations`.
+  private mutating func inferredCalleeType(
+    of e: SubscriptCallExpr.ID, implicitlyIn q: AnyType?,
+    updating obligations: inout ProofObligations
+  ) -> AnyType {
+    let c = program[e].callee.id
+    let p = NameUse.subscript(
+      labels: program[e].arguments.map(\.label?.value))
+    return inferredType(ofCallee: c, usedAs: p, implicitlyIn: q, updating: &obligations)
+  }
+
+  /// Returns the inferred type of `callee`, which is a callee used as `purpose`, using `q` to
+  /// resolve implicit qualifications and updating `obligations`.
+  private mutating func inferredType(
+    ofCallee callee: AnyExprID, usedAs purpose: NameUse, implicitlyIn q: AnyType?,
+    updating obligations: inout ProofObligations
+  ) -> AnyType {
+    switch callee.kind {
+    case InoutExpr.self:
+      let e = InoutExpr.ID(callee)!
+      let t = inferredType(
+        ofCallee: program[e].subject, usedAs: purpose, implicitlyIn: q, updating: &obligations)
+      return constrain(callee, to: t, in: &obligations)
+
+    case NameExpr.self:
+      let e = NameExpr.ID(callee)!
+      return _inferredType(of: e, implicitlyIn: q, usedAs: purpose, updating: &obligations)
+
+    default:
       return inferredType(of: callee, updating: &obligations)
     }
   }
@@ -5622,28 +5627,27 @@ struct TypeChecker {
     return nil
   }
 
-  /// Inserts in `obligations` the constraints implied by the result of name resolution for each
-  /// nominal component in `components`.
+  /// Updates `obligations` with the constraints implied by the result of name resolution for each
+  /// element in `components`.
   private mutating func constrain(
     _ components: [NameResolutionResult.ResolvedComponent], in obligations: inout ProofObligations
   ) -> AnyType {
     var last: AnyType?
     var substitutions: [GenericParameterDecl.ID: AnyType] = [:]
     for p in components {
-      last = constrain(p.component, to: p.candidates, in: &obligations, updating: &substitutions)
+      last = constrain(p.component, to: p.candidates, in: &obligations, extending: &substitutions)
     }
     return last!
   }
 
-  /// Inserts in `obligations` the constraint that `name` refers to one of the declarations in
-  /// `candidates`, updating `substitutions` with opened generic parameters, and returning the
-  /// inferred type of `name`.
+  /// Updates `obligations` to constrain `name` as a reference to one of `candidates`, extending
+  /// `substitutions` with opened generic parameters, and returning the inferred type of `name`.
   ///
   /// - Requires: `candidates` is not empty
   private mutating func constrain(
     _ name: NameExpr.ID, to candidates: [NameResolutionResult.Candidate],
     in obligations: inout ProofObligations,
-    updating substitutions: inout [GenericParameterDecl.ID: AnyType]
+    extending substitutions: inout [GenericParameterDecl.ID: AnyType]
   ) -> AnyType {
     precondition(!candidates.isEmpty)
     let site = program[name].site
@@ -6064,19 +6068,6 @@ struct TypeChecker {
   /// Returns `true` if `d` isn't a trait requirement, an FFI, or an external function.
   private func requiresBody(_ d: FunctionDecl.ID) -> Bool {
     !(program.isRequirement(d) || program[d].isForeignInterface || program[d].isExternal)
-  }
-
-  /// If `t` is the type of a mutating bundle in `scopeOfUse`, returns the output of a mutating
-  /// variant in that bundle; returns `nil` otherwise.
-  private mutating func mutatingVariantOutput(
-    of t: MethodType, in scopeOfUse: AnyScopeID
-  ) -> AnyType? {
-    guard
-      let es = TupleType(canonical(t.output, in: scopeOfUse))?.elements,
-      (es.count == 2) && (es[0].label == "self") && (es[1].label == nil),
-      areEquivalent(es[0].type, t.receiver, in: scopeOfUse)
-    else { return nil }
-    return es[1].type
   }
 
   // MARK: Caching

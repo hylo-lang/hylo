@@ -3,7 +3,7 @@ import Utils
 /// The overarching type of a method declaration.
 public struct MethodType: TypeProtocol {
 
-  /// The capabilities of the subscript.
+  /// The capabilities of the bundle.
   public let capabilities: AccessEffectSet
 
   /// The type of the receiver.
@@ -35,6 +35,40 @@ public struct MethodType: TypeProtocol {
     flags = fs
   }
 
+  /// Returns the type of the variant `k` in this bundle.
+  ///
+  /// - Requires: `k` is in the capabilities of `self`.
+  public func variant(_ k: AccessEffect) -> ArrowType {
+    precondition(capabilities.contains(k))
+
+    switch k {
+    case .let:
+      return makeType(^RemoteType(k, receiver), makeFunctionalOutput())
+    case .sink:
+      return makeType(receiver, makeFunctionalOutput())
+    case .set, .inout:
+      return makeType(^RemoteType(k, receiver), output)
+    case .yielded:
+      unreachable()
+    }
+
+    /// Returns the output type of a `let` or `sink` variant.
+    func makeFunctionalOutput() -> AnyType {
+      if output == .void {
+        return receiver
+      } else {
+        return ^TupleType([.init(label: "self", type: receiver), .init(label: nil, type: output)])
+      }
+    }
+
+    /// Returns the type of a method implementation with receiver `r` and output `o`.
+    func makeType(_ r: AnyType, _ o: AnyType) -> ArrowType {
+      ArrowType(
+        receiverEffect: k, environment: ^TupleType([.init(label: "self", type: r)]),
+        inputs: inputs, output: o)
+    }
+  }
+
   public func transformParts<M>(
     mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction
   ) -> Self {
@@ -44,6 +78,7 @@ public struct MethodType: TypeProtocol {
       inputs: inputs.map({ $0.transform(mutating: &m, transformer) }),
       output: output.transform(mutating: &m, transformer))
   }
+
 }
 
 extension MethodType: CallableType {
