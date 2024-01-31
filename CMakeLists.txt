@@ -14,6 +14,16 @@ if(POLICY CMP0157)
   cmake_policy(SET CMP0157 NEW)
 endif()
 
+function(dump_cmake_variables)
+    get_cmake_property(_variableNames VARIABLES)
+    list (SORT _variableNames)
+    foreach (_variableName ${_variableNames})
+        if ((NOT DEFINED ARGV0) OR _variableName MATCHES ${ARGV0})
+            message(STATUS "${_variableName}=${${_variableName}}")
+        endif()
+    endforeach()
+endfunction()
+
 project(SwiftPM LANGUAGES C Swift)
 
 # option(BUILD_SHARED_LIBS "Build shared libraries by default" YES)
@@ -83,7 +93,11 @@ FetchContent_Declare(SwiftCollections
   GIT_TAG        1.0.4
   FIND_PACKAGE_ARGS CONFIG
 )
+set(_HYLO_SAVED_CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH})
+FetchContent_Populate(SwiftCollections)
+list(APPEND CMAKE_MODULE_PATH ${swiftcollections_SOURCE_DIR}/cmake/modules)
 FetchContent_MakeAvailable(SwiftCollections)
+set(CMAKE_MODULE_PATH ${_HYLO_SAVED_CMAKE_MODULE_PATH})
 
 FetchContent_Declare(SwiftFormat
   GIT_REPOSITORY https://github.com/apple/swift-format.git
@@ -92,19 +106,23 @@ FetchContent_Declare(SwiftFormat
 )
 FetchContent_MakeAvailable(SwiftFormat)
 
-FetchContent_Declare(SwiftNumerics
+FetchContent_Declare(swift-numerics
   GIT_REPOSITORY https://github.com/apple/swift-numerics.git
   GIT_TAG        1.0.2
   FIND_PACKAGE_ARGS CONFIG
 )
-FetchContent_MakeAvailable(SwiftNumerics)
+set(_HYLO_SAVED_CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH})
+FetchContent_Populate(swift-numerics)
+list(APPEND CMAKE_MODULE_PATH ${swift-numerics_SOURCE_DIR}/cmake/modules)
+FetchContent_MakeAvailable(swift-numerics)
+set(CMAKE_MODULE_PATH ${_HYLO_SAVED_CMAKE_MODULE_PATH})
 
-FetchContent_Declare(SwiftSyntax
-  GIT_REPOSITORY https://github.com/apple/swift-syntax.git
-  GIT_TAG        main
-  FIND_PACKAGE_ARGS CONFIG
-)
-FetchContent_MakeAvailable(SwiftSyntax)
+# FetchContent_Declare(SwiftSyntax
+#   GIT_REPOSITORY https://github.com/apple/swift-syntax.git
+#   GIT_TAG        main
+#   FIND_PACKAGE_ARGS CONFIG
+# )
+# FetchContent_MakeAvailable(SwiftSyntax)
 
 FetchContent_Declare(SwiftSystem
   GIT_REPOSITORY https://github.com/apple/swift-system.git
