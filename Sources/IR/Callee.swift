@@ -13,13 +13,13 @@ enum Callee {
   case lambda(Operand)
 
   /// Creates an instance representing a reference to the lowered form of `d` in `module`,
-  /// specialized by`a` in `scopeOfUse`.
+  /// specialized by `a` in `scopeOfUse` and used mutably iff `m` is `true`.
   init(
-    _ d: AnyDeclID, specializedBy a: GenericArguments,
+    referringTo d: AnyDeclID, usedMutably m: Bool, specializedBy a: GenericArguments,
     in module: inout Module, usedIn scopeOfUse: AnyScopeID
   ) {
-    if let m = MethodDecl.ID(d) {
-      self = .bundle(BundleReference(to: m, specializedBy: a))
+    if let f = MethodDecl.ID(d) {
+      self = .bundle(BundleReference(to: f, usedMutably: m, specializedBy: a))
     } else {
       self = .direct(FunctionReference(to: d, in: &module, specializedBy: a, in: scopeOfUse))
     }
