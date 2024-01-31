@@ -1581,7 +1581,7 @@ struct Emitter {
       usingExplicit: ast[e].arguments, synthesizingDefaultAt: .empty(at: ast[e].site.end))
 
     // Callee and captures are evaluated next.
-    let (callee, captures) = emit(functionCallee: ast[e].callee, markedForMutation: false)
+    let (callee, captures) = emitFunctionCallee(ast[e].callee, markedForMutation: false)
     let arguments = captures + explicitArguments
 
     // Call is evaluated last.
@@ -2087,7 +2087,7 @@ struct Emitter {
       usingExplicit: ast[e].arguments, synthesizingDefaultAt: .empty(at: ast[e].site.end))
 
     // Callee and captures are evaluated next.
-    let (callee, captures) = emit(subscriptCallee: ast[e].callee, markedForMutation: false)
+    let (callee, captures) = emitSubscriptCallee(ast[e].callee, markedForMutation: false)
 
     return (callee, captures + explicitArguments)
   }
@@ -2142,23 +2142,23 @@ struct Emitter {
   /// returned in the same order as the additional parameters in the lowered function.
   ///
   /// - Requires: `callee` has a lambda type.
-  private mutating func emit(
-    functionCallee callee: AnyExprID, markedForMutation isMutating: Bool
+  private mutating func emitFunctionCallee(
+    _ callee: AnyExprID, markedForMutation isMutating: Bool
   ) -> (callee: Callee, captures: [Operand]) {
     switch callee.kind {
     case NameExpr.self:
-      return emit(namedFunctionCallee: .init(callee)!, markedForMutation: isMutating)
+      return emitNamedFunctionCallee(.init(callee)!, markedForMutation: isMutating)
     case InoutExpr.self:
-      return emit(functionCallee: ast[InoutExpr.ID(callee)!].subject, markedForMutation: true)
+      return emitFunctionCallee(ast[InoutExpr.ID(callee)!].subject, markedForMutation: true)
     default:
-      return (callee: .lambda(emit(lambdaCallee: callee)), captures: [])
+      return (callee: .lambda(emitLambdaCallee(callee)), captures: [])
     }
   }
 
   /// Inserts the IR for given `callee`, which is marked for mutation iff `isMutating` is `true`,
   /// and returns the callee's value along with its lifted arguments.
-  private mutating func emit(
-    namedFunctionCallee callee: NameExpr.ID, markedForMutation isMutating: Bool
+  private mutating func emitNamedFunctionCallee(
+    _ callee: NameExpr.ID, markedForMutation isMutating: Bool
   ) -> (callee: Callee, captures: [Operand]) {
     switch program[callee].referredDecl {
     case .direct(let d, let a) where d.isCallable:
@@ -2178,7 +2178,7 @@ struct Emitter {
 
     default:
       // Callee is a lambda.
-      let f = emit(lambdaCallee: .init(callee))
+      let f = emitLambdaCallee(.init(callee))
       return (.lambda(f), [])
     }
   }
@@ -2206,7 +2206,7 @@ struct Emitter {
   /// Inserts the IR for given `callee` and returns its value.
   ///
   /// - Requires: `callee` has a lambda type.
-  private mutating func emit(lambdaCallee callee: AnyExprID) -> Operand {
+  private mutating func emitLambdaCallee(_ callee: AnyExprID) -> Operand {
     switch ArrowType(program[callee].type)!.receiverEffect {
     case .yielded:
       unreachable()
@@ -2220,15 +2220,17 @@ struct Emitter {
     }
   }
 
-  private mutating func emit(
-    subscriptCallee callee: AnyExprID, markedForMutation isMutating: Bool
+  /// Inserts the IR for given `callee`, which is marked for mutation if `isMutating` is `true`,
+  /// and returns the callee's value along with its lifted arguments.
+  private mutating func emitSubscriptCallee(
+    _ callee: AnyExprID, markedForMutation isMutating: Bool
   ) -> (callee: BundleReference<SubscriptDecl>, captures: [Operand]) {
     // TODO: Handle captures
     switch callee.kind {
     case NameExpr.self:
-      return emit(namedSubscriptCallee: .init(callee)!, markedForMutation: isMutating)
+      return emitNamedSubscriptCallee(.init(callee)!, markedForMutation: isMutating)
     case InoutExpr.self:
-      return emit(subscriptCallee: ast[InoutExpr.ID(callee)!].subject, markedForMutation: true)
+      return emitSubscriptCallee(ast[InoutExpr.ID(callee)!].subject, markedForMutation: true)
     default:
       UNIMPLEMENTED()
     }
@@ -2236,8 +2238,8 @@ struct Emitter {
 
   /// Inserts the IR for given `callee`, which is marked for mutation if `isMutating` is `true`,
   /// and returns the callee's value along with its lifted arguments.
-  private mutating func emit(
-    namedSubscriptCallee callee: NameExpr.ID, markedForMutation isMutating: Bool
+  private mutating func emitNamedSubscriptCallee(
+    _ callee: NameExpr.ID, markedForMutation isMutating: Bool
   ) -> (callee: BundleReference<SubscriptDecl>, captures: [Operand]) {
     switch program[callee].referredDecl {
     case .direct(let d, let a) where d.kind == SubscriptDecl.self:
