@@ -22,11 +22,7 @@ enum NameUse: Hashable {
 
   /// `true` iff `self` is `.constructor`.
   var isConstructor: Bool {
-    if case .constructor = self {
-      return true
-    } else {
-      return false
-    }
+    if case .constructor = self { true } else { false }
   }
 
   /// `true` iff `self` denotes a name used for calling a mutating function.
