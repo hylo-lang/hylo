@@ -4057,14 +4057,6 @@ struct TypeChecker {
       }
     }
 
-    // If the name resolves to a method bundle, determine whether it is used mutably.
-    if let t = MethodType(candidateType) {
-      let s = AccessEffectSet.forUseOfBundle(performingInPlaceMutation: purpose.isMutating)
-      if let k = t.capabilities.intersection(s).weakest {
-        candidateType = ^t.variant(k)
-      }
-    }
-
     // If the name resolves to an initializer, determine if it is used as a constructor.
     let isConstructor =
       (d.kind == InitializerDecl.self) && (purpose.isConstructor || (name.value.stem == "new"))
