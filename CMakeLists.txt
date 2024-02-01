@@ -61,21 +61,22 @@ FetchContent_Declare(BigInt
   GIT_TAG        v5.3.0
   FIND_PACKAGE_ARGS CONFIG
 )
-FetchContent_MakeAvailable(BigInt)
+# No built-in CMake support so declare the library here.
+FetchContent_Populate(BigInt)
+file(GLOB_RECURSE BigInt_FILES FOLLOW_SYMLINKS LIST_DIRECTORIES false CONFIGURE_DEPENDS ${bigint_SOURCE_DIR}/Sources/*.swift)
+add_library(BigInt ${BigInt_FILES})
 
 FetchContent_Declare(Durian
   GIT_REPOSITORY https://github.com/hylo-lang/Durian.git
   GIT_TAG        1.2
   FIND_PACKAGE_ARGS CONFIG
 )
-FetchContent_MakeAvailable(Durian)
 
 # FetchContent_Declare(SPIManifest
 #   GIT_REPOSITORY https://github.com/SwiftPackageIndex/SPIManifest.git
 #   GIT_TAG        v0.19.0
 #   FIND_PACKAGE_ARGS CONFIG
 # )
-# FetchContent_MakeAvailable(SPIManifest)
 
 FetchContent_Declare(SwiftAlgorithms
   GIT_REPOSITORY https://github.com/apple/swift-algorithms.git
@@ -85,57 +86,49 @@ FetchContent_Declare(SwiftAlgorithms
 # No built-in CMake support so declare the library here.
 FetchContent_Populate(SwiftAlgorithms)
 file(GLOB_RECURSE SwiftAlgorithms_FILES FOLLOW_SYMLINKS LIST_DIRECTORIES false CONFIGURE_DEPENDS ${swiftalgorithms_SOURCE_DIR}/Sources/*.swift)
-add_library(SwiftAlgorithms ${SwiftAlgorithms_FILES})
-target_link_libraries(SwiftAlgorithms PRIVATE RealModule)
-set_target_properties(SwiftAlgorithms PROPERTIES
-  INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
+add_library(Algorithms ${SwiftAlgorithms_FILES})
+target_link_libraries(Algorithms PRIVATE RealModule)
+# set_target_properties(Algorithms PROPERTIES
+#   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
 
 FetchContent_Declare(ArgumentParser
   GIT_REPOSITORY https://github.com/apple/swift-argument-parser.git
   GIT_TAG        1.2.2
   FIND_PACKAGE_ARGS CONFIG
 )
-FetchContent_MakeAvailable(ArgumentParser)
 
+find_package(Git)
+set(SwiftCollections_patch
+  ${GIT_EXECUTABLE} apply ${CMAKE_CURRENT_SOURCE_DIR}/SwiftCollections.patch)
 FetchContent_Declare(SwiftCollections
   GIT_REPOSITORY https://github.com/apple/swift-collections.git
   GIT_TAG        1.0.4
+  PATCH_COMMAND ${SwiftCollections_patch}
+  UPDATE_DISCONNECTED 1
   FIND_PACKAGE_ARGS CONFIG
 )
-# Workaround: SwiftCollections uses CMAKE_SOURCE_DIR instead of PROJECT_SOURCE_DIR
-# Workaround: SwiftCollections appends to CMAKE_MODULE_PATH and never undoes it
-set(_HYLO_SAVED_CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH})
-FetchContent_Populate(SwiftCollections)
-list(APPEND CMAKE_MODULE_PATH ${swiftcollections_SOURCE_DIR}/cmake/modules)
-FetchContent_MakeAvailable(SwiftCollections)
-set(CMAKE_MODULE_PATH ${_HYLO_SAVED_CMAKE_MODULE_PATH})
 
 FetchContent_Declare(SwiftFormat
   GIT_REPOSITORY https://github.com/apple/swift-format.git
   GIT_TAG        508.0.1
   FIND_PACKAGE_ARGS CONFIG
 )
-FetchContent_MakeAvailable(SwiftFormat)
 
+set(swift-numerics_patch
+  ${GIT_EXECUTABLE} apply ${CMAKE_CURRENT_SOURCE_DIR}/swift-numerics.patch)
 FetchContent_Declare(swift-numerics
   GIT_REPOSITORY https://github.com/apple/swift-numerics.git
   GIT_TAG        1.0.2
+  PATCH_COMMAND ${swift-numerics_patch}
+  UPDATE_DISCONNECTED 1
   FIND_PACKAGE_ARGS CONFIG
 )
-# Workaround: swift-numerics uses CMAKE_SOURCE_DIR instead of PROJECT_SOURCE_DIR
-# Workaround: swift-numerics appends to CMAKE_MODULE_PATH and never undoes it
-set(_HYLO_SAVED_CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH})
-FetchContent_Populate(swift-numerics)
-list(APPEND CMAKE_MODULE_PATH ${swift-numerics_SOURCE_DIR}/cmake/modules)
-FetchContent_MakeAvailable(swift-numerics)
-set(CMAKE_MODULE_PATH ${_HYLO_SAVED_CMAKE_MODULE_PATH})
 
 # FetchContent_Declare(SwiftSyntax
 #   GIT_REPOSITORY https://github.com/apple/swift-syntax.git
 #   GIT_TAG        main
 #   FIND_PACKAGE_ARGS CONFIG
 # )
-# FetchContent_MakeAvailable(SwiftSyntax)
 
 
 # FetchContent_Declare(SwiftSystem
@@ -143,21 +136,19 @@ set(CMAKE_MODULE_PATH ${_HYLO_SAVED_CMAKE_MODULE_PATH})
 #   GIT_TAG        1.1.1
 #   FIND_PACKAGE_ARGS CONFIG
 # )
-# FetchContent_MakeAvailable(SwiftSystem)
 
 # FetchContent_Declare(SwiftToolsSupportCore
 #   GIT_REPOSITORY https://github.com/apple/swift-tools-support-core.git
 #   GIT_TAG        0.5.2
 #   FIND_PACKAGE_ARGS CONFIG
 # )
-# FetchContent_MakeAvailable(SwiftToolsSupportCore)
 
 FetchContent_Declare(SwiftyLLVM
   GIT_REPOSITORY https://github.com/hylo-lang/Swifty-LLVM.git
   GIT_TAG        main
   FIND_PACKAGE_ARGS CONFIG
 )
-FetchContent_MakeAvailable(SwiftyLLVM)
+FetchContent_MakeAvailable(BigInt Durian SwiftAlgorithms ArgumentParser SwiftCollections SwiftFormat swift-numerics SwiftyLLVM)
 
 set(BUILD_TESTING ${_HYLO_SAVED_BUILD_TESTING})
 set(BUILD_EXAMPLES ${_HYLO_SAVED_BUILD_EXAMPLES})
@@ -165,7 +156,7 @@ set(BUILD_EXAMPLES ${_HYLO_SAVED_BUILD_EXAMPLES})
 # Utils module
 file(GLOB_RECURSE Utils_FILES FOLLOW_SYMLINKS LIST_DIRECTORIES false CONFIGURE_DEPENDS Sources/Utils/*.swift)
 add_library(Utils ${Utils_FILES})
-target_link_libraries(Utils private SwiftAlgorithms BigInt SwiftCollections)
+target_link_libraries(Utils PRIVATE Algorithms BigInt Collections)
 
 add_subdirectory(Sources)
 # add_subdirectory(cmake/modules)
