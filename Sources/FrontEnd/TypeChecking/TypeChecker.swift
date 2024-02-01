@@ -4994,7 +4994,8 @@ struct TypeChecker {
     }
 
     let isMutating = program.ast.isMarkedForMutation(program[e].callee)
-    let output = (callee.base as? CallableType)?.outputOfUse(mutable: isMutating)
+    let output =
+      (callee.base as? CallableType)?.outputOfUse(mutable: isMutating)
       ?? hint
       ?? ^freshVariable()
 
@@ -5273,7 +5274,8 @@ struct TypeChecker {
     }
 
     let isMutating = program.ast.isMarkedForMutation(program[e].callee)
-    let output = (callee.base as? CallableType)?.outputOfUse(mutable: isMutating)
+    let output =
+      (callee.base as? CallableType)?.outputOfUse(mutable: isMutating)
       ?? hint
       ?? ^freshVariable()
 
