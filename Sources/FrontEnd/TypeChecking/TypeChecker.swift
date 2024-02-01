@@ -4035,6 +4035,8 @@ struct TypeChecker {
       of: d, lookedUpIn: context, exposedTo: scopeOfUse, reportingDiagnosticsAt: name.site)
     if candidateType[.hasError] { return nil }
 
+    // TODO: Report invalid uses of mutation markers
+
     // The specialization of the match includes that of context in which it was looked up.
     var specialization = genericArguments(inScopeIntroducing: d, resolvedIn: context)
     candidateType = specialize(candidateType, for: specialization, in: scopeOfUse)
