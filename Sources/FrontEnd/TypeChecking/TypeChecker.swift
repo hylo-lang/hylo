@@ -3610,14 +3610,11 @@ struct TypeChecker {
     if let x = n.notation, x != operatorNotation(d) { return nil }
 
     // If the looked up name has an introducer, return the corresponding implementation.
-    if let introducer = n.introducer {
-      guard let m = program.ast[MethodDecl.ID(d)] else { return nil }
-      return m.impls.first(where: { (i) in
-        program[i].introducer.value == introducer
-      }).map(AnyDeclID.init(_:))
+    return n.introducer.map(default: d) { (k) in
+      MethodDecl.ID(d)
+        .flatMap({ (m) in program.ast.implementation(k, of: m) })
+        .flatMap(AnyDeclID.init(_:))
     }
-
-    return d
   }
 
   /// Returns the labels of `d`s name.

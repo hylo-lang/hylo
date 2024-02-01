@@ -425,7 +425,7 @@ public struct AST {
   }
 
   /// Retutns the declaration of the implementation of `d` with effect `a`, if any.
-  public func implementation(_ a: AccessEffect, of d: SubscriptDecl.ID) -> SubscriptImpl.ID? {
+  public func implementation<T: BundleDecl>(_ a: AccessEffect, of d: T.ID) -> T.Variant.ID? {
     self[d].impls.first(where: { (i) in self[i].introducer.value == a })
   }
 

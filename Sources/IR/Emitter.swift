@@ -1891,7 +1891,7 @@ struct Emitter {
     let o = insert(module.makeAccess(.set, from: storage, at: site))!
 
     if let k = requested.uniqueElement {
-      let v = program[callee.bundle].impls.first(where: { program[$0].introducer.value == k })!
+      let v = program.ast.implementation(k, of: callee.bundle)!
       let f = module.demandDeclaration(lowering: v)
       let r = FunctionReference(
         to: f, in: module, specializedBy: callee.arguments, in: insertionScope!)
