@@ -1,3 +1,6 @@
+# Testing with:
+# mkdir -p ~/src/hylo/.cmake-build && cd ~/src/hylo/.cmake-build && rm -f CMakeCache.txt && cmake -GNinja -S .. && cmake --build .
+
 cmake_minimum_required(VERSION 3.28.2)
 
 if(POLICY CMP0077)
@@ -79,7 +82,12 @@ FetchContent_Declare(SwiftAlgorithms
   GIT_TAG        1.2.0
   FIND_PACKAGE_ARGS CONFIG
 )
-FetchContent_MakeAvailable(SwiftAlgorithms)
+# No built-in CMake support so declare the library here.
+FetchContent_Populate(SwiftAlgorithms)
+file(GLOB_RECURSE SwiftAlgorithms_FILES FOLLOW_SYMLINKS LIST_DIRECTORIES false CONFIGURE_DEPENDS ${swiftalgorithms_SOURCE_DIR}/Sources/*.swift)
+add_library(SwiftAlgorithms ${SwiftAlgorithms_FILES})
+target_link_libraries(SwiftAlgorithms private RealModule)
+
 
 FetchContent_Declare(ArgumentParser
   GIT_REPOSITORY https://github.com/apple/swift-argument-parser.git
@@ -93,6 +101,7 @@ FetchContent_Declare(SwiftCollections
   GIT_TAG        1.0.4
   FIND_PACKAGE_ARGS CONFIG
 )
+# Workaround: SwiftCollections uses CMAKE_SOURCE_DIR instead of CMAKE_CURRENT_SOURCE_DIR(?)
 set(_HYLO_SAVED_CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH})
 FetchContent_Populate(SwiftCollections)
 list(APPEND CMAKE_MODULE_PATH ${swiftcollections_SOURCE_DIR}/cmake/modules)
@@ -111,6 +120,7 @@ FetchContent_Declare(swift-numerics
   GIT_TAG        1.0.2
   FIND_PACKAGE_ARGS CONFIG
 )
+# Workaround: swift-numerics uses CMAKE_SOURCE_DIR instead of CMAKE_CURRENT_SOURCE_DIR(?)
 set(_HYLO_SAVED_CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH})
 FetchContent_Populate(swift-numerics)
 list(APPEND CMAKE_MODULE_PATH ${swift-numerics_SOURCE_DIR}/cmake/modules)
@@ -123,6 +133,7 @@ set(CMAKE_MODULE_PATH ${_HYLO_SAVED_CMAKE_MODULE_PATH})
 #   FIND_PACKAGE_ARGS CONFIG
 # )
 # FetchContent_MakeAvailable(SwiftSyntax)
+
 
 # FetchContent_Declare(SwiftSystem
 #   GIT_REPOSITORY https://github.com/apple/swift-system.git
@@ -149,7 +160,7 @@ set(BUILD_TESTING ${_HYLO_SAVED_BUILD_TESTING})
 set(BUILD_EXAMPLES ${_HYLO_SAVED_BUILD_EXAMPLES})
 
 # Utils module
-file(GLOB_RECURSE Utils_FILES FOLLOW_SYMLINKS LIST_DIRECTORIES false CONFIGURE_DEPENDS Sources/Utils/*.swift)
+file(GLOB_RECURSE Utils_FILES FOLLOW_SYMLINKS LIST_DIRECTORIES false CONFIGURE_DEPENDS Sources/Utils/*.swift)
 add_library(Utils ${Utils_FILES})
 target_link_libraries(Utils private SwiftAlgorithms BigInt SwiftCollections)
 
