@@ -469,11 +469,11 @@ public struct Module {
     return FunctionReference(to: d, in: self, specializedBy: a, in: witness.scope)
   }
 
-  /// Returns a member reference to `d`, which is member of `receiver` specialized by `a` and used
-  /// mutably iff `m` is `true`, for use in `scopeOfUse`.
+  /// Returns a member reference to `d`, which is member of `receiver` accessed with capabilities
+  /// `k`, specializing `d`'s type for `a` in `scopeOfUse`.
   mutating func memberCallee(
-    referringTo d: AnyDeclID, memberOf receiver: AnyType,
-    usedMutably m: Bool, specializedBy a: GenericArguments, usedIn scopeOfUse: AnyScopeID
+    referringTo d: AnyDeclID, memberOf receiver: AnyType, accessedWith k: AccessEffectSet,
+    specializedBy a: GenericArguments, usedIn scopeOfUse: AnyScopeID
   ) -> Callee {
     // Check if `d`'s implementation is synthetic.
     if program.isRequirement(d) && !receiver.isSkolem {
@@ -481,9 +481,10 @@ public struct Module {
       let c = program.conformance(of: receiver, to: t, exposedTo: scopeOfUse)!
       let f = demandDeclaration(lowering: c.implementations[d]!)
       return .direct(FunctionReference(to: f, in: self, specializedBy: a, in: scopeOfUse))
+    } else if let m = MethodDecl.ID(d) {
+      return .bundle(BundleReference(to: m, specializedBy: a, requesting: k))
     } else {
-      return Callee(
-        referringTo: d, usedMutably: m, specializedBy: a, in: &self, usedIn: scopeOfUse)
+      return .direct(FunctionReference(to: d, in: &self, specializedBy: a, in: scopeOfUse))
     }
   }
 

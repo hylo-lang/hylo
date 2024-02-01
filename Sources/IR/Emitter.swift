@@ -1591,7 +1591,7 @@ struct Emitter {
     case .lambda(let r):
       emitApply(r, to: arguments, writingResultTo: storage, at: ast[e].site)
     case .bundle(let r):
-      emitApply(r, inPlace: r.isMutating, to: arguments, writingResultTo: storage, at: ast[e].site)
+      emitApply(r, to: arguments, writingResultTo: storage, at: ast[e].site)
     }
   }
 
@@ -1884,26 +1884,14 @@ struct Emitter {
 
   /// Inserts the IR for calling `callee` on `arguments`, storing the result to `storage`.
   private mutating func emitApply(
-    _ callee: BundleReference<MethodDecl>, inPlace isInPlace: Bool, to arguments: [Operand],
+    _ callee: BundleReference<MethodDecl>, to arguments: [Operand],
     writingResultTo storage: Operand, at site: SourceRange
   ) {
-    let requested = (module[arguments[0].instruction!] as! Access).capabilities
     let o = insert(module.makeAccess(.set, from: storage, at: site))!
-
-    if let k = requested.uniqueElement {
-      let v = program.ast.implementation(k, of: callee.bundle)!
-      let f = module.demandDeclaration(lowering: v)
-      let r = FunctionReference(
-        to: f, in: module, specializedBy: callee.arguments, in: insertionScope!)
-      let s = module.makeCall(applying: .constant(r), to: arguments, writingResultTo: o, at: site)
-      insert(s)
-    } else {
-      let s = module.makeCallBundle(
-        applyingOneOf: requested, in: callee, to: arguments, writingResultTo: o, at: site,
-        canonicalizingTypesIn: insertionScope!)
-      insert(s)
-    }
-
+    let s = module.makeCallBundle(
+      applying: callee, to: arguments, writingResultTo: o, at: site,
+      canonicalizingTypesIn: insertionScope!)
+    insert(s)
     insert(module.makeEndAccess(o, at: site))
   }
 
@@ -2188,9 +2176,6 @@ struct Emitter {
 
     let receiver = emitLValue(receiver: s, at: ast[callee].site)
     let receiverType = module.type(of: receiver).ast
-    let functionToCall = module.memberCallee(
-      referringTo: d, memberOf: receiverType,
-      usedMutably: isMutating, specializedBy: a, usedIn: program[callee].scope)
 
     let available = receiverCapabilities(program[callee].type)
     let requested = available.intersection(
@@ -2200,8 +2185,36 @@ struct Emitter {
     // assert(!requested.isEmpty)
     let k = requested.isEmpty ? available : requested
 
-    let c = insert(module.makeAccess(k, from: receiver, at: ast[callee].site))!
-    return (functionToCall, [c])
+    let functionToCall = module.memberCallee(
+      referringTo: d, memberOf: receiverType, accessedWith: k,
+      specializedBy: a, usedIn: program[callee].scope)
+
+    if case .bundle(let b) = functionToCall {
+      return emitMethodBundleCallee(referringTo: b, on: receiver, at: program[callee].site)
+    } else {
+      let c = insert(module.makeAccess(k, from: receiver, at: program[callee].site))!
+      return (callee: functionToCall, captures: [c])
+    }
+  }
+
+  /// Returns the value of a reference to `b`, which is bound to `receiver` at `site`.
+  ///
+  /// If `b` requests only one capability, the returned callee is a direct function reference to
+  /// the corresponding variant. Otherwise, it is `b` unchanged. The returned capture is an access
+  /// on `receiver` taking the weakest capability that `b` requests. This access may be modified
+  /// later to take a stronger capability if last use analysis allows it.
+  private mutating func emitMethodBundleCallee(
+    referringTo b: BundleReference<MethodDecl>, on receiver: Operand, at site: SourceRange
+  ) -> (callee: Callee, captures: [Operand]) {
+    if let k = b.capabilities.uniqueElement {
+      let d = module.demandDeclaration(lowering: program.ast.implementation(k, of: b.bundle)!)
+      let f = FunctionReference(to: d, in: module, specializedBy: b.arguments, in: insertionScope!)
+      let c = insert(module.makeAccess(k, from: receiver, at: site))!
+      return (callee: .direct(f), captures: [c])
+    } else {
+      let c = insert(module.makeAccess(b.capabilities.weakest!, from: receiver, at: site))!
+      return (callee: .bundle(b), captures: [c])
+    }
   }
 
   /// Inserts the IR for given `callee` and returns its value.
@@ -2250,16 +2263,18 @@ struct Emitter {
         UNIMPLEMENTED()
       }
 
-      let b = BundleReference(to: SubscriptDecl.ID(d)!, usedMutably: false, specializedBy: a)
+      let b = BundleReference(
+        to: SubscriptDecl.ID(d)!, specializedBy: a, requesting: t.capabilities)
       return (b, [])
 
     case .member(let d, let a, let s) where d.kind == SubscriptDecl.self:
       // Callee is a member reference to a subscript declaration.
-      let b = BundleReference(to: SubscriptDecl.ID(d)!, usedMutably: false, specializedBy: a)
+      let t = SubscriptType(canonical(program[d].type))!
+      let b = BundleReference(
+        to: SubscriptDecl.ID(d)!, specializedBy: a, requesting: t.capabilities)
 
       // The callee's receiver is the sole capture.
       let receiver = emitLValue(receiver: s, at: ast[callee].site)
-      let t = SubscriptType(program[d].type)!
       let i = insert(module.makeAccess(t.capabilities, from: receiver, at: ast[callee].site))!
       return (b, [i])
 
@@ -2753,12 +2768,11 @@ struct Emitter {
         boundTo: receiver, declaredBy: i, specializedBy: specialization, at: site)
     }
 
-    let callee = BundleReference(to: d, usedMutably: false, specializedBy: specialization)
     let t = SubscriptType(canonicalType(of: d, specializedBy: specialization))!
+    let b = BundleReference(to: d, specializedBy: specialization, requesting: t.capabilities)
     let r = insert(module.makeAccess(t.capabilities, from: receiver, at: site))!
 
-    let s = module.makeProjectBundle(
-      applying: .init(callee, in: insertionScope!), to: [r], at: site)
+    let s = module.makeProjectBundle(applying: .init(b, in: insertionScope!), to: [r], at: site)
     return insert(s)!
   }
 

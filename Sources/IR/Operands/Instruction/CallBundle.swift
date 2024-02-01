@@ -62,11 +62,10 @@ extension CallBundle: CustomStringConvertible {
 
 extension Module {
 
-  /// Creates a `call_bundle` anchored at `site` that calls one of the variants `k` defined by the
-  /// method bundle `m` to arguments `a`, canonicalizing types in `scopeOfUse`.
-  /// `arguments`.
+  /// Creates a `call_bundle` anchored at `site` that applies one of the variants defined in `m` to
+  /// arguments `a`, canonicalizing types in `scopeOfUse`.
   mutating func makeCallBundle(
-    applyingOneOf k: AccessEffectSet, in m: BundleReference<MethodDecl>, to a: [Operand],
+    applying m: BundleReference<MethodDecl>, to a: [Operand],
     writingResultTo o: Operand,
     at site: SourceRange,
     canonicalizingTypesIn scopeOfUse: AnyScopeID
@@ -74,7 +73,7 @@ extension Module {
     var variants: [AccessEffect: Function.ID] = [:]
     for v in program[m.bundle].impls {
       let i = program[v].introducer.value
-      if k.contains(i) {
+      if m.capabilities.contains(i) {
         variants[program[v].introducer.value] = demandDeclaration(lowering: v)
       }
     }
