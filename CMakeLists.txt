@@ -102,6 +102,7 @@ FetchContent_Declare(SwiftCollections
   FIND_PACKAGE_ARGS CONFIG
 )
 # Workaround: SwiftCollections uses CMAKE_SOURCE_DIR instead of CMAKE_CURRENT_SOURCE_DIR(?)
+# Workaround: SwiftCollections appends to CMAKE_MODULE_PATH and never undoes it
 set(_HYLO_SAVED_CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH})
 FetchContent_Populate(SwiftCollections)
 list(APPEND CMAKE_MODULE_PATH ${swiftcollections_SOURCE_DIR}/cmake/modules)
@@ -121,6 +122,7 @@ FetchContent_Declare(swift-numerics
   FIND_PACKAGE_ARGS CONFIG
 )
 # Workaround: swift-numerics uses CMAKE_SOURCE_DIR instead of CMAKE_CURRENT_SOURCE_DIR(?)
+# Workaround: swift-numerics appends to CMAKE_MODULE_PATH and never undoes it
 set(_HYLO_SAVED_CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH})
 FetchContent_Populate(swift-numerics)
 list(APPEND CMAKE_MODULE_PATH ${swift-numerics_SOURCE_DIR}/cmake/modules)
