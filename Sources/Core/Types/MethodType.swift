@@ -69,6 +69,17 @@ public struct MethodType: TypeProtocol {
     }
   }
 
+  /// Returns the output type of a reference to a method having this type and being used mutably
+  /// iff `isMutating` is `true`.
+  public func outputOfUse(mutable isMutating: Bool) -> AnyType {
+    let s = AccessEffectSet.forUseOfBundle(performingInPlaceMutation: isMutating)
+    if let k = capabilities.intersection(s).weakest {
+      return variant(k).output
+    } else {
+      return output
+    }
+  }
+
   public func transformParts<M>(
     mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction
   ) -> Self {

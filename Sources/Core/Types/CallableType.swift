@@ -10,6 +10,10 @@ public protocol CallableType {
   /// `true` if `Self` is the type of a function.
   var isArrow: Bool { get }
 
+  /// Returns the output type of a reference to a callee having this type and being used mutably
+  /// iff `isMutating` is `true`.
+  func outputOfUse(mutable isMutating: Bool) -> AnyType
+
 }
 
 extension CallableType {
@@ -22,6 +26,10 @@ extension CallableType {
   /// Returns `true` iff instances of `self` accept run-time argument lists with given `labels`.
   public func accepts<S: Collection<String?>>(_ labels: S) -> Bool {
     Core.accepts(inputs[...], labels)
+  }
+
+  public func outputOfUse(mutable isMutating: Bool) -> AnyType {
+    output
   }
 
 }
