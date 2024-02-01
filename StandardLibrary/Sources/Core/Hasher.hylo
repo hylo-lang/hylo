@@ -32,7 +32,7 @@ public type Hasher {
   }
 
   /// Adds `bytes` to the hash value computed by `self`.
-  public fun unsafe_combine(bytes: PointerToBuffer<Int8>) {
+  public fun unsafe_combine(bytes: PointerToBuffer<Int8>) inout {
     var i = 0
     while i < bytes.count {
       &combine(byte: bytes.start.advance(by: i).unsafe[])
