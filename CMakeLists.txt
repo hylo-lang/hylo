@@ -39,7 +39,7 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules)
+list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/modules)
 set(CMAKE_MSVC_RUNTIME_LIBRARY MultiThreadedDLL)
 set(CMAKE_POSITION_INDEPENDENT_CODE ${BUILD_SHARED_LIBS})
 
@@ -86,8 +86,9 @@ FetchContent_Declare(SwiftAlgorithms
 FetchContent_Populate(SwiftAlgorithms)
 file(GLOB_RECURSE SwiftAlgorithms_FILES FOLLOW_SYMLINKS LIST_DIRECTORIES false CONFIGURE_DEPENDS ${swiftalgorithms_SOURCE_DIR}/Sources/*.swift)
 add_library(SwiftAlgorithms ${SwiftAlgorithms_FILES})
-target_link_libraries(SwiftAlgorithms private RealModule)
-
+target_link_libraries(SwiftAlgorithms PRIVATE RealModule)
+set_target_properties(SwiftAlgorithms PROPERTIES
+  INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
 
 FetchContent_Declare(ArgumentParser
   GIT_REPOSITORY https://github.com/apple/swift-argument-parser.git
@@ -101,7 +102,7 @@ FetchContent_Declare(SwiftCollections
   GIT_TAG        1.0.4
   FIND_PACKAGE_ARGS CONFIG
 )
-# Workaround: SwiftCollections uses CMAKE_SOURCE_DIR instead of CMAKE_CURRENT_SOURCE_DIR(?)
+# Workaround: SwiftCollections uses CMAKE_SOURCE_DIR instead of PROJECT_SOURCE_DIR
 # Workaround: SwiftCollections appends to CMAKE_MODULE_PATH and never undoes it
 set(_HYLO_SAVED_CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH})
 FetchContent_Populate(SwiftCollections)
@@ -121,7 +122,7 @@ FetchContent_Declare(swift-numerics
   GIT_TAG        1.0.2
   FIND_PACKAGE_ARGS CONFIG
 )
-# Workaround: swift-numerics uses CMAKE_SOURCE_DIR instead of CMAKE_CURRENT_SOURCE_DIR(?)
+# Workaround: swift-numerics uses CMAKE_SOURCE_DIR instead of PROJECT_SOURCE_DIR
 # Workaround: swift-numerics appends to CMAKE_MODULE_PATH and never undoes it
 set(_HYLO_SAVED_CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH})
 FetchContent_Populate(swift-numerics)
