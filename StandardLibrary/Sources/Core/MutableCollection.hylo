@@ -53,7 +53,7 @@ public extension MutableCollection {
       var s1 = s.copy()
       var m1 = m.copy()
       while true {
-        swap_at(s1, m1)
+        &swap_at(s1, m1)
         &s1 = position(after: &s1)
         &m1 = position(after: &m1)
         if s1 == m || m1 == e { break }
