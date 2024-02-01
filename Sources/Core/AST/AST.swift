@@ -482,6 +482,15 @@ public struct AST {
     }
   }
 
+  /// Returns `true` iff `e` is an expression that's marked for mutation.
+  public func isMarkedForMutation(_ e: FoldedSequenceExpr) -> Bool {
+    if case .leaf(let l) = e {
+      return isMarkedForMutation(l)
+    } else {
+      return false
+    }
+  }
+
   /// Returns the source site of `expr`.
   public func site(of expr: FoldedSequenceExpr) -> SourceRange {
     switch expr {
