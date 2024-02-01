@@ -62,30 +62,32 @@ extension CallBundle: CustomStringConvertible {
 
 extension Module {
 
-  /// Creates a `call_bundle` anchored at `site` that calls one of the variants in `bundle` on
+  /// Creates a `call_bundle` anchored at `site` that calls one of the variants `k` defined by the
+  /// method bundle `m` to arguments `a`, canonicalizing types in `scopeOfUse`.
   /// `arguments`.
   mutating func makeCallBundle(
-    applying bundle: ScopedValue<BundleReference<MethodDecl>>, to arguments: [Operand],
-    writingResultTo output: Operand,
-    at site: SourceRange
+    applyingOneOf k: AccessEffectSet, in m: BundleReference<MethodDecl>, to a: [Operand],
+    writingResultTo o: Operand,
+    at site: SourceRange,
+    canonicalizingTypesIn scopeOfUse: AnyScopeID
   ) -> CallBundle {
     var variants: [AccessEffect: Function.ID] = [:]
-    for v in program[bundle.value.bundle].impls {
-      variants[program[v].introducer.value] = demandDeclaration(lowering: v)
+    for v in program[m.bundle].impls {
+      let i = program[v].introducer.value
+      if k.contains(i) {
+        variants[program[v].introducer.value] = demandDeclaration(lowering: v)
+      }
     }
 
-    let bundleType = program.canonicalType(
-      of: bundle.value.bundle, specializedBy: bundle.value.arguments, in: bundle.scope)
-    let t = MethodType(bundleType)!
+    precondition(variants.count > 1)
 
-    precondition((t.inputs.count + 1) == arguments.count)
-    precondition(arguments.allSatisfy({ self[$0] is Access }))
-    precondition(isBorrowSet(output))
+    let t = MethodType(
+      program.canonicalType(of: m.bundle, specializedBy: m.arguments, in: scopeOfUse))!
+    precondition((t.inputs.count + 1) == a.count)
+    precondition(a.allSatisfy({ self[$0] is Access }))
+    precondition(isBorrowSet(o))
 
-    return .init(
-      bundle: bundle.value, bundleType: t, variants: variants,
-      output: output, arguments: arguments,
-      site: site)
+    return .init(bundle: m, bundleType: t, variants: variants, output: o, arguments: a, site: site)
   }
 
 }

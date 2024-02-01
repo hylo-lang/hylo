@@ -1887,14 +1887,7 @@ struct Emitter {
     _ callee: BundleReference<MethodDecl>, inPlace isInPlace: Bool, to arguments: [Operand],
     writingResultTo storage: Operand, at site: SourceRange
   ) {
-    let available = receiverCapabilities(program[callee.bundle].type)
-    let requested = available.intersection(
-      AccessEffectSet.forUseOfBundle(performingInPlaceMutation: isInPlace))
-
-    if requested.isEmpty {
-      UNIMPLEMENTED("report invalid use of bundle")
-    }
-
+    let requested = (module[arguments[0].instruction!] as! Access).capabilities
     let o = insert(module.makeAccess(.set, from: storage, at: site))!
 
     if let k = requested.uniqueElement {
@@ -1906,7 +1899,8 @@ struct Emitter {
       insert(s)
     } else {
       let s = module.makeCallBundle(
-        applying: .init(callee, in: insertionScope!), to: arguments, writingResultTo: o, at: site)
+        applyingOneOf: requested, in: callee, to: arguments, writingResultTo: o, at: site,
+        canonicalizingTypesIn: insertionScope!)
       insert(s)
     }
 
@@ -2198,7 +2192,14 @@ struct Emitter {
       referringTo: d, memberOf: receiverType,
       usedMutably: isMutating, specializedBy: a, usedIn: program[callee].scope)
 
-    let k = receiverCapabilities(program[callee].type)
+    let available = receiverCapabilities(program[callee].type)
+    let requested = available.intersection(
+      AccessEffectSet.forUseOfBundle(performingInPlaceMutation: isMutating))
+
+    // TODO: requested is empty iff the program is ill-typed w.r.t. mutation markers
+    // assert(!requested.isEmpty)
+    let k = requested.isEmpty ? available : requested
+
     let c = insert(module.makeAccess(k, from: receiver, at: ast[callee].site))!
     return (functionToCall, [c])
   }
