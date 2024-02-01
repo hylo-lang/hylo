@@ -5002,10 +5002,15 @@ struct TypeChecker {
       arguments.append(.init(label: a.label, type: p, valueSite: program[a.value].site))
     }
 
-    let output = (callee.base as? CallableType)?.output ?? hint ?? ^freshVariable()
+    let isMutating = program.ast.isMarkedForMutation(program[e].callee)
+    let output = (callee.base as? CallableType)?.outputOfUse(mutable: isMutating)
+      ?? hint
+      ?? ^freshVariable()
+
     obligations.insert(
       CallConstraint(
-        arrow: callee, takes: arguments, gives: output, in: .ast(AnyExprID(e)),
+        arrow: callee, usedMutably: isMutating,
+        takes: arguments, gives: output, in: .ast(AnyExprID(e)),
         origin: .init(.callee, at: program[e].callee.site)))
 
     return constrain(e, to: output, in: &obligations)
@@ -5201,6 +5206,7 @@ struct TypeChecker {
       obligations.insert(
         CallConstraint(
           arrow: operatorType,
+          usedMutably: program.ast.isMarkedForMutation(lhs),
           takes: [.init(label: nil, type: rhsType, valueSite: program.ast.site(of: rhs))],
           gives: outputType,
           in: .infix(e),
@@ -5275,10 +5281,15 @@ struct TypeChecker {
       arguments.append(.init(label: a.label, type: p, valueSite: program[a.value].site))
     }
 
-    let output = ((callee.base as? CallableType)?.output ?? hint) ?? ^freshVariable()
+    let isMutating = program.ast.isMarkedForMutation(program[e].callee)
+    let output = (callee.base as? CallableType)?.outputOfUse(mutable: isMutating)
+      ?? hint
+      ?? ^freshVariable()
+
     obligations.insert(
       CallConstraint(
-        subscript: callee, takes: arguments, gives: output, in: .ast(AnyExprID(e)),
+        subscript: callee, usedMutably: program.ast.isMarkedForMutation(program[e].callee),
+        takes: arguments, gives: output, in: .ast(AnyExprID(e)),
         origin: .init(.callee, at: program[e].callee.site)))
 
     return constrain(e, to: output, in: &obligations)

@@ -702,8 +702,11 @@ struct ConstraintSystem {
     for c in argumentMatching.constraints {
       subordinates.append(schedule(c))
     }
+
+    // If the callee has a method type, its return type depends on whether it is used mutably.
+    let o = callee.outputOfUse(mutable: goal.isMutating)
     subordinates.append(
-      schedule(EqualityConstraint(callee.output, goal.output, origin: goal.origin.subordinate())))
+      schedule(EqualityConstraint(o, goal.output, origin: goal.origin.subordinate())))
 
     return delegate(to: subordinates)
   }
