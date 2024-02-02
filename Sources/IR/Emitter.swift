@@ -1603,9 +1603,7 @@ struct Emitter {
   /// Inserts the IR for storing the value of `e` to `storage`.
   private mutating func emitStore(_ e: LambdaExpr.ID, to storage: Operand) {
     let callee = lower(function: ast[e].decl)
-    let r = FunctionReference(
-      to: callee, in: module,
-      specializedBy: module.specialization(in: insertionFunction!), in: insertionScope!)
+    let r = module.reference(to: callee, specializedBy: module.specialization(in: insertionFunction!), in: insertionScope!)
 
     let site = ast[e].site
     let x0 = insert(module.makeAddressToPointer(.constant(r), at: site))!
@@ -1694,7 +1692,7 @@ struct Emitter {
         unreachable()
       }
 
-      let o = FunctionReference(to: d, in: &module, specializedBy: a, in: insertionScope!)
+      let o = module.reference(to: d, specializedBy: a, in: insertionScope!)
       let f = Operand.constant(o)
 
       // Emit the call.
@@ -1923,7 +1921,7 @@ struct Emitter {
 
     // Call is evaluated last.
     let f = Operand.constant(
-      FunctionReference(to: AnyDeclID(d), in: &module, specializedBy: a, in: insertionScope!))
+      module.reference(to: AnyDeclID(d), specializedBy: a, in: insertionScope!))
     let x0 = emitAllocStack(for: .void, at: ast[call].site)
     let x1 = insert(module.makeAccess(.set, from: x0, at: ast[call].site))!
 
@@ -2037,8 +2035,8 @@ struct Emitter {
     let callee = withClearContext({ $0.lower(syntheticAutoclosure: f) })
 
     // Emit the IR code to reference tha function declaration.
-    let r = FunctionReference(
-      to: callee, in: module,
+    let r = module.reference(
+      to: callee,
       specializedBy: module.specialization(in: insertionFunction!), in: insertionScope!)
 
     let anchor = program[e].site
@@ -2149,7 +2147,7 @@ struct Emitter {
       guard ArrowType(canonical(program[callee].type))!.environment == .void else {
         UNIMPLEMENTED("Generate IR for calls to local functions with captures #1088")
       }
-      let f = FunctionReference(to: d, in: &module, specializedBy: a, in: insertionScope!)
+      let f = module.reference(to: d, specializedBy: a, in: insertionScope!)
       return (.direct(f), [])
 
     case .member(let d, _, _) where d.isCallable:
@@ -2187,7 +2185,7 @@ struct Emitter {
       let c = program.conformance(of: receiverType, to: t, exposedTo: scopeOfUse)!
       let irFunction = module.demandDeclaration(lowering: c.implementations[d]!)
       functionToCall = .direct(
-        FunctionReference(to: irFunction, in: module, specializedBy: a, in: scopeOfUse))
+        module.reference(to: irFunction, specializedBy: a, in: scopeOfUse))
     } else {
       functionToCall = Callee(d, specializedBy: a, in: &module, usedIn: insertionScope!)
     }
