@@ -2036,8 +2036,7 @@ struct Emitter {
 
     // Emit the IR code to reference tha function declaration.
     let r = module.reference(
-      to: callee,
-      specializedBy: module.specialization(in: insertionFunction!), in: insertionScope!)
+      to: callee, specializedBy: module.specialization(in: insertionFunction!), in: insertionScope!)
 
     let anchor = program[e].site
     let x0 = insert(module.makeAddressToPointer(.constant(r), at: anchor))!
