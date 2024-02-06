@@ -3,6 +3,34 @@ import Utils
 /// The ID of a value expression.
 public protocol ExprID: NodeIDProtocol {}
 
+extension ExprID {
+
+  /// `true` iff `self` denotes a literal expression.
+  public var isLiteral: Bool {
+    switch kind {
+    case BooleanLiteralExpr.self:
+      return true
+    case BufferLiteralExpr.self:
+      return true
+    case FloatLiteralExpr.self:
+      return true
+    case IntegerLiteralExpr.self:
+      return true
+    case LambdaExpr.self:
+      return true
+    case MapLiteralExpr.self:
+      return true
+    case StringLiteralExpr.self:
+      return true
+    case UnicodeScalarLiteralExpr.self:
+      return true
+    default:
+      return false
+    }
+  }
+
+}
+
 extension NodeID: ExprID where Subject: Expr {}
 
 /// The type-erased ID of a value expression.

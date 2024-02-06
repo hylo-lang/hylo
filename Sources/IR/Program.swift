@@ -16,7 +16,7 @@ public struct Program: Core.Program {
   public let base: TypedProgram
 
   /// A map from module ID to its lowered form.
-  public private(set) var modules: [ModuleDecl.ID: IR.Module]
+  public var modules: [ModuleDecl.ID: IR.Module]
 
   /// Creates an instance with the given properties.
   public init(syntax: TypedProgram, modules: [ModuleDecl.ID: IR.Module]) {
@@ -32,8 +32,11 @@ public struct Program: Core.Program {
 
   /// Applies `p` to the modules in `self`.
   public mutating func applyPass(_ p: ModulePass) {
-    for k in ast.modules {
-      modules[k]!.applyPass(p, in: self)
+    switch p {
+    case .depolymorphize:
+      depolymorphize()
+    case .inline:
+      inlineCalls(where: .hasNoControlFlow)
     }
   }
 

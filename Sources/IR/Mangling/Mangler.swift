@@ -43,7 +43,7 @@ struct Mangler {
     self.program = program
     self.scopeOfUse = scopeOfUse
 
-    if program.ast.isCoreModuleLoaded {
+    if program.ast.coreModuleIsLoaded {
       self.reserved[.node(AnyNodeID(program.ast.coreLibrary!))] = .hylo
       register(coreType: "Bool", as: .bool)
       register(coreType: "Int", as: .int)
@@ -448,8 +448,8 @@ struct Mangler {
       write(operator: .genericTypeParameterType, to: &output)
       mangle(decl: AnyDeclID(t.decl), to: &output)
 
-    case let t as LambdaType:
-      write(lambda: t, to: &output)
+    case let t as ArrowType:
+      write(arrow: t, to: &output)
 
     case let t as MethodType:
       write(method: t, to: &output)
@@ -571,8 +571,8 @@ struct Mangler {
   }
 
   /// Writes the mangled representation of `symbol` to `output`.
-  private mutating func write(lambda t: LambdaType, to output: inout Output) {
-    write(operator: .lambdaType, to: &output)
+  private mutating func write(arrow t: ArrowType, to output: inout Output) {
+    write(operator: .arrowType, to: &output)
     mangle(type: t.environment, to: &output)
 
     write(integer: t.inputs.count, to: &output)

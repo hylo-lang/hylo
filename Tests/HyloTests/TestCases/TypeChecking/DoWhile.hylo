@@ -8,5 +8,5 @@ public fun main() {
   var x = 0
   do {
     &x = 1
-  } while x   //! diagnostic 'Int' is not subtype of 'Bool'
+  } while x   //! diagnostic incompatible types 'Bool' and 'Int'
 }

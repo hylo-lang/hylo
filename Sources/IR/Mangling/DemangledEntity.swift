@@ -96,7 +96,7 @@ extension DemangledEntity: CustomStringConvertible {
 
   /// A textual representation of `self` assuming it is a function declaration.
   private var functionDescription: String {
-    guard case .lambda(_, _, let inputs, _) = type else {
+    guard case .arrow(_, _, let inputs, _) = type else {
       return "\(name)(???)"
     }
 
@@ -106,7 +106,7 @@ extension DemangledEntity: CustomStringConvertible {
 
   /// A textual representation of `self` assuming it is an initializer declaration.
   private var initializerDescription: String {
-    guard case .lambda(_, _, let inputs, _) = type else {
+    guard case .arrow(_, _, let inputs, _) = type else {
       return "init"
     }
 

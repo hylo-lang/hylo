@@ -4,10 +4,8 @@ fun check<T>(_ x: T) {}
 
 public fun main() {
   let x = 0
-  let y = remote let x
+  let y = [let x]
   check<remote let Int>(y)
-
-  // Note: 'remote let Int' <: 'Int'
   check<Int>(y)
 
   // Note: inference preserves "remoteness".

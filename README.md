@@ -8,10 +8,10 @@ Please visit our [website](https://hylo-lang.org) to get more information about 
 ## Installation
 
 This project is written in [Swift](https://swift.org) and distributed in the form of a package, built with [Swift Package Manager](https://swift.org/package-manager/).
-You will need Swift 5.7 or higher to build the compiler from sources.
+You will need Swift 5.9 or higher to build the compiler from sources.
 The repository contains [submodules](https://git-scm.com/book/en/v2/Git-Tools-Submodules), so when you clone it, be sure you've got them.
 
-**Windows users:** 
+**Windows users:**
 1. Although this project is **not** Unix-specific, Windows support is not guaranteed due to the instability of continuous integration (see [issue 252](https://github.com/hylo-lang/hylo/issues/252) and [Swifty-LLVM/issue 24](https://github.com/hylo-lang/Swifty-LLVM/issues/24)).
 2. This repository contains symbolic links, so you'll need to [enable support](https://stackoverflow.com/questions/5917249/git-symbolic-links-in-windows/59761201#59761201) for them before checking it out.
 
@@ -20,15 +20,15 @@ The repository contains [submodules](https://git-scm.com/book/en/v2/Git-Tools-Su
 You can skip directly to step 3 if you're doing development exclusively in a [devcontainer](#building-a-hylo-devcontainer-with-vscode).
 Otherwise:
 
-1. Install LLVM 15 or later on your system (e.g. `brew install llvm`) 
+1. Install LLVM 15 or later on your system (e.g. `brew install llvm`)
 2. Have the above installation's `llvm-config` in your `PATH` (homebrew doesn't do that automatically; you'd need `export PATH="$(brew --prefix --installed llvm)/bin:$PATH"`).
 3. In this project's root directory.
     1. `swift package resolve` to get the `make-pkgconfig` tool.
-    2. `.build/checkouts/Swifty-LLVM/Tools/make-pkgconfig.sh llvm.pc` to generate LLVM's library description 
+    2. `.build/checkouts/Swifty-LLVM/Tools/make-pkgconfig.sh llvm.pc` to generate LLVM's library description
     3. Either
         1. `sudo mkdir -p /usr/local/lib/pkgconfig && sudo mv llvm.pc /usr/local/lib/pkgconfig/` (if you want to use Xcode)
         2. or, `export PKG_CONFIG_PATH=$PWD` in any shell where you want to work on this project
-   
+
 ### Building the compiler
 
 You may compile Hylo's compiler with the following commands:
@@ -42,7 +42,7 @@ That's Hylo's compiler!
 
 ### Running the tests
 
-To test your compiler, 
+To test your compiler,
 
 ```bash
 swift test -c release --parallel
@@ -50,7 +50,7 @@ swift test -c release --parallel
 
 ### Building a Hylo Devcontainer with VSCode
 
-While Hylo supports Linux natively, it also provides a [Devcontainer](https://containers.dev/) specification to develop for Linux on other platforms through a Docker container. Our [Linux CI](.github/workflows/build-and-test.yml) uses this specification; this makes it possible to run Linux CI locally on other operating systems like macOS. While this specification should work for any IDE that supports devcontainers, keep in mind this team only uses VSCode. 
+While Hylo supports Linux natively, it also provides a [Devcontainer](https://containers.dev/) specification to develop for Linux on other platforms through a Docker container. Our [Linux CI](.github/workflows/build-and-test.yml) uses this specification; this makes it possible to run Linux CI locally on other operating systems like macOS. While this specification should work for any IDE that supports devcontainers, keep in mind this team only uses VSCode.
 
 When opening the Hylo project in VSCode for the first time, you should be prompted to install the extension `recommendations` in `.vscode/extensions.json`. If you are not prompted, manually install the extensions by searching for the extension identifiers in the Extensions Marketplace.
 

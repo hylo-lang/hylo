@@ -17,6 +17,9 @@ public struct AST {
     /// - Invariant: All referred modules have a different name.
     public var modules: [ModuleDecl.ID] = []
 
+    /// The traits in Hylo's standard library that are known by the compiler.
+    var coreTraits: CoreTraits?
+
     /// The module containing Hylo's core library, if any.
     public var coreLibrary: ModuleDecl.ID?
 
@@ -34,7 +37,11 @@ public struct AST {
   private var storage: Storage
 
   /// The traits in Hylo's standard library that are known by the compiler.
-  public var coreTraits: CoreTraits?
+  public var coreTraits: CoreTraits? {
+    get { storage.coreTraits }
+    set { storage.coreTraits = newValue }
+    _modify { yield &storage.coreTraits }
+  }
 
   /// The nodes in `self`.
   private var nodes: [AnyNode] {
@@ -130,13 +137,13 @@ public struct AST {
   // MARK: Core library
 
   /// Indicates whether the Core library has been loaded.
-  public var isCoreModuleLoaded: Bool { coreLibrary != nil }
+  public var coreModuleIsLoaded: Bool { coreLibrary != nil }
 
   /// Returns the type named `name` defined in the core library or `nil` it does not exist.
   ///
   /// - Requires: The Core library must have been loaded.
   public func coreType(_ name: String) -> ProductType? {
-    precondition(isCoreModuleLoaded, "Core library is not loaded")
+    precondition(coreModuleIsLoaded, "Core library is not loaded")
 
     for d in topLevelDecls(coreLibrary!) where d.kind == ProductTypeDecl.self {
       let d = ProductTypeDecl.ID(d)!
@@ -152,7 +159,7 @@ public struct AST {
   ///
   /// - Requires: The Core library must have been loaded.
   public func coreTrait(_ name: String) -> TraitType? {
-    precondition(isCoreModuleLoaded, "Core library is not loaded")
+    precondition(coreModuleIsLoaded, "Core library is not loaded")
 
     for id in topLevelDecls(coreLibrary!) where id.kind == TraitDecl.self {
       let id = TraitDecl.ID(id)!
@@ -453,6 +460,30 @@ public struct AST {
     }
   }
 
+  /// Returns `true` iff `e` is an expression that's marked for mutation.
+  public func isMarkedForMutation(_ e: AnyExprID) -> Bool {
+    switch e.kind {
+    case InoutExpr.self:
+      return true
+    case NameExpr.self:
+      return isMarkedForMutation(NameExpr.ID(e)!)
+    case SubscriptCallExpr.self:
+      return isMarkedForMutation(self[SubscriptCallExpr.ID(e)!].callee)
+    default:
+      return false
+    }
+  }
+
+  /// Returns `true` iff `e` is an expression that's marked for mutation.
+  public func isMarkedForMutation(_ e: NameExpr.ID) -> Bool {
+    switch self[e].domain {
+    case .explicit(let n):
+      return isMarkedForMutation(n)
+    default:
+      return false
+    }
+  }
+
   /// Returns the source site of `expr`.
   public func site(of expr: FoldedSequenceExpr) -> SourceRange {
     switch expr {
@@ -462,7 +493,7 @@ public struct AST {
     case .infix(_, let lhs, let rhs):
       let lhsSite = site(of: lhs)
       let rhsSite = site(of: rhs)
-      return lhsSite.extended(upTo: rhsSite.end)
+      return lhsSite.extended(upTo: rhsSite.endIndex)
     }
   }
 

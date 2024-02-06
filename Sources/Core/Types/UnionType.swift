@@ -3,8 +3,14 @@ import Utils
 /// A union of types.
 public struct UnionType: TypeProtocol {
 
+  // Note: The elements of the union are stored in an array rather than a set of that the internal
+  // representation of a particular instance is deterministic across compiler runs, as rhe order in
+  // which elements have been inserted typically depends on the order in which a type expression
+  // has been visited. Further, most union types are small and therefore using a set wouldn't bring
+  // performance benefits for most lookups.
+
   /// The elements of a union type.
-  public typealias Elements = Set<AnyType>
+  public typealias Elements = [AnyType]
 
   /// The elements of the union.
   public let elements: Elements
@@ -13,7 +19,7 @@ public struct UnionType: TypeProtocol {
 
   /// Creates an instance type with the specified elements.
   public init<S: Sequence>(_ elements: S) where S.Element == AnyType {
-    self.elements = Set(elements)
+    self.elements = Array(elements)
 
     var fs = TypeFlags(merging: self.elements.map(\.flags))
     if self.elements.count == 1 {
@@ -26,6 +32,28 @@ public struct UnionType: TypeProtocol {
     mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction
   ) -> Self {
     UnionType(elements.map({ $0.transform(mutating: &m, transformer) }))
+  }
+
+}
+
+extension UnionType: Hashable {
+
+  public func hash(into hasher: inout Hasher) {
+    // Generate a seed from a snapshot of the hasher.
+    var hash = read(hasher, { $0.finalize() })
+    for m in elements {
+      // Note: _using_ `hashValue` is not deprecated.
+      hash ^= m.hashValue
+    }
+    hasher.combine(hash)
+  }
+
+  public static func == (l: Self, r: Self) -> Bool {
+    if l.elements.count != r.elements.count { return false }
+    for m in l.elements {
+      if !r.elements.contains(m) { return false }
+    }
+    return true
   }
 
 }

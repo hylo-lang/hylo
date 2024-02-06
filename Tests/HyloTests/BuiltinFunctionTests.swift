@@ -9,7 +9,7 @@ final class BuiltinFunctionTests: XCTestCase {
   }
 
   func testAdvancedByBytes() throws {
-    let expectedType = { LambdaType(.builtin(.ptr), .builtin(.i($0)), to: .builtin(.ptr)) }
+    let expectedType = { ArrowType(.builtin(.ptr), .builtin(.i($0)), to: .builtin(.ptr)) }
     try assertParse(
       instructions: ["advanced_by_bytes"],
       parameterizedBy: [["i16"]],
@@ -21,7 +21,7 @@ final class BuiltinFunctionTests: XCTestCase {
   }
 
   func testIntegerArithmetic() throws {
-    let expectedType = LambdaType(.builtin(.i(64)), .builtin(.i(64)), to: .builtin(.i(64)))
+    let expectedType = ArrowType(.builtin(.i(64)), .builtin(.i(64)), to: .builtin(.i(64)))
     try assertParse(
       instructions: ["add", "sub", "mul"],
       parameterizedBy: [["i64"], ["nuw", "i64"], ["nsw", "i64"]],
@@ -29,7 +29,7 @@ final class BuiltinFunctionTests: XCTestCase {
   }
 
   func testIntegerDivision() throws {
-    let expectedType = LambdaType(.builtin(.i(64)), .builtin(.i(64)), to: .builtin(.i(64)))
+    let expectedType = ArrowType(.builtin(.i(64)), .builtin(.i(64)), to: .builtin(.i(64)))
     try assertParse(
       instructions: ["udiv", "sdiv"],
       parameterizedBy: [["i64"], ["exact", "i64"]],
@@ -37,7 +37,7 @@ final class BuiltinFunctionTests: XCTestCase {
   }
 
   func testIntegerShiftLeft() throws {
-    let expectedType = LambdaType(.builtin(.i(64)), .builtin(.i(64)), to: .builtin(.i(64)))
+    let expectedType = ArrowType(.builtin(.i(64)), .builtin(.i(64)), to: .builtin(.i(64)))
     try assertParse(
       instructions: ["shl"],
       parameterizedBy: [["i64"], ["nuw", "i64"], ["nsw", "i64"]],
@@ -45,7 +45,7 @@ final class BuiltinFunctionTests: XCTestCase {
   }
 
   func testIntegerShiftRight() throws {
-    let expectedType = LambdaType(.builtin(.i(64)), .builtin(.i(64)), to: .builtin(.i(64)))
+    let expectedType = ArrowType(.builtin(.i(64)), .builtin(.i(64)), to: .builtin(.i(64)))
     try assertParse(
       instructions: ["lshr", "ashr"],
       parameterizedBy: [["i64"], ["exact", "i64"]],
@@ -53,7 +53,7 @@ final class BuiltinFunctionTests: XCTestCase {
   }
 
   func testIntegerRemainder() throws {
-    let expectedType = LambdaType(.builtin(.i(64)), .builtin(.i(64)), to: .builtin(.i(64)))
+    let expectedType = ArrowType(.builtin(.i(64)), .builtin(.i(64)), to: .builtin(.i(64)))
     try assertParse(
       instructions: ["urem", "srem"],
       parameterizedBy: [["i64"]],
@@ -61,7 +61,7 @@ final class BuiltinFunctionTests: XCTestCase {
   }
 
   func testIntegerLogic() throws {
-    let expectedType = LambdaType(.builtin(.i(64)), .builtin(.i(64)), to: .builtin(.i(64)))
+    let expectedType = ArrowType(.builtin(.i(64)), .builtin(.i(64)), to: .builtin(.i(64)))
     try assertParse(
       instructions: ["and", "or", "xor"],
       parameterizedBy: [["i64"]],
@@ -69,7 +69,7 @@ final class BuiltinFunctionTests: XCTestCase {
   }
 
   func testIntegerComparison() throws {
-    let expectedType = LambdaType(.builtin(.i(64)), .builtin(.i(64)), to: .builtin(.i(1)))
+    let expectedType = ArrowType(.builtin(.i(64)), .builtin(.i(64)), to: .builtin(.i(1)))
     try assertParse(
       instructions: ["icmp"],
       parameterizedBy: [
@@ -88,7 +88,7 @@ final class BuiltinFunctionTests: XCTestCase {
   }
 
   func testIntegerTruncate() throws {
-    let expectedType = LambdaType(.builtin(.i(64)), to: .builtin(.i(32)))
+    let expectedType = ArrowType(.builtin(.i(64)), to: .builtin(.i(32)))
     try assertParse(
       instructions: ["trunc"],
       parameterizedBy: [["i64", "i32"]],
@@ -96,7 +96,7 @@ final class BuiltinFunctionTests: XCTestCase {
   }
 
   func testIntegerExtend() throws {
-    let expectedType = LambdaType(.builtin(.i(32)), to: .builtin(.i(64)))
+    let expectedType = ArrowType(.builtin(.i(32)), to: .builtin(.i(64)))
     try assertParse(
       instructions: ["zext", "sext"],
       parameterizedBy: [["i32", "i64"]],
@@ -104,7 +104,7 @@ final class BuiltinFunctionTests: XCTestCase {
   }
 
   func testIntegerToFloat() throws {
-    let expectedType = LambdaType(.builtin(.i(64)), to: .builtin(.float64))
+    let expectedType = ArrowType(.builtin(.i(64)), to: .builtin(.float64))
     try assertParse(
       instructions: ["uitofp", "sitofp"],
       parameterizedBy: [["i64", "float64"]],
@@ -112,7 +112,7 @@ final class BuiltinFunctionTests: XCTestCase {
   }
 
   func testFloatArithmetic() throws {
-    let expectedType = LambdaType(.builtin(.float64), .builtin(.float64), to: .builtin(.float64))
+    let expectedType = ArrowType(.builtin(.float64), .builtin(.float64), to: .builtin(.float64))
     try assertParse(
       instructions: ["fadd", "fsub", "fmul", "fdiv", "frem"],
       parameterizedBy: [
@@ -124,7 +124,7 @@ final class BuiltinFunctionTests: XCTestCase {
   }
 
   func testFloatComparison() throws {
-    let expectedType = LambdaType(.builtin(.float64), .builtin(.float64), to: .builtin(.i(1)))
+    let expectedType = ArrowType(.builtin(.float64), .builtin(.float64), to: .builtin(.i(1)))
     try assertParse(
       instructions: ["fcmp"],
       parameterizedBy: [
@@ -151,7 +151,7 @@ final class BuiltinFunctionTests: XCTestCase {
   }
 
   func testFloatTruncate() throws {
-    let expectedType = LambdaType(.builtin(.float64), to: .builtin(.float32))
+    let expectedType = ArrowType(.builtin(.float64), to: .builtin(.float32))
     try assertParse(
       instructions: ["fptrunc"],
       parameterizedBy: [["float64", "float32"]],
@@ -159,7 +159,7 @@ final class BuiltinFunctionTests: XCTestCase {
   }
 
   func testFloatExtend() throws {
-    let expectedType = LambdaType(.builtin(.float32), to: .builtin(.float64))
+    let expectedType = ArrowType(.builtin(.float32), to: .builtin(.float64))
     try assertParse(
       instructions: ["fpext"],
       parameterizedBy: [["float32", "float64"]],
@@ -167,7 +167,7 @@ final class BuiltinFunctionTests: XCTestCase {
   }
 
   func testFloatToInteger() throws {
-    let expectedType = LambdaType(.builtin(.float32), to: .builtin(.i(64)))
+    let expectedType = ArrowType(.builtin(.float32), to: .builtin(.i(64)))
     try assertParse(
       instructions: ["fptoui", "fptosi"],
       parameterizedBy: [["float32", "i64"]],
@@ -175,7 +175,7 @@ final class BuiltinFunctionTests: XCTestCase {
   }
 
   func testCountOnes() throws {
-    let expectedType = LambdaType(.builtin(.i(16)), to: .builtin(.i(16)))
+    let expectedType = ArrowType(.builtin(.i(16)), to: .builtin(.i(16)))
     try assertParse(
       instructions: ["ctpop"],
       parameterizedBy: [["i16"]],
@@ -183,7 +183,7 @@ final class BuiltinFunctionTests: XCTestCase {
   }
 
   func testCountLeadingZeros() throws {
-    let expectedType = LambdaType(.builtin(.i(16)), to: .builtin(.i(16)))
+    let expectedType = ArrowType(.builtin(.i(16)), to: .builtin(.i(16)))
     try assertParse(
       instructions: ["ctlz"],
       parameterizedBy: [["i16"]],
@@ -191,7 +191,7 @@ final class BuiltinFunctionTests: XCTestCase {
   }
 
   func testCountTrailingZeros() throws {
-    let expectedType = LambdaType(.builtin(.i(16)), to: .builtin(.i(16)))
+    let expectedType = ArrowType(.builtin(.i(16)), to: .builtin(.i(16)))
     try assertParse(
       instructions: ["cttz"],
       parameterizedBy: [["i16"]],
@@ -199,7 +199,7 @@ final class BuiltinFunctionTests: XCTestCase {
   }
 
   func testZeroInitializer() throws {
-    let expectedType = LambdaType(to: .builtin(.i(64)))
+    let expectedType = ArrowType(to: .builtin(.i(64)))
     try assertParse(
       instructions: ["zeroinitializer"],
       parameterizedBy: [["i64"]],
@@ -212,7 +212,7 @@ final class BuiltinFunctionTests: XCTestCase {
   private func assertParse(
     instructions: [String],
     parameterizedBy parameters: [[String]],
-    createInstanceWithType expectedType: LambdaType,
+    createInstanceWithType expectedType: ArrowType,
     file: StaticString = #filePath,
     line: UInt = #line
   ) throws {

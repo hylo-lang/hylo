@@ -25,3 +25,41 @@ public trait Collection {
   subscript(_ i: Position): Element { let }
 
 }
+
+public extension Collection {
+
+  /// Returns the result of applying `combine` on an accumulator, initialized with `initial_value`,
+  /// and each element of `self`, in order.
+  ///
+  /// - Complexity: O(n), where n is the number of elements in `self`.
+  public fun reduce<E, T: Movable>(
+    _ accumulator: sink T,
+    _ combine: [E](sink T, Element) -> T
+  ) -> T {
+    for let e in self {
+      &accumulator = combine(accumulator, e)
+    }
+    return accumulator
+  }
+
+  /// Returns `true` iff `self` contains an element satisfying `predicate`.
+  ///
+  /// - Complexity: O(n), where n is the number of elements in `self`.
+  public fun contains<E>(where predicate: [E](Element) -> Bool) -> Bool {
+    for let e in self {
+      if predicate(e) { return true }
+    }
+    return false
+  }
+
+  /// Returns `true` iff all elements in `self` satisfy `predicate`.
+  ///
+  /// - Complexity: O(n), where n is the number of elements in `self`.
+  public fun all_satisfy<E>(_ predicate: [E](Element) -> Bool) -> Bool {
+    for let e in self {
+      if !predicate(e) { return false }
+    }
+    return true
+  }
+
+}

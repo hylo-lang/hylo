@@ -1,6 +1,6 @@
 import Utils
 
-/// The type of a parameter in a lambda, method, or subscript type.
+/// The type of a parameter in an arrow, method, or subscript type.
 public struct ParameterType: TypeProtocol {
 
   /// The passing convention of the parameter.
@@ -26,6 +26,11 @@ public struct ParameterType: TypeProtocol {
   /// Creates an instance converting `t`.
   public init(_ t: RemoteType) {
     self.init(t.access, t.bareType)
+  }
+
+  /// `true` iff `self` is creates an access for initialization or mutation.
+  public var isSetOrInout: Bool {
+    (access == .set) || (access == .inout)
   }
 
   public func transformParts<M>(

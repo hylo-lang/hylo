@@ -1,26 +1,29 @@
 /// A future that cannot escape the local scope.
-public type Future<E> {
+public type Future<E: Movable & Deinitializable> {
 
   // TODO
   public typealias Result = Int
 
-  /// The base frame object needed by the underlying implementation. 
+  /// The base frame object needed by the underlying implementation.
   private var base_frame: SpawnFrameBase
 
   /// What needs to be called to produce the value in the future.
-  private var f: FunctionWrapper<E, Int>
+  private var f: [E]() -> Int
 
   /// The result of the computation.
   private var r: Optional<Int>
 
   /// Initializes `self` with `f`, and spawns the computation.
-  public init(_ f: sink FunctionWrapper<E, Int>) {
+  public init(_ f: sink [E]() -> Int) {
+    &self.base_frame = .new()
     &self.f = f
-    let local_f = fun (_ frame: SpawnFrameBase) -> Void {
-      inout self = PointerToMutable<Self>(type_punning: mutable_pointer[to: frame]).unsafe[]
-      &self.do_call()
+    &self.r = .none()
+
+    let local_f = fun (_ frame: inout SpawnFrameBase) -> Void {
+      inout this = PointerToMutable<Self>(type_punning: mutable_pointer[to: &frame]).unsafe[]
+      &this.do_call()
     }
-    concore2full_spawn2(self.base_frame, local_f)
+    concore2full_spawn2(&self.base_frame, local_f)
   }
 
   /// Awaits the result of the computation.
@@ -33,18 +36,17 @@ public type Future<E> {
       return r.copy()
     } else {
       fatal_error()
-      return 0 // TODO: without this we get: "set parameter not initialized before function returns"
     }
   }
 
   private fun do_call() inout {
-    &r = self.f.f()
+    &r = self.f() as _
   }
 
 }
 
 /// Describes the frame needed to spawn a computation. Mimics the C implementation.
-type SpawnFrameBase: Deinitializable {
+type SpawnFrameBase: Deinitializable, Movable {
 
   let task_function: MemoryAddress
 
@@ -62,16 +64,16 @@ type SpawnFrameBase: Deinitializable {
 
   let user_function: MemoryAddress
 
-  init() {}
-
-}
-
-// TODO: #1246
-type FunctionWrapper<E, R>: Movable, Deinitializable {
-
-  let f: [E]()->R
-
-  memberwise init
+  public init() {
+    &self.task_function = .null()
+    &self.next_task = .null()
+    &self.sync_state = 0
+    &self.originator_context = .null()
+    &self.originator_thread_reclaimer = .null()
+    &self.target_context = .null()
+    &self.target_thread_reclaimer = .null()
+    &self.user_function = .null()
+  }
 
 }
 
@@ -80,9 +82,8 @@ type FunctionWrapper<E, R>: Movable, Deinitializable {
 
 /// Spawns the execution of `f` using control data `frame`.
 @external("concore2full_spawn2")
-fun concore2full_spawn2(_ frame: set SpawnFrameBase, _ f: [](SpawnFrameBase) let -> Void);
+fun concore2full_spawn2(_ frame: set SpawnFrameBase, _ f: [](inout SpawnFrameBase) let -> Void);
 
 /// Awaits the completion of the computation started in `frame`.
 @external("concore2full_await")
 fun concore2full_await(_ frame: SpawnFrameBase);
-
