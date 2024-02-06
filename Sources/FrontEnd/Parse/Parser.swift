@@ -2991,7 +2991,7 @@ public enum Parser {
 
     // Parse the body of the compiler condition.
     let stmts: [AnyStmtID]
-    if condition.mayNotNeedParsing && !condition.holds(for: state.ast.compiler) {
+    if condition.mayNotNeedParsing && !condition.holds(for: state.ast.compilationConditions) {
       try skipConditionalCompilationBranch(in: &state, stoppingAtElse: true)
       stmts = []
     } else {
@@ -3003,7 +3003,7 @@ public enum Parser {
     if state.take(.poundEndif) != nil {
       fallback = []
     } else if state.take(.poundElse) != nil {
-      if condition.mayNotNeedParsing && condition.holds(for: state.ast.compiler) {
+      if condition.mayNotNeedParsing && condition.holds(for: state.ast.compilationConditions) {
         try skipConditionalCompilationBranch(in: &state, stoppingAtElse: false)
         fallback = []
       } else {
@@ -3012,7 +3012,7 @@ public enum Parser {
       // Expect #endif.
       _ = try state.expect("'#endif'", using: { $0.take(.poundEndif) })
     } else if let head2 = state.take(.poundElseif) {
-      if condition.mayNotNeedParsing && condition.holds(for: state.ast.compiler) {
+      if condition.mayNotNeedParsing && condition.holds(for: state.ast.compilationConditions) {
         try skipConditionalCompilationBranch(in: &state, stoppingAtElse: false)
         fallback = []
       } else {
@@ -3155,8 +3155,8 @@ public enum Parser {
           throw [.error(expected: "identifier", at: state.currentLocation)] as DiagnosticSet
         }
         switch conditionName {
-        case "os": return .os(id)
-        case "arch": return .arch(id)
+        case "os": return .operatingSystem(id)
+        case "arch": return .architecture(id)
         case "feature": return .feature(id)
         case "compiler": return .compiler(id)
         default:

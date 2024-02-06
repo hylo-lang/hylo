@@ -7,7 +7,7 @@ import XCTest
 final class ASTTests: XCTestCase {
 
   func testAppendModule() throws {
-    var ast = AST(for: CompilerConfiguration())
+    var ast = AST()
     let i = checkNoDiagnostic { (d) in
       ast.insert(ModuleDecl("Hylo", sources: []), diagnostics: &d)
     }
@@ -20,7 +20,7 @@ final class ASTTests: XCTestCase {
   func testDeclAccess() throws {
     let input: SourceFile = "import T"
 
-    var a = AST(for: CompilerConfiguration())
+    var a = AST()
     let m = try checkNoDiagnostic { (d) in
       try a.makeModule("Main", sourceCode: [input], diagnostics: &d)
     }
@@ -58,7 +58,7 @@ final class ASTTests: XCTestCase {
       }
       """
 
-    var a = AST(for: CompilerConfiguration())
+    var a = AST()
     let m = try checkNoDiagnostic { (d) in
       try a.makeModule("Main", sourceCode: [input], diagnostics: &d)
     }
