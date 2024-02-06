@@ -23,12 +23,12 @@ public struct AST {
     /// The module containing Hylo's core library, if any.
     public var coreLibrary: ModuleDecl.ID?
 
-    /// The expansion filter used while processing conditional compilation statements in `self`.
-    public let expansionFilter: ConditionalCompilationFactors
+    /// Conditions for selecting conditional compilation branches.
+    public let compilationConditions: ConditionalCompilationFactors
 
-    /// Creates an empty instance, using `expansionFilter` for expanding conditional compilation statements.
-    public init(_ expansionFilter: ConditionalCompilationFactors) {
-      self.expansionFilter = expansionFilter
+    /// Creates an empty instance, using `compilationConditions` as conditions for selecting conditional compilation branches.
+    public init(_ compilationConditions: ConditionalCompilationFactors) {
+      self.compilationConditions = compilationConditions
     }
 
   }
@@ -66,15 +66,15 @@ public struct AST {
   }
 
   /// The expansion filter used while processing conditional compilation statements in `self`.
-  public var expansionFilter: ConditionalCompilationFactors {
-    return storage.expansionFilter
+  public var compilationConditions: ConditionalCompilationFactors {
+    return storage.compilationConditions
   }
 
-  /// Creates an empty AST, using `expansionFilter` for expanding conditional compilation statements.
+  /// Creates an empty AST, using using `compilationConditions` as conditions for selecting conditional compilation branches.
   public init(
-    _ expansionFilter: ConditionalCompilationFactors = ConditionalCompilationFactors()
+    _ compilationConditions: ConditionalCompilationFactors = ConditionalCompilationFactors()
   ) {
-    self.storage = Storage(expansionFilter)
+    self.storage = Storage(compilationConditions)
   }
 
   /// Inserts `n` into `self`, updating `diagnostics` if `n` is ill-formed.
