@@ -466,7 +466,7 @@ public struct Module {
     if let m = program.traitMember(referredBy: d) {
       a = a.merging([program[m.trait.decl].receiver: .type(witness.model)])
     }
-    return FunctionReference(to: d, in: self, specializedBy: a, in: witness.scope)
+    return reference(to: d, specializedBy: a, in: witness.scope)
   }
 
   /// Returns the lowered declarations of `d`'s parameters.
@@ -577,7 +577,7 @@ public struct Module {
     var implementations = IR.Conformance.ImplementationMap()
     for (r, i) in c.implementations where (r.kind != AssociatedTypeDecl.self) {
       let f = demandDeclaration(lowering: i)
-      implementations[r] = .function(FunctionReference(to: f, in: self))
+      implementations[r] = .function(reference(to: f))
     }
     return .init(concept: c.concept, implementations: implementations)
   }
