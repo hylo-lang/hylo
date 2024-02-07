@@ -2624,6 +2624,13 @@ public enum Parser {
   ) throws -> SourceRepresentable<BindingPattern.Introducer>? {
     guard let head = state.peek() else { return nil }
 
+    // Interpret `_ = rhs` as a sugar for `let _ = rhs`
+    if head.kind == .under {
+      return SourceRepresentable(
+        value: .let,
+        range: state.lexer.sourceCode.emptyRange(at: state.currentIndex))
+    }
+
     let introducer: BindingPattern.Introducer
     switch head.kind {
     case .let:
