@@ -64,6 +64,7 @@ public fun main() {
 
   test_min()
   test_max()
+  test_init_truncating_or_extending()
   test_signum()
   test_adding_reporting_overflow()
   test_multiplied_reporting_overflow()

@@ -144,6 +144,7 @@ fun test_array_is_copyable() {
 
 public fun main() {
   test_init_empty()
+  test_init_with_lambda()
   test_append()
   test_insert_at()
   test_remove_at()
