@@ -2384,35 +2384,8 @@ struct TypeChecker {
     }
 
     let k = program[d].introducer.value
-    assert(bundle.capabilities.contains(k))
-
-    let r = bundle.receiver
-    cache.write(^ParameterType(k, r), at: \.declType[program[d].receiver])
-
-    let e: AnyType
-    let o: AnyType
-    switch k {
-    case .let:
-      e = ^TupleType([.init(label: "self", type: ^RemoteType(k, r))])
-      o = bundle.output
-
-    case .sink:
-      e = ^TupleType([.init(label: "self", type: r)])
-      o = bundle.output
-
-    case .set, .inout:
-      guard let t = mutatingVariantOutput(of: bundle, in: program[d].scope) else {
-        diagnostics.insert(.error(mutatingBundleMustReturnTupleAt: program[d].introducer.site))
-        return .error
-      }
-      e = ^TupleType([.init(label: "self", type: ^RemoteType(k, r))])
-      o = t
-
-    case .yielded:
-      unreachable()
-    }
-
-    return ^ArrowType(receiverEffect: k, environment: e, inputs: bundle.inputs, output: o)
+    cache.write(^ParameterType(k, bundle.receiver), at: \.declType[program[d].receiver])
+    return ^bundle.variant(k)
   }
 
   /// Computes and returns the type of `d`.
@@ -2879,13 +2852,30 @@ struct TypeChecker {
   }
 
   /// Evaluates and returns the qualification of `e`, which is a type annotation.
-  private mutating func evalQualification(of e: NameExpr.ID) -> AnyType? {
+  private mutating func evalTypeQualification(of e: NameExpr.ID) -> AnyType? {
     switch program[e].domain {
     case .explicit(let q):
       return evalTypeAnnotation(q)
     case .implicit:
       report(.error(notEnoughContextToResolveMember: program[e].name))
       return .error
+    case .none, .operand:
+      unreachable()
+    }
+  }
+
+  /// Returns the inferred qualification of `e`, using `implicitQualification` to resolve implicit
+  /// domains and updating `obligations`.
+  public mutating func inferredQualification(
+    of e: NameExpr.ID, implicitlyIn implicitQualification: AnyType?,
+    updating obligations: inout ProofObligations
+  ) -> AnyType? {
+    switch program[e].domain {
+    case .explicit(let q):
+      let h = program.ast.isImplicitlyQualified(q) ? implicitQualification : nil
+      return inferredType(of: q, withHint: h, updating: &obligations)
+    case .implicit:
+      return implicitQualification
     case .none, .operand:
       unreachable()
     }
@@ -2992,7 +2982,9 @@ struct TypeChecker {
   private mutating func eval(
     existentialBound e: NameExpr.ID
   ) -> (AnyType, Set<GenericConstraint>) {
-    let resolution = resolve(e, withNonNominalPrefix: { (me, p) in me.evalQualification(of: p) })
+    let resolution = resolve(e) { (me, n) in
+      me.evalTypeQualification(of: n)
+    }
 
     switch resolution {
     case .failed:
@@ -3618,14 +3610,11 @@ struct TypeChecker {
     if let x = n.notation, x != operatorNotation(d) { return nil }
 
     // If the looked up name has an introducer, return the corresponding implementation.
-    if let introducer = n.introducer {
-      guard let m = program.ast[MethodDecl.ID(d)] else { return nil }
-      return m.impls.first(where: { (i) in
-        program[i].introducer.value == introducer
-      }).map(AnyDeclID.init(_:))
+    return n.introducer.map(default: d) { (k) in
+      MethodDecl.ID(d)
+        .flatMap({ (m) in program.ast.implementation(k, of: m) })
+        .flatMap(AnyDeclID.init(_:))
     }
-
-    return d
   }
 
   /// Returns the labels of `d`s name.
@@ -3980,7 +3969,7 @@ struct TypeChecker {
     }
 
     switch purpose {
-    case .constructor(let ls), .function(let ls):
+    case .constructor(let ls), .function(let ls, _):
       guard let t = MetatypeType(parent.type)?.instance else { return nil }
       let n = SourceRepresentable(value: Name(stem: "init"), range: name.site)
       let p = NameResolutionContext(type: t, arguments: parent.arguments, receiver: nil)
@@ -4045,6 +4034,8 @@ struct TypeChecker {
     var candidateType = resolveType(
       of: d, lookedUpIn: context, exposedTo: scopeOfUse, reportingDiagnosticsAt: name.site)
     if candidateType[.hasError] { return nil }
+
+    // TODO: Report invalid uses of mutation markers
 
     // The specialization of the match includes that of context in which it was looked up.
     var specialization = genericArguments(inScopeIntroducing: d, resolvedIn: context)
@@ -4787,6 +4778,30 @@ struct TypeChecker {
   /// Returns the inferred type of `e`, updating `obligations` and gathering contextual information
   /// from `hint`.
   private mutating func _inferredType(
+    of e: ArrowTypeExpr.ID, withHint hint: AnyType? = nil,
+    updating obligations: inout ProofObligations
+  ) -> AnyType {
+    let environment: AnyType
+    if let v = program[e].environment {
+      environment = evalPartialTypeAnnotation(v, updating: &obligations) ?? .error
+    } else {
+      environment = .any
+    }
+
+    let inputs = evalParameterAnnotations(of: e)
+    let output = evalTypeAnnotation(program[e].output)
+
+    let r = ^ArrowType(
+      receiverEffect: program[e].receiverEffect?.value ?? .let,
+      environment: environment,
+      inputs: inputs,
+      output: output)
+    return constrain(e, to: ^MetatypeType(of: r), in: &obligations)
+  }
+
+  /// Returns the inferred type of `e`, updating `obligations` and gathering contextual information
+  /// from `hint`.
+  private mutating func _inferredType(
     of e: BooleanLiteralExpr.ID, withHint hint: AnyType? = nil,
     updating obligations: inout ProofObligations
   ) -> AnyType {
@@ -4949,11 +4964,8 @@ struct TypeChecker {
     of e: FunctionCallExpr.ID, withHint hint: AnyType? = nil,
     updating obligations: inout ProofObligations
   ) -> AnyType {
-    let u = NameUse.function(labels: program[e].arguments.map(\.label?.value))
-    let callee = _inferredType(
-      ofCallee: program[e].callee, usedAs: u, withHint: hint, updating: &obligations)
-
-    // We failed to infer the type of the callee. We can stop here.
+    // We need the type of the callee to infer anything further.
+    let callee = inferredCalleeType(of: e, implicitlyIn: hint, updating: &obligations)
     if callee.isError {
       return constrain(e, to: .error, in: &obligations)
     }
@@ -4981,10 +4993,16 @@ struct TypeChecker {
       arguments.append(.init(label: a.label, type: p, valueSite: program[a.value].site))
     }
 
-    let output = ((callee.base as? CallableType)?.output ?? hint) ?? ^freshVariable()
+    let isMutating = program.ast.isMarkedForMutation(program[e].callee)
+    let output =
+      (callee.base as? CallableType)?.outputOfUse(mutable: isMutating)
+      ?? hint
+      ?? ^freshVariable()
+
     obligations.insert(
       CallConstraint(
-        arrow: callee, takes: arguments, gives: output, in: .ast(AnyExprID(e)),
+        arrow: callee, usedMutably: isMutating,
+        takes: arguments, gives: output, in: .ast(AnyExprID(e)),
         origin: .init(.callee, at: program[e].callee.site)))
 
     return constrain(e, to: output, in: &obligations)
@@ -4993,7 +5011,7 @@ struct TypeChecker {
   /// Returns the inferred type of `e`, updating `obligations` and gathering contextual information
   /// from `hint`.
   private mutating func _inferredType(
-    of e: InoutExpr.ID, withHint hint: AnyType? = nil,
+    of e: InoutExpr.ID, usedAs purpose: NameUse = .unapplied, withHint hint: AnyType? = nil,
     updating obligations: inout ProofObligations
   ) -> AnyType {
     let t = inferredType(of: program[e].subject, withHint: hint, updating: &obligations)
@@ -5050,30 +5068,6 @@ struct TypeChecker {
   /// Returns the inferred type of `e`, updating `obligations` and gathering contextual information
   /// from `hint`.
   private mutating func _inferredType(
-    of e: ArrowTypeExpr.ID, withHint hint: AnyType? = nil,
-    updating obligations: inout ProofObligations
-  ) -> AnyType {
-    let environment: AnyType
-    if let v = program[e].environment {
-      environment = evalPartialTypeAnnotation(v, updating: &obligations) ?? .error
-    } else {
-      environment = .any
-    }
-
-    let inputs = evalParameterAnnotations(of: e)
-    let output = evalTypeAnnotation(program[e].output)
-
-    let r = ^ArrowType(
-      receiverEffect: program[e].receiverEffect?.value ?? .let,
-      environment: environment,
-      inputs: inputs,
-      output: output)
-    return constrain(e, to: ^MetatypeType(of: r), in: &obligations)
-  }
-
-  /// Returns the inferred type of `e`, updating `obligations` and gathering contextual information
-  /// from `hint`.
-  private mutating func _inferredType(
     of e: MatchExpr.ID, withHint hint: AnyType? = nil,
     updating obligations: inout ProofObligations
   ) -> AnyType {
@@ -5085,28 +5079,20 @@ struct TypeChecker {
   }
 
   /// Returns the inferred type of `e`, updating `obligations` and gathering contextual information
-  /// from `hint`.
+  /// from `hint` and `implicitQualification`.
   ///
-  /// - Parameters:
-  ///   - implicitNominalScope: the type of the nominal scope in which the leftmost component of
-  ///     `e` is resolved if it is implicit (e.g., `.foo.bar`).
-  ///   - purpose: How `e` is used.
+  /// If the leftmost component of `e` is implicit, (e.g., `.foo.bar`), then its next component is
+  /// resolved using qualified name lookup in `implicitQualification`. `purpose` describes the way
+  /// `e` is used.
   private mutating func _inferredType(
-    of e: NameExpr.ID, inImplicitScope implicitNominalScope: AnyType? = nil,
+    of e: NameExpr.ID,
+    implicitlyIn implicitQualification: AnyType? = nil,
     usedAs purpose: NameUse = .unapplied,
     withHint hint: AnyType? = nil,
     updating obligations: inout ProofObligations
   ) -> AnyType {
     let resolution = resolve(e, usedAs: purpose) { (me, n) in
-      switch me.program[n].domain {
-      case .explicit(let e):
-        let h = me.program.ast.isImplicitlyQualified(e) ? implicitNominalScope : nil
-        return me.inferredType(of: e, withHint: h, updating: &obligations)
-      case .implicit:
-        return implicitNominalScope
-      case .none, .operand:
-        unreachable()
-      }
+      me.inferredQualification(of: n, implicitlyIn: implicitQualification, updating: &obligations)
     }
 
     let unresolved: [NameExpr.ID]
@@ -5212,6 +5198,7 @@ struct TypeChecker {
       obligations.insert(
         CallConstraint(
           arrow: operatorType,
+          usedMutably: program.ast.isMarkedForMutation(lhs),
           takes: [.init(label: nil, type: rhsType, valueSite: program.ast.site(of: rhs))],
           gives: outputType,
           in: .infix(e),
@@ -5239,11 +5226,8 @@ struct TypeChecker {
     of e: SubscriptCallExpr.ID, withHint hint: AnyType? = nil,
     updating obligations: inout ProofObligations
   ) -> AnyType {
-    let u = NameUse.subscript(labels: program[e].arguments.map(\.label?.value))
-    let callee = _inferredType(
-      ofCallee: program[e].callee, usedAs: u, withHint: hint, updating: &obligations)
-
-    // We failed to infer the type of the callee. We can stop here.
+    // We need the type of the callee to infer anything further.
+    let callee = inferredCalleeType(of: e, implicitlyIn: hint, updating: &obligations)
     if callee.isError {
       return constrain(e, to: .error, in: &obligations)
     }
@@ -5289,10 +5273,16 @@ struct TypeChecker {
       arguments.append(.init(label: a.label, type: p, valueSite: program[a.value].site))
     }
 
-    let output = ((callee.base as? CallableType)?.output ?? hint) ?? ^freshVariable()
+    let isMutating = program.ast.isMarkedForMutation(program[e].callee)
+    let output =
+      (callee.base as? CallableType)?.outputOfUse(mutable: isMutating)
+      ?? hint
+      ?? ^freshVariable()
+
     obligations.insert(
       CallConstraint(
-        subscript: callee, takes: arguments, gives: output, in: .ast(AnyExprID(e)),
+        subscript: callee, usedMutably: program.ast.isMarkedForMutation(program[e].callee),
+        takes: arguments, gives: output, in: .ast(AnyExprID(e)),
         origin: .init(.callee, at: program[e].callee.site)))
 
     return constrain(e, to: output, in: &obligations)
@@ -5366,18 +5356,48 @@ struct TypeChecker {
     return constrain(e, to: ^MetatypeType(of: r), in: &obligations)
   }
 
-  /// Returns the inferred type of `callee`, which is the callee of a function, initializer, or
-  /// subscript, updating `state` with inference facts and deferred type checking requests.
-  ///
-  /// - Requires: `purpose` is either `.function` or `.subscript`.
-  private mutating func _inferredType(
-    ofCallee callee: AnyExprID, usedAs purpose: NameUse, withHint hint: AnyType?,
+  /// Returns the inferred type of `e`'s callee using `q` to resolve implicit qualifications and
+  /// updating `obligations`.
+  private mutating func inferredCalleeType(
+    of e: FunctionCallExpr.ID, implicitlyIn q: AnyType?,
     updating obligations: inout ProofObligations
   ) -> AnyType {
-    assert(purpose != .unapplied)
-    if let e = NameExpr.ID(callee) {
-      return _inferredType(of: e, inImplicitScope: hint, usedAs: purpose, updating: &obligations)
-    } else {
+    let c = program[e].callee.id
+    let p = NameUse.function(
+      labels: program[e].arguments.map(\.label?.value), mutating: c.kind == InoutExpr.self)
+    return inferredType(ofCallee: c, usedAs: p, implicitlyIn: q, updating: &obligations)
+  }
+
+  /// Returns the inferred type of `e`'s callee using `q` to resolve implicit qualifications and
+  /// updating `obligations`.
+  private mutating func inferredCalleeType(
+    of e: SubscriptCallExpr.ID, implicitlyIn q: AnyType?,
+    updating obligations: inout ProofObligations
+  ) -> AnyType {
+    let c = program[e].callee.id
+    let p = NameUse.subscript(
+      labels: program[e].arguments.map(\.label?.value))
+    return inferredType(ofCallee: c, usedAs: p, implicitlyIn: q, updating: &obligations)
+  }
+
+  /// Returns the inferred type of `callee`, which is a callee used as `purpose`, using `q` to
+  /// resolve implicit qualifications and updating `obligations`.
+  private mutating func inferredType(
+    ofCallee callee: AnyExprID, usedAs purpose: NameUse, implicitlyIn q: AnyType?,
+    updating obligations: inout ProofObligations
+  ) -> AnyType {
+    switch callee.kind {
+    case InoutExpr.self:
+      let e = InoutExpr.ID(callee)!
+      let t = inferredType(
+        ofCallee: program[e].subject, usedAs: purpose, implicitlyIn: q, updating: &obligations)
+      return constrain(callee, to: t, in: &obligations)
+
+    case NameExpr.self:
+      let e = NameExpr.ID(callee)!
+      return _inferredType(of: e, implicitlyIn: q, usedAs: purpose, updating: &obligations)
+
+    default:
       return inferredType(of: callee, updating: &obligations)
     }
   }
@@ -5611,28 +5631,27 @@ struct TypeChecker {
     return nil
   }
 
-  /// Inserts in `obligations` the constraints implied by the result of name resolution for each
-  /// nominal component in `components`.
+  /// Updates `obligations` with the constraints implied by the result of name resolution for each
+  /// element in `components`.
   private mutating func constrain(
     _ components: [NameResolutionResult.ResolvedComponent], in obligations: inout ProofObligations
   ) -> AnyType {
     var last: AnyType?
     var substitutions: [GenericParameterDecl.ID: AnyType] = [:]
     for p in components {
-      last = constrain(p.component, to: p.candidates, in: &obligations, updating: &substitutions)
+      last = constrain(p.component, to: p.candidates, in: &obligations, extending: &substitutions)
     }
     return last!
   }
 
-  /// Inserts in `obligations` the constraint that `name` refers to one of the declarations in
-  /// `candidates`, updating `substitutions` with opened generic parameters, and returning the
-  /// inferred type of `name`.
+  /// Updates `obligations` to constrain `name` as a reference to one of `candidates`, extending
+  /// `substitutions` with opened generic parameters, and returning the inferred type of `name`.
   ///
   /// - Requires: `candidates` is not empty
   private mutating func constrain(
     _ name: NameExpr.ID, to candidates: [NameResolutionResult.Candidate],
     in obligations: inout ProofObligations,
-    updating substitutions: inout [GenericParameterDecl.ID: AnyType]
+    extending substitutions: inout [GenericParameterDecl.ID: AnyType]
   ) -> AnyType {
     precondition(!candidates.isEmpty)
     let site = program[name].site
@@ -6053,19 +6072,6 @@ struct TypeChecker {
   /// Returns `true` if `d` isn't a trait requirement, an FFI, or an external function.
   private func requiresBody(_ d: FunctionDecl.ID) -> Bool {
     !(program.isRequirement(d) || program[d].isForeignInterface || program[d].isExternal)
-  }
-
-  /// If `t` is the type of a mutating bundle in `scopeOfUse`, returns the output of a mutating
-  /// variant in that bundle; returns `nil` otherwise.
-  private mutating func mutatingVariantOutput(
-    of t: MethodType, in scopeOfUse: AnyScopeID
-  ) -> AnyType? {
-    guard
-      let es = TupleType(canonical(t.output, in: scopeOfUse))?.elements,
-      (es.count == 2) && (es[0].label == "self") && (es[1].label == nil),
-      areEquivalent(es[0].type, t.receiver, in: scopeOfUse)
-    else { return nil }
-    return es[1].type
   }
 
   // MARK: Caching

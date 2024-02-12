@@ -427,7 +427,7 @@ public struct AST {
   }
 
   /// Retutns the declaration of the implementation of `d` with effect `a`, if any.
-  public func implementation(_ a: AccessEffect, of d: SubscriptDecl.ID) -> SubscriptImpl.ID? {
+  public func implementation<T: BundleDecl>(_ a: AccessEffect, of d: T.ID) -> T.Variant.ID? {
     self[d].impls.first(where: { (i) in self[i].introducer.value == a })
   }
 
@@ -480,6 +480,15 @@ public struct AST {
     case .explicit(let n):
       return isMarkedForMutation(n)
     default:
+      return false
+    }
+  }
+
+  /// Returns `true` iff `e` is an expression that's marked for mutation.
+  public func isMarkedForMutation(_ e: FoldedSequenceExpr) -> Bool {
+    if case .leaf(let l) = e {
+      return isMarkedForMutation(l)
+    } else {
       return false
     }
   }

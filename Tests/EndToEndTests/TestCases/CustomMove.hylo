@@ -10,7 +10,7 @@ type A: Deinitializable {
 }
 
 conformance A: Movable {
-  public fun take_value(from source: sink Self) -> {self: Self, Void} {
+  public fun take_value(from source: sink Self) {
     set {
       &self.x = source.x
       &self.witness = 0

@@ -9,10 +9,14 @@ public struct BundleReference<T: BundleDecl>: Hashable {
   /// If `bundle` is generic, the arguments to its generic parameter.
   public let arguments: GenericArguments
 
-  /// Creates a reference to `s` parameterized by `a`.
-  public init(to s: T.ID, specializedBy a: GenericArguments) {
-    self.bundle = s
+  /// The capabilities requested on the bundle receiver.
+  public let capabilities: AccessEffectSet
+
+  /// Creates a reference to `d` specialized by `a`, requesting capabilities `k ` on the receiver.
+  public init(to d: T.ID, specializedBy a: GenericArguments, requesting k: AccessEffectSet) {
+    self.bundle = d
     self.arguments = a
+    self.capabilities = k
   }
 
 }

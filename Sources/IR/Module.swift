@@ -469,6 +469,25 @@ public struct Module {
     return FunctionReference(to: d, in: self, specializedBy: a, in: witness.scope)
   }
 
+  /// Returns a member reference to `d`, which is member of `receiver` accessed with capabilities
+  /// `k`, specializing `d`'s type for `a` in `scopeOfUse`.
+  mutating func memberCallee(
+    referringTo d: AnyDeclID, memberOf receiver: AnyType, accessedWith k: AccessEffectSet,
+    specializedBy a: GenericArguments, usedIn scopeOfUse: AnyScopeID
+  ) -> Callee {
+    // Check if `d`'s implementation is synthetic.
+    if program.isRequirement(d) && !receiver.isSkolem {
+      let t = program.traitDeclaring(d)!
+      let c = program.conformance(of: receiver, to: t, exposedTo: scopeOfUse)!
+      let f = demandDeclaration(lowering: c.implementations[d]!)
+      return .direct(FunctionReference(to: f, in: self, specializedBy: a, in: scopeOfUse))
+    } else if let m = MethodDecl.ID(d) {
+      return .bundle(BundleReference(to: m, specializedBy: a, requesting: k))
+    } else {
+      return .direct(FunctionReference(to: d, in: &self, specializedBy: a, in: scopeOfUse))
+    }
+  }
+
   /// Returns the lowered declarations of `d`'s parameters.
   private func loweredParameters(of d: FunctionDecl.ID) -> [Parameter] {
     let captures = ArrowType(program[d].type)!.captures.lazy.map { (e) in
