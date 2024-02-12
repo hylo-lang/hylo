@@ -9,7 +9,7 @@ public protocol BundleDecl: ExposableDecl {
 
 }
 
-/// A varient in a declaration bundle.
+/// A variant in a declaration bundle.
 public protocol BundleImpl: Decl {
 
   /// The introducer of the variant.
