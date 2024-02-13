@@ -84,6 +84,9 @@ public struct SubscriptDecl: BundleDecl, CapturingDecl, GenericDecl, GenericScop
   /// Returns whether the declaration denotes a static subscript.
   public var isStatic: Bool { memberModifier?.value == .static }
 
+  /// The part of the declaration that may have implicit captures.
+  public var sourcesOfImplicitCaptures: [AnyNodeID] { impls.map(AnyNodeID.init) }
+
   public func validateForm(in ast: AST, reportingDiagnosticsTo log: inout DiagnosticSet) {
     // Parameter declarations must have a type annotation.
     for p in parameters {
