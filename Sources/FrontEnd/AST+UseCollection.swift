@@ -9,14 +9,16 @@ extension AST {
   /// pre-order. Nested type and extension declarations are not visited.
   func uses<T: CapturingDecl>(in d: T.ID) -> [(NameExpr.ID, AccessEffect)] {
     var v = UseVisitor()
-    walk(d, notifying: &v)
+    for s in self[d].sourcesOfImplicitCaptures {
+      walk(s, notifying: &v)
+    }
     return v.uses
   }
 
 }
 
 /// The state of the visitor gathering uses.
-struct UseVisitor: ASTWalkObserver {
+private struct UseVisitor: ASTWalkObserver {
 
   /// The names being used with their visibility.
   private(set) var uses: [(NameExpr.ID, AccessEffect)] = []
