@@ -55,6 +55,15 @@ fun test_remainder_reporting_overflow() {
   precondition(a0.1 == true)
 }
 
+fun test_int64() {
+  precondition(Int.bit_width() == 64)
+  precondition(Int.max() == 9223372036854775807)
+  precondition(Int.min() == -9223372036854775808)
+  precondition((-1).nonzero_bit_count() == 64)
+  precondition((10).leading_zeros() == 60)
+  precondition((10).trailing_zeros() == 1)
+}
+
 public fun main() {
   // Int.init()
   precondition(Int() == 0)
@@ -71,13 +80,9 @@ public fun main() {
   test_divided_reporting_overflow()
   test_remainder_reporting_overflow()
 
-  // TODO:
-  // These tests assume they are running on a 64-bit architecture.
-  // They should be wrapped in a conditional compilation block (see #1035).
-  precondition(Int.bit_width() == 64)
-  precondition(Int.max() == 9223372036854775807)
-  precondition(Int.min() == -9223372036854775808)
-  precondition((-1).nonzero_bit_count() == 64)
-  precondition((10).leading_zeros() == 60)
-  precondition((10).trailing_zeros() == 1)
+  #if arch(x86_64)
+    test_int64()
+  #elseif arch(arm64)
+    test_int64()
+  #endif
 }
