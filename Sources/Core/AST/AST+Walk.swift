@@ -236,16 +236,6 @@ extension AST {
     }
   }
 
-  /// Visits `b` and its children in pre-order, notifying `o` when a node is entered or left.
-  public func walk<O: ASTWalkObserver>(functionBody b: FunctionBody, notifying o: inout O) {
-    switch b {
-    case .expr(let e):
-      walk(e, notifying: &o)
-    case .block(let s):
-      walk(s, notifying: &o)
-    }
-  }
-
   // MARK: Declarations
 
   /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
@@ -301,7 +291,7 @@ extension AST {
     walk(roots: n.parameters, notifying: &o)
     walk(n.receiver, notifying: &o)
     walk(n.output, notifying: &o)
-    n.body.map({ walk(functionBody: $0, notifying: &o) })
+    n.body.map({ (b) in walk(b.base, notifying: &o) })
   }
 
   /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
@@ -342,7 +332,7 @@ extension AST {
     _ n: MethodImpl, notifying o: inout O
   ) {
     walk(n.receiver, notifying: &o)
-    n.body.map({ walk(functionBody: $0, notifying: &o) })
+    n.body.map({ (b) in walk(b.base, notifying: &o) })
   }
 
   /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
@@ -397,7 +387,7 @@ extension AST {
     _ n: SubscriptImpl, notifying o: inout O
   ) {
     walk(n.receiver, notifying: &o)
-    n.body.map({ walk(functionBody: $0, notifying: &o) })
+    n.body.map({ (b) in walk(b.base, notifying: &o) })
   }
 
   /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
