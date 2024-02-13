@@ -133,7 +133,7 @@ jobs:
         done
 
     - name: Upload artifact
-      uses: actions/upload-pages-artifact@v2
+      uses: actions/upload-pages-artifact@v3
 
   # Deployment job
   deploy:
