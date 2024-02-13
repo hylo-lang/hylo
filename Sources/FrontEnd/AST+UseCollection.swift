@@ -7,7 +7,7 @@ extension AST {
   ///
   /// This method collects all name expressions that occurs in `d`, visiting its children in
   /// pre-order. Nested type and extension declarations are not visited.
-  func uses(in d: AnyDeclID) -> [(NameExpr.ID, AccessEffect)] {
+  func uses<T: CapturingDecl>(in d: T.ID) -> [(NameExpr.ID, AccessEffect)] {
     var v = UseVisitor()
     walk(d, notifying: &v)
     return v.uses
@@ -16,7 +16,7 @@ extension AST {
 }
 
 /// The state of the visitor gathering uses.
-private struct UseVisitor: ASTWalkObserver {
+struct UseVisitor: ASTWalkObserver {
 
   /// The names being used with their visibility.
   private(set) var uses: [(NameExpr.ID, AccessEffect)] = []

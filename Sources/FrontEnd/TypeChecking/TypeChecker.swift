@@ -2602,7 +2602,7 @@ struct TypeChecker {
     }
 
     // Look at uses to update conventions where we could only guess `let` from the context.
-    for (n, m) in program.ast.uses(in: AnyDeclID(program[e].decl)) {
+    for (n, m) in program.ast.uses(in: program[e].decl) {
       let candidates = lookup(unqualified: program[n].name.value.stem, in: program[n].scope)
       guard
         let pick = candidates.unique(ParameterDecl.self),
@@ -2680,7 +2680,7 @@ struct TypeChecker {
   }
 
   /// Returns the implicit captures found in the body of `d`.
-  private mutating func implicitCaptures<T: Decl & LexicalScope>(
+  private mutating func implicitCaptures<T: CapturingDecl>(
     of d: T.ID, ignoring explicitCaptures: Set<String>
   ) -> [TupleType.Element] {
     // Only local declarations have captures.
@@ -2690,7 +2690,7 @@ struct TypeChecker {
     }
 
     var captureToStemAndEffect: [AnyDeclID: (stem: String, effect: AccessEffect)] = [:]
-    for (name, mutability) in program.ast.uses(in: AnyDeclID(d)) {
+    for (name, mutability) in program.ast.uses(in: d) {
       guard
         let (stem, pick) = lookupImplicitCapture(name, occurringIn: d),
         !explicitCaptures.contains(stem)
