@@ -2552,7 +2552,7 @@ struct TypeChecker {
   private mutating func uncheckedInputTypes<T: Decl & LexicalScope>(
     of ps: [ParameterDecl.ID], declaredBy d: T.ID
   ) -> [CallableTypeParameter] {
-    // The generic environement of the declaration is built before we can resolve the types of the
+    // The generic environment of the declaration is built before we can resolve the types of the
     // parameter annotations to avoid infinite recursion in cases the bounds of a generic parameter
     // lead name resolution back to environment (e.g., `<T: P>(x: T)` in a trait extension.)
     _ = environment(of: AnyScopeID(d))
@@ -4806,7 +4806,7 @@ struct TypeChecker {
       elementHint = ^freshVariable()
     }
 
-    // If the buffer has no element, we keep the element type open. Othewise, we use the type of
+    // If the buffer has no element, we keep the element type open. Otherwise, we use the type of
     // the first element to constrain all others.
     if let elements = program[e].elements.headAndTail {
       let head = inferredType(of: elements.head, withHint: elementHint, updating: &obligations)

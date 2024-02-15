@@ -11,7 +11,7 @@ To make sense of a generic signature, the compiler creates a corresponding gener
 In essence, a generic environment is a set of axioms that can be used in conjunction with the type system to prove arbitrary formulae about type or value terms.
 For example, given the generic signature above, the corresponding environment can be used to prove that `T.Element` has a member `infix+`.
 
-> Note that trait decalrations also describe a generic environment.
+> Note that trait declarations also describe a generic environment.
 > All traits define an implicit generic parameter denoting `Self` that is bound by the trait they declare.
 > Constraints on associated type and values define additional axioms.
 
@@ -136,7 +136,7 @@ Here, however, it doesn't because at this point we now that `T.Element.Element` 
 There is one rule we must add to use this evaluation order: a generic parameters introduced without a bound are assumed type-kinded.
 With this assumption, we never have to look at uses of a generic parameter to determine whether it is a type or a value.
 For example, this signature is ill-formed: `<T, U where T == Int[U]>`.
-Further, note that generic parameters can't be instantiated as traits, so if we see `T: U` we can always conclude that `T` must be a value and that `U` must be a tyoe.
+Further, note that generic parameters can't be instantiated as traits, so if we see `T: U` we can always conclude that `T` must be a value and that `U` must be a type.
 
 The next challenge is to deduce the implications of a constraint, given a partially constructed environment.
 Before we tackle this one, let's make a few observations:

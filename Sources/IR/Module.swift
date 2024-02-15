@@ -437,7 +437,7 @@ public struct Module {
     }
   }
 
-  /// Returns the IR function implementing the copy oepration defined in `conformanceToCopyable`.
+  /// Returns the IR function implementing the copy operation defined in `conformanceToCopyable`.
   ///
   /// - Parameter conformanceToCopyable: A conformance to `Copyable`.
   mutating func demandCopyDeclaration(
