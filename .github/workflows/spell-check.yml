@@ -9,7 +9,7 @@ jobs:
     - name: Checkout Actions Repository
       uses: actions/checkout@v4
       with:
-        submodules: true
+        submodules: false
         show-progress: false
 
     - name: Check spelling of file.txt
