@@ -179,7 +179,7 @@ jobs:
 
   build-native-windows:
     needs: determine-version
-    name: "Native: windows-latest, debug"
+    name: "Native: windows-latest/debug"
     strategy:
       fail-fast: false
     runs-on: windows-latest
@@ -187,10 +187,8 @@ jobs:
     - name: Setup swift
       uses: compnerd/gha-setup-swift@v0.2.1
       with:
-        github-repo: thebrowsercompany/swift-build
-        release-asset-name: installer-amd64.exe
-        release-tag-name: 20231130.2
-        github-token: ${{ secrets.GITHUB_TOKEN }}
+        branch: swift-5.9.2-release
+        tag: 5.9.2-RELEASE
 
     - uses: actions/checkout@v4
       with:
