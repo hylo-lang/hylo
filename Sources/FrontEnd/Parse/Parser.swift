@@ -2619,6 +2619,9 @@ public enum Parser {
         site: state.range(from: introducer.site.startIndex)))
   }
 
+  /// Parses a binding introducer.
+  ///
+  /// Should not be called before checking if the next token is `_` if another wildcard rule could apply.
   private static func parseBindingIntroducer(
     in state: inout ParserState
   ) throws -> SourceRepresentable<BindingPattern.Introducer>? {
