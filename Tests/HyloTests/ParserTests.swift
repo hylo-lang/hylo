@@ -1492,6 +1492,13 @@ final class ParserTests: XCTestCase {
     }
   }
 
+  func testLetSugarBindingPattern() throws {
+    let input: SourceFile = "_ = foo"
+    let (p, ast) = try input.parse(with: Parser.parseBindingPattern(in:))
+    let pattern = try XCTUnwrap(ast[p])
+    XCTAssertEqual(pattern.introducer.value, .let)
+  }
+
   func testBindingPatternWithAnnotation() throws {
     let input: SourceFile = "inout x: T)"
     let (p, ast) = try input.parse(with: Parser.parseBindingPattern(in:))
