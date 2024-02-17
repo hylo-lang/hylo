@@ -13,7 +13,7 @@ The repository contains [submodules](https://git-scm.com/book/en/v2/Git-Tools-Su
 
 **Windows users:**
 1. Although this project is **not** Unix-specific, Windows support is not guaranteed due to the instability of continuous integration (see [issue 252](https://github.com/hylo-lang/hylo/issues/252) and [Swifty-LLVM/issue 24](https://github.com/hylo-lang/Swifty-LLVM/issues/24)).
-2. This repository contains symbolic links, so you'll need to [enable support](https://stackoverflow.com/questions/5917249/git-symbolic-links-in-windows/59761201#59761201) for them before checking it out.
+2. This repository contains symbolic links, so you'll need to [enable support](https://stackoverflow.com/a/59761201/125349) for them before checking it out.
 
 ### Prerequisites
 
