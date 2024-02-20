@@ -1068,7 +1068,7 @@ struct Emitter {
 
   private mutating func emit(assignStmt s: AssignStmt.ID) -> ControlFlow {
     // The LHS should must be marked for mutation even if the statement denotes initialization.
-    guard program[s].left.kind == InoutExpr.self else {
+    guard ast.isMarkedForMutation(ast[s].left) else {
       let p = program[s].left.site.start
       report(.error(assignmentLHSRequiresMutationMarkerAt: .empty(at: p)))
       return .next
