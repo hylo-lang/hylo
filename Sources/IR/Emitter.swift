@@ -2238,7 +2238,7 @@ struct Emitter {
     case InoutExpr.self:
       return emitSubscriptCallee(ast[InoutExpr.ID(callee)!].subject, markedForMutation: true)
     default:
-      UNIMPLEMENTED()
+      UNIMPLEMENTED("call to an anonymous subscript of an rvalue")
     }
   }
 
