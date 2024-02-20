@@ -71,27 +71,30 @@ extension ProjectBundle: CustomStringConvertible {
 
 extension Module {
 
-  /// Creates a `project_bundle` anchored at `site` that projects a value by applying one of the
-  /// variants in `bundle` on `arguments`.
+  /// Creates a `project_bundle` anchored at `site` that applies one of the variants defined in `m`
+  /// to arguments `a`, canonicalizing types in `scopeOfUse`.
   mutating func makeProjectBundle(
-    applying bundle: ScopedValue<BundleReference<SubscriptDecl>>,
-    to arguments: [Operand],
-    at site: SourceRange
+    applying m: BundleReference<SubscriptDecl>, to a: [Operand],
+    at site: SourceRange,
+    canonicalizingTypesIn scopeOfUse: AnyScopeID
   ) -> ProjectBundle {
     var variants: [AccessEffect: Function.ID] = [:]
-    for v in program[bundle.value.bundle].impls {
-      variants[program[v].introducer.value] = demandDeclaration(lowering: v)
+    for v in program[m.bundle].impls {
+      let i = program[v].introducer.value
+      if m.capabilities.contains(i) {
+        variants[program[v].introducer.value] = demandDeclaration(lowering: v)
+      }
     }
+    precondition(!variants.isEmpty)
 
-    let bundleType = program.canonicalType(
-      of: bundle.value.bundle, specializedBy: bundle.value.arguments, in: bundle.scope)
-    let t = SubscriptType(bundleType)!.pure
+    let t = SubscriptType(
+      program.canonicalType(of: m.bundle, specializedBy: m.arguments, in: scopeOfUse))!.pure
 
     return .init(
-      bundle: bundle.value, variants: variants,
+      bundle: m, variants: variants,
       parameters: t.inputs.lazy.map({ ParameterType($0.type)! }),
       projection: RemoteType(t.output)!.bareType,
-      operands: arguments, site: site)
+      operands: a, site: site)
   }
 
 }
