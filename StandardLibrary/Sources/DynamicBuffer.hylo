@@ -79,7 +79,7 @@ public type DynamicBuffer<Header: Deinitializable, Element>: Deinitializable, Mo
   /// - Requires: `capacity() > 0`.
   public property header: Header {
     let { buffer_header().unsafe[].1 }
-    inout { &buffer_header().unsafe[].1 }
+    inout { &(buffer_header()).unsafe[].1 }
   }
 
   /// Returns the address of the `self`'s header.
