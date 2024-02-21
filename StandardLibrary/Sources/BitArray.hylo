@@ -54,9 +54,9 @@ public type BitArray {
   fun set_value(_ b: Bool, for p: Position) inout {
     let m = 1 << p.offset
     if b {
-      bits[p.bucket] |= m
+      &bits[p.bucket] |= m
     } else {
-      bits[p.bucket] &= ~m
+      &bits[p.bucket] &= ~m
     }
   }
 
