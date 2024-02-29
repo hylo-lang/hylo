@@ -42,10 +42,6 @@ public struct Token {
     case `match`
     case `namespace`
     case `operator`
-    case `poundElse`
-    case `poundElseif`
-    case `poundEndif`
-    case `poundIf`
     case `postfix`
     case `prefix`
     case `property`
@@ -68,6 +64,11 @@ public struct Token {
     case `while`
     case `yield`
     case `yielded`
+
+    case `poundElse`
+    case `poundElseif`
+    case `poundEndif`
+    case `poundIf`
 
     // Attributes
     case attribute = 4000
