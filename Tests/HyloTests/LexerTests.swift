@@ -133,8 +133,8 @@ final class LexerTests: XCTestCase {
   func testKeywords() {
     let input: SourceFile = """
       any break catch conformance continue do else extension for fun if import in infix init inout
-      let match namespace operator postfix prefix property private public remote return set sink
-      some spawn static subscript trait try type typealias var where while yield yielded
+      internal let match namespace operator postfix prefix property private public remote return
+      set sink some spawn static subscript trait try type typealias var where while yield yielded
       """
 
     assert(
@@ -156,6 +156,7 @@ final class LexerTests: XCTestCase {
         TokenSpecification(.`infix`, "infix"),
         TokenSpecification(.`init`, "init"),
         TokenSpecification(.`inout`, "inout"),
+        TokenSpecification(.`internal`, "internal"),
         TokenSpecification(.`let`, "let"),
         TokenSpecification(.`match`, "match"),
         TokenSpecification(.`namespace`, "namespace"),

@@ -38,6 +38,7 @@ public struct Token {
     case `infix`
     case `init`
     case `inout`
+    case `internal`
     case `let`
     case `match`
     case `namespace`
