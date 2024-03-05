@@ -210,6 +210,3 @@ jobs:
 
     - name: Output compiler version
       run: hylo/.build/${{ matrix.configuration }}/hc --version
-
-    - name: Output compiler version
-      run: .build/debug/hc --version
