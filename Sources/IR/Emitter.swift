@@ -2036,7 +2036,7 @@ struct Emitter {
       .autoclosure(e), typed: t, parameterizedBy: h, in: program[e].scope)
     let callee = withClearContext({ $0.lower(syntheticAutoclosure: f) })
 
-    // Emit the IR code to reference tha function declaration.
+    // Emit the IR code to reference the function declaration.
     let r = FunctionReference(
       to: callee, in: module,
       specializedBy: module.specialization(in: insertionFunction!), in: insertionScope!)
@@ -2493,7 +2493,7 @@ struct Emitter {
     return x0
   }
 
-  /// Traps on this execution path becauses of un unexpected coercion from `lhs` to `rhs`.
+  /// Traps on this execution path because of un unexpected coercion from `lhs` to `rhs`.
   private func unexpectedCoercion(
     from lhs: AnyType, to rhs: AnyType, file: StaticString = #file, line: UInt = #line
   ) -> Never {
@@ -2854,7 +2854,7 @@ struct Emitter {
       return
     }
 
-    // Insert a call to the approriate move implementation if its semantics is unambiguous.
+    // Insert a call to the appropriate move implementation if its semantics is unambiguous.
     // Otherwise, insert a call to the method bundle.
     if let k = semantics.uniqueElement {
       emitMove(k, value, to: storage, withMovableConformance: movable, at: site)

@@ -16,7 +16,7 @@ struct RefinementCluster: Equatable {
   /// The refinement relationships in the cluster.
   private(set) var refinements: Refinements
 
-  /// Creates a cluster contaning only `bottom`.
+  /// Creates a cluster containing only `bottom`.
   init(_ bottom: TraitType) {
     self.bottom = bottom
     self.unordered = [bottom]
