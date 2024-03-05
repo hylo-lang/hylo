@@ -56,25 +56,23 @@ jobs:
 
   build-devcontainer:
     needs: determine-version
-    name: "Devcontainer: ${{ matrix.host.os }}/${{ matrix.configuration }}"
+    name: 'Dev container: ${{ matrix.configuration }}'
     strategy:
       fail-fast: false
       matrix:
-        host: [
-          { type: linux, os: ubuntu-latest,
-            build-options: "--build-tests -Xswiftc -enable-testing --explicit-target-dependency-import-check error",
-            test-options: "--enable-code-coverage --explicit-target-dependency-import-check error",
-          }
-        ]
-        configuration: [ "debug", "release" ]
+        configuration: [debug, release]
         include:
-          - configuration: "debug"
-            parallel-test: "--parallel"
-          # See https://github.com/apple/swift-package-manager/issues/7069
-          - configuration: "release"
-            parallel-test: ""
+          - build-options: --build-tests -Xswiftc -enable-testing --explicit-target-dependency-import-check error
+          - test-options: --enable-code-coverage --explicit-target-dependency-import-check error
 
-    runs-on: ${{ matrix.host.os }}
+          - configuration: debug
+            parallel-test: --parallel
+
+          - configuration: release
+            # See https://github.com/apple/swift-package-manager/issues/7069
+            parallel-test:
+
+    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
       with:
@@ -89,15 +87,14 @@ jobs:
       with:
         runCmd: |
           set -eo pipefail
-          swift package resolve
-          .build/checkouts/Swifty-LLVM/Tools/make-pkgconfig.sh llvm.pc
-          export PKG_CONFIG_PATH=$PWD
-          swift build -c ${{ matrix.configuration }}  ${{ matrix.host.build-options }}
-          swift test -c ${{ matrix.configuration }} ${{ matrix.host.test-options }} ${{ matrix.parallel-test }} |
+          swift build -c ${{ matrix.configuration }} ${{ matrix.build-options }}
+
+          swift test -c ${{ matrix.configuration }} ${{ matrix.test-options }} ${{ matrix.parallel-test }} |
             tee testoutput.txt && (
               (grep -q "[.']EndToEndTests[/. ]test_" testoutput.txt && grep -q "[.']HyloTests[/. ]test_" testoutput.txt) ||
               (echo "error: generated tests failed to run; see
               https://github.com/apple/swift-package-manager/issues/6595" && false) )
+
           .build/${{ matrix.configuration }}/hc --version
 
     - name: Check code coverage
