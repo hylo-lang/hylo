@@ -84,6 +84,13 @@ jobs:
     - name: Set compiler version
       run: ./Tools/set-hc-version.sh ${{ needs.determine-version.outputs.version }}
 
+    - uses: actions/cache@v4
+      with:
+        path: .build
+        key: devcontainer-${{ matrix.configuration }}-spm-${{ hashFiles('**/Package.resolved') }}
+        restore-keys: |
+          ${{ runner.os }}-spm-
+
     - name: Build and Test
       uses: devcontainers/ci@v0.3
       with:
@@ -187,6 +194,13 @@ jobs:
           hylo/Tools/make-pkgconfig.sh llvm.pc
         echo 'PKG_CONFIG_PATH=${{ github.workspace }}' >> $GITHUB_ENV
       shell: bash
+
+    - uses: actions/cache@v4
+      with:
+        path: hylo/.build
+        key: ${{ runner.os }}-${{ matrix.configuration }}-spm-${{ hashFiles('hylo/**/Package.resolved') }}
+        restore-keys: |
+          ${{ runner.os }}-${{ matrix.configuration }}-spm-
 
     - if: ${{ matrix.os == 'windows-latest' }}
       name: Build support library
