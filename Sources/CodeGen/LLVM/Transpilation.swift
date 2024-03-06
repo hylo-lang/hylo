@@ -136,6 +136,7 @@ extension LLVM.Module {
     let fields: [LLVM.IRType] = [
       word(),  // size
       word(),  // alignment
+      word(),  // stride
       ptr,  // representation
     ]
     return LLVM.StructType(fields, in: &self)
@@ -363,6 +364,7 @@ extension LLVM.Module {
       aggregating: [
         word().constant(layout.size),
         word().constant(layout.alignment),
+        word().constant(layout.stride),
         ptr.null,
       ],
       in: &self)
@@ -392,6 +394,7 @@ extension LLVM.Module {
       aggregating: [
         word().constant(layout.size),
         word().constant(layout.alignment),
+        word().constant(layout.stride),
         ptr.null,
       ],
       in: &self)
@@ -1214,18 +1217,22 @@ extension LLVM.Module {
       // `s` is an arrow.
       let hyloType = ArrowType(m.type(of: s).ast)!
       let llvmType = StructType(ir.llvm(hyloType, in: &self))!
-      let arrow = llvm(s)
+      let lambda = llvm(s)
 
       // The first element of the representation is the function pointer.
       var f = insertGetStructElementPointer(
-        of: arrow, typed: llvmType, index: 0, at: insertionPoint)
+        of: lambda, typed: llvmType, index: 0, at: insertionPoint)
       f = insertLoad(ptr, from: f, at: insertionPoint)
+
+      let e = insertGetStructElementPointer(
+        of: lambda, typed: llvmType, index: 1, at: insertionPoint)
+      let captures = StructType(ir.llvm(hyloType.environment, in: &self))!
 
       // Following elements constitute the environment.
       var environment: [LLVM.IRValue] = []
       for (i, c) in hyloType.captures.enumerated() {
         var x = insertGetStructElementPointer(
-          of: arrow, typed: llvmType, index: i + 1, at: insertionPoint)
+          of: e, typed: captures, index: i, at: insertionPoint)
 
         // Remote captures are passed deferenced.
         if c.type.base is RemoteType {

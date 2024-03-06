@@ -69,6 +69,18 @@ public struct AccessEffectSet: OptionSet, Hashable {
     insert(newMember).memberAfterInsert
   }
 
+  /// A set with `set` and `inout`.
+  public static let setOrInout: Self = [.set, .inout]
+
+  /// A set with `let` and `sink`.
+  public static let letOrSink: Self = [.let, .sink]
+
+  /// Returns an instance containing all possible capabilities that can be requested on the
+  /// receiver of a bundle, used for in-place mutation iff `m` is `true`.
+  public static func forUseOfBundle(performingInPlaceMutation m: Bool) -> Self {
+    m ? .setOrInout : .letOrSink
+  }
+
 }
 
 extension AccessEffectSet {

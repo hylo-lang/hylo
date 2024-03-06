@@ -109,7 +109,7 @@ struct Emitter {
     action: (inout Emitter) -> T
   ) -> T {
     var instance = Self()
-    instance.module = module
+    instance.module = consume module
     swap(&instance.diagnostics, &log)
 
     defer {
@@ -1068,7 +1068,7 @@ struct Emitter {
 
   private mutating func emit(assignStmt s: AssignStmt.ID) -> ControlFlow {
     // The LHS should must be marked for mutation even if the statement denotes initialization.
-    guard program[s].left.kind == InoutExpr.self else {
+    guard ast.isMarkedForMutation(ast[s].left) else {
       let p = program[s].left.site.start
       report(.error(assignmentLHSRequiresMutationMarkerAt: .empty(at: p)))
       return .next
@@ -1115,7 +1115,7 @@ struct Emitter {
   }
 
   private mutating func emit(condCompilationStmt s: ConditionalCompilationStmt.ID) -> ControlFlow {
-    return emit(stmtList: ast[s].expansion(for: ast.compiler))
+    return emit(stmtList: ast[s].expansion(for: ast.compilationConditions))
   }
 
   private mutating func emit(conditionalStmt s: ConditionalStmt.ID) -> ControlFlow {
@@ -1395,6 +1395,8 @@ struct Emitter {
       emitStore(BooleanLiteralExpr.ID(e)!, to: storage)
     case BufferLiteralExpr.self:
       emitStore(BufferLiteralExpr.ID(e)!, to: storage)
+    case CaptureExpr.self:
+      emitStore(CaptureExpr.ID(e)!, to: storage)
     case CastExpr.self:
       emitStore(CastExpr.ID(e)!, to: storage)
     case ConditionalExpr.self:
@@ -1411,8 +1413,8 @@ struct Emitter {
       emitStore(NameExpr.ID(e)!, to: storage)
     case PragmaLiteralExpr.self:
       emitStore(PragmaLiteralExpr.ID(e)!, to: storage)
-    case RemoteExpr.self:
-      emitStore(RemoteExpr.ID(e)!, to: storage)
+    case RemoteTypeExpr.self:
+      emitStore(RemoteTypeExpr.ID(e)!, to: storage)
     case SequenceExpr.self:
       emitStore(SequenceExpr.ID(e)!, to: storage)
     case SubscriptCallExpr.self:
@@ -1447,6 +1449,16 @@ struct Emitter {
       let x0 = insert(module.makeAdvanced(storage, byStrides: i, at: program[v].site))!
       emitStore(value: v, to: x0)
     }
+  }
+
+  /// Inserts the IR for storing the value of `e` to `storage`.
+  private mutating func emitStore(_ e: CaptureExpr.ID, to storage: Operand) {
+    let t = RemoteType(program[e].type)!
+    let s = program[e].site
+
+    let x0 = emitLValue(program[e].source)
+    let x1 = insert(module.makeAccess(t.access, from: x0, at: s))!
+    emitStore(access: x1, to: storage, at: s)
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
@@ -1510,9 +1522,9 @@ struct Emitter {
     let x0 = emitLValue(pointerConversion: e)
 
     // Consuming a pointee requires a conformance to `Movable`.
-    let target = RemoteType(canonical(program[e].type))!
+    let u = canonical(program[e].type)
     let movable = program.ast.core.movable.type
-    if !program.conforms(target.bareType, to: movable, in: insertionScope!) {
+    if !program.conforms(u, to: movable, in: insertionScope!) {
       report(.error(module.type(of: x0).ast, doesNotConformTo: movable, at: ast[e].site))
       return
     }
@@ -1563,23 +1575,22 @@ struct Emitter {
       }
     }
 
-    // Explicit arguments are evaluated first, from left to right.
-    let explicitArguments = emitArguments(
+    // Arguments are evaluated first, from left to right; callee and captures are evaluated next
+    let arguments = emitArguments(
       to: ast[e].callee, in: CallID(e),
       usingExplicit: ast[e].arguments, synthesizingDefaultAt: .empty(at: ast[e].site.end))
-
-    // Callee and captures are evaluated next.
-    let (callee, captures) = emit(functionCallee: ast[e].callee)
-    let arguments = captures + explicitArguments
+    let m = ast.isMarkedForMutation(ast[e].callee)
+    let (callee, captures) = emitFunctionCallee(ast[e].callee, markedForMutation: m)
+    let inputs = captures + arguments
 
     // Call is evaluated last.
     switch callee {
     case .direct(let r):
-      emitApply(.constant(r), to: arguments, writingResultTo: storage, at: ast[e].site)
+      emitApply(.constant(r), to: inputs, writingResultTo: storage, at: ast[e].site)
     case .lambda(let r):
-      emitApply(r, to: arguments, writingResultTo: storage, at: ast[e].site)
+      emitApply(r, to: inputs, writingResultTo: storage, at: ast[e].site)
     case .bundle(let r):
-      emitApply(r, to: arguments, writingResultTo: storage, at: ast[e].site)
+      emitApply(r, to: inputs, writingResultTo: storage, at: ast[e].site)
     }
   }
 
@@ -1600,14 +1611,21 @@ struct Emitter {
     let x1 = emitSubfieldView(storage, at: [0], at: site)
     emitInitialize(storage: x1, to: x0, at: ast[e].site)
 
-    let lambda = ArrowType(program.canonical(program[e].type, in: insertionScope!))!
-    if lambda.environment == .void { return }
+    let arrow = ArrowType(program.canonical(program[e].type, in: insertionScope!))!
+    let x2 = emitSubfieldView(storage, at: [1], at: site)
 
-    var i = 1
+    // Simply mark the lambda's environment initialized if it's empty.
+    if arrow.environment == .void {
+      insert(module.makeMarkState(x2, initialized: true, at: site))
+      return
+    }
+
+    // Otherwise, initialize each capture individually.
+    var i = 0
     for b in program[e].decl.explicitCaptures {
       // TODO: See #878
       guard program[b].pattern.subpattern.kind == NamePattern.self else { UNIMPLEMENTED() }
-      let y0 = emitSubfieldView(storage, at: [i], at: site)
+      let y0 = emitSubfieldView(x2, at: [i], at: site)
       emitStore(value: program[b].initializer!, to: y0)
       i += 1
     }
@@ -1615,7 +1633,7 @@ struct Emitter {
     for c in program[e].decl.implicitCaptures {
       let y0 = emitLValue(directReferenceTo: c.decl, at: site)
       let y1 = insert(module.makeAccess(c.type.access, from: y0, at: site))!
-      let y2 = emitSubfieldView(storage, at: [i], at: site)
+      let y2 = emitSubfieldView(x2, at: [i], at: site)
       emitStore(access: y1, to: y2, at: site)
       i += 1
     }
@@ -1645,7 +1663,7 @@ struct Emitter {
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
-  private mutating func emitStore(_ e: RemoteExpr.ID, to storage: Operand) {
+  private mutating func emitStore(_ e: RemoteTypeExpr.ID, to storage: Operand) {
     let t = RemoteType(program[e].type)!
     let s = program[e].site
 
@@ -1766,6 +1784,8 @@ struct Emitter {
       emitStore(integer: literal, signed: false, bitWidth: 64, to: storage)
     case ast.coreType("UInt8")!:
       emitStore(integer: literal, signed: false, bitWidth: 8, to: storage)
+    case ast.coreType("UInt32")!:
+      emitStore(integer: literal, signed: false, bitWidth: 32, to: storage)
     case ast.coreType("Float64")!:
       emitStore(floatingPoint: literal, to: storage, evaluatedBy: FloatingPointConstant.float64(_:))
     case ast.coreType("Float32")!:
@@ -1867,9 +1887,10 @@ struct Emitter {
     writingResultTo storage: Operand, at site: SourceRange
   ) {
     let o = insert(module.makeAccess(.set, from: storage, at: site))!
-    insert(
-      module.makeCallBundle(
-        applying: .init(callee, in: insertionScope!), to: arguments, writingResultTo: o, at: site))
+    let s = module.makeCallBundle(
+      applying: callee, to: arguments, writingResultTo: o, at: site,
+      canonicalizingTypesIn: insertionScope!)
+    insert(s)
     insert(module.makeEndAccess(o, at: site))
   }
 
@@ -1957,11 +1978,6 @@ struct Emitter {
     // Nothing to do if the callee has no parameter.
     if parameters.isEmpty { return [] }
 
-    // Parameter declarations are accessible iff `callee` is a direct reference to a callable.
-    let parameterDecls = NameExpr.ID(callee).flatMap { (n) in
-      program.ast.runtimeParameters(of: program[n].referredDecl.decl!)
-    }
-
     var result: [Operand] = []
     for i in inputs.indices {
       let p = ParameterType(parameters[i].type)!
@@ -1969,11 +1985,12 @@ struct Emitter {
       switch inputs[i] {
       case .explicit(let n):
         let a = arguments[n].value
-        result.append(emit(argument: a, to: p, at: syntheticSite))
+        result.append(emitArgument(a, to: p, at: syntheticSite))
 
       case .defaulted:
-        let a = program[parameterDecls![i]].defaultValue!
-        result.append(emit(argument: a, to: p, at: syntheticSite))
+        let parameterDecls = program.runtimeParameters(of: callee)!
+        let a = program[parameterDecls[i]].defaultValue!
+        result.append(emitArgument(a, to: p, at: syntheticSite))
 
       case .implicit(let d):
         let s = emitLValue(directReferenceTo: d, at: syntheticSite)
@@ -1984,70 +2001,74 @@ struct Emitter {
     return result
   }
 
-  /// Inserts the IR generating the operands of the subscript call `e`.
-  private mutating func emitOperands(
-    _ e: SubscriptCallExpr.ID
-  ) -> (callee: BundleReference<SubscriptDecl>, arguments: [Operand]) {
-    // Explicit arguments are evaluated first, from left to right.
-    let explicitArguments = emitArguments(
-      to: ast[e].callee, in: CallID(e),
-      usingExplicit: ast[e].arguments, synthesizingDefaultAt: .empty(at: ast[e].site.end))
-
-    // Callee and captures are evaluated next.
-    let (callee, captures) = emit(subscriptCallee: ast[e].callee)
-
-    return (callee, captures + explicitArguments)
-  }
-
-  /// Inserts the IR for the argument `e` passed to a parameter of type `parameter`.
-  ///
-  /// - Parameters:
-  ///   - site: The source range in which `e` is being evaluated if it's a pragma literals.
-  ///     Defaults to `e.site`.
-  private mutating func emit(
-    argument e: AnyExprID, to parameter: ParameterType, at site: SourceRange? = nil
+  /// Inserts the IR for the argument `e` passed to a parameter of type `p`, anchoring instructions
+  /// at `syntheticSite ?? program[e].site`.
+  private mutating func emitArgument(
+    _ e: AnyExprID, to p: ParameterType, at syntheticSite: SourceRange?
   ) -> Operand {
-
-    if parameter.isAutoclosure {
-      return emit(autoclosureFor: e, to: parameter, at: site)
+    if p.isAutoclosure {
+      return emitAutoclosureArgument(e, to: p)
     }
 
-    let argumentSite: SourceRange
-    let storage: Operand
+    // Make sure arguments to 'set' or 'inout' parameters have a mutation marker, unless it's a
+    // literal expression.
+    if p.isSetOrInout && !e.isLiteral && !program.ast.isMarkedForMutation(e) {
+      report(.error(argumentTo: p.access, requiresMutationMarkerAt: program[e].site))
+    }
 
+    // Pragma literals require extra care to adjust the site at which they are evaluated.
+    let anchor = syntheticSite ?? program[e].site
     if let a = PragmaLiteralExpr.ID(e) {
-      argumentSite = site ?? ast[a].site
-      storage = emitAllocStack(for: program[a].type, at: argumentSite)
-      emitStore(a, to: storage, at: argumentSite)
-    } else {
-      argumentSite = ast[e].site
-      storage = emitLValue(e)
+      return emitPragmaLiteralArgument(a, to: p, at: anchor)
     }
 
-    let s = emitCoerce(storage, to: parameter.bareType, at: argumentSite)
-    return insert(module.makeAccess(parameter.access, from: s, at: argumentSite))!
+    let x0 = emitLValue(e)
+    let x1 = emitCoerce(x0, to: p.bareType, at: anchor)
+    return insert(module.makeAccess(p.access, from: x1, at: anchor))!
   }
 
-  private mutating func emit(
-    autoclosureFor argument: AnyExprID, to parameter: ParameterType, at site: SourceRange? = nil
-  ) -> Operand {
+  /// Inserts the IR for argument `e` passed to an autoclosure parameter of type `p`.
+  private mutating func emitAutoclosureArgument(_ e: AnyExprID, to p: ParameterType) -> Operand {
     // Emit synthesized function declaration.
-    let t = ArrowType(parameter.bareType)!
+    let t = ArrowType(p.bareType)!
     let h = Array(t.environment.skolems)
     let f = SynthesizedFunctionDecl(
-      .autoclosure(argument), typed: t, parameterizedBy: h, in: program[argument].scope)
+      .autoclosure(e), typed: t, parameterizedBy: h, in: program[e].scope)
     let callee = withClearContext({ $0.lower(syntheticAutoclosure: f) })
 
-    // Emit the IR code to reference tha function declaration.
+    // Emit the IR code to reference the function declaration.
     let r = FunctionReference(
       to: callee, in: module,
       specializedBy: module.specialization(in: insertionFunction!), in: insertionScope!)
 
-    let site = ast[argument].site
-    let s1 = insert(module.makeAddressToPointer(.constant(r), at: site))!
-    let s2 = emitAllocStack(for: parameter.bareType, at: site)
-    emitInitialize(storage: s2, to: s1, at: site)
-    return insert(module.makeAccess(parameter.access, from: s2, at: site))!
+    let anchor = program[e].site
+    let x0 = insert(module.makeAddressToPointer(.constant(r), at: anchor))!
+    let x1 = emitAllocStack(for: p.bareType, at: anchor)
+    emitInitialize(storage: x1, to: x0, at: anchor)
+    return insert(module.makeAccess(p.access, from: x1, at: anchor))!
+  }
+
+  /// Inserts the IR for argument `e` passed to a parameter of type `p`, evaluating the literal's
+  /// value as though it appeared at `site`.
+  private mutating func emitPragmaLiteralArgument(
+    _ e: PragmaLiteralExpr.ID, to p: ParameterType, at site: SourceRange
+  ) -> Operand {
+    let x0 = emitAllocStack(for: program[e].type, at: site)
+    emitStore(e, to: x0, at: site)
+    return insert(module.makeAccess(p.access, from: x0, at: site))!
+  }
+
+  /// Inserts the IR generating the operands of the subscript call `e`.
+  private mutating func emitOperands(
+    _ e: SubscriptCallExpr.ID
+  ) -> (callee: BundleReference<SubscriptDecl>, arguments: [Operand]) {
+    // Arguments are evaluated first, from left to right; callee and captures are evaluated next.
+    let arguments = emitArguments(
+      to: ast[e].callee, in: CallID(e),
+      usingExplicit: ast[e].arguments, synthesizingDefaultAt: .empty(at: ast[e].site.end))
+    let m = ast.isMarkedForMutation(ast[e].callee)
+    let (callee, captures) = emitSubscriptCallee(ast[e].callee, markedForMutation: m)
+    return (callee, captures + arguments)
   }
 
   /// Inserts the IR for infix operand `e` passed with convention `access`.
@@ -2091,34 +2112,32 @@ struct Emitter {
     }
   }
 
-  /// Inserts the IR for given `callee` and returns `(c, a)`, where `c` is the callee's value and
-  /// `a` are arguments to lifted parameters.
+  /// Inserts the IR for given `callee`, which is marked for mutation if `isMutating` is `true`,
+  /// and returns the callee's value along with its lifted arguments.
   ///
-  /// Lifted arguments are produced if `callee` is a reference to a function with captures, such as
-  /// a bound member function or a local function declaration with a non-empty environment.
+  /// Lifted arguments correspond to the captures of the `callee`, which are additional parameters
+  /// of the lowered function. Bound member functions have a single lifted argument denoting their
+  /// receiver. Local functions with non-empty environments may have many. Lifted arguments are
+  /// returned in the same order as the additional parameters in the lowered function.
   ///
   /// - Requires: `callee` has a lambda type.
-  private mutating func emit(
-    functionCallee callee: AnyExprID
+  private mutating func emitFunctionCallee(
+    _ callee: AnyExprID, markedForMutation isMutating: Bool
   ) -> (callee: Callee, captures: [Operand]) {
     switch callee.kind {
     case NameExpr.self:
-      return emit(namedFunctionCallee: .init(callee)!)
-
+      return emitNamedFunctionCallee(.init(callee)!, markedForMutation: isMutating)
     case InoutExpr.self:
-      // TODO: Handle the mutation marker, somehow.
-      return emit(functionCallee: ast[InoutExpr.ID(callee)!].subject)
-
+      return emitFunctionCallee(ast[InoutExpr.ID(callee)!].subject, markedForMutation: true)
     default:
-      let f = emit(lambdaCallee: callee)
-      return (.lambda(f), [])
+      return (callee: .lambda(emitLambdaCallee(callee)), captures: [])
     }
   }
 
-  /// Inserts the IR for given `callee` and returns `(c, a)`, where `c` is the callee's value and
-  /// `a` are arguments to lifted parameters.
-  private mutating func emit(
-    namedFunctionCallee callee: NameExpr.ID
+  /// Inserts the IR for given `callee`, which is marked for mutation iff `isMutating` is `true`,
+  /// and returns the callee's value along with its lifted arguments.
+  private mutating func emitNamedFunctionCallee(
+    _ callee: NameExpr.ID, markedForMutation isMutating: Bool
   ) -> (callee: Callee, captures: [Operand]) {
     switch program[callee].referredDecl {
     case .direct(let d, let a) where d.isCallable:
@@ -2130,7 +2149,8 @@ struct Emitter {
       return (.direct(f), [])
 
     case .member(let d, _, _) where d.isCallable:
-      return emitMemberFunctionCallee(callee)
+      // Callee is a member reference; the receiver is the only capture.
+      return emitMemberFunctionCallee(callee, markedForMutation: isMutating)
 
     case .builtinFunction, .builtinType:
       // Calls to built-ins should have been handled already.
@@ -2138,46 +2158,60 @@ struct Emitter {
 
     default:
       // Callee is a lambda.
-      let f = emit(lambdaCallee: .init(callee))
+      let f = emitLambdaCallee(.init(callee))
       return (.lambda(f), [])
     }
   }
 
-  /// Inserts the IR evaluating `callee`, which refers to a member function, returning `(c, [r])`
-  /// where `c` is the callee's value and `r` is the receiver of the call.
+  /// Inserts the IR evaluating `callee`, which refers to a member function marked for mutation
+  /// iff `isMutating` is `true`, returning the callee's value along with the call receiver.
   private mutating func emitMemberFunctionCallee(
-    _ callee: NameExpr.ID
+    _ callee: NameExpr.ID, markedForMutation isMutating: Bool
   ) -> (callee: Callee, captures: [Operand]) {
-    guard case .member(let d, let a, let s) = program[callee].referredDecl else {
-      unreachable()
-    }
+    guard case .member(let d, let a, let s) = program[callee].referredDecl else { unreachable() }
 
     let receiver = emitLValue(receiver: s, at: ast[callee].site)
     let receiverType = module.type(of: receiver).ast
-    let scopeOfUse = program[callee].scope
 
-    let functionToCall: Callee
+    let request = program.requestedCapabilities(
+      onBundleProviding: receiverCapabilities(program[callee].type),
+      forInPlaceMutation: isMutating)
+    let entityToCall = module.memberCallee(
+      referringTo: d, memberOf: receiverType, accessedWith: request,
+      specializedBy: a, usedIn: program[callee].scope)
 
-    // Check if `d`'s implementation is synthetic.
-    if program.isRequirement(d) && !receiverType.isSkolem {
-      let t = program.traitDeclaring(d)!
-      let c = program.conformance(of: receiverType, to: t, exposedTo: scopeOfUse)!
-      let irFunction = module.demandDeclaration(lowering: c.implementations[d]!)
-      functionToCall = .direct(
-        FunctionReference(to: irFunction, in: module, specializedBy: a, in: scopeOfUse))
+    if case .bundle(let b) = entityToCall {
+      return emitMethodBundleCallee(referringTo: b, on: receiver, at: program[callee].site)
     } else {
-      functionToCall = Callee(d, specializedBy: a, in: &module, usedIn: insertionScope!)
+      let c = insert(module.makeAccess(request, from: receiver, at: program[callee].site))!
+      return (callee: entityToCall, captures: [c])
     }
+  }
 
-    let k = receiverCapabilities(program[callee].type)
-    let c = insert(module.makeAccess(k, from: receiver, at: ast[callee].site))!
-    return (functionToCall, [c])
+  /// Returns the value of a reference to `b`, which is bound to `receiver` at `site`.
+  ///
+  /// If `b` requests only one capability, the returned callee is a direct function reference to
+  /// the corresponding variant. Otherwise, it is `b` unchanged. The returned capture is an access
+  /// on `receiver` taking the weakest capability that `b` requests. This access may be modified
+  /// later to take a stronger capability if last use analysis allows it.
+  private mutating func emitMethodBundleCallee(
+    referringTo b: BundleReference<MethodDecl>, on receiver: Operand, at site: SourceRange
+  ) -> (callee: Callee, captures: [Operand]) {
+    if let k = b.capabilities.uniqueElement {
+      let d = module.demandDeclaration(lowering: program.ast.implementation(k, of: b.bundle)!)
+      let f = FunctionReference(to: d, in: module, specializedBy: b.arguments, in: insertionScope!)
+      let c = insert(module.makeAccess(k, from: receiver, at: site))!
+      return (callee: .direct(f), captures: [c])
+    } else {
+      let c = insert(module.makeAccess(b.capabilities.weakest!, from: receiver, at: site))!
+      return (callee: .bundle(b), captures: [c])
+    }
   }
 
   /// Inserts the IR for given `callee` and returns its value.
   ///
   /// - Requires: `callee` has a lambda type.
-  private mutating func emit(lambdaCallee callee: AnyExprID) -> Operand {
+  private mutating func emitLambdaCallee(_ callee: AnyExprID) -> Operand {
     switch ArrowType(program[callee].type)!.receiverEffect {
     case .yielded:
       unreachable()
@@ -2191,46 +2225,41 @@ struct Emitter {
     }
   }
 
-  private mutating func emit(
-    subscriptCallee callee: AnyExprID
+  /// Inserts the IR for given `callee`, which is marked for mutation if `isMutating` is `true`,
+  /// and returns the callee's value along with its lifted arguments.
+  private mutating func emitSubscriptCallee(
+    _ callee: AnyExprID, markedForMutation isMutating: Bool
   ) -> (callee: BundleReference<SubscriptDecl>, captures: [Operand]) {
     // TODO: Handle captures
     switch callee.kind {
     case NameExpr.self:
-      return emit(namedSubscriptCallee: .init(callee)!)
-
+      return emitNamedSubscriptCallee(.init(callee)!, markedForMutation: isMutating)
     case InoutExpr.self:
-      // TODO: Handle the mutation marker, somehow.
-      return emit(subscriptCallee: ast[InoutExpr.ID(callee)!].subject)
-
+      return emitSubscriptCallee(ast[InoutExpr.ID(callee)!].subject, markedForMutation: true)
     default:
-      UNIMPLEMENTED()
+      UNIMPLEMENTED("call to an anonymous subscript of an rvalue")
     }
   }
 
-  private mutating func emit(
-    namedSubscriptCallee callee: NameExpr.ID
+  /// Inserts the IR for given `callee`, which is marked for mutation if `isMutating` is `true`,
+  /// and returns the callee's value along with its lifted arguments.
+  private mutating func emitNamedSubscriptCallee(
+    _ callee: NameExpr.ID, markedForMutation isMutating: Bool
   ) -> (callee: BundleReference<SubscriptDecl>, captures: [Operand]) {
     switch program[callee].referredDecl {
     case .direct(let d, let a) where d.kind == SubscriptDecl.self:
       // Callee is a direct reference to a subscript declaration.
-      let t = SubscriptType(canonical(program[d].type))!
-      guard t.environment == .void else {
-        UNIMPLEMENTED()
+      guard SubscriptType(canonical(program[d].type))!.environment == .void else {
+        UNIMPLEMENTED("subscript with non-empty environment")
       }
 
-      let b = BundleReference(to: SubscriptDecl.ID(d)!, specializedBy: a)
-      return (b, [])
+      let entityToCall = program.subscriptBundleReference(
+        to: .init(d)!, specializedBy: a, markedForMutation: isMutating)
+      return (entityToCall, [])
 
-    case .member(let d, let a, let s) where d.kind == SubscriptDecl.self:
-      // Callee is a member reference to a subscript declaration.
-      let b = BundleReference(to: SubscriptDecl.ID(d)!, specializedBy: a)
-
-      // The callee's receiver is the sole capture.
-      let receiver = emitLValue(receiver: s, at: ast[callee].site)
-      let t = SubscriptType(program[d].type)!
-      let i = insert(module.makeAccess(t.capabilities, from: receiver, at: ast[callee].site))!
-      return (b, [i])
+    case .member(let d, _, _) where d.kind == SubscriptDecl.self:
+      // Callee is a member reference; the receiver is the only capture.
+      return emitMemberSubscriptCallee(callee, markedForMutation: isMutating)
 
     case .builtinFunction, .builtinType:
       // There are no built-in subscripts.
@@ -2239,6 +2268,20 @@ struct Emitter {
     default:
       UNIMPLEMENTED()
     }
+  }
+
+  /// Inserts the IR evaluating `callee`, which refers to a member subscript marked for mutation
+  /// iff `isMutating` is `true`, returning the callee's value along with the call receiver.
+  private mutating func emitMemberSubscriptCallee(
+    _ callee: NameExpr.ID, markedForMutation isMutating: Bool
+  ) -> (callee: BundleReference<SubscriptDecl>, captures: [Operand]) {
+    guard case .member(let d, let a, let s) = program[callee].referredDecl else { unreachable() }
+
+    let entityToCall = program.subscriptBundleReference(
+      to: .init(d)!, specializedBy: a, markedForMutation: isMutating)
+    let r = emitLValue(receiver: s, at: ast[callee].site)
+    let c = insert(module.makeAccess(entityToCall.capabilities, from: r, at: ast[callee].site))!
+    return (entityToCall, [c])
   }
 
   /// Returns `(success: a, failure: b)` where `a` is the basic block reached if all items in
@@ -2450,7 +2493,7 @@ struct Emitter {
     return x0
   }
 
-  /// Traps on this execution path becauses of un unexpected coercion from `lhs` to `rhs`.
+  /// Traps on this execution path because of un unexpected coercion from `lhs` to `rhs`.
   private func unexpectedCoercion(
     from lhs: AnyType, to rhs: AnyType, file: StaticString = #file, line: UInt = #line
   ) -> Never {
@@ -2595,8 +2638,8 @@ struct Emitter {
     let x2 = insert(module.makeLoad(x1, at: ast[e].site))!
     insert(module.makeEndAccess(x1, at: ast[e].site))
 
-    let target = RemoteType(canonical(program[e].type))!
-    return insert(module.makePointerToAddress(x2, to: target, at: ast[e].site))!
+    let t = RemoteType(MetatypeType(canonical(program[e].right.type))!.instance)!
+    return insert(module.makePointerToAddress(x2, to: t, at: ast[e].site))!
   }
 
   /// Inserts the IR for lvalue `e`.
@@ -2611,9 +2654,9 @@ struct Emitter {
 
   /// Inserts the IR for lvalue `e`.
   private mutating func emitLValue(_ e: SubscriptCallExpr.ID) -> Operand {
-    let (callee, arguments) = emitOperands(e)
+    let (b, a) = emitOperands(e)
     let s = module.makeProjectBundle(
-      applying: .init(callee, in: insertionScope!), to: arguments, at: ast[e].site)
+      applying: b, to: a, at: ast[e].site, canonicalizingTypesIn: insertionScope!)
     return insert(s)!
   }
 
@@ -2722,12 +2765,12 @@ struct Emitter {
         boundTo: receiver, declaredBy: i, specializedBy: specialization, at: site)
     }
 
-    let callee = BundleReference(to: d, specializedBy: specialization)
     let t = SubscriptType(canonicalType(of: d, specializedBy: specialization))!
+    let b = BundleReference(to: d, specializedBy: specialization, requesting: t.capabilities)
     let r = insert(module.makeAccess(t.capabilities, from: receiver, at: site))!
 
     let s = module.makeProjectBundle(
-      applying: .init(callee, in: insertionScope!), to: [r], at: site)
+      applying: b, to: [r], at: site, canonicalizingTypesIn: insertionScope!)
     return insert(s)!
   }
 
@@ -2811,7 +2854,7 @@ struct Emitter {
       return
     }
 
-    // Insert a call to the approriate move implementation if its semantics is unambiguous.
+    // Insert a call to the appropriate move implementation if its semantics is unambiguous.
     // Otherwise, insert a call to the method bundle.
     if let k = semantics.uniqueElement {
       emitMove(k, value, to: storage, withMovableConformance: movable, at: site)
@@ -3093,8 +3136,15 @@ struct Emitter {
     _ recordAddress: Operand, at subfield: RecordPath, at site: SourceRange
   ) -> Operand {
     if subfield.isEmpty { return recordAddress }
-    let s = module.makeSubfieldView(of: recordAddress, subfield: subfield, at: site)
-    return insert(s)!
+
+    if let r = module[recordAddress] as? SubfieldView {
+      let p = r.subfield + subfield
+      let s = module.makeSubfieldView(of: r.recordAddress, subfield: p, at: site)
+      return insert(s)!
+    } else {
+      let s = module.makeSubfieldView(of: recordAddress, subfield: subfield, at: site)
+      return insert(s)!
+    }
   }
 
   /// Emits the IR trapping iff `predicate`, which is an object of type `i1`.
@@ -3242,6 +3292,12 @@ extension Emitter {
 }
 
 extension Diagnostic {
+
+  fileprivate static func error(
+    argumentTo a: AccessEffect, requiresMutationMarkerAt site: SourceRange
+  ) -> Diagnostic {
+    .error("argument to '\(a)' parameter must be marked for mutation", at: site)
+  }
 
   fileprivate static func error(
     assignmentLHSRequiresMutationMarkerAt site: SourceRange

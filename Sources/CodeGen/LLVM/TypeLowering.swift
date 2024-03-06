@@ -12,14 +12,14 @@ extension IR.Program {
     switch val {
     case let t as AnyType:
       return llvm(t.base, in: &module)
+    case let t as ArrowType:
+      return llvm(arrowType: t, in: &module)
     case let t as BufferType:
       return llvm(bufferType: t, in: &module)
     case let t as BuiltinType:
       return llvm(builtinType: t, in: &module)
     case let t as BoundGenericType:
       return llvm(boundGenericType: t, in: &module)
-    case let t as ArrowType:
-      return llvm(arrowType: t, in: &module)
     case is MetatypeType:
       return module.ptr
     case let t as ProductType:
@@ -33,6 +33,15 @@ extension IR.Program {
     default:
       notLLVMRepresentable(val)
     }
+  }
+
+  /// Returns the LLVM form of `t` in `module`.
+  ///
+  /// - Requires: `t` is representable in LLVM.
+  func llvm(arrowType t: ArrowType, in module: inout LLVM.Module) -> LLVM.IRType {
+    precondition(t[.isCanonical])
+    let e = llvm(t.environment, in: &module)
+    return LLVM.StructType([module.ptr, e], in: &module)
   }
 
   /// Returns the LLVM form of `val` in `module`.
@@ -89,16 +98,6 @@ extension IR.Program {
     default:
       unreachable()
     }
-  }
-
-  /// Returns the LLVM form of `val` in `module`.
-  ///
-  /// - Requires: `val` is representable in LLVM.
-  func llvm(arrowType val: ArrowType, in module: inout LLVM.Module) -> LLVM.IRType {
-    precondition(val[.isCanonical])
-
-    let fields = Array(repeating: module.ptr, count: base.storage(of: val).count)
-    return LLVM.StructType(fields, in: &module)
   }
 
   /// Returns the LLVM form of `val` in `module`.

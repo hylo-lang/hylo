@@ -1713,9 +1713,9 @@ public enum Parser {
       return try parseArrowTypeOrTupleExpr(in: &state)
 
     case .lBrack:
-      // A left bracket may start an arrow type expression (e.g., `[any Copyable] () -> T`) or a
-      // compound literal expression (e.g., `[x, y]`).
-      return try parseArrowTypeOrCompoundLiteralExpr(in: &state)
+      // A left bracket may start an arrow type expression (e.g., `[any Copyable]() -> T`), a
+      // compound literal expression (e.g., `[x, y]`), or a capture (e.g., `[let x]`).
+      return try parseArrowTypeOrBracketedExpr(in: &state)
 
     default:
       return nil
@@ -2102,14 +2102,14 @@ public enum Parser {
 
   private static func parseRemoteExpr(
     in state: inout ParserState
-  ) throws -> RemoteExpr.ID? {
+  ) throws -> RemoteTypeExpr.ID? {
     guard let introducer = state.take(.remote) else { return nil }
 
     let convention = try state.expect("access effect", using: accessEffect)
     let operand = try state.expect("expression", using: parseExpr(in:))
 
     return state.insert(
-      RemoteExpr(
+      RemoteTypeExpr(
         introducerSite: introducer.site,
         convention: convention,
         operand: operand,
@@ -2200,27 +2200,32 @@ public enum Parser {
     return AnyExprID(expr)
   }
 
-  private static func parseArrowTypeOrCompoundLiteralExpr(
+  private static func parseArrowTypeOrBracketedExpr(
     in state: inout ParserState
   ) throws -> AnyExprID? {
-    // Assume we're parsing an arrow type expression until we reach the point where we should
-    // consume an effect or a right arrow. Commit to that choice if we successfully parsed a
-    // non-empty parameter list at that point.
+    // There are 4 kinds of expressions starting with a left bracket: arrow types, buffers, maps,
+    // and captures. We can commit to a capture if the token following the opening bracket is an
+    // access modifier. Otherwise, we can assume we're parsing an arrow type until the point where
+    // we should consume an effect or a right arrow.
     let backup = state.backup()
 
-    // Parse the opening bracket.
     guard let opener = state.take(.lBrack) else { return nil }
+    if let k = try accessEffect.parse(&state) {
+      let s = try state.expect("expression", using: parseExpr(in:))
+      _ = try state.expect("']'", using: { $0.take(.rBrack) })
+      let e = state.insert(
+        CaptureExpr(access: k, source: s, site: state.range(from: opener.site.startIndex)))
+      return AnyExprID(e)
+    }
 
-    // Parse the environment, if any.
     let environment = try parseExpr(in: &state)
-
-    // If we don't find the closing bracket, backtrack and parse a compound literal.
     if state.take(.rBrack) == nil {
       state.restore(from: backup)
       return try parseCompoundLiteral(in: &state)
     }
 
-    // If we don't find the opening parenthesis, assume we've parsed a buffer literal.
+    // We're here because we parsed either `[]` or `[e]`, where `e` is an arbitrary expression. If
+    // we don't find an opening parenthesis next, we can assume we've parsed a buffer literal.
     if !state.isNext(.lParen) {
       let expr = state.insert(
         BufferLiteralExpr(
@@ -2240,9 +2245,7 @@ public enum Parser {
 
     // Parse the remainder of the type expression.
     let effect = try receiverEffect.parse(&state)
-
-    guard state.take(.arrow) != nil else {
-      // Backtrack and parse a compound literal.
+    if state.take(.arrow) == nil {
       state.restore(from: backup)
       return try parseCompoundLiteral(in: &state)
     }
@@ -2616,10 +2619,20 @@ public enum Parser {
         site: state.range(from: introducer.site.startIndex)))
   }
 
+  /// Parses a binding introducer.
+  ///
+  /// Should not be called before checking if the next token is `_` if another wildcard rule could apply.
   private static func parseBindingIntroducer(
     in state: inout ParserState
   ) throws -> SourceRepresentable<BindingPattern.Introducer>? {
     guard let head = state.peek() else { return nil }
+
+    // Interpret `_ = rhs` as a sugar for `let _ = rhs`
+    if head.kind == .under {
+      return SourceRepresentable(
+        value: .let,
+        range: state.lexer.sourceCode.emptyRange(at: state.currentIndex))
+    }
 
     let introducer: BindingPattern.Introducer
     switch head.kind {
@@ -2988,7 +3001,7 @@ public enum Parser {
 
     // Parse the body of the compiler condition.
     let stmts: [AnyStmtID]
-    if condition.mayNotNeedParsing && !condition.holds(for: state.ast.compiler) {
+    if condition.mayNotNeedParsing && !condition.holds(for: state.ast.compilationConditions) {
       try skipConditionalCompilationBranch(in: &state, stoppingAtElse: true)
       stmts = []
     } else {
@@ -3000,7 +3013,7 @@ public enum Parser {
     if state.take(.poundEndif) != nil {
       fallback = []
     } else if state.take(.poundElse) != nil {
-      if condition.mayNotNeedParsing && condition.holds(for: state.ast.compiler) {
+      if condition.mayNotNeedParsing && condition.holds(for: state.ast.compilationConditions) {
         try skipConditionalCompilationBranch(in: &state, stoppingAtElse: false)
         fallback = []
       } else {
@@ -3009,7 +3022,7 @@ public enum Parser {
       // Expect #endif.
       _ = try state.expect("'#endif'", using: { $0.take(.poundEndif) })
     } else if let head2 = state.take(.poundElseif) {
-      if condition.mayNotNeedParsing && condition.holds(for: state.ast.compiler) {
+      if condition.mayNotNeedParsing && condition.holds(for: state.ast.compilationConditions) {
         try skipConditionalCompilationBranch(in: &state, stoppingAtElse: false)
         fallback = []
       } else {
@@ -3152,8 +3165,8 @@ public enum Parser {
           throw [.error(expected: "identifier", at: state.currentLocation)] as DiagnosticSet
         }
         switch conditionName {
-        case "os": return .os(id)
-        case "arch": return .arch(id)
+        case "os": return .operatingSystem(id)
+        case "arch": return .architecture(id)
         case "feature": return .feature(id)
         case "compiler": return .compiler(id)
         default:

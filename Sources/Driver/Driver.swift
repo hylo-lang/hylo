@@ -10,6 +10,23 @@ import Utils
 
 public struct Driver: ParsableCommand {
 
+  /// A validation error that includes the command's full help message.
+  struct ValidationErrorWithHelp: Error, CustomStringConvertible {
+    var message: String
+
+    init(_ message: String) {
+      self.message = message
+    }
+
+    var description: String {
+      """
+      \(message)
+
+      \(Driver.helpMessage())
+      """
+    }
+  }
+
   /// The type of the output files to generate.
   private enum OutputType: String, ExpressibleByArgument {
 
@@ -108,13 +125,18 @@ public struct Driver: ParsableCommand {
   private var verbose: Bool = false
 
   @Flag(
+    name: [.customShort("V"), .long],
+    help: "Output the compiler version.")
+  private var version: Bool = false
+
+  @Flag(
     name: [.customShort("O")],
     help: "Compile with optimizations.")
   private var optimize: Bool = false
 
   @Argument(
     transform: URL.init(fileURLWithPath:))
-  private var inputs: [URL]
+  private var inputs: [URL] = []
 
   public init() {}
 
@@ -152,6 +174,15 @@ public struct Driver: ParsableCommand {
 
   /// Executes the command, accumulating diagnostics in `diagnostics`.
   private func executeCommand(diagnostics: inout DiagnosticSet) throws {
+
+    if version {
+      standardError.write("\(hcVersion)\n")
+      return
+    }
+
+    guard !inputs.isEmpty else {
+      throw ValidationErrorWithHelp("Missing expected argument '<inputs> ...'")
+    }
 
     if compileInputAsModules {
       fatalError("compilation as modules not yet implemented.")
@@ -193,7 +224,7 @@ public struct Driver: ParsableCommand {
     if verbose {
       standardError.write("begin depolymorphization pass.\n")
     }
-    ir.applyPass(.depolymorphize)
+    ir.depolymorphize()
 
     if verbose {
       standardError.write("create LLVM target machine.\n")

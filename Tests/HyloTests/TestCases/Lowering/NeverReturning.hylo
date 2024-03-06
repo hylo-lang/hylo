@@ -1,0 +1,11 @@
+//- lowerToFinishedIR expecting: success
+
+@ffi("abort")
+fun abort() -> Never
+
+public fun f() -> Int {
+  _ = 1
+  abort()
+}
+
+public fun main() {}

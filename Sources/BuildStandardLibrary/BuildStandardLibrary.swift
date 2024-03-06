@@ -22,7 +22,7 @@ struct BuildStandardLibrary: ParsableCommand {
 
   func run() throws {
     try CBOREncoder().forAST
-      .encode(AST(sources: hyloSourceFiles, for: CompilerConfiguration([])))
+      .encode(AST(sources: hyloSourceFiles, for: ConditionalCompilationFactors()))
       .write(to: outputURL, options: .atomic)
   }
 
@@ -31,8 +31,8 @@ struct BuildStandardLibrary: ParsableCommand {
 extension AST {
 
   /// Creates an instance that includes the Hylo library built from the given `sources`.
-  init(sources: [URL], for compiler: CompilerConfiguration) throws {
-    self.init(for: compiler)
+  init(sources: [URL], for conditions: ConditionalCompilationFactors) throws {
+    self.init(conditions)
     var diagnostics = DiagnosticSet()
     coreLibrary = try makeModule(
       "Hylo",

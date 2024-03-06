@@ -19,7 +19,7 @@ public trait Collection {
   /// - Requires: `i != end_position()`.
   fun position(after i: Position) -> Position
 
-  /// Accesses the elment at position `i`.
+  /// Accesses the element at position `i`.
   ///
   /// - Requires: `i` is a valid position in `self` different from `end_position()`.
   subscript(_ i: Position): Element { let }
@@ -40,6 +40,26 @@ public extension Collection {
       &accumulator = combine(accumulator, e)
     }
     return accumulator
+  }
+
+  /// Returns `true` iff `self` contains an element satisfying `predicate`.
+  ///
+  /// - Complexity: O(n), where n is the number of elements in `self`.
+  public fun contains<E>(where predicate: [E](Element) -> Bool) -> Bool {
+    for let e in self {
+      if predicate(e) { return true }
+    }
+    return false
+  }
+
+  /// Returns `true` iff all elements in `self` satisfy `predicate`.
+  ///
+  /// - Complexity: O(n), where n is the number of elements in `self`.
+  public fun all_satisfy<E>(_ predicate: [E](Element) -> Bool) -> Bool {
+    for let e in self {
+      if !predicate(e) { return false }
+    }
+    return true
   }
 
 }

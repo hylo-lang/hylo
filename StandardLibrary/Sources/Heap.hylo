@@ -23,7 +23,7 @@ public fun hylo_aligned_alloc(_ alignment: Int, _ size: Int) -> MemoryAddress {
 
   // precondition(((Int(bit_pattern: p) + s + a) & ~a) == (Int(bit_pattern: p) + 8))
   let r = MemoryAddress(bit_pattern: (Int(bit_pattern: p) + s + a) & ~a)
-  let h = r.advance(by_bytes: -s)
+  let h = r.advance(by: -s)
   PointerToMutable<MemoryAddress>(type_punning: h).unsafe_initialize_pointee(p.copy())
   return r
 }
@@ -35,7 +35,7 @@ public fun hylo_aligned_free(_ pointer: MemoryAddress) {
   if pointer == .null() { return }
 
   let s = MemoryLayout<MemoryAddress>.size()
-  let h = pointer.advance(by_bytes: -s)
+  let h = pointer.advance(by: -s)
   let p = PointerToMutable<MemoryAddress>(type_punning: h).unsafe[].copy()
   free(p)
 }

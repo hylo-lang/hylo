@@ -7,9 +7,11 @@ extension AST {
   ///
   /// This method collects all name expressions that occurs in `d`, visiting its children in
   /// pre-order. Nested type and extension declarations are not visited.
-  func uses(in d: AnyDeclID) -> [(NameExpr.ID, AccessEffect)] {
+  func uses<T: CapturingDecl>(in d: T.ID) -> [(NameExpr.ID, AccessEffect)] {
     var v = UseVisitor()
-    walk(d, notifying: &v)
+    for s in self[d].sourcesOfImplicitCaptures {
+      walk(s, notifying: &v)
+    }
     return v.uses
   }
 
@@ -30,9 +32,19 @@ private struct UseVisitor: ASTWalkObserver {
   private func root(_ lvalue: AnyExprID, in ast: AST) -> NameExpr.ID? {
     switch lvalue.kind {
     case NameExpr.self:
-      return NameExpr.ID(lvalue)!
+      return root(NameExpr.ID(lvalue)!, in: ast)
     case SubscriptCallExpr.self:
       return root(ast[SubscriptCallExpr.ID(lvalue)!].callee, in: ast)
+    default:
+      return nil
+    }
+  }
+
+  /// Returns the name at the root of the given `n`.
+  private func root(_ n: NameExpr.ID, in ast: AST) -> NameExpr.ID? {
+    switch ast[n].domain {
+    case .explicit(let e):
+      return root(e, in: ast)
     default:
       return nil
     }

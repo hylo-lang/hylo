@@ -318,10 +318,6 @@ extension Diagnostic {
     .error("cannot extend type '\(t)'", at: site)
   }
 
-  static func error(mutatingBundleMustReturnTupleAt site: SourceRange) -> Diagnostic {
-    .error("mutating bundle must return '{self: Self, _}'", at: site)
-  }
-
   static func error(
     cannotPass t: AnyType, toParameter u: AnyType, at site: SourceRange
   ) -> Diagnostic {

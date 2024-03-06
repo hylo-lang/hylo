@@ -1,5 +1,5 @@
 /// A semantic version number.
-public struct SemanticVersion: Codable, Comparable {
+public struct SemanticVersion: Codable, Comparable, Hashable {
 
   public let major: Int
 

@@ -266,10 +266,8 @@ public struct MovableDescription: CoreTraitDescription {
     let move = MethodDecl.ID(ast[self.decl].members[0])!
     assert(ast[move].identifier.value == "take_value")
 
-    self.moveInitialize = MethodImpl.ID(
-      ast[move].impls.first(where: { ast[$0].introducer.value == .set })!)!
-    self.moveAssign = MethodImpl.ID(
-      ast[move].impls.first(where: { ast[$0].introducer.value == .inout })!)!
+    self.moveInitialize = ast.implementation(.set, of: move)!
+    self.moveAssign = ast.implementation(.inout, of: move)!
   }
 
 }

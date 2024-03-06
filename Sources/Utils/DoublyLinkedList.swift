@@ -291,6 +291,9 @@ public struct DoublyLinkedList<Element> {
 
     count -= 1
     freeOffset = address.rawValue
+    if address.rawValue == headOffset {
+      headOffset = next
+    }
     if address.rawValue == tailOffset {
       tailOffset = previous
     }

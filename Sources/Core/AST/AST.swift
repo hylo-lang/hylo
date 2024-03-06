@@ -23,12 +23,12 @@ public struct AST {
     /// The module containing Hylo's core library, if any.
     public var coreLibrary: ModuleDecl.ID?
 
-    /// Information about the compiler processing `self`.
-    public let compiler: CompilerConfiguration
+    /// Conditions for selecting conditional compilation branches.
+    public let compilationConditions: ConditionalCompilationFactors
 
-    /// Creates an empty AST for given compiler.
-    public init(for compiler: CompilerConfiguration) {
-      self.compiler = compiler
+    /// Creates an empty instance, using `compilationConditions` as conditions for selecting conditional compilation branches.
+    public init(_ compilationConditions: ConditionalCompilationFactors) {
+      self.compilationConditions = compilationConditions
     }
 
   }
@@ -65,14 +65,16 @@ public struct AST {
     set { storage.coreLibrary = newValue }
   }
 
-  /// Information about the compiler processing `self`.
-  public var compiler: CompilerConfiguration {
-    return storage.compiler
+  /// The expansion filter used while processing conditional compilation statements in `self`.
+  public var compilationConditions: ConditionalCompilationFactors {
+    return storage.compilationConditions
   }
 
-  /// Creates an empty AST.
-  public init(for compiler: CompilerConfiguration) {
-    self.storage = Storage(for: compiler)
+  /// Creates an empty AST, using using `compilationConditions` as conditions for selecting conditional compilation branches.
+  public init(
+    _ compilationConditions: ConditionalCompilationFactors = ConditionalCompilationFactors()
+  ) {
+    self.storage = Storage(compilationConditions)
   }
 
   /// Inserts `n` into `self`, updating `diagnostics` if `n` is ill-formed.
@@ -425,7 +427,7 @@ public struct AST {
   }
 
   /// Retutns the declaration of the implementation of `d` with effect `a`, if any.
-  public func implementation(_ a: AccessEffect, of d: SubscriptDecl.ID) -> SubscriptImpl.ID? {
+  public func implementation<T: BundleDecl>(_ a: AccessEffect, of d: T.ID) -> T.Variant.ID? {
     self[d].impls.first(where: { (i) in self[i].introducer.value == a })
   }
 
@@ -454,6 +456,39 @@ public struct AST {
     case .explicit(let e):
       return isImplicitlyQualified(e)
     case .none, .operand:
+      return false
+    }
+  }
+
+  /// Returns `true` iff `e` is an expression that's marked for mutation.
+  public func isMarkedForMutation(_ e: AnyExprID) -> Bool {
+    switch e.kind {
+    case InoutExpr.self:
+      return true
+    case NameExpr.self:
+      return isMarkedForMutation(NameExpr.ID(e)!)
+    case SubscriptCallExpr.self:
+      return isMarkedForMutation(self[SubscriptCallExpr.ID(e)!].callee)
+    default:
+      return false
+    }
+  }
+
+  /// Returns `true` iff `e` is an expression that's marked for mutation.
+  public func isMarkedForMutation(_ e: NameExpr.ID) -> Bool {
+    switch self[e].domain {
+    case .explicit(let n):
+      return isMarkedForMutation(n)
+    default:
+      return false
+    }
+  }
+
+  /// Returns `true` iff `e` is an expression that's marked for mutation.
+  public func isMarkedForMutation(_ e: FoldedSequenceExpr) -> Bool {
+    if case .leaf(let l) = e {
+      return isMarkedForMutation(l)
+    } else {
       return false
     }
   }

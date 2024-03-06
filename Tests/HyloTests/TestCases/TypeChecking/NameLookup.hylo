@@ -11,7 +11,7 @@ extension A {
   }
   public fun m3() {
     m0()
-    m1()
+    _ = m1()
     self.m2()
   }
 }
@@ -20,7 +20,7 @@ extension A {
   public typealias D = E
 }
 
-type A {
+type A: Deinitializable {
   public memberwise init
 
   public typealias B = C
@@ -29,7 +29,7 @@ type A {
   public fun m0() {}
   public fun m2() {
     m0()
-    m1()
+    _ = m1()
     self.m2()
   }
 }
@@ -39,7 +39,7 @@ typealias B = A.B
 trait T {}
 
 conformance A: T {
-  fun m4() { m1() }
+  fun m4() { _ = m1() }
 }
 
 namespace N0 {
@@ -73,9 +73,9 @@ fun f0() {
 fun f1() {
   let x = A()
   x.m0()
-  x.m1()
-  x.m1.let()
-  x.m1.sink()
+  _ = x.m1()
+  _ = x.m1.let()
+  _ = x.m1.sink()
 }
 
 fun f2() {

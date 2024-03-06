@@ -20,3 +20,4 @@
 /Examples/**.obj
 **.lib
 **.7z
+llvm.pc

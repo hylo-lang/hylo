@@ -1,4 +1,4 @@
-// swift-tools-version:5.7
+// swift-tools-version:5.9
 import Foundation
 import PackageDescription
 
@@ -25,7 +25,7 @@ let package = Package(
   name: "Hylo",
 
   platforms: [
-    .macOS(.v13)
+    .macOS(.v12)
   ],
 
   products: [
