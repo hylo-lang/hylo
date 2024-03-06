@@ -105,6 +105,7 @@ jobs:
               https://github.com/apple/swift-package-manager/issues/6595" && false) )
 
           .build/${{ matrix.configuration }}/hc --version
+        push: never
 
     - name: Check code coverage
       uses: mattpolzin/swift-codecov-action@0.7.5
