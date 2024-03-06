@@ -25,7 +25,7 @@ extension Utils.Host {
 
   /// An AST representing the whole standard library, conditionally compiled for targeting the host
   /// platform.
-  public static let hostedLibraryAST = ResultOrError {
+  public static let hostedLibraryAST = Result {
     try CBORDecoder().forAST.decode(
       AST.self,
       from: Data(
@@ -35,7 +35,7 @@ extension Utils.Host {
 
   /// An AST representing the freestanding core of standard library, conditionally compiled for
   /// targeting the host platform.
-  public static let freestandingLibraryAST = ResultOrError {
+  public static let freestandingLibraryAST = Result {
     try CBORDecoder().forAST.decode(
       AST.self,
       from: Data(
