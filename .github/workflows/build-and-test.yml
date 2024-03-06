@@ -164,8 +164,8 @@ jobs:
       if: ${{ matrix.os == 'windows-latest' }}
       uses: compnerd/gha-setup-swift@v0.2.1
       with:
-        branch: swift-5.9.2-release
-        tag: 5.9.2-RELEASE
+        branch: swift-${{ env.swift-version }}-release
+        tag: ${{ env.swift-version }}-RELEASE
 
     - run: swift --version
 
