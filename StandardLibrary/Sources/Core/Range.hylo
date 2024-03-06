@@ -14,11 +14,15 @@ public type Range<Bound: SemiRegular> {
 
   /// Creates a half-open interval [`lower_bound`, `upper_bound`).
   ///
-  /// - Requires: `lower_bound <= upper_bound`.
+  /// - Requires: `lower_bound <= upper_bound` if `Bound` models `Comparable`.
   public init(from lower_bound: sink Bound, up_to upper_bound: sink Bound) {
-    // precondition(lower_bound <= upper_bound)
     &self.lower_bound = lower_bound
     &self.upper_bound = upper_bound
+  }
+
+  /// Returns true iff `lower_bound == upper_bound`.
+  public fun is_empty() -> Bool {
+    return lower_bound == upper_bound
   }
 
 }
