@@ -128,6 +128,8 @@ jobs:
           - HYLO_LLVM_VERSION: 17.0.6
           - package_suffix: .tar.zst
           - unpackage_command: tar -x --zstd -f
+            # https://github.com/apple/swift/issues/72121
+          - windows_only: '# WINDOWS ONLY:'
           - test_verification:  >-
               | tee testoutput.txt && (
               (grep -q "[.']EndToEndTests[/. ]test_" testoutput.txt && grep -q "[.']HyloTests[/. ]test_" testoutput.txt) ||
@@ -139,6 +141,7 @@ jobs:
             package_suffix: .7z
             triple_suffix: unknown-windows-msvc17
             test_verification:
+            windows_only:
 
           - os: macos-latest
             triple_suffix: apple-darwin23.3.0
@@ -211,15 +214,26 @@ jobs:
       run: |
         echo 'SPM_BUILD_TOOL_SUPPORT_NO_REENTRANT_BUILD=1' >> $env:GITHUB_ENV
         swift build ${{ env.build-options }} --target BuildToolDependencies
+        # https://github.com/apple/swift/issues/72121
+        if (-not $?) {
+            swift build ${{ env.build-options }} --target BuildToolDependencies
+        }
       working-directory: hylo
 
     - name: Build
-      run: swift build -c ${{ matrix.configuration }} ${{ env.build-options }} --build-tests
+      run: |
+        swift build -c ${{ matrix.configuration }} ${{ env.build-options }} --build-tests
+        ${{ matrix.windows_only }} if (-not $?) { swift build ${{ env.build-options }} --target BuildToolDependencies }
+
       working-directory: hylo
 
     - name: Test
-      run: swift test -c ${{ matrix.configuration }} ${{ env.test-options }} --parallel ${{ matrix.test_verification }}
+      run: |
+        swift test -c ${{ matrix.configuration }} ${{ env.test-options }} --parallel ${{ matrix.test_verification }}
+        ${{ matrix.windows_only }} if (-not $?) { swift test -c ${{ matrix.configuration }} ${{ env.test-options }} --parallel ${{ matrix.test_verification }} }
       working-directory: hylo
 
     - name: Output compiler version
-      run: hylo/.build/${{ matrix.configuration }}/hc --version
+      run: |
+        hylo/.build/${{ matrix.configuration }}/hc --version
+        ${{ matrix.windows_only }} if (-not $?) { hylo/.build/${{ matrix.configuration }}/hc --version }
