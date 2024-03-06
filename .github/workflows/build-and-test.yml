@@ -128,13 +128,13 @@ jobs:
           - HYLO_LLVM_VERSION: 17.0.6
           - package_suffix: .tar.zst
           - unpackage_command: tar -x --zstd -f
-            # https://github.com/apple/swift/issues/72121
-          - windows_only: '# WINDOWS ONLY:'
           - test_verification:  >-
               | tee testoutput.txt && (
               (grep -q "[.']EndToEndTests[/. ]test_" testoutput.txt && grep -q "[.']HyloTests[/. ]test_" testoutput.txt) ||
               (echo "error: generated tests failed to run; see
               https://github.com/apple/swift-package-manager/issues/6595" && false) )
+          # https://github.com/apple/swift/issues/72121
+          - windows_only: '# WINDOWS ONLY:'
 
           - os: windows-latest
             unpackage_command: 7z x -t7z
@@ -142,9 +142,11 @@ jobs:
             triple_suffix: unknown-windows-msvc17
             test_verification:
             windows_only:
+            build_platform_subdirectory: x86_64-unknown-windows-msvc
 
           - os: macos-latest
             triple_suffix: apple-darwin23.3.0
+            build_platform_subdirectory: x86_64-apple-macosx
 
     runs-on: ${{ matrix.os }}
     env:
@@ -235,5 +237,4 @@ jobs:
 
     - name: Output compiler version
       run: |
-        hylo/.build/${{ matrix.configuration }}/hc --version
-        ${{ matrix.windows_only }} if (-not $?) { hylo/.build/${{ matrix.configuration }}/hc --version }
+        hylo/.build/${{ matrix.build_platform_subdirectory }}/${{ matrix.configuration }}/hc --version
