@@ -39,7 +39,7 @@ on:
       - ".gitignore"
 
 env:
-  build-options: --build-tests -Xswiftc -enable-testing --explicit-target-dependency-import-check error
+  build-options: -Xswiftc -enable-testing --explicit-target-dependency-import-check error
   test-options: --explicit-target-dependency-import-check error --skip-build
   swift-version: '5.9'
 
@@ -96,7 +96,7 @@ jobs:
       with:
         runCmd: |
           set -eo pipefail
-          swift build -c ${{ matrix.configuration }} ${{ env.build-options }}
+          swift build -c ${{ matrix.configuration }} ${{ env.build-options }} --build-tests
 
           swift test -c ${{ matrix.configuration }} ${{ env.test-options }} ${{ matrix.more-test-options }} |
             tee testoutput.txt && (
@@ -195,9 +195,6 @@ jobs:
       shell: bash
 
     - uses: actions/cache@v4
-      # Using this cache on Windows was reliably producing uncermonious crashes in CI during build
-      # phases, with no diagnostics. https://github.com/apple/swift/issues/72121
-      if: ${{ matrix.os != 'windows-latest' }}
       with:
         path: hylo/.build
         key: ${{ runner.os }}-${{ matrix.configuration }}-spm-${{ hashFiles('hylo/**/Package.resolved') }}
@@ -213,11 +210,11 @@ jobs:
       name: Build the dependencies of build tools
       run: |
         echo 'SPM_BUILD_TOOL_SUPPORT_NO_REENTRANT_BUILD=1' >> $env:GITHUB_ENV
-        swift build --explicit-target-dependency-import-check=error --pkg-config-path . --target BuildToolDependencies
+        swift ${{ env.build-options }} --target BuildToolDependencies
       working-directory: hylo
 
     - name: Build
-      run: swift build -c ${{ matrix.configuration }} ${{ env.build-options }}
+      run: swift build -c ${{ matrix.configuration }} ${{ env.build-options }} --build-tests
       working-directory: hylo
 
     - name: Test
