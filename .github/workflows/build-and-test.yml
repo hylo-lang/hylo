@@ -210,7 +210,7 @@ jobs:
       name: Build the dependencies of build tools
       run: |
         echo 'SPM_BUILD_TOOL_SUPPORT_NO_REENTRANT_BUILD=1' >> $env:GITHUB_ENV
-        swift ${{ env.build-options }} --target BuildToolDependencies
+        swift build ${{ env.build-options }} --target BuildToolDependencies
       working-directory: hylo
 
     - name: Build
