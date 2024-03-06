@@ -1,4 +1,4 @@
-/// A half-open interval from a lower bound up to, but not including, an uppor bound.
+/// A half-open interval from a lower bound up to, but not including, an upper bound.
 public type Range<Bound: SemiRegular> {
 
   // TODO: private(set)
