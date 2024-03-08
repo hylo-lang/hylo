@@ -2,9 +2,9 @@
 public type PointerToMutable<Pointee>: Regular {
 
   /// The raw bits of the address.
-  var base: Builtin.ptr
+  internal var base: Builtin.ptr
 
-  memberwise init
+  internal memberwise init
 
   /// The value at the address represented by `self`.
   ///

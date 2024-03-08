@@ -1,9 +1,9 @@
 /// A 8-bit signed integer value.
 public type Int8 {
 
-  var value: Builtin.i8
+  internal var value: Builtin.i8
 
-  memberwise init
+  internal memberwise init
 
   /// Creates an instance with the same memory representation as `other`.
   public init(bit_pattern other: UInt8) {

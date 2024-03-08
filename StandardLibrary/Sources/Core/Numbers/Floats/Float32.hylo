@@ -1,7 +1,7 @@
 /// A singe-precision, floating-point value.
 public type Float32 {
 
-  var value: Builtin.float32
+  internal var value: Builtin.float32
 
   memberwise init
 
