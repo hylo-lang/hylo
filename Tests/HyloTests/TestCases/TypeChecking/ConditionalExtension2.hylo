@@ -8,7 +8,7 @@ type A<E>: Deinitializable {
 }
 
 extension A where E: P, E.X: Q {
-  fun foo() {}
+  public fun foo() {}
 }
 
 type B<X: Q>: P {}

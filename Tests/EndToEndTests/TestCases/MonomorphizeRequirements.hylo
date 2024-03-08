@@ -7,7 +7,7 @@ trait P {
 
 type A<T>: Deinitializable, P {
   var x: Int
-  memberwise init
+  public memberwise init
   public fun f() -> Int { x.copy() }
   public property n: Int { let { yield x } }
 }

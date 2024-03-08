@@ -2,9 +2,9 @@
 
 type A: Movable {
 
-  var x: Int
+  public var x: Int
 
-  memberwise init
+  public memberwise init
 
   public init(value: sink Int) {
     &self = A(x: value)

@@ -13,7 +13,7 @@ final class ManglingTests: XCTestCase {
       import Hylo
 
       namespace Stash {
-        type A {}
+        public type A {}
 
         trait Indexable {
           value size
