@@ -2585,7 +2585,7 @@ struct TypeChecker {
 
   /// Returns the passing conventions of `e`'s parameters inferred from uses in `e`'s body.
   ///
-  /// Parameters used immutably is inferred to be passed `let` unless corresponding hints specify
+  /// Parameters used immutably are inferred to be passed `let` unless corresponding hints specify
   /// a different convention. Parameters used mutably are inferred to be passed `inout` unless
   /// corresponding hints specify a convention other than `let`.
   ///
@@ -3091,8 +3091,8 @@ struct TypeChecker {
 
   /// Returns the declarations that introduce `name` and are exposed to `scopeOfUse`.
   ///
-  /// Declarations are lookup up qualified in the declaration space of `nominalScope` if it isn't
-  /// `nil`. Otherwise, they are looked up unqualified from `scopeOfuse`.
+  /// Declarations are lookup up qualified in `nominalScope` if it isn't `nil`. Otherwise, they are
+  /// looked up unqualified from `scopeOfuse`. Access modifiers are ignored.
   private mutating func lookup(
     _ name: SourceRepresentable<Name>, memberOf nominalScope: AnyType?,
     exposedTo scopeOfuse: AnyScopeID
