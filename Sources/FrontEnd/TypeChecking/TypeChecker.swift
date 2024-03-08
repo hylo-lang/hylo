@@ -3409,8 +3409,9 @@ struct TypeChecker {
     _ c: NameExpr.ID, occurringIn d: T.ID
   ) -> (stem: String, decl: AnyDeclID)? {
     let n = program[c].name
+    let s = AnyScopeID(d)
     var candidates = lookup(unqualified: n.value.stem, in: program[c].scope)
-    candidates.removeAll(where: { isCaptured(referenceTo: $0, occurringIn: AnyScopeID(d)) })
+    candidates.removeAll(where: { isCaptured(referenceTo: $0, occurringIn: s) })
     if candidates.isEmpty { return nil }
 
     guard let pick = candidates.uniqueElement else {
@@ -3419,7 +3420,7 @@ struct TypeChecker {
     }
 
     if program.isMember(pick) {
-      return ("self", lookup(unqualified: "self", in: AnyScopeID(d)).uniqueElement!)
+      return ("self", lookup(unqualified: "self", in: s).uniqueElement!)
     } else {
       return (n.value.stem, pick)
     }
@@ -3700,6 +3701,87 @@ struct TypeChecker {
     }
   }
 
+  /// Returns the innermost nominal scope in which `d` is contained, if any.
+  private mutating func nominalParent(of d: AnyDeclID) -> AnyScopeID? {
+    guard let p = program.nodeToScope[d] else {
+      assert(d.kind == ModuleDecl.self)
+      return nil
+    }
+
+    switch p.kind {
+    case ModuleDecl.self, NamespaceDecl.self, ProductTypeDecl.self, TypeAliasDecl.self:
+      return p
+    case ConformanceDecl.self:
+      return scopeExtended(by: ConformanceDecl.ID(p)!)
+    case ExtensionDecl.self:
+      return scopeExtended(by: ExtensionDecl.ID(p)!)
+    case MethodDecl.self:
+      return nominalParent(of: AnyDeclID(p)!)
+    case SubscriptDecl.self:
+      return nominalParent(of: AnyDeclID(p)!)
+    case TranslationUnit.self:
+      return program.nodeToScope[p]!
+    default:
+      return nil
+    }
+  }
+
+  /// Returns `true` iff a qualified reference to `d` is visible in `scopeOfUse`.
+  ///
+  /// Qualified name lookup may "see" a declaration `d` iff one the following holds:
+  /// - `d` is declared public.
+  /// - `d` is a trait requirement.
+  /// - `d` is declared internal and `scopeOfUse` is in the same scope.
+  /// - `d` is declared private and the innermost scope enclosing `d` also encloses `scopeOfUse`.
+  private mutating func isAccessibleWithQualification(
+    _ d: AnyDeclID, in scopeOfUse: AnyScopeID
+  ) -> Bool {
+    if let v = VarDecl.ID(d) {
+      return isAccessibleWithQualification(AnyDeclID(program[v].binding), in: scopeOfUse)
+    } else if d.isBundleImpl {
+      return isAccessibleWithQualification(AnyDeclID(program[d].scope)!, in: scopeOfUse)
+    } else if program.isRequirement(d) {
+      return true
+    }
+
+    // Note: direct access to the AST is necessary to support the cast to `ExposableDecl`.
+    let modifier = (program.ast[d] as? ExposableDecl)?.accessModifier.value
+
+    if modifier == .public {
+      return true
+    } else if !program.areInSameModule(d, scopeOfUse) {
+      return false
+    } else if modifier == .internal {
+      return true
+    } else if let p = nominalParent(of: d) {
+      return isNotionallyContained(scopeOfUse, in: p)
+    } else {
+      return d.kind == ModuleDecl.self
+    }
+  }
+
+  /// Returns `true` if `child` is lexically contained in or in an extension of `ancestor`.
+  private mutating func isNotionallyContained<T: NodeIDProtocol, U: ScopeID>(
+    _ child: T, in ancestor: U
+  ) -> Bool {
+    if child.rawValue == ancestor.rawValue { return true }
+
+    switch child.kind {
+    case ConformanceDecl.self:
+      return scopeExtended(by: ConformanceDecl.ID(child)!)
+        .map({ $0.rawValue == ancestor.rawValue }) ?? program.isContained(child, in: ancestor)
+    case ExtensionDecl.self:
+      return scopeExtended(by: ExtensionDecl.ID(child)!)
+        .map({ $0.rawValue == ancestor.rawValue }) ?? program.isContained(child, in: ancestor)
+    default:
+      if let n = program.nodeToScope[child] {
+        return isNotionallyContained(n, in: ancestor)
+      } else {
+        return false
+      }
+    }
+  }
+
   // MARK: Name resolution
 
   /// Resolves components of `n` from left to right until all components have been resolved or one
@@ -3813,26 +3895,31 @@ struct TypeChecker {
     _ name: SourceRepresentable<Name>, specializedBy arguments: [CompileTimeValue],
     in context: NameResolutionContext?, exposedTo scopeOfUse: AnyScopeID, usedAs purpose: NameUse
   ) -> NameResolutionResult.CandidateSet {
-    // Resolve references to the built-in symbols.
+    // Built-in symbols are handled separately.
     if context?.type == .builtin(.module) {
       return resolve(builtin: name)
     }
 
-    // Gather declarations qualified by `parent` if it isn't `nil` or unqualified otherwise.
-    let matches = lookup(name, memberOf: context?.type, exposedTo: scopeOfUse)
+    // Compute the set of all possible matches and filter out those that are inaccessible.
+    let isUnqualified = context == nil
+    let allMatches = lookup(name, memberOf: context?.type, exposedTo: scopeOfUse)
+    let accessibleMatches =
+      isUnqualified
+      ? allMatches
+      : allMatches.filter({ isAccessibleWithQualification($0, in: scopeOfUse) })
 
-    // Resolve compiler-known type aliases if no match was found.
-    if matches.isEmpty {
-      if context == nil {
+    // Attempt to resolve a compiler-known alias if there's no match and `name` occurs unqualified.
+    if accessibleMatches.isEmpty {
+      if isUnqualified {
         return resolve(compilerKnownAlias: name, specializedBy: arguments, exposedTo: scopeOfUse)
-      } else {
-        return []
+      } else if !allMatches.isEmpty {
+        report(.error(invalidReferenceToInaccessible: allMatches, named: name, in: program.ast))
       }
     }
 
     // Create declaration references to all candidates.
     var candidates: NameResolutionResult.CandidateSet = []
-    for m in matches {
+    for m in accessibleMatches {
       var log = DiagnosticSet()
 
       let t = resolveType(
