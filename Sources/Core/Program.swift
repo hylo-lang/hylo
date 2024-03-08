@@ -57,6 +57,15 @@ extension Program {
     }
   }
 
+  /// Returns whether `l` and `r` are in the same module.
+  public func areInSameModule<L: NodeIDProtocol, R: NodeIDProtocol>(_ l: L, _ r: R) -> Bool {
+    if let m = ModuleDecl.ID(l) {
+      return isContained(r, in: m)
+    } else {
+      return isContained(r, in: module(containing: nodeToScope[l]!))
+    }
+  }
+
   /// Returns whether `l` overlaps with `r`.
   public func areOverlapping(_ l: AnyScopeID, _ r: AnyScopeID) -> Bool {
     isContained(l, in: r) || isContained(r, in: l)
