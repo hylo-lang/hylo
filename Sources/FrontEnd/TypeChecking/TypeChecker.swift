@@ -3637,7 +3637,7 @@ struct TypeChecker {
   }
 
   /// Returns the labels of `d`s name.
-  private mutating func labels(_ d: FunctionDecl.ID) -> [String?] {
+  private func labels(_ d: FunctionDecl.ID) -> [String?] {
     program.ast[program[FunctionDecl.ID(d)!].parameters].map(\.label?.value)
   }
 
