@@ -44,10 +44,7 @@ extension Program {
   /// - `isContained(parent[child], ancestor)`.
   ///
   /// - Requires: `child` is the identifier of a scope in this hierarchy.
-  public func isContained<T: NodeIDProtocol, U: ScopeID>(
-    _ child: T,
-    in ancestor: U
-  ) -> Bool {
+  public func isContained<T: NodeIDProtocol, U: ScopeID>(_ child: T, in ancestor: U) -> Bool {
     var current = AnyNodeID(child)
     while true {
       if ancestor.rawValue == current.rawValue {

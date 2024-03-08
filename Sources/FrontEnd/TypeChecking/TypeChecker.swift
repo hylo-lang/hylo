@@ -2604,12 +2604,11 @@ struct TypeChecker {
     // Look at uses to update conventions where we could only guess `let` from the context.
     for (n, m) in program.ast.uses(in: program[e].decl) {
       let candidates = lookup(unqualified: program[n].name.value.stem, in: program[n].scope)
-      guard
-        let pick = candidates.unique(ParameterDecl.self),
-        let i = ps.firstIndex(of: pick),
-        result[i] == .let
-      else { continue }
-      result[i] = m
+      if let i = candidates.unique(ParameterDecl.self).flatMap(ps.firstIndex(of:)) {
+        if result[i] == .let {
+          result[i] = m
+        }
+      }
     }
 
     return result
@@ -6015,15 +6014,13 @@ struct TypeChecker {
     !isArrow(t)
   }
 
-  /// Returns `true` iff `e` is bound to a nominal type declaration in `obligations`.
-  private mutating func isBoundToNominalTypeDecl(
-    _ e: AnyExprID, in obligations: ProofObligations
-  ) -> Bool {
-    guard
-      let c = NameExpr.ID(e),
-      let r = obligations.referredDecl[c]
-    else { return false }
-    return isBoundToNominalTypeDecl(r)
+  /// Returns `true` iff `e` is bound to a nominal type declaration in `o`.
+  private mutating func isBoundToNominalTypeDecl(_ e: AnyExprID, in o: ProofObligations) -> Bool {
+    if let r = NameExpr.ID(e).flatMap({ o.referredDecl[$0] }) {
+      return isBoundToNominalTypeDecl(r)
+    } else {
+      return false
+    }
   }
 
   /// Returns `true` iff `r` is bound to a nominal type declaration.
