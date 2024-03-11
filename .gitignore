@@ -1,5 +1,6 @@
 # Swift Package Manager
 /.build
+/.*-build
 /Packages
 
 # IDEs

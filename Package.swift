@@ -51,7 +51,7 @@ let package = Package(
       from: "5.3.0"),
     .package(
       url: "https://github.com/hylo-lang/Swifty-LLVM",
-      branch: "main"),
+      branch: "cmake"),
     .package(
       url: "https://github.com/apple/swift-format",
       from: "508.0.1"),
@@ -105,7 +105,7 @@ let package = Package(
       dependencies: [
         "Utils",
         .product(name: "Collections", package: "swift-collections"),
-        .product(name: "LLVM", package: "Swifty-LLVM"),
+        .product(name: "SwiftyLLVM", package: "Swifty-LLVM"),
       ],
       swiftSettings: allTargetsSwiftSettings),
 
@@ -120,7 +120,7 @@ let package = Package(
         "Core",
         "IR",
         "Utils",
-        .product(name: "LLVM", package: "Swifty-LLVM"),
+        .product(name: "SwiftyLLVM", package: "Swifty-LLVM"),
       ],
       path: "Sources/CodeGen/LLVM",
       swiftSettings: allTargetsSwiftSettings),

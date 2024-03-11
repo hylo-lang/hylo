@@ -1,4 +1,4 @@
-import LLVM
+import SwiftyLLVM
 
 /// The name of an native instruction mapped to a built-in function.
 ///
@@ -27,13 +27,13 @@ import LLVM
 /// integral and floating-point numbers as well as conversions from and to these types.
 public enum NativeInstruction: Hashable {
 
-  case add(LLVM.OverflowBehavior, BuiltinType)
+  case add(SwiftyLLVM.OverflowBehavior, BuiltinType)
 
-  case sub(LLVM.OverflowBehavior, BuiltinType)
+  case sub(SwiftyLLVM.OverflowBehavior, BuiltinType)
 
-  case mul(LLVM.OverflowBehavior, BuiltinType)
+  case mul(SwiftyLLVM.OverflowBehavior, BuiltinType)
 
-  case shl(LLVM.OverflowBehavior, BuiltinType)
+  case shl(SwiftyLLVM.OverflowBehavior, BuiltinType)
 
   case udiv(exact: Bool, BuiltinType)
 
@@ -71,7 +71,7 @@ public enum NativeInstruction: Hashable {
   // Corresponding LLVM instruction: umul.with.overflow
   case unsignedMultiplicationWithOverflow(BuiltinType)
 
-  case icmp(LLVM.IntegerPredicate, BuiltinType)
+  case icmp(SwiftyLLVM.IntegerPredicate, BuiltinType)
 
   case trunc(BuiltinType, BuiltinType)
 
@@ -97,7 +97,7 @@ public enum NativeInstruction: Hashable {
 
   case frem(MathFlags, BuiltinType)
 
-  case fcmp(MathFlags, LLVM.FloatingPointPredicate, BuiltinType)
+  case fcmp(MathFlags, SwiftyLLVM.FloatingPointPredicate, BuiltinType)
 
   case fptrunc(BuiltinType, BuiltinType)
 
