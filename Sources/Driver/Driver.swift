@@ -4,7 +4,7 @@ import Core
 import Foundation
 import FrontEnd
 import IR
-import LLVM
+import SwiftyLLVM
 import StandardLibrary
 import Utils
 
@@ -230,9 +230,9 @@ public struct Driver: ParsableCommand {
       standardError.write("create LLVM target machine.\n")
     }
     #if os(Windows)
-      let target = try LLVM.TargetMachine(for: .host())
+      let target = try SwiftyLLVM.TargetMachine(for: .host())
     #else
-      let target = try LLVM.TargetMachine(for: .host(), relocation: .pic)
+      let target = try SwiftyLLVM.TargetMachine(for: .host(), relocation: .pic)
     #endif
     if verbose {
       standardError.write("create LLVM program.\n")

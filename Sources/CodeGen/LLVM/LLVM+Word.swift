@@ -1,9 +1,9 @@
-import LLVM
+import SwiftyLLVM
 
-extension LLVM.Module {
+extension SwiftyLLVM.Module {
 
   /// Returns the LLVM type of a machine word.
-  mutating func word() -> LLVM.IntegerType {
+  mutating func word() -> SwiftyLLVM.IntegerType {
     IntegerType(layout.bitWidth(of: ptr), in: &self)
   }
 
