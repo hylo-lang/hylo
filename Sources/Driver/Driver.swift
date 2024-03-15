@@ -221,44 +221,31 @@ public struct Driver: ParsableCommand {
 
     // LLVM
 
-    if verbose {
-      standardError.write("begin depolymorphization pass.\n")
-    }
+    logVerbose("begin depolymorphization pass.\n")
     ir.depolymorphize()
 
-    if verbose {
-      standardError.write("create LLVM target machine.\n")
-    }
+    logVerbose("create LLVM target machine.\n")
     #if os(Windows)
       let target = try SwiftyLLVM.TargetMachine(for: .host())
     #else
       let target = try SwiftyLLVM.TargetMachine(for: .host(), relocation: .pic)
     #endif
-    if verbose {
-      standardError.write("create LLVM program.\n")
-    }
+
+    logVerbose("create LLVM program.\n")
     var llvmProgram = try LLVMProgram(ir, mainModule: sourceModule, for: target)
 
     if optimize {
-      if verbose {
-        standardError.write("LLVM optimization.\n")
-      }
+      logVerbose("LLVM optimization.\n")
       llvmProgram.optimize()
     } else {
-      if verbose {
-        standardError.write("LLVM mandatory passes.\n")
-      }
+      logVerbose("LLVM mandatory passes.\n")
       llvmProgram.applyMandatoryPasses()
     }
 
-    if verbose {
-      standardError.write("LLVM processing complete.\n")
-    }
+    logVerbose("LLVM processing complete.\n")
     if outputType == .llvm {
       let m = llvmProgram.llvmModules[sourceModule]!
-      if verbose {
-        standardError.write("writing LLVM output.")
-      }
+      logVerbose("writing LLVM output.")
       try m.description.write(to: llvmFile(productName), atomically: true, encoding: .utf8)
       return
     }
@@ -291,6 +278,11 @@ public struct Driver: ParsableCommand {
       _ = binaryPath
       UNIMPLEMENTED()
     #endif
+  }
+
+  /// Logs `m` to the standard error iff `verbose` is `true`.
+  private func logVerbose(_ m: @autoclosure () -> String) {
+    if verbose { standardError.write(m()) }
   }
 
   /// Returns `true` if type inference related to `n`, which is in `p`, would be traced.
@@ -413,9 +405,7 @@ public struct Driver: ParsableCommand {
 
   /// Writes `source` to `url`, possibly with verbose logging.
   private func write(_ source: String, toURL url: URL) throws {
-    if verbose {
-      standardError.write("Writing \(url)")
-    }
+    logVerbose("Writing \(url)")
     try source.write(to: url, atomically: true, encoding: .utf8)
   }
 
@@ -456,12 +446,8 @@ public struct Driver: ParsableCommand {
     _ arguments: [String] = [],
     diagnostics: inout DiagnosticSet
   ) throws -> String? {
-    if verbose {
-      standardError.write(([programPath] + arguments).joined(separator: " "))
-    }
-
+    logVerbose(([programPath] + arguments).joined(separator: " "))
     let r = try Process.run(URL(fileURLWithPath: programPath), arguments: arguments)
-
     return r.standardOutput[].trimmingCharacters(in: .whitespacesAndNewlines)
   }
 
