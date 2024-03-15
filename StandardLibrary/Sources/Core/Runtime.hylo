@@ -11,17 +11,17 @@ public namespace Runtime {
   public type MetatypeHeader {
 
     /// The contiguous memory footprint of the type's instances, in bytes.
-    let size: Int
+    public let size: Int
 
     /// The preferred memory alignment of the type's instances, in bytes.
-    let alignment: Int
+    public let alignment: Int
 
     /// The number of bytes from the start of one instance to the start of the next when stored in
     /// contiguous memory.
-    let stride: Int
+    public let stride: Int
 
     /// The description of the type's layout.
-    let representation: MemoryAddress
+    public let representation: MemoryAddress
 
   }
 

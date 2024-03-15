@@ -364,6 +364,14 @@ extension Diagnostic {
       """, at: site)
   }
 
+  static func error(
+    invalidReferenceToInaccessible ds: [AnyDeclID], named n: SourceRepresentable<Name>, in ast: AST
+  ) -> Diagnostic {
+    .error(
+      "'\(n.value)' is inaccessible due to its protection level", at: n.site,
+      notes: ds.map { (d) in .note("'\(n.value)' declared here", at: ast[d].site) })
+  }
+
   static func warning(needlessImport d: ImportDecl.ID, in ast: AST) -> Diagnostic {
     let s = ast[d].identifier
     return .warning("needless import: source file is part of '\(s.value)'", at: s.site)

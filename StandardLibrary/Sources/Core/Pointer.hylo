@@ -2,9 +2,9 @@
 public type Pointer<Pointee>: Regular {
 
   /// The raw bits of the address.
-  var base: Builtin.ptr
+  internal var base: Builtin.ptr
 
-  memberwise init
+  internal memberwise init
 
   /// The value at the given address.
   ///

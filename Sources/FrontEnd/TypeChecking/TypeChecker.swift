@@ -2585,7 +2585,7 @@ struct TypeChecker {
 
   /// Returns the passing conventions of `e`'s parameters inferred from uses in `e`'s body.
   ///
-  /// Parameters used immutably is inferred to be passed `let` unless corresponding hints specify
+  /// Parameters used immutably are inferred to be passed `let` unless corresponding hints specify
   /// a different convention. Parameters used mutably are inferred to be passed `inout` unless
   /// corresponding hints specify a convention other than `let`.
   ///
@@ -2604,12 +2604,11 @@ struct TypeChecker {
     // Look at uses to update conventions where we could only guess `let` from the context.
     for (n, m) in program.ast.uses(in: program[e].decl) {
       let candidates = lookup(unqualified: program[n].name.value.stem, in: program[n].scope)
-      guard
-        let pick = candidates.unique(ParameterDecl.self),
-        let i = ps.firstIndex(of: pick),
-        result[i] == .let
-      else { continue }
-      result[i] = m
+      if let i = candidates.unique(ParameterDecl.self).flatMap(ps.firstIndex(of:)) {
+        if result[i] == .let {
+          result[i] = m
+        }
+      }
     }
 
     return result
@@ -3092,8 +3091,8 @@ struct TypeChecker {
 
   /// Returns the declarations that introduce `name` and are exposed to `scopeOfUse`.
   ///
-  /// Declarations are lookup up qualified in the declaration space of `nominalScope` if it isn't
-  /// `nil`. Otherwise, they are looked up unqualified from `scopeOfuse`.
+  /// Declarations are lookup up qualified in `nominalScope` if it isn't `nil`. Otherwise, they are
+  /// looked up unqualified from `scopeOfuse`. Access modifiers are ignored.
   private mutating func lookup(
     _ name: SourceRepresentable<Name>, memberOf nominalScope: AnyType?,
     exposedTo scopeOfuse: AnyScopeID
@@ -3410,8 +3409,9 @@ struct TypeChecker {
     _ c: NameExpr.ID, occurringIn d: T.ID
   ) -> (stem: String, decl: AnyDeclID)? {
     let n = program[c].name
+    let s = AnyScopeID(d)
     var candidates = lookup(unqualified: n.value.stem, in: program[c].scope)
-    candidates.removeAll(where: { isCaptured(referenceTo: $0, occurringIn: AnyScopeID(d)) })
+    candidates.removeAll(where: { isCaptured(referenceTo: $0, occurringIn: s) })
     if candidates.isEmpty { return nil }
 
     guard let pick = candidates.uniqueElement else {
@@ -3420,7 +3420,7 @@ struct TypeChecker {
     }
 
     if program.isMember(pick) {
-      return ("self", lookup(unqualified: "self", in: AnyScopeID(d)).uniqueElement!)
+      return ("self", lookup(unqualified: "self", in: s).uniqueElement!)
     } else {
       return (n.value.stem, pick)
     }
@@ -3638,7 +3638,7 @@ struct TypeChecker {
   }
 
   /// Returns the labels of `d`s name.
-  private mutating func labels(_ d: FunctionDecl.ID) -> [String?] {
+  private func labels(_ d: FunctionDecl.ID) -> [String?] {
     program.ast[program[FunctionDecl.ID(d)!].parameters].map(\.label?.value)
   }
 
@@ -3698,6 +3698,87 @@ struct TypeChecker {
       return AnyScopeID(u.decl)
     default:
       return nil
+    }
+  }
+
+  /// Returns the innermost nominal scope in which `d` is contained, if any.
+  private mutating func nominalParent(of d: AnyDeclID) -> AnyScopeID? {
+    guard let p = program.nodeToScope[d] else {
+      assert(d.kind == ModuleDecl.self)
+      return nil
+    }
+
+    switch p.kind {
+    case ModuleDecl.self, NamespaceDecl.self, ProductTypeDecl.self, TypeAliasDecl.self:
+      return p
+    case ConformanceDecl.self:
+      return scopeExtended(by: ConformanceDecl.ID(p)!)
+    case ExtensionDecl.self:
+      return scopeExtended(by: ExtensionDecl.ID(p)!)
+    case MethodDecl.self:
+      return nominalParent(of: AnyDeclID(p)!)
+    case SubscriptDecl.self:
+      return nominalParent(of: AnyDeclID(p)!)
+    case TranslationUnit.self:
+      return program.nodeToScope[p]!
+    default:
+      return nil
+    }
+  }
+
+  /// Returns `true` iff a qualified reference to `d` is visible in `scopeOfUse`.
+  ///
+  /// Qualified name lookup may "see" a declaration `d` iff one the following holds:
+  /// - `d` is declared public.
+  /// - `d` is a trait requirement.
+  /// - `d` is declared internal and `scopeOfUse` is in the same scope.
+  /// - `d` is declared private and the innermost scope enclosing `d` also encloses `scopeOfUse`.
+  private mutating func isAccessibleWithQualification(
+    _ d: AnyDeclID, in scopeOfUse: AnyScopeID
+  ) -> Bool {
+    if let v = VarDecl.ID(d) {
+      return isAccessibleWithQualification(AnyDeclID(program[v].binding), in: scopeOfUse)
+    } else if d.isBundleImpl {
+      return isAccessibleWithQualification(AnyDeclID(program[d].scope)!, in: scopeOfUse)
+    } else if program.isRequirement(d) {
+      return true
+    }
+
+    // Note: direct access to the AST is necessary to support the cast to `ExposableDecl`.
+    let modifier = (program.ast[d] as? ExposableDecl)?.accessModifier.value
+
+    if modifier == .public {
+      return true
+    } else if !program.areInSameModule(d, scopeOfUse) {
+      return false
+    } else if modifier == .internal {
+      return true
+    } else if let p = nominalParent(of: d) {
+      return isNotionallyContained(scopeOfUse, in: p)
+    } else {
+      return d.kind == ModuleDecl.self
+    }
+  }
+
+  /// Returns `true` if `child` is lexically contained in or in an extension of `ancestor`.
+  private mutating func isNotionallyContained<T: NodeIDProtocol, U: ScopeID>(
+    _ child: T, in ancestor: U
+  ) -> Bool {
+    if child.rawValue == ancestor.rawValue { return true }
+
+    switch child.kind {
+    case ConformanceDecl.self:
+      return scopeExtended(by: ConformanceDecl.ID(child)!)
+        .map({ $0.rawValue == ancestor.rawValue }) ?? program.isContained(child, in: ancestor)
+    case ExtensionDecl.self:
+      return scopeExtended(by: ExtensionDecl.ID(child)!)
+        .map({ $0.rawValue == ancestor.rawValue }) ?? program.isContained(child, in: ancestor)
+    default:
+      if let n = program.nodeToScope[child] {
+        return isNotionallyContained(n, in: ancestor)
+      } else {
+        return false
+      }
     }
   }
 
@@ -3814,26 +3895,31 @@ struct TypeChecker {
     _ name: SourceRepresentable<Name>, specializedBy arguments: [CompileTimeValue],
     in context: NameResolutionContext?, exposedTo scopeOfUse: AnyScopeID, usedAs purpose: NameUse
   ) -> NameResolutionResult.CandidateSet {
-    // Resolve references to the built-in symbols.
+    // Built-in symbols are handled separately.
     if context?.type == .builtin(.module) {
       return resolve(builtin: name)
     }
 
-    // Gather declarations qualified by `parent` if it isn't `nil` or unqualified otherwise.
-    let matches = lookup(name, memberOf: context?.type, exposedTo: scopeOfUse)
+    // Compute the set of all possible matches and filter out those that are inaccessible.
+    let isUnqualified = context == nil
+    let allMatches = lookup(name, memberOf: context?.type, exposedTo: scopeOfUse)
+    let accessibleMatches =
+      isUnqualified
+      ? allMatches
+      : allMatches.filter({ isAccessibleWithQualification($0, in: scopeOfUse) })
 
-    // Resolve compiler-known type aliases if no match was found.
-    if matches.isEmpty {
-      if context == nil {
+    // Attempt to resolve a compiler-known alias if there's no match and `name` occurs unqualified.
+    if accessibleMatches.isEmpty {
+      if isUnqualified {
         return resolve(compilerKnownAlias: name, specializedBy: arguments, exposedTo: scopeOfUse)
-      } else {
-        return []
+      } else if !allMatches.isEmpty {
+        report(.error(invalidReferenceToInaccessible: allMatches, named: name, in: program.ast))
       }
     }
 
     // Create declaration references to all candidates.
     var candidates: NameResolutionResult.CandidateSet = []
-    for m in matches {
+    for m in accessibleMatches {
       var log = DiagnosticSet()
 
       let t = resolveType(
@@ -6015,15 +6101,13 @@ struct TypeChecker {
     !isArrow(t)
   }
 
-  /// Returns `true` iff `e` is bound to a nominal type declaration in `obligations`.
-  private mutating func isBoundToNominalTypeDecl(
-    _ e: AnyExprID, in obligations: ProofObligations
-  ) -> Bool {
-    guard
-      let c = NameExpr.ID(e),
-      let r = obligations.referredDecl[c]
-    else { return false }
-    return isBoundToNominalTypeDecl(r)
+  /// Returns `true` iff `e` is bound to a nominal type declaration in `o`.
+  private mutating func isBoundToNominalTypeDecl(_ e: AnyExprID, in o: ProofObligations) -> Bool {
+    if let r = NameExpr.ID(e).flatMap({ o.referredDecl[$0] }) {
+      return isBoundToNominalTypeDecl(r)
+    } else {
+      return false
+    }
   }
 
   /// Returns `true` iff `r` is bound to a nominal type declaration.

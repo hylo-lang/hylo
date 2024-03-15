@@ -1,8 +1,10 @@
 namespace FNV {
 
-  let offset_basis = Int(bit_pattern: 0xcbf29ce484222325)
+  // TODO: public[to: Hasher]
+  internal let offset_basis = Int(bit_pattern: 0xcbf29ce484222325)
 
-  let prime = Int(bit_pattern: 0x100000001b3)
+  // TODO: public[to: Hasher]
+  internal let prime = Int(bit_pattern: 0x100000001b3)
 
 }
 

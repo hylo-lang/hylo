@@ -1293,6 +1293,7 @@ public enum Parser {
       }))
 
   static let accessModifier = translate([
+    .internal: AccessModifier.internal,
     .private: AccessModifier.private,
     .public: AccessModifier.public,
   ])

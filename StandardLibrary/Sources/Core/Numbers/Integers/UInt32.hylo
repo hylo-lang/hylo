@@ -1,9 +1,9 @@
 /// A 32-bit unsigned integer value.
 public type UInt32: Regular {
 
-  var value: Builtin.i32
+  internal var value: Builtin.i32
 
-  memberwise init
+  internal memberwise init
 
   /// Creates an instance with the same memory representation as `other`.
   public init(bit_pattern other: Int32) {

@@ -1,9 +1,9 @@
 /// A value that can be either `true` or `false`.
 public type Bool {
 
-  var value: Builtin.i1
+  internal var value: Builtin.i1
 
-  memberwise init
+  internal memberwise init
 
   /// Creates an instance with value `false`.
   public init() {

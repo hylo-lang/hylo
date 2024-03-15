@@ -7,14 +7,14 @@ trait T {
 type A<X> {}
 
 type B<X>: Deinitializable {
-  memberwise init
+  public memberwise init
 }
 
 //! @+1 diagnostic undefined name 'S' in this scope
 extension A where X: S {}
 
 extension B where X: T {
-  fun foo() {}
+  public fun foo() {}
 }
 
 public fun main() {

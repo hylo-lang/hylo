@@ -5,7 +5,7 @@ type A<X>: Deinitializable {
 }
 
 extension A where X == Bool {
-  fun koala() {}
+  public fun koala() {}
 }
 
 public fun main() {
