@@ -20,7 +20,7 @@ The repository contains [submodules](https://git-scm.com/book/en/v2/Git-Tools-Su
 You can skip directly to step 3 if you're doing development exclusively in a [devcontainer](#building-a-hylo-devcontainer-with-vscode).
 Otherwise:
 
-1. Install LLVM 15 or later on your system (e.g. `brew install llvm`)
+1. Install LLVM 17 or later on your system (e.g. `brew install llvm`)
 2. Have the above installation's `llvm-config` in your `PATH`.  Homebrew, for example, doesn't do that automatically; you'd need something like:
    ```sh
    export PATH="$(brew --prefix --installed llvm)/bin:$PATH"
