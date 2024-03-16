@@ -234,12 +234,12 @@ public struct Driver: ParsableCommand {
     logVerbose("create LLVM program.\n")
     var llvmProgram = try LLVMProgram(ir, mainModule: sourceModule, for: target)
 
+    logVerbose("LLVM mandatory passes.\n")
+    llvmProgram.applyMandatoryPasses()
+
     if optimize {
       logVerbose("LLVM optimization.\n")
       llvmProgram.optimize()
-    } else {
-      logVerbose("LLVM mandatory passes.\n")
-      llvmProgram.applyMandatoryPasses()
     }
 
     logVerbose("LLVM processing complete.\n")
