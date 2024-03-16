@@ -294,12 +294,16 @@ extension Program {
       return isExported(ConformanceDecl.ID(s)!)
     case ExtensionDecl.self:
       return isExported(ExtensionDecl.ID(s)!)
+    case MethodDecl.self:
+      return isExportingDecls(nodeToScope[s]!)
     case ModuleDecl.self:
       return true
     case NamespaceDecl.self:
       return isExported(NamespaceDecl.ID(s)!)
     case ProductTypeDecl.self:
       return isExported(ProductTypeDecl.ID(s)!)
+    case SubscriptDecl.self:
+      return isExportingDecls(nodeToScope[s]!)
     case TraitDecl.self:
       return isExported(TraitDecl.ID(s)!)
     case TypeAliasDecl.self:
