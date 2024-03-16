@@ -43,8 +43,8 @@ struct Mangler {
     self.program = program
     self.scopeOfUse = scopeOfUse
 
-    if program.ast.coreModuleIsLoaded {
-      self.reserved[.node(AnyNodeID(program.ast.coreLibrary!))] = .hylo
+    if let m = program.ast.coreLibrary {
+      self.reserved[.node(AnyNodeID(m))] = .hylo
       register(coreType: "Bool", as: .bool)
       register(coreType: "Int", as: .int)
       register(coreType: "Float64", as: .float64)
@@ -60,11 +60,6 @@ struct Mangler {
 
   /// Writes the mangled representation of `d` to `output`.
   mutating func mangle<T: DeclID>(decl d: T, to output: inout Output) {
-    if let m = ModuleDecl.ID(d) {
-      write(scope: AnyScopeID(m), to: &output)
-      return
-    }
-
     if writeLookup(.node(AnyNodeID(d)), to: &output) {
       return
     }
@@ -108,8 +103,15 @@ struct Mangler {
 
   /// Writes the mangled qualification of `n` to `output`.
   private mutating func writeQualification<T: NodeIDProtocol>(of n: T, to output: inout Output) {
+    // Nothing to do if `n` is a module declaration.
+    guard let p = program.nodeToScope[n] else {
+      assert(n.kind == ModuleDecl.self)
+      return
+    }
+
+    // Enumerate the qualifications not yet written to `output`.
     var qualification: [AnyScopeID] = []
-    for s in program.scopes(from: program[n].scope) {
+    for s in program.scopes(from: p) {
       if writeLookup(.node(AnyNodeID(s)), to: &output) {
         break
       } else {
@@ -119,9 +121,7 @@ struct Mangler {
 
     for s in qualification.reversed() {
       // Anonymous scopes corresponding to the body of a function aren't mangled.
-      if let p = BraceStmt.ID(s), program.isCallableBody(p) {
-        continue
-      }
+      if let p = BraceStmt.ID(s), program.isCallableBody(p) { continue }
       write(scope: s, to: &output)
     }
   }
