@@ -494,16 +494,7 @@ extension SwiftyLLVM.Module {
   private mutating func configureAttributes(
     _ llvmFunction: SwiftyLLVM.Function, transpiledFrom f: IR.Function.ID, of m: IR.Module
   ) {
-    // FIXME: See #888
-    // switch m[f].linkage {
-    // case .external:
-    //   setLinkage(.external, for: llvmFunction)
-    // case .module:
-    //   setLinkage(.private, for: llvmFunction)
-    // }
-
-    // Monomorphized functions always have private linkage.
-    if f.isMonomorphized {
+    if m[f].linkage == .module {
       setLinkage(.private, for: llvmFunction)
     }
 
