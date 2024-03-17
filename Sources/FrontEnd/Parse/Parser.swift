@@ -259,10 +259,8 @@ public enum Parser {
       if prologue.isEmpty {
         return nil
       } else {
-        #if os(Windows)
         let k = state.peek().map({ "\($0.kind)" }) ?? "eof"
         state.diagnostics.insert(.error("the next token is \(k)", at: .empty(at: state.currentLocation)))
-        #endif
         throw [.error(expected: "declaration", at: state.currentLocation)] as DiagnosticSet
       }
     }
@@ -325,6 +323,8 @@ public enum Parser {
       }
 
       // Diagnose the error.
+      let k = state.peek().map({ "\($0.kind)" }) ?? "eof"
+      state.diagnostics.insert(.error("the next token is \(k)", at: .empty(at: state.currentLocation)))
       state.diagnostics.insert(.error(expected: "declaration", at: head.site.start))
 
       // Skip tokens until we find a right delimiter or the start of another declaration.
