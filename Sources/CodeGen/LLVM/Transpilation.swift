@@ -115,10 +115,10 @@ extension SwiftyLLVM.Module {
     let transpilation = function(named: ir.llvmName(of: f))!
     setLinkage(.private, for: transpilation)
 
-    let val32 = ir.ast.coreType("Int32")!
+    let int32 = ir.ast.coreType("Int32")!
     switch m[f].output {
-    case val32:
-      let t = StructType(ir.llvm(val32, in: &self))!
+    case int32:
+      let t = StructType(ir.llvm(int32, in: &self))!
       let s = insertAlloca(t, at: p)
       _ = insertCall(transpilation, on: [s], at: p)
 
