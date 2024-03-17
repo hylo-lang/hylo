@@ -96,6 +96,12 @@ extension SwiftyLLVM.Module {
     insertReturn(x0, at: insertionPoint)
   }
 
+  /// Defines a "main" function calling the function `f`, which represents the entry point of the
+  /// entry module `m` of the program `ir`.
+  ///
+  /// This method creates a LLVM entry point calling `f`, which is the lowered form of a public
+  /// function named "main", taking no parameter and returning either `Void` or `Int32`. `f` will
+  /// be linked privately in `m`.
   private mutating func defineMain(
     calling f: IR.Function.ID,
     of m: IR.Module,
@@ -107,6 +113,7 @@ extension SwiftyLLVM.Module {
     let p = endOf(b)
 
     let transpilation = function(named: ir.llvmName(of: f))!
+    setLinkage(.private, for: transpilation)
 
     let val32 = ir.ast.coreType("Int32")!
     switch m[f].output {
