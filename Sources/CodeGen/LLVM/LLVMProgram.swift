@@ -1,17 +1,17 @@
 import Core
 import Foundation
 import IR
-import LLVM
+import SwiftyLLVM
 import Utils
 
 /// A Hylo program transpiled to LLVM.
 public struct LLVMProgram {
 
   /// The machine for which the program is compiled.
-  public let target: LLVM.TargetMachine
+  public let target: SwiftyLLVM.TargetMachine
 
   /// The LLVM modules in the program.
-  public private(set) var llvmModules: [ModuleDecl.ID: LLVM.Module] = [:]
+  public private(set) var llvmModules: [ModuleDecl.ID: SwiftyLLVM.Module] = [:]
 
   /// Creates a transpiling `ir`, whose main module is `mainModule`, for `target`.
   ///
@@ -20,11 +20,11 @@ public struct LLVMProgram {
   public init(
     _ ir: IR.Program,
     mainModule: ModuleDecl.ID,
-    for target: LLVM.TargetMachine? = nil
+    for target: SwiftyLLVM.TargetMachine? = nil
   ) throws {
-    self.target = try target ?? LLVM.TargetMachine(for: .host())
+    self.target = try target ?? SwiftyLLVM.TargetMachine(for: .host())
     for m in ir.modules.keys {
-      let transpilation = LLVM.Module(transpiling: m, from: ir)
+      let transpilation = SwiftyLLVM.Module(transpiling: m, from: ir)
       do {
         try transpilation.verify()
       } catch {
@@ -55,7 +55,7 @@ public struct LLVMProgram {
   /// to `directory`, returning the URL of each written file.
   ///
   /// - Returns: The URL of each written product, one for each module in `self`.
-  public func write(_ type: LLVM.CodeGenerationResultType, to directory: URL) throws -> [URL] {
+  public func write(_ type: SwiftyLLVM.CodeGenerationResultType, to directory: URL) throws -> [URL] {
     precondition(directory.hasDirectoryPath)
     var result: [URL] = []
     for m in llvmModules.values {

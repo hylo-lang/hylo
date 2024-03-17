@@ -19,7 +19,7 @@ public trait Collection {
   /// - Requires: `i != end_position()`.
   fun position(after i: Position) -> Position
 
-  /// Accesses the elment at position `i`.
+  /// Accesses the element at position `i`.
   ///
   /// - Requires: `i` is a valid position in `self` different from `end_position()`.
   subscript(_ i: Position): Element { let }

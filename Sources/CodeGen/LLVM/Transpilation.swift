@@ -1,10 +1,10 @@
 import Core
 import Foundation
 import IR
-import LLVM
+import SwiftyLLVM
 import Utils
 
-extension LLVM.Module {
+extension SwiftyLLVM.Module {
 
   /// Creates the LLVM transpilation of the Hylo IR module `m` in `ir`.
   init(transpiling m: ModuleDecl.ID, from ir: IR.Program) {
@@ -54,7 +54,7 @@ extension LLVM.Module {
 
     // Define the static allocation.
     let t = ir.llvm(s.pointee, in: &self)
-    let u = LLVM.StructType(named: prefix + ".T", [t, self.i1], in: &self)
+    let u = SwiftyLLVM.StructType(named: prefix + ".T", [t, self.i1], in: &self)
     let storage = addGlobalVariable(prefix + ".S", u)
     setInitializer(u.null, for: storage)
     setLinkage(.private, for: storage)
@@ -128,22 +128,22 @@ extension LLVM.Module {
   }
 
   /// Returns the LLVM type of a metatype instance.
-  private mutating func metatypeType() -> LLVM.StructType {
+  private mutating func metatypeType() -> SwiftyLLVM.StructType {
     if let t = type(named: "_hylo_metatype") {
       return .init(t)!
     }
 
-    let fields: [LLVM.IRType] = [
+    let fields: [SwiftyLLVM.IRType] = [
       word(),  // size
       word(),  // alignment
       word(),  // stride
       ptr,  // representation
     ]
-    return LLVM.StructType(fields, in: &self)
+    return SwiftyLLVM.StructType(fields, in: &self)
   }
 
   /// Returns the LLVM type of an existential container.
-  private mutating func containerType() -> LLVM.StructType {
+  private mutating func containerType() -> SwiftyLLVM.StructType {
     if let t = type(named: "_val_container") {
       return .init(t)!
     }
@@ -151,7 +151,7 @@ extension LLVM.Module {
   }
 
   /// Returns the prototype of subscript slides.
-  private mutating func slidePrototype() -> LLVM.Function {
+  private mutating func slidePrototype() -> SwiftyLLVM.Function {
     if let f = function(named: "_val_slide") {
       return f
     }
@@ -165,7 +165,7 @@ extension LLVM.Module {
   }
 
   /// Returns the declaration of `malloc`.
-  private mutating func mallocPrototype() -> LLVM.Function {
+  private mutating func mallocPrototype() -> SwiftyLLVM.Function {
     if let f = function(named: "malloc") {
       return f
     }
@@ -180,7 +180,7 @@ extension LLVM.Module {
   }
 
   /// Returns the declaration of `free`.
-  private mutating func freePrototype() -> LLVM.Function {
+  private mutating func freePrototype() -> SwiftyLLVM.Function {
     if let f = function(named: "free") {
       return f
     }
@@ -197,7 +197,7 @@ extension LLVM.Module {
   ///
   /// - Note: the type of a function in Hylo IR typically doesn't match the type of its transpiled
   ///   form 1-to-1, as return values are often passed by references.
-  private mutating func transpiledType(_ t: ArrowType) -> LLVM.FunctionType {
+  private mutating func transpiledType(_ t: ArrowType) -> SwiftyLLVM.FunctionType {
     // Return value is passed by reference.
     var parameters: Int = t.inputs.count + 1
 
@@ -214,7 +214,7 @@ extension LLVM.Module {
     _ c: any IR.Constant,
     usedIn m: IR.Module,
     from ir: IR.Program
-  ) -> LLVM.IRValue {
+  ) -> SwiftyLLVM.IRValue {
     switch c {
     case let v as IR.WordConstant:
       return transpiledConstant(v, usedIn: m, from: ir)
@@ -229,7 +229,7 @@ extension LLVM.Module {
     case let v as MetatypeType:
       return demandMetatype(of: v.instance, usedIn: m, from: ir)
     case is IR.VoidConstant:
-      return LLVM.StructConstant(aggregating: [], in: &self)
+      return SwiftyLLVM.StructConstant(aggregating: [], in: &self)
     default:
       unreachable()
     }
@@ -238,24 +238,24 @@ extension LLVM.Module {
   /// Returns the LLVM IR value corresponding to the Hylo IR constant `c` when used in `m` in `ir`.
   private mutating func transpiledConstant(
     _ c: IR.WordConstant, usedIn m: IR.Module, from ir: IR.Program
-  ) -> LLVM.IRValue {
+  ) -> SwiftyLLVM.IRValue {
     word().constant(c.value)
   }
 
   /// Returns the LLVM IR value corresponding to the Hylo IR constant `c` when used in `m` in `ir`.
   private mutating func transpiledConstant(
     _ c: IR.IntegerConstant, usedIn m: IR.Module, from ir: IR.Program
-  ) -> LLVM.IRValue {
+  ) -> SwiftyLLVM.IRValue {
     guard c.value.bitWidth <= 64 else { UNIMPLEMENTED() }
-    let t = LLVM.IntegerType(c.value.bitWidth, in: &self)
+    let t = SwiftyLLVM.IntegerType(c.value.bitWidth, in: &self)
     return t.constant(c.value.words[0])
   }
 
   /// Returns the LLVM IR value corresponding to the Hylo IR constant `c` when used in `m` in `ir`.
   private mutating func transpiledConstant(
     _ c: IR.FloatingPointConstant, usedIn m: IR.Module, from ir: IR.Program
-  ) -> LLVM.IRValue {
-    let t = LLVM.FloatingPointType(ir.llvm(c.type.ast, in: &self))!
+  ) -> SwiftyLLVM.IRValue {
+    let t = SwiftyLLVM.FloatingPointType(ir.llvm(c.type.ast, in: &self))!
     return t.constant(parsing: c.value)
   }
 
@@ -264,7 +264,7 @@ extension LLVM.Module {
     _ t: WitnessTable,
     usedIn m: IR.Module,
     from ir: IR.Program
-  ) -> LLVM.IRValue {
+  ) -> SwiftyLLVM.IRValue {
     // A witness table is composed of a header, a trait map, and a (possibly empty) sequence of
     // implementation maps. All parts are laid out inline without any padding.
     //
@@ -278,47 +278,47 @@ extension LLVM.Module {
     // trait requirement identifier and `i` is a pointer to its implementation.
 
     // Encode the table's header.
-    var tableContents: [LLVM.IRValue] = [
+    var tableContents: [SwiftyLLVM.IRValue] = [
       demandMetatype(of: t.witness, usedIn: m, from: ir),
       word().constant(t.conformances.count),
     ]
 
     // Encode the table's trait and implementation maps.
-    var entries: [LLVM.IRValue] = []
-    var implementations: [LLVM.IRValue] = []
+    var entries: [SwiftyLLVM.IRValue] = []
+    var implementations: [SwiftyLLVM.IRValue] = []
     for c in t.conformances {
-      let entry: [LLVM.IRValue] = [
+      let entry: [SwiftyLLVM.IRValue] = [
         demandTrait(c.concept, usedIn: m, from: ir),
         word().constant(implementations.count),
       ]
-      entries.append(LLVM.StructConstant(aggregating: entry, in: &self))
+      entries.append(SwiftyLLVM.StructConstant(aggregating: entry, in: &self))
 
       for (r, d) in c.implementations {
-        let requirement: [LLVM.IRValue] = [
+        let requirement: [SwiftyLLVM.IRValue] = [
           word().constant(r.rawValue),
           transpiledRequirementImplementation(d, from: ir),
         ]
-        implementations.append(LLVM.StructConstant(aggregating: requirement, in: &self))
+        implementations.append(SwiftyLLVM.StructConstant(aggregating: requirement, in: &self))
       }
     }
 
     // Append the sentinel at the end of the trait map.
     entries.append(
-      LLVM.StructConstant(
+      SwiftyLLVM.StructConstant(
         aggregating: [ptr.null, word().constant(UInt64(implementations.count))], in: &self))
 
     // Put everything together.
     tableContents.append(
-      LLVM.ArrayConstant(
-        of: LLVM.StructType([ptr, word()], in: &self), containing: entries, in: &self))
+      SwiftyLLVM.ArrayConstant(
+        of: SwiftyLLVM.StructType([ptr, word()], in: &self), containing: entries, in: &self))
 
     if !implementations.isEmpty {
       tableContents.append(
-        LLVM.ArrayConstant(
-          of: LLVM.StructType([word(), ptr], in: &self), containing: implementations, in: &self))
+        SwiftyLLVM.ArrayConstant(
+          of: SwiftyLLVM.StructType([word(), ptr], in: &self), containing: implementations, in: &self))
     }
 
-    let table = LLVM.StructConstant(aggregating: tableContents, in: &self)
+    let table = SwiftyLLVM.StructConstant(aggregating: tableContents, in: &self)
 
     let g = declareGlobalVariable(ir.base.mangled(t), table.type)
     setInitializer(table, for: g)
@@ -330,7 +330,7 @@ extension LLVM.Module {
   /// Returns the LLVM IR value of the requirement implementation `i`, which is in `ir`.
   private mutating func transpiledRequirementImplementation(
     _ i: IR.Conformance.Implementation, from ir: IR.Program
-  ) -> LLVM.Function {
+  ) -> SwiftyLLVM.Function {
     switch i {
     case .function(let f):
       return declare(f, from: ir)
@@ -342,7 +342,7 @@ extension LLVM.Module {
   /// Returns the LLVM IR value of the metatype `t` used in `m` in `ir`.
   private mutating func demandMetatype(
     of t: AnyType, usedIn m: IR.Module, from ir: IR.Program
-  ) -> LLVM.GlobalVariable {
+  ) -> SwiftyLLVM.GlobalVariable {
     demandMetatype(of: t, usedIn: m, from: ir) { (me, v) in
       if let u = ProductType(t) {
         me.initializeTranspiledProductTypeMetatype(v, of: u, usedIn: m, from: ir)
@@ -354,13 +354,13 @@ extension LLVM.Module {
 
   /// Initializes `instance` with the value of the metatype of `t` used in `m` in `ir`.
   private mutating func initializeTranspiledMetatype<T: TypeProtocol>(
-    _ instance: LLVM.GlobalVariable,
+    _ instance: SwiftyLLVM.GlobalVariable,
     of t: T, usedIn m: IR.Module, from ir: IR.Program
   ) {
     setLinkage(.linkOnce, for: instance)
 
     let layout = ConcreteTypeLayout(of: ^t, definedIn: ir, forUseIn: &self)
-    let v = LLVM.StructType(instance.valueType)!.constant(
+    let v = SwiftyLLVM.StructType(instance.valueType)!.constant(
       aggregating: [
         word().constant(layout.size),
         word().constant(layout.alignment),
@@ -375,7 +375,7 @@ extension LLVM.Module {
 
   /// Initializes `instance` with the value of the metatype of `t` used in `m` in `ir`.
   private mutating func initializeTranspiledProductTypeMetatype(
-    _ instance: LLVM.GlobalVariable,
+    _ instance: SwiftyLLVM.GlobalVariable,
     of t: ProductType, usedIn m: IR.Module, from ir: IR.Program
   ) {
     // Initialize the instance if it's being used in the module defining `t`. Otherwise, simply let
@@ -390,7 +390,7 @@ extension LLVM.Module {
       layout = ConcreteTypeLayout(of: ^t, definedIn: ir, forUseIn: &self)
     }
 
-    let v = LLVM.StructType(instance.valueType)!.constant(
+    let v = SwiftyLLVM.StructType(instance.valueType)!.constant(
       aggregating: [
         word().constant(layout.size),
         word().constant(layout.alignment),
@@ -407,8 +407,8 @@ extension LLVM.Module {
   /// initialize it.
   private mutating func demandMetatype<T: TypeProtocol>(
     of t: T, usedIn m: IR.Module, from ir: IR.Program,
-    initializedWith initializeInstance: (inout Self, LLVM.GlobalVariable) -> Void
-  ) -> LLVM.GlobalVariable {
+    initializedWith initializeInstance: (inout Self, SwiftyLLVM.GlobalVariable) -> Void
+  ) -> SwiftyLLVM.GlobalVariable {
     let globalName = ir.base.mangled(t)
     if let g = global(named: globalName) { return g }
 
@@ -421,7 +421,7 @@ extension LLVM.Module {
   /// Returns the LLVM IR value of `t` used in `m` in `ir`.
   private mutating func demandTrait(
     _ t: TraitType, usedIn m: IR.Module, from ir: IR.Program
-  ) -> LLVM.GlobalVariable {
+  ) -> SwiftyLLVM.GlobalVariable {
     // Check if we already created the trait's instance.
     let globalName = ir.base.mangled(t)
     if let g = global(named: globalName) {
@@ -435,7 +435,7 @@ extension LLVM.Module {
       return instance
     }
 
-    let s = LLVM.StringConstant(globalName, nullTerminated: true, in: &self)
+    let s = SwiftyLLVM.StringConstant(globalName, nullTerminated: true, in: &self)
     let g = addGlobalVariable("str", s.type)
     setInitializer(s, for: g)
     setLinkage(.private, for: g)
@@ -449,7 +449,7 @@ extension LLVM.Module {
   /// Inserts and returns the transpiled declaration of `ref`, which is in `ir`.
   private mutating func declare(
     _ ref: IR.FunctionReference, from ir: IR.Program
-  ) -> LLVM.Function {
+  ) -> SwiftyLLVM.Function {
     let t = transpiledType(ArrowType(ref.type.ast)!)
     return declareFunction(ir.llvmName(of: ref.function), t)
   }
@@ -457,11 +457,11 @@ extension LLVM.Module {
   /// Inserts and returns the transpiled declaration of `f`, which is a function of `m` in `ir`.
   private mutating func declareFunction(
     transpiledFrom f: IR.Function.ID, of m: IR.Module, from ir: IR.Program
-  ) -> LLVM.Function {
+  ) -> SwiftyLLVM.Function {
     precondition(!m[f].isSubscript)
 
     // Parameters and return values are passed by reference.
-    let parameters = Array(repeating: ptr as LLVM.IRType, count: m[f].inputs.count + 1)
+    let parameters = Array(repeating: ptr as SwiftyLLVM.IRType, count: m[f].inputs.count + 1)
     let transpilation = declareFunction(ir.llvmName(of: f), .init(from: parameters, in: &self))
 
     configureAttributes(transpilation, transpiledFrom: f, of: m)
@@ -473,14 +473,14 @@ extension LLVM.Module {
   /// Inserts and returns the transpiled declaration of `f`, which is a subscript of `m` in `ir`.
   private mutating func declareSubscript(
     transpiledFrom f: IR.Function.ID, of m: IR.Module, from ir: IR.Program
-  ) -> LLVM.Function {
+  ) -> SwiftyLLVM.Function {
     precondition(m[f].isSubscript)
 
     // Parameters are a buffer for the subscript frame followed by its declared parameters. Return
     // type is a pair `(c, p)` where `c` points to a subscript slide and `p` is the address of the
     // projected value.
-    let r = LLVM.StructType([ptr, ptr], in: &self)
-    let parameters = Array(repeating: ptr as LLVM.IRType, count: m[f].inputs.count + 1)
+    let r = SwiftyLLVM.StructType([ptr, ptr], in: &self)
+    let parameters = Array(repeating: ptr as SwiftyLLVM.IRType, count: m[f].inputs.count + 1)
     let transpilation = declareFunction(
       ir.llvmName(of: f), .init(from: parameters, to: r, in: &self))
 
@@ -492,7 +492,7 @@ extension LLVM.Module {
 
   /// Adds to `llvmFunction` the attributes implied by its IR form `f`, which is in `m`.
   private mutating func configureAttributes(
-    _ llvmFunction: LLVM.Function, transpiledFrom f: IR.Function.ID, of m: IR.Module
+    _ llvmFunction: SwiftyLLVM.Function, transpiledFrom f: IR.Function.ID, of m: IR.Module
   ) {
     // FIXME: See #888
     // switch m[f].linkage {
@@ -516,7 +516,7 @@ extension LLVM.Module {
   /// Adds to each parameter in `llvmParameters` the attributes implied by its corresponding IR
   /// form in `m[f].inputs`.
   private mutating func configureInputAttributes(
-    _ llvmParameters: LLVM.Function.Parameters.SubSequence,
+    _ llvmParameters: SwiftyLLVM.Function.Parameters.SubSequence,
     transpiledFrom f: IR.Function.ID, in m: IR.Module
   ) {
     assert(llvmParameters.count == m[f].inputs.count)
@@ -527,7 +527,7 @@ extension LLVM.Module {
 
   /// Adds to `llvmParameter` the attributes implied by its IR form in `m[f].inputs[p]`.
   private mutating func configureInputAttributes(
-    _ llvmParameter: LLVM.Parameter,
+    _ llvmParameter: SwiftyLLVM.Parameter,
     transpiledFrom p: Int, in f: IR.Function.ID, in m: IR.Module
   ) {
     addAttribute(named: .noalias, to: llvmParameter)
@@ -548,29 +548,29 @@ extension LLVM.Module {
     contentsOf f: IR.Function.ID,
     of m: IR.Module,
     from ir: IR.Program,
-    into transpilation: LLVM.Function
+    into transpilation: SwiftyLLVM.Function
   ) {
     /// The function's entry.
     guard let entry = m[f].entry else { return }
 
     /// Where new LLVM IR instruction are inserted.
-    var insertionPoint: LLVM.InsertionPoint!
+    var insertionPoint: SwiftyLLVM.InsertionPoint!
 
     /// A map from Hylo IR basic block to its LLVM counterpart.
-    var block: [IR.Block.ID: LLVM.BasicBlock] = [:]
+    var block: [IR.Block.ID: SwiftyLLVM.BasicBlock] = [:]
 
     /// A map from Hylo IR register to its LLVM counterpart.
-    var register: [IR.Operand: LLVM.IRValue] = [:]
+    var register: [IR.Operand: SwiftyLLVM.IRValue] = [:]
 
-    /// A map from projection to its side results in LLVM.
+    /// A map from projection to its side results in SwiftyLLVM.
     ///
     /// Projection calls is transpiled as coroutine calls, producing a slide and a frame pointer in
     /// addition to the projected value. These values are stored here so that `register` can be a
     /// one-to-one mapping from Hylo registers to LLVM registers.
-    var byproduct: [IR.InstructionID: (slide: LLVM.IRValue, frame: LLVM.IRValue)] = [:]
+    var byproduct: [IR.InstructionID: (slide: SwiftyLLVM.IRValue, frame: SwiftyLLVM.IRValue)] = [:]
 
     /// The address of the function's frame if `f` is a subscript, or `nil` otherwise.
-    let frame: LLVM.IRValue?
+    let frame: SwiftyLLVM.IRValue?
 
     /// The prologue of the transpiled function, which contains its stack allocations.
     let prologue = appendBlock(named: "prologue", to: transpilation)
@@ -734,7 +734,7 @@ extension LLVM.Module {
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(call i: IR.InstructionID) {
       let s = m[i] as! Call
-      var arguments: [LLVM.IRValue] = []
+      var arguments: [SwiftyLLVM.IRValue] = []
 
       // Callee is evaluated first; environment is passed before explicit arguments.
       let callee = unpackCallee(of: s.callee)
@@ -751,7 +751,7 @@ extension LLVM.Module {
       let s = m[i] as! CallFFI
       let parameters = s.operands.map({ ir.llvm(m.type(of: $0).ast, in: &self) })
 
-      let returnType: LLVM.IRType
+      let returnType: SwiftyLLVM.IRType
       if s.returnType.ast.isVoidOrNever {
         returnType = void
       } else {
@@ -790,7 +790,7 @@ extension LLVM.Module {
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(constantString i: IR.InstructionID) {
       let s = m[i] as! ConstantString
-      let v = LLVM.ArrayConstant(bytes: s.value, in: &self)
+      let v = SwiftyLLVM.ArrayConstant(bytes: s.value, in: &self)
       let d = declareGlobalVariable(UUID().uuidString, v.type)
       setInitializer(v, for: d)
       setLinkage(.private, for: d)
@@ -813,7 +813,7 @@ extension LLVM.Module {
       let start = s.start.instruction!
       assert(m[start] is Project)
 
-      let t = LLVM.FunctionType(from: [ptr, i1], to: void, in: &self)
+      let t = SwiftyLLVM.FunctionType(from: [ptr, i1], to: void, in: &self)
       let p = byproduct[start]!
       _ = insertCall(p.slide, typed: t, on: [p.frame, i1.zero], at: insertionPoint)
     }
@@ -897,42 +897,42 @@ extension LLVM.Module {
         let r = llvm(s.operands[1])
         let f = intrinsic(
           named: Intrinsic.llvm.sadd.with.overflow, for: [ir.llvm(builtinType: t, in: &self)])!
-        register[.register(i)] = insertCall(LLVM.Function(f)!, on: [l, r], at: insertionPoint)
+        register[.register(i)] = insertCall(SwiftyLLVM.Function(f)!, on: [l, r], at: insertionPoint)
 
       case .unsignedAdditionWithOverflow(let t):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
         let f = intrinsic(
           named: Intrinsic.llvm.uadd.with.overflow, for: [ir.llvm(builtinType: t, in: &self)])!
-        register[.register(i)] = insertCall(LLVM.Function(f)!, on: [l, r], at: insertionPoint)
+        register[.register(i)] = insertCall(SwiftyLLVM.Function(f)!, on: [l, r], at: insertionPoint)
 
       case .signedSubtractionWithOverflow(let t):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
         let f = intrinsic(
           named: Intrinsic.llvm.ssub.with.overflow, for: [ir.llvm(builtinType: t, in: &self)])!
-        register[.register(i)] = insertCall(LLVM.Function(f)!, on: [l, r], at: insertionPoint)
+        register[.register(i)] = insertCall(SwiftyLLVM.Function(f)!, on: [l, r], at: insertionPoint)
 
       case .unsignedSubtractionWithOverflow(let t):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
         let f = intrinsic(
           named: Intrinsic.llvm.usub.with.overflow, for: [ir.llvm(builtinType: t, in: &self)])!
-        register[.register(i)] = insertCall(LLVM.Function(f)!, on: [l, r], at: insertionPoint)
+        register[.register(i)] = insertCall(SwiftyLLVM.Function(f)!, on: [l, r], at: insertionPoint)
 
       case .signedMultiplicationWithOverflow(let t):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
         let f = intrinsic(
           named: Intrinsic.llvm.smul.with.overflow, for: [ir.llvm(builtinType: t, in: &self)])!
-        register[.register(i)] = insertCall(LLVM.Function(f)!, on: [l, r], at: insertionPoint)
+        register[.register(i)] = insertCall(SwiftyLLVM.Function(f)!, on: [l, r], at: insertionPoint)
 
       case .unsignedMultiplicationWithOverflow(let t):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
         let f = intrinsic(
           named: Intrinsic.llvm.umul.with.overflow, for: [ir.llvm(builtinType: t, in: &self)])!
-        register[.register(i)] = insertCall(LLVM.Function(f)!, on: [l, r], at: insertionPoint)
+        register[.register(i)] = insertCall(SwiftyLLVM.Function(f)!, on: [l, r], at: insertionPoint)
 
       case .icmp(let p, _):
         let l = llvm(s.operands[0])
@@ -1016,19 +1016,19 @@ extension LLVM.Module {
       case .ctpop(let t):
         let source = llvm(s.operands[0])
         let f = intrinsic(named: Intrinsic.llvm.ctpop, for: [ir.llvm(builtinType: t, in: &self)])!
-        register[.register(i)] = insertCall(LLVM.Function(f)!, on: [source], at: insertionPoint)
+        register[.register(i)] = insertCall(SwiftyLLVM.Function(f)!, on: [source], at: insertionPoint)
 
       case .ctlz(let t):
         let source = llvm(s.operands[0])
         let f = intrinsic(named: Intrinsic.llvm.ctlz, for: [ir.llvm(builtinType: t, in: &self)])!
         register[.register(i)] = insertCall(
-          LLVM.Function(f)!, on: [source, i1.zero], at: insertionPoint)
+          SwiftyLLVM.Function(f)!, on: [source, i1.zero], at: insertionPoint)
 
       case .cttz(let t):
         let source = llvm(s.operands[0])
         let f = intrinsic(named: Intrinsic.llvm.cttz, for: [ir.llvm(builtinType: t, in: &self)])!
         register[.register(i)] = insertCall(
-          LLVM.Function(f)!, on: [source, i1.zero], at: insertionPoint)
+          SwiftyLLVM.Function(f)!, on: [source, i1.zero], at: insertionPoint)
 
       case .zeroinitializer(let t):
         register[.register(i)] = ir.llvm(builtinType: t, in: &self).null
@@ -1056,7 +1056,7 @@ extension LLVM.Module {
     func insert(memoryCopy i: IR.InstructionID) {
       let s = m[i] as! MemoryCopy
 
-      let memcpy = LLVM.Function(
+      let memcpy = SwiftyLLVM.Function(
         intrinsic(named: Intrinsic.llvm.memcpy, for: [ptr, ptr, i32])!)!
       let source = llvm(s.source)
       let target = llvm(s.target)
@@ -1095,12 +1095,12 @@ extension LLVM.Module {
       let s = m[i] as! IR.Project
 
       // %0 = alloca [8 x i8], align 8
-      let buffer = LLVM.ArrayType(8, i8, in: &self)
+      let buffer = SwiftyLLVM.ArrayType(8, i8, in: &self)
       let x0 = insertAlloca(buffer, at: insertionPoint)
       setAlignment(8, for: x0)
 
       // All arguments are passed by reference.
-      var arguments: [LLVM.IRValue] = [x0]
+      var arguments: [SwiftyLLVM.IRValue] = [x0]
       for a in s.operands {
         if m.type(of: a).isObject {
           let t = ir.llvm(s.result!.ast, in: &self)
@@ -1115,7 +1115,7 @@ extension LLVM.Module {
       // %1 = call ptr @llvm.coro.prepare.retcon(ptr @s)
       let f = declareSubscript(transpiledFrom: s.callee, of: m, from: ir)
       let prepare = intrinsic(named: Intrinsic.llvm.coro.prepare.retcon)!
-      let x1 = insertCall(LLVM.Function(prepare)!, on: [f], at: insertionPoint)
+      let x1 = insertCall(SwiftyLLVM.Function(prepare)!, on: [f], at: insertionPoint)
 
       // %2 = call {ptr, ptr} %1(...)
       let x2 = insertCall(x1, typed: f.valueType, on: arguments, at: insertionPoint)
@@ -1128,7 +1128,7 @@ extension LLVM.Module {
     func insert(return i: IR.InstructionID) {
       if m[f].isSubscript {
         _ = insertCall(
-          LLVM.Function(intrinsic(named: Intrinsic.llvm.coro.end)!)!,
+          SwiftyLLVM.Function(intrinsic(named: Intrinsic.llvm.coro.end)!)!,
           on: [frame!, i1.zero],
           at: insertionPoint)
         _ = insertUnreachable(at: insertionPoint)
@@ -1192,13 +1192,13 @@ extension LLVM.Module {
 
       // The intrinsic will return a non-zero result if the subscript should resume abnormally.
       _ = insertCall(
-        LLVM.Function(intrinsic(named: Intrinsic.llvm.coro.suspend.retcon, for: [i1])!)!,
+        SwiftyLLVM.Function(intrinsic(named: Intrinsic.llvm.coro.suspend.retcon, for: [i1])!)!,
         on: [p],
         at: insertionPoint)
     }
 
     /// Returns the LLVM IR value corresponding to the Hylo IR operand `o`.
-    func llvm(_ o: IR.Operand) -> LLVM.IRValue {
+    func llvm(_ o: IR.Operand) -> SwiftyLLVM.IRValue {
       if case .constant(let c) = o {
         return transpiledConstant(c, usedIn: m, from: ir)
       } else {
@@ -1210,7 +1210,7 @@ extension LLVM.Module {
     func unpackCallee(of s: Operand) -> ArrowContents {
       if case .constant(let f) = s {
         let f = transpiledConstant(f, usedIn: m, from: ir)
-        let t = LLVM.Function(f)!.valueType
+        let t = SwiftyLLVM.Function(f)!.valueType
         return .init(function: f, type: t, environment: [])
       }
 
@@ -1229,7 +1229,7 @@ extension LLVM.Module {
       let captures = StructType(ir.llvm(hyloType.environment, in: &self))!
 
       // Following elements constitute the environment.
-      var environment: [LLVM.IRValue] = []
+      var environment: [SwiftyLLVM.IRValue] = []
       for (i, c) in hyloType.captures.enumerated() {
         var x = insertGetStructElementPointer(
           of: e, typed: captures, index: i, at: insertionPoint)
@@ -1247,7 +1247,7 @@ extension LLVM.Module {
     }
 
     /// Returns an existential container wrapping the given `witness` and witness `table`.
-    func container(witness: Operand, table: Operand) -> LLVM.IRValue {
+    func container(witness: Operand, table: Operand) -> SwiftyLLVM.IRValue {
       let t = containerType()
       var v = t.null
       v = insertInsertValue(llvm(witness), at: 0, into: v, at: insertionPoint)
@@ -1259,18 +1259,18 @@ extension LLVM.Module {
   /// Inserts the prologue of the subscript `transpilation` at the end of its entry and returns
   /// a pointer to its stack frame.
   fileprivate mutating func insertSubscriptPrologue(
-    into transpilation: LLVM.Function
+    into transpilation: SwiftyLLVM.Function
   ) -> IRValue {
     let insertionPoint = endOf(transpilation.entry!)
     let id = insertCall(
-      LLVM.Function(intrinsic(named: Intrinsic.llvm.coro.id.retcon.once)!)!,
+      SwiftyLLVM.Function(intrinsic(named: Intrinsic.llvm.coro.id.retcon.once)!)!,
       on: [
         i32.constant(8), i32.constant(8), transpilation.parameters[0],
         slidePrototype(), mallocPrototype(), freePrototype(),
       ],
       at: insertionPoint)
     return insertCall(
-      LLVM.Function(intrinsic(named: Intrinsic.llvm.coro.begin)!)!,
+      SwiftyLLVM.Function(intrinsic(named: Intrinsic.llvm.coro.begin)!)!,
       on: [id, ptr.null],
       at: insertionPoint)
   }
@@ -1287,13 +1287,13 @@ extension LLVMProgram: CustomStringConvertible {
 private struct ArrowContents {
 
   /// A pointer to the underlying thin function.
-  let function: LLVM.IRValue
+  let function: SwiftyLLVM.IRValue
 
   /// The type `function`.
-  let type: LLVM.IRType
+  let type: SwiftyLLVM.IRType
 
   /// The arrow's environment.
-  let environment: [LLVM.IRValue]
+  let environment: [SwiftyLLVM.IRValue]
 
 }
 

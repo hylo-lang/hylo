@@ -2210,7 +2210,7 @@ public enum Parser {
   ) throws -> AnyExprID? {
     // There are 4 kinds of expressions starting with a left bracket: arrow types, buffers, maps,
     // and captures. We can commit to a capture if the token following the opening bracket is an
-    // access modifer. Otherwise, we can assume we're parsing an arrow type until the point where
+    // access modifier. Otherwise, we can assume we're parsing an arrow type until the point where
     // we should consume an effect or a right arrow.
     let backup = state.backup()
 
