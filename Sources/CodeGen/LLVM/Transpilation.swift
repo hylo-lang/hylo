@@ -505,9 +505,15 @@ extension SwiftyLLVM.Module {
       setLinkage(.private, for: llvmFunction)
     }
 
-    // Functions that return `Never` have the `noreturn` attribute.
-    if !m[f].isSubscript && (m[f].output == .never) {
-      addAttribute(.init(.noreturn, in: &self), to: llvmFunction)
+    if !m[f].isSubscript {
+      let r = llvmFunction.parameters.last!
+      addAttribute(.init(.noalias, in: &self), to: r)
+      addAttribute(.init(.nocapture, in: &self), to: r)
+      addAttribute(.init(.nofree, in: &self), to: r)
+
+      if m[f].output == .never {
+        addAttribute(.init(.noreturn, in: &self), to: llvmFunction)
+      }
     }
   }
 
