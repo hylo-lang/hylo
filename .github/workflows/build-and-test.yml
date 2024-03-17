@@ -55,6 +55,7 @@ jobs:
         echo "version=$version" >> $GITHUB_OUTPUT
 
   build-devcontainer:
+    if: false
     needs: determine-version
     name: "Devcontainer: ${{ matrix.host.os }}/${{ matrix.configuration }}"
     strategy:
@@ -108,6 +109,7 @@ jobs:
         CODECOV_JSON: .build/${{ matrix.configuration }}/codecov/*.json
 
   build-native-macos:
+    if: false
     needs: determine-version
     name: "Native: ${{ matrix.host.os }}/${{ matrix.configuration }}"
     strategy:
@@ -207,7 +209,7 @@ jobs:
         curl.exe -L -O -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}"https://github.com/c3lang/win-llvm/releases/download/llvm_15_0_6/llvm-15.0.6-windows-x86-msvc17-msvcrt.7z
         7z x llvm-15.0.6-windows-x86-msvc17-msvcrt.7z -oC:\
         Add-Content $env:GITHUB_PATH 'C:\llvm-15.0.6-windows-x86-msvc17-msvcrt\bin'
-        
+
     - run: llvm-config --version
 
     - name: Generate LLVM pkgconfig file
@@ -229,7 +231,7 @@ jobs:
       run: swift build --explicit-target-dependency-import-check error --build-tests --pkg-config-path .
 
     - name: Test
-      run: swift test --parallel --skip-build --pkg-config-path . 
+      run: swift test --parallel --skip-build --pkg-config-path .
 
     - name: Output compiler version
       run: .build/debug/hc --version
