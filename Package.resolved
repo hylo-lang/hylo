@@ -104,8 +104,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/hylo-lang/Swifty-LLVM",
       "state" : {
-        "branch" : "cmake",
-        "revision" : "2e36dccbd58588b979bb9a49ef005728c648155a"
+        "branch" : "main",
+        "revision" : "6454786c4550b2627f59d01e2e28766283291932"
       }
     },
     {

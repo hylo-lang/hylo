@@ -51,7 +51,7 @@ let package = Package(
       from: "5.3.0"),
     .package(
       url: "https://github.com/hylo-lang/Swifty-LLVM",
-      branch: "cmake"),
+      branch: "main"),
     .package(
       url: "https://github.com/apple/swift-format",
       from: "508.0.1"),
