@@ -1495,8 +1495,8 @@ struct TypeChecker {
     /// A map from requirement to its implementation.
     var implementations = Conformance.ImplementationMap()
 
-    /// The diagnostics of the errors found during conformance checking.
-    var conformanceDiagnostics = DiagnosticSet()
+    /// The detailed diagnostics describing why the checked conformance does not hold.
+    var nonConformanceNotes = DiagnosticSet()
 
     /// A map associating the "Self" parameter of each trait to which `model` conforms to `model`.
     var traitReceiverToModel = GenericArguments()
@@ -1508,10 +1508,10 @@ struct TypeChecker {
       resolveImplementation(of: r)
     }
 
-    if !conformanceDiagnostics.isEmpty || !checkRequirementConstraints() {
+    if !nonConformanceNotes.isEmpty || !checkRequirementConstraints() {
       // Use `extendedModel(_:)` to get `model` as it was declared in program sources.
       let m = extendedModel(origin.source)
-      report(.error(m, doesNotConformTo: trait, at: origin.site, because: conformanceDiagnostics))
+      report(.error(m, doesNotConformTo: trait, at: origin.site, because: nonConformanceNotes))
       return
     }
 
@@ -1575,7 +1575,7 @@ struct TypeChecker {
       guard let d = implementation(of: requirement) else {
         let n = Diagnostic.note(
           trait: trait, requiresAssociatedType: program[requirement].baseName, at: origin.site)
-        conformanceDiagnostics.insert(n)
+        nonConformanceNotes.insert(n)
         return
       }
       implementations[requirement] = .concrete(d)
@@ -1605,7 +1605,7 @@ struct TypeChecker {
           trait: trait, requires: requirement.kind,
           named: expectedAPI.name, typed: t,
           at: origin.site)
-        conformanceDiagnostics.insert(n)
+        nonConformanceNotes.insert(n)
       }
     }
 
