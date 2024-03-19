@@ -1,0 +1,1 @@
+../.devcontainer/make-pkgconfig.sh

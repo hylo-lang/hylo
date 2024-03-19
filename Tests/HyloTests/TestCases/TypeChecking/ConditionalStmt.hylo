@@ -7,13 +7,13 @@ fun test(b: Bool, i: Int) {
 
   if b, b { use(b) }
 
-  //! @+1 diagnostic 'Int' is not subtype of 'Bool'
+  //! @+1 diagnostic incompatible types 'Bool' and 'Int'
   if i { use(b) }
 
-  let x: Union<Int, Bool> = 1
+  let x: Union<Int, Bool> = 1 as _
 
   if let y: Int = x, y != 0 { use(b) }
 
-  //! @+1 diagnostic 'Int' is not subtype of 'Bool'
+  //! @+1 diagnostic incompatible types 'Bool' and 'Int'
   if let y: Int = x, y { use(b) }
 }

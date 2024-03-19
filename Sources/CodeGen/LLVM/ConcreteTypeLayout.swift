@@ -1,6 +1,7 @@
 import Core
 import IR
-import LLVM
+import SwiftyLLVM
+import Utils
 
 /// The concrete layout of a type, describing the byte offsets of its stored properties.
 struct ConcreteTypeLayout {
@@ -11,6 +12,12 @@ struct ConcreteTypeLayout {
   /// The memory alignment of the type's instances, in bytes.
   let alignment: Int
 
+  /// The number of bytes from the start of one instance to the start of the next when stored in
+  /// contiguous memory.
+  var stride: Int {
+    max(1, size.round(upToNearestMultipleOf: alignment))
+  }
+
   /// Creates an instance with the given properties.
   init(size: Int, alignment: Int) {
     self.size = size
@@ -20,7 +27,7 @@ struct ConcreteTypeLayout {
   /// Creates the concrete form of the layout `l` of a type defined in `ir`, for use in `m`.
   ///
   /// - Requires: `l.type` is representable in LLVM.
-  init(_ l: AbstractTypeLayout, definedIn ir: IR.Program, forUseIn m: inout LLVM.Module) {
+  init(_ l: AbstractTypeLayout, definedIn ir: IR.Program, forUseIn m: inout SwiftyLLVM.Module) {
     switch l.type.base {
     case let t as BuiltinType:
       self.init(of: t, forUseIn: &m)
@@ -39,14 +46,14 @@ struct ConcreteTypeLayout {
   /// Creates the layout of `t`, which is defined in `ir`, for use in `m`.
   ///
   /// - Requires: `t` is representable in LLVM.
-  init(of t: AnyType, definedIn ir: IR.Program, forUseIn m: inout LLVM.Module) {
+  init(of t: AnyType, definedIn ir: IR.Program, forUseIn m: inout SwiftyLLVM.Module) {
     self.init(AbstractTypeLayout(of: t, definedIn: ir.base), definedIn: ir, forUseIn: &m)
   }
 
   /// Creates the layout of `t` for use in `m`.
   ///
   /// - Requires: `t` is not `.module`.
-  init(of t: BuiltinType, forUseIn m: inout LLVM.Module) {
+  init(of t: BuiltinType, forUseIn m: inout SwiftyLLVM.Module) {
     switch t {
     case .ptr:
       let s = m.layout.storageSize(of: m.ptr)

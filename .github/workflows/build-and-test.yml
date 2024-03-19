@@ -38,6 +38,11 @@ on:
       - "LICENSE"
       - ".gitignore"
 
+env:
+  build-options: -Xswiftc -enable-testing --explicit-target-dependency-import-check error
+  test-options: --explicit-target-dependency-import-check error --skip-build
+  swift-version: '5.9'
+
 jobs:
   determine-version:
     name: "Determine compiler version from git tag"
@@ -56,25 +61,20 @@ jobs:
 
   build-devcontainer:
     needs: determine-version
-    name: "Devcontainer: ${{ matrix.host.os }}/${{ matrix.configuration }}"
+    name: Ubuntu dev container/${{ matrix.configuration }}
     strategy:
       fail-fast: false
       matrix:
-        host: [
-          { type: linux, os: ubuntu-latest,
-            build-options: "--build-tests -Xswiftc -enable-testing --explicit-target-dependency-import-check error",
-            test-options: "--enable-code-coverage --explicit-target-dependency-import-check error",
-          }
-        ]
-        configuration: [ "debug", "release" ]
+        configuration: [debug, release]
         include:
-          - configuration: "debug"
-            parallel-test: "--parallel"
-          # See https://github.com/apple/swift-package-manager/issues/7069
-          - configuration: "release"
-            parallel-test: ""
+          - configuration: debug
+            more-test-options: --parallel --enable-code-coverage
 
-    runs-on: ${{ matrix.host.os }}
+          - configuration: release
+            # Re: missing --parallel, see https://github.com/apple/swift-package-manager/issues/7069
+            more-test-options:  --enable-code-coverage
+
+    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
       with:
@@ -84,21 +84,28 @@ jobs:
     - name: Set compiler version
       run: ./Tools/set-hc-version.sh ${{ needs.determine-version.outputs.version }}
 
+    - uses: actions/cache@v4
+      with:
+        path: .build
+        key: devcontainer-${{ matrix.configuration }}-spm-${{ hashFiles('**/Package.resolved') }}
+        restore-keys: |
+          ${{ runner.os }}-spm-
+
     - name: Build and Test
       uses: devcontainers/ci@v0.3
       with:
         runCmd: |
           set -eo pipefail
-          swift package resolve
-          .build/checkouts/Swifty-LLVM/Tools/make-pkgconfig.sh llvm.pc
-          export PKG_CONFIG_PATH=$PWD
-          swift build -c ${{ matrix.configuration }}  ${{ matrix.host.build-options }}
-          swift test -c ${{ matrix.configuration }} ${{ matrix.host.test-options }} ${{ matrix.parallel-test }} |
+          swift build -c ${{ matrix.configuration }} ${{ env.build-options }} --build-tests
+
+          swift test -c ${{ matrix.configuration }} ${{ env.test-options }} ${{ matrix.more-test-options }} |
             tee testoutput.txt && (
               (grep -q "[.']EndToEndTests[/. ]test_" testoutput.txt && grep -q "[.']HyloTests[/. ]test_" testoutput.txt) ||
               (echo "error: generated tests failed to run; see
               https://github.com/apple/swift-package-manager/issues/6595" && false) )
+
           .build/${{ matrix.configuration }}/hc --version
+        push: never
 
     - name: Check code coverage
       uses: mattpolzin/swift-codecov-action@0.7.5
@@ -107,131 +114,128 @@ jobs:
         MINIMUM_COVERAGE: 84
         CODECOV_JSON: .build/${{ matrix.configuration }}/codecov/*.json
 
-  build-native-macos:
+  build-native:
     needs: determine-version
-    name: "Native: ${{ matrix.host.os }}/${{ matrix.configuration }}"
+    name: "Native: ${{ matrix.os }}/${{ matrix.configuration }}"
     strategy:
       fail-fast: false
       matrix:
-        host: [
-          {
-            type: macos, os: macos-13,
-            build-options: "--build-tests -Xswiftc -enable-testing --explicit-target-dependency-import-check error",
-            # No coverage support on MacOS
-            test-options: "--parallel"
-          }
-        ]
-        swift: [
-          { version: "5.9" }
-        ]
-        configuration: [ "debug", "release" ]
+        os: [ macos-latest, windows-latest ]
+        configuration: [ debug, release ]
+        include:
+          - HYLO_LLVM_BUILD_RELEASE: 20240303-215025
+          - HYLO_LLVM_BUILD_TYPE: MinSizeRel
+          - HYLO_LLVM_DOWNLOAD_URL: https://github.com/hylo-lang/llvm-build/releases/download
+          - HYLO_LLVM_VERSION: 17.0.6
+          - package_suffix: .tar.zst
+          - unpackage_command: tar -x --zstd -f
+          - test_verification:  >-
+              | tee testoutput.txt && (
+              (grep -q "[.']EndToEndTests[/. ]test_" testoutput.txt && grep -q "[.']HyloTests[/. ]test_" testoutput.txt) ||
+              (echo "error: generated tests failed to run; see
+              https://github.com/apple/swift-package-manager/issues/6595" && false) )
+          # https://github.com/apple/swift/issues/72121
+          - windows_only: '# WINDOWS ONLY:'
 
-    runs-on: ${{ matrix.host.os }}
+          - os: windows-latest
+            unpackage_command: 7z x -t7z
+            package_suffix: .7z
+            triple_suffix: unknown-windows-msvc17
+            test_verification:
+            windows_only:
+            build_platform_subdirectory: x86_64-unknown-windows-msvc
+
+          - os: macos-latest
+            triple_suffix: apple-darwin23.3.0
+            build_platform_subdirectory: x86_64-apple-macosx
+
+    runs-on: ${{ matrix.os }}
+    env:
+      llvm_url_prefix: ${{ matrix.HYLO_LLVM_DOWNLOAD_URL }}/${{ matrix.HYLO_LLVM_BUILD_RELEASE }}
+      llvm_package_basename: llvm-${{ matrix.HYLO_LLVM_VERSION }}-x86_64-${{ matrix.triple_suffix }}-${{ matrix.HYLO_LLVM_BUILD_TYPE }}
+
     steps:
     - name: Checkout
       uses: actions/checkout@v4
       with:
         submodules: true
         show-progress: false
+        path: hylo
 
     - name: Set compiler version
+      working-directory: hylo
       run: ./Tools/set-hc-version.sh ${{ needs.determine-version.outputs.version }}
+      shell: bash
 
-    - name: Setup swift
+    - name: 'Set up swift (*nix)'
+      if: ${{ matrix.os != 'windows-latest' }}
       uses: swift-actions/setup-swift@v1
       with:
-        swift-version: ${{ matrix.swift.version }}
+        swift-version: ${{ env.swift-version }}
+
+    - name: Set up swift (Windows)
+      if: ${{ matrix.os == 'windows-latest' }}
+      uses: compnerd/gha-setup-swift@v0.2.1
+      with:
+        branch: swift-${{ env.swift-version }}-release
+        tag: ${{ env.swift-version }}-RELEASE
 
     - run: swift --version
 
-    - name: Setup LLVM
-      uses: KyleMayes/install-llvm-action@v1
+    - name: Install LLVM
+      # 7z doesn't support decompressing from a stream or we'd do this all as one statement. Maybe
+      # we should find a way to use zstd on windows.
+      run: >-
+        curl --no-progress-meter -L -O
+        -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}"
+        ${{ env.llvm_url_prefix }}/${{ env.llvm_package_basename }}${{ matrix.package_suffix }}
+
+        ${{ matrix.unpackage_command }} ${{ env.llvm_package_basename }}${{ matrix.package_suffix }}
+
+    - name: Create LLVM pkgconfig file and make it findable
+      run: |
+        set -ex -o pipefail
+        PATH="${{ github.workspace }}/${{ env.llvm_package_basename }}/bin:$PATH" \
+          hylo/Tools/make-pkgconfig.sh llvm.pc
+        echo 'PKG_CONFIG_PATH=${{ github.workspace }}' >> $GITHUB_ENV
+      shell: bash
+
+    - uses: actions/cache@v4
       with:
-        version: "15.0"
+        path: hylo/.build
+        key: ${{ runner.os }}-${{ matrix.configuration }}-spm-${{ hashFiles('hylo/**/Package.resolved') }}
+        restore-keys: |
+          ${{ runner.os }}-${{ matrix.configuration }}-spm-
 
-    - run: llvm-config --version
-
-    - name: Generate LLVM pkgconfig file
-      run: |
-        set -eo pipefail
-        swift package resolve
-        .build/checkouts/Swifty-LLVM/Tools/make-pkgconfig.sh llvm.pc
-        cat llvm.pc
-
-    - name: Build (${{ matrix.configuration }})
-      run: |
-        set -eo pipefail
-        export PKG_CONFIG_PATH=$PWD
-        swift build -c ${{ matrix.configuration }} ${{ matrix.host.build-options }}
-
-    - name: Test (${{ matrix.configuration }})
-      run: |
-        set -eo pipefail
-        export PKG_CONFIG_PATH=$PWD
-        swift test -c ${{ matrix.configuration }} ${{ matrix.host.test-options }} |
-          tee testoutput.txt && (
-            (grep -q "[.']EndToEndTests[/. ]test_" testoutput.txt && grep -q "[.']HyloTests[/. ]test_" testoutput.txt) ||
-            (echo "error: generated tests failed to run; see
-            https://github.com/apple/swift-package-manager/issues/6595" && false) )
-
-    - name: Output compiler version
-      run: .build/${{ matrix.configuration }}/hc --version
-
-  build-native-windows:
-    needs: determine-version
-    name: "Native: windows-latest, debug"
-    strategy:
-      fail-fast: false
-    runs-on: windows-latest
-    steps:
-    - name: Setup swift
-      uses: compnerd/gha-setup-swift@v0.2.1
-      with:
-        github-repo: thebrowsercompany/swift-build
-        release-asset-name: installer-amd64.exe
-        release-tag-name: 20231130.2
-        github-token: ${{ secrets.GITHUB_TOKEN }}
-
-    - uses: actions/checkout@v4
-      with:
-        submodules: true
-        show-progress: false
-
-    - name: Set compiler version
-      run: |
-        & "C:\Program Files\Git\bin\bash.exe" Tools/set-hc-version.sh ${{ needs.determine-version.outputs.version }}
-
-    - name: Swift version
-      run: swift --version
-
-    - name: Set up LLVM 15.0.6
-      run: |
-        curl.exe -L -O -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}"https://github.com/c3lang/win-llvm/releases/download/llvm_15_0_6/llvm-15.0.6-windows-x86-msvc17-msvcrt.7z
-        7z x llvm-15.0.6-windows-x86-msvc17-msvcrt.7z -oC:\
-        Add-Content $env:GITHUB_PATH 'C:\llvm-15.0.6-windows-x86-msvc17-msvcrt\bin'
-        
-    - run: llvm-config --version
-
-    - name: Generate LLVM pkgconfig file
-      run: |
-        swift package resolve
-        & "C:\Program Files\Git\bin\bash.exe" .build/checkouts/Swifty-LLVM/Tools/make-pkgconfig.sh llvm.pc
-        type llvm.pc
-
-    - name: Build support library
+    - if: ${{ matrix.os == 'windows-latest' }}
+      name: Build support library
       run: clang -c ./StandardLibrary/Sources/LibC.c -o HyloLibC.lib
+      working-directory: hylo
 
-    - name: Prevent reentrant builds for speed
-      run: echo 'SPM_BUILD_TOOL_SUPPORT_NO_REENTRANT_BUILD=1' >> $env:GITHUB_ENV
+    - if: ${{ matrix.os == 'windows-latest' }}
+      name: Build the dependencies of build tools
+      run: |
+        echo 'SPM_BUILD_TOOL_SUPPORT_NO_REENTRANT_BUILD=1' >> $env:GITHUB_ENV
+        swift build ${{ env.build-options }} --target BuildToolDependencies
+        # https://github.com/apple/swift/issues/72121
+        if (-not $?) {
+            swift build ${{ env.build-options }} --target BuildToolDependencies
+        }
+      working-directory: hylo
 
-    - name: Build the dependencies of build tools for non-reentrant build
-      run: swift build --explicit-target-dependency-import-check=error --pkg-config-path . --target BuildToolDependencies
+    - name: Build
+      run: |
+        swift build -c ${{ matrix.configuration }} ${{ env.build-options }} --build-tests
+        ${{ matrix.windows_only }} if (-not $?) { swift build ${{ env.build-options }} --target BuildToolDependencies }
 
-    - name: Build tests
-      run: swift build --explicit-target-dependency-import-check error --build-tests --pkg-config-path .
+      working-directory: hylo
 
     - name: Test
-      run: swift test --parallel --skip-build --pkg-config-path . 
+      run: |
+        swift test -c ${{ matrix.configuration }} ${{ env.test-options }} --parallel ${{ matrix.test_verification }}
+        ${{ matrix.windows_only }} if (-not $?) { swift test -c ${{ matrix.configuration }} ${{ env.test-options }} --parallel ${{ matrix.test_verification }} }
+      working-directory: hylo
 
     - name: Output compiler version
-      run: .build/debug/hc --version
+      run: |
+        hylo/.build/${{ matrix.build_platform_subdirectory }}/${{ matrix.configuration }}/hc --version

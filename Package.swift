@@ -1,4 +1,4 @@
-// swift-tools-version:5.7
+// swift-tools-version:5.9
 import Foundation
 import PackageDescription
 
@@ -25,7 +25,7 @@ let package = Package(
   name: "Hylo",
 
   platforms: [
-    .macOS(.v13)
+    .macOS(.v12)
   ],
 
   products: [
@@ -105,7 +105,7 @@ let package = Package(
       dependencies: [
         "Utils",
         .product(name: "Collections", package: "swift-collections"),
-        .product(name: "LLVM", package: "Swifty-LLVM"),
+        .product(name: "SwiftyLLVM", package: "Swifty-LLVM"),
       ],
       swiftSettings: allTargetsSwiftSettings),
 
@@ -120,7 +120,7 @@ let package = Package(
         "Core",
         "IR",
         "Utils",
-        .product(name: "LLVM", package: "Swifty-LLVM"),
+        .product(name: "SwiftyLLVM", package: "Swifty-LLVM"),
       ],
       path: "Sources/CodeGen/LLVM",
       swiftSettings: allTargetsSwiftSettings),

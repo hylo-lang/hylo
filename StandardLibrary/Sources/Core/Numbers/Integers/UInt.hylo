@@ -1,9 +1,9 @@
 /// An unsigned integer value.
 public type UInt {
 
-  var value: Builtin.word
+  internal var value: Builtin.word
 
-  memberwise init
+  internal memberwise init
 
   /// Creates an instance with the same memory representation as `other`.
   public init(bit_pattern other: Int) {

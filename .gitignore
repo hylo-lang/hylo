@@ -1,5 +1,6 @@
 # Swift Package Manager
 /.build
+/.*-build
 /Packages
 
 # IDEs
@@ -20,3 +21,4 @@
 /Examples/**.obj
 **.lib
 **.7z
+llvm.pc

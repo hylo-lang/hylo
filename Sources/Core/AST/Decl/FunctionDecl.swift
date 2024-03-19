@@ -114,6 +114,9 @@ public struct FunctionDecl: CapturingDecl, ExposableDecl, GenericDecl, GenericSc
     api.contains(.isExternal)
   }
 
+  /// The part of the declaration that may have implicit captures.
+  public var sourcesOfImplicitCaptures: [AnyNodeID] { body.map({ (b) in [b.base] }) ?? [] }
+
   public func validateForm(in ast: AST, reportingDiagnosticsTo log: inout DiagnosticSet) {
     if !isInExprContext {
       // Parameter declarations must have a type annotation.

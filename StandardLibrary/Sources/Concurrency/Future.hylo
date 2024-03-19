@@ -20,8 +20,8 @@ public type Future<E: Movable & Deinitializable> {
     &self.r = .none()
 
     let local_f = fun (_ frame: inout SpawnFrameBase) -> Void {
-      inout this = PointerToMutable<Self>(type_punning: mutable_pointer[to: &frame]).unsafe[]
-      &this.do_call()
+      var this = PointerToMutable<Self>(type_punning: mutable_pointer[to: &frame])
+      &this.unsafe[].do_call()
     }
     concore2full_spawn2(&self.base_frame, local_f)
   }
@@ -40,7 +40,7 @@ public type Future<E: Movable & Deinitializable> {
   }
 
   private fun do_call() inout {
-    &r = self.f()
+    &r = self.f() as _
   }
 
 }

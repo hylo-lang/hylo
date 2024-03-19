@@ -91,14 +91,12 @@ public struct Module {
   /// Returns the type of `operand`.
   public func type(of operand: Operand) -> IR.`Type` {
     switch operand {
-    case .register(let instruction):
-      return functions[instruction.function]![instruction.block][instruction.address].result!
-
-    case .parameter(let block, let index):
-      return functions[block.function]![block.address].inputs[index]
-
-    case .constant(let constant):
-      return constant.type
+    case .register(let i):
+      return functions[i.function]![i.block][i.address].result!
+    case .parameter(let b, let n):
+      return functions[b.function]![b.address].inputs[n]
+    case .constant(let c):
+      return c.type
     }
   }
 
@@ -186,14 +184,6 @@ public struct Module {
     return true
   }
 
-  /// Applies `p` to in this module, which is in `ir`.
-  public mutating func applyPass(_ p: ModulePass, in ir: IR.Program) {
-    switch p {
-    case .depolymorphize:
-      depolymorphize(in: ir)
-    }
-  }
-
   /// Applies all mandatory passes in this module, accumulating diagnostics in `log` and throwing
   /// if a pass reports an error.
   public mutating func applyMandatoryPasses(
@@ -209,6 +199,7 @@ public struct Module {
     try run({ removeDeadCode(in: $0, diagnostics: &log) })
     try run({ reifyCallsToBundles(in: $0, diagnostics: &log) })
     try run({ reifyAccesses(in: $0, diagnostics: &log) })
+    try run({ simplify($0) })
     try run({ closeBorrows(in: $0, diagnostics: &log) })
     try run({ normalizeObjectStates(in: $0, diagnostics: &log) })
     try run({ ensureExclusivity(in: $0, diagnostics: &log) })
@@ -446,7 +437,7 @@ public struct Module {
     }
   }
 
-  /// Returns the IR function implementing the copy oepration defined in `conformanceToCopyable`.
+  /// Returns the IR function implementing the copy operation defined in `conformanceToCopyable`.
   ///
   /// - Parameter conformanceToCopyable: A conformance to `Copyable`.
   mutating func demandCopyDeclaration(
@@ -476,6 +467,25 @@ public struct Module {
       a = a.merging([program[m.trait.decl].receiver: .type(witness.model)])
     }
     return FunctionReference(to: d, in: self, specializedBy: a, in: witness.scope)
+  }
+
+  /// Returns a member reference to `d`, which is member of `receiver` accessed with capabilities
+  /// `k`, specializing `d`'s type for `a` in `scopeOfUse`.
+  mutating func memberCallee(
+    referringTo d: AnyDeclID, memberOf receiver: AnyType, accessedWith k: AccessEffectSet,
+    specializedBy a: GenericArguments, usedIn scopeOfUse: AnyScopeID
+  ) -> Callee {
+    // Check if `d`'s implementation is synthetic.
+    if program.isRequirement(d) && !receiver.isSkolem {
+      let t = program.traitDeclaring(d)!
+      let c = program.conformance(of: receiver, to: t, exposedTo: scopeOfUse)!
+      let f = demandDeclaration(lowering: c.implementations[d]!)
+      return .direct(FunctionReference(to: f, in: self, specializedBy: a, in: scopeOfUse))
+    } else if let m = MethodDecl.ID(d) {
+      return .bundle(BundleReference(to: m, specializedBy: a, requesting: k))
+    } else {
+      return .direct(FunctionReference(to: d, in: &self, specializedBy: a, in: scopeOfUse))
+    }
   }
 
   /// Returns the lowered declarations of `d`'s parameters.
@@ -824,7 +834,7 @@ public struct Module {
   }
 
   /// Returns the uses of all the registers assigned by `i`.
-  private func allUses(of i: InstructionID) -> [Use] {
+  func allUses(of i: InstructionID) -> [Use] {
     result(of: i).map(default: [], { uses[$0, default: []] })
   }
 

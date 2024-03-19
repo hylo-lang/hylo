@@ -25,6 +25,11 @@ extension DeclID {
     (kind.value as! Decl.Type).isCallable
   }
 
+  /// `true` iff `self` is the implementation of a variant in a bundle.
+  public var isBundleImpl: Bool {
+    kind.value is BundleImpl.Type
+  }
+
   /// `true` iff `self` denotes a type extending declaration.
   public var isTypeExtendingDecl: Bool {
     (kind == ExtensionDecl.self) || (kind == ConformanceDecl.self)

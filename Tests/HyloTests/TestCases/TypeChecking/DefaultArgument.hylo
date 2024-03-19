@@ -4,7 +4,7 @@ type A { public memberwise init }
 
 type B { public memberwise init }
 
-type C {
+type C: Deinitializable {
   public init(a: A = A()) {}
   public fun foo(a: A = A()) {
     let {}
@@ -30,5 +30,5 @@ public fun main() {
   f1(a: A())
 
   let x = C()
-  x.foo()
+  _ = x.foo()
 }

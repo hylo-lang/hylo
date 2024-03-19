@@ -1,0 +1,303 @@
+/// A 32-bit unsigned integer value.
+public type UInt32: Regular {
+
+  internal var value: Builtin.i32
+
+  internal memberwise init
+
+  /// Creates an instance with the same memory representation as `other`.
+  public init(bit_pattern other: Int32) {
+    &self.value = other.value
+  }
+
+  /// Returns the bitwise inverse of `self`.
+  public fun prefix~ () -> Self {
+    self ^ UInt32(bit_pattern: -1 as Int32)
+  }
+
+}
+
+public conformance UInt32: ExpressibleByIntegerLiteral {}
+
+public conformance UInt32: Copyable {
+
+  public fun copy() -> Self {
+    UInt32(value: value)
+  }
+
+}
+
+public conformance UInt32: Equatable {
+
+  public fun infix== (_ other: Self) -> Bool {
+    Bool(value: Builtin.icmp_eq_i32(value, other.value))
+  }
+
+  public fun infix!= (_ other: Self) -> Bool {
+    Bool(value: Builtin.icmp_ne_i32(value, other.value))
+  }
+
+}
+
+public conformance UInt32: Hashable {
+
+  public fun hash(into hasher: inout Hasher) {
+    &hasher.combine(byte: Int8(truncating_or_extending: self))
+    &hasher.combine(byte: Int8(truncating_or_extending: self >> 8))
+    &hasher.combine(byte: Int8(truncating_or_extending: self >> 16))
+    &hasher.combine(byte: Int8(truncating_or_extending: self >> 24))
+  }
+
+}
+
+public conformance UInt32: Comparable {
+
+  public fun infix< (_ other: Self) -> Bool {
+    Bool(value: Builtin.icmp_ult_i32(value, other.value))
+  }
+
+  public fun infix<= (_ other: Self) -> Bool {
+    Bool(value: Builtin.icmp_ule_i32(value, other.value))
+  }
+
+  public fun infix> (_ other: Self) -> Bool {
+    Bool(value: Builtin.icmp_ugt_i32(value, other.value))
+  }
+
+  public fun infix>= (_ other: Self) -> Bool {
+    Bool(value: Builtin.icmp_uge_i32(value, other.value))
+  }
+
+}
+
+public conformance UInt32: AdditiveArithmetic {
+
+  public fun infix+ (_ other: Self) -> Self {
+    UInt32(value: Builtin.add_i32(value, other.value))
+  }
+
+  public fun infix+= (_ other: Self) inout {
+    &self.value = Builtin.add_i32(value, other.value)
+  }
+
+  public fun infix- (_ other: Self) -> Self {
+    UInt32(value: Builtin.sub_i32(value, other.value))
+  }
+
+  public fun infix-= (_ other: Self) inout {
+    &self.value = Builtin.sub_i32(value, other.value)
+  }
+
+  public static fun zero() -> Self {
+    0
+  }
+
+}
+
+public conformance UInt32: Numeric {
+
+  public typealias Magnitude = UInt32
+
+  public fun magnitude() -> UInt32 {
+    self.copy()
+  }
+
+  public fun infix* (_ other: Self) -> Self {
+    UInt32(value: Builtin.mul_i32(value, other.value))
+  }
+
+  public fun infix*= (_ other: Self) inout {
+    &self.value = Builtin.mul_i32(value, other.value)
+  }
+
+}
+
+public conformance UInt32: BinaryInteger {
+
+  public init() {
+    &self.value = Builtin.zeroinitializer_i32()
+  }
+
+  public init<T: BinaryInteger>(truncating_or_extending source: T) {
+    let w = source.words()
+    &self.value = Builtin.trunc_word_i32(w[w.start_position()].value)
+  }
+
+  public fun instance_bit_width() -> Int {
+    32
+  }
+
+  public fun signum() -> Int {
+    Int(value: Builtin.zext_i1_word((self > 0).value))
+  }
+
+  public fun trailing_zeros() -> Int {
+    Int(value: Builtin.zext_i32_word(Builtin.cttz_i32(value)))
+  }
+
+  public fun quotient_and_remainder(dividing_by other: Self) -> {quotient: Self, remainder: Self} {
+    (quotient: self / other, remainder: self % other)
+  }
+
+  public fun words() -> CollectionOfOne<UInt> {
+    CollectionOfOne(UInt(value: Builtin.zext_i32_word(value)))
+  }
+
+  public fun infix/ (_ other: Self) -> Self {
+    UInt32(value: Builtin.udiv_i32(value, other.value))
+  }
+
+  public fun infix/= (_ other: Self) inout {
+    &self.value = Builtin.udiv_i32(value, other.value)
+  }
+
+  public fun infix% (_ other: Self) -> Self {
+    UInt32(value: Builtin.urem_i32(value, other.value))
+  }
+
+  public fun infix%= (_ other: Self) inout {
+    &self.value = Builtin.urem_i32(value, other.value)
+  }
+
+  public fun infix& (_ other: Self) -> Self {
+    UInt32(value: Builtin.and_i32(value, other.value))
+  }
+
+  public fun infix&= (_ other: Self) inout {
+    &self.value = Builtin.and_i32(value, other.value)
+  }
+
+  public fun infix| (_ other: Self) -> Self {
+    UInt32(value: Builtin.or_i32(value, other.value))
+  }
+
+  public fun infix|= (_ other: Self) inout {
+    &self.value = Builtin.or_i32(value, other.value)
+  }
+
+  public fun infix^ (_ other: Self) -> Self {
+    UInt32(value: Builtin.xor_i32(value, other.value))
+  }
+
+  public fun infix^= (_ other: Self) inout {
+    &self.value = Builtin.xor_i32(value, other.value)
+  }
+
+  public fun infix<< (_ n: Int) -> Self {
+    if n >= 0 {
+      return if n < Self.bit_width() { self &<< n } else { 0 }
+    } else if n <= -Self.bit_width() {
+      return 0
+    } else {
+      return self &>> -n
+    }
+  }
+
+  public fun infix<<= (_ n: Int) inout {
+    &self = self << n
+  }
+
+  public fun infix>> (_ n: Int) -> Self {
+    if n >= 0 {
+      return if n < Self.bit_width() { self &>> n } else { 0 }
+    } else if n <= -Self.bit_width() {
+      return 0
+    } else {
+      return self &<< -n
+    }
+  }
+
+  public fun infix>>= (_ n: Int) inout {
+    &self = self >> n
+  }
+
+  public static fun is_signed() -> Bool {
+    false
+  }
+
+}
+
+public conformance UInt32: FixedWidthInteger {
+
+  public fun matches(_ mask: Self) -> Bool {
+    (self & mask) == mask
+  }
+
+  public fun adding_reporting_overflow(_ other: Self) -> {partial_value: Self, overflow: Bool} {
+    let r = Builtin.uadd_with_overflow_i32(value, other.value)
+    return (partial_value: UInt32(value: r.0), overflow: Bool(value: r.1))
+  }
+
+  public fun subtracting_reporting_overflow(
+    _ other: Self
+  ) -> {partial_value: Self, overflow: Bool} {
+    let r = Builtin.usub_with_overflow_i32(value, other.value)
+    return (partial_value: UInt32(value: r.0), overflow: Bool(value: r.1))
+  }
+
+  public fun multiplied_reporting_overflow(
+    by other: Self
+  ) -> {partial_value: Self, overflow: Bool} {
+    let r = Builtin.umul_with_overflow_i32(value, other.value)
+    return (partial_value: UInt32(value: r.0), overflow: Bool(value: r.1))
+  }
+
+  public fun divided_reporting_overflow(by other: Self) -> {partial_value: Self, overflow: Bool} {
+    if other == 0 {
+      (partial_value: self.copy(), overflow: true)
+    } else {
+      (partial_value: UInt32(value: Builtin.udiv_i32(value, other.value)), overflow: false)
+    }
+  }
+
+  public fun remainder_reporting_overflow(
+    dividing_by other: Self
+  ) -> {partial_value: Self, overflow: Bool} {
+    if other == 0 {
+      (partial_value: self.copy(), overflow: true)
+    } else {
+      (partial_value: UInt32(value: Builtin.urem_i32(value, other.value)), overflow: false)
+    }
+  }
+
+  public fun nonzero_bit_count() -> Int {
+    Int(value: Builtin.zext_i32_word(Builtin.ctpop_i32(value)))
+  }
+
+  public fun leading_zeros() -> Int {
+    Int(value: Builtin.zext_i32_word(Builtin.ctlz_i32(value)))
+  }
+
+  public fun infix&<< (_ n: Int) -> Self {
+    var lhs = self.copy()
+    lhs &<<= n
+    return lhs
+  }
+
+  public fun infix&<<= (_ n: Int) inout {
+    &self.value = Builtin.shl_i32(value, UInt32(truncating_or_extending: n).value)
+  }
+
+  public fun infix&>> (_ n: Int) -> Self {
+    var lhs = self.copy()
+    lhs &>>= n
+    return lhs
+  }
+
+  public fun infix&>>= (_ n: Int) inout {
+    &self.value = Builtin.lshr_i32(value, UInt32(truncating_or_extending: n).value)
+  }
+
+  public static fun bit_width() -> Int {
+    32
+  }
+
+  public static fun max() -> Self {
+    4294967295
+  }
+
+  public static fun min() -> Self {
+    0
+  }
+
+}

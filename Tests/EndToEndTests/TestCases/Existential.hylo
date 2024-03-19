@@ -7,7 +7,7 @@ trait T: Deinitializable {
 }
 
 type A: T {
-  memberwise init
+  public memberwise init
   public fun foo() -> Int { 42 }
 }
 

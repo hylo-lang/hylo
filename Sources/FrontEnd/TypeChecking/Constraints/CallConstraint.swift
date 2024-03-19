@@ -35,12 +35,16 @@ struct CallConstraint: Constraint, Hashable {
   /// `true` if `callee` is expected to be an arrow; `false` if it's expected to be a subscript.
   let isArrow: Bool
 
+  /// `true` if `callee` is marked for mutation.
+  let isMutating: Bool
+
   let origin: ConstraintOrigin
 
   /// Creates a constraint requiring `callee` to be the type of an arrow that accepts given
   /// `arguments` and returns `output`.
   init(
     arrow callee: AnyType,
+    usedMutably isMutating: Bool,
     takes arguments: [Argument],
     gives output: AnyType,
     in call: CallID,
@@ -51,6 +55,7 @@ struct CallConstraint: Constraint, Hashable {
     self.output = output
     self.call = call
     self.isArrow = true
+    self.isMutating = isMutating
     self.origin = origin
   }
 
@@ -58,6 +63,7 @@ struct CallConstraint: Constraint, Hashable {
   /// `arguments` and returns `output`.
   init(
     subscript callee: AnyType,
+    usedMutably isMutating: Bool,
     takes arguments: [Argument],
     gives output: AnyType,
     in call: CallID,
@@ -68,6 +74,7 @@ struct CallConstraint: Constraint, Hashable {
     self.output = output
     self.call = call
     self.isArrow = false
+    self.isMutating = isMutating
     self.origin = origin
   }
 
@@ -98,10 +105,11 @@ struct CallConstraint: Constraint, Hashable {
 extension CallConstraint: CustomStringConvertible {
 
   var description: String {
+    let m = isMutating ? "&" : ""
     if isArrow {
-      return "(\(callee))(\(list: arguments)) -> \(output)"
+      return "\(m)(\(callee))(\(list: arguments)) -> \(output)"
     } else {
-      return "(\(callee))[\(list: arguments)]: \(output)"
+      return "\(m)(\(callee))[\(list: arguments)]: \(output)"
     }
   }
 

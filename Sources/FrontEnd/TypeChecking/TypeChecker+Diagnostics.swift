@@ -318,10 +318,6 @@ extension Diagnostic {
     .error("cannot extend type '\(t)'", at: site)
   }
 
-  static func error(mutatingBundleMustReturnTupleAt site: SourceRange) -> Diagnostic {
-    .error("mutating bundle must return '{self: Self, _}'", at: site)
-  }
-
   static func error(
     cannotPass t: AnyType, toParameter u: AnyType, at site: SourceRange
   ) -> Diagnostic {
@@ -366,6 +362,14 @@ extension Diagnostic {
       associated type '\(ast[a].baseName)' can only be referred to with a concrete type or \
       generic parameter base
       """, at: site)
+  }
+
+  static func error(
+    invalidReferenceToInaccessible ds: [AnyDeclID], named n: SourceRepresentable<Name>, in ast: AST
+  ) -> Diagnostic {
+    .error(
+      "'\(n.value)' is inaccessible due to its protection level", at: n.site,
+      notes: ds.map { (d) in .note("'\(n.value)' declared here", at: ast[d].site) })
   }
 
   static func warning(needlessImport d: ImportDecl.ID, in ast: AST) -> Diagnostic {

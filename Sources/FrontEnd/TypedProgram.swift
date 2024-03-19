@@ -554,6 +554,19 @@ public struct TypedProgram {
     return result
   }
 
+  /// Returns the run-time parameters of `e`, which is the callee of a function or subscript call,
+  /// if `e` is a reference to a callable declaration.
+  public func runtimeParameters(of callee: AnyExprID) -> [ParameterDecl.ID]? {
+    switch callee.kind {
+    case InoutExpr.self:
+      return runtimeParameters(of: ast[InoutExpr.ID(callee)!].subject)
+    case NameExpr.self:
+      return referredDecl[NameExpr.ID(callee)!]?.decl.flatMap(ast.runtimeParameters(of:))
+    default:
+      return nil
+    }
+  }
+
   /// Applies `merge(self[keyPath: path], value)`.
   ///
   /// - Parameter merge: A closure that merges `value` into the value currently stored at `path`,

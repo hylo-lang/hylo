@@ -54,9 +54,9 @@ public type BitArray {
   fun set_value(_ b: Bool, for p: Position) inout {
     let m = 1 << p.offset
     if b {
-      bits[p.bucket] |= m
+      &bits[p.bucket] |= m
     } else {
-      bits[p.bucket] &= ~m
+      &bits[p.bucket] &= ~m
     }
   }
 
@@ -67,20 +67,21 @@ public conformance BitArray: Deinitializable {}
 // TODO: Make 'BitArray' conform to 'MutableCollection'
 public extension BitArray {
 
+  // TODO: public[to: BitArray]
   /// A position identifying a bit in a `BitArray`.
-  public type Position {
+  internal type Position {
 
     /// The bucket containing the bit.
-    let bucket: Int
+    internal let bucket: Int
 
     /// The offset of the bit in its bucket.
-    let offset: Int
+    internal let offset: Int
 
     /// Creates an instance with the given properties.
-    memberwise init
+    internal memberwise init
 
     /// Creates an instance identifying the bit at index `i` in a `BitArray`.
-    init(_ i: Int) {
+    internal init(_ i: Int) {
       &self.bucket = i >> Int.bit_width().trailing_zeros()
       &self.offset = i & (Int.bit_width() - 1)
     }

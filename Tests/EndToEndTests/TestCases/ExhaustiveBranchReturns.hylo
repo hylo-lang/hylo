@@ -1,7 +1,7 @@
 //- compileAndRun expecting: success
 
 public fun main() {
-  let _ = f()
+  _ = f()
 }
 
 public fun f() -> Int {

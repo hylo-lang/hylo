@@ -1,8 +1,10 @@
 namespace FNV {
 
-  let offset_basis = Int(bit_pattern: 0xcbf29ce484222325)
+  // TODO: public[to: Hasher]
+  internal let offset_basis = Int(bit_pattern: 0xcbf29ce484222325)
 
-  let prime = Int(bit_pattern: 0x100000001b3)
+  // TODO: public[to: Hasher]
+  internal let prime = Int(bit_pattern: 0x100000001b3)
 
 }
 
@@ -32,7 +34,7 @@ public type Hasher {
   }
 
   /// Adds `bytes` to the hash value computed by `self`.
-  public fun unsafe_combine(bytes: PointerToBuffer<Int8>) {
+  public fun unsafe_combine(bytes: PointerToBuffer<Int8>) inout {
     var i = 0
     while i < bytes.count {
       &combine(byte: bytes.start.advance(by: i).unsafe[])

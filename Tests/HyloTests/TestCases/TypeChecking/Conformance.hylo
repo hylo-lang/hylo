@@ -40,11 +40,12 @@ trait R {
 }
 
 trait S {
-  fun g()
+  fun g() -> Self
 }
 
 type B: R, S {
-  fun f() {}
+  memberwise init
+  fun f() -> B { B() }
   fun g() {
     let  {}
     sink {}

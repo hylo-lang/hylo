@@ -1,0 +1,12 @@
+//- compileAndRun expecting: success
+
+fun test_modify() {
+  var b = BitArray()
+  &b.append(true)
+  &b[0] = false
+  precondition(!b[0])
+}
+
+public fun main() {
+  test_modify()
+}

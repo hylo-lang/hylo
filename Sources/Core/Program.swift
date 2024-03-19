@@ -44,10 +44,7 @@ extension Program {
   /// - `isContained(parent[child], ancestor)`.
   ///
   /// - Requires: `child` is the identifier of a scope in this hierarchy.
-  public func isContained<T: NodeIDProtocol, U: ScopeID>(
-    _ child: T,
-    in ancestor: U
-  ) -> Bool {
+  public func isContained<T: NodeIDProtocol, U: ScopeID>(_ child: T, in ancestor: U) -> Bool {
     var current = AnyNodeID(child)
     while true {
       if ancestor.rawValue == current.rawValue {
@@ -57,6 +54,15 @@ extension Program {
       } else {
         return false
       }
+    }
+  }
+
+  /// Returns whether `l` and `r` are in the same module.
+  public func areInSameModule<L: NodeIDProtocol, R: NodeIDProtocol>(_ l: L, _ r: R) -> Bool {
+    if let m = ModuleDecl.ID(l) {
+      return isContained(r, in: m)
+    } else {
+      return isContained(r, in: module(containing: nodeToScope[l]!))
     }
   }
 
