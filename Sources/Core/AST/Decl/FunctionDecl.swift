@@ -114,22 +114,6 @@ public struct FunctionDecl: CapturingDecl, ExposableDecl, GenericDecl, GenericSc
     api.contains(.isExternal)
   }
 
-  /// The name of the entity interfaced by the declared function if it is an FFI.
-  public var foreignName: String? {
-    return attributes.first(where: { $0.value.name.value == "@ffi" }).map { (a) in
-      guard case .string(let n) = a.value.arguments[0] else { unreachable() }
-      return n.value
-    }
-  }
-
-  /// The name of entity defining the implementation of the declared function if it is external.
-  public var externalName: String? {
-    return attributes.first(where: { $0.value.name.value == "@external" }).map { (a) in
-      guard case .string(let n) = a.value.arguments[0] else { unreachable() }
-      return n.value
-    }
-  }
-
   /// The part of the declaration that may have implicit captures.
   public var sourcesOfImplicitCaptures: [AnyNodeID] { body.map({ (b) in [b.base] }) ?? [] }
 

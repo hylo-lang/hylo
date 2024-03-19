@@ -1302,7 +1302,7 @@ extension IR.Program {
   /// Returns the name of `f` in LLVM IR.
   func llvmName(of f: IR.Function.ID) -> String {
     if case .lowered(let d) = f.value {
-      return FunctionDecl.ID(d).flatMap({ base[$0].externalName }) ?? base.mangled(f)
+      return FunctionDecl.ID(d).flatMap({ base[$0].attributes.externalName }) ?? base.mangled(f)
     } else {
       return base.mangled(f)
     }

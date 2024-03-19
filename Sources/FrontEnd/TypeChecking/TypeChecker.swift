@@ -856,7 +856,7 @@ struct TypeChecker {
     case ExtensionDecl.self:
       _check(ExtensionDecl.ID(d)!)
     case FunctionDecl.self:
-      _check(FunctionDecl.ID(d)!)
+      _check(FunctionDecl.ID(d)!, ignoringSharedCache: ignoreSharedCache)
     case GenericParameterDecl.self:
       _check(GenericParameterDecl.ID(d)!)
     case ImportDecl.self:
@@ -910,9 +910,15 @@ struct TypeChecker {
   /// Type checks `d` and all declarations nested in `d`.
   ///
   /// - Requires: `d` is not the underlying declaration of a lambda.
-  private mutating func _check(_ d: FunctionDecl.ID) {
+  private mutating func _check(_ d: FunctionDecl.ID, ignoringSharedCache ignoreSharedCache: Bool) {
     checkEnvironment(of: d)
     checkParameters(program[d].parameters, of: d)
+
+    let funcAttr = FunctionAttributes(
+      externalName: program[d].isExternal ? program.ast.externalName(of: d) : nil,
+      foreignName: program[d].isForeignInterface ? program.ast.foreignName(of: d) : nil
+    )
+    cache.write(funcAttr, at: \.functionAttributes[d], ignoringSharedCache: ignoreSharedCache)
 
     switch program[d].body {
     case .block(let b):
