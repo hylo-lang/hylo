@@ -8,11 +8,11 @@ public type A: Deinitializable, Strideable {
 
   public typealias Stride = Int
 
-  fun offset(to other: Self) -> Stride {
+  public fun offset(to other: Self) -> Stride {
     other.n - self.n
   }
 
-  fun advance(by offset: Stride) -> Self {
+  public fun advance(by offset: Stride) -> Self {
     A(n: n + offset)
   }
 
