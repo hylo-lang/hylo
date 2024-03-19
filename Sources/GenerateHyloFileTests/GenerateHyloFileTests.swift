@@ -29,14 +29,17 @@ struct GenerateHyloFileTests: ParsableCommand {
     let parsed = try firstLine.parsedAsFirstLineOfAnnotatedHyloFileTest()
     let testID = source.deletingPathExtension().lastPathComponent.asSwiftIdentifier
 
-    return """
+    return parsed.reduce(into: "") { (o, p) in
+      o += """
 
-        func test_\(parsed.methodName)_\(testID)() throws {
-          try \(parsed.methodName)(
-            \(String(reflecting: source.fileSystemPath)), expectSuccess: \(parsed.expectSuccess))
+        func test_\(p.methodName)_\(testID)() throws {
+          try \(p.methodName)(
+            \(String(reflecting: source.fileSystemPath)),
+            expectSuccess: \(p.expectSuccess))
         }
 
       """
+    }
   }
 
   func run() throws {
@@ -80,13 +83,12 @@ extension StringProtocol where Self.SubSequence == Substring {
 
   /// Interpreting `self` as the first line of an annotated Hylo test file, returns the embedded
   /// test method name and expectation of success.
-  fileprivate func parsedAsFirstLineOfAnnotatedHyloFileTest() throws -> (
-    methodName: Substring, expectSuccess: Bool
-  ) {
+  fileprivate func parsedAsFirstLineOfAnnotatedHyloFileTest() throws -> [TestDescription] {
     var text = self[...]
     if !text.removeLeading("//- ") {
       throw FirstLineError("first line of annotated test file must begin with “//-”.")
     }
+
     let methodName = text.removeFirstUntil(it: \.isWhitespace)
     if methodName.isEmpty {
       throw FirstLineError("missing test method name.")
@@ -104,11 +106,30 @@ extension StringProtocol where Self.SubSequence == Substring {
         "illegal expectation “\(expectation)” must be “success” or “failure”."
       )
     }
+    let expectSuccess = expectation == "success"
+
     if !text.drop(while: \.isWhitespace).isEmpty {
       throw FirstLineError("illegal trailing text “\(text)”.")
     }
-    return (methodName: methodName, expectSuccess: expectation == "success")
+
+    var tests = [TestDescription(methodName: methodName, expectSuccess: expectSuccess)]
+    if methodName == "compileAndRun" {
+      tests.append(
+        .init(methodName: "compileAndRunWithOptimizations", expectSuccess: expectSuccess))
+    }
+    return tests
   }
+
+}
+
+/// Information necessary to generate a test case.
+fileprivate struct TestDescription {
+
+  /// The name of the method implementing the logic of the test runner.
+  let methodName: Substring
+
+  /// `true` iff the invoked compilation is expected to succeed.
+  let expectSuccess: Bool
 
 }
 
