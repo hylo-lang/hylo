@@ -10,11 +10,6 @@ public type Bool {
     &self.value = Builtin.zeroinitializer_i1()
   }
 
-  /// Returns negation of `self`.
-  public fun prefix! () -> Bool {
-    Bool(value: Builtin.icmp_eq_i1(value, Builtin.zeroinitializer_i1()))
-  }
-
   /// Returns the logical conjunction of `self` and `other`.
   public fun infix&& (_ rhs: Bool) -> Bool {
     Bool(value: Builtin.and_i1(self.value, rhs.value))
@@ -23,6 +18,21 @@ public type Bool {
   /// Returns the logical disjunction of `self` and `other`.
   public fun infix|| (_ rhs: Bool) -> Bool {
     Bool(value: Builtin.or_i1(self.value, rhs.value))
+  }
+
+  /// Toggles the Boolean variable's value.
+  public fun toggle() inout {
+    &self = !self
+  }
+
+  /// Returns negation of `self`.
+  public fun prefix! () -> Bool {
+    // Non-obvious; implement negation by comparing to 0.
+    Bool(value: Builtin.icmp_eq_i1(value, Builtin.zeroinitializer_i1()))
+  }
+
+  public fun description() -> String {
+    if self { "true" } else { "false" }
   }
 
 }
