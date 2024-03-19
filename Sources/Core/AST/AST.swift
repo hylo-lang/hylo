@@ -530,6 +530,59 @@ public struct AST {
     }
   }
 
+  /// Returns a site suitable to emit diagnostics related to `d` as a whole.
+  public func siteForDiagnostics<T: DeclID>(about d: T) -> SourceRange {
+    .empty(at: (introducerSite(of: d) ?? self[d].site).start)
+  }
+
+  /// Returns the site from which the introducer of `d` was parsed, if any.
+  public func introducerSite<T: DeclID>(of d: T) -> SourceRange? {
+    switch d.kind {
+    case AssociatedTypeDecl.self:
+      return self[AssociatedTypeDecl.ID(d)!].introducerSite
+    case AssociatedValueDecl.self:
+      return self[AssociatedValueDecl.ID(d)!].introducerSite
+    case BindingDecl.self:
+      return self[self[BindingDecl.ID(d)!].pattern].introducer.site
+    case ConformanceDecl.self:
+      return self[ConformanceDecl.ID(d)!].introducerSite
+    case ExtensionDecl.self:
+      return self[ExtensionDecl.ID(d)!].introducerSite
+    case FunctionDecl.self:
+      return self[FunctionDecl.ID(d)!].introducerSite
+    case GenericParameterDecl.self:
+      return nil
+    case ImportDecl.self:
+      return self[ImportDecl.ID(d)!].introducerSite
+    case InitializerDecl.self:
+      return self[InitializerDecl.ID(d)!].introducer.site
+    case MethodDecl.self:
+      return self[MethodDecl.ID(d)!].introducerSite
+    case MethodImpl.self:
+      return self[MethodImpl.ID(d)!].introducer.site
+    case ModuleDecl.self:
+      return nil
+    case NamespaceDecl.self:
+      return self[NamespaceDecl.ID(d)!].introducerSite
+    case OperatorDecl.self:
+      return self[OperatorDecl.ID(d)!].introducerSite
+    case ParameterDecl.self:
+      return nil
+    case ProductTypeDecl.self:
+      return self[ProductTypeDecl.ID(d)!].introducerSite
+    case SubscriptDecl.self:
+      return self[SubscriptDecl.ID(d)!].introducer.site
+    case SubscriptImpl.self:
+      return self[SubscriptImpl.ID(d)!].introducer.site
+    case TraitDecl.self:
+      return self[TraitDecl.ID(d)!].introducerSite
+    case TypeAliasDecl.self:
+      return self[TypeAliasDecl.ID(d)!].introducerSite
+    default:
+      return nil
+    }
+  }
+
 }
 
 extension AST: Codable {

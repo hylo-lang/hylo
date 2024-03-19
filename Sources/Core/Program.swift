@@ -280,6 +280,12 @@ extension Program {
     }
   }
 
+  /// Returns `true` iff `d` has the appropriate visibility when used as the implementation of a
+  /// trait requirement.
+  public func isAccessibleAsRequirementImplementation<T: DeclID>(_ d: T) -> Bool {
+    (d.kind == GenericParameterDecl.self) || isPublic(d) || isRequirement(d)
+  }
+
   /// Returns `true` iff `d` is visible outside of its module.
   ///
   /// - Note: modules are considered exported.

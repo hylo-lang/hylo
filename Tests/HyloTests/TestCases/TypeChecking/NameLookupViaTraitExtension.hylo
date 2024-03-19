@@ -9,7 +9,7 @@ extension P {
 conformance Int: P {}
 
 conformance Bool: P {
-  fun foo() {}
+  public fun foo() {}
 }
 
 public fun main() {
