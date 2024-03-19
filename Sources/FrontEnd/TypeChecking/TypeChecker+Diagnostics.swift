@@ -190,6 +190,12 @@ extension Diagnostic {
     return .note("trait '\(x)' requires associated type '\(n)'", at: site)
   }
 
+  static func note(implementationMustBePublic d: AnyDeclID, in ast: AST) -> Diagnostic {
+    .note(
+      "implementation of trait requirement must be public",
+      at: ast.siteForDiagnostics(about: d))
+  }
+
   static func error(undefinedOperator name: String, at site: SourceRange) -> Diagnostic {
     .error("undefined operator '\(name)'", at: site)
   }

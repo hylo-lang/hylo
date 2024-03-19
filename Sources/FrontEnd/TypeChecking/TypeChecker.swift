@@ -1671,8 +1671,7 @@ struct TypeChecker {
         s.append(c)
       }
 
-      // Conformance is ambiguous if there are multiple viable candidates.
-      return viable.uniqueElement
+      return uniqueViableCandidate(in: viable)
     }
 
     /// Returns the implementation of `requirement` in `model` or `nil` if there's none.
@@ -1696,7 +1695,17 @@ struct TypeChecker {
       }
 
       viable = viable.minimalElements(by: { (a, b) in compareDepth(a, b, in: scopeOfDefinition) })
-      return viable.uniqueElement
+      return uniqueViableCandidate(in: viable)
+    }
+
+    /// Returns the contents of `candidates` if it contains a single declaration, reporting a
+    /// diagnostic if it doesn't have the right visibility. Otherwise, returns `nil`.
+    func uniqueViableCandidate(in candidates: [AnyDeclID]) -> AnyDeclID? {
+      guard let pick = candidates.uniqueElement else { return nil }
+      if !program.isAccessibleAsRequirementImplementation(pick) {
+        nonConformanceNotes.insert(.note(implementationMustBePublic: pick, in: program.ast))
+      }
+      return pick
     }
 
     /// Appends the function definitions of `d` that have API `a` to `s` .
