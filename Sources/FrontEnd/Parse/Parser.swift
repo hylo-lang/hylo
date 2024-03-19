@@ -29,13 +29,8 @@ public enum Parser {
     in ast: inout AST,
     diagnostics: inout DiagnosticSet
   ) throws -> TranslationUnit.ID {
-
     // Temporarily stash the AST and diagnostics in the parser state, avoiding CoW costs
     var state = ParserState(ast: ast, lexer: Lexer(tokenizing: input), diagnostics: diagnostics)
-
-    let s = DiagnosticSet([.error("Windows fails", at: .empty(at: state.currentLocation))])
-    try s.throwOnError()
-
     defer { diagnostics = state.diagnostics }
     diagnostics = DiagnosticSet()
 
