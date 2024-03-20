@@ -4184,7 +4184,12 @@ struct TypeChecker {
     // and `Y` from the resolution of the candidate.
     entityType = specialize(entityType, for: specialization, in: scopeOfUse)
 
-    return (entityType, specialization, isConstructor)
+    var capturedArguments: GenericArguments = [:]
+    for p in capturedGenericParameter(of: d) {
+      capturedArguments[p] = specialization[p]
+    }
+
+    return (entityType, capturedArguments, isConstructor)
   }
 
   /// Returns the generic type of a reference to `d`, found in `context`, reporting diagnostics
@@ -4457,6 +4462,17 @@ struct TypeChecker {
         let c = specialize(g, for: specialization, in: scopeOfUse, origin: origin)
         result.insert(c)
       }
+    }
+  }
+
+  /// Returns the generic parameters captured by `d`.
+  private mutating func capturedGenericParameter<T: DeclID>(of d: T) -> [GenericParameterDecl.ID] {
+    if d.kind == ModuleDecl.self {
+      return []
+    } else {
+      var p = Array(accumulatedGenericParameters(in: program[d].scope))
+      p.append(contentsOf: program.ast.genericParameters(introducedBy: AnyDeclID(d)))
+      return p
     }
   }
 
