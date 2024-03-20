@@ -4382,18 +4382,12 @@ struct TypeChecker {
   ) -> GenericArguments {
     if let c = context {
       return c.arguments
-    } else if mayCaptureGenericParameters(d) {
+    } else if d.isGenericScope {
       let parameters = accumulatedGenericParameters(in: program[d].scope)
       return .init(skolemizing: parameters, in: program.ast)
     } else {
       return [:]
     }
-  }
-
-  /// Returns `true` if a reference to `d` may capture generic parameters from the surrounding
-  /// lookup context.
-  private func mayCaptureGenericParameters(_ d: AnyDeclID) -> Bool {
-    d.isGenericScope
   }
 
   /// Associates `parameters`, which are introduced by `name`'s declaration, to corresponding
