@@ -4131,22 +4131,26 @@ struct TypeChecker {
     exposedTo scopeOfUse: AnyScopeID,
     usedAs purpose: NameUse,
     reportingDiagnosticsTo log: inout DiagnosticSet
-  ) -> (candidateType: AnyType, specialization: GenericArguments, isConstructor: Bool)? {
-    var candidateType = resolveType(
+  ) -> (type: AnyType, specialization: GenericArguments, isConstructor: Bool)? {
+    var entityType = resolveType(
       of: d, lookedUpIn: context, exposedTo: scopeOfUse, reportingDiagnosticsAt: name.site)
-    if candidateType[.hasError] { return nil }
+    if entityType[.hasError] { return nil }
 
     // TODO: Report invalid uses of mutation markers
 
-    // The specialization of the match includes that of context in which it was looked up.
+    // The specialization of the entity includes that of context in which it was looked up.
+    //
+    // The resolution context may contain information necessary to determine the specialization of
+    // a qualified name. For example, given an instance of `type S<T> { let foo: Array<T> }`, the
+    // type of the member `foo` depends on the specialization of its qualification.
     var specialization = genericArguments(inScopeIntroducing: d, resolvedIn: context)
-    candidateType = specialize(candidateType, for: specialization, in: scopeOfUse)
+    entityType = specialize(entityType, for: specialization, in: scopeOfUse)
 
     // Keep track of generic arguments that should be captured later on.
-    let candidateSpecialization = genericArguments(
-      passedTo: d, typed: candidateType, referredToBy: name, specializedBy: arguments,
+    let entityArguments = genericArguments(
+      passedTo: d, typed: entityType, referredToBy: name, specializedBy: arguments,
       reportingDiagnosticsTo: &log)
-    for (p, a) in candidateSpecialization {
+    for (p, a) in entityArguments {
       specialization[p] = a
     }
 
@@ -4161,12 +4165,12 @@ struct TypeChecker {
     let isConstructor =
       (d.kind == InitializerDecl.self) && (purpose.isConstructor || (name.value.stem == "new"))
     if isConstructor {
-      candidateType = ^ArrowType(constructorFormOf: ArrowType(candidateType)!)
+      entityType = ^ArrowType(constructorFormOf: ArrowType(entityType)!)
     }
 
     // If the receiver is an existential, replace its receiver.
     if let container = ExistentialType(context?.type) {
-      candidateType = candidateType.asMember(of: container)
+      entityType = entityType.asMember(of: container)
       if let t = traitDeclaring(d) {
         specialization[program[t.decl].receiver] = .type(^WitnessType(of: container))
       }
@@ -4178,9 +4182,9 @@ struct TypeChecker {
     // qualification as well as the ones related to the resolution of the candidate itself. For
     // example, if we resolved `A<X>.f<Y>`, we'd get `X` from the resolution of the qualification
     // and `Y` from the resolution of the candidate.
-    candidateType = specialize(candidateType, for: specialization, in: scopeOfUse)
+    entityType = specialize(entityType, for: specialization, in: scopeOfUse)
 
-    return (candidateType, specialization, isConstructor)
+    return (entityType, specialization, isConstructor)
   }
 
   /// Returns the generic type of a reference to `d`, found in `context`, reporting diagnostics
