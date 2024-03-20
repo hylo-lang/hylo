@@ -2,14 +2,9 @@
 
 Contributors are asked to format all the code they submit to the repository using `swift-format`.
 
-We use `swift-format` tagged with the commit [0bc2f03](https://github.com/apple/swift-format/commit/0bc2f0381c72d66a949254af22208a81377cf717).
-The best way to get this tool is to obtain it from its [official repository](https://github.com/apple/swift-format) and compile it manually.
-
-**Warning:** please make sure to get the version specified above.
-Different versions of `swift-format` may produce different results.
 
 The script `Tools/run-swift-format.sh` can be used to check and format code.
-It will search for `swift-format` in your path `PATH` or at `/usr/local/bin/swift-format`.
+The script will download, compile and install `swift-format` under '.build/release/swift-format' if not done already.
 
 To check the style for the Swift code in the repository, run the following command from the root directory:
 
