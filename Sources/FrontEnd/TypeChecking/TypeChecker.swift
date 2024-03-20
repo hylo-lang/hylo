@@ -4371,11 +4371,14 @@ struct TypeChecker {
   private mutating func genericArguments(
     inScopeIntroducing d: AnyDeclID, resolvedIn context: NameResolutionContext?
   ) -> GenericArguments {
-    if let a = context?.arguments { return a }
-    if !mayCaptureGenericParameters(d) { return [:] }
-
-    let parameters = accumulatedGenericParameters(in: program[d].scope)
-    return .init(skolemizing: parameters, in: program.ast)
+    if let c = context {
+      return c.arguments
+    } else if mayCaptureGenericParameters(d) {
+      let parameters = accumulatedGenericParameters(in: program[d].scope)
+      return .init(skolemizing: parameters, in: program.ast)
+    } else {
+      return [:]
+    }
   }
 
   /// Returns `true` if a reference to `d` may capture generic parameters from the surrounding
