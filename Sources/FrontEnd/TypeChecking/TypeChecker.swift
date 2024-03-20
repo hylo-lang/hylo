@@ -4121,7 +4121,7 @@ struct TypeChecker {
   /// the specialization of the returned type is performed in `scopeOfUse`. Diagnostics of errors
   /// related to the construction of the generic argument list are stored in `log`.
   ///
-  /// If `d` declares an initializer and and `purpose` is `.constructor`, the returned type is the
+  /// If `d` declares an initializer and `purpose` is `.constructor`, the returned type is the
   /// constructor form of `d`'s type.
   private mutating func resolveType(
     of d: AnyDeclID,
