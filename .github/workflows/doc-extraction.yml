@@ -38,7 +38,7 @@ jobs:
         sudo gem install jazzy
 
     - name: Setup swift
-      uses: swift-actions/setup-swift@v1
+      uses: swift-actions/setup-swift@v2
       with:
         swift-version: 5.9
 
