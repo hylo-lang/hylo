@@ -167,20 +167,14 @@ jobs:
       run: ./Tools/set-hc-version.sh ${{ needs.determine-version.outputs.version }}
       shell: bash
 
-    - name: 'Set up swift (*nix)'
-      if: ${{ matrix.os != 'windows-latest' }}
-      uses: swift-actions/setup-swift@v1
+    - name: 'Set up swift'
+      uses: SwiftyLab/setup-swift@latest
       with:
         swift-version: ${{ env.swift-version }}
 
-    - name: Set up swift (Windows)
-      if: ${{ matrix.os == 'windows-latest' }}
-      uses: compnerd/gha-setup-swift@v0.2.1
-      with:
-        branch: swift-${{ env.swift-version }}-release
-        tag: ${{ env.swift-version }}-RELEASE
-
-    - run: swift --version
+    - name: 'Swift version check'
+      run: swift --version && swift --version | grep -q ${{ env.swift-version }}
+      shell: bash
 
     - name: Install LLVM
       # 7z doesn't support decompressing from a stream or we'd do this all as one statement. Maybe
