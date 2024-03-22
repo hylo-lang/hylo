@@ -125,7 +125,7 @@ public extension PointerToMutable where Pointee: Movable {
     base as* (remote sink Pointee)
   }
 
-  /// Initialize the value at the address represented by `self` to `value`.
+  /// Initializes the value at the address represented by `self` to `value`.
   ///
   /// - Requires: the `MemoryLayout<Pointee>.size()` bytes starting at the address are uninitialized
   ///   and suitably aligned for `Pointee`.
