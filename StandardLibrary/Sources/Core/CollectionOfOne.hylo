@@ -23,7 +23,7 @@ public conformance CollectionOfOne: Collection {
 
   public subscript(_ position: Bool): Element {
     let {
-      precondition(position, "position is out of bounds")
+      precondition(!position, "position is out of bounds")
       yield contents
     }
   }
