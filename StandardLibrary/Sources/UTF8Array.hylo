@@ -68,12 +68,12 @@ public type UTF8Array: Regular {
     // TODO: uncomment when #1046 is implemented
     // precondition(source.count >= 0)
 
-    // Source is empty and requested capability fits in inline storage.
+    // Source is empty and requested capacity fits in inline storage.
     if (source.count == 0) && (minimum_capacity < 7) {
       &self.units = 0
     }
 
-    // Source buffer and requested capability fit in inline storage.
+    // Source buffer and requested capacity fit in inline storage.
     else if (source.count < 8) && (minimum_capacity < 7) {
       &self.units = UInt64(truncating_or_extending: source.count) << 2
       PointerToMutable<Int8>(type_punning: mutable_pointer[to: &units])
