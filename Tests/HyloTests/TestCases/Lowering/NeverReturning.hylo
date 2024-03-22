@@ -1,11 +1,8 @@
 //- lowerToFinishedIR expecting: success
 
-@ffi("abort")
-fun abort() -> Never
-
 public fun f() -> Int {
   _ = 1
-  abort()
+  fatal_error()
 }
 
 public fun main() {}

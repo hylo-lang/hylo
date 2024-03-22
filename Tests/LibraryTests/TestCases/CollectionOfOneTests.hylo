@@ -2,5 +2,5 @@
 
 public fun main() {
   let c = CollectionOfOne(42)
-  precondition(c[true] == 42)
+  precondition(c[false] == 42)
 }

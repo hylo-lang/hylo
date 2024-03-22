@@ -18,7 +18,8 @@ public type Array<Element: SemiRegular>: SemiRegular {
   ///
   /// - Requires: `count >= 0`.
   public init<E>(count: Int, initialized_with initialize: inout [E](Int) inout -> Element) {
-    // precondition(count >= 0)
+    precondition(count >= 0, "negative array count")
+
     &storage = .new()
     &reserve_capacity(count)
 
@@ -51,9 +52,10 @@ public type Array<Element: SemiRegular>: SemiRegular {
 
   /// Reserves enough space to store `n` elements in `self`.
   public fun reserve_capacity(_ n: Int) inout {
-    if n < capacity() { return }
+    let k = capacity()
+    if n < k { return }
 
-    var new_capacity = max[1, capacity()].copy()
+    var new_capacity = max[1, k].copy()
     while new_capacity < n {
       &new_capacity += new_capacity.copy()
     }
@@ -242,13 +244,12 @@ public conformance Array: Collection {
   /// - Requires: `position` is in the range `0 ..< count()`.
   public subscript(_ position: Int): Element {
     let {
-      // TODO: uncomment when #1046 is implemented
-      // precondition(position >= 0 && position < count(), "position is out of bounds")
-      pointer_to_element[at: position].unsafe[]
+      precondition((position >= 0) && (position < count()), "position is out of bounds")
+      yield pointer_to_element[at: position].unsafe[]
     }
     inout {
-      // precondition(position >= 0 && position < count(), "position is out of bounds")
-      &pointer_to_element[at: position].unsafe[]
+      precondition((position >= 0) && (position < count()), "position is out of bounds")
+      yield &pointer_to_element[at: position].unsafe[]
     }
   }
 
@@ -257,8 +258,8 @@ public conformance Array: Collection {
 public conformance Array: MutableCollection {
 
   public fun swap_at(_ i: Int, _ j: Int) inout {
-    // precondition(i >= 0 && i < count())
-    // precondition(j >= 0 && j < count())
+    precondition((i >= 0) && (i < count()), "position is out of bounds")
+    precondition((j >= 0) && (j < count()), "position is out of bounds")
     if i == j { return }
     &pointer_to_element[at: i].unsafe[].exchange(with: &pointer_to_element[at: j].unsafe[])
   }

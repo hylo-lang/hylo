@@ -1,23 +1,20 @@
 //- typeCheck expecting: failure
 
-@ffi("abort")
-fun abort() -> Never
-
 fun check<T>(_ x: T) {}
 
-fun fn(x: Int) -> Int { abort() }
+fun fn(x: Int) -> Int { fatal_error() }
 
-fun fn(x: Float64) -> Float64 { abort() }
+fun fn(x: Float64) -> Float64 { fatal_error() }
 
-fun fn(x: Any) -> Any { abort() }
+fun fn(x: Any) -> Any { fatal_error() }
 
-fun fn<T>(x: T) -> T { abort() }
+fun fn<T>(x: T) -> T { fatal_error() }
 
-fun fn<T>(_ x: T, _ y: T) -> T { abort() }
+fun fn<T>(_ x: T, _ y: T) -> T { fatal_error() }
 
-fun fn<T>(_ x: T, _ y: Int) -> T { abort() }
+fun fn<T>(_ x: T, _ y: Int) -> T { fatal_error() }
 
-fun fn(_ x: Any, _ y: Any) -> Any { abort() }
+fun fn(_ x: Any, _ y: Any) -> Any { fatal_error() }
 
 public fun main() {
   let x0 = fn(x: 1)
