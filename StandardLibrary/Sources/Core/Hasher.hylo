@@ -41,6 +41,12 @@ public type Hasher {
     &combine(byte: Int8(truncating_or_extending: i32 >> 24))
   }
 
+  /// Adds `i64` to the hash value computed by `self`.
+  public fun combine(i64: Int64) inout {
+    &combine(i32: Int32(truncating_or_extending: i64))
+    &combine(i32: Int32(truncating_or_extending: i64 >> 32))
+  }
+
   /// Adds `bytes` to the hash value computed by `self`.
   public fun unsafe_combine(bytes: PointerToBuffer<Int8>) inout {
     var i = 0
