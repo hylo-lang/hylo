@@ -4121,7 +4121,7 @@ struct TypeChecker {
   /// the specialization of the returned type is performed in `scopeOfUse`. Diagnostics of errors
   /// related to the construction of the generic argument list are stored in `log`.
   ///
-  /// If `d` declares an initializer and and `purpose` is `.constructor`, the returned type is the
+  /// If `d` declares an initializer and `purpose` is `.constructor`, the returned type is the
   /// constructor form of `d`'s type.
   private mutating func resolveType(
     of d: AnyDeclID,
@@ -4131,22 +4131,26 @@ struct TypeChecker {
     exposedTo scopeOfUse: AnyScopeID,
     usedAs purpose: NameUse,
     reportingDiagnosticsTo log: inout DiagnosticSet
-  ) -> (candidateType: AnyType, specialization: GenericArguments, isConstructor: Bool)? {
-    var candidateType = resolveType(
+  ) -> (type: AnyType, specialization: GenericArguments, isConstructor: Bool)? {
+    var entityType = resolveType(
       of: d, lookedUpIn: context, exposedTo: scopeOfUse, reportingDiagnosticsAt: name.site)
-    if candidateType[.hasError] { return nil }
+    if entityType[.hasError] { return nil }
 
     // TODO: Report invalid uses of mutation markers
 
-    // The specialization of the match includes that of context in which it was looked up.
+    // The specialization of the entity includes that of context in which it was looked up.
+    //
+    // The resolution context may contain information necessary to determine the specialization of
+    // a qualified name. For example, given an instance of `type S<T> { let foo: Array<T> }`, the
+    // type of the member `foo` depends on the specialization of its qualification.
     var specialization = genericArguments(inScopeIntroducing: d, resolvedIn: context)
-    candidateType = specialize(candidateType, for: specialization, in: scopeOfUse)
+    entityType = specialize(entityType, for: specialization, in: scopeOfUse)
 
     // Keep track of generic arguments that should be captured later on.
-    let candidateSpecialization = genericArguments(
-      passedTo: d, typed: candidateType, referredToBy: name, specializedBy: arguments,
+    let entityArguments = genericArguments(
+      passedTo: d, typed: entityType, referredToBy: name, specializedBy: arguments,
       reportingDiagnosticsTo: &log)
-    for (p, a) in candidateSpecialization {
+    for (p, a) in entityArguments {
       specialization[p] = a
     }
 
@@ -4161,12 +4165,12 @@ struct TypeChecker {
     let isConstructor =
       (d.kind == InitializerDecl.self) && (purpose.isConstructor || (name.value.stem == "new"))
     if isConstructor {
-      candidateType = ^ArrowType(constructorFormOf: ArrowType(candidateType)!)
+      entityType = ^ArrowType(constructorFormOf: ArrowType(entityType)!)
     }
 
     // If the receiver is an existential, replace its receiver.
     if let container = ExistentialType(context?.type) {
-      candidateType = candidateType.asMember(of: container)
+      entityType = entityType.asMember(of: container)
       if let t = traitDeclaring(d) {
         specialization[program[t.decl].receiver] = .type(^WitnessType(of: container))
       }
@@ -4178,9 +4182,14 @@ struct TypeChecker {
     // qualification as well as the ones related to the resolution of the candidate itself. For
     // example, if we resolved `A<X>.f<Y>`, we'd get `X` from the resolution of the qualification
     // and `Y` from the resolution of the candidate.
-    candidateType = specialize(candidateType, for: specialization, in: scopeOfUse)
+    entityType = specialize(entityType, for: specialization, in: scopeOfUse)
 
-    return (candidateType, specialization, isConstructor)
+    var capturedArguments: GenericArguments = [:]
+    for p in capturedGenericParameter(of: d) {
+      capturedArguments[p] = specialization[p]
+    }
+
+    return (entityType, capturedArguments, isConstructor)
   }
 
   /// Returns the generic type of a reference to `d`, found in `context`, reporting diagnostics
@@ -4371,17 +4380,14 @@ struct TypeChecker {
   private mutating func genericArguments(
     inScopeIntroducing d: AnyDeclID, resolvedIn context: NameResolutionContext?
   ) -> GenericArguments {
-    if let a = context?.arguments { return a }
-    if !mayCaptureGenericParameters(d) { return [:] }
-
-    let parameters = accumulatedGenericParameters(in: program[d].scope)
-    return .init(skolemizing: parameters, in: program.ast)
-  }
-
-  /// Returns `true` if a reference to `d` may capture generic parameters from the surrounding
-  /// lookup context.
-  private func mayCaptureGenericParameters(_ d: AnyDeclID) -> Bool {
-    d.isGenericScope
+    if let c = context {
+      return c.arguments
+    } else if d.isGenericScope {
+      let parameters = accumulatedGenericParameters(in: program[d].scope)
+      return .init(skolemizing: parameters, in: program.ast)
+    } else {
+      return [:]
+    }
   }
 
   /// Associates `parameters`, which are introduced by `name`'s declaration, to corresponding
@@ -4450,6 +4456,17 @@ struct TypeChecker {
         let c = specialize(g, for: specialization, in: scopeOfUse, origin: origin)
         result.insert(c)
       }
+    }
+  }
+
+  /// Returns the generic parameters captured by `d`.
+  private mutating func capturedGenericParameter<T: DeclID>(of d: T) -> [GenericParameterDecl.ID] {
+    if d.kind == ModuleDecl.self {
+      return []
+    } else {
+      var p = Array(accumulatedGenericParameters(in: program[d].scope))
+      p.append(contentsOf: program.ast.genericParameters(introducedBy: AnyDeclID(d)))
+      return p
     }
   }
 
