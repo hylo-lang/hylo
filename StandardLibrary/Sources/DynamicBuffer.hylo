@@ -49,12 +49,12 @@ public type DynamicBuffer<Header: Deinitializable, Element>: Deinitializable, Mo
   }
 
   /// Returns the address of the initial element.
-  ///
-  /// - Requires: `capacity() > 0`.
   public fun first_element_address() -> PointerToMutable<Element> {
-    // TODO: Uncomment the following line when #995 is fixed
-    // precondition(self.capacity() > 0)
-    PointerToMutable<Element>(type_punning: storage.advance(by: payload_offset()))
+    if (capacity() > 0) {
+      PointerToMutable<Element>(type_punning: storage.advance(by: payload_offset()))
+    } else {
+      .null()
+    }
   }
 
   /// Deinitializes `self`.
