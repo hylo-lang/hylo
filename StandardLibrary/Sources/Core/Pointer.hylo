@@ -32,6 +32,14 @@ public type Pointer<Pointee>: Regular {
     &base = p.base
   }
 
+  /// Creates an instance referring to the same address as `p`.
+  ///
+  /// Note that dereferencing type punned pointers will cause problems unless the rules for the
+  /// `usafe[]` subscript (which see) are followed.
+  public init<Other>(type_punning p: PointerToMutable<Other>) {
+    &base = p.base
+  }
+
   /// Returns `self` offset forward by `n` array elements of `Pointee` type.
   public fun advance(by n: Int) -> Self {
     let offset_in_bytes = MemoryLayout<Pointee>.stride() * n
