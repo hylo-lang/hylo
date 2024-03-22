@@ -121,7 +121,7 @@ public conformance UInt64: BinaryInteger {
   }
 
   public fun instance_bit_width() -> Int {
-    32
+    64
   }
 
   public fun signum() -> Int {
@@ -287,11 +287,11 @@ public conformance UInt64: FixedWidthInteger {
   }
 
   public static fun bit_width() -> Int {
-    32
+    64
   }
 
   public static fun max() -> Self {
-    4294967295
+    18446744073709551615
   }
 
   public static fun min() -> Self {
