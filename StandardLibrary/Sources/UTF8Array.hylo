@@ -56,6 +56,11 @@ public type UTF8Array: Regular {
     &self.units = 0
   }
 
+  /// Creates an instance with the contents of `source` copied to a buffer capable of holding at
+  /// least `minimum_capacity` units.
+  ///
+  /// In a free-standing environment, both `source.count` and `minimum_capacity` must be less than
+  /// 7, which is the maximum capacity of inline storage.
   public init(
     unsafely_copying source: PointerToBuffer<Int8>,
     reserving minimum_capacity: Int = 0
@@ -78,6 +83,25 @@ public type UTF8Array: Regular {
 
     // Source buffer requires out-of-line storage.
     else {
+      #if feature(freestanding)
+        fatal_error("cannot allocate heap storage in free-standing environment")
+      #else
+        init_on_head(&self, unsafely_copying: source, reserving: minimum_capacity)
+      #endif
+    }
+  }
+
+  /// Initializes `self` to an instance with the contents of `source` copied to out-of-line storage
+  /// capable of holding at least `minimum_capacity` units.
+  ///
+  /// This method can only be called in a hosted environment.
+  static fun init_on_head(
+    _ self: set Self,
+    unsafely_copying source: PointerToBuffer<Int8>, reserving minimum_capacity: Int
+  ) {
+    #if feature(freestanding)
+      trap()
+    #else
       let requested_capacity = max[source.count, minimum_capacity]
       let buffer_size = (MemoryLayout<Header>.stride() + requested_capacity + 1)
         .round_up_nearest_power_two()
@@ -97,7 +121,7 @@ public type UTF8Array: Regular {
         .unsafe_initialize(repeating: 0, count: capacity - source.count + 1)
 
       &self = .new(taking_ownership_of: storage)
-    }
+    #endif
   }
 
   /// Projects the units in `self` as a null-terminated buffer.
@@ -169,9 +193,11 @@ public type UTF8Array: Regular {
 public conformance UTF8Array: Deinitializable {
 
   public fun deinit() sink {
-    if requires_head_deallocation() {
-      PointerToMutable(adding_mutation_to: unsafe_heap_header()).deallocate()
-    }
+    #if !feature(freestanding)
+      if requires_head_deallocation() {
+        PointerToMutable(adding_mutation_to: unsafe_heap_header()).deallocate()
+      }
+    #endif
   }
 
 }
