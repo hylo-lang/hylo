@@ -1,0 +1,4 @@
+/// Returns the result of `action` applied on a projection of `x`.
+public fun with_extended_lifetime<T, E, R>(_ x: T, do action: [E](T) -> R) -> R {
+  action(x)
+}
