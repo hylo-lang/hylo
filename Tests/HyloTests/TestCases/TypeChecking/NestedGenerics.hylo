@@ -20,5 +20,5 @@ type M<T: Deinitializable> {
 }
 
 fun test(x: M<Int>) -> Int {
-  return &x.f().g()
+  &x.f().g()
 }

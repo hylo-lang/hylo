@@ -79,7 +79,7 @@ extension Diagnostic {
     memberModifier member: SourceRepresentable<MemberModifier>,
     appearsBeforeAccessModifier access: SourceRepresentable<AccessModifier>
   ) -> Diagnostic {
-    return .error(
+    .error(
       "member modifier '\(member.value)' must appear after access modifier '\(access.value)'",
       at: member.site)
   }

@@ -47,7 +47,7 @@ public type Array<Element: SemiRegular>: SemiRegular {
 
   /// The number of elements that can be stored in the array before new storage must be allocated.
   public fun capacity() -> Int {
-    return storage.capacity()
+    storage.capacity()
   }
 
   /// Reserves enough space to store `n` elements in `self`.

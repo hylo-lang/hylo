@@ -29,7 +29,9 @@ extension WideUInt: Hashable {}
 
 extension WideUInt: Comparable {
 
-  public static func < (l: Self, r: Self) -> Bool { return l.value < r.value }
+  public static func < (l: Self, r: Self) -> Bool {
+    l.value < r.value
+  }
 
 }
 

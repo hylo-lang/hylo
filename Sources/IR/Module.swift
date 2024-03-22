@@ -880,7 +880,7 @@ public struct Module {
 
   /// Returns `true` if `o` can be sunken.
   func isSink(_ o: Operand) -> Bool {
-    return provenances(o).allSatisfy { (p) -> Bool in
+    provenances(o).allSatisfy { (p) -> Bool in
       switch p {
       case .parameter(let e, let i):
         if entry(of: e.function) == e {

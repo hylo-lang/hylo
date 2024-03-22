@@ -167,7 +167,7 @@ public conformance Int64: BinaryInteger {
 
   public fun words() -> CollectionOfOne<UInt> {
     // TODO: Handle the case where Int64 is larger than UInt.
-    return CollectionOfOne(UInt(value: Builtin.sext_i64_word(value)))
+    CollectionOfOne(UInt(value: Builtin.sext_i64_word(value)))
   }
 
   public fun infix/ (_ other: Self) -> Self {

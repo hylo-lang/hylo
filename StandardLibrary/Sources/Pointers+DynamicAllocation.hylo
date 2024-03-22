@@ -11,7 +11,7 @@ public extension PointerToMutable {
 
   /// Allocates memory for `count` instances of `Pointee`.
   public static fun allocate(count: Int) -> Self {
-    return Self.new(base: hylo_aligned_alloc(
+    .new(base: hylo_aligned_alloc(
       MemoryLayout<Pointee>.alignment(),
       MemoryLayout<Pointee>.stride() * count).base)
   }

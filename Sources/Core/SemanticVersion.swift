@@ -14,7 +14,7 @@ public struct SemanticVersion: Codable, Comparable, Hashable {
   }
 
   public static func < (lhs: Self, rhs: Self) -> Bool {
-    return (lhs.major, lhs.major, lhs.patch) < (rhs.major, rhs.major, rhs.patch)
+    (lhs.major, lhs.major, lhs.patch) < (rhs.major, rhs.major, rhs.patch)
   }
 
 }
