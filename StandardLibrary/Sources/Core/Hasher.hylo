@@ -33,6 +33,14 @@ public type Hasher {
     &hash = hash &* FNV.prime
   }
 
+  /// Adds `i32` to the hash value computed by `self`.
+  public fun combine(i32: Int32) inout {
+    &combine(byte: Int8(truncating_or_extending: i32))
+    &combine(byte: Int8(truncating_or_extending: i32 >> 8))
+    &combine(byte: Int8(truncating_or_extending: i32 >> 16))
+    &combine(byte: Int8(truncating_or_extending: i32 >> 24))
+  }
+
   /// Adds `bytes` to the hash value computed by `self`.
   public fun unsafe_combine(bytes: PointerToBuffer<Int8>) inout {
     var i = 0

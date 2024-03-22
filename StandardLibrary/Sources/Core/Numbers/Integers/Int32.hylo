@@ -59,10 +59,7 @@ public conformance Int32: Equatable {
 public conformance Int32: Hashable {
 
   public fun hash(into hasher: inout Hasher) {
-    &hasher.combine(byte: Int8(truncating_or_extending: self))
-    &hasher.combine(byte: Int8(truncating_or_extending: self >> 8))
-    &hasher.combine(byte: Int8(truncating_or_extending: self >> 16))
-    &hasher.combine(byte: Int8(truncating_or_extending: self >> 24))
+    &hasher.combine(i32: self)
   }
 
 }
