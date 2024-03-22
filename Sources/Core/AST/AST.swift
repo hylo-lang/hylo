@@ -67,7 +67,7 @@ public struct AST {
 
   /// The expansion filter used while processing conditional compilation statements in `self`.
   public var compilationConditions: ConditionalCompilationFactors {
-    return storage.compilationConditions
+    storage.compilationConditions
   }
 
   /// Creates an empty AST, using using `compilationConditions` as conditions for selecting conditional compilation branches.
@@ -276,10 +276,9 @@ public struct AST {
 
   /// Returns the name of entity defining the implementation of the declared function if it is external.
   public func externalName(of d: FunctionDecl.ID) -> String? {
-    return self[d].attributes.first(where: { $0.value.name.value == "@external" }).map { (a) in
+    self[d].attributes.first(where: { $0.value.name.value == "@external" }).map { (a) in
       if a.value.arguments[0].value.kind.value is StringLiteralExpr.Type {
-        let n = self[StringLiteralExpr.ID(a.value.arguments[0].value)]!
-        return n.value
+        return self[StringLiteralExpr.ID(a.value.arguments[0].value)]!.value
       } else {
         unreachable()
       }
@@ -288,10 +287,9 @@ public struct AST {
 
   /// Returns the name of the entity interfaced by the declared function if it is an FFI.
   public func foreignName(of d: FunctionDecl.ID) -> String? {
-    return self[d].attributes.first(where: { $0.value.name.value == "@ffi" }).map { (a) in
+    self[d].attributes.first(where: { $0.value.name.value == "@ffi" }).map { (a) in
       if a.value.arguments[0].value.kind.value is StringLiteralExpr.Type {
-        let n = self[StringLiteralExpr.ID(a.value.arguments[0].value)]!
-        return n.value
+        return self[StringLiteralExpr.ID(a.value.arguments[0].value)]!.value
       } else {
         unreachable()
       }

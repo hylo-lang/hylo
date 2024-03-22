@@ -298,7 +298,7 @@ private func maybe(_ s: String) -> Parser<String?> {
 /// Returns a parser that consumes and returns an element equal to `s`.
 private func exactly(_ s: String) -> Parser<String> {
   { (stream: inout ArraySlice<Substring>) -> String? in
-    return stream.first == s[...] ? (stream.popFirst(), .some(s)).1 : nil
+    stream.first == s[...] ? (stream.popFirst(), .some(s)).1 : nil
   }
 }
 

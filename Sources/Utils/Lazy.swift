@@ -27,7 +27,7 @@ public struct Lazy<T> {
 
   /// The (lazily) computed value.
   public subscript() -> T {
-    return state.modify { s in
+    state.modify { s in
       switch s {
       case .result(let r): return r
       case .unevaluated(let f):
@@ -76,7 +76,7 @@ public struct LazyThrowing<T> {
   /// - Throws the error thrown by the computation if any.
   public subscript() -> T {
     get throws {
-      return try state.modify { s in
+      try state.modify { s in
         switch s {
         case .success(let r): return r
         case .failure(let e): throw e

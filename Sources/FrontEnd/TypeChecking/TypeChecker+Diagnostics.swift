@@ -129,7 +129,7 @@ extension Diagnostic {
   }
 
   static func error(invalidExistentialInterface e: NameExpr.ID, in ast: AST) -> Diagnostic {
-    return .error("'\(ast[e].name.value)' is not a valid existential interface", at: ast[e].site)
+    .error("'\(ast[e].name.value)' is not a valid existential interface", at: ast[e].site)
   }
 
   static func error(
@@ -187,7 +187,7 @@ extension Diagnostic {
   static func note(
     trait x: TraitType, requiresAssociatedType n: String, at site: SourceRange
   ) -> Diagnostic {
-    return .note("trait '\(x)' requires associated type '\(n)'", at: site)
+    .note("trait '\(x)' requires associated type '\(n)'", at: site)
   }
 
   static func note(implementationMustBePublic d: AnyDeclID, in ast: AST) -> Diagnostic {
@@ -315,7 +315,7 @@ extension Diagnostic {
   static func error(
     ambiguousUse expr: NameExpr.ID, in ast: AST, candidates: [AnyDeclID] = []
   ) -> Diagnostic {
-    return .error(
+    .error(
       "ambiguous use of '\(ast[expr].name.value)'", at: ast[expr].site,
       notes: candidates.map { .note("candidate here", at: ast[$0].site) })
   }

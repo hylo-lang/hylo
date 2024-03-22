@@ -164,7 +164,7 @@ public struct SourceFile {
   ///
   /// - Requires: `line` and `column` describe a valid position in `self`.
   func index(line: Int, column: Int) -> Index {
-    return text.index(lineStarts[line - 1], offsetBy: column - 1)
+    text.index(lineStarts[line - 1], offsetBy: column - 1)
   }
 
 }
@@ -209,7 +209,7 @@ extension SourceFile: Hashable {
   }
 
   public static func == (lhs: SourceFile, rhs: SourceFile) -> Bool {
-    return lhs.storage === rhs.storage
+    lhs.storage === rhs.storage
   }
 
 }

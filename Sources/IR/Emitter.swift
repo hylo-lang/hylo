@@ -1112,11 +1112,11 @@ struct Emitter {
   }
 
   private mutating func emit(breakStmt s: BreakStmt.ID) -> ControlFlow {
-    return .break(s)
+    .break(s)
   }
 
   private mutating func emit(condCompilationStmt s: ConditionalCompilationStmt.ID) -> ControlFlow {
-    return emit(stmtList: ast[s].expansion(for: ast.compilationConditions))
+    emit(stmtList: ast[s].expansion(for: ast.compilationConditions))
   }
 
   private mutating func emit(conditionalStmt s: ConditionalStmt.ID) -> ControlFlow {
