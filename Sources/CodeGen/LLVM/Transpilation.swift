@@ -96,6 +96,12 @@ extension SwiftyLLVM.Module {
     insertReturn(x0, at: insertionPoint)
   }
 
+  /// Defines a "main" function calling the function `f`, which represents the entry point of the
+  /// entry module `m` of the program `ir`.
+  ///
+  /// This method creates a LLVM entry point calling `f`, which is the lowered form of a public
+  /// function named "main", taking no parameter and returning either `Void` or `Int32`. `f` will
+  /// be linked privately in `m`.
   private mutating func defineMain(
     calling f: IR.Function.ID,
     of m: IR.Module,
@@ -107,11 +113,12 @@ extension SwiftyLLVM.Module {
     let p = endOf(b)
 
     let transpilation = function(named: ir.llvmName(of: f))!
+    setLinkage(.private, for: transpilation)
 
-    let val32 = ir.ast.coreType("Int32")!
+    let int32 = ir.ast.coreType("Int32")!
     switch m[f].output {
-    case val32:
-      let t = StructType(ir.llvm(val32, in: &self))!
+    case int32:
+      let t = StructType(ir.llvm(int32, in: &self))!
       let s = insertAlloca(t, at: p)
       _ = insertCall(transpilation, on: [s], at: p)
 
@@ -494,22 +501,19 @@ extension SwiftyLLVM.Module {
   private mutating func configureAttributes(
     _ llvmFunction: SwiftyLLVM.Function, transpiledFrom f: IR.Function.ID, of m: IR.Module
   ) {
-    // FIXME: See #888
-    // switch m[f].linkage {
-    // case .external:
-    //   setLinkage(.external, for: llvmFunction)
-    // case .module:
-    //   setLinkage(.private, for: llvmFunction)
-    // }
-
-    // Monomorphized functions always have private linkage.
-    if f.isMonomorphized {
+    if m[f].linkage == .module {
       setLinkage(.private, for: llvmFunction)
     }
 
-    // Functions that return `Never` have the `noreturn` attribute.
-    if !m[f].isSubscript && (m[f].output == .never) {
-      addAttribute(.init(.noreturn, in: &self), to: llvmFunction)
+    if !m[f].isSubscript {
+      let r = llvmFunction.parameters.last!
+      addAttribute(.init(.noalias, in: &self), to: r)
+      addAttribute(.init(.nocapture, in: &self), to: r)
+      addAttribute(.init(.nofree, in: &self), to: r)
+
+      if m[f].output == .never {
+        addAttribute(.init(.noreturn, in: &self), to: llvmFunction)
+      }
     }
   }
 
@@ -1302,7 +1306,7 @@ extension IR.Program {
   /// Returns the name of `f` in LLVM IR.
   func llvmName(of f: IR.Function.ID) -> String {
     if case .lowered(let d) = f.value {
-      return FunctionDecl.ID(d).flatMap({ base[$0].externalName }) ?? base.mangled(f)
+      return FunctionDecl.ID(d).flatMap({ base[$0].attributes.externalName }) ?? base.mangled(f)
     } else {
       return base.mangled(f)
     }

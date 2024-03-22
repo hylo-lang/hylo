@@ -44,3 +44,12 @@ extension BundledNode where T == SequenceExpr.ID, P == TypedProgram {
   }
 
 }
+
+extension BundledNode where T == FunctionDecl.ID, P == TypedProgram {
+
+  /// The attributes of this function.
+  public var attributes: FunctionAttributes {
+    container.functionAttributes[id]!
+  }
+
+}

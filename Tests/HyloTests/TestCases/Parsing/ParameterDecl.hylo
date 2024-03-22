@@ -14,6 +14,3 @@ type A0 {
 
 //! @+1 diagnostic unexpected attribute '@not_a_thing'
 fun f2(_ x: @not_a_thing T) {}
-
-//! @+1 diagnostic attribute '@autoclosure' takes no argument
-fun f3(_ x: @autoclosure(1) T) {}

@@ -284,7 +284,8 @@ struct Emitter {
     // Emit the call to the foreign function.
     let foreignResult = insert(
       module.makeCallFFI(
-        returning: .object(returnType), applying: ast[d].foreignName!, to: arguments, at: site))!
+        returning: .object(returnType), applying: program[d].attributes.foreignName!, to: arguments,
+        at: site))!
 
     // Convert the result of the FFI to its Hylo representation and return it.
     switch returnType {
@@ -1776,16 +1777,20 @@ struct Emitter {
     switch literalType {
     case ast.coreType("Int")!:
       emitStore(integer: literal, signed: true, bitWidth: 64, to: storage)
-    case ast.coreType("Int32")!:
-      emitStore(integer: literal, signed: true, bitWidth: 32, to: storage)
     case ast.coreType("Int8")!:
       emitStore(integer: literal, signed: true, bitWidth: 8, to: storage)
+    case ast.coreType("Int32")!:
+      emitStore(integer: literal, signed: true, bitWidth: 32, to: storage)
+    case ast.coreType("Int64")!:
+      emitStore(integer: literal, signed: true, bitWidth: 64, to: storage)
     case ast.coreType("UInt")!:
       emitStore(integer: literal, signed: false, bitWidth: 64, to: storage)
     case ast.coreType("UInt8")!:
       emitStore(integer: literal, signed: false, bitWidth: 8, to: storage)
     case ast.coreType("UInt32")!:
       emitStore(integer: literal, signed: false, bitWidth: 32, to: storage)
+    case ast.coreType("UInt64")!:
+      emitStore(integer: literal, signed: false, bitWidth: 64, to: storage)
     case ast.coreType("Float64")!:
       emitStore(floatingPoint: literal, to: storage, evaluatedBy: FloatingPointConstant.float64(_:))
     case ast.coreType("Float32")!:
@@ -2731,64 +2736,56 @@ struct Emitter {
     }
   }
 
-  /// Inserts IR to return the address of the member declared by `d`, bound to `receiver`, and
-  /// specialized by `specialization`.
+  /// Inserts the IR to return the address of the member declared by `d`, bound to `r`, and
+  /// specialized by `z`.
   private mutating func emitProperty(
-    boundTo receiver: Operand, declaredBy d: AnyDeclID,
-    specializedBy specialization: GenericArguments,
+    boundTo r: Operand, declaredBy d: AnyDeclID, specializedBy z: GenericArguments,
     at site: SourceRange
   ) -> Operand {
     switch d.kind {
     case SubscriptDecl.self:
       return emitComputedProperty(
-        boundTo: receiver, declaredByBundle: .init(d)!, specializedBy: specialization, at: site)
+        boundTo: r, declaredByBundle: .init(d)!, specializedBy: z, at: site)
 
     case VarDecl.self:
-      let l = AbstractTypeLayout(of: module.type(of: receiver).ast, definedIn: program)
+      let l = AbstractTypeLayout(of: module.type(of: r).ast, definedIn: program)
       let i = l.offset(of: ast[VarDecl.ID(d)!].baseName)!
-      return emitSubfieldView(receiver, at: [i], at: site)
+      return emitSubfieldView(r, at: [i], at: site)
 
     default:
       UNIMPLEMENTED()
     }
   }
 
-  /// Returns the projection the property declared by `d`, bound to `receiver`, and specialized by
-  /// `specialization`.
+  /// Returns the projection the property declared by `d`, bound to `r`, and specialized by `z`.
   private mutating func emitComputedProperty(
-    boundTo receiver: Operand, declaredByBundle d: SubscriptDecl.ID,
-    specializedBy specialization: GenericArguments,
+    boundTo r: Operand, declaredByBundle d: SubscriptDecl.ID, specializedBy z: GenericArguments,
     at site: SourceRange
   ) -> Operand {
     if let i = ast[d].impls.uniqueElement {
-      return emitComputedProperty(
-        boundTo: receiver, declaredBy: i, specializedBy: specialization, at: site)
+      return emitComputedProperty(boundTo: r, declaredBy: i, specializedBy: z, at: site)
     }
 
-    let t = SubscriptType(canonicalType(of: d, specializedBy: specialization))!
-    let b = BundleReference(to: d, specializedBy: specialization, requesting: t.capabilities)
-    let r = insert(module.makeAccess(t.capabilities, from: receiver, at: site))!
+    let t = SubscriptType(canonicalType(of: d, specializedBy: z))!
+    let b = BundleReference(to: d, specializedBy: z, requesting: t.capabilities)
+    let a = insert(module.makeAccess(t.capabilities, from: r, at: site))!
 
     let s = module.makeProjectBundle(
-      applying: b, to: [r], at: site, canonicalizingTypesIn: insertionScope!)
+      applying: b, to: [a], at: site, canonicalizingTypesIn: insertionScope!)
     return insert(s)!
   }
 
-  /// Returns the projection of the property declared by `d`, bound to `receiver`, and specialized
-  /// by `specialization`.
+  /// Returns the projection of the property declared by `d`, bound to `r`, and specialized by `z`.
   private mutating func emitComputedProperty(
-    boundTo receiver: Operand, declaredBy d: SubscriptImpl.ID,
-    specializedBy specialization: GenericArguments,
+    boundTo r: Operand, declaredBy d: SubscriptImpl.ID, specializedBy z: GenericArguments,
     at site: SourceRange
   ) -> Operand {
-    let t = SubscriptImplType(canonicalType(of: d, specializedBy: specialization))!
+    let t = SubscriptImplType(canonicalType(of: d, specializedBy: z))!
     let o = RemoteType(ast[d].introducer.value, t.output)
-    let r = insert(module.makeAccess(o.access, from: receiver, at: site))!
+    let a = insert(module.makeAccess(o.access, from: r, at: site))!
     let f = module.demandDeclaration(lowering: d)
 
-    let s = module.makeProject(
-      o, applying: f, specializedBy: specialization,
-      to: [r], at: site)
+    let s = module.makeProject(o, applying: f, specializedBy: z, to: [a], at: site)
     return insert(s)!
   }
 

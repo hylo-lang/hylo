@@ -1,88 +1,88 @@
-/// A 32-bit unsigned integer value.
-public type UInt32: Regular {
+/// A 64-bit unsigned integer value.
+public type UInt64: Regular {
 
-  internal var value: Builtin.i32
+  internal var value: Builtin.i64
 
   internal memberwise init
 
   /// Creates an instance with the same memory representation as `other`.
-  public init(bit_pattern other: Int32) {
+  public init(bit_pattern other: Int64) {
     &self.value = other.value
   }
 
   /// Returns the bitwise inverse of `self`.
   public fun prefix~ () -> Self {
-    self ^ UInt32(bit_pattern: -1 as Int32)
+    self ^ UInt64(bit_pattern: -1 as Int64)
   }
 
 }
 
-public conformance UInt32: ExpressibleByIntegerLiteral {}
+public conformance UInt64: ExpressibleByIntegerLiteral {}
 
-public conformance UInt32: Copyable {
+public conformance UInt64: Copyable {
 
   public fun copy() -> Self {
-    UInt32(value: value)
+    UInt64(value: value)
   }
 
 }
 
-public conformance UInt32: Equatable {
+public conformance UInt64: Equatable {
 
   public fun infix== (_ other: Self) -> Bool {
-    Bool(value: Builtin.icmp_eq_i32(value, other.value))
+    Bool(value: Builtin.icmp_eq_i64(value, other.value))
   }
 
   public fun infix!= (_ other: Self) -> Bool {
-    Bool(value: Builtin.icmp_ne_i32(value, other.value))
+    Bool(value: Builtin.icmp_ne_i64(value, other.value))
   }
 
 }
 
-public conformance UInt32: Hashable {
+public conformance UInt64: Hashable {
 
   public fun hash(into hasher: inout Hasher) {
-    &hasher.combine(i32: .new(bit_pattern: self))
+    &hasher.combine(i64: .new(bit_pattern: self))
   }
 
 }
 
-public conformance UInt32: Comparable {
+public conformance UInt64: Comparable {
 
   public fun infix< (_ other: Self) -> Bool {
-    Bool(value: Builtin.icmp_ult_i32(value, other.value))
+    Bool(value: Builtin.icmp_ult_i64(value, other.value))
   }
 
   public fun infix<= (_ other: Self) -> Bool {
-    Bool(value: Builtin.icmp_ule_i32(value, other.value))
+    Bool(value: Builtin.icmp_ule_i64(value, other.value))
   }
 
   public fun infix> (_ other: Self) -> Bool {
-    Bool(value: Builtin.icmp_ugt_i32(value, other.value))
+    Bool(value: Builtin.icmp_ugt_i64(value, other.value))
   }
 
   public fun infix>= (_ other: Self) -> Bool {
-    Bool(value: Builtin.icmp_uge_i32(value, other.value))
+    Bool(value: Builtin.icmp_uge_i64(value, other.value))
   }
 
 }
 
-public conformance UInt32: AdditiveArithmetic {
+public conformance UInt64: AdditiveArithmetic {
 
   public fun infix+ (_ other: Self) -> Self {
-    UInt32(value: Builtin.add_i32(value, other.value))
+    UInt64(value: Builtin.add_i64(value, other.value))
   }
 
   public fun infix+= (_ other: Self) inout {
-    &self.value = Builtin.add_i32(value, other.value)
+    &self.value = Builtin.add_i64(value, other.value)
   }
 
   public fun infix- (_ other: Self) -> Self {
-    UInt32(value: Builtin.sub_i32(value, other.value))
+    UInt64(value: Builtin.sub_i64(value, other.value))
   }
 
   public fun infix-= (_ other: Self) inout {
-    &self.value = Builtin.sub_i32(value, other.value)
+    &self.value = Builtin.sub_i64(value, other.value)
   }
 
   public static fun zero() -> Self {
@@ -91,33 +91,33 @@ public conformance UInt32: AdditiveArithmetic {
 
 }
 
-public conformance UInt32: Numeric {
+public conformance UInt64: Numeric {
 
-  public typealias Magnitude = UInt32
+  public typealias Magnitude = UInt64
 
-  public fun magnitude() -> UInt32 {
+  public fun magnitude() -> UInt64 {
     self.copy()
   }
 
   public fun infix* (_ other: Self) -> Self {
-    UInt32(value: Builtin.mul_i32(value, other.value))
+    UInt64(value: Builtin.mul_i64(value, other.value))
   }
 
   public fun infix*= (_ other: Self) inout {
-    &self.value = Builtin.mul_i32(value, other.value)
+    &self.value = Builtin.mul_i64(value, other.value)
   }
 
 }
 
-public conformance UInt32: BinaryInteger {
+public conformance UInt64: BinaryInteger {
 
   public init() {
-    &self.value = Builtin.zeroinitializer_i32()
+    &self.value = Builtin.zeroinitializer_i64()
   }
 
   public init<T: BinaryInteger>(truncating_or_extending source: T) {
     let w = source.words()
-    &self.value = Builtin.trunc_word_i32(w[w.start_position()].value)
+    &self.value = Builtin.trunc_word_i64(w[w.start_position()].value)
   }
 
   public fun instance_bit_width() -> Int {
@@ -129,7 +129,7 @@ public conformance UInt32: BinaryInteger {
   }
 
   public fun trailing_zeros() -> Int {
-    Int(value: Builtin.zext_i32_word(Builtin.cttz_i32(value)))
+    Int(value: Builtin.zext_i64_word(Builtin.cttz_i64(value)))
   }
 
   public fun quotient_and_remainder(dividing_by other: Self) -> {quotient: Self, remainder: Self} {
@@ -137,47 +137,48 @@ public conformance UInt32: BinaryInteger {
   }
 
   public fun words() -> CollectionOfOne<UInt> {
-    CollectionOfOne(UInt(value: Builtin.zext_i32_word(value)))
+    // TODO: Handle the case where UInt64 is larger than UInt.
+    CollectionOfOne(UInt(value: Builtin.zext_i64_word(value)))
   }
 
   public fun infix/ (_ other: Self) -> Self {
-    UInt32(value: Builtin.udiv_i32(value, other.value))
+    UInt64(value: Builtin.udiv_i64(value, other.value))
   }
 
   public fun infix/= (_ other: Self) inout {
-    &self.value = Builtin.udiv_i32(value, other.value)
+    &self.value = Builtin.udiv_i64(value, other.value)
   }
 
   public fun infix% (_ other: Self) -> Self {
-    UInt32(value: Builtin.urem_i32(value, other.value))
+    UInt64(value: Builtin.urem_i64(value, other.value))
   }
 
   public fun infix%= (_ other: Self) inout {
-    &self.value = Builtin.urem_i32(value, other.value)
+    &self.value = Builtin.urem_i64(value, other.value)
   }
 
   public fun infix& (_ other: Self) -> Self {
-    UInt32(value: Builtin.and_i32(value, other.value))
+    UInt64(value: Builtin.and_i64(value, other.value))
   }
 
   public fun infix&= (_ other: Self) inout {
-    &self.value = Builtin.and_i32(value, other.value)
+    &self.value = Builtin.and_i64(value, other.value)
   }
 
   public fun infix| (_ other: Self) -> Self {
-    UInt32(value: Builtin.or_i32(value, other.value))
+    UInt64(value: Builtin.or_i64(value, other.value))
   }
 
   public fun infix|= (_ other: Self) inout {
-    &self.value = Builtin.or_i32(value, other.value)
+    &self.value = Builtin.or_i64(value, other.value)
   }
 
   public fun infix^ (_ other: Self) -> Self {
-    UInt32(value: Builtin.xor_i32(value, other.value))
+    UInt64(value: Builtin.xor_i64(value, other.value))
   }
 
   public fun infix^= (_ other: Self) inout {
-    &self.value = Builtin.xor_i32(value, other.value)
+    &self.value = Builtin.xor_i64(value, other.value)
   }
 
   public fun infix<< (_ n: Int) -> Self {
@@ -214,36 +215,36 @@ public conformance UInt32: BinaryInteger {
 
 }
 
-public conformance UInt32: FixedWidthInteger {
+public conformance UInt64: FixedWidthInteger {
 
   public fun matches(_ mask: Self) -> Bool {
     (self & mask) == mask
   }
 
   public fun adding_reporting_overflow(_ other: Self) -> {partial_value: Self, overflow: Bool} {
-    let r = Builtin.uadd_with_overflow_i32(value, other.value)
-    return (partial_value: UInt32(value: r.0), overflow: Bool(value: r.1))
+    let r = Builtin.uadd_with_overflow_i64(value, other.value)
+    return (partial_value: UInt64(value: r.0), overflow: Bool(value: r.1))
   }
 
   public fun subtracting_reporting_overflow(
     _ other: Self
   ) -> {partial_value: Self, overflow: Bool} {
-    let r = Builtin.usub_with_overflow_i32(value, other.value)
-    return (partial_value: UInt32(value: r.0), overflow: Bool(value: r.1))
+    let r = Builtin.usub_with_overflow_i64(value, other.value)
+    return (partial_value: UInt64(value: r.0), overflow: Bool(value: r.1))
   }
 
   public fun multiplied_reporting_overflow(
     by other: Self
   ) -> {partial_value: Self, overflow: Bool} {
-    let r = Builtin.umul_with_overflow_i32(value, other.value)
-    return (partial_value: UInt32(value: r.0), overflow: Bool(value: r.1))
+    let r = Builtin.umul_with_overflow_i64(value, other.value)
+    return (partial_value: UInt64(value: r.0), overflow: Bool(value: r.1))
   }
 
   public fun divided_reporting_overflow(by other: Self) -> {partial_value: Self, overflow: Bool} {
     if other == 0 {
       (partial_value: self.copy(), overflow: true)
     } else {
-      (partial_value: UInt32(value: Builtin.udiv_i32(value, other.value)), overflow: false)
+      (partial_value: UInt64(value: Builtin.udiv_i64(value, other.value)), overflow: false)
     }
   }
 
@@ -253,16 +254,16 @@ public conformance UInt32: FixedWidthInteger {
     if other == 0 {
       (partial_value: self.copy(), overflow: true)
     } else {
-      (partial_value: UInt32(value: Builtin.urem_i32(value, other.value)), overflow: false)
+      (partial_value: UInt64(value: Builtin.urem_i64(value, other.value)), overflow: false)
     }
   }
 
   public fun nonzero_bit_count() -> Int {
-    Int(value: Builtin.zext_i32_word(Builtin.ctpop_i32(value)))
+    Int(value: Builtin.zext_i64_word(Builtin.ctpop_i64(value)))
   }
 
   public fun leading_zeros() -> Int {
-    Int(value: Builtin.zext_i32_word(Builtin.ctlz_i32(value)))
+    Int(value: Builtin.zext_i64_word(Builtin.ctlz_i64(value)))
   }
 
   public fun infix&<< (_ n: Int) -> Self {
@@ -272,7 +273,7 @@ public conformance UInt32: FixedWidthInteger {
   }
 
   public fun infix&<<= (_ n: Int) inout {
-    &self.value = Builtin.shl_i32(value, UInt32(truncating_or_extending: n).value)
+    &self.value = Builtin.shl_i64(value, UInt64(truncating_or_extending: n).value)
   }
 
   public fun infix&>> (_ n: Int) -> Self {
@@ -282,7 +283,7 @@ public conformance UInt32: FixedWidthInteger {
   }
 
   public fun infix&>>= (_ n: Int) inout {
-    &self.value = Builtin.lshr_i32(value, UInt32(truncating_or_extending: n).value)
+    &self.value = Builtin.lshr_i64(value, UInt64(truncating_or_extending: n).value)
   }
 
   public static fun bit_width() -> Int {

@@ -280,10 +280,13 @@ public struct Module {
       (program[d].type.base as! CallableType).output, in: program[d].scope)
     let inputs = loweredParameters(of: d)
 
+    // External functions have external linkage at the IR level.
+    let linkage: Linkage = (program.isExported(d) || program[d].isExternal) ? .external : .module
+
     let entity = Function(
       isSubscript: false,
       site: program.ast[d].site,
-      linkage: program.isExported(d) ? .external : .module,
+      linkage: linkage,
       genericParameters: Array(parameters),
       inputs: inputs,
       output: output,

@@ -1,0 +1,24 @@
+//- compileAndRun expecting: success
+
+public trait Eq {
+  fun infix== (_ other: Self) -> Bool
+}
+
+extension Eq {
+  public fun infix!= (_ other: Self) -> Bool { !(self == other) }
+}
+
+type A: Deinitializable, Eq {
+  public let x: Int
+  public memberwise init
+  public fun infix== (_ other: Self) -> Bool { self.x == other.x }
+}
+
+public fun main() {
+  let a = A(x: 1)
+  let b = A(x: 1)
+  let c = A(x: 2)
+  precondition(a == b)
+  precondition(a != c)
+  precondition(b != c)
+}

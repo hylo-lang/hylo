@@ -6,6 +6,6 @@ trait P {
 }
 
 type B: P {
-  typealias X = Bool
-  subscript(_ i: Int): Bool { true }
+  public typealias X = Bool
+  public subscript(_ i: Int): Bool { true }
 }

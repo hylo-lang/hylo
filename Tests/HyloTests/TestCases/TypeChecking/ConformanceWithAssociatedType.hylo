@@ -6,5 +6,5 @@ trait P {
 }
 
 type B<X>: P {
-  fun f(_ x: X) {}
+  public fun f(_ x: X) {}
 }

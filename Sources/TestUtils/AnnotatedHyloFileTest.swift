@@ -163,28 +163,53 @@ extension XCTestCase {
     return testFailures
   }
 
-  /// Compiles and runs the hylo file at `hyloFilePath`, `XCTAssert`ing that diagnostics and exit
-  /// codes match annotated expectations.
+  /// Calls `compileAndRun(hyloFilePath, withOptimizations: false, expectSuccess: expectSuccess)`.
   public func compileAndRun(_ hyloFilePath: String, expectSuccess: Bool) throws {
+    try compileAndRun(hyloFilePath, withOptimizations: false, expectSuccess: expectSuccess)
+  }
+
+  /// Calls `compileAndRun(hyloFilePath, withOptimizations: true, expectSuccess: expectSuccess)`.
+  public func compileAndRunWithOptimizations(_ hyloFilePath: String, expectSuccess: Bool) throws {
+    try compileAndRun(hyloFilePath, withOptimizations: true, expectSuccess: expectSuccess)
+  }
+
+  /// Compiles and runs the hylo file at `hyloFilePath`, applying program optimizations iff
+  /// `withOptimizations` is `true`, and `XCTAssert`ing that diagnostics and exit codes match
+  /// annotated expectations.
+  public func compileAndRun(
+    _ hyloFilePath: String, withOptimizations: Bool, expectSuccess: Bool
+  ) throws {
     if swiftyLLVMMandatoryPassesCrash { return }
-    try checkAnnotatedHyloFileDiagnostics(inFileAt: hyloFilePath, expectSuccess: expectSuccess) {
-      (hyloSource, diagnostics) in
-
-      var executable: URL
-
-      do {
-        executable = try compile(hyloSource.url, with: ["--emit", "binary"])
-      } catch let d as DiagnosticSet {
-        // Recapture the diagnostics so the annotation testing framework can use them.  The need for
-        // this ugliness makes me wonder how important it is to test cli.execute, which after all is
-        // just a thin wrapper over cli.executeCommand (currently private).
-        diagnostics = d
-        throw d
-      }
-
-      // discard any outputs.
-      _ = try Process.run(executable, arguments: [])
+    try checkAnnotatedHyloFileDiagnostics(
+      inFileAt: hyloFilePath, expectSuccess: expectSuccess
+    ) { (hyloSource, diagnostics) in
+      try compileAndRun(
+        hyloSource, withOptimizations: withOptimizations, reportingDiagnosticsTo: &diagnostics)
     }
+  }
+
+  /// Compiles and runs `hyloSource`, applying program optimizations iff `withOptimizations` is
+  /// `true`, and `XCTAssert`ing that diagnostics and exit codes match annotated expectations.
+  private func compileAndRun(
+    _ hyloSource: SourceFile, withOptimizations: Bool,
+    reportingDiagnosticsTo diagnostics: inout DiagnosticSet
+  ) throws {
+    var arguments = ["--emit", "binary"]
+    if withOptimizations { arguments.append("-O") }
+
+    var executable: URL
+    do {
+      executable = try compile(hyloSource.url, with: arguments)
+    } catch let d as DiagnosticSet {
+      // Recapture the diagnostics so the annotation testing framework can use them.  The need for
+      // this ugliness makes me wonder how important it is to test cli.execute, which after all is
+      // just a thin wrapper over cli.executeCommand (currently private).
+      diagnostics = d
+      throw d
+    }
+
+    // discard any outputs.
+    _ = try Process.run(executable, arguments: [])
   }
 
   /// Compiles the hylo file at `hyloFilePath` up until emitting LLVM code, `XCTAssert`ing that diagnostics and exit

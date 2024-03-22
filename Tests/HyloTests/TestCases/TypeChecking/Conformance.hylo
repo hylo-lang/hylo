@@ -9,9 +9,9 @@ trait Q {}
 
 type A0: P, Q {
 
-  fun f() {}
+  public fun f() {}
 
-  fun g() {
+  public fun g() {
     let  {}
     sink {}
   }
@@ -45,8 +45,9 @@ trait S {
 
 type B: R, S {
   memberwise init
-  fun f() -> B { B() }
-  fun g() {
+
+  public fun f() -> B { B() }
+  public fun g() {
     let  {}
     sink {}
   }
@@ -58,7 +59,7 @@ trait T {
 }
 
 type C1: T {
-  init(x: Int) {}
+  public init(x: Int) {}
 }
 
 //! @+1 diagnostic type 'C2' does not conform to trait 'T'
