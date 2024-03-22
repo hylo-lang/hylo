@@ -58,6 +58,21 @@ public type PointerToMutable<Pointee>: Regular {
     initialize(&(base as* (remote set Pointee)))
   }
 
+  /// Initializes the memory referenced by `count` consecutive bytewise copies of `value`.
+  public fun unsafe_initialize(copying_bytes_from source: Pointer<Pointee>, count: Int) {
+    var i = 0
+    var s = Pointer<Int8>(type_punning: source)
+    var d = PointerToMutable<Int8>(type_punning: self)
+
+    let byte_count = MemoryLayout<Pointee>.stride() * count
+    while i < byte_count {
+      d.unsafe_initialize_pointee(s.unsafe[].copy())
+      &s = s.advance(by: 1)
+      &d = d.advance(by: 1)
+      &i += 1
+    }
+  }
+
 }
 
 public conformance PointerToMutable: Copyable {
@@ -116,6 +131,19 @@ public extension PointerToMutable where Pointee: Movable {
   ///   and suitably aligned for `Pointee`.
   public fun unsafe_initialize_pointee(_ value: sink Pointee) {
     initialize<Pointee>(&(base as* (remote set Pointee)), to: value)
+  }
+
+}
+
+public extension PointerToMutable where Pointee: Copyable {
+
+  /// Initializes the memory referenced by `self` with `count` consecutive copies of `value`.
+  public fun unsafe_initialize(repeating value: Pointee, count: Int) {
+    var i = 0
+    while i < count {
+      self.advance(by: i).unsafe_initialize_pointee(value.copy())
+      &i += 1
+    }
   }
 
 }
