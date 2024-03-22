@@ -36,6 +36,11 @@ public type Int {
     return self + stride - r
   }
 
+  /// Returns the smallest power of two that is not smaller than `self`.
+  public fun round_up_nearest_power_two() -> Int {
+    if self == 1 { 1 } else { 1 << (Self.bit_width() - (self - 1).leading_zeros()) }
+  }
+
   /// Returns `self`.
   public fun prefix+ () -> Self {
     self.copy()
