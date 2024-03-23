@@ -14,3 +14,11 @@ trait U: T {
   property x3: Self::T.X { let }
 
 }
+
+type A<B: T> {
+
+  typealias C = B
+
+  typealias D = C.X
+
+}
