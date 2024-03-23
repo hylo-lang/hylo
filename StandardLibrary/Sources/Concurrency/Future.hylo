@@ -46,7 +46,7 @@ public type Future<E: Movable & Deinitializable> {
 }
 
 /// Describes the frame needed to spawn a computation. Mimics the C implementation.
-type SpawnFrameBase: Deinitializable, Movable {
+public type SpawnFrameBase: Deinitializable, Movable {
 
   let task_function: MemoryAddress
 
