@@ -1,7 +1,9 @@
 import Core
 import Foundation
 
-/// Creates a pointer to a constant string allocated statically.
+/// Creates the internal representation of constant string allocated statically.
+///
+/// The result is a 64-bit integer corresponding to the byte representation of a string in Hylo.
 public struct ConstantString: Instruction {
 
   /// The value of the string, encoded in UTF-8.
@@ -17,7 +19,7 @@ public struct ConstantString: Instruction {
   }
 
   public var result: IR.`Type`? {
-    .object(BuiltinType.ptr)
+    .object(BuiltinType.i(64))
   }
 
   public var operands: [Operand] { [] }
@@ -38,8 +40,8 @@ extension ConstantString: CustomStringConvertible {
 
 extension Module {
 
-  /// Creates a `constant_string` anchored at `site` that returns a pointer to a statically
-  /// allocated string with given `value`, encoded in UTF8.
+  /// Creates a `constant_string` anchored at `site` that returns a  string with given `value`,
+  /// encoded in UTF8.
   func makeConstantString(utf8 value: Data, at site: SourceRange) -> ConstantString {
     .init(value: value, site: site)
   }
