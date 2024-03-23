@@ -40,6 +40,11 @@ public type Pointer<Pointee>: Regular {
     &base = p.base
   }
 
+  /// Projects a copy of `self` as a raw memory address.
+  public property raw: MemoryAddress {
+    MemoryAddress(base: base)
+  }
+
   /// Returns `self` offset forward by `n` array elements of `Pointee` type.
   public fun advance(by n: Int) -> Self {
     let offset_in_bytes = MemoryLayout<Pointee>.stride() * n
