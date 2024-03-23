@@ -4227,17 +4227,24 @@ struct TypeChecker {
     exposedTo scopeOfUse: AnyScopeID,
     reportingDiagnosticsAt diagnosticSite: SourceRange
   ) -> AnyType {
-    // The domain of associated type resolved without qualification is a skolem bound by the trait
-    // in which the reference to `d` occurs.
-    guard let domain = context?.type else {
-      if let s = resolveTraitReceiver(in: scopeOfUse) {
-        return ^MetatypeType(of: AssociatedTypeType(d, domain: ^s, ast: program.ast))
-      } else {
-        report(.error(invalidReferenceToAssociatedType: d, at: diagnosticSite, in: program.ast))
-        return .error
-      }
+    if let c = context {
+      return resolveType(of: d, memberOf: c.type, reportingDiagnosticsAt: diagnosticSite)
+    } else if let s = resolveTraitReceiver(in: scopeOfUse) {
+      // The domain of associated type resolved without qualification is a skolem bound by the
+      // trait in which the reference to `d` occurs.
+      return ^MetatypeType(of: AssociatedTypeType(d, domain: ^s, ast: program.ast))
+    } else {
+      report(.error(invalidReferenceToAssociatedType: d, at: diagnosticSite, in: program.ast))
+      return .error
     }
+  }
 
+  /// Returns the generic type of a reference to `d` qualified by `domain`, reporting diagnostics
+  /// at `diagnosticSite`.
+  private mutating func resolveType(
+    of d: AssociatedTypeDecl.ID, memberOf domain: AnyType,
+    reportingDiagnosticsAt diagnosticSite: SourceRange
+  ) -> AnyType {
     // Skolems are valid associated type domains.
     if domain.isSkolem {
       return ^MetatypeType(of: AssociatedTypeType(d, domain: domain, ast: program.ast))
@@ -4247,6 +4254,11 @@ struct TypeChecker {
     if domain.base is TraitType {
       report(.error(invalidReferenceToAssociatedType: d, at: diagnosticSite, in: program.ast))
       return uncheckedType(of: d)
+    }
+
+    // Type aliases used a associated type domain are erased.
+    if let t = TypeAliasType(domain) {
+      return resolveType(of: d, memberOf: t.resolved, reportingDiagnosticsAt: diagnosticSite)
     }
 
     unreachable("unexpected associated type domain")
