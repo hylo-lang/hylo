@@ -139,6 +139,11 @@ public type UTF8Array: Regular {
     }
   }
 
+  /// Returns `true` if `self` is empty.
+  public fun is_empty() -> Bool {
+    count() == 0
+  }
+
   /// The number of elements that can be stored in the array before new storage must be allocated.
   public fun capacity() -> Int {
     if is_unowned() {
