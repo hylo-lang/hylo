@@ -22,3 +22,13 @@ type A<B: T> {
   typealias D = C.X
 
 }
+
+type A0<X>: T {}
+
+type A1<B: T> {
+
+  typealias C = A0<B>.X
+
+  typealias D = C.X
+
+ }
