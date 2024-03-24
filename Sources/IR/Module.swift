@@ -100,6 +100,19 @@ public struct Module {
     }
   }
 
+  /// If `p` is a parameter, returns its passing convention. Otherwise, returns `nil`.
+  public func passingConvention(of p: Operand) -> AccessEffect? {
+    if case .parameter(let e, let i) = p {
+      assert(entry(of: e.function) == e)
+      return read(self[e.function].inputs) { (ps) in
+        // The last parameter of a function denotes its return value.
+        (i == ps.count) ? .set : ps[i].type.access
+      }
+    } else {
+      return nil
+    }
+  }
+
   /// Returns the scope in which `i` is used.
   public func scope(containing i: InstructionID) -> AnyScopeID {
     functions[i.function]![i.block].scope
