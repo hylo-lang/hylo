@@ -5,3 +5,7 @@
 public fun spawn_<E: Movable & Deinitializable>(_ f: sink [E]() -> Int) -> Future<E> {
   Future<E>(f)
 }
+
+public fun escaping_spawn_<E: Movable & Deinitializable>(_ f: sink [E]() -> Int) -> EscapingFuture<E> {
+  EscapingFuture<E>(f)
+}
