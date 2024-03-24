@@ -237,8 +237,8 @@ public struct TypedProgram {
       return u.elements.allSatisfy({ isTrivialModel($0, of: c.concept, in: c.scope) })
     case is MetatypeType:
       return true
-    case is ProductType:
-      return true
+    case let u as ProductType:
+      return storage(of: u).allSatisfy({ isTrivialModel($0.type, of: c.concept, in: c.scope) })
     default:
       return false
     }
