@@ -73,12 +73,18 @@ extension Module {
         return
       }
 
+      // The access must be immutable if the source of the access is a let-parameter.
+      if let c = passingConvention(of: s.source), (c == .let) && (request != .let) {
+        diagnostics.insert(.error(illegalMutableAccessAt: s.site))
+        return
+      }
+
       let former = reborrowedSource(s)
       var hasConflict = false
       context.forEachObject(at: s.source) { (o) in
         // We can always create new borrows if there aren't any.
-        // TODO: immutable sources
         let borrowers = o.value.borrowers
+
         if borrowers.isEmpty {
           o.value.insertBorrower(i)
           return
@@ -92,8 +98,7 @@ extension Module {
           unreachable()
 
         case .let:
-          let isImmutable = borrowers.contains(where: { self[$0].isAccess(.let) })
-          if isImmutable || former.map(borrowers.containsOnly(_:)) ?? false {
+          if borrowers.contains(where: { self[$0].isAccess(.let) }) || canReborrow(.let) {
             o.value.insertBorrower(i)
           } else {
             diagnostics.insert(.error(illegalImmutableAccessAt: s.site))
@@ -101,13 +106,22 @@ extension Module {
           }
 
         case let request:
-          let ks = AccessEffectSet([.set, .inout, .sink]).filter(strongerOrEqualTo: request)
-          if let f = former, borrowers.containsOnly(f) && self[f].isAccess(in: ks) {
+          if canReborrow(request) {
             o.value.removeBorrower(former!)
             o.value.insertBorrower(i)
           } else {
             diagnostics.insert(.error(illegalMutableAccessAt: s.site))
             hasConflict = true
+          }
+        }
+
+        /// Returns `true` iff the requested capability can be reborrowed from current borrower.
+        func canReborrow(_ k: AccessEffect) -> Bool {
+          if let f = former {
+            let ks = AccessEffectSet.all.filter(strongerOrEqualTo: k)
+            return borrowers.containsOnly(f) && self[f].isAccess(in: ks)
+          } else {
+            return false
           }
         }
       }

@@ -35,7 +35,7 @@ public fun main() {
   var z = 0
   let p = mutable_pointer[to: &z]
   var f = fun() -> Int {
-    &(p.unsafe[]) = 42
+    &(p.copy().unsafe[]) = 42
     return p.unsafe[].copy()
   }
   precondition(f() == 42)

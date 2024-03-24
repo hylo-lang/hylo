@@ -45,6 +45,8 @@ private struct UseVisitor: ASTWalkObserver {
     switch ast[n].domain {
     case .explicit(let e):
       return root(e, in: ast)
+    case .none:
+      return n
     default:
       return nil
     }

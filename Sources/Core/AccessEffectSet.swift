@@ -75,6 +75,9 @@ public struct AccessEffectSet: OptionSet, Hashable {
   /// A set with `let` and `sink`.
   public static let letOrSink: Self = [.let, .sink]
 
+  /// A set with all access effects but `yielded`.
+  public static let all: Self = [.let, .set, .inout, .sink]
+
   /// Returns an instance containing all possible capabilities that can be requested on the
   /// receiver of a bundle, used for in-place mutation iff `m` is `true`.
   public static func forUseOfBundle(performingInPlaceMutation m: Bool) -> Self {
