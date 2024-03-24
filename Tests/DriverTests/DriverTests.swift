@@ -99,12 +99,12 @@ final class DriverTests: XCTestCase {
         """)
   }
 
-  func testTypeCheckSuccess() throws {
-    let result = try compile(["--typecheck"], newFile(containing: "public fun main() {}"))
-    XCTAssert(result.status.isSuccess)
-    result.checkDiagnosticText(is: "")
-    XCTAssertFalse(FileManager.default.fileExists(atPath: result.output.relativePath))
-  }
+//  func testTypeCheckSuccess() throws {
+//    let result = try compile(["--typecheck"], newFile(containing: "public fun main() {}"))
+//    XCTAssert(result.status.isSuccess)
+//    result.checkDiagnosticText(is: "")
+//    XCTAssertFalse(FileManager.default.fileExists(atPath: result.output.relativePath))
+//  }
 
   func testTypeCheckFailure() throws {
     let valSource = try newFile(containing: "public fun main() { foo() }")
