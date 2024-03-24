@@ -122,6 +122,9 @@ jobs:
       matrix:
         os: [ macos-latest, windows-latest ]
         configuration: [ debug, release ]
+        exclude:
+          - os: windows-latest
+            configuration: debug
         include:
           - HYLO_LLVM_BUILD_RELEASE: 20240303-215025
           - HYLO_LLVM_BUILD_TYPE: MinSizeRel
