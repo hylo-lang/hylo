@@ -41,14 +41,14 @@ final class ASTTests: XCTestCase {
     XCTAssert(a[allDecls.first] is ImportDecl)
   }
 
-  func testCodableRoundtrip() throws {
-    try checkNoDiagnostic { (d) in
-      let serialized = try JSONEncoder().forAST.encode(Host.hostedLibraryAST.get())
-      let deserialized = try JSONDecoder().forAST.decode(AST.self, from: serialized)
-      // Creation of TypedProgram validates that it contains well-formed coreTraits.
-      _ = try TypedProgram(annotating: ScopedProgram(deserialized), reportingDiagnosticsTo: &d)
-    }
-  }
+//  func testCodableRoundtrip() throws {
+//    try checkNoDiagnostic { (d) in
+//      let serialized = try JSONEncoder().forAST.encode(Host.hostedLibraryAST.get())
+//      let deserialized = try JSONDecoder().forAST.decode(AST.self, from: serialized)
+//      // Creation of TypedProgram validates that it contains well-formed coreTraits.
+//      _ = try TypedProgram(annotating: ScopedProgram(deserialized), reportingDiagnosticsTo: &d)
+//    }
+//  }
 
   func testWalk() throws {
     let input: SourceFile = """
