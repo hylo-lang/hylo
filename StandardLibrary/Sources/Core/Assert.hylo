@@ -39,11 +39,11 @@ fun log_failure_description(_ title: String, _ message: String, in file: String,
   #if !feature(freestanding)
     print(file, terminator: ":")
     print(line, terminator: ": ")
-    if message.size != 0 {
+    if message.is_empty() {
+      print(title)
+    } else {
       print(title, terminator: ": ")
       print(message)
-    } else {
-      print(title)
     }
   #endif
 }
