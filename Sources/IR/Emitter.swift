@@ -2025,8 +2025,9 @@ struct Emitter {
     }
 
     let x0 = emitLValue(e)
-    let x1 = emitCoerce(x0, to: p.bareType, at: anchor)
-    return insert(module.makeAccess(p.access, from: x1, at: anchor))!
+    let x1 = unwrapCapture(x0, at: anchor)
+    let x2 = emitCoerce(x1, to: p.bareType, at: anchor)
+    return insert(module.makeAccess(p.access, from: x2, at: anchor))!
   }
 
   /// Inserts the IR for argument `e` passed to an autoclosure parameter of type `p`.
@@ -2086,7 +2087,8 @@ struct Emitter {
       emitStore(e, to: storage)
 
     case .leaf(let e):
-      storage = emitLValue(e)
+      let x0 = emitLValue(e)
+      storage = unwrapCapture(x0, at: program[e].site)
     }
 
     return insert(module.makeAccess(access, from: storage, at: ast.site(of: e)))!
@@ -2407,6 +2409,16 @@ struct Emitter {
     let x2 = insert(module.makeLoad(x1, at: site))!
     insert(module.makeEndAccess(x1, at: site))
     return x2
+  }
+
+  /// If `s` has a remote type, returns the result of an instruction exposing the captured access.
+  /// Otherwise, returns `s` as is.
+  private mutating func unwrapCapture(_ s: Operand, at site: SourceRange) -> Operand {
+    if module.type(of: s).ast.base is RemoteType {
+      return insert(module.makeOpenCapture(s, at: site))!
+    } else {
+      return s
+    }
   }
 
   /// Inserts the IR for coercing `source` to an address of type `target`.
