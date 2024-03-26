@@ -32,13 +32,13 @@ struct GenerateHyloFileTests: ParsableCommand {
     return parsed.reduce(into: "") { (o, p) in
       o += """
 
-        func test_\(p.methodName)_\(testID)() throws {
-          try \(p.methodName)(
-            \(String(reflecting: source.fileSystemPath)),
-            expectSuccess: \(p.expectSuccess))
-        }
+          func test_\(p.methodName)_\(testID)() throws {
+            try \(p.methodName)(
+              \(String(reflecting: source.fileSystemPath)),
+              expectSuccess: \(p.expectSuccess))
+          }
 
-      """
+        """
     }
   }
 
@@ -123,7 +123,7 @@ extension StringProtocol where Self.SubSequence == Substring {
 }
 
 /// Information necessary to generate a test case.
-fileprivate struct TestDescription {
+private struct TestDescription {
 
   /// The name of the method implementing the logic of the test runner.
   let methodName: Substring

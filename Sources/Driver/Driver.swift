@@ -4,8 +4,8 @@ import Core
 import Foundation
 import FrontEnd
 import IR
-import SwiftyLLVM
 import StandardLibrary
+import SwiftyLLVM
 import Utils
 
 public struct Driver: ParsableCommand {

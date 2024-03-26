@@ -2993,16 +2993,38 @@ public enum Parser {
     return head != nil ? try parseCompilerConditionTail(head: head!, in: &state) : nil
   }
 
+  /// Builds the sequence of compiler conditions for the present CompilerConditionTail
+  private static func buildSequenceCondition(
+    in state: inout ParserState
+  ) throws -> ConditionalCompilationStmt.SequenceCondition {
+    let condition = try parseCompilerCondition(in: &state)
+    let backup = state.backup()
+
+    // Look for the next `&&` or `||` operator if exists.
+    guard let firstOperHalf = state.take(), ["||", "&&"].contains(state.token(firstOperHalf).value)
+    else {
+      state.restore(from: backup)
+      return .operand(condition)
+    }
+
+    if state.token(firstOperHalf).value == "&&" {
+      return .and(condition, try buildSequenceCondition(in: &state))
+    } else {
+      return .or(condition, try buildSequenceCondition(in: &state))
+    }
+  }
+
   /// Parses a compiler condition structure, after the initial token (#if or #elseif).
   private static func parseCompilerConditionTail(
     head: Token, in state: inout ParserState
   ) throws -> AnyStmtID {
     // Parse the condition.
-    let condition = try parseCompilerCondition(in: &state)
+
+    let conditionSeq = try buildSequenceCondition(in: &state)
 
     // Parse the body of the compiler condition.
     let stmts: [AnyStmtID]
-    if condition.mayNotNeedParsing && !condition.holds(for: state.ast.compilationConditions) {
+    if conditionSeq.mustSkipMainBranch(for: state.ast.compilationConditions) {
       try skipConditionalCompilationBranch(in: &state, stoppingAtElse: true)
       stmts = []
     } else {
@@ -3014,7 +3036,7 @@ public enum Parser {
     if state.take(.poundEndif) != nil {
       fallback = []
     } else if state.take(.poundElse) != nil {
-      if condition.mayNotNeedParsing && condition.holds(for: state.ast.compilationConditions) {
+      if conditionSeq.mustSkipElseBranch(for: state.ast.compilationConditions) {
         try skipConditionalCompilationBranch(in: &state, stoppingAtElse: false)
         fallback = []
       } else {
@@ -3023,7 +3045,7 @@ public enum Parser {
       // Expect #endif.
       _ = try state.expect("'#endif'", using: { $0.take(.poundEndif) })
     } else if let head2 = state.take(.poundElseif) {
-      if condition.mayNotNeedParsing && condition.holds(for: state.ast.compilationConditions) {
+      if conditionSeq.mustSkipElseBranch(for: state.ast.compilationConditions) {
         try skipConditionalCompilationBranch(in: &state, stoppingAtElse: false)
         fallback = []
       } else {
@@ -3037,7 +3059,7 @@ public enum Parser {
 
     let r = state.insert(
       ConditionalCompilationStmt(
-        condition: condition,
+        condition: conditionSeq,
         stmts: stmts,
         fallback: fallback,
         site: head.site.extended(upTo: state.currentIndex)))
