@@ -1679,7 +1679,11 @@ final class ParserTests: XCTestCase {
     let input: SourceFile = "#if os(macOs) foo() #endif"
     let (stmtID, ast) = try apply(Parser.stmt, on: input)
     let stmt = try XCTUnwrap(ast[stmtID] as? ConditionalCompilationStmt)
-    XCTAssertEqual(stmt.condition, .operatingSystem("macOs"))
+    guard case .operand(let condition) = stmt.condition else {
+      XCTFail("Expected case .operand in SequenceCondition instance")
+      return
+    }
+    XCTAssertEqual(condition, .operatingSystem("macOs"))
     XCTAssertEqual(stmt.stmts.count, 1)
     XCTAssertEqual(stmt.fallback.count, 0)
   }
@@ -1688,7 +1692,11 @@ final class ParserTests: XCTestCase {
     let input: SourceFile = "#if true foo() #else awgr() #endif"
     let (stmtID, ast) = try apply(Parser.stmt, on: input)
     let stmt = try XCTUnwrap(ast[stmtID] as? ConditionalCompilationStmt)
-    XCTAssertEqual(stmt.condition, .`true`)
+    guard case .operand(let condition) = stmt.condition else {
+      XCTFail("Expected case .operand in SequenceCondition instance")
+      return
+    }
+    XCTAssertEqual(condition, .`true`)
     XCTAssertEqual(stmt.stmts.count, 1)
     XCTAssertEqual(stmt.fallback.count, 1)
   }
@@ -1697,7 +1705,11 @@ final class ParserTests: XCTestCase {
     let input: SourceFile = "#if false awgr() #else foo() #endif"
     let (stmtID, ast) = try apply(Parser.stmt, on: input)
     let stmt = try XCTUnwrap(ast[stmtID] as? ConditionalCompilationStmt)
-    XCTAssertEqual(stmt.condition, .`false`)
+    guard case .operand(let condition) = stmt.condition else {
+      XCTFail("Expected case .operand in SequenceCondition instance")
+      return
+    }
+    XCTAssertEqual(condition, .`false`)
     XCTAssertEqual(stmt.stmts.count, 1)
     XCTAssertEqual(stmt.fallback.count, 1)
   }
@@ -1707,15 +1719,27 @@ final class ParserTests: XCTestCase {
       "#if os(macOs) foo() #elseif os(Linux) bar() #elseif os(Windows) bazz() #else awgr() #endif"
     let (stmtID, ast) = try apply(Parser.stmt, on: input)
     let stmt = try XCTUnwrap(ast[stmtID] as? ConditionalCompilationStmt)
-    XCTAssertEqual(stmt.condition, .operatingSystem("macOs"))
+    guard case .operand(let condition) = stmt.condition else {
+      XCTFail("Expected case .operand in SequenceCondition instance")
+      return
+    }
+    XCTAssertEqual(condition, .operatingSystem("macOs"))
     XCTAssertEqual(stmt.stmts.count, 1)
     XCTAssertEqual(stmt.fallback.count, 1)
     let stmt2 = try XCTUnwrap(ast[stmt.fallback[0]] as? ConditionalCompilationStmt)
-    XCTAssertEqual(stmt2.condition, .operatingSystem("Linux"))
+    guard case .operand(let condition) = stmt.condition else {
+      XCTFail("Expected case .operand in SequenceCondition instance")
+      return
+    }
+    XCTAssertEqual(condition, .operatingSystem("Linux"))
     XCTAssertEqual(stmt2.stmts.count, 1)
     XCTAssertEqual(stmt2.fallback.count, 1)
     let stmt3 = try XCTUnwrap(ast[stmt2.fallback[0]] as? ConditionalCompilationStmt)
-    XCTAssertEqual(stmt3.condition, .operatingSystem("Windows"))
+    guard case .operand(let condition) = stmt.condition else {
+      XCTFail("Expected case .operand in SequenceCondition instance")
+      return
+    }
+    XCTAssertEqual(condition, .operatingSystem("Windows"))
     XCTAssertEqual(stmt3.stmts.count, 1)
     XCTAssertEqual(stmt3.fallback.count, 1)
   }
@@ -1725,19 +1749,35 @@ final class ParserTests: XCTestCase {
       "#if arch(x86_64) foo() #elseif arch(i386) bar() #elseif arch(arm64) bazz() #elseif arch(arm) fizz() #else awgr() #endif"
     let (stmtID, ast) = try apply(Parser.stmt, on: input)
     let stmt = try XCTUnwrap(ast[stmtID] as? ConditionalCompilationStmt)
-    XCTAssertEqual(stmt.condition, .architecture("x86_64"))
+    guard case .operand(let condition) = stmt.condition else {
+      XCTFail("Expected case .operand in SequenceCondition instance")
+      return
+    }
+    XCTAssertEqual(condition, .architecture("x86_64"))
     XCTAssertEqual(stmt.stmts.count, 1)
     XCTAssertEqual(stmt.fallback.count, 1)
     let stmt2 = try XCTUnwrap(ast[stmt.fallback[0]] as? ConditionalCompilationStmt)
-    XCTAssertEqual(stmt2.condition, .architecture("i386"))
+    guard case .operand(let condition) = stmt.condition else {
+      XCTFail("Expected case .operand in SequenceCondition instance")
+      return
+    }
+    XCTAssertEqual(condition, .architecture("i386"))
     XCTAssertEqual(stmt2.stmts.count, 1)
     XCTAssertEqual(stmt2.fallback.count, 1)
     let stmt3 = try XCTUnwrap(ast[stmt2.fallback[0]] as? ConditionalCompilationStmt)
-    XCTAssertEqual(stmt3.condition, .architecture("arm64"))
+    guard case .operand(let condition) = stmt.condition else {
+      XCTFail("Expected case .operand in SequenceCondition instance")
+      return
+    }
+    XCTAssertEqual(condition, .architecture("arm64"))
     XCTAssertEqual(stmt3.stmts.count, 1)
     XCTAssertEqual(stmt3.fallback.count, 1)
     let stmt4 = try XCTUnwrap(ast[stmt3.fallback[0]] as? ConditionalCompilationStmt)
-    XCTAssertEqual(stmt4.condition, .architecture("arm"))
+    guard case .operand(let condition) = stmt.condition else {
+      XCTFail("Expected case .operand in SequenceCondition instance")
+      return
+    }
+    XCTAssertEqual(condition, .architecture("arm"))
     XCTAssertEqual(stmt4.stmts.count, 1)
     XCTAssertEqual(stmt4.fallback.count, 1)
   }
@@ -1747,7 +1787,11 @@ final class ParserTests: XCTestCase {
       "#if feature(useLibC) foo() #endif"
     let (stmtID, ast) = try apply(Parser.stmt, on: input)
     let stmt = try XCTUnwrap(ast[stmtID] as? ConditionalCompilationStmt)
-    XCTAssertEqual(stmt.condition, .feature("useLibC"))
+    guard case .operand(let condition) = stmt.condition else {
+      XCTFail("Expected case .operand in SequenceCondition instance")
+      return
+    }
+    XCTAssertEqual(condition, .feature("useLibC"))
     XCTAssertEqual(stmt.stmts.count, 1)
     XCTAssertEqual(stmt.fallback.count, 0)
   }
@@ -1756,7 +1800,11 @@ final class ParserTests: XCTestCase {
     let input: SourceFile = "#if compiler(hc) foo() #else awgr() #endif"
     let (stmtID, ast) = try apply(Parser.stmt, on: input)
     let stmt = try XCTUnwrap(ast[stmtID] as? ConditionalCompilationStmt)
-    XCTAssertEqual(stmt.condition, .compiler("hc"))
+    guard case .operand(let condition) = stmt.condition else {
+      XCTFail("Expected case .operand in SequenceCondition instance")
+      return
+    }
+    XCTAssertEqual(condition, .compiler("hc"))
     XCTAssertEqual(stmt.stmts.count, 1)
     XCTAssertEqual(stmt.fallback.count, 0)  // Body not parsed
   }
@@ -1765,8 +1813,12 @@ final class ParserTests: XCTestCase {
     let input: SourceFile = "#if compiler_version(>= 0.1) foo() #else awgr() #endif"
     let (stmtID, ast) = try apply(Parser.stmt, on: input)
     let stmt = try XCTUnwrap(ast[stmtID] as? ConditionalCompilationStmt)
+    guard case .operand(let condition) = stmt.condition else {
+      XCTFail("Expected case .operand in SequenceCondition instance")
+      return
+    }
     XCTAssertEqual(
-      stmt.condition,
+      condition,
       .compilerVersion(
         comparison: .greaterOrEqual(SemanticVersion(major: 0, minor: 1, patch: 0))))
     XCTAssertEqual(stmt.stmts.count, 1)
@@ -1777,8 +1829,12 @@ final class ParserTests: XCTestCase {
     let input: SourceFile = "#if compiler_version(< 100.1.2) foo() #else awgr() #endif"
     let (stmtID, ast) = try apply(Parser.stmt, on: input)
     let stmt = try XCTUnwrap(ast[stmtID] as? ConditionalCompilationStmt)
+    guard case .operand(let condition) = stmt.condition else {
+      XCTFail("Expected case .operand in SequenceCondition instance")
+      return
+    }
     XCTAssertEqual(
-      stmt.condition,
+      condition,
       .compilerVersion(
         comparison: .less(SemanticVersion(major: 100, minor: 1, patch: 2))))
     XCTAssertEqual(stmt.stmts.count, 1)
@@ -1789,8 +1845,12 @@ final class ParserTests: XCTestCase {
     let input: SourceFile = "#if hylo_version(>= 0.1) foo() #else awgr() #endif"
     let (stmtID, ast) = try apply(Parser.stmt, on: input)
     let stmt = try XCTUnwrap(ast[stmtID] as? ConditionalCompilationStmt)
+    guard case .operand(let condition) = stmt.condition else {
+      XCTFail("Expected case .operand in SequenceCondition instance")
+      return
+    }
     XCTAssertEqual(
-      stmt.condition,
+      condition,
       .hyloVersion(comparison: .greaterOrEqual(SemanticVersion(major: 0, minor: 1, patch: 0))))
     XCTAssertEqual(stmt.stmts.count, 1)
     XCTAssertEqual(stmt.fallback.count, 0)  // Body not parsed
@@ -1800,8 +1860,12 @@ final class ParserTests: XCTestCase {
     let input: SourceFile = "#if hylo_version(< 100.1.2) foo() #else awgr() #endif"
     let (stmtID, ast) = try apply(Parser.stmt, on: input)
     let stmt = try XCTUnwrap(ast[stmtID] as? ConditionalCompilationStmt)
+    guard case .operand(let condition) = stmt.condition else {
+      XCTFail("Expected case .operand in SequenceCondition instance")
+      return
+    }
     XCTAssertEqual(
-      stmt.condition,
+      condition,
       .hyloVersion(
         comparison: .less(SemanticVersion(major: 100, minor: 1, patch: 2))))
     XCTAssertEqual(stmt.stmts.count, 1)
@@ -1822,8 +1886,12 @@ final class ParserTests: XCTestCase {
     let input: SourceFile = "#if hylo_version(< 0.1) <don't show parse error here> #endif"
     let (stmtID, ast) = try apply(Parser.stmt, on: input)
     let stmt = try XCTUnwrap(ast[stmtID] as? ConditionalCompilationStmt)
+    guard case .operand(let condition) = stmt.condition else {
+      XCTFail("Expected case .operand in SequenceCondition instance")
+      return
+    }
     XCTAssertEqual(
-      stmt.condition,
+      condition,
       .hyloVersion(comparison: .less(SemanticVersion(major: 0, minor: 1, patch: 0))))
     XCTAssertEqual(stmt.stmts.count, 0)  // Body not parsed
     XCTAssertEqual(stmt.fallback.count, 0)
@@ -1834,8 +1902,12 @@ final class ParserTests: XCTestCase {
       "#if hylo_version(< 0.1) <don't show parse error here> #if hylo_version(< 0.1) <don't show parse error here> #endif #endif"
     let (stmtID, ast) = try apply(Parser.stmt, on: input)
     let stmt = try XCTUnwrap(ast[stmtID] as? ConditionalCompilationStmt)
+    guard case .operand(let condition) = stmt.condition else {
+      XCTFail("Expected case .operand in SequenceCondition instance")
+      return
+    }
     XCTAssertEqual(
-      stmt.condition,
+      condition,
       .hyloVersion(comparison: .less(SemanticVersion(major: 0, minor: 1, patch: 0))))
     XCTAssertEqual(stmt.stmts.count, 0)  // Body not parsed
     XCTAssertEqual(stmt.fallback.count, 0)
@@ -1846,13 +1918,21 @@ final class ParserTests: XCTestCase {
       "#if hylo_version(< 0.1) <don't show parse error here> #if hylo_version(< 0.1) <don't show parse error here> #endif #elseif os(bla) #endif"
     let (stmtID, ast) = try apply(Parser.stmt, on: input)
     let stmt = try XCTUnwrap(ast[stmtID] as? ConditionalCompilationStmt)
+    guard case .operand(let condition) = stmt.condition else {
+      XCTFail("Expected case .operand in SequenceCondition instance")
+      return
+    }
     XCTAssertEqual(
-      stmt.condition,
+      condition,
       .hyloVersion(comparison: .less(SemanticVersion(major: 0, minor: 1, patch: 0))))
     XCTAssertEqual(stmt.stmts.count, 0)  // Body not parsed
     XCTAssertEqual(stmt.fallback.count, 1)
     let stmt2 = try XCTUnwrap(ast[stmt.fallback[0]] as? ConditionalCompilationStmt)
-    XCTAssertEqual(stmt2.condition, .operatingSystem("bla"))
+    guard case .operand(let condition) = stmt2.condition else {
+      XCTFail("Expected case .operand in SequenceCondition instance")
+      return
+    }
+    XCTAssertEqual(condition, .operatingSystem("bla"))
     XCTAssertEqual(stmt2.stmts.count, 0)
     XCTAssertEqual(stmt2.fallback.count, 0)
   }
@@ -1862,8 +1942,12 @@ final class ParserTests: XCTestCase {
       "#if hylo_version(>= 0.1) #else <don't show parse error here> #if hylo_version(< 0.1) <don't show parse error here> #endif #endif"
     let (stmtID, ast) = try apply(Parser.stmt, on: input)
     let stmt = try XCTUnwrap(ast[stmtID] as? ConditionalCompilationStmt)
+    guard case .operand(let condition) = stmt.condition else {
+      XCTFail("Expected case .operand in SequenceCondition instance")
+      return
+    }
     XCTAssertEqual(
-      stmt.condition,
+      condition,
       .hyloVersion(comparison: .greaterOrEqual(SemanticVersion(major: 0, minor: 1, patch: 0))))
     XCTAssertEqual(stmt.stmts.count, 0)  // Body not parsed
     XCTAssertEqual(stmt.fallback.count, 0)
@@ -1874,8 +1958,12 @@ final class ParserTests: XCTestCase {
       "#if hylo_version(>= 0.1) #elseif compiler_version(>= 0.1) <don't show parse error here> #if hylo_version(< 0.1) <don't show parse error here> #endif #endif"
     let (stmtID, ast) = try apply(Parser.stmt, on: input)
     let stmt = try XCTUnwrap(ast[stmtID] as? ConditionalCompilationStmt)
+    guard case .operand(let condition) = stmt.condition else {
+      XCTFail("Expected case .operand in SequenceCondition instance")
+      return
+    }
     XCTAssertEqual(
-      stmt.condition,
+      condition,
       .hyloVersion(comparison: .greaterOrEqual(SemanticVersion(major: 0, minor: 1, patch: 0))))
     XCTAssertEqual(stmt.stmts.count, 0)
     XCTAssertEqual(stmt.fallback.count, 0)
