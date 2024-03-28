@@ -96,8 +96,11 @@ public struct ConditionalCompilationStmt: Stmt {
 
   /// A sequence of structured conditions to elaborate a 1 to N operand compilation condition
   public indirect enum SequenceCondition: Codable {
+
     case operand(Condition)
+
     case and(Condition, SequenceCondition)
+
     case or(Condition, SequenceCondition)
 
     public enum ConditionKind: String {
