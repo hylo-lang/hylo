@@ -169,6 +169,19 @@ fun testNot() {
   use(b)
 }
 
+fun testMultipleOperandConditions() {
+  #if arch(arm64) && false
+    let a = 1
+  #elseif os(windows) || os(linux)
+    let b = 2
+  #elseif arch(x86_64) || arch(arm64) && !false
+    let c = 3
+  #else
+    let d = 4
+  #endif
+  use(c)
+}
+
 public fun main() {
   testTrue()
   testFalse()
@@ -180,4 +193,5 @@ public fun main() {
   testHyloVersion()
   testSkipParsingNested()
   testNot()
+  testMultipleOperandConditions()
 }
