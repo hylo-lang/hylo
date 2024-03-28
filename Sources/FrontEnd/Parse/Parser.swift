@@ -3020,7 +3020,7 @@ public enum Parser {
   ) throws -> AnyStmtID {
     // Parse the condition.
 
-    let conditionSeq = try buildSequenceCondition(in: &state)
+    let conditions = try buildSequenceCondition(in: &state)
 
     // Parse the body of the compiler condition.
     let stmts: [AnyStmtID]
