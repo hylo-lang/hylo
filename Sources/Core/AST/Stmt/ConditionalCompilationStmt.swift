@@ -107,8 +107,9 @@ public struct ConditionalCompilationStmt: Stmt {
     }
 
     /// Visit the SequenceCondition tail to calculate the right case for executing the right branch
-    private func unroll(for factors: ConditionalCompilationFactors, condCase: ConditionKind) -> Bool
-    {
+    private func unroll(
+      for factors: ConditionalCompilationFactors, conditionCase: ConditionKind
+    ) -> Bool {
       switch self {
       case .and(let cond, let seq):
         switch condCase {
