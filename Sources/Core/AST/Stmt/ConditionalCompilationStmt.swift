@@ -125,6 +125,7 @@ public struct ConditionalCompilationStmt: Stmt {
           return cond.mayNotNeedParsing && cond.holds(for: factors)
             && seq.unroll(for: factors, condCase: condCase)
         }
+
       case .or(let cond, let seq):
         switch condCase {
         case .holdOnly:
