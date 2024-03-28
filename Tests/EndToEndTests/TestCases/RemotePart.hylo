@@ -12,8 +12,10 @@ public fun main() {
 
   var z = 0
   {
+    // Note: the explicit lexical scope is a workaround for #1324
     var w = [inout &z]
     &w += 2
+    precondition(w == 2)
   }
   precondition(z == 2)
 }
