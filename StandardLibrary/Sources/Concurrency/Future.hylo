@@ -9,7 +9,7 @@ public type Future<E: Movable & Deinitializable> {
 
   /// Initializes `self` with `f`, and spawns the computation.
   public init(_ f: sink [E]() -> Int) {
-    &self.frame.manual_init(f)
+    SpawnFrame<E>.`init`(self: &self.frame, f)
   }
 
   /// Awaits the result of the computation.
@@ -32,7 +32,7 @@ public type EscapingFuture<E: Movable & Deinitializable>: Movable {
 
   /// Initializes `self` with `f`, and spawns the computation.
   public init(_ f: sink [E]() -> Int) {
-    &self.frame = alloc_frame(f)
+    &self.frame = SpawnFrame<E>.allocate(f)
   }
 
   /// Awaits the result of the computation.
@@ -42,12 +42,6 @@ public type EscapingFuture<E: Movable & Deinitializable>: Movable {
     let r = (&frame.unsafe[]).await()
     frame.deallocate()
     return r
-  }
-
-  private static fun alloc_frame(_ f: sink [E]() -> Int) -> PointerToMutable<SpawnFrame<E>> {
-    let p: PointerToMutable<SpawnFrame<E>> = .allocate(count: 1)
-    &p.unsafe[].manual_init(f)
-    return p
   }
 
 }
@@ -68,7 +62,7 @@ public type SpawnFrame<E: Movable & Deinitializable>: Deinitializable {
   private var r: Optional<Int>
 
   /// Initializes `self` with `f`, and spawns the computation.
-  public fun manual_init(_ f: sink [E]() -> Int) set {
+  public init(_ f: sink [E]() -> Int) {
     &self.base_frame = .new()
     &self.f = f
     &self.r = .none()
@@ -92,6 +86,13 @@ public type SpawnFrame<E: Movable & Deinitializable>: Deinitializable {
     } else {
       fatal_error()
     }
+  }
+
+  /// Allocate an object of `Self` on the heap and initialize it with `f`.
+  internal static fun allocate(_ f: sink [E]() -> Int) -> PointerToMutable<Self> {
+    let p: PointerToMutable<Self> = .allocate(count: 1)
+    Self.`init`(self: &p.unsafe[], f)
+    return p
   }
 
 }
