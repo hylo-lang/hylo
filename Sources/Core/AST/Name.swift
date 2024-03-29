@@ -92,7 +92,7 @@ extension SourceRepresentable where Part == Name {
   ///
   /// - Precondition: `self` has no introducer.`
   func introduced(by introducer: SourceRepresentable<AccessEffect>) -> Self {
-    return .init(
+    .init(
       value: self.value.introduced(by: introducer.value),
       range: self.site.extended(upTo: introducer.site.endIndex))
   }

@@ -15,6 +15,11 @@ public type UInt {
     &self.value = Builtin.ptrtoint_word(address.base)
   }
 
+  /// Returns the smallest power of two that is not smaller than `self`.
+  public fun round_up_nearest_power_two() -> UInt {
+    if self == 1 { 1 } else { (1 as UInt) << (Self.bit_width() - (self - 1).leading_zeros()) }
+  }
+
   /// Returns the bitwise inverse of `self`.
   public fun prefix~ () -> Self {
     self ^ UInt(bit_pattern: -1)

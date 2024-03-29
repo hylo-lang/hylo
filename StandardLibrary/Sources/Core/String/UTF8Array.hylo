@@ -1,0 +1,289 @@
+/// A collection of UTF-8 code units.
+public type UTF8Array: Regular {
+
+  /// Important: This implementation assumes little-endianness.
+
+  /// The description of out-of-line payloads in `UTF8Array`s.
+  typealias Header = { count: Int, capacity: Int }
+
+  /// The units in the collection.
+  ///
+  ///
+  /// The two least significant bits of `units` encode the representation discriminator:
+  ///
+  /// ┌──────────────────────╥─────┬─────┐
+  /// │ Form                 ║ b01 │ b00 │
+  /// ├──────────────────────╫─────┼─────┤
+  /// │ inline, owned        ║  0  │  0  │
+  /// │ out-of-line, owned   ║  1  │  0  │
+  /// │ out-of-line, unowned ║  1  │  1  │
+  /// └──────────────────────╨─────┴─────┘
+  ///
+  /// b01 indicates whether the payload of the array is stored out-of-line. If it is, `units` with
+  /// b01 and b00 unset stores a pointer to the out-of-line payload, which is a buffer storing a
+  /// header followed by a contiguous array of bytes containing the units themselves, followed by
+  /// a null terminator. The buffer is aligned at minimum 4 bytes (justifying why b01 and b0 are
+  /// available). The header is a pair of `Int`s whose first and second elements are the number of
+  /// units in the array and its capacity, respectively.
+  ///
+  /// If the payload is inline, the number of units in the view is stored in the 6 highest bits of
+  /// `units`'s least significant byte and the units themselves are stored in the bytes 1 to 7, in
+  /// reverse order. For example, the inline UTF-8 view of "Salut" is as follows:
+  ///
+  ///                 least significant byte
+  ///                                      ↓
+  /// ┌────┬────┬────┬────┬────┬────┬────┬────┐
+  /// | 00 | 00 | 74 | 75 | 6C | 61 | 53 | 05 |
+  /// └────┴────┴────┴────┴────┴────┴────┴────┘
+  ///
+  /// b00 indicates if the view owns its storage and is responsible for its deallocation if it is
+  /// out-of-line. Unowned, out-of-line storage corresponds to static allocations.
+  ///
+  /// The canonical empty string has all bits equal to 0.
+  public let units: UInt64
+
+  /// Creates an instance with given representation.
+  memberwise init
+
+  /// Creates a view taking ownership of the out-of-line payload referred by `p`.
+  init(taking_ownership_of p: MemoryAddress) {
+    &self.units = UInt64(truncating_or_extending: UInt(bit_pattern: p))
+    &self.units |= 0b10
+  }
+
+  /// Creates an empty view.
+  public init() {
+    &self.units = 0
+  }
+
+  /// Creates an instance with the contents of `source` copied to a buffer capable of holding at
+  /// least `minimum_capacity` units.
+  ///
+  /// In a free-standing environment, both `source.count` and `minimum_capacity` must be less than
+  /// 7, which is the maximum capacity of inline storage.
+  public init(
+    unsafely_copying source: PointerToBuffer<Int8>,
+    reserving minimum_capacity: Int = 0
+  ) {
+    // TODO: uncomment when #1046 is implemented
+    // precondition(source.count >= 0)
+
+    // Source is empty and requested capacity fits in inline storage.
+    if (source.count == 0) && (minimum_capacity < 7) {
+      &self.units = 0
+    }
+
+    // Source buffer and requested capacity fit in inline storage.
+    else if (source.count < 8) && (minimum_capacity < 7) {
+      &self.units = UInt64(truncating_or_extending: source.count) << 2
+      PointerToMutable<Int8>(type_punning: mutable_pointer[to: &units])
+        .advance(by: 1)
+        .unsafe_initialize(copying_bytes_from: source.start, count: source.count)
+    }
+
+    // Source buffer requires out-of-line storage.
+    else {
+      #if feature(freestanding)
+        fatal_error("cannot allocate heap storage in free-standing environment")
+      #else
+        init_on_head(&self, unsafely_copying: source, reserving: minimum_capacity)
+      #endif
+    }
+  }
+
+  /// Initializes `self` to an instance with the contents of `source` copied to out-of-line storage
+  /// capable of holding at least `minimum_capacity` units.
+  ///
+  /// This method can only be called in a hosted environment.
+  static fun init_on_head(
+    _ self: set Self,
+    unsafely_copying source: PointerToBuffer<Int8>, reserving minimum_capacity: Int
+  ) {
+    #if feature(freestanding)
+      trap()
+    #else
+      let requested_capacity = max[source.count, minimum_capacity]
+      let buffer_size = (MemoryLayout<Header>.stride() + requested_capacity + 1)
+        .round_up_nearest_power_two()
+      let storage = MemoryAddress.allocate_bytes(
+        count: buffer_size,
+        aligned_at: MemoryLayout<Header>.alignment())
+
+      let header = PointerToMutable<Header>(type_punning: storage)
+      let capacity = buffer_size - MemoryLayout<Header>.stride() - 1
+      header.unsafe_initialize_pointee((count: source.count.copy(), capacity: capacity.copy()))
+
+      let payload = PointerToMutable<Int8>(type_punning: header.advance(by: 1))
+      payload.unsafe_initialize(copying_bytes_from: source.start, count: source.count)
+
+      // Zero-initialize the remainder of the buffer to guarantee that it is null-terminated.
+      payload.advance(by: source.count)
+        .unsafe_initialize(repeating: 0, count: capacity - source.count + 1)
+
+      &self = .new(taking_ownership_of: storage)
+    #endif
+  }
+
+  /// Projects the units in `self` as a null-terminated buffer.
+  ///
+  /// Use this method to read the contents of the view as a C-style null-terminated string. The
+  /// returned buffer has a size `count() + 1`. It is alive only for the duration of the projection
+  /// and shall not be mutated.
+  public property nullterminated: Pointer<Int8> {
+    let {
+      if is_inline() {
+        yield Pointer<Int8>(type_punning: pointer[to: units >> 8])
+      } else {
+        yield Pointer<Int8>(type_punning: unsafe_heap_header().advance(by: 1))
+      }
+    }
+  }
+
+  /// Returns `true` if `self` is empty.
+  public fun is_empty() -> Bool {
+    count() == 0
+  }
+
+  /// The number of elements that can be stored in the array before new storage must be allocated.
+  public fun capacity() -> Int {
+    if is_unowned() {
+      count()
+    } else if is_inline() {
+      7
+    } else {
+      unsafe_heap_header().unsafe[].1.copy()
+    }
+  }
+
+  /// Reserves enough space to store `n` elements in `self`.
+  public fun reserve_capacity(_ n: Int) inout {
+    if n < capacity() { return }
+
+    var new_capacity = max[8, capacity()].copy()
+    while new_capacity < n {
+      &new_capacity += new_capacity.copy()
+    }
+
+    // TODO: Use a more efficient contiguous storage implementation
+    &self = with_extended_lifetime(
+      nullterminated,
+      do: fun[sink let c = count(), sink let k = new_capacity.copy()] (_ source) {
+        UTF8Array(unsafely_copying: PointerToBuffer(start: source.copy(), count: c), reserving: k)
+      })
+  }
+
+  /// Returns `true` if the payload of `self` is stored inline.
+  fun is_inline() -> Bool {
+    // Note: the flag is stored inversed so that `0` is an empty string.
+    (units & 0b10) == 0
+  }
+
+  /// Returns `true` if `self` does not own its payload.
+  fun is_unowned() -> Bool {
+    (units & 0b01) != 0
+  }
+
+  /// Returns `true` if the payload of `self` is out-of-line and owned.
+  fun requires_head_deallocation() -> Bool {
+    (units & 0b11) == 0b10
+  }
+
+  /// Returns a pointer to the header of the out-of-line storage, assuming it exists.
+  fun unsafe_heap_header() -> Pointer<Header> {
+    Pointer<Header>(bit_pattern: UInt(truncating_or_extending: units & ~(0b11 as UInt64)))
+  }
+
+}
+
+public conformance UTF8Array: Deinitializable {
+
+  public fun deinit() sink {
+    #if !feature(freestanding)
+      if requires_head_deallocation() {
+        PointerToMutable(adding_mutation_to: unsafe_heap_header()).deallocate()
+      }
+    #endif
+  }
+
+}
+
+public conformance UTF8Array: Copyable {
+
+  public fun copy() -> Self {
+    if is_inline() || is_unowned() {
+      // Note: copying unowned instances doesn't allocate new storage.
+      return .new(units: units.copy())
+    } else {
+      let header = unsafe_heap_header()
+      let payload = Pointer<Int8>(type_punning: header.advance(by: 1))
+      let buffer = PointerToBuffer(start: payload, count: header.unsafe[].0.copy())
+      return .new(unsafely_copying: buffer)
+    }
+  }
+
+}
+
+public conformance UTF8Array: Equatable {
+
+  public fun infix== (_ other: Self) -> Bool {
+    // If both LHS and RHS are stored inline, their representation are bitwise equal.
+    if self.is_inline() && other.is_inline() {
+      return self.units == other.units
+    }
+
+    // LHS and RHS are equal if they point to the same buffer.
+    if !self.is_inline() && !other.is_inline() {
+      if self.unsafe_heap_header() == other.unsafe_heap_header() { return true }
+    }
+
+    // LHS and RHS are equal if they contain the same elements in the same order.
+    // TODO: Rewrite as `self.elements_equal(other)`.
+    if self.count() != other.count() { return false }
+    var i = 0
+    while i < self.count() {
+      if self[i] != other[i] { return false }
+      &i += 1
+    }
+    return true
+  }
+
+}
+
+public conformance UTF8Array: Collection {
+
+  /// A position in an UTF8Array.
+  public typealias Position = Int
+
+  /// A single UTF-8 code unit.
+  public typealias Element = Int8
+
+  public fun start_position() -> Int { 0 }
+
+  public fun end_position() -> Int { count() }
+
+  public fun position(after p: Int) -> Int { p + 1 }
+
+  /// Returns the number of elements in `self`.
+  public fun count() -> Int {
+    if is_inline() {
+      Int(truncating_or_extending: (units & 0xff) >> 2)
+    } else {
+      unsafe_heap_header().unsafe[].0.copy()
+    }
+  }
+
+  /// Accesses the unit at `position` in `self`.
+  public subscript(_ position: Int): Int8 {
+    if is_inline() {
+      // TODO: uncomment when #1046 is implemented
+      // precondition((0 <= position) && (position < Int(units >> 2)))
+      yield Pointer<Int8>(type_punning: pointer[to: &units]).advance(by: position + 1).unsafe[]
+    } else {
+      let header = unsafe_heap_header()
+      // TODO: uncomment when #1046 is implemented
+      // precondition((0 <= position) && (position < header.unsafe[]))
+      yield Pointer<Int8>(type_punning: header.advance(by: 1)).advance(by: position).unsafe[]
+    }
+  }
+
+}

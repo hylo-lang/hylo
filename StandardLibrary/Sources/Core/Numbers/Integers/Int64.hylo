@@ -150,7 +150,7 @@ public conformance Int64: BinaryInteger {
   }
 
   public fun instance_bit_width() -> Int {
-    32
+    64
   }
 
   public fun signum() -> Int {
@@ -167,7 +167,7 @@ public conformance Int64: BinaryInteger {
 
   public fun words() -> CollectionOfOne<UInt> {
     // TODO: Handle the case where Int64 is larger than UInt.
-    return CollectionOfOne(UInt(value: Builtin.sext_i64_word(value)))
+    CollectionOfOne(UInt(value: Builtin.sext_i64_word(value)))
   }
 
   public fun infix/ (_ other: Self) -> Self {
@@ -328,15 +328,15 @@ public conformance Int64: FixedWidthInteger {
   }
 
   public static fun bit_width() -> Int {
-    32
+    64
   }
 
   public static fun max() -> Self {
-    2147483647
+    9223372036854775807
   }
 
   public static fun min() -> Self {
-    -2147483648
+    -9223372036854775808
   }
 
 }

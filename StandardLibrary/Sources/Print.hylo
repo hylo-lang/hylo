@@ -1,8 +1,8 @@
 /// Writes the textual representation of `item` to the standard output.
 public fun print(_ item: String, terminator: String = "\n") {
   let o = stdout
-  _ = fwrite(item.utf8, 1, item.size, o)
-  _ = fwrite(terminator.utf8, 1, terminator.size, o)
+  _ = fwrite(item.utf8.nullterminated.raw, 1, item.utf8.count(), o)
+  _ = fwrite(terminator.utf8.nullterminated.raw, 1, terminator.utf8.count(), o)
 }
 
 /// Writes the textual representation of `item` to the standard output.
@@ -27,10 +27,9 @@ public fun print(_ item: Int, radix: Int = 10, terminator: String = "\n") {
   &a.reverse()
 
   let o = stdout
-  let buffer = a.contiguous_storage.base
-  _ = fwrite(MemoryAddress(base: buffer), 1, a.count(), o)
-  _ = fwrite(terminator.utf8, 1, terminator.size, o)
+  _ = fwrite(a.contiguous_storage.raw, 1, a.count(), o)
+  _ = fwrite(terminator.utf8.nullterminated.raw, 1, terminator.utf8.count(), o)
 }
 
 /// The standard output of the current process.
-let stdout = fdopen(1, "w".utf8)
+let stdout = fdopen(1, "w".utf8.nullterminated.raw)

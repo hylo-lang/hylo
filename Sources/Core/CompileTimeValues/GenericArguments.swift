@@ -65,7 +65,7 @@ public struct GenericArguments: Hashable {
 
   /// Returns a new map containing the keys of `self` with the values transformed `transform`.
   public func mapValues(_ transform: (Value) throws -> Value) rethrows -> Self {
-    return try .init(contents: contents.mapValues(transform))
+    try .init(contents: contents.mapValues(transform))
   }
 
   /// Returns `self` merged with `other`, applying `combine` to determine the value of any

@@ -3915,17 +3915,15 @@ struct TypeChecker {
       return resolve(builtin: name)
     }
 
+    let isQualified = context != nil
+
     // Compute the set of all possible matches and filter out those that are inaccessible.
-    let isUnqualified = context == nil
     let allMatches = lookup(name, memberOf: context?.type, exposedTo: scopeOfUse)
-    let accessibleMatches =
-      isUnqualified
-      ? allMatches
-      : allMatches.filter({ isAccessibleWithQualification($0, in: scopeOfUse) })
+    let accessibleMatches = filterAccessible(allMatches)
 
     // Attempt to resolve a compiler-known alias if there's no match and `name` occurs unqualified.
     if accessibleMatches.isEmpty {
-      if isUnqualified {
+      if !isQualified {
         return resolve(compilerKnownAlias: name, specializedBy: arguments, exposedTo: scopeOfUse)
       } else if !allMatches.isEmpty {
         report(.error(invalidReferenceToInaccessible: allMatches, named: name, in: program.ast))
@@ -3967,6 +3965,23 @@ struct TypeChecker {
     }
 
     return candidates
+
+    /// If `isQualified` is `true`, returns the declarations in `ds` that are accessible with
+    /// qualification in `scopeOfUse`. Otherwise, returns `ds`.
+    func filterAccessible(_ ds: [AnyDeclID]) -> [AnyDeclID] {
+      if !isQualified { return ds }
+      let tentative = ds.filter({ isAccessibleWithQualification($0, in: scopeOfUse) })
+
+      if !tentative.isEmpty {
+        return tentative
+      } else if isQualified && ds.contains(where: { $0.kind == GenericParameterDecl.self }) {
+        let membersOfConformedTraits = conformedTraits(of: context!.type, in: scopeOfUse)
+          .map({ lookup(name, memberOf: AnyType($0), exposedTo: scopeOfUse) })
+        return filterAccessible(Array(Set(membersOfConformedTraits.joined())))
+      } else {
+        return []
+      }
+    }
   }
 
   /// Returns the declaration of `name` interpreted as a member of the built-in module.
@@ -4220,36 +4235,80 @@ struct TypeChecker {
     }
   }
 
-  /// Returns the generic type of a reference to `d`, found in `context`, reporting diagnostics
-  /// at `diagnosticSite`.
+  /// Returns the generic type of a reference to `d`, found in `context` and occurring in
+  /// `scopeOfUse`, reporting diagnostics at `diagnosticSite`.
   private mutating func resolveType(
     of d: AssociatedTypeDecl.ID, lookedUpIn context: NameResolutionContext?,
     exposedTo scopeOfUse: AnyScopeID,
     reportingDiagnosticsAt diagnosticSite: SourceRange
   ) -> AnyType {
-    // The domain of associated type resolved without qualification is a skolem bound by the trait
-    // in which the reference to `d` occurs.
-    guard let domain = context?.type else {
-      if let s = resolveTraitReceiver(in: scopeOfUse) {
-        return ^MetatypeType(of: AssociatedTypeType(d, domain: ^s, ast: program.ast))
-      } else {
-        report(.error(invalidReferenceToAssociatedType: d, at: diagnosticSite, in: program.ast))
-        return .error
-      }
+    if let qualification = context {
+      return resolveType(
+        of: d, qualifiedBy: qualification.type, exposedTo: scopeOfUse,
+        reportingDiagnosticsAt: diagnosticSite)
+    } else if let s = resolveTraitReceiver(in: scopeOfUse) {
+      // The domain of associated type resolved without qualification is a skolem bound by the
+      // trait in which the reference to `d` occurs.
+      return ^MetatypeType(of: AssociatedTypeType(d, domain: ^s, ast: program.ast))
+    } else {
+      report(.error(invalidReferenceToAssociatedType: d, at: diagnosticSite, in: program.ast))
+      return .error
     }
+  }
 
-    // Skolems are valid associated type domains.
+  /// Returns the generic type of a reference to `d`, occurring qualified by `domain` in
+  /// `scopeOfUse`, reporting diagnostics at `diagnosticSite`.
+  private mutating func resolveType(
+    of d: AssociatedTypeDecl.ID, qualifiedBy domain: AnyType,
+    exposedTo scopeOfUse: AnyScopeID,
+    reportingDiagnosticsAt diagnosticSite: SourceRange
+  ) -> AnyType {
+    // Skolems are valid associated type qualifications.
     if domain.isSkolem {
       return ^MetatypeType(of: AssociatedTypeType(d, domain: domain, ast: program.ast))
     }
 
     // Associated type declarations shall not be referred to outside of a generic context.
-    if domain.base is TraitType {
+    else if domain.base is TraitType {
       report(.error(invalidReferenceToAssociatedType: d, at: diagnosticSite, in: program.ast))
       return uncheckedType(of: d)
     }
 
-    unreachable("unexpected associated type domain")
+    // Type aliases used a associated type qualification are erased.
+    else if let t = TypeAliasType(domain) {
+      return resolveType(
+        of: d, qualifiedBy: t.resolved, exposedTo: scopeOfUse,
+        reportingDiagnosticsAt: diagnosticSite)
+    }
+
+    // Other qualifications refer to conformances.
+    else {
+      return resolveType(
+        of: d, implementedBy: domain, forConformanceExposedTo: scopeOfUse,
+        reportingDiagnosticsAt: diagnosticSite)
+    }
+  }
+
+  /// Returns the generic type of a reference to `d`, which is implemented by `domain` for a
+  /// conformance exposed to `scopeOfUse`, reporting diagnostics at `diagnosticSite`.
+  ///
+  /// `domain` is notionally the subject of a conformance lens focusing on its conformance to the
+  /// trait that declared `d`.
+  private mutating func resolveType(
+    of d: AssociatedTypeDecl.ID, implementedBy domain: AnyType,
+    forConformanceExposedTo scopeOfUse: AnyScopeID,
+    reportingDiagnosticsAt diagnosticSite: SourceRange
+  ) -> AnyType {
+    let lens = traitDeclaring(d)!
+    if
+      let c = demandConformance(of: domain, to: lens, exposedTo: scopeOfUse),
+      let i = c.implementations[d]?.decl
+    {
+      return uncheckedType(of: i)
+    } else {
+      report(.error(domain, doesNotConformTo: lens, at: diagnosticSite))
+      return .error
+    }
   }
 
   /// Returns the generic type of a reference to `d`, found in `context`.

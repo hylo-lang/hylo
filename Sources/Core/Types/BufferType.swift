@@ -28,7 +28,7 @@ public struct BufferType: TypeProtocol {
 extension BufferType: CustomStringConvertible {
 
   public var description: String {
-    return "\(element)[\(count)]"
+    "\(element)[\(count)]"
   }
 
 }

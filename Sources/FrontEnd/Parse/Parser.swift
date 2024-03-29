@@ -99,6 +99,16 @@ public enum Parser {
     return translation
   }
 
+  /// Fails the parsing of the expected construct with the given diagnostic.
+  private static func fail(_ d: Diagnostic) throws -> Never {
+    throw [d] as DiagnosticSet
+  }
+
+  /// Fails the parsing of the expected construct with the given diagnostics.
+  private static func fail<C: Collection<Diagnostic>>(_ ds: C) throws -> Never {
+    throw DiagnosticSet(ds)
+  }
+
   // MARK: Declarations
 
   /// Parses a declaration prologue in `state` and then calls `continuation`.
@@ -259,7 +269,7 @@ public enum Parser {
       if prologue.isEmpty {
         return nil
       } else {
-        throw [.error(expected: "declaration", at: state.currentLocation)] as DiagnosticSet
+        try fail(.error(expected: "declaration", at: state.currentLocation))
       }
     }
 
@@ -345,17 +355,15 @@ public enum Parser {
 
     // Associated type declarations shall not have attributes.
     if !prologue.attributes.isEmpty {
-      throw DiagnosticSet(prologue.attributes.map(Diagnostic.error(unexpectedAttribute:)))
+      try fail(prologue.attributes.map(Diagnostic.error(unexpectedAttribute:)))
     }
 
     // Associated type declarations shall not have modifiers.
     if !prologue.accessModifiers.isEmpty {
-      throw DiagnosticSet(
-        prologue.accessModifiers.map(Diagnostic.error(unexpectedAccessModifier:)))
+      try fail(prologue.accessModifiers.map(Diagnostic.error(unexpectedAccessModifier:)))
     }
     if !prologue.memberModifiers.isEmpty {
-      throw DiagnosticSet(
-        prologue.memberModifiers.map(Diagnostic.error(unexpectedMemberModifier:)))
+      try fail(prologue.memberModifiers.map(Diagnostic.error(unexpectedMemberModifier:)))
     }
 
     // Create a new `AssociatedTypeDecl`.
@@ -383,17 +391,15 @@ public enum Parser {
 
     // Associated value declarations shall not have attributes.
     if !prologue.attributes.isEmpty {
-      throw DiagnosticSet(prologue.attributes.map(Diagnostic.error(unexpectedAttribute:)))
+      try fail(prologue.attributes.map(Diagnostic.error(unexpectedAttribute:)))
     }
 
     // Associated value declarations shall not have modifiers.
     if !prologue.accessModifiers.isEmpty {
-      throw DiagnosticSet(
-        prologue.accessModifiers.map(Diagnostic.error(unexpectedAccessModifier:)))
+      try fail(prologue.accessModifiers.map(Diagnostic.error(unexpectedAccessModifier:)))
     }
     if !prologue.memberModifiers.isEmpty {
-      throw DiagnosticSet(
-        prologue.memberModifiers.map(Diagnostic.error(unexpectedMemberModifier:)))
+      try fail(prologue.memberModifiers.map(Diagnostic.error(unexpectedMemberModifier:)))
     }
 
     // Create a new `AssociatedValueDecl`.
@@ -446,13 +452,12 @@ public enum Parser {
 
     // Conformance declarations shall not have attributes.
     if !prologue.attributes.isEmpty {
-      throw DiagnosticSet(prologue.attributes.map(Diagnostic.error(unexpectedAttribute:)))
+      try fail(prologue.attributes.map(Diagnostic.error(unexpectedAttribute:)))
     }
 
     // Conformance declarations shall not have member modifiers.
     if !prologue.memberModifiers.isEmpty {
-      throw DiagnosticSet(
-        prologue.memberModifiers.map(Diagnostic.error(unexpectedMemberModifier:)))
+      try fail(prologue.memberModifiers.map(Diagnostic.error(unexpectedMemberModifier:)))
     }
 
     // Create a new `ConformanceDecl`.
@@ -481,13 +486,12 @@ public enum Parser {
 
     // Extension declarations shall not have attributes.
     if !prologue.attributes.isEmpty {
-      throw DiagnosticSet(prologue.attributes.map(Diagnostic.error(unexpectedAttribute:)))
+      try fail(prologue.attributes.map(Diagnostic.error(unexpectedAttribute:)))
     }
 
     // Extension declarations shall not have member modifiers.
     if !prologue.memberModifiers.isEmpty {
-      throw DiagnosticSet(
-        prologue.memberModifiers.map(Diagnostic.error(unexpectedMemberModifier:)))
+      try fail(prologue.memberModifiers.map(Diagnostic.error(unexpectedMemberModifier:)))
     }
 
     // Create a new `ExtensionDecl`.
@@ -593,17 +597,17 @@ public enum Parser {
   ) throws -> MethodDecl.ID {
     // Method declarations cannot be static.
     if let modifier = prologue.memberModifiers.first(where: { (m) in m.value == .static }) {
-      throw [.error(unexpectedMemberModifier: modifier)] as DiagnosticSet
+      try fail(.error(unexpectedMemberModifier: modifier))
     }
 
     // Method declarations cannot have a receiver effect.
     if let effect = signature.receiverEffect {
-      throw [.error(unexpectedEffect: effect)] as DiagnosticSet
+      try fail(.error(unexpectedEffect: effect))
     }
 
     // Method declarations cannot have captures.
     if let capture = head.captures.first {
-      throw [.error(unexpectedCapture: state.ast[state.ast[capture].pattern])] as DiagnosticSet
+      try fail(.error(unexpectedCapture: state.ast[state.ast[capture].pattern]))
     }
 
     // Create a new `MethodDecl`.
@@ -632,17 +636,15 @@ public enum Parser {
 
     // Import declarations shall not have attributes.
     if !prologue.attributes.isEmpty {
-      throw DiagnosticSet(prologue.attributes.map(Diagnostic.error(unexpectedAttribute:)))
+      try fail(prologue.attributes.map(Diagnostic.error(unexpectedAttribute:)))
     }
 
     // Import declarations shall not have modifiers.
     if !prologue.accessModifiers.isEmpty {
-      throw DiagnosticSet(
-        prologue.accessModifiers.map(Diagnostic.error(unexpectedAccessModifier:)))
+      try fail(prologue.accessModifiers.map(Diagnostic.error(unexpectedAccessModifier:)))
     }
     if !prologue.memberModifiers.isEmpty {
-      throw DiagnosticSet(
-        prologue.memberModifiers.map(Diagnostic.error(unexpectedMemberModifier:)))
+      try fail(prologue.memberModifiers.map(Diagnostic.error(unexpectedMemberModifier:)))
     }
 
     // Create a new `ImportDecl`.
@@ -668,7 +670,7 @@ public enum Parser {
 
     // Init declarations cannot be static.
     if let modifier = prologue.memberModifiers.first(where: { (m) in m.value == .static }) {
-      throw [.error(unexpectedMemberModifier: modifier)] as DiagnosticSet
+      try fail(.error(unexpectedMemberModifier: modifier))
     }
 
     // Init declarations require an implicit receiver parameter.
@@ -703,7 +705,7 @@ public enum Parser {
 
     // Init declarations cannot be static.
     if let modifier = prologue.memberModifiers.first(where: { (m) in m.value == .static }) {
-      throw [.error(unexpectedMemberModifier: modifier)] as DiagnosticSet
+      try fail(.error(unexpectedMemberModifier: modifier))
     }
 
     // Init declarations require an implicit receiver parameter.
@@ -738,13 +740,12 @@ public enum Parser {
 
     // Namespace declarations shall not have attributes.
     if !prologue.attributes.isEmpty {
-      throw DiagnosticSet(prologue.attributes.map(Diagnostic.error(unexpectedAttribute:)))
+      try fail(prologue.attributes.map(Diagnostic.error(unexpectedAttribute:)))
     }
 
     // Namespace declarations shall not have member modifiers.
     if !prologue.memberModifiers.isEmpty {
-      throw DiagnosticSet(
-        prologue.memberModifiers.map(Diagnostic.error(unexpectedMemberModifier:)))
+      try fail(prologue.memberModifiers.map(Diagnostic.error(unexpectedMemberModifier:)))
     }
 
     // Create a new `NamespaceDecl`.
@@ -771,13 +772,12 @@ public enum Parser {
 
     // Operator declarations shall not have attributes.
     if !prologue.attributes.isEmpty {
-      throw DiagnosticSet(prologue.attributes.map(Diagnostic.error(unexpectedAttribute:)))
+      try fail(prologue.attributes.map(Diagnostic.error(unexpectedAttribute:)))
     }
 
     // Operator declarations shall not have member modifiers.
     if !prologue.memberModifiers.isEmpty {
-      throw DiagnosticSet(
-        prologue.memberModifiers.map(Diagnostic.error(unexpectedMemberModifier:)))
+      try fail(prologue.memberModifiers.map(Diagnostic.error(unexpectedMemberModifier:)))
     }
 
     // Create a new `OperatorDecl`.
@@ -966,7 +966,7 @@ public enum Parser {
 
     // Trait declarations shall not have attributes.
     if !prologue.attributes.isEmpty {
-      throw DiagnosticSet(prologue.attributes.map(Diagnostic.error(unexpectedAttribute:)))
+      try fail(prologue.attributes.map(Diagnostic.error(unexpectedAttribute:)))
     }
 
     // Synthesize the `Self` parameter of the trait.
@@ -1003,13 +1003,12 @@ public enum Parser {
 
     // Product type declarations shall not have attributes.
     if !prologue.attributes.isEmpty {
-      throw DiagnosticSet(prologue.attributes.map(Diagnostic.error(unexpectedAttribute:)))
+      try fail(prologue.attributes.map(Diagnostic.error(unexpectedAttribute:)))
     }
 
     // Product type declarations shall not have member modifiers.
     if !prologue.memberModifiers.isEmpty {
-      throw DiagnosticSet(
-        prologue.memberModifiers.map(Diagnostic.error(unexpectedMemberModifier:)))
+      try fail(prologue.memberModifiers.map(Diagnostic.error(unexpectedMemberModifier:)))
     }
 
     // Create a new `ProductTypeDecl`.
@@ -1030,32 +1029,34 @@ public enum Parser {
     in state: inout ParserState
   ) throws -> TypeAliasDecl.ID? {
     // Parse the parts of the declaration.
-    let parser =
-      (take(.typealias).and(take(.name))
-        .and(maybe(genericClause))
-        .and(take(.assign))
-        .and(expr))
-    guard let parts = try parser.parse(&state) else { return nil }
+    guard let introducer = state.take(.typealias) else { return nil }
+
+    let n = try state.token(state.expect("identifier", using: { $0.take(.name) }))
+    let g = try genericClause.parse(&state)
+    guard state.take(.assign) != nil else {
+      state.skipUntilNextDecl()
+      try fail(.error(declarationRequiresDefinitionAt: .empty(at: state.currentLocation)))
+    }
+    let e = try state.expect("type expression", using: parseExpr(in:))
 
     // Type alias declarations shall not have attributes.
     if !prologue.attributes.isEmpty {
-      throw DiagnosticSet(prologue.attributes.map(Diagnostic.error(unexpectedAttribute:)))
+      try fail(prologue.attributes.map(Diagnostic.error(unexpectedAttribute:)))
     }
 
     // Type alias declarations shall not have member modifiers.
     if !prologue.memberModifiers.isEmpty {
-      throw DiagnosticSet(
-        prologue.memberModifiers.map(Diagnostic.error(unexpectedMemberModifier:)))
+      try fail(prologue.memberModifiers.map(Diagnostic.error(unexpectedMemberModifier:)))
     }
 
     // Create a new `TypeAliasDecl`.
     return state.insert(
       TypeAliasDecl(
-        introducerSite: parts.0.0.0.0.site,
+        introducerSite: introducer.site,
         accessModifier: declAccessModifier(ofDeclPrologue: prologue, in: &state),
-        identifier: state.token(parts.0.0.0.1),
-        genericClause: parts.0.0.1,
-        aliasedType: parts.1,
+        identifier: n,
+        genericClause: g,
+        aliasedType: e,
         site: state.range(from: prologue.startIndex)))
   }
 
@@ -1283,7 +1284,7 @@ public enum Parser {
       return (label: name, name: name)
     }
 
-    throw [.error(expected: "parameter name", at: labelCandidate.site.start)] as DiagnosticSet
+    try fail(.error(expected: "parameter name", at: labelCandidate.site.start))
   }
 
   static let memberModifier =
@@ -1633,7 +1634,7 @@ public enum Parser {
       return AnyExprID(e)
     }
 
-    throw [.error(expected: "member name", at: state.currentLocation)] as DiagnosticSet
+    try fail(.error(expected: "member name", at: state.currentLocation))
   }
 
   private static func parsePrimaryExpr(in state: inout ParserState) throws -> AnyExprID? {
@@ -1801,7 +1802,7 @@ public enum Parser {
     case "line":
       result = .line
     case let n:
-      throw [.error(unknownPragma: n, at: t.site)] as DiagnosticSet
+      try fail(.error(unknownPragma: n, at: t.site))
     }
 
     return state.insert(PragmaLiteralExpr(result, at: t.site))
@@ -1951,7 +1952,7 @@ public enum Parser {
 
     // The notation must be immediately followed by an operator identifier.
     if state.hasLeadingWhitespace {
-      throw [.error(expected: "operator", at: state.currentLocation)] as DiagnosticSet
+      try fail(.error(expected: "operator", at: state.currentLocation))
     }
     let identifier = try state.expect("operator", using: { $0.takeOperator() })
 
@@ -2923,11 +2924,7 @@ public enum Parser {
     }
 
     if state.ast[d].initializer == nil {
-      throw [
-        .error(
-          "conditional binding requires an initializer",
-          at: state.ast[d].site)
-      ] as DiagnosticSet
+      try fail(.error("conditional binding requires an initializer", at: state.ast[d].site))
     }
 
     let fallback = try state.expect("fallback", using: conditionalBindingFallback)
@@ -3031,8 +3028,7 @@ public enum Parser {
         fallback = [try parseCompilerConditionTail(head: head2, in: &state)]
       }
     } else {
-      throw [.error(expected: "statement, #endif, #else or #elseif", at: state.currentLocation)]
-        as DiagnosticSet
+      try fail(.error(expected: "statement, #endif, #else or #elseif", at: state.currentLocation))
     }
 
     let r = state.insert(
@@ -3100,7 +3096,7 @@ public enum Parser {
       if state.token(op).value == "!" {
         return .not(try parseCompilerCondition(in: &state))
       } else {
-        throw [.error(expected: "compiler condition", at: state.currentLocation)] as DiagnosticSet
+        try fail(.error(expected: "compiler condition", at: state.currentLocation))
       }
     }
 
@@ -3134,8 +3130,7 @@ public enum Parser {
             .and(take(.rParen)).first  // => (SourceRepresentable<Identifier>, SemanticVersion)
           )
         guard let p = try parser.parse(&state) else {
-          throw [.error(expected: "version number comparison", at: state.currentLocation)]
-            as DiagnosticSet
+          try fail(.error(expected: "version number comparison", at: state.currentLocation))
         }
         let comparison: ConditionalCompilationStmt.VersionComparison
         switch p.0.value {
@@ -3144,7 +3139,7 @@ public enum Parser {
         case "<":
           comparison = .less(p.1)
         default:
-          throw [.error(expected: "'>=' or '<'", at: p.0.site.start)] as DiagnosticSet
+          try fail(.error(expected: "'>=' or '<'", at: p.0.site.start))
         }
         switch conditionName {
         case "compiler_version":
@@ -3163,7 +3158,7 @@ public enum Parser {
             .and(take(.rParen)).first  // => String
           )
         guard let id = try parser.parse(&state) else {
-          throw [.error(expected: "identifier", at: state.currentLocation)] as DiagnosticSet
+          try fail(.error(expected: "identifier", at: state.currentLocation))
         }
         switch conditionName {
         case "os": return .operatingSystem(id)
@@ -3171,11 +3166,11 @@ public enum Parser {
         case "feature": return .feature(id)
         case "compiler": return .compiler(id)
         default:
-          throw [.error(expected: "compiler condition", at: state.currentLocation)] as DiagnosticSet
+          try fail(.error(expected: "compiler condition", at: state.currentLocation))
         }
       }
     } else {
-      throw [.error(expected: "compiler condition", at: state.currentLocation)] as DiagnosticSet
+      try fail(.error(expected: "compiler condition", at: state.currentLocation))
     }
   }
 
@@ -3188,7 +3183,7 @@ public enum Parser {
     if let converted = NameExpr.ID(expr) {
       return converted
     } else {
-      throw [.error(expected: "name", at: state.ast[expr].site.start)] as DiagnosticSet
+      try fail(.error(expected: "name", at: state.ast[expr].site.start))
     }
   }
 
@@ -3301,7 +3296,7 @@ public enum Parser {
           range: state.ast[lhs].site.extended(upTo: state.currentIndex))
       }
 
-      throw [.error(expected: "constraint operator", at: state.currentLocation)] as DiagnosticSet
+      try fail(.error(expected: "constraint operator", at: state.currentLocation))
     }))
 
   static let valueConstraint =

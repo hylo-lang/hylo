@@ -794,12 +794,38 @@ extension SwiftyLLVM.Module {
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(constantString i: IR.InstructionID) {
       let s = m[i] as! ConstantString
-      let v = SwiftyLLVM.ArrayConstant(bytes: s.value, in: &self)
-      let d = declareGlobalVariable(UUID().uuidString, v.type)
-      setInitializer(v, for: d)
-      setLinkage(.private, for: d)
-      setGlobalConstant(true, for: d)
-      register[.register(i)] = d
+      let count = s.value.count
+
+      // Contents fit inline storage.
+      if count <= 7 {
+        var units = UInt64(truncatingIfNeeded: count) << 2
+        withUnsafeMutableBytes(of: &units) { (buffer) in
+          let payload = UnsafeMutableBufferPointer(
+            rebasing: buffer.assumingMemoryBound(to: UInt8.self)[1...])
+          _ = payload.initialize(from: s.value)
+        }
+        register[.register(i)] = i64.constant(units)
+      }
+
+      // Contents require out-of-line storage.
+      else {
+        let w = word()
+
+        let payload = SwiftyLLVM.ArrayConstant(bytes: s.value, in: &self)
+        let storageType = StructType([w, w, payload.type], in: &self)
+        let storageValue = storageType.constant(
+          aggregating: [w(count), w(count), payload] as [IRValue],
+          in: &self)
+
+        let storage = declareGlobalVariable(UUID().uuidString, storageType)
+        setInitializer(storageValue, for: storage)
+        setLinkage(.private, for: storage)
+        setGlobalConstant(true, for: storage)
+
+        let x0 = insertPtrToInt(storage, to: i64, at: insertionPoint)
+        let x1 = insertBitwiseOr(x0, i64(0b11), at: insertionPoint)
+        register[.register(i)] = x1
+      }
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.

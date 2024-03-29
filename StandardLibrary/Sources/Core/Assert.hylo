@@ -1,0 +1,67 @@
+/// Unconditionally stops execution.
+///
+/// - Parameters:
+///   - message: A description of the error to write to the standard error of a hosted environment
+///     before terminating the program. The default is an empty string.
+///   - file: The file name to print with `message`. The default is the file where this function
+///     is called.
+///   - line: The line number to print along with message. The default is the line where this
+///     function is called.
+public fun fatal_error(
+  _ message: String = "", file: String = #file, line: Int = #line
+) -> Never {
+  log_failure_description("fatal error", message, in: file, at: line)
+  trap()
+}
+
+/// Checks a necessary condition for making forward progress.
+///
+/// - Parameters:
+///   - condition: The condition to test.
+///   - message: A description of the error to write to the standard error of a hosted environment
+///     before terminating the program if the precondition fails. The default is an empty string.
+///   - file: The file name to print with `message` if the precondition fails. The default is the
+///     file where this function is called.
+///   - line: The line number to print along with message if the precondition fails. The default is
+///     the line where this function is called.
+public fun precondition(
+  _ condition: Bool, _ message: String = "", file: String = #file, line: Int = #line
+) {
+  if condition { return }
+  log_failure_description("precondition failure", message, in: file, at: line)
+  trap()
+}
+
+/// Logs to the standard error a description of a failure with the given properties iff the program
+/// is built for executing in a hosted environment.
+fun log_failure_description(_ title: String, _ message: String, in file: String, at line: Int) {
+  // TODO: select the standard error
+  #if !feature(freestanding)
+    print(file, terminator: ":")
+    print(line, terminator: ": ")
+    if message.is_empty() {
+      print(title)
+    } else {
+      print(title, terminator: ": ")
+      print(message)
+    }
+  #endif
+}
+
+/// Terminates the program abnormally.
+///
+/// This function calls `abort` in a hosted environment or `halt` in free-standing mode.
+fun trap() -> Never {
+  #if feature(freestanding)
+    halt()
+  #else
+    abort()
+  #endif
+}
+
+/// Halts the execution of the program.
+///
+/// The definition of this function is provided at linking time for use in free-standing mode.
+/// Programs built for a hosted environment must not call it `halt` and use `trap` instead.
+@external("halt")
+fun halt() -> Never

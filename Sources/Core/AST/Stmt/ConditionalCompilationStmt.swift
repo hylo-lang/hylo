@@ -71,12 +71,18 @@ public struct ConditionalCompilationStmt: Stmt {
     /// Returns `true` iff `self` holds for the current process.
     public func holds(for factors: ConditionalCompilationFactors) -> Bool {
       switch self {
-      case .`true`: return true
-      case .`false`: return false
-      case .operatingSystem(let id): return id == factors.operatingSystem.description
-      case .architecture(let id): return id == factors.architecture.description
-      case .feature(let id): return id == "freestanding" && factors.freestanding
-      case .compiler(let id): return id == "hc"
+      case .`true`:
+        return true
+      case .`false`:
+        return false
+      case .operatingSystem(let id):
+        return id == factors.operatingSystem.description
+      case .architecture(let id):
+        return id == factors.architecture.description
+      case .feature(let id):
+        return id == "freestanding" && factors.freestanding
+      case .compiler(let id):
+        return id == "hc"
       case .compilerVersion(let comparison):
         return comparison.evaluate(for: factors.compilerVersion)
       case .hyloVersion(let comparison):
@@ -109,11 +115,7 @@ public struct ConditionalCompilationStmt: Stmt {
 
   /// Returns the statements that this expands to.
   public func expansion(for factors: ConditionalCompilationFactors) -> [AnyStmtID] {
-    if condition.holds(for: factors) {
-      return stmts
-    } else {
-      return fallback
-    }
+    condition.holds(for: factors) ? stmts : fallback
   }
 
 }

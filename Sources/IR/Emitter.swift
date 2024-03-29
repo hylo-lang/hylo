@@ -1112,11 +1112,11 @@ struct Emitter {
   }
 
   private mutating func emit(breakStmt s: BreakStmt.ID) -> ControlFlow {
-    return .break(s)
+    .break(s)
   }
 
   private mutating func emit(condCompilationStmt s: ConditionalCompilationStmt.ID) -> ControlFlow {
-    return emit(stmtList: ast[s].expansion(for: ast.compilationConditions))
+    emit(stmtList: ast[s].expansion(for: ast.compilationConditions))
   }
 
   private mutating func emit(conditionalStmt s: ConditionalStmt.ID) -> ControlFlow {
@@ -1848,14 +1848,11 @@ struct Emitter {
   ///
   /// - Requires: `storage` is the address of uninitialized memory of type `Hylo.String`.
   private mutating func emitStore(string v: String, to storage: Operand, at site: SourceRange) {
-    let bytes = v.unescaped.data(using: .utf8)!
-
-    let x0 = emitSubfieldView(storage, at: [0], at: site)
-    emitStore(int: bytes.count, to: x0, at: site)
-
-    let x1 = emitSubfieldView(storage, at: [1, 0], at: site)
-    let x2 = insert(module.makeConstantString(utf8: bytes, at: site))!
-    emitInitialize(storage: x1, to: x2, at: site)
+    let x0 = insert(module.makeConstantString(utf8: v.unescaped.data(using: .utf8)!, at: site))!
+    let x1 = emitSubfieldView(storage, at: [0, 0], at: site)
+    let x2 = insert(module.makeAccess(.set, from: x1, at: site))!
+    insert(module.makeStore(x0, at: x2, at: site))
+    insert(module.makeEndAccess(x2, at: site))
   }
 
   /// Inserts the IR for storing `a`, which is an `access`, to `storage`.
@@ -2028,8 +2025,9 @@ struct Emitter {
     }
 
     let x0 = emitLValue(e)
-    let x1 = emitCoerce(x0, to: p.bareType, at: anchor)
-    return insert(module.makeAccess(p.access, from: x1, at: anchor))!
+    let x1 = unwrapCapture(x0, at: anchor)
+    let x2 = emitCoerce(x1, to: p.bareType, at: anchor)
+    return insert(module.makeAccess(p.access, from: x2, at: anchor))!
   }
 
   /// Inserts the IR for argument `e` passed to an autoclosure parameter of type `p`.
@@ -2089,7 +2087,8 @@ struct Emitter {
       emitStore(e, to: storage)
 
     case .leaf(let e):
-      storage = emitLValue(e)
+      let x0 = emitLValue(e)
+      storage = unwrapCapture(x0, at: program[e].site)
     }
 
     return insert(module.makeAccess(access, from: storage, at: ast.site(of: e)))!
@@ -2410,6 +2409,16 @@ struct Emitter {
     let x2 = insert(module.makeLoad(x1, at: site))!
     insert(module.makeEndAccess(x1, at: site))
     return x2
+  }
+
+  /// If `s` has a remote type, returns the result of an instruction exposing the captured access.
+  /// Otherwise, returns `s` as is.
+  private mutating func unwrapCapture(_ s: Operand, at site: SourceRange) -> Operand {
+    if module.type(of: s).ast.base is RemoteType {
+      return insert(module.makeOpenCapture(s, at: site))!
+    } else {
+      return s
+    }
   }
 
   /// Inserts the IR for coercing `source` to an address of type `target`.

@@ -308,6 +308,11 @@ struct ParserState {
     while take(if: predicate) != nil {}
   }
 
+  /// Consumes tokens until the first one that may be at the start of a declaration.
+  mutating func skipUntilNextDecl() {
+    skip(while: { (next) in !next.mayBeginDecl })
+  }
+
   /// Inserts `n` into `self.ast`, accumulating any diagnostics in `self.diagnostics`.
   mutating func insert<T: Node>(_ n: T) -> T.ID {
     ast.insert(n, diagnostics: &diagnostics)

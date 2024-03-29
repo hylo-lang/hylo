@@ -79,7 +79,7 @@ extension Diagnostic {
     memberModifier member: SourceRepresentable<MemberModifier>,
     appearsBeforeAccessModifier access: SourceRepresentable<AccessModifier>
   ) -> Diagnostic {
-    return .error(
+    .error(
       "member modifier '\(member.value)' must appear after access modifier '\(access.value)'",
       at: member.site)
   }
@@ -114,6 +114,10 @@ extension Diagnostic {
     illegalAccessModifierForImplicitParameter e: SourceRepresentable<AccessEffect>
   ) -> Diagnostic {
     .error("'\(e.value)'-parameter cannot be implicit", at: e.site)
+  }
+
+  static func error(declarationRequiresDefinitionAt site: SourceRange) -> Diagnostic {
+    .error("declaration requires definition", at: site)
   }
 
 }

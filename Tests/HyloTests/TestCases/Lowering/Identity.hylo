@@ -1,7 +1,7 @@
 //- lowerToFinishedIR expecting: success
 
 fun identity<T: Movable>(_ x: sink T) -> T {
-  return x
+  x
 }
 
 public fun main() {
