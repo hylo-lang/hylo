@@ -116,4 +116,8 @@ extension Diagnostic {
     .error("'\(e.value)'-parameter cannot be implicit", at: e.site)
   }
 
+  static func error(declarationRequiresDefinitionAt site: SourceRange) -> Diagnostic {
+    .error("declaration requires definition", at: site)
+  }
+
 }

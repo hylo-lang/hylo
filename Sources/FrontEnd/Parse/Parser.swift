@@ -1030,12 +1030,16 @@ public enum Parser {
     in state: inout ParserState
   ) throws -> TypeAliasDecl.ID? {
     // Parse the parts of the declaration.
-    let parser =
-      (take(.typealias).and(take(.name))
-        .and(maybe(genericClause))
-        .and(take(.assign))
-        .and(expr))
-    guard let parts = try parser.parse(&state) else { return nil }
+    guard let introducer = state.take(.typealias) else { return nil }
+
+    let n = try state.token(state.expect("identifier", using: { $0.take(.name) }))
+    let g = try genericClause.parse(&state)
+    guard state.take(.assign) != nil else {
+      state.skipUntilNextDecl()
+      let d = Diagnostic.error(declarationRequiresDefinitionAt: .empty(at: state.currentLocation))
+      throw [d] as DiagnosticSet
+    }
+    let e = try state.expect("type expression", using: parseExpr(in:))
 
     // Type alias declarations shall not have attributes.
     if !prologue.attributes.isEmpty {
@@ -1051,11 +1055,11 @@ public enum Parser {
     // Create a new `TypeAliasDecl`.
     return state.insert(
       TypeAliasDecl(
-        introducerSite: parts.0.0.0.0.site,
+        introducerSite: introducer.site,
         accessModifier: declAccessModifier(ofDeclPrologue: prologue, in: &state),
-        identifier: state.token(parts.0.0.0.1),
-        genericClause: parts.0.0.1,
-        aliasedType: parts.1,
+        identifier: n,
+        genericClause: g,
+        aliasedType: e,
         site: state.range(from: prologue.startIndex)))
   }
 
