@@ -1015,6 +1015,13 @@ struct TypeChecker {
     if let e = program[d].defaultValue {
       guard let p = uncheckedType(of: d).errorFree else { return }
       _ = checkedType(of: e, asArgumentTo: ParameterType(p)!)
+
+      var w = RecursiveReferenceRecognizer(
+        targets: program.siblings(of: d), referredDecl: cache.local.referredDecl)
+      program.ast.walk(e, notifying: &w)
+      for r in w.recursiveReferences {
+        report(.error(referenceToSibling: r, in: program.ast))
+      }
     }
   }
 
@@ -2188,8 +2195,12 @@ struct TypeChecker {
   ) -> AnyType {
     // Check for infinite recursion.
     if let t = cache.uncheckedType[d] {
-      guard let u = t.computed else { fatalError("infinite recursion") }
-      return u
+      if let u = t.computed {
+        return u
+      } else {
+        report(.error(recursiveDefinition: AnyDeclID(d), in: program.ast))
+        return .error
+      }
     } else {
       cache.uncheckedType[d] = .inProgress
     }
@@ -4336,8 +4347,6 @@ struct TypeChecker {
       return resolveReceiverMetatype(in: ProductTypeDecl.ID(scopeOfUse)!)
     case TraitDecl.self:
       return resolveReceiverMetatype(in: TraitDecl.ID(scopeOfUse)!)
-    case TypeAliasDecl.self:
-      return resolveReceiverMetatype(in: TypeAliasDecl.ID(scopeOfUse)!)
     case ModuleDecl.self:
       return nil
     default:
@@ -6458,6 +6467,27 @@ struct TypeChecker {
       self.apply = apply
     }
 
+  }
+
+}
+
+/// An AST visitation callback that collects recursive references to specific declarations.
+private struct RecursiveReferenceRecognizer: ASTWalkObserver {
+
+  /// The declarations to consider while looking for cycles.
+  let targets: [AnyDeclID]
+
+  /// A map from name expression to its referred declaration.
+  let referredDecl: BindingMap
+
+  /// The recursive references that have been found.
+  var recursiveReferences: [NameExpr.ID] = []
+
+  mutating func willEnter(_ n: AnyNodeID, in ast: AST) -> Bool {
+    if let e = NameExpr.ID(n), let d = referredDecl[e]?.decl, targets.contains(d) {
+      recursiveReferences.append(e)
+    }
+    return true
   }
 
 }

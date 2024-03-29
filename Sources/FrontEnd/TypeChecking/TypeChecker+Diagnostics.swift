@@ -378,6 +378,14 @@ extension Diagnostic {
       notes: ds.map { (d) in .note("'\(n.value)' declared here", at: ast[d].site) })
   }
 
+  static func error(recursiveDefinition d: AnyDeclID, in ast: AST) -> Diagnostic {
+    .error("definition recursively depends on itself", at: ast.siteForDiagnostics(about: d))
+  }
+
+  static func error(referenceToSibling e: NameExpr.ID, in ast: AST) -> Diagnostic {
+    .error("default value cannot refer to a sibling capture or parameter", at: ast[e].site)
+  }
+
   static func warning(needlessImport d: ImportDecl.ID, in ast: AST) -> Diagnostic {
     let s = ast[d].identifier
     return .warning("needless import: source file is part of '\(s.value)'", at: s.site)
