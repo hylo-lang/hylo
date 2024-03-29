@@ -2188,8 +2188,12 @@ struct TypeChecker {
   ) -> AnyType {
     // Check for infinite recursion.
     if let t = cache.uncheckedType[d] {
-      guard let u = t.computed else { fatalError("infinite recursion") }
-      return u
+      if let u = t.computed {
+        return u
+      } else {
+        report(.error(recursiveDefinition: AnyDeclID(d), in: program.ast))
+        return .error
+      }
     } else {
       cache.uncheckedType[d] = .inProgress
     }
