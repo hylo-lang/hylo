@@ -73,14 +73,6 @@ The Hylo repository files are mounted into the container, so any changes made lo
 This project is under active development; expect things to break and APIs to change.
 
 The compiler pipeline is organized as below.
-Incidentally, early stages of this pipeline are more stable than later ones.
-*(Note: completion percentages are very rough estimations.)*
-1. Parsing (100%)
-2. Type checking (50%)
-3. IR lowering (30%)
-4. IR analysis and transformations (30%)
-5. Machine code generation (20%)
-
 You can select how deep the compiler should go through the pipeline with the following options:
 - `--emit raw-ast`: Only parse the input files and output an untyped AST as a JSON file.
 - `--typecheck`: Run the type checker on the input.
