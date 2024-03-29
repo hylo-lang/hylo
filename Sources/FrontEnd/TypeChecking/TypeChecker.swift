@@ -4347,8 +4347,6 @@ struct TypeChecker {
       return resolveReceiverMetatype(in: ProductTypeDecl.ID(scopeOfUse)!)
     case TraitDecl.self:
       return resolveReceiverMetatype(in: TraitDecl.ID(scopeOfUse)!)
-    case TypeAliasDecl.self:
-      return resolveReceiverMetatype(in: TypeAliasDecl.ID(scopeOfUse)!)
     case ModuleDecl.self:
       return nil
     default:
