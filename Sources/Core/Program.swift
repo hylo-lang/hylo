@@ -156,6 +156,42 @@ extension Program {
     AnyDeclID(nodeToScope[s]!)?.isCallable ?? false
   }
 
+  /// Returns `d` and the parameters and explicit captures introduced in the same scope.
+  public func siblings(of d: ParameterDecl.ID) -> [AnyDeclID] {
+    parametersAndCaptures(inBodyOf: AnyDeclID(nodeToScope[d]!)!)
+  }
+
+  /// Returns the parameters and explicit captures introduced in the body of `d`.
+  private func parametersAndCaptures(inBodyOf d: AnyDeclID) -> [AnyDeclID] {
+    let cs: [BindingDecl.ID]
+    let ps: [ParameterDecl.ID]
+
+    switch d.kind {
+    case FunctionDecl.self:
+      let f = FunctionDecl.ID(d)!
+      (cs, ps) = (ast[f].explicitCaptures, ast[f].parameters)
+    case SubscriptDecl.self:
+      let f = SubscriptDecl.ID(d)!
+      (cs, ps) = (ast[f].explicitCaptures, ast[f].parameters)
+    case InitializerDecl.self:
+      (cs, ps) = ([], ast[InitializerDecl.ID(d)!].parameters)
+    case MethodDecl.self:
+      (cs, ps) = ([], ast[MethodDecl.ID(d)!].parameters)
+    case MethodImpl.self, SubscriptImpl.self:
+      return parametersAndCaptures(inBodyOf: AnyDeclID(nodeToScope[d]!)!)
+    default:
+      return []
+    }
+
+    var r = ps.map(AnyDeclID.init(_:))
+    for b in cs {
+      for (_, n) in ast.names(in: ast[b].pattern) {
+        r.append(AnyDeclID(ast[n].decl))
+      }
+    }
+    return r
+  }
+
   /// Returns `true` iff `d` is at module scope.
   public func isAtModuleScope<T: DeclID>(_ d: T) -> Bool {
     switch nodeToScope[d]!.kind {
