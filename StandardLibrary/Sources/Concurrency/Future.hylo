@@ -45,34 +45,34 @@ public type Future<E: Movable & Deinitializable> {
 
 }
 
-/// Describes the frame needed to spawn a computation. Mimics the C implementation.
-type SpawnFrameBase: Deinitializable, Movable {
+/// Describes the frame needed to spawn a computation.
+///
+/// Needs to have the same size and the same alignment as the C implementation.
+/// That is, 10 pointers, with the alignment of a pointer.
+public type SpawnFrameBase: Deinitializable, Movable {
 
-  let task_function: MemoryAddress
-
-  let next_task: MemoryAddress
-
-  let sync_state: Int32
-
-  let originator_context: MemoryAddress
-
-  let originator_thread_reclaimer: MemoryAddress
-
-  let target_context: MemoryAddress
-
-  let target_thread_reclaimer: MemoryAddress
-
-  let user_function: MemoryAddress
+  let p1: MemoryAddress
+  let p2: MemoryAddress
+  let p3: MemoryAddress
+  let p4: MemoryAddress
+  let p5: MemoryAddress
+  let p6: MemoryAddress
+  let p7: MemoryAddress
+  let p8: MemoryAddress
+  let p9: MemoryAddress
+  let p10: MemoryAddress
 
   public init() {
-    &self.task_function = .null()
-    &self.next_task = .null()
-    &self.sync_state = 0
-    &self.originator_context = .null()
-    &self.originator_thread_reclaimer = .null()
-    &self.target_context = .null()
-    &self.target_thread_reclaimer = .null()
-    &self.user_function = .null()
+    &self.p1 = .null()
+    &self.p2 = .null()
+    &self.p3 = .null()
+    &self.p4 = .null()
+    &self.p5 = .null()
+    &self.p6 = .null()
+    &self.p7 = .null()
+    &self.p8 = .null()
+    &self.p9 = .null()
+    &self.p10 = .null()
   }
 
 }
