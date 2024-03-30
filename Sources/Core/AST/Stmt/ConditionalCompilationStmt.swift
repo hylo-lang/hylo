@@ -102,6 +102,7 @@ public struct ConditionalCompilationStmt: Stmt {
     /// A conjunction of conditions.
     case and(ConditionTree, ConditionTree)
 
+    /// A disjunction of conditions.
     case or(ConditionTree, ConditionTree)
 
     public enum ConditionKind: String {
