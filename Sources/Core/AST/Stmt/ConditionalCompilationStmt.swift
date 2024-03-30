@@ -99,6 +99,7 @@ public struct ConditionalCompilationStmt: Stmt {
 
     case operand(Condition)
 
+    /// A conjunction of conditions.
     case and(ConditionTree, ConditionTree)
 
     case or(ConditionTree, ConditionTree)
