@@ -148,7 +148,7 @@ public struct ConditionalCompilationStmt: Stmt {
       self.unroll(for: factors, conditionCase: ConditionKind.skipElse)
     }
 
-    /// Return `true` iff the the full condition is satisfied.
+    /// Returns `true` iff the the condition is satisfied.
     fileprivate func holds(for factors: ConditionalCompilationFactors) -> Bool {
       self.unroll(for: factors, conditionCase: ConditionKind.holdOnly)
     }
