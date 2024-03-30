@@ -170,16 +170,20 @@ fun testNot() {
 }
 
 fun testMultipleOperandConditions() {
-  #if arch(arm64) && false
-    let a = 1
+  #if os(windows)
+    <something that would not be parsed>
+  #elseif !arch(arm64) && !true
+    <something that would not be parsed>
+  #elseif arch(arm64) && false || !true || false
+    <something that would not be parsed>
   #elseif os(windows) || os(linux)
-    let b = 2
-  #elseif arch(x86_64) || arch(arm64) && !false
-    let c = 3
+    <something that would not be parsed>
+  #elseif arch(x86_64) || arch(arm64) && true || false
+    let message = "arm64 or x86_64"
   #else
-    let d = 4
+    <something that would not be parsed>
   #endif
-  use(c)
+  use(message)
 }
 
 public fun main() {
