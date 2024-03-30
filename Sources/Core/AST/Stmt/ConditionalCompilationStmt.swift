@@ -138,7 +138,7 @@ public struct ConditionalCompilationStmt: Stmt {
       }
     }
 
-    /// Return `true` iff the the full condition is satisfied.
+    /// Returns `true` iff the condition is satisfied.
     public func mustSkipMainBranch(for factors: ConditionalCompilationFactors) -> Bool {
       self.unroll(for: factors, conditionCase: ConditionKind.skipMain)
     }
