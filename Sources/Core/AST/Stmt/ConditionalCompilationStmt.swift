@@ -106,9 +106,13 @@ public struct ConditionalCompilationStmt: Stmt {
     case or(ConditionTree, ConditionTree)
 
     public enum ConditionKind: String {
+
       case holdOnly
+
       case skipMain
+
       case skipElse
+
     }
 
     /// Visit the SequenceCondition tail to calculate the right case for executing the right branch.
