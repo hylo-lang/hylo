@@ -94,7 +94,7 @@ public struct ConditionalCompilationStmt: Stmt {
 
   }
 
-  /// Abstracts the whole condition structure and its sub-conditions.
+  /// A condition in a conditional compilation statement expressed as a composition of predicates.
   public indirect enum ConditionTree: Codable {
 
     case operand(Condition)
