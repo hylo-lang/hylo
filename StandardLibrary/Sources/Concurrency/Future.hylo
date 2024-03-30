@@ -4,6 +4,54 @@ public type Future<E: Movable & Deinitializable> {
   // TODO
   public typealias Result = Int
 
+  /// The underlying frame object that is used to connect the spawned computation with the await point.
+  private var frame: SpawnFrame<E>
+
+  /// Initializes `self` with `f`, and spawns the computation.
+  public init(_ f: sink [E]() -> Int) {
+    SpawnFrame<E>.`init`(self: &self.frame, f)
+  }
+
+  /// Awaits the result of the computation.
+  ///
+  /// - Note: May return on a different OS thread than the one that called this.
+  public fun await() sink -> Result {
+    return self.frame.await()
+  }
+
+}
+
+/// A future that can escape the local scope.
+public type EscapingFuture<E: Movable & Deinitializable>: Movable {
+
+  // TODO
+  public typealias Result = Int
+
+  /// The underlying frame object that is used to connect the spawned computation with the await point.
+  private var frame: PointerToMutable<SpawnFrame<E>>
+
+  /// Initializes `self` with `f`, and spawns the computation.
+  public init(_ f: sink [E]() -> Int) {
+    &self.frame = SpawnFrame<E>.allocate(f)
+  }
+
+  /// Awaits the result of the computation.
+  ///
+  /// - Note: May return on a different OS thread than the one that called this.
+  public fun await() sink -> Result {
+    let r = (&frame.unsafe[]).await()
+    frame.deallocate()
+    return r
+  }
+
+}
+
+/// Describes the frame needed to spawn a computation.
+///
+/// This object will be shared between the spawned computation (e.g., as it will store the result
+/// here), and the await call (e.g., to extract the result from here).
+internal type SpawnFrame<E: Movable & Deinitializable>: Deinitializable {
+
   /// The base frame object needed by the underlying implementation.
   private var base_frame: SpawnFrameBase
 
@@ -14,14 +62,14 @@ public type Future<E: Movable & Deinitializable> {
   private var r: Optional<Int>
 
   /// Initializes `self` with `f`, and spawns the computation.
-  public init(_ f: sink [E]() -> Int) {
+  internal init(_ f: sink [E]() -> Int) {
     &self.base_frame = .new()
     &self.f = f
     &self.r = .none()
 
     let local_f = fun (_ frame: inout SpawnFrameBase) -> Void {
       var this = PointerToMutable<Self>(type_punning: mutable_pointer[to: &frame])
-      &this.unsafe[].do_call()
+      &this.unsafe[].r = this.unsafe[].f() as _
     }
     concore2full_spawn2(&self.base_frame, local_f)
   }
@@ -29,18 +77,22 @@ public type Future<E: Movable & Deinitializable> {
   /// Awaits the result of the computation.
   ///
   /// - Note: May return on a different OS thread than the one that called this.
-  public fun await() sink -> Result {
+  internal fun await() inout -> Int {
     concore2full_await(self.base_frame)
-
     if let r: Int = self.r {
-      return r.copy()
+      let copy = r.copy()
+      &self.r = .none()
+      return copy
     } else {
       fatal_error()
     }
   }
 
-  private fun do_call() inout {
-    &r = self.f() as _
+  /// Allocate an object of `Self` on the heap and initialize it with `f`.
+  internal static fun allocate(_ f: sink [E]() -> Int) -> PointerToMutable<Self> {
+    let p: PointerToMutable<Self> = .allocate(count: 1)
+    Self.`init`(self: &p.unsafe[], f)
+    return p
   }
 
 }
@@ -82,8 +134,8 @@ public type SpawnFrameBase: Deinitializable, Movable {
 
 /// Spawns the execution of `f` using control data `frame`.
 @external("concore2full_spawn2")
-fun concore2full_spawn2(_ frame: set SpawnFrameBase, _ f: [](inout SpawnFrameBase) let -> Void);
+internal fun concore2full_spawn2(_ frame: set SpawnFrameBase, _ f: [](inout SpawnFrameBase) let -> Void);
 
 /// Awaits the completion of the computation started in `frame`.
 @external("concore2full_await")
-fun concore2full_await(_ frame: SpawnFrameBase);
+internal fun concore2full_await(_ frame: SpawnFrameBase);
