@@ -143,7 +143,7 @@ public struct ConditionalCompilationStmt: Stmt {
       self.unroll(for: factors, conditionCase: ConditionKind.skipMain)
     }
 
-    /// Return `true` iff the the full condition is unsatisfied.
+    /// Returns `true` iff the condition is not unsatisfied.
     public func mustSkipElseBranch(for factors: ConditionalCompilationFactors) -> Bool {
       self.unroll(for: factors, conditionCase: ConditionKind.skipElse)
     }
