@@ -94,11 +94,14 @@ public struct ConditionalCompilationStmt: Stmt {
 
   }
 
-  /// A sequence of structured conditions to elaborate a 1 to N operand compilation condition
-  public indirect enum SequenceCondition: Codable {
+  /// Abstracts the whole condition structure and its sub-conditions.
+  public indirect enum ConditionTree: Codable {
+
     case operand(Condition)
-    case and(Condition, SequenceCondition)
-    case or(Condition, SequenceCondition)
+
+    case and(ConditionTree, ConditionTree)
+
+    case or(ConditionTree, ConditionTree)
 
     public enum ConditionKind: String {
       case holdOnly
@@ -106,34 +109,21 @@ public struct ConditionalCompilationStmt: Stmt {
       case skipElse
     }
 
-    /// Visit the SequenceCondition tail to calculate the right case for executing the right branch
-    private func unroll(for factors: ConditionalCompilationFactors, condCase: ConditionKind) -> Bool
-    {
+    /// Visit the SequenceCondition tail to calculate the right case for executing the right branch.
+    private func unroll(
+      for factors: ConditionalCompilationFactors, conditionCase: ConditionKind
+    ) -> Bool {
       switch self {
-      case .and(let cond, let seq):
-        switch condCase {
-        case .holdOnly:
-          return cond.holds(for: factors) && seq.unroll(for: factors, condCase: condCase)
-        case .skipMain:
-          return cond.mayNotNeedParsing && !cond.holds(for: factors)
-            && seq.unroll(for: factors, condCase: condCase)
-        case .skipElse:
-          return cond.mayNotNeedParsing && cond.holds(for: factors)
-            && seq.unroll(for: factors, condCase: condCase)
-        }
-      case .or(let cond, let seq):
-        switch condCase {
-        case .holdOnly:
-          return cond.holds(for: factors) || seq.unroll(for: factors, condCase: condCase)
-        case .skipMain:
-          return cond.mayNotNeedParsing
-            || !cond.holds(for: factors) && seq.unroll(for: factors, condCase: condCase)
-        case .skipElse:
-          return cond.mayNotNeedParsing && cond.holds(for: factors)
-            || seq.unroll(for: factors, condCase: condCase)
-        }
+      case .and(let leftSubtree, let rightSubtree):
+        return leftSubtree.unroll(for: factors, conditionCase: conditionCase)
+          && rightSubtree.unroll(for: factors, conditionCase: conditionCase)
+
+      case .or(let leftSubtree, let rightSubtree):
+        return leftSubtree.unroll(for: factors, conditionCase: conditionCase)
+          || rightSubtree.unroll(for: factors, conditionCase: conditionCase)
+
       case .operand(let cond):
-        switch condCase {
+        switch conditionCase {
         case .holdOnly: return cond.holds(for: factors)
         case .skipMain: return cond.mayNotNeedParsing && !cond.holds(for: factors)
         case .skipElse: return cond.mayNotNeedParsing && cond.holds(for: factors)
@@ -141,23 +131,26 @@ public struct ConditionalCompilationStmt: Stmt {
       }
     }
 
+    /// Return `true` iff the the full condition is satisfied.
     public func mustSkipMainBranch(for factors: ConditionalCompilationFactors) -> Bool {
-      self.unroll(for: factors, condCase: ConditionKind.skipMain)
+      self.unroll(for: factors, conditionCase: ConditionKind.skipMain)
     }
 
+    /// Return `true` iff the the full condition is unsatisfied.
     public func mustSkipElseBranch(for factors: ConditionalCompilationFactors) -> Bool {
-      self.unroll(for: factors, condCase: ConditionKind.skipElse)
+      self.unroll(for: factors, conditionCase: ConditionKind.skipElse)
     }
 
-    public func allHolds(for factors: ConditionalCompilationFactors) -> Bool {
-      self.unroll(for: factors, condCase: ConditionKind.holdOnly)
+    /// Return `true` iff the the full condition is satisfied.
+    fileprivate func holds(for factors: ConditionalCompilationFactors) -> Bool {
+      self.unroll(for: factors, conditionCase: ConditionKind.holdOnly)
     }
   }
 
   public let site: SourceRange
 
   /// The condition.
-  public let condition: SequenceCondition
+  public let condition: ConditionTree
 
   /// The statements in the block.
   public let stmts: [AnyStmtID]
@@ -167,7 +160,7 @@ public struct ConditionalCompilationStmt: Stmt {
 
   /// Creates an instance with the given properties.
   public init(
-    condition: SequenceCondition, stmts: [AnyStmtID], fallback: [AnyStmtID], site: SourceRange
+    condition: ConditionTree, stmts: [AnyStmtID], fallback: [AnyStmtID], site: SourceRange
   ) {
     self.site = site
     self.condition = condition
@@ -177,7 +170,7 @@ public struct ConditionalCompilationStmt: Stmt {
 
   /// Returns the statements that this expands to.
   public func expansion(for factors: ConditionalCompilationFactors) -> [AnyStmtID] {
-    condition.allHolds(for: factors) ? stmts : fallback
+    condition.holds(for: factors) ? stmts : fallback
   }
 
 }
