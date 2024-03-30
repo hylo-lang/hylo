@@ -116,7 +116,7 @@ public struct ConditionalCompilationStmt: Stmt {
 
     }
 
-    /// Visit the SequenceCondition tail to calculate the right case for executing the right branch.
+    /// Visits the SequenceCondition tail to calculate the right case for executing the right branch.
     private func unroll(
       for factors: ConditionalCompilationFactors, conditionCase: ConditionKind
     ) -> Bool {
