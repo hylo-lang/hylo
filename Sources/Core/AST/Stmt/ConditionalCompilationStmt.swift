@@ -97,6 +97,7 @@ public struct ConditionalCompilationStmt: Stmt {
   /// A condition in a conditional compilation statement expressed as a composition of predicates.
   public indirect enum ConditionTree: Codable {
 
+    /// A proposition or the negation of a proposition.
     case operand(Condition)
 
     /// A conjunction of conditions.
