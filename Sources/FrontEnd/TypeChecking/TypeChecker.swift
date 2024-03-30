@@ -5302,14 +5302,14 @@ struct TypeChecker {
     }
 
     // Create the necessary constraints to let the solver resolve the remaining components.
-    for (i, component) in unresolved.enumerated() {
+    for i in (0 ..< unresolved.count).reversed() {
       let memberType = ^freshVariable()
       obligations.insert(
         MemberConstraint(
-          lastVisited!, hasMember: memberType, referredToBy: component, in: program.ast,
-          usedAs: (i == unresolved.count - 1) ? purpose : .unapplied,
-          origin: ConstraintOrigin(.member, at: program[component].site)))
-      lastVisited = constrain(component, to: memberType, in: &obligations)
+          lastVisited!, hasMember: memberType, referredToBy: unresolved[i], in: program.ast,
+          usedAs: (i == 0) ? purpose : .unapplied,
+          origin: ConstraintOrigin(.member, at: program[unresolved[i]].site)))
+      lastVisited = constrain(unresolved[i], to: memberType, in: &obligations)
     }
 
     return lastVisited!
