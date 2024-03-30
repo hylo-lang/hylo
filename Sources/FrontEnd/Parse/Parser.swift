@@ -2996,7 +2996,7 @@ public enum Parser {
     in state: inout ParserState
   ) throws -> ConditionalCompilationStmt.ConditionTree {
 
-    /// Calculates operator's precedence.
+    /// Returns the precedence of `tokenValue`, which is a either `||` or `&&`.
     func precedence(_ tokenValue: String) -> Int {
       switch tokenValue {
       case "||": 0

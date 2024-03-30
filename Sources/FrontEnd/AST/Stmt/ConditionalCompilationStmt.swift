@@ -94,22 +94,29 @@ public struct ConditionalCompilationStmt: Stmt {
 
   }
 
-  /// Abstracts the whole condition structure and its sub-conditions.
+  /// A condition in a conditional compilation statement expressed as a composition of predicates.
   public indirect enum ConditionTree: Codable {
 
+    /// A proposition or the negation of a proposition.
     case operand(Condition)
 
+    /// A conjunction of conditions.
     case and(ConditionTree, ConditionTree)
 
+    /// A disjunction of conditions.
     case or(ConditionTree, ConditionTree)
 
     public enum ConditionKind: String {
+
       case holdOnly
+
       case skipMain
+
       case skipElse
+
     }
 
-    /// Visit the SequenceCondition tail to calculate the right case for executing the right branch.
+    /// Visits the SequenceCondition tail to calculate the right case for executing the right branch.
     private func unroll(
       for factors: ConditionalCompilationFactors, conditionCase: ConditionKind
     ) -> Bool {
@@ -131,17 +138,17 @@ public struct ConditionalCompilationStmt: Stmt {
       }
     }
 
-    /// Return `true` iff the the full condition is satisfied.
+    /// Returns `true` iff the condition is satisfied.
     public func mustSkipMainBranch(for factors: ConditionalCompilationFactors) -> Bool {
       self.unroll(for: factors, conditionCase: ConditionKind.skipMain)
     }
 
-    /// Return `true` iff the the full condition is unsatisfied.
+    /// Returns `true` iff the condition is not unsatisfied.
     public func mustSkipElseBranch(for factors: ConditionalCompilationFactors) -> Bool {
       self.unroll(for: factors, conditionCase: ConditionKind.skipElse)
     }
 
-    /// Return `true` iff the the full condition is satisfied.
+    /// Returns `true` iff the the condition is satisfied.
     fileprivate func holds(for factors: ConditionalCompilationFactors) -> Bool {
       self.unroll(for: factors, conditionCase: ConditionKind.holdOnly)
     }

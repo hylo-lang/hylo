@@ -82,9 +82,9 @@ extension IR.Program {
   /// Returns the LLVM form of `val` in `module`.
   ///
   /// - Requires: `val` is representable in LLVM.
-  func llvm(boundGenericType val: BoundGenericType, in module: inout SwiftyLLVM.Module)
-    -> SwiftyLLVM.IRType
-  {
+  func llvm(
+    boundGenericType val: BoundGenericType, in module: inout SwiftyLLVM.Module
+  ) -> SwiftyLLVM.IRType {
     precondition(val[.isCanonical])
 
     let fields = base.storage(of: val.base).map { (part) in
