@@ -52,6 +52,12 @@ public struct ConditionalCompilationStmt: Stmt {
     /// Holds iff the payload doesn't.
     case not(Condition)
 
+    /// Holds iff both conditions in the payload do.
+    case and(Condition, Condition)
+
+    /// Holds iff either condition in the payload does.
+    case or(Condition, Condition)
+
     /// `true` iff the body of the conditional-compilation shouldn't be parsed.
     public var mayNotNeedParsing: Bool {
       switch self {
@@ -89,75 +95,19 @@ public struct ConditionalCompilationStmt: Stmt {
         return comparison.evaluate(for: factors.hyloVersion)
       case .not(let c):
         return !c.holds(for: factors)
+      case .and(let l, let r):
+        return l.holds(for: factors) && r.holds(for: factors)
+      case .or(let l, let r):
+        return l.holds(for: factors) || r.holds(for: factors)
       }
     }
 
-  }
-
-  /// A condition in a conditional compilation statement expressed as a composition of predicates.
-  public indirect enum ConditionTree: Codable {
-
-    /// A proposition or the negation of a proposition.
-    case operand(Condition)
-
-    /// A conjunction of conditions.
-    case and(ConditionTree, ConditionTree)
-
-    /// A disjunction of conditions.
-    case or(ConditionTree, ConditionTree)
-
-    public enum ConditionKind: String {
-
-      case holdOnly
-
-      case skipMain
-
-      case skipElse
-
-    }
-
-    /// Visits the SequenceCondition tail to calculate the right case for executing the right branch.
-    private func unroll(
-      for factors: ConditionalCompilationFactors, conditionCase: ConditionKind
-    ) -> Bool {
-      switch self {
-      case .and(let leftSubtree, let rightSubtree):
-        return leftSubtree.unroll(for: factors, conditionCase: conditionCase)
-          && rightSubtree.unroll(for: factors, conditionCase: conditionCase)
-
-      case .or(let leftSubtree, let rightSubtree):
-        return leftSubtree.unroll(for: factors, conditionCase: conditionCase)
-          || rightSubtree.unroll(for: factors, conditionCase: conditionCase)
-
-      case .operand(let cond):
-        switch conditionCase {
-        case .holdOnly: return cond.holds(for: factors)
-        case .skipMain: return cond.mayNotNeedParsing && !cond.holds(for: factors)
-        case .skipElse: return cond.mayNotNeedParsing && cond.holds(for: factors)
-        }
-      }
-    }
-
-    /// Returns `true` iff the condition is satisfied.
-    public func mustSkipMainBranch(for factors: ConditionalCompilationFactors) -> Bool {
-      self.unroll(for: factors, conditionCase: ConditionKind.skipMain)
-    }
-
-    /// Returns `true` iff the condition is not unsatisfied.
-    public func mustSkipElseBranch(for factors: ConditionalCompilationFactors) -> Bool {
-      self.unroll(for: factors, conditionCase: ConditionKind.skipElse)
-    }
-
-    /// Returns `true` iff the the condition is satisfied.
-    fileprivate func holds(for factors: ConditionalCompilationFactors) -> Bool {
-      self.unroll(for: factors, conditionCase: ConditionKind.holdOnly)
-    }
   }
 
   public let site: SourceRange
 
   /// The condition.
-  public let condition: ConditionTree
+  public let condition: Condition
 
   /// The statements in the block.
   public let stmts: [AnyStmtID]
@@ -166,9 +116,7 @@ public struct ConditionalCompilationStmt: Stmt {
   public let fallback: [AnyStmtID]
 
   /// Creates an instance with the given properties.
-  public init(
-    condition: ConditionTree, stmts: [AnyStmtID], fallback: [AnyStmtID], site: SourceRange
-  ) {
+  public init(condition: Condition, stmts: [AnyStmtID], fallback: [AnyStmtID], site: SourceRange) {
     self.site = site
     self.condition = condition
     self.stmts = stmts

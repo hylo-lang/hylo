@@ -2991,60 +2991,66 @@ public enum Parser {
     return head != nil ? try parseCompilerConditionTail(head: head!, in: &state) : nil
   }
 
-  /// Parses a ConditionTree for a ConditionalCompilationStmt.
-  private static func parseConditionTree(
-    in state: inout ParserState
-  ) throws -> ConditionalCompilationStmt.ConditionTree {
+  /// Parses a logical connective from `state`.
+  private static func parseConnective(in state: inout ParserState) -> Connective? {
+    // Next token must be an operator.
+    guard let t = state.peek(), t.kind == .oper else { return nil }
 
-    /// Returns the precedence of `tokenValue`, which is a either `||` or `&&`.
-    func precedence(_ tokenValue: String) -> Int {
-      switch tokenValue {
-      case "||": 0
-      case "&&": 1
-      default: -1
-      }
+    // The value of the token must be either `||` or `&&`.
+    var r: Connective
+    switch t.site.text {
+    case "||":
+      r = .disjunction
+    case "&&":
+      r = .conjunction
+    default:
+      return nil
     }
 
-    /// Parses the tree using Precedence Climbing method.
-    func parseTree(
-      lhs: ConditionalCompilationStmt.ConditionTree,
-      minOpPrecedence: Int = 0,
+    // Consume the token and "succeed".
+    _ = state.take()
+    return r
+  }
+
+  /// Parses a `Condition` for a `ConditionalCompilationStmt`.
+  private static func parseCondition(
+    in state: inout ParserState
+  ) throws -> ConditionalCompilationStmt.Condition {
+    return try condition(withInfixConnectiveStrongerOrEqualTo: .disjunction, in: &state)
+
+    /// Parses a condition as a proposition, a negation, or an infix sentence whose operator has
+    /// a precedence at least as strong as `p`.
+    func condition(
+      withInfixConnectiveStrongerOrEqualTo p: Connective,
       in state: inout ParserState
-    ) throws -> ConditionalCompilationStmt.ConditionTree {
-      var lhs = lhs
-      var backup = state.backup()
-      while let op = state.take() {
-        let tokenValue = state.token(op).value
-        let opPrecedence = precedence(tokenValue)
-        guard opPrecedence >= 0 else {
-          /// Token is not a valid operator, but #elseif #else #endif or a wrong token instead.
+    ) throws -> ConditionalCompilationStmt.Condition {
+      var lhs = try parseCompilerCondition(in: &state)
+
+      while true {
+        // Tentatively parse a connective.
+        let backup = state.backup()
+        guard let c = parseConnective(in: &state) else { return lhs }
+
+        // Backtrack if the connective we got hasn't strong enough precedence.
+        if (c.rawValue < p.rawValue) {
           state.restore(from: backup)
-          break
+          return lhs
         }
 
-        if opPrecedence < minOpPrecedence {
-          break
+        // If we parsed `||` the RHS must be a conjunction. Otherwise it must be a proposition or
+        // negation. In either case we'll come back here to parse the remainder of the expression.
+        switch c {
+        case .disjunction:
+          let rhs = try condition(withInfixConnectiveStrongerOrEqualTo: .conjunction, in: &state)
+          lhs = .or(lhs, rhs)
+        case .conjunction:
+          let rhs = try parseCompilerCondition(in: &state)
+          lhs = .and(lhs, rhs)
         }
-
-        var rhs: ConditionalCompilationStmt.ConditionTree = .operand(
-          try parseCompilerCondition(in: &state))
-
-        backup = state.backup()
-        while let nextOp = state.peek() {
-          /// Check the precedence of an higher predence for left associative op. A right associative op like `==` cannot occur.
-          if precedence(state.token(nextOp).value) <= opPrecedence {
-            state.restore(from: backup)
-            break
-          }
-          rhs = try parseTree(lhs: rhs, minOpPrecedence: opPrecedence + 1, in: &state)
-        }
-
-        lhs = tokenValue == "&&" ? .and(lhs, rhs) : .or(lhs, rhs)
       }
+
       return lhs
     }
-
-    return try parseTree(lhs: .operand(try parseCompilerCondition(in: &state)), in: &state)
   }
 
   /// Parses a compiler condition structure, after the initial token (#if or #elseif).
@@ -3052,12 +3058,11 @@ public enum Parser {
     head: Token, in state: inout ParserState
   ) throws -> AnyStmtID {
     // Parse the condition.
-
-    let conditions = try parseConditionTree(in: &state)
+    let condition = try parseCondition(in: &state)
 
     // Parse the body of the compiler condition.
     let stmts: [AnyStmtID]
-    if conditions.mustSkipMainBranch(for: state.ast.compilationConditions) {
+    if condition.mayNotNeedParsing && !condition.holds(for: state.ast.compilationConditions) {
       try skipConditionalCompilationBranch(in: &state, stoppingAtElse: true)
       stmts = []
     } else {
@@ -3069,7 +3074,7 @@ public enum Parser {
     if state.take(.poundEndif) != nil {
       fallback = []
     } else if state.take(.poundElse) != nil {
-      if conditions.mustSkipElseBranch(for: state.ast.compilationConditions) {
+      if condition.mayNotNeedParsing && condition.holds(for: state.ast.compilationConditions) {
         try skipConditionalCompilationBranch(in: &state, stoppingAtElse: false)
         fallback = []
       } else {
@@ -3078,7 +3083,7 @@ public enum Parser {
       // Expect #endif.
       _ = try state.expect("'#endif'", using: { $0.take(.poundEndif) })
     } else if let head2 = state.take(.poundElseif) {
-      if conditions.mustSkipElseBranch(for: state.ast.compilationConditions) {
+      if condition.mayNotNeedParsing && condition.holds(for: state.ast.compilationConditions) {
         try skipConditionalCompilationBranch(in: &state, stoppingAtElse: false)
         fallback = []
       } else {
@@ -3091,7 +3096,7 @@ public enum Parser {
 
     let r = state.insert(
       ConditionalCompilationStmt(
-        condition: conditions,
+        condition: condition,
         stmts: stmts,
         fallback: fallback,
         site: head.site.extended(upTo: state.currentIndex)))
@@ -3542,6 +3547,17 @@ struct ParameterInterface {
 
   /// The implicit marker of the parameter, if any.
   let implicitMarker: Token?
+
+}
+
+/// A conjunction (`&&`) or disjunction (`||`) operator.
+enum Connective: Int {
+
+  /// The logical disjunction.
+  case disjunction
+
+  /// The logical conjunction.
+  case conjunction
 
 }
 
