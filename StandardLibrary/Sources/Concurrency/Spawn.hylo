@@ -12,8 +12,3 @@ public fun spawn_<E: Movable & Deinitializable>(_ f: sink [E]() -> Int) -> Futur
 public fun escaping_spawn_<E: Movable & Deinitializable>(_ f: sink [E]() -> Int) -> EscapingFuture<E> {
   EscapingFuture<E>(f)
 }
-
-/// Mimics `spawn_` but runs the computation inplace. For testing purposes.
-public fun spawn_inplace<E: Movable & Deinitializable>(_ f: sink [E]() -> Int) -> InplaceFuture<E> {
-  InplaceFuture<E>(f)
-}

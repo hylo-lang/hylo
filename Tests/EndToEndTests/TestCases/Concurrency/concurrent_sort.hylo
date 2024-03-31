@@ -9,7 +9,7 @@ fun my_concurrent_sort<Element: Regular & Comparable>(_ a: inout ArraySlice<Elem
     a.sort()
   } else {
     // Partition the data, such as elements [0, mid) < [mid] <= [mid+1, n).
-    let (m1, m2) = sort_partition(&a)
+    let (m1, m2) = partition(&a)
     inout (lhs, rhs) = &a.split(at: m1)
     &rhs.drop_first(m2 - m1)
 
@@ -26,7 +26,7 @@ fun my_concurrent_sort<Element: Regular & Comparable>(_ a: inout ArraySlice<Elem
   return a.count()
 }
 
-fun sort_partition<Element: Regular & Comparable>(_ a: inout ArraySlice<Element>) -> {Int, Int} {
+fun partition<Element: Regular & Comparable>(_ a: inout ArraySlice<Element>) -> {Int, Int} {
   let mid_value = median9(a)
   return a.partition(on: mid_value)
 }
@@ -57,10 +57,33 @@ fun median9<Element: Regular & Comparable>(_ a: ArraySlice<Element>) -> Element 
   let n = a.count()
   precondition(n >= 8)
   let stride = n / 8
-  let m1 = median3(a[0], a[stride], a[stride * 2])
-  let m2 = median3(a[stride * 3], a[stride * 4], a[stride * 5])
-  let m3 = median3(a[stride * 6], a[stride * 7], a[n - 1])
-  return median3(m1, m2, m3)
+  let m1 = median(a[0], a[stride], a[stride * 2])
+  let m2 = median(a[stride * 3], a[stride * 4], a[stride * 5])
+  let m3 = median(a[stride * 6], a[stride * 7], a[n - 1])
+  return median(m1, m2, m3)
+}
+
+/// Mimics a future, but runs the computation inplace. Used for testing purposes.
+public type InplaceFuture<E: Movable & Deinitializable> {
+
+  /// The result of the computation.
+  let r: Int
+
+  /// Initializes `self` with `f`, and spawns the computation.
+  public init(_ f: sink [E]() -> Int) {
+    &self.r = f()
+  }
+
+  /// Awaits the result of the computation.
+  public fun await() sink -> Int {
+    return self.r
+  }
+
+}
+
+/// Mimics `spawn_` but runs the computation inplace. For testing purposes.
+public fun spawn_inplace<E: Movable & Deinitializable>(_ f: sink [E]() -> Int) -> InplaceFuture<E> {
+  InplaceFuture<E>(f)
 }
 
 // TODO: this should be cleaned up and put in the standard library.

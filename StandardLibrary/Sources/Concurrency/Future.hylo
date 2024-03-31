@@ -46,23 +46,6 @@ public type EscapingFuture<E: Movable & Deinitializable>: Movable {
 
 }
 
-/// Mimics a future, but runs the computation inplace. Used for testing purposes.
-public type InplaceFuture<E: Movable & Deinitializable> {
-
-  /// The result of the computation.
-  let r: Int
-
-  /// Initializes `self` with `f`, and spawns the computation.
-  public init(_ f: sink [E]() -> Int) {
-    &self.r = f()
-  }
-
-  /// Awaits the result of the computation.
-  public fun await() sink -> Int {
-    return self.r
-  }
-
-}
 /// Describes the frame needed to spawn a computation.
 ///
 /// This object will be shared between the spawned computation (e.g., as it will store the result
