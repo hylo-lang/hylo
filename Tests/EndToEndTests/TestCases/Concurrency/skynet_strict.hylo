@@ -1,0 +1,57 @@
+//- compileToLLVM expecting: success
+
+fun skynet(num: Int, size: Int, div: Int) -> Int {
+  if size == 1 {
+    return num.copy()
+  } else {
+    let sub_size = size / div
+    let f1 = spawn_(fun[sink let n = num.copy(), sink let s = sub_size.copy(), sink let d = div.copy()] () {
+      skynet(num: n, size: s, div: d)
+    })
+    let f2 = spawn_(fun[sink let n = num + sub_size, sink let s = sub_size.copy(), sink let d = div.copy()] () {
+      skynet(num: n, size: s, div: d)
+    })
+    let f3 = spawn_(fun[sink let n = num + 2 * sub_size, sink let s = sub_size.copy(), sink let d = div.copy()] () {
+      skynet(num: n, size: s, div: d)
+    })
+    let f4 = spawn_(fun[sink let n = num + 3 * sub_size, sink let s = sub_size.copy(), sink let d = div.copy()] () {
+      skynet(num: n, size: s, div: d)
+    })
+    let f5 = spawn_(fun[sink let n = num + 4 * sub_size, sink let s = sub_size.copy(), sink let d = div.copy()] () {
+      skynet(num: n, size: s, div: d)
+    })
+    let f6 = spawn_(fun[sink let n = num + 5 * sub_size, sink let s = sub_size.copy(), sink let d = div.copy()] () {
+      skynet(num: n, size: s, div: d)
+    })
+    let f7 = spawn_(fun[sink let n = num + 6 * sub_size, sink let s = sub_size.copy(), sink let d = div.copy()] () {
+      skynet(num: n, size: s, div: d)
+    })
+    let f8 = spawn_(fun[sink let n = num + 7 * sub_size, sink let s = sub_size.copy(), sink let d = div.copy()] () {
+      skynet(num: n, size: s, div: d)
+    })
+    let f9 = spawn_(fun[sink let n = num + 8 * sub_size, sink let s = sub_size.copy(), sink let d = div.copy()] () {
+      skynet(num: n, size: s, div: d)
+    })
+    let f10 = spawn_(fun[sink let n = num + 9 * sub_size, sink let s = sub_size.copy(), sink let d = div.copy()] () {
+      skynet(num: n, size: s, div: d)
+    })
+
+    var sum = 0
+    sum += f1.await()
+    sum += f2.await()
+    sum += f3.await()
+    sum += f4.await()
+    sum += f5.await()
+    sum += f6.await()
+    sum += f7.await()
+    sum += f8.await()
+    sum += f9.await()
+    sum += f10.await()
+    return sum
+  }
+}
+
+public fun main() {
+  let result = skynet(num: 0, size: 1_000_000, div: 10);
+  precondition(result == 499999500000, "invalid result")
+}
