@@ -18,9 +18,10 @@ fun my_concurrent_sort<Element: Regular & Comparable>(_ a: inout ArraySlice<Elem
       inout rhs = &(q.copy().unsafe[])
       return my_concurrent_sort(&rhs)
     })
+
     // Execute the sorting on the left side, on the current thread.
-    let _ = my_concurrent_sort(&lhs)
-    let _ = future.await()
+    _ = my_concurrent_sort(&lhs)
+    _ = future.await()
   }
   return a.count()
 }
@@ -29,8 +30,9 @@ fun sort_partition<Element: Regular & Comparable>(_ a: inout ArraySlice<Element>
   let mid_value = median9(a)
   return a.partition(on: mid_value)
 }
+
 /// Returns the median of 3 values.
-fun median3<Element: Regular & Comparable>(_ v1: Element, _ v2: Element, _ v3: Element) -> Element {
+fun median<Element: Regular & Comparable>(_ v1: Element, _ v2: Element, _ v3: Element) -> Element {
   if v1 < v2 {
     if v2 < v3 {
       return v2.copy()
@@ -49,6 +51,7 @@ fun median3<Element: Regular & Comparable>(_ v1: Element, _ v2: Element, _ v3: E
     return v2.copy()
   }
 }
+
 /// Returns a median of 9 values taken from the slice `a`.
 fun median9<Element: Regular & Comparable>(_ a: ArraySlice<Element>) -> Element {
   let n = a.count()
@@ -59,7 +62,6 @@ fun median9<Element: Regular & Comparable>(_ a: ArraySlice<Element>) -> Element 
   let m3 = median3(a[stride * 6], a[stride * 7], a[n - 1])
   return median3(m1, m2, m3)
 }
-
 
 // TODO: this should be cleaned up and put in the standard library.
 type ArraySlice<Element: Regular & Comparable> : Deinitializable, Movable {
