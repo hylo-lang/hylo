@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 
 /// Branches conditionally to the start of a basic block.
 public struct CondBranch: Terminator {

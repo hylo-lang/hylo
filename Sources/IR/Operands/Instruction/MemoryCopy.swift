@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 
 /// Copies the memory representation of the value stored `source` to `target`.
 public struct MemoryCopy: Instruction {

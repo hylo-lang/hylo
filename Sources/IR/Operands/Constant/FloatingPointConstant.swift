@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 
 /// A floating-point number Hylo IR constant.
 public struct FloatingPointConstant: Constant, Hashable {

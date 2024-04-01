@@ -1,5 +1,5 @@
-import Core
 import Foundation
+import FrontEnd
 
 /// Creates the internal representation of constant string allocated statically.
 ///

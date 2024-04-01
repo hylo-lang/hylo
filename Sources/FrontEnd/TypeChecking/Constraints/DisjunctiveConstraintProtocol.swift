@@ -1,5 +1,3 @@
-import Core
-
 /// A set of predicates that is satisfied if at least one of them is satisfied.
 protocol DisjunctiveConstraintProtocol: Constraint {
 

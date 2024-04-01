@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 
 /// Computes the address of storage for a field or sub-field of a record, given the record's address.
 ///

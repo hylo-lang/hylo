@@ -1,4 +1,3 @@
-import Core
 import Utils
 
 /// A disjunction of two or more constraint sets.

@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 
 /// Projects a the witness of an existential container.
 public struct ProjectWitness: RegionEntry {

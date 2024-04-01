@@ -1,5 +1,3 @@
-import Core
-
 /// The site from which a constraint originates and the reason why it was formed.
 struct ConstraintOrigin: Hashable {
 

@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 
 /// The lowered (static) type of an entity.
 ///

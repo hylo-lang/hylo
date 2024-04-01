@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 
 /// The type and conformances of a value acting as the witness of an existential container.
 public struct WitnessTable: Constant, Hashable {

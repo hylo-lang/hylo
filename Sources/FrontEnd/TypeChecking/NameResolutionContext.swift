@@ -1,5 +1,3 @@
-import Core
-
 /// The context in which a component of a name expression gets resolved.
 ///
 /// This structure is used during name resolution to identify the type of which an entity is member

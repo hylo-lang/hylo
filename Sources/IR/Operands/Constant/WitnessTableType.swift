@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 
 /// The type of a witness table.
 public struct WitnessTableType: TypeProtocol, CustomStringConvertible {

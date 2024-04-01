@@ -1,4 +1,3 @@
-import Core
 
 extension Diagnostic {
 

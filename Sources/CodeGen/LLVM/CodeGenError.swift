@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 
 /// Traps indicating that `t` is not representable in LLVM.
 func notLLVMRepresentable<T: TypeProtocol>(

@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 import Utils
 
 /// A one or two letter identifier specifying how to interpret mangled data.

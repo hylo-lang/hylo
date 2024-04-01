@@ -1,5 +1,5 @@
-import Core
 import Durian
+import FrontEnd
 import Utils
 import XCTest
 

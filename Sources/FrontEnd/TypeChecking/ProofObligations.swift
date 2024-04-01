@@ -1,5 +1,3 @@
-import Core
-
 /// A set of formulae to be proven for type checking a declaration, expression, or pattern.
 struct ProofObligations {
 

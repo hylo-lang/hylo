@@ -1,5 +1,5 @@
-import Core
 import Foundation
+import FrontEnd
 import Utils
 
 // This path points into the source tree rather than to some copy so that when diagnostics are

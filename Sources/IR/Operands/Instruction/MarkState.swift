@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 
 /// Unsafely sets the initialization state of storage.
 public struct MarkState: Instruction {

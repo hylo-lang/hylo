@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 
 /// Hylo's demangling algorithm.
 struct Demangler {

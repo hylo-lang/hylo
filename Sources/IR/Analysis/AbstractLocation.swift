@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 
 /// A memory location in an abstract interpreter.
 enum AbstractLocation: Hashable {

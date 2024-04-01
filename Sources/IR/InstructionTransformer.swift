@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 import Utils
 
 /// A type that transforms the parts of IR instructions.

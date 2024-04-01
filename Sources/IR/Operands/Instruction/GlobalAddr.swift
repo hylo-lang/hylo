@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 
 /// Returns the address of a global binding.
 public struct GlobalAddr: Instruction {

@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 
 /// Allocates memory on the stack.
 public struct AllocStack: Instruction {

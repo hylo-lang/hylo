@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 import Utils
 
 /// Invokes one variant of `bundle` with `arguments` and writes its result to `output`.

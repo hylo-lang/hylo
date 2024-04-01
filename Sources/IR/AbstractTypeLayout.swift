@@ -1,4 +1,3 @@
-import Core
 import FrontEnd
 
 /// The abstract layout of a type, describing the relative offsets of its stored properties.

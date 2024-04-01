@@ -1,5 +1,3 @@
-import Core
-
 extension BundledNode where T: DeclID, P == TypedProgram {
 
   /// The type of the declared entity.

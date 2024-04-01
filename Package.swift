@@ -93,31 +93,22 @@ let package = Package(
       name: "FrontEnd",
       dependencies: [
         "Utils",
-        "Core",
         .product(name: "Collections", package: "swift-collections"),
         .product(name: "Durian", package: "Durian"),
         .product(name: "BigInt", package: "BigInt"),
-      ],
-      swiftSettings: allTargetsSwiftSettings),
-
-    .target(
-      name: "Core",
-      dependencies: [
-        "Utils",
-        .product(name: "Collections", package: "swift-collections"),
         .product(name: "SwiftyLLVM", package: "Swifty-LLVM"),
       ],
       swiftSettings: allTargetsSwiftSettings),
 
     .target(
       name: "IR",
-      dependencies: ["Utils", "Core", "FrontEnd"],
+      dependencies: ["Utils", "FrontEnd"],
       swiftSettings: allTargetsSwiftSettings),
 
     .target(
       name: "CodeGenLLVM",
       dependencies: [
-        "Core",
+        "FrontEnd",
         "IR",
         "Utils",
         .product(name: "SwiftyLLVM", package: "Swifty-LLVM"),
@@ -136,7 +127,7 @@ let package = Package(
 
     .target(
       name: "TestUtils",
-      dependencies: ["Core", "Driver", "Utils"],
+      dependencies: ["FrontEnd", "Driver", "Utils"],
       swiftSettings: allTargetsSwiftSettings),
 
     .target(
@@ -172,13 +163,13 @@ let package = Package(
 
     .testTarget(
       name: "ManglingTests",
-      dependencies: ["Core", "FrontEnd", "IR", "TestUtils", "StandardLibrary"],
+      dependencies: ["FrontEnd", "IR", "TestUtils", "StandardLibrary"],
       swiftSettings: allTargetsSwiftSettings),
 
     .testTarget(
       name: "HyloTests",
       dependencies: [
-        "Core", "FrontEnd", "IR", "TestUtils", "StandardLibrary", "Utils",
+        "FrontEnd", "IR", "TestUtils", "StandardLibrary", "Utils",
         .product(name: "Algorithms", package: "swift-algorithms"),
       ],
       exclude: ["TestCases"],

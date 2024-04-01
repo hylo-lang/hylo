@@ -1,6 +1,5 @@
 import ArgumentParser
 import CodeGenLLVM
-import Core
 import Foundation
 import FrontEnd
 import IR
