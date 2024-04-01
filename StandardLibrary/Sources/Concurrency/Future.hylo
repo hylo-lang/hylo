@@ -22,7 +22,7 @@ public type Future<E: Movable & Deinitializable> {
 }
 
 /// A future that can escape the local scope.
-public type EscapingFuture<E: Movable & Deinitializable>: Movable {
+public type EscapingFuture<E: Movable & Deinitializable>: Deinitializable, Movable {
 
   // TODO
   public typealias Result = Int
