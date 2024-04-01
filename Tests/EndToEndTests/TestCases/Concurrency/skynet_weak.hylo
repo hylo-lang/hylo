@@ -1,0 +1,43 @@
+//- compileToLLVM expecting: success
+
+fun skynet(num: Int, size: Int, div: Int) -> Int {
+  if size == 1 {
+    return num.copy()
+  } else {
+    let sub_size = size / div
+    var futures = Array<EscapingFuture<{n: Int, s: Int, d: Int}>>()
+    &futures.reserve_capacity(div)
+    var i = 0
+    while i != div {
+      let cur_num = num + i * sub_size
+      let f = escaping_spawn_(fun[sink let n = cur_num.copy(), sink let s = sub_size.copy(), sink let d = div.copy()] () -> Int {
+        skynet(num: n, size: s, div: d)
+      })
+      &futures.append(f)
+      &i += 1
+    }
+
+    var sum = 0
+    var i2 = 0
+    while i2 != div {
+      if inout f: EscapingFuture<{n: Int, s: Int, d: Int}> = &futures.pop_last() {
+        sum += &f.await()
+      }
+      &i2 += 1
+    }
+    return sum
+  }
+}
+
+public conformance EscapingFuture: SemiRegular {
+
+  public fun infix== (_ other: Self) -> Bool {
+    return false
+  }
+
+}
+
+public fun main() {
+  let result = skynet(num: 0, size: 1_000_000, div: 10);
+  precondition(result == 499999500000, "invalid result")
+}
