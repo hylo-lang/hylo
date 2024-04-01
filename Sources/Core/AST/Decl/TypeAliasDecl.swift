@@ -1,5 +1,5 @@
 /// A type alias declaration.
-public struct TypeAliasDecl: ExposableDecl, GenericDecl, SingleEntityDecl, GenericScope {
+public struct TypeAliasDecl: ExposableDecl, GenericDecl, SingleEntityDecl {
 
   public static let constructDescription = "type alias declaration"
 
