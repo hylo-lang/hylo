@@ -45,7 +45,7 @@ jobs:
     - run: swift --version
 
     - name: Setup LLVM
-      uses: KyleMayes/install-llvm-action@v1
+      uses: KyleMayes/install-llvm-action@v2
       with:
         version: "15.0"
 
