@@ -1,0 +1,32 @@
+//- compileToLLVM expecting: success
+
+fun skynet(num: Int, size: Int, div: Int) -> Int {
+  if size == 1 {
+    return num.copy()
+  } else {
+    var results = Array<Int>(count: div, initialized_with: fun (_ i: Int) { 0 })
+    let sub_size = size / div
+    let p = mutable_pointer[to: &results]
+    spawn_(count: div, action: fun[sink let q=p.copy(), sink let n = num.copy(), sink let s = sub_size.copy(), sink let d = div.copy()] (index: Int) -> Void {
+      inout results = q.copy().unsafe[]
+      &results[index] = skynet(num: n + index * s, size: s, div: d)
+    }).await()
+
+    return sum(results)
+  }
+}
+
+fun sum(_ array: Array<Int>) -> Int {
+  var result = 0
+  var i = 0
+  while i != array.count() {
+    &result += array[i]
+    &i += 1
+  }
+  return result
+}
+
+public fun main() {
+  let result = skynet(num: 0, size: 1_000_000, div: 10);
+  precondition(result == 499999500000, "invalid result")
+}
