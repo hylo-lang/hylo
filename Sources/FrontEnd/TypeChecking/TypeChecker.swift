@@ -160,11 +160,11 @@ struct TypeChecker {
   /// in recursive calls to `bases(of:knownBases:)`.
   private mutating func bases(
     of t: TraitType, knownToRefine knownBases: Set<TraitType> = []
-  ) -> RefinementCluster {
+  ) -> RefinementClosure {
     if let r = cache.traitToBases[t] { return r }
 
     let newKnownBases = knownBases.inserting(t)
-    var result = RefinementCluster(t)
+    var result = RefinementClosure(t)
 
     for (n, s) in evalTraitComposition(program[t.decl].bounds) {
       if newKnownBases.contains(s) {
@@ -1414,11 +1414,11 @@ struct TypeChecker {
   /// Type checks the conformances to `traits` declared by `d`.
   ///
   /// - Parameters:
-  ///   - traits: A refinement cluster for one of the traits mentioned by `d`. For instance, if `d`
-  ///     is a type declaration `type A: P, Q {}`, `traits` is a cluster describing the refinements
+  ///   - traits: A refinement closure for one of the traits mentioned by `d`. For instance, if `d`
+  ///     is a type declaration `type A: P, Q {}`, `traits` is a closure describing the refinements
   ///     of either `P` or `Q`.
   ///   - d: A conformance source.
-  private mutating func checkConformances(to traits: RefinementCluster, declaredBy d: AnyDeclID) {
+  private mutating func checkConformances(to traits: RefinementClosure, declaredBy d: AnyDeclID) {
     precondition(d.isConformanceSource)
 
     let scopeOfDefinition = program[d].scope
@@ -1437,7 +1437,7 @@ struct TypeChecker {
   /// conformance to a specific trait in a scope, reporting diagnostics of ambiguous cases.
   ///
   /// - Parameters:
-  ///   - trait: A trait belonging to the refinement cluster of a trait mentioned by one of the
+  ///   - trait: A trait belonging to the refinement closure of a trait mentioned by one of the
   ///     conformance sources in `origins`.
   ///   - origins: The declarations introducing a conformance to `trait` in `scopeOfDefinition`.
   ///   - scopeOfDefinition: The outermost scope in which the conformance is checked.
@@ -1462,7 +1462,7 @@ struct TypeChecker {
   /// Type checks the conformance to `trait` declared by `origin`.
   ///
   /// - Parameters:
-  ///   - trait: A trait belonging to the refinement cluster of a trait mentioned `origin`.
+  ///   - trait: A trait belonging to the refinement closure of a trait mentioned `origin`.
   ///   - origin: A declaration introducing a conformance to `trait`.
   ///
   /// - Requires: Conformances to traits strictly refined by `trait` have already been checked.
@@ -6381,7 +6381,7 @@ struct TypeChecker {
     /// A map from trait to its bases (i.e., the traits that it refines).
     ///
     /// This map serves as cache for `bases(of:)`
-    var traitToBases: [TraitType: RefinementCluster] = [:]
+    var traitToBases: [TraitType: RefinementClosure] = [:]
 
     /// A map from generic declarations to their (partially formed) environment.
     var partiallyFormedEnvironment: [AnyDeclID: GenericEnvironment] = [:]
