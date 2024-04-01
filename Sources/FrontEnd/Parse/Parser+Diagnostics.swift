@@ -1,5 +1,3 @@
-import Core
-
 extension Diagnostic {
 
   static func error(assignOperatorRequiresWhitespaces token: Token) -> Diagnostic {

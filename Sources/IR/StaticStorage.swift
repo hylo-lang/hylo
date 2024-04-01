@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 
 /// The address of some statically allocated storage.
 public struct StaticStorage {

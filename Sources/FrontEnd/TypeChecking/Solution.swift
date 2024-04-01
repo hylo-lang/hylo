@@ -1,5 +1,3 @@
-import Core
-
 /// A solution returned by a constraint solver.
 struct Solution {
 

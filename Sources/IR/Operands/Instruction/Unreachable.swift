@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 
 /// Marks this execution path as unreachable, causing a fatal error otherwise.
 public struct Unreachable: Terminator {

@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 import Utils
 import XCTest
 

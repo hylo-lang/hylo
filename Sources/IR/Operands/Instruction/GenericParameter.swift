@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 
 /// Accesses the value passed to a generic parameter.
 public struct GenericParameter: Instruction {

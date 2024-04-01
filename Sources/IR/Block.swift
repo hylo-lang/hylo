@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 import Utils
 
 /// A basic block in a Hylo IR function.

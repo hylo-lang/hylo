@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 import Utils
 
 /// Invokes `callee` with `arguments` and writes its result to `output`.

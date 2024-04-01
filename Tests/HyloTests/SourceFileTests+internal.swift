@@ -1,6 +1,6 @@
 import XCTest
 
-@testable import Core
+@testable import FrontEnd
 
 final class SourceFileTestsInternal: XCTestCase {
 

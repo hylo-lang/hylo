@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 
 /// The callee of a function call in the IR.
 enum Callee {

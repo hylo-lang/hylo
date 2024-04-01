@@ -1,4 +1,3 @@
-import Core
 import Foundation
 import Utils
 
@@ -468,7 +467,7 @@ public struct TypedProgram {
   /// Returns the type satisfying the associated type requirement `n` in conformance `c`.
   ///
   /// - Requires: `n` is declared by the trait for which `c` has been established.
-  public func associatedType(_ n: AssociatedTypeDecl.ID, for c: Core.Conformance) -> AnyType {
+  public func associatedType(_ n: AssociatedTypeDecl.ID, for c: Conformance) -> AnyType {
     let d = c.implementations[n]!.decl!
     let t = specialize(MetatypeType(declType[d]!)!.instance, for: c.arguments, in: c.scope)
     return canonical(t, in: c.scope)

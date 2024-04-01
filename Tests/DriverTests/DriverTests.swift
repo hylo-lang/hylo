@@ -1,6 +1,6 @@
 import ArgumentParser
-import Core
 import Driver
+import FrontEnd
 import TestUtils
 import Utils
 import XCTest

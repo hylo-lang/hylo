@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 
 /// A return instruction.
 public struct Return: Terminator {

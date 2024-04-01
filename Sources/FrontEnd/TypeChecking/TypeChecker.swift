@@ -1,4 +1,3 @@
-import Core
 import OrderedCollections
 import Utils
 
@@ -794,7 +793,7 @@ struct TypeChecker {
   }
 
   /// Type checks `u` and all declarations nested in `d`.
-  mutating func check(_ u: TranslationUnit.ID) {
+  private mutating func check(_ u: TranslationUnit.ID) {
     _ = imports(exposedTo: u)
     check(program[u].decls)
   }
@@ -4545,7 +4544,7 @@ struct TypeChecker {
   ///
   /// Parameters are returned outer to inner, left to right: the first parameter of the outermost
   /// generic scope appears first; the last parameter of the innermost generic scope appears last.
-  public mutating func accumulatedGenericParameters<T: ScopeID>(
+  mutating func accumulatedGenericParameters<T: ScopeID>(
     in s: T
   ) -> ReversedCollection<[GenericParameterDecl.ID]> {
     var result: [GenericParameterDecl.ID] = []

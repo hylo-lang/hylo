@@ -1,4 +1,3 @@
-import Core
 import Utils
 
 /// A subset of a program's refinement relation containing all the dependencies of a single trait.

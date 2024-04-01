@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 import Utils
 
 /// Creates existential container wrapping the address of a witness.

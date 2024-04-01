@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 import Utils
 
 // DWA: This conformance belongs in WideUInt.swift, but is here pending

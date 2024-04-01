@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 
 /// An instruction marking an exit from a region.
 public struct RegionExit<Entry: RegionEntry> {

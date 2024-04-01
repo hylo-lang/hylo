@@ -1,7 +1,7 @@
 import Algorithms
 import XCTest
 
-@testable import Core
+@testable import FrontEnd
 
 final class NodeKindTests: XCTestCase {
 

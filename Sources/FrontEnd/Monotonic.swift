@@ -1,4 +1,3 @@
-import Core
 import Utils
 
 /// A type whose instances can be updated without loss of information.

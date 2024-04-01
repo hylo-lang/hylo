@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 
 /// Branches to one of several basic blocks.
 public struct Switch: Terminator {

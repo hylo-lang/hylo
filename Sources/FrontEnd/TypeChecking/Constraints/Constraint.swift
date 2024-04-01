@@ -1,4 +1,3 @@
-import Core
 import Utils
 
 /// A constraint used to perform type checking or inference.

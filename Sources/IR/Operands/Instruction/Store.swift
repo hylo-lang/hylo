@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 
 /// Stores `object` at the specified location.
 public struct Store: Instruction {

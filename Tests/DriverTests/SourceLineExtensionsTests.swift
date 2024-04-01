@@ -1,5 +1,5 @@
-import Core
 import Driver
+import FrontEnd
 import XCTest
 
 final class SourceLineExtensionsTests: XCTestCase {

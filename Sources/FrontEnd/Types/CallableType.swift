@@ -25,7 +25,7 @@ extension CallableType {
 
   /// Returns `true` iff instances of `self` accept run-time argument lists with given `labels`.
   public func accepts<S: Collection<String?>>(_ labels: S) -> Bool {
-    Core.accepts(inputs[...], labels)
+    FrontEnd.accepts(inputs[...], labels)
   }
 
   public func outputOfUse(mutable isMutating: Bool) -> AnyType {

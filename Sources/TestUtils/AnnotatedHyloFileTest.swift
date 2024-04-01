@@ -1,5 +1,5 @@
-import Core
 import Driver
+import FrontEnd
 import Utils
 import XCTest
 

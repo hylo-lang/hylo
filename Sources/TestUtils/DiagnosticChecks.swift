@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 import XCTest
 
 extension XCTestCase {

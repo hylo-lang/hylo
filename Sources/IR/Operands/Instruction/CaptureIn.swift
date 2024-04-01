@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 import Utils
 
 /// Captures and stores a remote part.

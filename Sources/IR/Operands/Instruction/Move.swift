@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 
 /// Initializes or assigns storage with a value.
 public struct Move: Instruction {
@@ -10,13 +10,15 @@ public struct Move: Instruction {
   public private(set) var target: Operand
 
   /// The conformance of `target`'s type to `Movable` implementing its move operators.
-  public let movable: Core.Conformance
+  public let movable: FrontEnd.Conformance
 
   /// The site of the code corresponding to that instruction.
   public let site: SourceRange
 
   /// Creates an instance with the given properties.
-  fileprivate init(object: Operand, target: Operand, movable: Core.Conformance, site: SourceRange) {
+  fileprivate init(
+    object: Operand, target: Operand, movable: FrontEnd.Conformance, site: SourceRange
+  ) {
     self.object = object
     self.target = target
     self.movable = movable
@@ -50,7 +52,7 @@ extension Module {
   ///   - value: The object to move. Must have an address type.
   ///   - storage: The location to initialize or assign. Must have an address type.
   func makeMove(
-    _ value: Operand, to storage: Operand, usingConformance movable: Core.Conformance,
+    _ value: Operand, to storage: Operand, usingConformance movable: FrontEnd.Conformance,
     at site: SourceRange
   ) -> Move {
     precondition(type(of: value).isAddress)
