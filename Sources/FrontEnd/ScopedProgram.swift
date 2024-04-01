@@ -173,9 +173,9 @@ private struct ScopeVisitor: ASTWalkObserver {
   private mutating func visit(traitDecl d: TraitDecl.ID, in ast: AST) -> Bool {
     scopeToDecls[d] = .init()
 
-    // The refinement list resides in the parent's scope.
+    // The bounds reside in the parent's scope.
     innermost = nodeToScope[d]
-    ast.walk(roots: ast[d].refinements, notifying: &self)
+    ast.walk(roots: ast[d].bounds, notifying: &self)
 
     // Other parts reside in `d`.
     innermost = AnyScopeID(d)

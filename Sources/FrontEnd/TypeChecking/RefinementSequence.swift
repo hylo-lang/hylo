@@ -1,7 +1,7 @@
 /// The traits of a refinement cluster sorted in topological order w.r.t. to their refinements.
 ///
-/// The order of the traits in the sequence is such that the refinements of a trait always occur
-/// before that trait. In other words, if `t` occurs after `u`, then `t` does not refine `u`.
+/// The sequence is ordered such that a trait `t` always occur **after** the traits which it
+/// refines. Hence the last element of the sequence is the most refined trait of the cluster.
 struct RefinementSequence: IteratorProtocol, Sequence {
 
   /// A stack of vertices left to visit with the indices of their currently visited neighbors.

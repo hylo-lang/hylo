@@ -394,7 +394,7 @@ extension AST {
   public func traverse<O: ASTWalkObserver>(
     _ n: TraitDecl, notifying o: inout O
   ) {
-    walk(roots: n.refinements, notifying: &o)
+    walk(roots: n.bounds, notifying: &o)
     walk(roots: n.members, notifying: &o)
   }
 
