@@ -17,6 +17,9 @@ list(PREPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/modules)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ${BUILD_SHARED_LIBS}) # Needed?
 set(CMAKE_Swift_COMPILE_OPTIONS -warnings-as-errors)
+if(BUILD_TESTING)
+  list(APPEND CMAKE_Swift_COMPILE_OPTIONS -enable-testing)
+endif()
 
 if(BUILD_TESTING)
   # We need to work something out, probably a DYLD_LIBRARY_PATH

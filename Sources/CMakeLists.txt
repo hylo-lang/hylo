@@ -14,25 +14,27 @@ set(CMAKE_Swift_COMPILE_OPTIONS_MSVC_RUNTIME_LIBRARY MultiThreadedDLL)
 set(CMAKE_MSVC_RUNTIME_LIBRARY MultiThreadedDLL)
 
 # The compiler's executable target.
-# add_hylo_executable(hc DEPENDENCIES Driver)
-# add_hylo_executable(hylo-demangle DEPENDENCIES IR)
+#add_hylo_executable(hc DEPENDENCIES Driver)
+#add_hylo_executable(hylo-demangle DEPENDENCIES IR)
+#set_target_properties(hylo-demangle PROPERTIES Swift_MODULE_NAME HyloDemangle)
 
-# add_hylo_library(Driver
-#   DEPENDENCIES CodeGenLLVM FrontEnd IR StandardLibrary SwiftArgumentParser)
+
+add_hylo_library(Driver
+  DEPENDENCIES CodeGenLLVM FrontEnd IR StandardLibrary ArgumentParser)
 
 add_hylo_library(FrontEnd
   DEPENDENCIES BigInt Collections Durian SwiftyLLVM Utils)
 
-# add_hylo_library(IR
-#   DEPENDENCIES FrontEnd Utils)
+add_hylo_library(IR
+  DEPENDENCIES FrontEnd Utils)
 
-# add_hylo_library(CodeGenLLVM
-#   DEPENDENCIES FrontEnd IR Utils SwiftyLLVM
-#   PATH CodeGen/LLVM)
+add_hylo_library(CodeGenLLVM
+  DEPENDENCIES FrontEnd IR Utils SwiftyLLVM
+  PATH CodeGen/LLVM)
 
 add_hylo_library(Utils
   DEPENDENCIES BigInt Collections Algorithms)
 
-# add_hylo_library(StandardLibrary
-#   DEPENDENCIES FrontEnd Utils
-#   PATH ../StandardLibrary)
+add_hylo_library(StandardLibrary
+  DEPENDENCIES FrontEnd Utils
+  PATH ../StandardLibrary)

@@ -35,6 +35,9 @@ function(add_hylo_executable result_target)
   set_recursive_file_glob(files ${_PATH}/*.swift)
   add_executable(${result_target} ${files})
   target_link_libraries(${result_target} PRIVATE ${_DEPENDENCIES})
+
+  set_property(TARGET ${result_target} APPEND
+    PROPERTY CMAKE_Swift_FLAGS -warnings-as-errors)
 endfunction()
 
 function(add_hylo_library result_target)
@@ -48,10 +51,17 @@ function(add_hylo_library result_target)
   endif()
   set_recursive_file_glob(files ${_PATH}/*.swift)
   add_library(${result_target} ${files})
-  target_link_libraries(${result_target} PRIVATE ${_DEPENDENCIES})
+  target_link_libraries(${result_target} PUBLIC ${_DEPENDENCIES})
 
-  # This is required in order to be a testee.
-  set_target_properties(${result_target} PROPERTIES FRAMEWORK TRUE)
+  set_property(TARGET ${result_target} APPEND
+    PROPERTY CMAKE_Swift_FLAGS -warnings-as-errors)
+
+  target_compile_options(${result_target}
+    PRIVATE $<$<BOOL:${BUILD_TESTING}>:-enable-testing>)
+
+  set_target_properties(${result_target} PROPERTIES
+    # This is required in order to be an XCTest testee.
+    FRAMEWORK $<BOOL:${BUILD_TESTING}>)
 endfunction()
 
 function(add_hylo_test_of testee)
@@ -68,4 +78,7 @@ function(add_hylo_test_of testee)
   set_recursive_file_glob(files ${_PATH}/*.swift)
   add_swift_xctest(${result_target} ${testee} ${files})
   target_link_libraries(${result_target} PRIVATE ${_DEPENDENCIES})
+
+  set_property(TARGET ${result_target} APPEND
+    PROPERTY CMAKE_Swift_FLAGS -warnings-as-errors)
 endfunction()
