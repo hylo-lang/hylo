@@ -23,8 +23,8 @@ set(CMAKE_Swift_COMPILE_OPTIONS -warnings-as-errors)
 # add_hylo_library(Driver
 #   DEPENDENCIES CodeGenLLVM FrontEnd IR StandardLibrary SwiftArgumentParser)
 
-# add_hylo_library(FrontEnd
-#   DEPENDENCIES BigInt Collections Durian SwiftyLLVM Utils)
+add_hylo_library(FrontEnd
+  DEPENDENCIES BigInt Collections Durian SwiftyLLVM Utils)
 
 # add_hylo_library(IR
 #   DEPENDENCIES FrontEnd Utils)
