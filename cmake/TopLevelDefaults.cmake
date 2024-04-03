@@ -51,7 +51,7 @@ function(add_hylo_library result_target)
   endif()
   set_recursive_file_glob(files ${_PATH}/*.swift)
   add_library(${result_target} ${files})
-  target_link_libraries(${result_target} PUBLIC ${_DEPENDENCIES})
+  target_link_libraries(${result_target} ${_DEPENDENCIES})
 
   set_property(TARGET ${result_target} APPEND
     PROPERTY CMAKE_Swift_FLAGS -warnings-as-errors)
