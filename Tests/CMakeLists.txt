@@ -12,17 +12,23 @@ add_hylo_library(TestUtils
 add_hylo_test_of(Utils NAMED UtilsTests
   DEPENDENCIES Algorithms DequeModule)
 
-# add_hylo_test_of(Driver NAMED DriverTests
-#   DEPENDENCIES TestUtils)
+add_hylo_test_of(Driver NAMED DriverTests
+  DEPENDENCIES TestUtils
+  # TODO: why are these needed?
+  Durian SwiftyLLVM)
 
-# add_hylo_test_of(IR NAMED ManglingTests
-#   DEPENDENCIES FrontEnd TestUtils StandardLibrary)
+add_hylo_test_of(IR NAMED ManglingTests
+  DEPENDENCIES FrontEnd TestUtils StandardLibrary)
 
 add_hylo_test_of(FrontEnd NAMED HyloTests
   DEPENDENCIES IR TestUtils StandardLibrary Utils Algorithms)
 
-# add_hylo_test_of(Driver NAMED EndToEndTests
-#   DEPENDENCIES TestUtils)
+add_hylo_test_of(Driver NAMED EndToEndTests
+  DEPENDENCIES TestUtils
+  # TODO: why are these needed?
+  Durian SwiftyLLVM)
 
-# add_hylo_test_of(Driver NAMED LibraryTests
-#   DEPENDENCIES TestUtils)
+add_hylo_test_of(Driver NAMED LibraryTests
+  DEPENDENCIES TestUtils
+  # TODO: why are these needed?
+  Durian SwiftyLLVM)
