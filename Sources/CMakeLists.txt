@@ -14,9 +14,14 @@ set(CMAKE_Swift_COMPILE_OPTIONS_MSVC_RUNTIME_LIBRARY MultiThreadedDLL)
 set(CMAKE_MSVC_RUNTIME_LIBRARY MultiThreadedDLL)
 
 # The compiler's executable target.
-#add_hylo_executable(hc DEPENDENCIES Driver)
-#add_hylo_executable(hylo-demangle DEPENDENCIES IR)
-#set_target_properties(hylo-demangle PROPERTIES Swift_MODULE_NAME HyloDemangle)
+add_hylo_executable(hc DEPENDENCIES Driver
+  # TODO: why are these needed?
+  Durian SwiftyLLVM)
+
+add_hylo_executable(hylo-demangle DEPENDENCIES IR
+  # TODO: why are these needed?
+  Durian SwiftyLLVM)
+set_target_properties(hylo-demangle PROPERTIES Swift_MODULE_NAME HyloDemangle)
 
 
 add_hylo_library(Driver
