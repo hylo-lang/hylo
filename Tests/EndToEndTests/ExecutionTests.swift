@@ -1,7 +1,7 @@
 import TestUtils
 import XCTest
 
-final class ExecutionTests: XCTestCase {
+final class ExecutionTests: UnrecognizedSelectorWorkaroundTestCase {
 
   func testHelloWorld() throws {
     if swiftyLLVMMandatoryPassesCrash { return }

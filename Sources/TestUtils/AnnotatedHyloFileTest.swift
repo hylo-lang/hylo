@@ -30,6 +30,16 @@ extension Result {
 
 }
 
+/// Inherit from this to work around an "unrecognized selector" bug.
+///
+/// ```
+/// /Users/dave/src/hylo/Tests/EndToEndTests/ExecutionTests.swift:13:
+/// error: -[EndToEndTests.ExecutionTests testHelloWorld] :
+/// -[EndToEndTests.ExecutionTests compile:with:error:]: unrecognized
+/// selector sent to instance 0x131106cf0 (NSInvalidArgumentException)
+/// ```
+open class UnrecognizedSelectorWorkaroundTestCase: XCTestCase {}
+
 extension XCTestCase {
 
   /// The effects of running the `processAndCheck` parameter to `checkAnnotatedHyloFiles`.
