@@ -13,9 +13,6 @@ find_package(Swifty-LLVM)
 set(CMAKE_Swift_COMPILE_OPTIONS_MSVC_RUNTIME_LIBRARY MultiThreadedDLL)
 set(CMAKE_MSVC_RUNTIME_LIBRARY MultiThreadedDLL)
 
-set(CMAKE_POSITION_INDEPENDENT_CODE ${BUILD_SHARED_LIBS}) # Needed?
-set(CMAKE_Swift_COMPILE_OPTIONS -warnings-as-errors)
-
 # The compiler's executable target.
 # add_hylo_executable(hc DEPENDENCIES Driver)
 # add_hylo_executable(hylo-demangle DEPENDENCIES IR)

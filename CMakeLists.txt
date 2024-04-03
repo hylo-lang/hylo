@@ -14,6 +14,10 @@ project(Hylo
 )
 enable_testing()
 list(PREPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/modules)
+
+set(CMAKE_POSITION_INDEPENDENT_CODE ${BUILD_SHARED_LIBS}) # Needed?
+set(CMAKE_Swift_COMPILE_OPTIONS -warnings-as-errors)
+
 if (PROJECT_IS_TOP_LEVEL)
   include(cmake/TopLevelDefaults.cmake)
 endif()
