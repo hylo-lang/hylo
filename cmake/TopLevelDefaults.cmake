@@ -83,22 +83,30 @@ function(add_hylo_test_of testee)
   set_recursive_file_glob(swift_files ${_PATH}/*.swift)
   set_recursive_file_glob(hylo_files ${_PATH}/*.hylo)
 
-  set(generated_swift_file "${CMAKE_CURRENT_BINARY_DIR}/${result_target}/HyloFileTests.swift")
+  if(hylo_files)
+    set(generated_swift_file "${result_target}-HyloFileTests.swift")
+    add_custom_command(
+      OUTPUT ${generated_swift_file}
+      # If the executable target depends on DLLs their directories need to be injected into the PATH
+      # or they won't be found and the target will fail to run, so invoke it through cmake.  Because
+      COMMAND
+        ${CMAKE_COMMAND} -E env
+        "PATH=$<SHELL_PATH:$<TARGET_RUNTIME_DLL_DIRS:GenerateHyloFileTests>;$ENV{PATH}>"
+        --
+        $<TARGET_FILE:GenerateHyloFileTests>
+        -o "${generated_swift_file}"
+        -n "${result_target}"
+        ${hylo_files}
+      DEPENDS ${hylo_files} GenerateHyloFileTests
+      WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+      COMMENT "Generate test files from Hylo sources")
+  else()
+    set(generated_swift_file)
+  endif()
 
-  add_custom_command(
-    OUTPUT ${generated_swift_file}
-    # If the executable target depends on DLLs their directories need to be injected into the PATH
-    # or they won't be found and the target will fail to run, so invoke it through cmake.  Because
-    COMMAND
-      ${CMAKE_COMMAND} -E env
-      "PATH=$<SHELL_PATH:$<TARGET_RUNTIME_DLL_DIRS:GenerateHyloFileTests>;$ENV{PATH}>"
-      --
-      $<TARGET_FILE:GenerateHyloFileTests> -o "${generated_swift_file}" ${hylo_files}
-    DEPENDS ${hylo_files} GenerateHyloFileTests
-    WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
-    COMMENT "Generate test files from Hylo sources")
+  add_swift_xctest(${result_target} ${testee} ${swift_files}
+    "${generated_swift_file}")
 
-  add_swift_xctest(${result_target} ${testee} ${swift_files} "${generated_swift_file}")
   target_link_libraries(${result_target} PRIVATE ${_DEPENDENCIES})
 
   set_property(TARGET ${result_target} APPEND
