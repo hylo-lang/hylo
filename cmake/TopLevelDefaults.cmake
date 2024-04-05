@@ -23,6 +23,11 @@ FetchContent_MakeAvailable(Hylo-CMakeModules)
 
 list(PREPEND CMAKE_MODULE_PATH ${hylo-cmakemodules_SOURCE_DIR})
 
+#
+# The following should migrate into the above package when they are
+# solid.
+#
+
 function(add_hylo_executable result_target)
   cmake_parse_arguments("" # <prefix>
     "" # <options>
