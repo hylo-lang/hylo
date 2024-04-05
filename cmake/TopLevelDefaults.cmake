@@ -84,7 +84,7 @@ function(add_hylo_test_of testee)
   set_recursive_file_glob(hylo_files ${_PATH}/*.hylo)
 
   if(hylo_files)
-    set(generated_swift_file "${result_target}-HyloFileTests.swift")
+    set(generated_swift_file "${CMAKE_CURRENT_BINARY_DIR}/${result_target}-HyloFileTests.swift")
     add_custom_command(
       OUTPUT ${generated_swift_file}
       # If the executable target depends on DLLs their directories need to be injected into the PATH
@@ -105,9 +105,7 @@ function(add_hylo_test_of testee)
   endif()
 
   add_swift_xctest(${result_target} ${testee} ${swift_files}
-    # Temporarily disabled to get around
-    # https://gitlab.kitware.com/cmake/cmake/-/issues/25869
-    # "${generated_swift_file}"
+    "${generated_swift_file}"
   )
 
   target_link_libraries(${result_target} PRIVATE ${_DEPENDENCIES})

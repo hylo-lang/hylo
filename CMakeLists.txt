@@ -3,10 +3,9 @@
 #
 cmake_minimum_required(VERSION 3.29)
 
-# Workaround for https://github.com/apple/swift/issues/68947
-if(APPLE)
-  cmake_policy(SET CMP0157 NEW)
-endif()
+# Workaround for
+# https://gitlab.kitware.com/cmake/cmake/-/issues/25869#note_1506487
+cmake_policy(SET CMP0157 OLD)
 
 project(Hylo
   VERSION 0.1.0
@@ -18,7 +17,12 @@ enable_testing()
 list(PREPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/modules)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ${BUILD_SHARED_LIBS}) # Needed?
-set(CMAKE_Swift_COMPILE_OPTIONS -warnings-as-errors)
+set(CMAKE_Swift_COMPILE_OPTIONS
+  -warnings-as-errors
+  # Workaround for https://github.com/apple/swift/issues/68947 that is
+  # compatible with the workaround above for
+  # https://gitlab.kitware.com/cmake/cmake/-/issues/25869
+  -driver-filelist-threshold=500)
 if(BUILD_TESTING)
   list(APPEND CMAKE_Swift_COMPILE_OPTIONS -enable-testing)
 endif()
