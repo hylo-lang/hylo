@@ -51,7 +51,17 @@ fun skynet(num: Int, size: Int, div: Int) -> Int {
   }
 }
 
+@ffi("clock")
+public fun clock() -> Int
+
+fun time_in_ms(_ clock_diff: Int) -> Int {
+  return clock_diff / 10_000 // TODO: constant dependent on the platform
+}
+
 public fun main() {
+  let start = clock()
   let result = skynet(num: 0, size: 1_000_000, div: 10);
+  let end = clock()
+  print(time_in_ms(end - start), terminator: " ms\n")
   precondition(result == 499999500000, "invalid result")
 }
