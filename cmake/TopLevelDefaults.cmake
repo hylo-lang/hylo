@@ -105,7 +105,10 @@ function(add_hylo_test_of testee)
   endif()
 
   add_swift_xctest(${result_target} ${testee} ${swift_files}
-    "${generated_swift_file}")
+    # Temporarily disabled to get around
+    # https://gitlab.kitware.com/cmake/cmake/-/issues/25869
+    # "${generated_swift_file}"
+  )
 
   target_link_libraries(${result_target} PRIVATE ${_DEPENDENCIES})
 
