@@ -9,6 +9,11 @@ add_hylo_library(TestUtils
   PATH ../Sources/TestUtils
 )
 
+add_hylo_executable(GenerateHyloFileTests
+  DEPENDENCIES ArgumentParser Utils
+  PATH ../Sources/GenerateHyloFileTests
+)
+
 add_hylo_test_of(Utils NAMED UtilsTests
   DEPENDENCIES Algorithms DequeModule)
 
