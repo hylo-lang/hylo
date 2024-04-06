@@ -1,0 +1,224 @@
+//- compileToLLVM expecting: success
+
+fun concurrent_inclusive_scan(_ input: ArraySlice<Int>, to output: inout ArraySlice<Int>, tile_count: Int, init_value: Int) {
+  let n = input.count()
+  let tile_size = (n + tile_count - 1) / tile_count
+
+  var partials_array = Array<Int>(count: tile_count + 1, with_initial_value: 0)
+  var partials = ArraySlice<Int>(full_array: &partials_array)
+  &partials[0] = init_value.copy()
+
+  {
+    let p = mutable_pointer[to: &partials]
+    let pi = pointer[to: &input]
+    let po = pointer[to: &output]
+
+    spawn_(count: tile_count, action: fun[
+        sink let p=p.copy(),
+        sink let pi=pi.copy(),
+        sink let po=po.copy(),
+        sink let tile_size = tile_size.copy(),
+        sink let n = n
+      ] (index i: Int) -> Void {
+      inout partials = p.copy().unsafe[]
+      inout input = pi.copy().unsafe[]
+      inout output = po.copy().unsafe[]
+
+      let start = i * tile_size
+      let end = min[start + tile_size, n]
+      input[from: start, to: end].inclusive_scan(to: &output[from: start, to: end])
+      &partials[i + 1] = output[end - 1].copy()
+    }).await()
+  }
+
+  partials.inclusive_scan()
+
+  {
+    let p = mutable_pointer[to: &partials]
+    let po = pointer[to: &output]
+
+    spawn_(count: tile_count, action: fun[
+        sink let p=p.copy(),
+        sink let po=po.copy(),
+        sink let tile_size = tile_size.copy(),
+        sink let n = n
+      ] (index i: Int) -> Void {
+      inout partials = p.copy().unsafe[]
+      inout output = po.copy().unsafe[]
+
+      let start = i * tile_size
+      let end = min[start + tile_size, n]
+      &output[from: start, to: end].add(partials[i])
+    }).await()
+  }
+}
+
+// TODO: this should be cleaned up and put in the standard library.
+type ArraySlice<Element: Regular> : Deinitializable, Movable, Copyable {
+
+  // TODO: utterly unsafe
+
+  /// The origin of the slice.
+  public var origin: PointerToMutable<Array<Element>>
+
+  /// The absolute index of the first element in the slice.
+  public let start_index: Int
+  /// The absolute index of the ending element in the slice.
+  public let end_index: Int
+
+  /// Initializes `self` with an empty array.
+  public init() {
+    &self.origin = PointerToMutable<Array<Element>>.null()
+    &self.start_index = 0
+    &self.end_index = 0
+  }
+
+  /// Initializes `self` to represent all the elements of `full_array`.
+  public init(full_array: inout Array<Element>) {
+    &self.origin = mutable_pointer[to: &full_array].copy()
+    &self.start_index = full_array.start_position()
+    &self.end_index = full_array.end_position()
+  }
+  /// Initializes `self` to represent elements [`start`, `end`) of `full_array`.
+  public init(source: Self, from start: Int, to end: Int) {
+    precondition(start >= 0 && start <= end && end <= source.count())
+    &self.origin = source.origin.copy()
+    &self.start_index = source.start_index + start
+    &self.end_index = source.start_index + end
+  }
+
+  public fun copy() -> Self {
+    .new(source: self, from: start_index, to: end_index)
+  }
+
+
+  /// Returns the number of elements in the slice.
+  public fun count() -> Int {
+    end_index - start_index
+  }
+
+  /// Returns a slice of `self` from `start` to `end` (relative indices).
+  public fun slice(from start: Int, to end: Int) -> Self {
+    precondition(0 <= start && start <= end && end <= count())
+    let r: Self = .new(full_array: &origin.unsafe[])
+    &r.start_index = start_index + start
+    &r.end_index = start_index + end
+    return r
+  }
+
+  /// Drop the first `n` elements from `self`.
+  public fun drop_first(_ n: Int) inout {
+    precondition(n <= count())
+    &start_index += n
+  }
+
+  /// Returns the element at `position` (relative index).
+  public subscript(_ position: Int): Element {
+    let {
+      precondition((position >= 0) && (position < count()), "position is out of bounds")
+      let elements = origin.unsafe[]
+      yield elements[start_index + position]
+    }
+    inout {
+      precondition((position >= 0) && (position < count()), "position is out of bounds")
+      inout elements = origin.unsafe[]
+      yield &elements[start_index + position]
+    }
+  }
+
+  /// Returns a slice of `self` from `start` to `end` (relative indices).
+  public subscript(from start: Int, to end: Int): Self {
+    slice(from: start, to: end)
+  }
+
+}
+
+extension ArraySlice where Element: Numeric {
+
+  public fun add(_ value: Element) inout {
+    var i = 0
+    while i < count() {
+      &self[i] += value
+      &i += 1
+    }
+  }
+
+  public fun inclusive_scan() inout {
+    if self.count() > 0 {
+      var previous = self[0].copy()
+      var i = 1
+      while i < self.count() {
+        previous += self[i]
+        &self[i] = previous.copy()
+        &i += 1
+      }
+    }
+  }
+
+  public fun inclusive_scan(to output: inout Self) {
+    precondition(output.count() >= count())
+    if self.count() > 0 {
+      var previous = self[0].copy()
+      &output[0] = previous.copy()
+      var i = 1
+      while i < self.count() {
+        previous += self[i]
+        &output[i] = previous.copy()
+        &i += 1
+      }
+    }
+  }
+
+}
+
+
+extension Array where Element: Copyable {
+
+  public init(count: Int, with_initial_value v: Element) {
+    &self = Array<Element>(count: count, initialized_with: fun (_ i) { v.copy() })
+  }
+
+}
+
+
+public fun print(_ items: inout Array<Int>, terminator: String = "\n") {
+  print(ArraySlice<Int>(full_array: &items), terminator: terminator)
+}
+
+public fun print(_ items: ArraySlice<Int>, terminator: String = "\n") {
+  print("[", terminator: "")
+  var i = 0
+  while i < items.count() {
+    if i != 0 {
+      print(", ", terminator: "")
+    }
+    print(items[i], terminator: "")
+    &i += 1
+  }
+  print("]", terminator: terminator)
+}
+
+public fun main() {
+  var a = Array<Int>(count: 100, initialized_with: fun (_ i) { i.copy() })
+
+  var result = Array<Int>(count: a.count(), with_initial_value: 0)
+  concurrent_inclusive_scan(.new(full_array: &a), to: &(.new(full_array: &result)), tile_count: 10, init_value: 0)
+
+  print(&result)
+
+  var i = 0
+  while i < result.count() {
+    precondition(result[i] == i * (i + 1) / 2)
+    &i += 1
+  }
+  precondition(result[0] == 0)
+  precondition(result[1] == 1)
+  precondition(result[2] == 3)
+  precondition(result[3] == 6)
+  precondition(result[4] == 10)
+  precondition(result[5] == 15)
+  precondition(result[6] == 21)
+}
+
+// Compile this with:
+// > hc mutating_spawn.hylo -l concore2full -l context_core_api -l boost_context -l c++ -L <path-to-concore2full> -L <path-to-boost>
