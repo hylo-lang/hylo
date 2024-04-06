@@ -1,0 +1,86 @@
+//- compileToLLVM expecting: success
+
+/*
+Implementing the following graph of tasks:
+
+T1 *-----> T2 *---> T6 --*-> T13 ----> T17 --*-> T18
+               \--> T7 -/                   /
+    \----> T3 ----> T8 --------------------/
+     \---> T4 *---> T9 ---*--> T14 -------/
+               \--> T10 -/               /
+      \--> T5 *---> T11 ----> T15 ------/
+               \--> T12 ----> T16 -----/
+*/
+
+fun run_task(_ index: Int) -> Int {
+  print("T", terminator: "")
+  print(index)
+  return index.copy()
+}
+
+fun run_work() -> Int {
+  var sum = 0
+  // T1 is run before anything else.
+  &sum += run_task(1)
+
+  // Flow that executes T2, T6, T13, T17.
+  var f1 = spawn_(fun[] () -> Int {
+    var local_sum = 0
+    &local_sum += run_task(2)
+
+    // T6 and T7 are run concurrently.
+    var f = spawn_(fun[] () -> Int { return run_task(7) })
+    &local_sum += run_task(6)
+    &local_sum += f.await()
+
+    &local_sum += run_task(13)
+    &local_sum += run_task(17)
+    return local_sum
+  })
+
+  // Flow that executes T3, T8.
+  var f2 = spawn_(fun[] () -> Int {
+    return run_task(3) + run_task(8)
+  })
+
+  // Flow that executes T4, T9, T10, T14.
+  var f3 = spawn_(fun[] () -> Int {
+    var local_sum = 0
+    &local_sum += run_task(4)
+
+    // T9 and T10 are run concurrently.
+    var f = spawn_(fun[] () -> Int { return run_task(10) })
+    &local_sum += run_task(9)
+    &local_sum += f.await()
+
+    &local_sum += run_task(14)
+    return local_sum
+  })
+
+  // Flow that executes T5, T11, T12, T15, T16.
+  var f4 = spawn_(fun[] () -> Int {
+    var local_sum = 0
+    &local_sum += run_task(5)
+
+    // T11+T15 and T12+T16 are run concurrently.
+    var f = spawn_(fun[] () -> Int { return run_task(12) + run_task(16) })
+    &local_sum += run_task(11) + run_task(15)
+    &local_sum += f.await()
+
+    return local_sum
+  })
+
+  // Everything must finish before executing T18.
+  sum += f1.await() + f2.await() + f3.await() + f4.await()
+  &sum += run_task(18)
+  return sum
+}
+
+public fun main() {
+  let result = run_work()
+  print(result)
+  precondition(result == 171, "invalid result")
+}
+
+// Compile this with:
+// > hc mutating_spawn.hylo -l concore2full -l context_core_api -l boost_context -l c++ -L <path-to-concore2full> -L <path-to-boost>
