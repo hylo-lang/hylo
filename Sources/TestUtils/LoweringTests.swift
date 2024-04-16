@@ -4,11 +4,11 @@ import StandardLibrary
 import Utils
 import XCTest
 
-extension XCTestCase {
+extension UnrecognizedSelectorWorkaroundTestCase {
 
   /// Lowers the hylo file at `hyloFilePath` to IR, applying any mandatory passes, and `XCTAssert`s
   /// that diagnostics and thrown errors match annotated expectations.
-  func lowerToFinishedIR(_ hyloFilePath: String, expectSuccess: Bool) throws {
+  open func lowerToFinishedIR(_ hyloFilePath: String, expectSuccess: Bool) throws {
 
     try checkAnnotatedHyloFileDiagnostics(inFileAt: hyloFilePath, expectSuccess: expectSuccess) {
       (valSource, diagnostics) in

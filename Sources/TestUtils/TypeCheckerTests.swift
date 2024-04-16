@@ -1,14 +1,13 @@
 import FrontEnd
 import StandardLibrary
-import TestUtils
 import Utils
 import XCTest
 
-extension XCTestCase {
+extension UnrecognizedSelectorWorkaroundTestCase {
 
   /// Type-checks the Hylo file at `hyloFilePath`, `XCTAssert`ing that diagnostics and thrown
   /// errors match annotated expectations.
-  func typeCheck(_ hyloFilePath: String, expectSuccess: Bool) throws {
+  public func typeCheck(_ hyloFilePath: String, expectSuccess: Bool) throws {
 
     try checkAnnotatedHyloFileDiagnostics(inFileAt: hyloFilePath, expectSuccess: expectSuccess) {
       (source, diagnostics) in

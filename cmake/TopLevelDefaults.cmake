@@ -81,10 +81,26 @@ function(add_hylo_test_of testee)
     set(_PATH ${result_target})
   endif()
   set_recursive_file_glob(swift_files ${_PATH}/*.swift)
-  set_recursive_file_glob(hylo_files ${_PATH}/*.hylo)
 
-  if(hylo_files)
-    set(generated_swift_file "${CMAKE_CURRENT_BINARY_DIR}/${result_target}-HyloFileTests.swift")
+  add_swift_xctest(${result_target} ${testee} ${swift_files})
+  target_link_libraries(${result_target} PRIVATE ${_DEPENDENCIES})
+  set_property(TARGET ${result_target} APPEND
+    PROPERTY CMAKE_Swift_FLAGS -warnings-as-errors)
+
+  set_recursive_file_glob(hylo_files "${_PATH}/*.hylo")
+
+  foreach(hylo_file ${hylo_files})
+
+    cmake_path(
+      RELATIVE_PATH hylo_file
+      BASE_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/${_PATH}"
+      OUTPUT_VARIABLE hylo_file_relative)
+
+    string(REGEX REPLACE "[^A-Za-z0-9_]()|^([0-9])" "_\\1" target_fragment "${hylo_file_relative}")
+
+    set(hylo_test_target "${result_target}_${target_fragment}")
+    set(generated_swift_file "${CMAKE_CURRENT_BINARY_DIR}/${hylo_test_target}.swift")
+
     add_custom_command(
       OUTPUT ${generated_swift_file}
       # If the executable target depends on DLLs their directories need to be injected into the PATH
@@ -95,21 +111,15 @@ function(add_hylo_test_of testee)
         --
         $<TARGET_FILE:GenerateHyloFileTests>
         -o "${generated_swift_file}"
-        -n "${result_target}"
-        ${hylo_files}
-      DEPENDS ${hylo_files} GenerateHyloFileTests
+        -n "${hylo_test_target}"
+        "${hylo_file}"
+      DEPENDS "${hylo_file}" GenerateHyloFileTests
       WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
-      COMMENT "Generate test files from Hylo sources")
-  else()
-    set(generated_swift_file)
-  endif()
+      COMMENT "Generate Swift test file from ${hylo_file}")
+    add_swift_xctest("${hylo_test_target}" ${testee} ${generated_swift_file})
+    target_link_libraries(${hylo_test_target} PRIVATE ${_DEPENDENCIES})
+    set_property(TARGET ${hylo_test_target} APPEND
+      PROPERTY CMAKE_Swift_FLAGS -warnings-as-errors)
+  endforeach()
 
-  add_swift_xctest(${result_target} ${testee} ${swift_files}
-    "${generated_swift_file}"
-  )
-
-  target_link_libraries(${result_target} PRIVATE ${_DEPENDENCIES})
-
-  set_property(TARGET ${result_target} APPEND
-    PROPERTY CMAKE_Swift_FLAGS -warnings-as-errors)
 endfunction()

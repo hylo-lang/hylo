@@ -2,8 +2,9 @@ import FrontEnd
 import StandardLibrary
 import Utils
 import XCTest
+import TestUtils
 
-final class ASTTests: XCTestCase {
+final class ASTTests: UnrecognizedSelectorWorkaroundTestCase {
 
   func testAppendModule() throws {
     var ast = AST()
