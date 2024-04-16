@@ -4,7 +4,7 @@ import Utils
 import XCTest
 import TestUtils
 
-final class ASTTests: UnrecognizedSelectorWorkaroundTestCase {
+final class ASTTests: XCTestCase {
 
   func testAppendModule() throws {
     var ast = AST()

@@ -48,7 +48,7 @@ struct GenerateHyloFileTests: ParsableCommand {
       import XCTest
       import TestUtils
 
-      final class \(testCaseName.asSwiftIdentifier): UnrecognizedSelectorWorkaroundTestCase {
+      final class \(testCaseName.asSwiftIdentifier): XCTestCase {
 
       """
 
