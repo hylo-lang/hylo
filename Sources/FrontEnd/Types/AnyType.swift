@@ -111,7 +111,7 @@ public struct AnyType {
   public var specialization: GenericArguments {
     switch base {
     case let u as BoundGenericType:
-      return u.arguments
+      return .init(u)
     case let u as TypeAliasType:
       return u.resolved.specialization
     default:

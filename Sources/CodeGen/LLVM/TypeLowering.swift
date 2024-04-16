@@ -86,7 +86,8 @@ extension IR.Program {
     precondition(val[.isCanonical])
 
     let fields = base.storage(of: val.base).map { (part) in
-      let u = base.specialize(part.type, for: val.arguments, in: AnyScopeID(base.ast.coreLibrary!))
+      let z = GenericArguments(val)
+      let u = base.specialize(part.type, for: z, in: AnyScopeID(base.ast.coreLibrary!))
       return llvm(u, in: &module)
     }
 

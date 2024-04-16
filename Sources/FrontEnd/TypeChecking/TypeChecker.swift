@@ -95,7 +95,7 @@ struct TypeChecker {
     if t[.isCanonical] { return ^t }
 
     let b = canonical(t.base, in: scopeOfUse)
-    let a = canonical(t.arguments, in: scopeOfUse)
+    let a = canonical(GenericArguments(t), in: scopeOfUse)
     let s = specialize(b, for: a, in: scopeOfUse)
     return canonical(s, in: scopeOfUse)
   }
@@ -395,17 +395,18 @@ struct TypeChecker {
     _ model: BoundGenericType, to trait: TraitType, in scopeOfUse: AnyScopeID
   ) -> Bool {
     let base = canonical(model.base, in: scopeOfUse)
+    let z = GenericArguments(model)
 
     // If the base is a product type, we specialize each stored part individually to check whether
     // the conformance holds for a specialized whole. Othwrwise, we specialize the base directly.
     if let b = ProductType(base) {
       let s = AnyScopeID(b.decl)
       return program.storedParts(of: b.decl).allSatisfy { (p) in
-        let t = specialize(uncheckedType(of: p), for: model.arguments, in: s)
+        let t = specialize(uncheckedType(of: p), for: z, in: s)
         return conforms(t, to: trait, in: s)
       }
     } else {
-      let t = specialize(base, for: model.arguments, in: scopeOfUse)
+      let t = specialize(base, for: z, in: scopeOfUse)
       return structurallyConforms(t, to: trait, in: scopeOfUse)
     }
   }
@@ -479,7 +480,7 @@ struct TypeChecker {
     }
 
     return .init(
-      model: model.base, concept: trait, arguments: model.arguments, conditions: [],
+      model: model.base, concept: trait, arguments: GenericArguments(model), conditions: [],
       scope: c.scope, implementations: c.implementations, isStructural: c.isStructural,
       origin: c.origin)
   }
@@ -636,7 +637,7 @@ struct TypeChecker {
 
       if let s = candidates.uniqueElement, let u = MetatypeType(me.uncheckedType(of: s)) {
         if let b = BoundGenericType(me.canonical(d, in: scopeOfUse)) {
-          return me.specialize(u.instance, for: b.arguments, in: scopeOfUse)
+          return me.specialize(u.instance, for: .init(b), in: scopeOfUse)
         } else {
           return u.instance
         }
@@ -658,12 +659,10 @@ struct TypeChecker {
         b = t.base.transform(mutating: &me, transform)
       }
 
-      var a = GenericArguments()
-      for (p, v) in t.arguments {
+      let a = t.arguments.mapValues { (v) in
         let w = v.asType ?? UNIMPLEMENTED("generic value arguments")
-        a[p] = .type(w.transform(mutating: &me, transform))
+        return CompileTimeValue.type(w.transform(mutating: &me, transform))
       }
-
       return ^BoundGenericType(b, arguments: a)
     }
 
@@ -696,11 +695,11 @@ struct TypeChecker {
         return ^t
       }
 
-      var arguments: GenericArguments = [:]
+      var a: BoundGenericType.Arguments = [:]
       for p in parameters {
-        arguments[p] = specialization[p] ?? .type(^me.freshVariable())
+        a[p] = specialization[p] ?? .type(^me.freshVariable())
       }
-      return ^BoundGenericType(t, arguments: arguments)
+      return ^BoundGenericType(t, arguments: a)
     }
   }
 
@@ -740,8 +739,10 @@ struct TypeChecker {
     }
 
     let b = MetatypeType(uncheckedType(of: d))!.instance
-    let a = GenericArguments(
-      uniqueKeysWithValues: parameters.map({ (key: $0, value: .type(^freshVariable())) }))
+    var a: BoundGenericType.Arguments = [:]
+    for p in parameters {
+      a[p] = .type(^freshVariable())
+    }
     return BoundGenericType(b, arguments: a)
   }
 
@@ -4364,12 +4365,16 @@ struct TypeChecker {
       return nil
     }
 
-    guard let parameters = program[scopeOfUse].genericClause?.value.parameters else {
+    // Skolemize generic parameters if necessary.
+    if let parameters = program[scopeOfUse].genericClause?.value.parameters {
+      let a = BoundGenericType.Arguments(
+        uniqueKeysWithValues: parameters.map { (p) in
+          (key: p, value: .type(^GenericTypeParameterType(p, ast: program.ast)))
+        })
+      return MetatypeType(of: BoundGenericType(unspecialized.instance, arguments: a))
+    } else {
       return unspecialized
     }
-
-    let arguments = GenericArguments(skolemizing: parameters, in: program.ast)
-    return MetatypeType(of: BoundGenericType(unspecialized.instance, arguments: arguments))
   }
 
   /// Computes and returns the type of `Self` in `scopeOfUse`.
@@ -4435,7 +4440,7 @@ struct TypeChecker {
   ) -> GenericArguments {
     if let g = BoundGenericType(t) {
       assert(arguments.isEmpty, "generic declaration bound twice")
-      return g.arguments
+      return .init(g)
     } else {
       let p = program.ast.genericParameters(introducedBy: d)
       return associateGenericParameters(p, of: name, to: arguments, reportingDiagnosticsTo: &log)

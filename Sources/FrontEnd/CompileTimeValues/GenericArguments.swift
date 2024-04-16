@@ -11,7 +11,7 @@ public struct GenericArguments: Hashable {
   public typealias Value = CompileTimeValue
 
   /// The type of this map's contents.
-  fileprivate typealias Contents = OrderedDictionary<GenericParameterDecl.ID, Value>
+  public typealias Contents = [GenericParameterDecl.ID: Value]
 
   /// The contents of `self`.
   fileprivate var contents: Contents
@@ -24,6 +24,11 @@ public struct GenericArguments: Hashable {
   /// Creates an empty dictionary.
   public init() {
     self.contents = [:]
+  }
+
+  /// Creates a new map with the arguments of `t`.
+  public init(_ t: BoundGenericType) {
+    self.contents = .init(uniqueKeysWithValues: t.arguments.lazy.map({ (k, v) in (k, v) }))
   }
 
   /// Creates a new map from the key-value pairs in the given sequence.
@@ -106,18 +111,22 @@ extension GenericArguments: Collection {
 
   public typealias Element = (key: Key, value: Value)
 
-  public typealias Index = Int
+  public typealias Index = Contents.Index
 
-  public var startIndex: Index { 0 }
+  public var startIndex: Index {
+    contents.startIndex
+  }
 
-  public var endIndex: Index { contents.count }
+  public var endIndex: Index {
+    contents.endIndex
+  }
 
   public func index(after position: Index) -> Index {
-    position + 1
+    contents.index(after: position)
   }
 
   public subscript(position: Index) -> Element {
-    contents.elements[position]
+    contents[position]
   }
 
 }
