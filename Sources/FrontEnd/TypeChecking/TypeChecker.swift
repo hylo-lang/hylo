@@ -272,10 +272,15 @@ struct TypeChecker {
   private mutating func conformedTraits(
     of t: GenericTypeParameterType, in scopeOfUse: AnyScopeID
   ) -> Set<TraitType> {
+    let scopeOfDeclaration = program[t.decl].scope
+
     // Trait receivers conform to their traits.
     var result: Set<TraitType>
-    if let d = TraitDecl.ID(program[t.decl].scope) {
+    if let d = TraitDecl.ID(scopeOfDeclaration) {
       result = refinements(of: TraitType(d, ast: program.ast)).unordered
+    } else if !isNotionallyContained(scopeOfUse, in: scopeOfDeclaration) {
+      let e = possiblyPartiallyFormedEnvironment(of: AnyDeclID(scopeOfDeclaration)!)!
+      result = e.conformedTraits(of: ^t)
     } else {
       result = []
     }
