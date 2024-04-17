@@ -352,7 +352,7 @@ struct TypeChecker {
   /// synthesized in `scopeOfUse`.
   ///
   /// A conformance *M: T* is synthesizable iff *M* structurally conforms to *T*.
-  private mutating func conforms(
+  private mutating func canSynthesizeConformance(
     _ model: AnyType, to trait: TraitType, in scopeOfUse: AnyScopeID
   ) -> Bool {
     conformedTraits(of: model, in: scopeOfUse).contains(trait)
@@ -375,21 +375,21 @@ struct TypeChecker {
       return structurallyConforms(m, to: trait, in: scopeOfUse)
     case let m as BufferType:
       // FIXME: To remove once conditional conformance is implemented
-      return conforms(m.element, to: trait, in: scopeOfUse)
+      return canSynthesizeConformance(m.element, to: trait, in: scopeOfUse)
     case let m as ArrowType:
-      return conforms(m.environment, to: trait, in: scopeOfUse)
+      return canSynthesizeConformance(m.environment, to: trait, in: scopeOfUse)
     case is MetatypeType:
       return true
     case let m as ProductType:
       return structurallyConforms(m, to: trait, in: scopeOfUse)
     case let m as RemoteType:
-      return conforms(m.bareType, to: trait, in: scopeOfUse)
+      return canSynthesizeConformance(m.bareType, to: trait, in: scopeOfUse)
     case let m as TupleType:
-      return m.elements.allSatisfy({ conforms($0.type, to: trait, in: scopeOfUse) })
+      return m.elements.allSatisfy({ canSynthesizeConformance($0.type, to: trait, in: scopeOfUse) })
     case let m as TypeAliasType:
       return structurallyConforms(m.aliasee.value, to: trait, in: scopeOfUse)
     case let m as UnionType:
-      return m.elements.allSatisfy({ conforms($0, to: trait, in: scopeOfUse) })
+      return m.elements.allSatisfy({ canSynthesizeConformance($0, to: trait, in: scopeOfUse) })
     default:
       return false
     }
@@ -408,7 +408,7 @@ struct TypeChecker {
       let s = AnyScopeID(b.decl)
       return program.storedParts(of: b.decl).allSatisfy { (p) in
         let t = specialize(uncheckedType(of: p), for: z, in: s)
-        return conforms(t, to: trait, in: s)
+        return canSynthesizeConformance(t, to: trait, in: s)
       }
     } else {
       let t = specialize(base, for: z, in: scopeOfUse)
@@ -421,7 +421,7 @@ struct TypeChecker {
     _ model: ProductType, to trait: TraitType, in scopeOfUse: AnyScopeID
   ) -> Bool {
     program.storedParts(of: model.decl).allSatisfy { (p) in
-      conforms(uncheckedType(of: p), to: trait, in: scopeOfUse)
+      canSynthesizeConformance(uncheckedType(of: p), to: trait, in: scopeOfUse)
     }
   }
 
