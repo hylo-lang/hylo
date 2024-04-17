@@ -28,6 +28,11 @@ public struct UnionType: TypeProtocol {
     self.flags = fs
   }
 
+  /// `true` if `self` is Hylo's `Never` type.
+  public var isNever: Bool {
+    elements.isEmpty
+  }
+
   public func transformParts<M>(
     mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction
   ) -> Self {

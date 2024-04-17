@@ -143,7 +143,7 @@ extension IR.Program {
     precondition(val[.isCanonical])
 
     var payload: SwiftyLLVM.IRType = SwiftyLLVM.StructType([], in: &module)
-    if val == .never {
+    if val.isNever {
       return payload
     }
 

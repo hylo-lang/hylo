@@ -54,7 +54,7 @@ public struct MethodType: TypeProtocol {
 
     /// Returns the output type of a `let` or `sink` variant.
     func makeFunctionalOutput() -> AnyType {
-      if output == .void {
+      if output.isVoid {
         return receiver
       } else {
         return ^TupleType([.init(label: "self", type: receiver), .init(label: nil, type: output)])

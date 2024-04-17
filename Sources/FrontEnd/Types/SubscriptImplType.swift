@@ -39,7 +39,7 @@ public struct SubscriptImplType: TypeProtocol {
   }
 
   /// Indicates whether `self` has an empty environment.
-  public var isThin: Bool { environment == .void }
+  public var isThin: Bool { environment.isVoid }
 
   /// Accesses the individual elements of the arrow's environment.
   public var captures: [TupleType.Element] { TupleType(environment)?.elements ?? [] }

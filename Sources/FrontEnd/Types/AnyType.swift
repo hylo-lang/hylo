@@ -174,12 +174,19 @@ public struct AnyType {
     }
   }
 
-  /// Indicates whether `self` is Hylo's `Void` or `Never` type.
-  ///
-  /// - Requires: `self` is canonical.
+  /// `true` iff `self` is syntactically equal to Hylo's `Void` or `Never` type.
   public var isVoidOrNever: Bool {
-    precondition(self[.isCanonical])
-    return (self == .void) || (self == .never)
+    isVoid || isNever
+  }
+
+  /// `true` iff `self` is syntactically equal to Hylo's `Void` type.
+  public var isVoid: Bool {
+    self == .void
+  }
+
+  /// `true` iff `self` is syntactically equal to Hylo's `Never` type.
+  public var isNever: Bool {
+    self == .never
   }
 
   /// Indicates whether `self` is a generic type parameter or associated type.
