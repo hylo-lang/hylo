@@ -348,15 +348,15 @@ struct TypeChecker {
     }
   }
 
-  /// Returns `true` if `model` is declared conforming to `trait` or if its conformance can be
-  /// synthesized in `scopeOfUse`.
-  ///
-  /// A conformance *M: T* is synthesizable iff *M* structurally conforms to *T*.
-  private mutating func canSynthesizeConformance(
+  /// Returns `true` if `model` conforms to `trait` explicitly or structurally in `scopeOfUse`.
+  private mutating func conforms(
     _ model: AnyType, to trait: TraitType, in scopeOfUse: AnyScopeID
   ) -> Bool {
-    conformedTraits(of: model, in: scopeOfUse).contains(trait)
-      || structurallyConforms(model, to: trait, in: scopeOfUse)
+    if conformedTraits(of: model, in: scopeOfUse).contains(trait) {
+      return true
+    } else {
+      return structurallyConforms(model, to: trait, in: scopeOfUse)
+    }
   }
 
   /// Returns `true` if `model` structurally conforms to `trait` in `scopeOfUse`.
@@ -364,39 +364,51 @@ struct TypeChecker {
   /// Given a trait describing basis operations (e.g., copy) of values, a structural conformance
   /// *M: T* holds iff all the stored parts of *M* conform to *T*, structurally or otherwise. In
   /// that case, the conformance can be synthesized because its implementation is obvious.
-  ///
-  /// Note that this method is intended to test whether a conformance is synthesizable. It does not
-  /// look for explicit conformances of `model` to `trait`.
   private mutating func structurallyConforms(
     _ model: AnyType, to trait: TraitType, in scopeOfUse: AnyScopeID
   ) -> Bool {
     switch model.base {
-    case let m as BoundGenericType:
-      return structurallyConforms(m, to: trait, in: scopeOfUse)
+    case is BoundGenericType:
+      let m = canonical(model, in: scopeOfUse)
+      return !(m.base is BoundGenericType) && structurallyConforms(m, to: trait, in: scopeOfUse)
     case let m as BufferType:
       // FIXME: To remove once conditional conformance is implemented
-      return canSynthesizeConformance(m.element, to: trait, in: scopeOfUse)
+      return conforms(m.element, to: trait, in: scopeOfUse)
     case let m as ArrowType:
-      return canSynthesizeConformance(m.environment, to: trait, in: scopeOfUse)
+      return conforms(m.environment, to: trait, in: scopeOfUse)
     case is MetatypeType:
       return true
-    case let m as ProductType:
-      return structurallyConforms(m, to: trait, in: scopeOfUse)
     case let m as RemoteType:
-      return canSynthesizeConformance(m.bareType, to: trait, in: scopeOfUse)
+      return conforms(m.bareType, to: trait, in: scopeOfUse)
     case let m as TupleType:
-      return m.elements.allSatisfy({ canSynthesizeConformance($0.type, to: trait, in: scopeOfUse) })
+      return m.elements.allSatisfy({ conforms($0.type, to: trait, in: scopeOfUse) })
     case let m as TypeAliasType:
       return structurallyConforms(m.aliasee.value, to: trait, in: scopeOfUse)
     case let m as UnionType:
-      return m.elements.allSatisfy({ canSynthesizeConformance($0, to: trait, in: scopeOfUse) })
+      return m.elements.allSatisfy({ conforms($0, to: trait, in: scopeOfUse) })
     default:
       return false
     }
   }
 
+  /// Returns `true` if a conformance of `model` to `trait` is synthesizable in `scopeOfUse`.
+  ///
+  /// A conformance *M: T* is synthesizable iff *M* structurally conforms to *T*.
+  private mutating func canSynthesizeConformance(
+    _ model: AnyType, to trait: TraitType, in scopeOfUse: AnyScopeID
+  ) -> Bool {
+    switch model.base {
+    case let m as BoundGenericType:
+      return canSynthesizeConformance(m, to: trait, in: scopeOfUse)
+    case let m as ProductType:
+      return canSynthesizeConformance(m, to: trait, in: scopeOfUse)
+    default:
+      return structurallyConforms(model, to: trait, in: scopeOfUse)
+    }
+  }
+
   /// Returns `true` if `model` structurally conforms to `trait` in `scopeOfUse`.
-  private mutating func structurallyConforms(
+  private mutating func canSynthesizeConformance(
     _ model: BoundGenericType, to trait: TraitType, in scopeOfUse: AnyScopeID
   ) -> Bool {
     let base = canonical(model.base, in: scopeOfUse)
@@ -408,20 +420,20 @@ struct TypeChecker {
       let s = AnyScopeID(b.decl)
       return program.storedParts(of: b.decl).allSatisfy { (p) in
         let t = specialize(uncheckedType(of: p), for: z, in: s)
-        return canSynthesizeConformance(t, to: trait, in: s)
+        return conforms(t, to: trait, in: s)
       }
     } else {
       let t = specialize(base, for: z, in: scopeOfUse)
-      return structurallyConforms(t, to: trait, in: scopeOfUse)
+      return canSynthesizeConformance(t, to: trait, in: scopeOfUse)
     }
   }
 
   /// Returns `true` if `model` structurally conforms to `trait` in `scopeOfUse`.
-  private mutating func structurallyConforms(
+  private mutating func canSynthesizeConformance(
     _ model: ProductType, to trait: TraitType, in scopeOfUse: AnyScopeID
   ) -> Bool {
     program.storedParts(of: model.decl).allSatisfy { (p) in
-      canSynthesizeConformance(uncheckedType(of: p), to: trait, in: scopeOfUse)
+      conforms(uncheckedType(of: p), to: trait, in: scopeOfUse)
     }
   }
 
@@ -1597,7 +1609,7 @@ struct TypeChecker {
     ) -> SynthesizedFunctionDecl? {
       guard
         let k = program.ast.synthesizedKind(of: requirement),
-        structurallyConforms(model, to: trait, in: scopeOfDefinition)
+        canSynthesizeConformance(model, to: trait, in: scopeOfDefinition)
       else { return nil }
 
       let t = ArrowType(expectedAPI.type)!
