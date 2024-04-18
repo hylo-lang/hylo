@@ -14,6 +14,8 @@ project(Hylo
   LANGUAGES C CXX Swift
 )
 enable_testing()
+include(CTest)
+
 list(PREPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/modules)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ${BUILD_SHARED_LIBS}) # Needed?
