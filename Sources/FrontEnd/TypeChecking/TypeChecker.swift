@@ -3985,10 +3985,16 @@ struct TypeChecker {
         continue
       }
 
-      let cs = collectConstraints(
-        associatedWith: m, specializedBy: specialization, in: scopeOfUse, at: name.site)
+      var deferred: ConstraintSet = []
+      forEachConstraint(associatedWith: m, in: scopeOfUse) { (me, c) in
+        let k = me.evaluateResolutionConstraint(
+          c, associatedWith: name, specializedBy: specialization, in: scopeOfUse,
+          reportingDiagnosticsTo: &log)
+        if let k = k { deferred.insert(k) }
+      }
+
       candidates.insert(
-        .init(reference: r, type: candidateType, constraints: cs, diagnostics: log))
+        .init(reference: r, type: candidateType, constraints: deferred, diagnostics: log))
     }
 
     if let labels = purpose.labels {
@@ -4506,49 +4512,74 @@ struct TypeChecker {
     return result
   }
 
-  /// Returns the type checking constraints associated with a reference to `d` with the given
-  /// `specialization` in `scopeOfUse`, anchoring those constraints at `site`.
-  private mutating func collectConstraints(
-    associatedWith d: AnyDeclID, specializedBy specialization: GenericArguments,
-    in scopeOfUse: AnyScopeID, at site: SourceRange
-  ) -> ConstraintSet {
+  /// Calls `action` on `self` and each constraint that must hold for a reference to `d` occurring
+  /// in `scopeOfUse`.
+  private mutating func forEachConstraint(
+    associatedWith d: AnyDeclID, in scopeOfUse: AnyScopeID,
+    do action: (inout Self, GenericConstraint) -> Void
+  ) {
     switch d.kind {
     case ModuleDecl.self:
-      // Modules have no constraints.
-      return []
+      return  // Modules have no constraints.
     case AssociatedTypeDecl.self, AssociatedValueDecl.self:
-      // Constraints on associated types and values are assumed satisfied in their scope.
-      return []
+      return  // Constraints on associated types and values are assumed in their scope.
     case TraitDecl.self:
-      // References to traits are unconstrained.
-      return []
+      return  // References to traits are unconstrained.
     default:
       break
     }
 
-    let origin = ConstraintOrigin(.whereClause, at: site)
-    var result = ConstraintSet()
-
     if let e = possiblyPartiallyFormedEnvironment(of: d) {
-      insertConstraints(declaredIn: e)
+      for c in e.constraints { action(&self, c) }
     }
 
     let lca = program.innermostCommonScope(program[d].scope, scopeOfUse)
     for s in program.scopes(from: program[d].scope) {
       if s == lca { break }
       if let g = AnyDeclID(s), let e = possiblyPartiallyFormedEnvironment(of: g) {
-        insertConstraints(declaredIn: e)
+        for c in e.constraints { action(&self, c) }
       }
     }
-    return result
+  }
 
-    /// Inserts the constraints declared in `e` in `result`.
-    func insertConstraints(declaredIn e: GenericEnvironment) {
-      for g in e.constraints {
-        let c = specialize(g, for: specialization, in: scopeOfUse, origin: origin)
-        result.insert(c)
+  /// Checks `c`, which is caused by the resolution of `n` specialized by `z` in `scopeOfUse`,
+  /// reporting diagnostics to `log`.
+  ///
+  /// If the constraint does not contain skolems or open type variables, the result is `nil` and
+  /// a diagnostic is reported to `log` iff the constraint does not hold. Otherwise, the result is
+  /// a type checking constraint that has to be solved in context.
+  private mutating func evaluateResolutionConstraint(
+    _ c: GenericConstraint,
+    associatedWith n: SourceRepresentable<Name>,
+    specializedBy z: GenericArguments,
+    in scopeOfUse: AnyScopeID,
+    reportingDiagnosticsTo log: inout DiagnosticSet
+  ) -> Constraint? {
+    switch c.value {
+    case .conformance(let lhs, let rhs):
+      let a = specialize(lhs, for: z, in: scopeOfUse)
+      if a.isSkolem || a[.hasVariable] {
+        return ConformanceConstraint(a, conformsTo: rhs, origin: .init(.binding, at: n.site))
+      } else if !conforms(a, to: rhs, in: scopeOfUse) {
+        log.insert(
+          .error(referenceTo: n, requires: a, conformsTo: rhs, dueToConstraintAt: c.site))
       }
+
+    case .equality(let lhs, let rhs):
+      let a = specialize(lhs, for: z, in: scopeOfUse)
+      let b = specialize(rhs, for: z, in: scopeOfUse)
+      if a.isSkolem || a[.hasVariable] || b.isSkolem || b[.hasVariable] {
+        return EqualityConstraint(a, b, origin: .init(.binding, at: n.site))
+      } else if !areEquivalent(a, b, in: scopeOfUse) {
+        log.insert(
+          .error(referenceTo: n, requires: a, equals: rhs, dueToConstraintAt: c.site))
+      }
+
+    default:
+      UNIMPLEMENTED()
     }
+
+    return nil
   }
 
   /// Returns the generic parameters introduced in the generic environment of `d`.
