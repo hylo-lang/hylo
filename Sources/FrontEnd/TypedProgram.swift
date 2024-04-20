@@ -87,7 +87,6 @@ public struct TypedProgram {
     }
 
     self = try instanceUnderConstruction.read {
-
       var checker = TypeChecker(
         constructing: $0,
         tracingInferenceIf: typeCheckingIsParallel ? nil : shouldTraceInference)
@@ -96,7 +95,6 @@ public struct TypedProgram {
       log.formUnion(checker.diagnostics)
       try log.throwOnError()
       return checker.program
-
     }
   }
 
