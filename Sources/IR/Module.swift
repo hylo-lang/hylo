@@ -258,7 +258,7 @@ public struct Module {
   /// Returns the identity of the IR function corresponding to `i`.
   mutating func demandDeclaration(lowering i: FrontEnd.Conformance.Implementation) -> Function.ID {
     switch i {
-    case .concrete(let d):
+    case .explicit(let d):
       return demandDeclaration(lowering: d)!
     case .synthetic(let d):
       return demandDeclaration(lowering: d)
