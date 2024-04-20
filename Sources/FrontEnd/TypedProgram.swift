@@ -412,7 +412,7 @@ public struct TypedProgram {
 
     return .init(
       model: model, concept: concept, arguments: [:], conditions: [], scope: scopeOfUse,
-      implementations: implementations, isStructural: true, origin: nil)
+      implementations: implementations, isStructural: false, origin: nil)
   }
 
   /// Returns the implicit structural conformance of `model` to `concept` that is exposed to
