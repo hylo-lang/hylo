@@ -1895,8 +1895,7 @@ struct TypeChecker {
       return commit(GenericEnvironment(of: AnyDeclID(d), introducing: []))
     }
 
-    var partialResult = initialEnvironment(
-      of: d, default: GenericEnvironment(of: AnyDeclID(d), introducing: clause.parameters))
+    var partialResult = initialEnvironment(of: d, introducing: clause.parameters)
 
     for p in clause.parameters {
       let lhs = uncheckedType(of: p)
@@ -1925,8 +1924,7 @@ struct TypeChecker {
     if let e = cache.read(\.environment[d]) { return e }
 
     let r = program[d].receiver.id
-    var partialResult = initialEnvironment(
-      of: d, default: GenericEnvironment(of: AnyDeclID(d), introducing: [r]))
+    var partialResult = initialEnvironment(of: d, introducing: [r])
 
     // Synthesize `Self: T`.
     let s = GenericTypeParameterType(selfParameterOf: d, in: program.ast)
@@ -1954,9 +1952,7 @@ struct TypeChecker {
   private mutating func environment<T: TypeExtendingDecl>(of d: T.ID) -> GenericEnvironment {
     if let e = cache.read(\.environment[d]) { return e }
 
-    var partialResult = initialEnvironment(
-      of: d, default: GenericEnvironment(of: AnyDeclID(d), introducing: []))
-
+    var partialResult = initialEnvironment(of: d, introducing: [])
     for c in (program[d].whereClause?.value.constraints ?? []) {
       insertConstraint(c, in: &partialResult)
     }
@@ -1978,17 +1974,18 @@ struct TypeChecker {
     }
   }
 
-  /// Calls `initialResult` to form a generic environment for `d` that doesn't contain any
-  /// constraint on its parameters.
+  /// Creates the partially formed generic environment of `d`, which introduces `parameters`,
+  /// initialized with constraints inherited from the enclosing generic environment.
   private mutating func initialEnvironment<T: Decl>(
-    of d: T.ID, default initialResult: @autoclosure () -> GenericEnvironment
+    of d: T.ID, introducing parameters: [GenericParameterDecl.ID]
   ) -> GenericEnvironment {
-    modify(&cache.partiallyFormedEnvironment[d]) { (e) in
-      precondition(e == nil, "infinite recursion")
-      let r = initialResult()
-      e = r
-      return r
+    if let e = cache.partiallyFormedEnvironment[d] {
+      return e
     }
+
+    let e = GenericEnvironment(of: AnyDeclID(d), introducing: parameters)
+    cache.partiallyFormedEnvironment[d] = e
+    return e
   }
 
   /// Returns the generic environment introduced by `d`, which may be partially formed.
