@@ -1584,7 +1584,7 @@ struct TypeChecker {
         nonConformanceNotes.insert(n)
         return
       }
-      implementations[requirement] = .concrete(d)
+      implementations[requirement] = .explicit(d)
     }
 
     /// Identifies the implementation of `requirement` for `model`.
@@ -1595,7 +1595,7 @@ struct TypeChecker {
 
       // Look for a user-defined implementation.
       if let d = concreteImplementation(of: requirement, withAPI: expectedAPI) {
-        implementations[requirement] = .concrete(d)
+        implementations[requirement] = .explicit(d)
       }
 
       // Build a synthetic implementation if possible.

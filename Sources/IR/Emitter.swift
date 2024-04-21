@@ -2532,7 +2532,7 @@ struct Emitter {
     emitInitialize(storage: source, to: foreign, at: site)
 
     switch foreignConvertibleConformance.implementations[r]! {
-    case .concrete(let m):
+    case .explicit(let m):
       let convert = module.demandDeclaration(lowering: m)!
       let f = module.reference(to: convert, implementedFor: foreignConvertibleConformance)
 
@@ -2570,7 +2570,7 @@ struct Emitter {
     // TODO: Handle cases where the foreign representation of `t` is not built-in.
 
     switch foreignConvertibleConformance.implementations[r]! {
-    case .concrete(let m):
+    case .explicit(let m):
       let convert = module.demandDeclaration(lowering: m)!
       let f = module.reference(to: convert, implementedFor: foreignConvertibleConformance)
 
