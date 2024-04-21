@@ -35,6 +35,13 @@ Otherwise:
 
 ### Building the compiler
 
+For submitting issue reports you need to manually update the Hylo version.
+Without this step, ``hc --version`` returns ``unknown``.
+
+```bash
+./Tools/set-hc-version.sh
+```
+
 You may compile Hylo's compiler with the following commands:
 
 ```bash
