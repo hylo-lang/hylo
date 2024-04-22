@@ -1,3 +1,4 @@
+import Algorithms
 import Utils
 
 /// Context to interpret the generic parameters of a declaration.
@@ -19,7 +20,7 @@ public struct GenericEnvironment {
 
   /// The generic parameters introduced in the environment, in the order there declaration appears
   /// in Hylo sources.
-  public let parameters: [GenericParameterDecl.ID]
+  public private(set) var parameters: [GenericParameterDecl.ID]
 
   /// The uninstantiated type constraints.
   public private(set) var constraints: [GenericConstraint] = []
@@ -31,12 +32,14 @@ public struct GenericEnvironment {
   private var entries: [EquivalenceClass] = []
 
   /// Creates an environment that introduces `parameters` in a declaration space.
-  public init(
-    of id: AnyDeclID,
-    introducing parameters: [GenericParameterDecl.ID]
-  ) {
+  public init(of id: AnyDeclID, introducing parameters: [GenericParameterDecl.ID]) {
     self.decl = id
     self.parameters = parameters
+  }
+
+  /// `true` if this environment doesn't introduce any generic parameter or constraint.
+  public var isEmpty: Bool {
+    parameters.isEmpty && constraints.isEmpty
   }
 
   /// Returns the set of traits to which `type` conforms in t`self`.
@@ -100,6 +103,42 @@ public struct GenericEnvironment {
       ledger[l] = entries.count
       entries.append(.init(equivalences: [l], conformances: [r]))
     }
+  }
+
+  /// Inserts in this environment the parameters and constraints introduced by `parent`.
+  ///
+  /// - Parameters:
+  ///   - parent A generic environment from which `self` inherits, either because `self` is
+  ///     notionally contained in `parent` or because `self` and `parent` are trait environments
+  ///     and `self` refines `parent`.
+  mutating func extend(_ parent: Self) {
+    // Fast path: `parent` is empty.
+    if parent.isEmpty {
+      return
+    }
+
+    // Order parameters introduced by `parent` first.
+    parameters = Array(
+      chain(parent.parameters, parameters.lazy.filter({ !parent.parameters.contains($0) })))
+
+    // Merge equivalence classes.
+    if ledger.isEmpty {
+      ledger = parent.ledger
+      entries = parent.entries
+    } else {
+      for (t, i) in parent.ledger {
+        if let j = ledger[t] {
+          entries[j].equivalences.formUnion(parent.entries[i].equivalences)
+          entries[j].conformances.formUnion(parent.entries[i].conformances)
+        } else {
+          ledger[t] = entries.count
+          entries.append(parent.entries[i])
+        }
+      }
+    }
+
+    // Merge user constraints.
+    constraints.append(contentsOf: parent.constraints)
   }
 
 }

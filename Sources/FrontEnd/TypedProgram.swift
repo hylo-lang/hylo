@@ -382,6 +382,8 @@ public struct TypedProgram {
   /// tuple's synthesized conformance to `Movable`) or if the conformance is implied by a trait
   /// bound (e.g., `T: P` in `fun f<T: P>() {}`).
   ///
+  /// Do not call `concreteConformance` during type checking.
+  ///
   /// - Requires: `model` is canonical.
   private func concreteConformance(
     of model: AnyType, to concept: TraitType, exposedTo scopeOfUse: AnyScopeID
@@ -393,6 +395,9 @@ public struct TypedProgram {
   /// Returns the conformance of `model` to `concept` that is implied by the generic environment
   /// introducing `model` in `scopeOfUse`, or `nil` if such a conformance doesn't exist.
   ///
+  /// The result of this method is valid iff a call to `concreteConformance(of:to:exposedTo:)` with
+  /// the same arguments has returned `nil`.
+  ///
   /// - Requires: `model` is canonical.
   private func abstractConformance(
     of model: AnyType, to concept: TraitType, exposedTo scopeOfUse: AnyScopeID
@@ -401,7 +406,7 @@ public struct TypedProgram {
     if !model.isSkolem { return nil }
 
     var checker = TypeChecker(asContextFor: self)
-    let bounds = checker.conformedTraits(declaredByConstraintsOn: model, exposedTo: scopeOfUse)
+    let bounds = checker.conformedTraits(of: model, in: scopeOfUse)
     if !bounds.contains(concept) { return nil }
 
     // An abstract conformance maps each requirement to itself.

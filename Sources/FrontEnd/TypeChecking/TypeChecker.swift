@@ -335,39 +335,9 @@ struct TypeChecker {
   mutating func conformedTraits(
     declaredByConstraintsOn t: AnyType, exposedTo scopeOfUse: AnyScopeID
   ) -> Set<TraitType> {
-    var result = Set<TraitType>()
-    for s in program.scopes(from: scopeOfUse) where s.isGenericScope {
-      // Only ask the computation of the environment if we have no (possibly partial) result in
-      // cache, so that lookup queries related by the environment construction can't trigger
-      // infinite recursion.
-      let d = AnyDeclID(s)!
-      let e = possiblyPartiallyFormedEnvironment(of: d)!
-      result.formUnion(e.conformedTraits(of: ^t))
-      result.formUnion(conformedTraits(declaredByConstraintsOn: t, inScopeExtendedBy: d))
-    }
-    return result
-  }
-
-  /// Returns the traits to which `t` is declared conforming in the scope extended by `d` iff `d`
-  /// is an extension.
-  private mutating func conformedTraits(
-    declaredByConstraintsOn t: AnyType, inScopeExtendedBy d: AnyDeclID
-  ) -> Set<TraitType> {
-    let extendedScope: AnyScopeID?
-
-    switch d.kind {
-    case ConformanceDecl.self:
-      extendedScope = scopeExtended(by: ConformanceDecl.ID(d)!)
-    case ExtensionDecl.self:
-      extendedScope = scopeExtended(by: ExtensionDecl.ID(d)!)
-    default:
-      return []
-    }
-
-    if let s = extendedScope {
-      return conformedTraits(of: t, in: s)
-    } else if let e = environment(introducedByDeclOf: uncheckedType(of: d)) {
-      return e.conformedTraits(of: t)
+    if let s = program.scopes(from: scopeOfUse).first(where: \.isGenericScope) {
+      let e = possiblyPartiallyFormedEnvironment(of: AnyDeclID(s)!)!
+      return e.conformedTraits(of: ^t)
     } else {
       return []
     }
@@ -1383,22 +1353,21 @@ struct TypeChecker {
   /// Builds and type checks the generic environment of `d`.
   private mutating func checkEnvironment<T: GenericDecl & LexicalScope>(of d: T.ID) {
     // TODO: Type check default values
-    let e = environment(of: d)
-    check(e.parameters)
+    _ = environment(of: d)
+    check(program[d].genericParameters)
   }
 
   /// Builds and type checks the generic environment of `d`.
   private mutating func checkEnvironment(of d: TraitDecl.ID) {
     // TODO: Type check default values
-    let e = environment(of: d)
-    check(e.parameters)
+    _ = environment(of: d)
+    check(program[d].genericParameters)
   }
 
   /// Builds and type checks the generic environment of `d`.
   private mutating func checkEnvironment<T: TypeExtendingDecl>(of d: T.ID) {
     // TODO: Type check default values
-    let e = environment(of: d)
-    check(e.parameters)
+    _ = environment(of: d)
   }
 
   /// Type checks the conformances declared by `d`.
@@ -1529,14 +1498,14 @@ struct TypeChecker {
     return
 
     /// The information describing how to refer to and use an entity.
-    typealias API = (type: AnyType, name: Name, environment: GenericEnvironment?)
+    typealias API = (type: AnyType, name: Name, parameters: [GenericParameterDecl.ID])
 
     /// Returns the API of `m` viewed as a member of `model` through its conformance to `trait`.
     func canonicaAPI(of m: AnyDeclID) -> API {
-      let t = canonical(expectedType(of: m), in: scopeOfDefinition)
-      let n = program.name(of: m)!
-      let e = memberEnvironment(of: m)
-      return (type: t, name: n, environment: e)
+      return (
+        type: canonical(expectedType(of: m), in: scopeOfDefinition),
+        name: program.name(of: m)!,
+        parameters: genericParameters(introducedBy: m))
     }
 
     /// Returns the type of `m` viewed as a member of `model` through its conformance to `trait`.
@@ -1743,15 +1712,17 @@ struct TypeChecker {
       // A generic requirement must be implemented by a generic implementation whose environment
       // implies that of the requirement.
       let expectedType: AnyType
-      if let lhs = a.environment?.parameters, !lhs.isEmpty {
-        guard let rhs = b.environment?.parameters, lhs.count == rhs.count else { return }
+
+      if a.parameters.isEmpty {
+        expectedType = a.type
+      } else if a.parameters.count == b.parameters.count {
         var s = GenericArguments()
-        for (p, t) in zip(lhs, rhs) {
+        for (p, t) in zip(a.parameters, b.parameters) {
           s[p] = .type(^GenericTypeParameterType(t, ast: program.ast))
         }
         expectedType = specialize(a.type, for: s, in: scopeOfDefinition)
       } else {
-        expectedType = a.type
+        return
       }
 
       assert(expectedType[.isCanonical] && b.type[.isCanonical])
@@ -1858,6 +1829,37 @@ struct TypeChecker {
     return (t, obligations)
   }
 
+  /// Calls `action` with the innermost generic scopes containing `s`.
+  ///
+  /// A scope `s` inherits from a generic environment `g` if:
+  /// - `s` is notionally contained in `g`; and/or
+  /// - `s` declares a trait `t` and `g` is the environment of a trait refined by `t`; and/or
+  /// - `s` is an extension and `g` is the environment of the type extended by `s`.
+  private mutating func forEachGenericParentScope(
+    inheritedBy s: AnyScopeID,
+    do action: (inout Self, AnyScopeID) -> Void
+  ) {
+    switch s.kind {
+    case ModuleDecl.self:
+      return
+    case ConformanceDecl.self:
+      if let e = scopeExtended(by: ConformanceDecl.ID(s)!) { action(&self, e) }
+    case ExtensionDecl.self:
+      if let e = scopeExtended(by: ExtensionDecl.ID(s)!) { action(&self, e) }
+    case TraitDecl.self:
+      let t = TraitType(TraitDecl.ID(s)!, ast: program.ast)
+      for u in refinements(of: t).unordered where u != t {
+        action(&self, AnyScopeID(u.decl))
+      }
+    default:
+      break
+    }
+
+    if let s = program.scopes(from: program[s].scope).first(where: \.isGenericScope) {
+      action(&self, s)
+    }
+  }
+
   /// Returns the generic environment introduced by `s`, if any.
   private mutating func environment(of s: AnyScopeID) -> GenericEnvironment? {
     switch s.kind {
@@ -1890,9 +1892,9 @@ struct TypeChecker {
   ) -> GenericEnvironment {
     if let e = cache.read(\.environment[d]) { return e }
 
-    // Nothing to do if the declaration has no generic clause.
     guard let clause = program[d].genericClause?.value else {
-      return commit(GenericEnvironment(of: AnyDeclID(d), introducing: []))
+      let e = initialEnvironment(of: d, introducing: [])
+      return commit(e)
     }
 
     var partialResult = initialEnvironment(of: d, introducing: clause.parameters)
@@ -1983,7 +1985,11 @@ struct TypeChecker {
       return e
     }
 
-    let e = GenericEnvironment(of: AnyDeclID(d), introducing: parameters)
+    var e = GenericEnvironment(of: AnyDeclID(d), introducing: parameters)
+    forEachGenericParentScope(inheritedBy: AnyScopeID(d)!) { (me, p) in
+      e.extend(me.environment(of: p)!)
+    }
+
     cache.partiallyFormedEnvironment[d] = e
     return e
   }
@@ -4520,6 +4526,20 @@ struct TypeChecker {
         let c = specialize(g, for: specialization, in: scopeOfUse, origin: origin)
         result.insert(c)
       }
+    }
+  }
+
+  /// Returns the generic parameters introduced in the generic environment of `d`.
+  ///
+  /// If `d` is a variant implementation, the result is the parameters introduce by the containing
+  /// bundle declaration.
+  private mutating func genericParameters(introducedBy d: AnyDeclID) -> [GenericParameterDecl.ID] {
+    if (d.kind == MethodImpl.self) || (d.kind == SubscriptImpl.self) {
+      return genericParameters(introducedBy: AnyDeclID(program[d].scope)!)
+    } else if let s = program.ast[d] as? GenericScope {
+      return s.genericParameters
+    } else {
+      return []
     }
   }
 
