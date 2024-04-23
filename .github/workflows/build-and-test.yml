@@ -97,22 +97,6 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-spm-
 
-    - name: Build and Test via SPM
-      uses: devcontainers/ci@v0.3
-      with:
-        runCmd: |
-          set -eo pipefail
-          swift build -c ${{ matrix.spm_configuration }} ${{ env.spm-build-options }} --build-tests
-
-          swift test -c ${{ matrix.spm_configuration }} ${{ env.spm-test-options }} ${{ matrix.more-spm-test-options }} |
-            tee testoutput.txt && (
-              (grep -q "[.']EndToEndTests[/. ]test_" testoutput.txt && grep -q "[.']HyloTests[/. ]test_" testoutput.txt) ||
-              (echo "error: generated tests failed to run; see
-              https://github.com/apple/swift-package-manager/issues/6595" && false) )
-
-          .build/${{ matrix.spm_configuration }}/hc --version
-        push: never
-
     - name: Build and Test via CMake
       uses: devcontainers/ci@v0.3
       env:
@@ -127,6 +111,22 @@ jobs:
           cmake --build .ninja-build
 
           ctest --parallel --test-dir .ninja-build
+        push: never
+
+    - name: Build and Test via SPM
+      uses: devcontainers/ci@v0.3
+      with:
+        runCmd: |
+          set -eo pipefail
+          swift build -c ${{ matrix.spm_configuration }} ${{ env.spm-build-options }} --build-tests
+
+          swift test -c ${{ matrix.spm_configuration }} ${{ env.spm-test-options }} ${{ matrix.more-spm-test-options }} |
+            tee testoutput.txt && (
+              (grep -q "[.']EndToEndTests[/. ]test_" testoutput.txt && grep -q "[.']HyloTests[/. ]test_" testoutput.txt) ||
+              (echo "error: generated tests failed to run; see
+              https://github.com/apple/swift-package-manager/issues/6595" && false) )
+
+          .build/${{ matrix.spm_configuration }}/hc --version
         push: never
 
     - name: Check code coverage
