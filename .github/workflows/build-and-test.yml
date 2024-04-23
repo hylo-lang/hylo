@@ -90,13 +90,6 @@ jobs:
     - name: Set compiler version
       run: ./Tools/set-hc-version.sh ${{ needs.determine-version.outputs.version }}
 
-    - uses: actions/cache@v4
-      with:
-        path: .build
-        key: devcontainer-${{ matrix.spm_configuration }}-spm-${{ hashFiles('**/Package.resolved') }}
-        restore-keys: |
-          ${{ runner.os }}-spm-
-
     - name: Build and Test via CMake
       uses: devcontainers/ci@v0.3
       env:
@@ -112,6 +105,14 @@ jobs:
 
           ctest --parallel --test-dir .ninja-build
         push: never
+
+    - name: Restore Cache for SPM
+      uses: actions/cache@v4
+      with:
+        path: .build
+        key: devcontainer-${{ matrix.spm_configuration }}-spm-${{ hashFiles('**/Package.resolved') }}
+        restore-keys: |
+          ${{ runner.os }}-spm-
 
     - name: Build and Test via SPM
       uses: devcontainers/ci@v0.3
