@@ -113,7 +113,7 @@ jobs:
           .build/${{ matrix.spm_configuration }}/hc --version
         push: never
 
-    - name: Build and run via CMake
+    - name: Build and Test via CMake
       uses: devcontainers/ci@v0.3
       env:
         HYLO_LLVM_BUILD_TYPE: ${{ matrix.HYLO_LLVM_BUILD_TYPE }}
@@ -235,24 +235,24 @@ jobs:
       name: Build the dependencies of build tools
       run: |
         echo 'SPM_BUILD_TOOL_SUPPORT_NO_REENTRANT_BUILD=1' >> $env:GITHUB_ENV
-        swift build ${{ env.build-options }} --target BuildToolDependencies
+        swift build ${{ env.spm-build-options }} --target BuildToolDependencies
         # https://github.com/apple/swift/issues/72121
         if (-not $?) {
-            swift build ${{ env.build-options }} --target BuildToolDependencies
+            swift build ${{ env.spm-build-options }} --target BuildToolDependencies
         }
       working-directory: hylo
 
     - name: Build
       run: |
-        swift build -c ${{ matrix.configuration }} ${{ env.build-options }} --build-tests
-        ${{ matrix.windows_only }} if (-not $?) { swift build ${{ env.build-options }} --target BuildToolDependencies }
+        swift build -c ${{ matrix.configuration }} ${{ env.spm-build-options }} --build-tests
+        ${{ matrix.windows_only }} if (-not $?) { swift build ${{ env.spm-build-options }} --target BuildToolDependencies }
 
       working-directory: hylo
 
     - name: Test
       run: |
-        swift test -c ${{ matrix.configuration }} ${{ env.test-options }} --parallel ${{ matrix.test_verification }}
-        ${{ matrix.windows_only }} if (-not $?) { swift test -c ${{ matrix.configuration }} ${{ env.test-options }} --parallel ${{ matrix.test_verification }} }
+        swift test -c ${{ matrix.configuration }} ${{ env.spm-test-options }} --parallel ${{ matrix.test_verification }}
+        ${{ matrix.windows_only }} if (-not $?) { swift test -c ${{ matrix.configuration }} ${{ env.spm-test-options }} --parallel ${{ matrix.test_verification }} }
       working-directory: hylo
 
     - name: Output compiler version
