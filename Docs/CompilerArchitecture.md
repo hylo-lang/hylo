@@ -89,8 +89,8 @@ necessary dependent on the target.
 [Tools]: ../Tools
 [Examples]: ../Examples
 [Library]: ../StandardLibrary
-[AST]: ../Sources/Core/AST/AST.swift
-[ScopedProgram]: ../Sources/Core/ScopedProgram.swift
+[AST]: ../Sources/FrontEnd/AST/AST.swift
+[ScopedProgram]: ../Sources/FrontEnd/ScopedProgram.swift
 [TypedProgram]: ../Sources/FrontEnd/TypedProgram.swift
 [Instruction]: ../Sources/IR/Operands/Instruction/
 [Emitter]: ../Sources/IR/Emitter.swift

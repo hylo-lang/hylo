@@ -7,15 +7,15 @@ public struct Conformance {
   /// The implementation of a requirement.
   public enum Implementation: Hashable {
 
-    /// Concrete implementation.
-    case concrete(AnyDeclID)
+    /// Concrete or abstract implementation.
+    case explicit(AnyDeclID)
 
     /// Synthesized implementation with given type.
     case synthetic(SynthesizedFunctionDecl)
 
-    /// The payload of `.concrete` or `nil` if `self == .synthetic`.
+    /// The declaration of this implementation iff it is explicit. Otherwise, `nil`.
     public var decl: AnyDeclID? {
-      if case .concrete(let d) = self {
+      if case .explicit(let d) = self {
         return d
       } else {
         return nil

@@ -87,7 +87,6 @@ public struct TypedProgram {
     }
 
     self = try instanceUnderConstruction.read {
-
       var checker = TypeChecker(
         constructing: $0,
         tracingInferenceIf: typeCheckingIsParallel ? nil : shouldTraceInference)
@@ -96,7 +95,6 @@ public struct TypedProgram {
       log.formUnion(checker.diagnostics)
       try log.throwOnError()
       return checker.program
-
     }
   }
 
@@ -372,8 +370,8 @@ public struct TypedProgram {
   ) -> Conformance? {
     let m = canonical(model, in: scopeOfUse)
 
-    if let c = explicitConformance(of: m, to: concept, exposedTo: scopeOfUse) { return c }
-    if let c = impliedConformance(of: m, to: concept, exposedTo: scopeOfUse) { return c }
+    if let c = concreteConformance(of: m, to: concept, exposedTo: scopeOfUse) { return c }
+    if let c = abstractConformance(of: m, to: concept, exposedTo: scopeOfUse) { return c }
     return structuralConformance(of: m, to: concept, exposedTo: scopeOfUse)
   }
 
@@ -385,7 +383,7 @@ public struct TypedProgram {
   /// bound (e.g., `T: P` in `fun f<T: P>() {}`).
   ///
   /// - Requires: `model` is canonical.
-  private func explicitConformance(
+  private func concreteConformance(
     of model: AnyType, to concept: TraitType, exposedTo scopeOfUse: AnyScopeID
   ) -> Conformance? {
     let checker = TypeChecker(asContextFor: self)
@@ -396,26 +394,25 @@ public struct TypedProgram {
   /// introducing `model` in `scopeOfUse`, or `nil` if such a conformance doesn't exist.
   ///
   /// - Requires: `model` is canonical.
-  private func impliedConformance(
+  private func abstractConformance(
     of model: AnyType, to concept: TraitType, exposedTo scopeOfUse: AnyScopeID
   ) -> Conformance? {
     // No implied conformance unless `model` is a generic parameter or associated type.
-    if !(model.base is AssociatedTypeType) && !(model.base is GenericTypeParameterType) {
-      return nil
-    }
+    if !model.isSkolem { return nil }
 
     var checker = TypeChecker(asContextFor: self)
     let bounds = checker.conformedTraits(declaredByConstraintsOn: model, exposedTo: scopeOfUse)
     if !bounds.contains(concept) { return nil }
 
+    // An abstract conformance maps each requirement to itself.
     var implementations = Conformance.ImplementationMap()
     for requirement in ast.requirements(of: concept.decl) {
-      implementations[requirement] = .concrete(requirement)
+      implementations[requirement] = .explicit(requirement)
     }
 
     return .init(
       model: model, concept: concept, arguments: [:], conditions: [], scope: scopeOfUse,
-      implementations: implementations, isStructural: true, origin: nil)
+      implementations: implementations, isStructural: false, origin: nil)
   }
 
   /// Returns the implicit structural conformance of `model` to `concept` that is exposed to
