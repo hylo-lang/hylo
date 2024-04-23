@@ -27,6 +27,7 @@ on:
       - "README.md"
       - "LICENSE"
       - ".gitignore"
+      - ".editorconfig"
     tags:
       - v*
   pull_request:
@@ -37,6 +38,7 @@ on:
       - "README.md"
       - "LICENSE"
       - ".gitignore"
+      - ".editorconfig"
 
 env:
   build-options: -Xswiftc -enable-testing --explicit-target-dependency-import-check error
