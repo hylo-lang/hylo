@@ -41,8 +41,8 @@ on:
       - ".editorconfig"
 
 env:
-  build-options: -Xswiftc -enable-testing --explicit-target-dependency-import-check error
-  test-options: --explicit-target-dependency-import-check error --skip-build
+  spm-build-options: -Xswiftc -enable-testing --explicit-target-dependency-import-check error
+  spm-test-options: --explicit-target-dependency-import-check error --skip-build
   swift-version: '5.9'
 
 jobs:
@@ -67,14 +67,18 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        configuration: [debug, release]
+        spm_configuration: [debug, release]
         include:
-          - configuration: debug
-            more-test-options: --parallel --enable-code-coverage
+          - spm_configuration: debug
+            cmake_build_type: Debug
+            more-spm-test-options: --parallel --enable-code-coverage
+            HYLO_LLVM_BUILD_TYPE: Debug
 
-          - configuration: release
+          - spm_configuration: release
+            cmake_build_type: Release
             # Re: missing --parallel, see https://github.com/apple/swift-package-manager/issues/7069
-            more-test-options:  --enable-code-coverage
+            more-spm-test-options:  --enable-code-coverage
+            HYLO_LLVM_BUILD_TYPE: MinSizeRel
 
     runs-on: ubuntu-latest
     steps:
@@ -89,24 +93,40 @@ jobs:
     - uses: actions/cache@v4
       with:
         path: .build
-        key: devcontainer-${{ matrix.configuration }}-spm-${{ hashFiles('**/Package.resolved') }}
+        key: devcontainer-${{ matrix.spm_configuration }}-spm-${{ hashFiles('**/Package.resolved') }}
         restore-keys: |
           ${{ runner.os }}-spm-
 
-    - name: Build and Test
+    - name: Build and Test via SPM
       uses: devcontainers/ci@v0.3
       with:
         runCmd: |
           set -eo pipefail
-          swift build -c ${{ matrix.configuration }} ${{ env.build-options }} --build-tests
+          swift build -c ${{ matrix.spm_configuration }} ${{ env.spm-build-options }} --build-tests
 
-          swift test -c ${{ matrix.configuration }} ${{ env.test-options }} ${{ matrix.more-test-options }} |
+          swift test -c ${{ matrix.spm_configuration }} ${{ env.spm-test-options }} ${{ matrix.more-spm-test-options }} |
             tee testoutput.txt && (
               (grep -q "[.']EndToEndTests[/. ]test_" testoutput.txt && grep -q "[.']HyloTests[/. ]test_" testoutput.txt) ||
               (echo "error: generated tests failed to run; see
               https://github.com/apple/swift-package-manager/issues/6595" && false) )
 
-          .build/${{ matrix.configuration }}/hc --version
+          .build/${{ matrix.spm_configuration }}/hc --version
+        push: never
+
+    - name: Build and run via CMake
+      uses: devcontainers/ci@v0.3
+      env:
+        HYLO_LLVM_BUILD_TYPE: ${{ matrix.HYLO_LLVM_BUILD_TYPE }}
+      with:
+        runCmd: >-
+          cmake -GNinja -S . -B .ninja-build
+          -DCMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }}
+          -DBUILD_TESTING=YES
+          -DLLVM_DIR=/opt/llvm-${{ matrix.HYLO_LLVM_BUILD_TYPE }}/lib/cmake/llvm
+
+          cmake --build .ninja-build
+
+          ctest --parallel --test-dir .ninja-build
         push: never
 
     - name: Check code coverage
@@ -114,7 +134,7 @@ jobs:
       with:
         SORT_ORDER: +cov
         MINIMUM_COVERAGE: 84
-        CODECOV_JSON: .build/${{ matrix.configuration }}/codecov/*.json
+        CODECOV_JSON: .build/${{ matrix.spm_configuration }}/codecov/*.json
 
   build-native:
     needs: determine-version
