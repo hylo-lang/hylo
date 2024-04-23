@@ -63,7 +63,7 @@ jobs:
 
   build-devcontainer:
     needs: determine-version
-    name: Ubuntu dev container/${{ matrix.configuration }}
+    name: Ubuntu dev container/${{ matrix.cmake_build_type }}
     strategy:
       fail-fast: false
       matrix:
