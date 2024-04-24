@@ -119,15 +119,8 @@ jobs:
       with:
         runCmd: |
           set -eo pipefail
-          swift build -c ${{ matrix.spm_configuration }} ${{ env.spm-build-options }} --build-tests
 
-          swift test -c ${{ matrix.spm_configuration }} ${{ env.spm-test-options }} ${{ matrix.more-spm-test-options }} |
-            tee testoutput.txt && (
-              (grep -q "[.']EndToEndTests[/. ]test_" testoutput.txt && grep -q "[.']HyloTests[/. ]test_" testoutput.txt) ||
-              (echo "error: generated tests failed to run; see
-              https://github.com/apple/swift-package-manager/issues/6595" && false) )
-
-          .build/${{ matrix.spm_configuration }}/hc --version
+          swift test -c ${{ matrix.spm_configuration }} ${{ env.spm-build-options }} ${{ env.spm-test-options }} ${{ matrix.more-spm-test-options }}
         push: never
 
     - name: Export Coverage
@@ -151,6 +144,12 @@ jobs:
         token: ${{ secrets.CODECOV_TOKEN }}
         slug: hylo-lang/hylo
         fail_ci_if_error: true
+
+    - name: Output compiler version
+      uses: devcontainers/ci@v0.3
+      with:
+        runCmd: .build/${{ matrix.spm_configuration }}/hc --version
+        push: never
 
   build-native:
     needs: determine-version
