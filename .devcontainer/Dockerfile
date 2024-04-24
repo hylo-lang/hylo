@@ -10,6 +10,8 @@ ENV HYLO_LLVM_DOWNLOAD_URL="https://github.com/hylo-lang/llvm-build/releases/dow
 
 RUN apt install -y gnupg
 RUN apt update
+# Get an llvm-cov that suports zlib compression.
+RUN apt upgrade -y llvm
 RUN apt install -y curl libzstd-dev libzstd1 lsb-release make ninja-build tar wget zstd software-properties-common
 
 #
