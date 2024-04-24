@@ -90,6 +90,12 @@ jobs:
     - name: Set compiler version
       run: ./Tools/set-hc-version.sh ${{ needs.determine-version.outputs.version }}
 
+    - name: Initialize Dev Container
+      uses: devcontainers/ci@v0.3
+      with:
+        runCmd: uname -a
+        push: never
+
     - name: Build and Test via CMake
       uses: devcontainers/ci@v0.3
       env:
