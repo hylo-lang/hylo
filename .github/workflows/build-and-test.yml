@@ -42,7 +42,7 @@ on:
 
 env:
   spm-build-options: -Xswiftc -enable-testing --explicit-target-dependency-import-check error
-  spm-test-options: --explicit-target-dependency-import-check error --skip-build
+  spm-test-options: --parallel --explicit-target-dependency-import-check error --skip-build
   swift-version: '5.9'
 
 jobs:
@@ -71,13 +71,11 @@ jobs:
         include:
           - spm_configuration: debug
             cmake_build_type: Debug
-            more-spm-test-options: --parallel
+            more-spm-test-options: --enable-code-coverage
             HYLO_LLVM_BUILD_TYPE: Debug
 
           - spm_configuration: release
             cmake_build_type: Release
-            # Re: missing --parallel, see https://github.com/apple/swift-package-manager/issues/7069
-            more-spm-test-options: --enable-code-coverage
             HYLO_LLVM_BUILD_TYPE: MinSizeRel
 
     runs-on: ubuntu-latest
@@ -118,16 +116,12 @@ jobs:
       uses: devcontainers/ci@v0.3
       with:
         runCmd: |
-          set -x
-          all_dot_os=(.build/**/*.o)
-          echo "${all_dot_os[@]}" > /dev/null
-          dot_os=(.build/${{ matrix.spm_configuration }}/*.build/**/*.o)
-          echo "${dot_os[@]}" > /dev/null
+          shopt -s nullglob
+          dot_os=(.build/${{ matrix.spm_configuration }}/*.build/*.o .build/${{ matrix.spm_configuration }}/*.build/**/*.o)
           bin_params=("${dot_os[0]}")
           for o in "${dot_os[@]:1}"; do
             bin_params+=("-object" "${o}")
           done
-          ls .build/**/*.profdata
           # Note: on mac this command might require a leading xcrun.
           llvm-cov export -format="lcov" -instr-profile "$(swift test -c ${{ matrix.spm_configuration }} --show-codecov-path | xargs dirname)"/default.profdata "${bin_params[@]}" > info.lcov
         push: never
@@ -137,7 +131,6 @@ jobs:
       uses: codecov/codecov-action@v4.0.1
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
-        slug: hylo-lang/hylo
         fail_ci_if_error: true
 
     - name: Output compiler version
@@ -277,8 +270,8 @@ jobs:
 
     - name: Test
       run: |
-        swift test -c ${{ matrix.configuration }} ${{ env.spm-test-options }} --parallel ${{ matrix.test_verification }}
-        ${{ matrix.windows_only }} if (-not $?) { swift test -c ${{ matrix.configuration }} ${{ env.spm-test-options }} --parallel ${{ matrix.test_verification }} }
+        swift test -c ${{ matrix.configuration }} ${{ env.spm-test-options }} ${{ matrix.test_verification }}
+        ${{ matrix.windows_only }} if (-not $?) { swift test -c ${{ matrix.configuration }} ${{ env.spm-test-options }} -${{ matrix.test_verification }} }
       working-directory: hylo
 
     - name: Output compiler version
