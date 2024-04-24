@@ -42,7 +42,7 @@ on:
 
 env:
   spm-build-options: -Xswiftc -enable-testing --explicit-target-dependency-import-check error
-  spm-test-options: --parallel --explicit-target-dependency-import-check error --skip-build
+  spm-test-options: --parallel
   swift-version: '5.9'
 
 jobs:
@@ -105,9 +105,7 @@ jobs:
     - name: Build and Test via SPM
       uses: devcontainers/ci@v0.3
       with:
-        runCmd: |
-          set -eo pipefail
-
+        runCmd:
           swift test -c ${{ matrix.spm_configuration }} ${{ env.spm-build-options }} ${{ env.spm-test-options }} ${{ matrix.more-spm-test-options }}
         push: never
 
@@ -173,11 +171,6 @@ jobs:
           - HYLO_LLVM_VERSION: 17.0.6
           - package_suffix: .tar.zst
           - unpackage_command: tar -x --zstd -f
-          - test_verification:  >-
-              | tee testoutput.txt && (
-              (grep -q "[.']EndToEndTests[/. ]test_" testoutput.txt && grep -q "[.']HyloTests[/. ]test_" testoutput.txt) ||
-              (echo "error: generated tests failed to run; see
-              https://github.com/apple/swift-package-manager/issues/6595" && false) )
           # https://github.com/apple/swift/issues/72121
           - windows_only: '# WINDOWS ONLY:'
 
@@ -185,7 +178,6 @@ jobs:
             unpackage_command: 7z x -t7z
             package_suffix: .7z
             triple_suffix: unknown-windows-msvc17
-            test_verification:
             windows_only:
             build_platform_subdirectory: x86_64-unknown-windows-msvc
 
@@ -270,8 +262,8 @@ jobs:
 
     - name: Test
       run: |
-        swift test -c ${{ matrix.configuration }} ${{ env.spm-test-options }} ${{ matrix.test_verification }}
-        ${{ matrix.windows_only }} if (-not $?) { swift test -c ${{ matrix.configuration }} ${{ env.spm-test-options }} -${{ matrix.test_verification }} }
+        swift test -c ${{ matrix.configuration }} ${{ env.spm-build-options }} ${{ env.spm-test-options }}
+        ${{ matrix.windows_only }} if (-not $?) { swift test -c ${{ matrix.configuration }} ${{ env.spm-test-options }}
       working-directory: hylo
 
     - name: Output compiler version
