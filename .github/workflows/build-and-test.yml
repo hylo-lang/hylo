@@ -263,7 +263,7 @@ jobs:
     - name: Test
       run: |
         swift test -c ${{ matrix.configuration }} ${{ env.spm-build-options }} ${{ env.spm-test-options }}
-        ${{ matrix.windows_only }} if (-not $?) { swift test -c ${{ matrix.configuration }} ${{ env.spm-test-options }}
+        ${{ matrix.windows_only }} if (-not $?) { swift test -c ${{ matrix.configuration }} ${{ env.spm-test-options }} }
       working-directory: hylo
 
     - name: Output compiler version
