@@ -120,7 +120,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ macos-latest, windows-latest ]
+        os: [ macos-12, windows-latest ]
         configuration: [ debug, release ]
         exclude:
           - os: windows-latest
@@ -148,7 +148,7 @@ jobs:
             windows_only:
             build_platform_subdirectory: x86_64-unknown-windows-msvc
 
-          - os: macos-latest
+          - os: macos-12
             triple_suffix: apple-darwin23.3.0
             build_platform_subdirectory: x86_64-apple-macosx
 
