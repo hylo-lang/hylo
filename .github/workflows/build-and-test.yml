@@ -85,6 +85,10 @@ jobs:
         submodules: true
         show-progress: false
 
+    - name: Install prerequisites
+      if: ${{ contains(matrix.more-spm-test-options, '--enable-code-coverage') }}
+      run: sudo apt install -y llvm
+
     - name: Set compiler version
       run: ./Tools/set-hc-version.sh ${{ needs.determine-version.outputs.version }}
 
