@@ -196,6 +196,12 @@ jobs:
           - os: ubuntu-latest
             triple_suffix: unknown-linux-gnu
 
+          - spm_configuration: debug
+            cmake_build_type: Debug
+
+          - spm_configuration: release
+            cmake_build_type: Release
+
     runs-on: ${{ matrix.os }}
     env:
       llvm_url_prefix: ${{ matrix.HYLO_LLVM_DOWNLOAD_URL }}/${{ matrix.HYLO_LLVM_BUILD_RELEASE }}
