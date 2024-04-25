@@ -106,7 +106,6 @@ jobs:
       uses: devcontainers/ci@v0.3
       with:
         runCmd: |
-          llvm-cov-15 --version
           swift test -c ${{ matrix.spm_configuration }} ${{ env.spm-build-options }} ${{ env.spm-test-options }} ${{ matrix.more-spm-test-options }}
         push: never
 
@@ -122,7 +121,7 @@ jobs:
             bin_params+=("-object" "${o}")
           done
           # Note: on mac this command might require a leading xcrun.
-          llvm-cov-15 export -format="lcov" -instr-profile "$(swift test -c ${{ matrix.spm_configuration }} --show-codecov-path | xargs dirname)"/default.profdata "${bin_params[@]}" > info.lcov
+          /opt/llvm-MinSizeRel/bin/llvm-cov export -format="lcov" -instr-profile "$(swift test -c ${{ matrix.spm_configuration }} --show-codecov-path | xargs dirname)"/default.profdata "${bin_params[@]}" > info.lcov
         push: never
 
     - name: Upload coverage reports to Codecov
