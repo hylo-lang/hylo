@@ -193,6 +193,9 @@ jobs:
           - os: macos-13
             triple_suffix: apple-darwin23.3.0
 
+          - os: ubuntu-latest
+            triple_suffix: unknown-linux-gnu
+
     runs-on: ${{ matrix.os }}
     env:
       llvm_url_prefix: ${{ matrix.HYLO_LLVM_DOWNLOAD_URL }}/${{ matrix.HYLO_LLVM_BUILD_RELEASE }}
