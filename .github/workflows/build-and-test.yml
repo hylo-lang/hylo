@@ -85,10 +85,6 @@ jobs:
         submodules: true
         show-progress: false
 
-    - name: Install prerequisites
-      if: ${{ contains(matrix.more-spm-test-options, '--enable-code-coverage') }}
-      run: sudo apt install -y llvm
-
     - name: Set compiler version
       run: ./Tools/set-hc-version.sh ${{ needs.determine-version.outputs.version }}
 
@@ -114,16 +110,19 @@ jobs:
         push: never
 
     - name: Export Coverage
+      uses: devcontainers/ci@v0.3
       if: ${{ contains(matrix.more-spm-test-options, '--enable-code-coverage') }}
-      run: |
-        shopt -s nullglob
-        dot_os=(.build/${{ matrix.spm_configuration }}/*.build/*.o .build/${{ matrix.spm_configuration }}/*.build/**/*.o)
-        bin_params=("${dot_os[0]}")
-        for o in "${dot_os[@]:1}"; do
-          bin_params+=("-object" "${o}")
-        done
-        # Note: on mac this command might require a leading xcrun.
-        llvm-cov export -format="lcov" -instr-profile "$(swift test -c ${{ matrix.spm_configuration }} --show-codecov-path | xargs dirname)"/default.profdata "${bin_params[@]}" > info.lcov
+      with:
+        runCmd: |
+          shopt -s nullglob
+          dot_os=(.build/${{ matrix.spm_configuration }}/*.build/*.o .build/${{ matrix.spm_configuration }}/*.build/**/*.o)
+          bin_params=("${dot_os[0]}")
+          for o in "${dot_os[@]:1}"; do
+            bin_params+=("-object" "${o}")
+          done
+          # Note: on mac this command might require a leading xcrun.
+          llvm-cov-17 export -format="lcov" -instr-profile "$(swift test -c ${{ matrix.spm_configuration }} --show-codecov-path | xargs dirname)"/default.profdata "${bin_params[@]}" > info.lcov
+        push: never
 
     - name: Upload coverage reports to Codecov
       if: ${{ contains(matrix.more-spm-test-options, '--enable-code-coverage') }}

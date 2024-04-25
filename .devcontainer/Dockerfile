@@ -10,7 +10,7 @@ ENV HYLO_LLVM_DOWNLOAD_URL="https://github.com/hylo-lang/llvm-build/releases/dow
 
 RUN apt install -y gnupg
 RUN apt update
-RUN apt install -y curl libzstd-dev libzstd1 lsb-release make ninja-build tar wget zstd software-properties-common
+RUN apt install -y curl libzstd-dev libzstd1 lsb-release make ninja-build tar wget zstd software-properties-common llvm-17
 
 #
 # Get a recent cmake (https://askubuntu.com/a/865294)
