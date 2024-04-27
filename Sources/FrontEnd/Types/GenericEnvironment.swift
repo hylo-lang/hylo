@@ -107,19 +107,29 @@ public struct GenericEnvironment {
 
   /// Inserts in this environment the parameters and constraints introduced by `parent`.
   ///
+  /// If both `self` and `parent` are associated with traits, the receiver parameter of the latter
+  /// is added to the equivalence class of the former in `self` rather than inserted as a parameter
+  /// introduced by `self`.
+  ///
   /// - Parameters:
   ///   - parent A generic environment from which `self` inherits, either because `self` is
   ///     notionally contained in `parent` or because `self` and `parent` are trait environments
   ///     and `self` refines `parent`.
-  mutating func extend(_ parent: Self) {
+  mutating func extend(_ parent: Self, in ast: AST) {
     // Fast path: `parent` is empty.
     if parent.isEmpty {
       return
     }
 
-    // Order parameters introduced by `parent` first.
-    parameters = Array(
-      chain(parent.parameters, parameters.lazy.filter({ !parent.parameters.contains($0) })))
+    if let t = TraitDecl.ID(decl), let u = TraitDecl.ID(parent.decl) {
+      establishEquivalence(
+        ^GenericTypeParameterType(selfParameterOf: t, in: ast),
+        ^GenericTypeParameterType(selfParameterOf: u, in: ast))
+    } else {
+      // Order parameters introduced by `parent` first.
+      parameters = Array(
+        chain(parent.parameters, parameters.lazy.filter({ !parent.parameters.contains($0) })))
+    }
 
     // Merge equivalence classes.
     if ledger.isEmpty {

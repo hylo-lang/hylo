@@ -320,7 +320,7 @@ public struct TypedProgram {
   /// Returns generic parameters captured by `s` and the scopes semantically containing `s`.
   public func accumulatedGenericParameters<T: ScopeID>(
     in s: T
-  ) -> ReversedCollection<[GenericParameterDecl.ID]> {
+  ) -> [GenericParameterDecl.ID] {
     var checker = TypeChecker(asContextFor: self)
     return checker.accumulatedGenericParameters(in: s)
   }
