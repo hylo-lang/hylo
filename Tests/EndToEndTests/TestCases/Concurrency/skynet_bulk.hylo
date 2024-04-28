@@ -7,7 +7,7 @@ fun skynet(num: Int, size: Int, div: Int) -> Int {
     var results = Array<Int>(count: div, initialized_with: fun (_ i: Int) { 0 })
     let sub_size = size / div
     let p = mutable_pointer[to: &results]
-    spawn_(count: div, action: fun[sink let q=p.copy(), sink let n = num.copy(), sink let s = sub_size.copy(), sink let d = div.copy()] (index: Int) -> Void {
+    spawn_(count: div, action: fun[sink let q = p.copy(), sink let n = num.copy(), sink let s = sub_size.copy(), sink let d = div.copy()] (index: Int) -> Void {
       inout results = q.copy().unsafe[]
       &results[index] = skynet(num: n + index * s, size: s, div: d)
     }).await()
