@@ -20,16 +20,15 @@ The repository contains [submodules](https://git-scm.com/book/en/v2/Git-Tools-Su
 You can skip directly to step 3 if you're doing development exclusively in a [devcontainer](#building-a-hylo-devcontainer-with-vscode).
 Otherwise:
 
-1. Install LLVM 15 or later on your system (e.g. `brew install llvm`)
+1. Install LLVM 17(e.g. `brew install llvm`). Major versions of LLVM are not interchangeable or backward-compatible
 2. Have the above installation's `llvm-config` in your `PATH`.  Homebrew, for example, doesn't do that automatically; you'd need something like:
    ```sh
    export PATH="$(brew --prefix --installed llvm)/bin:$PATH"
    ```
 
 3. In this project's root directory.
-    1. `swift package resolve` to get the `make-pkgconfig` tool.
-    2. `.build/checkouts/Swifty-LLVM/Tools/make-pkgconfig.sh llvm.pc` to generate LLVM's library description
-    3. Either
+    1. `Tools/make-pkgconfig.sh llvm.pc` to generate LLVM's library description
+    2. Either
         1. `sudo mkdir -p /usr/local/lib/pkgconfig && sudo mv llvm.pc /usr/local/lib/pkgconfig/` (if you want to use Xcode)
         2. or, `export PKG_CONFIG_PATH=$PWD` in any shell where you want to work on this project
 
