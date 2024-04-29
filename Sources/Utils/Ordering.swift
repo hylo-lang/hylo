@@ -1,7 +1,7 @@
 /// The result type of a three-way comparison implementing a strict total order.
 public enum StrictOrdering: Hashable {
 
-  /// The LHS is ordered before thr RHS.
+  /// The LHS is ordered before the RHS.
   case ascending
 
   /// The LHS is neither ordered before nor ordered after the RHS.
