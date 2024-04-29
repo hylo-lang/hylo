@@ -165,7 +165,9 @@ struct TypeChecker {
   }
 
   /// Returns the traits to which `t` is declared conforming in `scopeOfUse`.
-  mutating func conformedTraits(of t: AnyType, in scopeOfUse: AnyScopeID) -> Set<TraitType> {
+  private mutating func conformedTraits(
+    of t: AnyType, in scopeOfUse: AnyScopeID
+  ) -> Set<TraitType> {
     // Computation is not memoized for generic type parameters because queries might come from
     // generic arguments under construction.
     if let u = GenericTypeParameterType(t) {
@@ -349,7 +351,7 @@ struct TypeChecker {
   }
 
   /// Returns `true` if `model` conforms to `trait` explicitly or structurally in `scopeOfUse`.
-  private mutating func conforms(
+  mutating func conforms(
     _ model: AnyType, to trait: TraitType, in scopeOfUse: AnyScopeID
   ) -> Bool {
     conformedTraits(of: model, in: scopeOfUse).contains(trait)
