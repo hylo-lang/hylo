@@ -220,8 +220,8 @@ struct TypeChecker {
   /// possible traits, one must gather the conformances of `Y` in the trait defining `Y` **and**
   /// the conformances of `X.Y` in the traits defining `X`.
   ///
-  /// `base` is the qualification of the associated type composed `suffix`in reverse order. For
-  /// example, the base `T.X` and suffix `[Z, Y]` denote the associated type `T.X.Z.Y`.
+  /// `base` is the qualification of the associated type composed of `suffix` in reverse order. For
+  /// example, the base `T.X` and suffix `[Z, Y]` denote the associated type `T.X.Y.Z`.
   private mutating func accumulateConformedTraits(
     declaredInTraitsRequiring base: AssociatedTypeType,
     suffixedBy suffix: [AssociatedTypeDecl.ID],
@@ -335,7 +335,7 @@ struct TypeChecker {
   /// Returns the traits to which `t` is declared conforming in its generic environment.
   ///
   /// `t` is a generic type parameter or an associated type introduced by a generic environment
-  /// logically containing `scopeOfUse`. The return value is the set of traits used as bounds of
+  /// notionally containing `scopeOfUse`. The return value is the set of traits used as bounds of
   /// `t` in that environment.
   mutating func conformedTraits(
     declaredByConstraintsOn t: AnyType, exposedTo scopeOfUse: AnyScopeID
@@ -352,11 +352,8 @@ struct TypeChecker {
   private mutating func conforms(
     _ model: AnyType, to trait: TraitType, in scopeOfUse: AnyScopeID
   ) -> Bool {
-    if conformedTraits(of: model, in: scopeOfUse).contains(trait) {
-      return true
-    } else {
-      return structurallyConforms(model, to: trait, in: scopeOfUse)
-    }
+    conformedTraits(of: model, in: scopeOfUse).contains(trait)
+      || structurallyConforms(model, to: trait, in: scopeOfUse)
   }
 
   /// Returns `true` if `model` structurally conforms to `trait` in `scopeOfUse`.
@@ -698,9 +695,8 @@ struct TypeChecker {
         TypeAliasType(aliasing: u, declaredBy: t.decl, in: me.program.ast), declaredBy: t.decl)
     }
 
-    /// If `t` is an unspecialized generic type, returns its specialization taking the arguments in
-    /// `substitutions` corresponding to the parameters introduced by `d`; returns `t` unchanged
-    /// otherwise.
+    /// If `t` is an unspecialized generic type, returns a bound generic type applying that applies
+    /// `substitution` and maps unbound parameters to fresh variables. Otherwise, returns `t`.
     ///
     /// - Requires: `t` is not a trait.
     func transform<T: TypeProtocol, D: GenericScope>(
@@ -741,8 +737,7 @@ struct TypeChecker {
     }
   }
 
-  /// Returns the type declared by `d` bound to open variables for each generic parameter
-  /// introduced by `d`.
+  /// Returns the type declared by `d` with its generic parameters bound to fresh variables.
   ///
   /// - Requires: `d` is a a generic product type or type alias declaration.
   mutating func openForUnification(_ d: AnyDeclID) -> BoundGenericType {
@@ -2177,12 +2172,12 @@ struct TypeChecker {
     // We can apply name resolution on the components of `bound` as long as they don't have
     // generic arguments. A name expression with arguments can't denote a trait.
     var parent: NameResolutionContext? = nil
-    for component in n.reversed() {
-      if !program[component].arguments.isEmpty {
+    for c in n.reversed() {
+      if !program[c].arguments.isEmpty {
         return (nil, false)
       }
 
-      let candidates = resolve(component, in: parent, usedAs: .unapplied)
+      let candidates = resolve(c, in: parent, usedAs: .unapplied)
       if candidates.isEmpty {
         return (nil, true)
       }
@@ -4228,12 +4223,10 @@ struct TypeChecker {
       }
     }
 
-    // Re-specialize the candidate's type now that the substitution map is complete.
-    //
-    // The specialization map now contains the substitutions accumulated from the candidate's
-    // qualification as well as the ones related to the resolution of the candidate itself. For
-    // example, if we resolved `A<X>.f<Y>`, we'd get `X` from the resolution of the qualification
-    // and `Y` from the resolution of the candidate.
+    // Re-specialize the candidate's type now that the substitution map is complete contains the
+    // substitutions accumulated from the candidate's qualification as well as the ones related to
+    // the resolution of the candidate itself. For example, if we resolved `A<X>.f<Y>`, we'd get
+    // `X` from the resolution of the qualification and `Y` from the resolution of the candidate.
     entityType = specialize(entityType, for: specialization, in: scopeOfUse)
 
     var capturedArguments = GenericArguments.empty
@@ -4423,7 +4416,7 @@ struct TypeChecker {
   }
 
   /// Computes and returns the type of `Self` as a trait receiver in `scopeOfUse`, returning `nil`
-  /// if `scopeOfUse` isn't logically contained in a trait.
+  /// if `scopeOfUse` isn't notionally contained in a trait.
   private mutating func resolveTraitReceiver(
     in scopeOfUse: AnyScopeID
   ) -> GenericTypeParameterType? {
@@ -4455,8 +4448,8 @@ struct TypeChecker {
     }
   }
 
-  /// Returns the list of generic arguments passed to `d`, which has type `t` and is being referred
-  /// to by `name`, reporting diagnostics to `log`.
+  /// Returns the generic arguments passed to `d`, which has type `t` and is being referred to by
+  /// `name`, reporting diagnostics to `log`.
   private func genericArguments(
     passedTo d: AnyDeclID, typed t: AnyType,
     referredToBy name: SourceRepresentable<Name>, specializedBy arguments: [CompileTimeValue],
