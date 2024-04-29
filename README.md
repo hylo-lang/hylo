@@ -94,7 +94,7 @@ C:\Program Files\Git\bin\bash ./Tools/make-pkgconfig.sh ./llvm.pc
 
 The command above generates `llvm.pc` in the current directory and
 prints its contents to the terminal.  You can either add its directory
-to your `PKG_CONFIG_PATH` environtment variable for use with
+to your `PKG_CONFIG_PATH` environment variable for use with
 command-line tools:
 
 ```bash
