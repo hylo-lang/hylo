@@ -320,5 +320,4 @@ jobs:
       working-directory: hylo
 
     - name: Output compiler version
-      run: |
-        hylo/.build/*/${{ matrix.spm_configuration }}/hc --version
+      run: swift run --skip-build -c ${{ matrix.spm_configuration }} hc --version
