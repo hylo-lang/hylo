@@ -21,7 +21,7 @@ public struct GenericArguments: Hashable {
     self.contents = contents
   }
 
-  /// Creates an empty dictionary.
+  /// Creates an empty instance.
   public init() {
     self.contents = [:]
   }
@@ -29,11 +29,6 @@ public struct GenericArguments: Hashable {
   /// Creates a new map with the arguments of `t`.
   public init(_ t: BoundGenericType) {
     self.contents = .init(uniqueKeysWithValues: t.arguments.lazy.map({ (k, v) in (k, v) }))
-  }
-
-  /// Creates a new map from the key-value pairs in the given sequence.
-  public init<S: Sequence>(uniqueKeysWithValues keysAndValues: S) where S.Element == (Key, Value) {
-    self.contents = .init(uniqueKeysWithValues: keysAndValues)
   }
 
   /// Creates an instance mapping each element of `parameters`, which is defined in `ast`, to its
@@ -97,13 +92,8 @@ public struct GenericArguments: Hashable {
     contents.merge(suffix.contents, uniquingKeysWith: { (_, _) in unreachable() })
   }
 
-}
-
-extension GenericArguments: ExpressibleByDictionaryLiteral {
-
-  public init(dictionaryLiteral elements: (Key, Value)...) {
-    self.init(uniqueKeysWithValues: elements)
-  }
+  /// An empty instance.
+  public static var empty: Self = .init()
 
 }
 

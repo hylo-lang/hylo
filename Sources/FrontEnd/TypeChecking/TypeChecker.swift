@@ -1510,7 +1510,7 @@ struct TypeChecker {
 
     let c = Conformance(
       model: BoundGenericType(model)?.base ?? model, concept: trait,
-      arguments: [:], conditions: [], scope: scopeOfExposition,
+      arguments: .empty, conditions: [], scope: scopeOfExposition,
       implementations: implementations, isStructural: false, origin: origin)
     insertConformance(c)
     return
@@ -2193,7 +2193,7 @@ struct TypeChecker {
 
       switch pick.type.base {
       case is ModuleType, is NamespaceType, is TraitType:
-        parent = .init(type: pick.type, arguments: [:], receiver: .explicit(AnyExprID(component)))
+        parent = .init(type: pick.type, arguments: .empty, receiver: .explicit(AnyExprID(c)))
       default:
         return (nil, false)
       }
@@ -4236,7 +4236,7 @@ struct TypeChecker {
     // and `Y` from the resolution of the candidate.
     entityType = specialize(entityType, for: specialization, in: scopeOfUse)
 
-    var capturedArguments: GenericArguments = [:]
+    var capturedArguments = GenericArguments.empty
     for p in capturedGenericParameter(of: d) {
       capturedArguments[p] = specialization[p]
     }
@@ -4388,16 +4388,17 @@ struct TypeChecker {
       return nil
     }
 
-    // Skolemize generic parameters if necessary.
-    if let parameters = program[scopeOfUse].genericClause?.value.parameters {
-      let a = BoundGenericType.Arguments(
-        uniqueKeysWithValues: parameters.map { (p) in
-          (key: p, value: .type(^GenericTypeParameterType(p, ast: program.ast)))
-        })
-      return MetatypeType(of: BoundGenericType(unspecialized.instance, arguments: a))
-    } else {
+    // Nothing more to do if the receiver isn't generic.
+    guard let clause = program[scopeOfUse].genericClause else {
       return unspecialized
     }
+
+    // Skolemize generic parameters.
+    var a: BoundGenericType.Arguments = [:]
+    for p in clause.value.parameters {
+      a[p] = .type(^GenericTypeParameterType(p, ast: program.ast))
+    }
+    return MetatypeType(of: BoundGenericType(unspecialized.instance, arguments: a))
   }
 
   /// Computes and returns the type of `Self` in `scopeOfUse`.
@@ -4484,7 +4485,7 @@ struct TypeChecker {
       let parameters = accumulatedGenericParameters(in: program[d].scope)
       return .init(skolemizing: parameters, in: program.ast)
     } else {
-      return [:]
+      return .empty
     }
   }
 
@@ -6537,7 +6538,7 @@ extension Program {
         return .member(d, specialization, p.receiver!)
       } else {
         let r = innermostReceiver(in: scopeOfUse)!
-        return .member(d, specialization, .elided(.direct(AnyDeclID(r), [:])))
+        return .member(d, specialization, .elided(.direct(AnyDeclID(r), .empty)))
       }
     } else {
       return .direct(d, specialization)

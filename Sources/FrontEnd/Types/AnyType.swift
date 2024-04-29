@@ -115,7 +115,7 @@ public struct AnyType {
     case let u as TypeAliasType:
       return u.resolved.specialization
     default:
-      return [:]
+      return .empty
     }
   }
 
