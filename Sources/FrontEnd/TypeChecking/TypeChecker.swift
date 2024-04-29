@@ -3913,7 +3913,12 @@ struct TypeChecker {
       if let c = candidates.elements.uniqueElement {
         report(c.diagnostics.elements)
       } else {
-        report(.error(noViableCandidateToResolve: name, notes: []))
+        let notes = candidates.elements.map { (c) -> Diagnostic in
+          let s = c.reference.decl.map(program.ast.siteForDiagnostics(about:))
+          let m = c.diagnostics.elements.min(by: Diagnostic.isLoggedBefore)?.message
+          return .note(m ?? "candidate not viable", at: s ?? name.site)
+        }
+        report(.error(noViableCandidateToResolve: name, notes: notes))
       }
       return []
     }
