@@ -4190,12 +4190,11 @@ struct TypeChecker {
 
     // TODO: Report invalid uses of mutation markers
 
-    // The specialization of the entity includes that of context in which it was looked up.
-    //
-    // The resolution context may contain information necessary to determine the specialization of
+    // The specialization of the entity includes that of the context in which it was looked up. In
+    // particular, the context may contain information necessary to determine the specialization of
     // a qualified name. For example, given an instance of `type S<T> { let foo: Array<T> }`, the
     // type of the member `foo` depends on the specialization of its qualification.
-    var specialization = genericArguments(inScopeIntroducing: d, resolvedIn: context)
+    var specialization = genericQualificationArguments(inScopeIntroducing: d, resolvedIn: context)
     entityType = specialize(entityType, for: specialization, in: scopeOfUse)
 
     // Keep track of generic arguments that should be captured later on.
@@ -4469,12 +4468,13 @@ struct TypeChecker {
     }
   }
 
-  /// Returns the generic arguments passed to symbols occurring in `d` and looked up in `context`.
+  /// Returns the generic arguments passed to the qualification of symbols introduced in `d` that
+  /// that have been looked up in `context`.
   ///
   /// The arguments of `context` are returned if the latter isn't `nil`. Otherwise, the arguments
-  /// captured in the scope introducing `d` are returned in the form of a table mapping accumulated
-  /// generic parameters to a skolem.
-  private mutating func genericArguments(
+  /// captured in the scope introducing `d` are returned as a table mapping accumulated generic
+  /// parameters to a skolem.
+  private mutating func genericQualificationArguments(
     inScopeIntroducing d: AnyDeclID, resolvedIn context: NameResolutionContext?
   ) -> GenericArguments {
     if let c = context {
