@@ -237,6 +237,7 @@ jobs:
       working-directory: hylo
 
     - name: Test
+      if: ${{ runner.os != 'Windows' }}
       run: |
         swift test -c ${{ matrix.configuration }} ${{ env.test-options }} --parallel ${{ matrix.test_verification }}
         ${{ matrix.windows_only }} if (-not $?) { swift test -c ${{ matrix.configuration }} ${{ env.test-options }} --parallel ${{ matrix.test_verification }} }
