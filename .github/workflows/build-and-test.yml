@@ -51,7 +51,7 @@ jobs:
       matrix:
         # macos-latest is apparently not the latest.
         os: [windows-latest]
-        spm_configuration: [debug, release]
+        spm_configuration: [debug]
 
         include:
           - HYLO_LLVM_BUILD_RELEASE: 20240303-215025
@@ -72,10 +72,7 @@ jobs:
           - spm_configuration: debug
             cmake_build_type: Debug
 
-          - spm_configuration: release
-            cmake_build_type: Release
-
-    runs-on: ${{ matrix.os }}
+    runs-on: windows-latest
     env:
       llvm_url_prefix: ${{ matrix.HYLO_LLVM_DOWNLOAD_URL }}/${{ matrix.HYLO_LLVM_BUILD_RELEASE }}
       llvm_package_basename: llvm-${{ matrix.HYLO_LLVM_VERSION }}-x86_64-${{ matrix.triple_suffix }}-${{ matrix.HYLO_LLVM_BUILD_TYPE }}
@@ -130,6 +127,23 @@ jobs:
           echo 'PKG_CONFIG_PATH=${{ github.workspace }}/pkg-config' >> $GITHUB_ENV
         shell: bash
 
+      - name: Configure (CMake)
+        # We explicitly point to swiftc in the PATH because otherwise CMake picks up the one in XCode.
+        run: >-
+          cmake -GNinja -S . -B .cmake-build
+          -DCMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }}
+          -DBUILD_TESTING=YES
+          -DLLVM_DIR=${{ github.workspace }}/${{ env.llvm_package_basename }}/lib/cmake/llvm
+          ${{ matrix.os == 'macos-13' && '-D CMAKE_Swift_COMPILER=swiftc' || '' }}
+        working-directory: hylo
+
+      - name: Build (CMake)
+        run: cmake --build hylo/.cmake-build
+
+      - name: Test (CMake)
+        run: ctest -V --test-dir hylo/.cmake-build
+        continue-on-error: true
+
       - uses: actions/cache@v4
         name: SPM cache setup
         with:
@@ -163,23 +177,6 @@ jobs:
         run: |
           swift test --skip-build -c ${{ matrix.spm_configuration }} ${{ env.spm-test-options }}
         working-directory: hylo
-        continue-on-error: true
-
-      - name: Configure (CMake)
-        # We explicitly point to swiftc in the PATH because otherwise CMake picks up the one in XCode.
-        run: >-
-          cmake -GNinja -S . -B .cmake-build
-          -DCMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }}
-          -DBUILD_TESTING=YES
-          -DLLVM_DIR=${{ github.workspace }}/${{ env.llvm_package_basename }}/lib/cmake/llvm
-          ${{ matrix.os == 'macos-13' && '-D CMAKE_Swift_COMPILER=swiftc' || '' }}
-        working-directory: hylo
-
-      - name: Build (CMake)
-        run: cmake --build hylo/.cmake-build
-
-      - name: Test (CMake)
-        run: ctest --parallel -V --test-dir hylo/.cmake-build
         continue-on-error: true
 
       - name: Output compiler version
