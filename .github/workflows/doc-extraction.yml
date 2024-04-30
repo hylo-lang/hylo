@@ -24,23 +24,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  determine-version:
-    name: "Determine compiler version from git tag"
-    runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.get-tag.outputs.version }}
-    steps:
-    - id: get-tag
-      run: |
-        if [[ $GITHUB_REF == refs/tags/* ]]; then
-          version=${GITHUB_REF#refs/tags/}
-        else
-          version=""
-        fi
-        echo "version=$version" >> $GITHUB_OUTPUT
-
   build:
-    needs: determine-version
     if: github.repository == 'hylo-lang/hylo'
     runs-on: macos-13
     env:
@@ -53,10 +37,6 @@ jobs:
       with:
         submodules: true
         show-progress: false
-
-    - name: Set compiler version
-      run: ./Tools/set-hc-version.sh ${{ needs.determine-version.outputs.version }}
-      shell: bash
 
     - name: Install Jazzy
       run: |
@@ -78,12 +58,13 @@ jobs:
         tar -x --zstd -f ${{ env.llvm_package_basename }}.tar.zst
 
     - name: Create LLVM pkgconfig file and make it findable
-      run: |
+      run: >-
         set -ex -o pipefail
-        PATH="${{ github.workspace }}/${{ env.llvm_package_basename }}/bin:$PATH" \
-          ./Tools/make-pkgconfig.sh llvm.pc
+
+        PATH="${{ github.workspace }}/${{ env.llvm_package_basename }}/bin:$PATH"
+        ./Tools/make-pkgconfig.sh llvm.pc
+
         echo 'PKG_CONFIG_PATH=${{ github.workspace }}' >> $GITHUB_ENV
-      shell: bash
 
     - name: Prepare Shell Environment
       # The format of the ${GITHUB_ENV} file is extremely restrictive; it apparently only supports
