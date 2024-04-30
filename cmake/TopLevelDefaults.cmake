@@ -47,7 +47,7 @@ function(add_hylo_executable result_target)
   add_custom_command(
     TARGET "${result_target}"
     POST_BUILD
-    COMMAND EDITBIN.EXE "$<TARGET_FILE:${result_target}>" /STACK:2097152
+    COMMAND EDITBIN.EXE "$<TARGET_FILE:${result_target}>" /STACK:4194304
     VERBATIM)
 
 endfunction()
@@ -160,6 +160,13 @@ function(add_hylo_test_of testee)
     target_link_libraries(${hylo_test_target} PRIVATE ${_DEPENDENCIES})
     set_property(TARGET ${hylo_test_target} APPEND
       PROPERTY CMAKE_Swift_FLAGS -warnings-as-errors)
+
+    add_custom_command(
+      TARGET "${hylo_test_target}"
+      POST_BUILD
+      COMMAND EDITBIN.EXE "$<TARGET_FILE:${hylo_test_target}>" /STACK:4194304
+      VERBATIM)
+
   endforeach()
 
 endfunction()
