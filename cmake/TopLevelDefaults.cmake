@@ -126,6 +126,13 @@ function(add_hylo_test_of testee)
     target_link_libraries(${top_target} PRIVATE ${_DEPENDENCIES})
     set_property(TARGET ${top_target} APPEND
       PROPERTY CMAKE_Swift_FLAGS -warnings-as-errors)
+
+    add_custom_command(
+      TARGET "${top_target}"
+      POST_BUILD
+      COMMAND EDITBIN.EXE "$<TARGET_FILE:${top_target}>" /STACK:4194304
+      VERBATIM)
+
   endif()
 
   set_recursive_file_glob(hylo_files "${_PATH}/*.hylo")
