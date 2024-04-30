@@ -136,23 +136,6 @@ jobs:
 
         ${{ matrix.unpackage_command }} ${{ env.llvm_package_basename }}${{ matrix.llvm_package_suffix }}
 
-    - name: Configure (CMake)
-      # We explicitly point to swiftc in the PATH because otherwise CMake picks up the one in XCode.
-      run: >-
-        cmake -GNinja -S . -B .cmake-build
-        -DCMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }}
-        -DBUILD_TESTING=YES
-        -DLLVM_DIR=${{ github.workspace }}/${{ env.llvm_package_basename }}/lib/cmake/llvm
-        ${{ matrix.os == 'macos-13' && '-D CMAKE_Swift_COMPILER=swiftc' || '' }}
-      working-directory: hylo
-
-    - name: Build (CMake)
-      run: cmake --build hylo/.cmake-build
-
-    - name: Test (CMake)
-      run: ctest --parallel -V --test-dir hylo/.cmake-build
-      continue-on-error: true
-
     - name: Create LLVM pkgconfig file and make it findable
       run: >-
         set -ex -o pipefail
@@ -199,6 +182,24 @@ jobs:
         swift test -c ${{ matrix.spm_configuration }} ${{ env.spm-build-options }} ${{ env.spm-test-options }}
         ${{ matrix.windows_only }} if (-not $?) { swift test -c ${{ matrix.spm_configuration }} ${{ env.spm-test-options }} }
       working-directory: hylo
+      continue-on-error: true
+
+    - name: Configure (CMake)
+      # We explicitly point to swiftc in the PATH because otherwise CMake picks up the one in XCode.
+      run: >-
+        cmake -GNinja -S . -B .cmake-build
+        -DCMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }}
+        -DBUILD_TESTING=YES
+        -DLLVM_DIR=${{ github.workspace }}/${{ env.llvm_package_basename }}/lib/cmake/llvm
+        ${{ matrix.os == 'macos-13' && '-D CMAKE_Swift_COMPILER=swiftc' || '' }}
+      working-directory: hylo
+
+    - name: Build (CMake)
+      run: cmake --build hylo/.cmake-build
+
+    - name: Test (CMake)
+      run: ctest --parallel -V --test-dir hylo/.cmake-build
+      continue-on-error: true
 
     - name: Output compiler version
       run: swift run --skip-build -c ${{ matrix.spm_configuration }} hc --version
