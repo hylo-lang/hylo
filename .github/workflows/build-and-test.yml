@@ -64,7 +64,6 @@ jobs:
   native:
     needs: determine-version
     name: "Native: ${{ matrix.os }}/${{ matrix.spm_configuration }}"
-    continue-on-error: true
     strategy:
       fail-fast: false
       matrix:
@@ -152,6 +151,7 @@ jobs:
 
     - name: Test (CMake)
       run: ctest --parallel -V --test-dir hylo/.cmake-build
+      continue-on-error: true
 
     - name: Create LLVM pkgconfig file and make it findable
       run: >-
