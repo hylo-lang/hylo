@@ -43,6 +43,13 @@ function(add_hylo_executable result_target)
 
   set_property(TARGET ${result_target} APPEND
     PROPERTY CMAKE_Swift_FLAGS -warnings-as-errors)
+
+  add_custom_command(
+    TARGET "${result_target}"
+    POST_BUILD
+    COMMAND EDITBIN.EXE "$<TARGET_FILE:${result_target}>" /STACK:2097152
+    VERBATIM)
+
 endfunction()
 
 function(add_hylo_library result_target)
