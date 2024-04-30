@@ -26,30 +26,67 @@ concurrency:
 jobs:
   build:
     if: github.repository == 'hylo-lang/hylo'
-    runs-on: macos-latest
+    strategy:
+      fail-fast: false
+      # Use a matrix just for another level of variables
+      matrix:
+        os: [ macos-13 ]
+        configuration: [debug]
+        include:
+          - HYLO_LLVM_BUILD_RELEASE: 20240303-215025
+          - HYLO_LLVM_BUILD_TYPE: MinSizeRel
+          - HYLO_LLVM_DOWNLOAD_URL: https://github.com/hylo-lang/llvm-build/releases/download
+          - HYLO_LLVM_VERSION: 17.0.6
+          - package_suffix: .tar.zst
+          - unpackage_command: tar -x --zstd -f
+          # https://github.com/apple/swift/issues/72121
+          - windows_only: '# WINDOWS ONLY:'
+
+          - os: macos-13
+            triple_suffix: apple-darwin23.3.0
+            build_platform_subdirectory: x86_64-apple-macosx
+
+    runs-on: macos-13
+    env:
+      llvm_url_prefix: ${{ matrix.HYLO_LLVM_DOWNLOAD_URL }}/${{ matrix.HYLO_LLVM_BUILD_RELEASE }}
+      llvm_package_basename: llvm-${{ matrix.HYLO_LLVM_VERSION }}-x86_64-${{ matrix.triple_suffix }}-${{ matrix.HYLO_LLVM_BUILD_TYPE }}
+
     steps:
     - uses: actions/checkout@v4
       with:
         submodules: true
         show-progress: false
 
+    - name: Set compiler version
+      run: ./Tools/set-hc-version.sh ${{ needs.determine-version.outputs.version }}
+      shell: bash
+
     - name: Install Jazzy
       run: |
         sudo gem install jazzy
 
     - name: Setup swift
-      uses: swift-actions/setup-swift@v1
+      uses: SwiftyLab/setup-swift@latest
       with:
-        swift-version: 5.9
+        swift-version: ${{ env.swift-version }}
 
-    - run: swift --version
+    - name: Install LLVM
+      # 7z doesn't support decompressing from a stream or we'd do this all as one statement. Maybe
+      # we should find a way to use zstd on windows.
+      run: >-
+        curl --no-progress-meter -L -O
+        -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}"
+        ${{ env.llvm_url_prefix }}/${{ env.llvm_package_basename }}${{ matrix.package_suffix }}
 
-    - name: Setup LLVM
-      uses: KyleMayes/install-llvm-action@v2
-      with:
-        version: "15.0"
+        ${{ matrix.unpackage_command }} ${{ env.llvm_package_basename }}${{ matrix.package_suffix }}
 
-    - run: llvm-config --version
+    - name: Create LLVM pkgconfig file and make it findable
+      run: |
+        set -ex -o pipefail
+        PATH="${{ github.workspace }}/${{ env.llvm_package_basename }}/bin:$PATH" \
+          hylo/Tools/make-pkgconfig.sh llvm.pc
+        echo 'PKG_CONFIG_PATH=${{ github.workspace }}' >> $GITHUB_ENV
+      shell: bash
 
     - name: Prepare Shell Environment
       # The format of the ${GITHUB_ENV} file is extremely restrictive; it apparently only supports
@@ -75,11 +112,12 @@ jobs:
         HYLO_ENABLE_DOC_GENERATION=1
         " >> "${GITHUB_ENV}"
 
-    - name: Generate LLVM pkgconfig file
-      run: |
-        swift package resolve
-        .build/checkouts/Swifty-LLVM/Tools/make-pkgconfig.sh llvm.pc
-        cat llvm.pc
+    - uses: actions/cache@v4
+      with:
+        path: .build
+        key: ${{ runner.os }}-${{ matrix.configuration }}-spm-${{ hashFiles('hylo/**/Package.resolved') }}
+        restore-keys: |
+          ${{ runner.os }}-${{ matrix.configuration }}-spm-
 
     - name: Extract with DocC
       run: |
