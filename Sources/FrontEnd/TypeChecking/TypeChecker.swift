@@ -165,7 +165,7 @@ struct TypeChecker {
   }
 
   /// Returns the traits to which `t` is declared conforming in `scopeOfUse`.
-  private mutating func conformedTraits(
+  mutating func conformedTraits(
     of t: AnyType, in scopeOfUse: AnyScopeID
   ) -> Set<TraitType> {
     // Computation is not memoized for generic type parameters because queries might come from
@@ -339,7 +339,7 @@ struct TypeChecker {
   /// `t` is a generic type parameter or an associated type introduced by a generic environment
   /// notionally containing `scopeOfUse`. The return value is the set of traits used as bounds of
   /// `t` in that environment.
-  mutating func conformedTraits(
+  private mutating func conformedTraits(
     declaredByConstraintsOn t: AnyType, exposedTo scopeOfUse: AnyScopeID
   ) -> Set<TraitType> {
     if let s = program.scopes(from: scopeOfUse).first(where: \.isGenericScope) {
