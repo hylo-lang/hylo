@@ -20,25 +20,7 @@ name: Build and test
 
 on:
   push:
-    branches: [ main ]
-    paths-ignore:
-      - "Docs/**"
-      - "**.md"
-      - "README.md"
-      - "LICENSE"
-      - ".gitignore"
-      - ".editorconfig"
-    tags:
-      - v*
-  pull_request:
     branches: [ "**" ]
-    paths-ignore:
-      - "Docs/**"
-      - "**.md"
-      - "README.md"
-      - "LICENSE"
-      - ".gitignore"
-      - ".editorconfig"
 
 env:
   spm-build-options: -Xswiftc -enable-testing --explicit-target-dependency-import-check error
