@@ -24,7 +24,23 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  determine-version:
+    name: "Determine compiler version from git tag"
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get-tag.outputs.version }}
+    steps:
+    - id: get-tag
+      run: |
+        if [[ $GITHUB_REF == refs/tags/* ]]; then
+          version=${GITHUB_REF#refs/tags/}
+        else
+          version=""
+        fi
+        echo "version=$version" >> $GITHUB_OUTPUT
+
   build:
+    needs: determine-version
     if: github.repository == 'hylo-lang/hylo'
     strategy:
       fail-fast: false
@@ -50,6 +66,7 @@ jobs:
     env:
       llvm_url_prefix: ${{ matrix.HYLO_LLVM_DOWNLOAD_URL }}/${{ matrix.HYLO_LLVM_BUILD_RELEASE }}
       llvm_package_basename: llvm-${{ matrix.HYLO_LLVM_VERSION }}-x86_64-${{ matrix.triple_suffix }}-${{ matrix.HYLO_LLVM_BUILD_TYPE }}
+      swift-version: '5.9'
 
     steps:
     - uses: actions/checkout@v4
