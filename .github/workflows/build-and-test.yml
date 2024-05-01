@@ -169,7 +169,7 @@ jobs:
           - HYLO_LLVM_BUILD_RELEASE: 20240303-215025
           - HYLO_LLVM_BUILD_TYPE: MinSizeRel
           - HYLO_LLVM_DOWNLOAD_URL: https://github.com/hylo-lang/llvm-build/releases/download
-          - HYLO_LLVM_VERSION: 17.0.6
+          - HYLO_LLVM_VERSION: '17.0.6'
           - llvm_package_suffix: .tar.zst
           - unpackage_command: tar -x --zstd -f
           # https://github.com/apple/swift/issues/72121
@@ -181,7 +181,7 @@ jobs:
             unpackage_command: 7z x -t7z
             llvm_package_suffix: .7z
             triple_suffix: unknown-windows-msvc17
-            windows_only:
+            windows_only: ''
 
           - os: windows-latest
             spm_configuration: debug
