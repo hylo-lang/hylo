@@ -26,7 +26,12 @@ concurrency:
 jobs:
   build:
     if: github.repository == 'hylo-lang/hylo'
-    runs-on: macos-latest
+    runs-on: macos-13
+    env:
+      llvm_url_prefix: https://github.com/hylo-lang/llvm-build/releases/download/20240303-215025
+      llvm_package_basename: llvm-17.0.6-x86_64-apple-darwin23.3.0-MinSizeRel
+      swift-version: '5.9'
+
     steps:
     - uses: actions/checkout@v4
       with:
@@ -38,18 +43,28 @@ jobs:
         sudo gem install jazzy
 
     - name: Setup swift
-      uses: swift-actions/setup-swift@v1
+      uses: SwiftyLab/setup-swift@latest
       with:
-        swift-version: 5.9
+        swift-version: ${{ env.swift-version }}
 
-    - run: swift --version
+    - name: Install LLVM
+      # 7z doesn't support decompressing from a stream or we'd do this all as one statement. Maybe
+      # we should find a way to use zstd on windows.
+      run: >-
+        curl --no-progress-meter -L -O
+        -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}"
+        ${{ env.llvm_url_prefix }}/${{ env.llvm_package_basename }}.tar.zst
 
-    - name: Setup LLVM
-      uses: KyleMayes/install-llvm-action@v2
-      with:
-        version: "15.0"
+        tar -x --zstd -f ${{ env.llvm_package_basename }}.tar.zst
 
-    - run: llvm-config --version
+    - name: Create LLVM pkgconfig file and make it findable
+      run: >-
+        set -ex -o pipefail
+
+        PATH="${{ github.workspace }}/${{ env.llvm_package_basename }}/bin:$PATH"
+        ./Tools/make-pkgconfig.sh llvm.pc
+
+        echo 'PKG_CONFIG_PATH=${{ github.workspace }}' >> $GITHUB_ENV
 
     - name: Prepare Shell Environment
       # The format of the ${GITHUB_ENV} file is extremely restrictive; it apparently only supports
@@ -75,11 +90,12 @@ jobs:
         HYLO_ENABLE_DOC_GENERATION=1
         " >> "${GITHUB_ENV}"
 
-    - name: Generate LLVM pkgconfig file
-      run: |
-        swift package resolve
-        .build/checkouts/Swifty-LLVM/Tools/make-pkgconfig.sh llvm.pc
-        cat llvm.pc
+    - uses: actions/cache@v4
+      with:
+        path: .build
+        key: ${{ runner.os }}-debug-spm-${{ hashFiles('./**/Package.resolved') }}
+        restore-keys: |
+          ${{ runner.os }}-debug-spm-
 
     - name: Extract with DocC
       run: |
