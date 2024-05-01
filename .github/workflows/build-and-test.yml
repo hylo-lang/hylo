@@ -316,7 +316,7 @@ jobs:
       - if: ${{ matrix.spm_works }}
         name: Test
         run: |
-          swift test -c ${{ matrix.spm_configuration }} ${{ env.spm-build-options }} ${{ env.spm-test-options }}
+          swift test --skip-build -c ${{ matrix.spm_configuration }} ${{ env.spm-build-options }} ${{ env.spm-test-options }}
           ${{ matrix.windows_only }} if (-not $?) { swift test -c ${{ matrix.spm_configuration }} ${{ env.spm-test-options }} }
         working-directory: hylo
 
