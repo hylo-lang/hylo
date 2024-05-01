@@ -255,7 +255,7 @@ jobs:
       - name: Configure (CMake)
         # We explicitly point to swiftc in the PATH because otherwise CMake picks up the one in XCode.
         run: >-
-          cmake -GNinja -S . -B .cmake-build
+          cmake -GNinja -S . -B .ninja-build
           -DCMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }}
           -DBUILD_TESTING=YES
           -DLLVM_DIR=${{ github.workspace }}/${{ env.llvm_package_basename }}/lib/cmake/llvm
@@ -263,10 +263,10 @@ jobs:
         working-directory: hylo
 
       - name: Build (CMake)
-        run: cmake --build hylo/.cmake-build
+        run: cmake --build hylo/.ninja-build
 
       - name: Test (CMake)
-        run: ctest -V --parallel --test-dir hylo/.cmake-build
+        run: ctest -V --parallel --test-dir hylo/.ninja-build
 
       - name: Create LLVM pkgconfig file and make it findable
         run: >-
@@ -321,4 +321,4 @@ jobs:
         working-directory: hylo
 
       - name: Output compiler version
-        run: cmake --build hylo/.cmake-build --target output_compiler_version -- --quiet&
+        run: cmake --build hylo/.ninja-build --target output_compiler_version -- --quiet&
