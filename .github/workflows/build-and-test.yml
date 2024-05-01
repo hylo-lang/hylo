@@ -321,5 +321,4 @@ jobs:
         working-directory: hylo
 
       - name: Output compiler version
-        run: |
-          hylo/.build/*/${{ matrix.spm_configuration }}/hc --version
+        run: cmake --build hylo/.cmake-build --target output_compiler_version -- --quiet&

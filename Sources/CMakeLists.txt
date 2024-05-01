@@ -43,3 +43,8 @@ add_hylo_library(Utils
 add_hylo_library(StandardLibrary
   DEPENDENCIES FrontEnd Utils
   PATH ../StandardLibrary)
+
+add_custom_target(output_compiler_version
+  "$<TARGET_FILE:hc>" --version
+  DEPENDS hc
+  VERBATIM)
