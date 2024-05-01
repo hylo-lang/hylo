@@ -22,12 +22,43 @@ endblock()
 FetchContent_MakeAvailable(Hylo-CMakeModules)
 
 list(PREPEND CMAKE_MODULE_PATH ${hylo-cmakemodules_SOURCE_DIR})
-
 #
-# The following should migrate into the above package when they are
+# The following functions should migrate into Hylo-CMakeModules when they are
 # solid.
 #
 
+# Applies setup steps used across hylo targets.
+function(hylo_common_target_setup target)
+  set_property(TARGET "${target}" APPEND
+    PROPERTY CMAKE_Swift_FLAGS -warnings-as-errors)
+
+  # On Windows, increase the stack size of executables; we do a lot of
+  # tail recursion and it doesn't get optimized away in debug builds.
+  #
+  # TODO: we might want to figure out how to turn this increase off
+  # when optimization is on.  That might be nontrivial for
+  # multi-config generators.
+  if(WIN32) # Means target system is Windows
+    get_property(target_type TARGET "${target}" PROPERTY TYPE)
+    if(target_type STREQUAL "EXECUTABLE")
+      add_custom_command(
+        TARGET "${target}"
+        POST_BUILD
+        COMMAND editbin.exe "$<TARGET_FILE:${target}>"
+          /STACK:2097152 # Double the 1M default.
+        VERBATIM)
+    endif()
+  endif()
+endfunction()
+
+# add_hylo_executable(<target-name>
+#   [PATH <swift-source-root>]
+#   [DEPENDENCIES <library-dependencies>])
+#
+# Adds an executable target called <target-name> composed of the
+# ``.swift`` files in <swift-source-root> and its subdirectories (or in
+# <target-name>/ and subdirectories if PATH is omitted), linking to
+# the targets named in DEPENDENCIES.
 function(add_hylo_executable result_target)
   cmake_parse_arguments("" # <prefix>
     "" # <options>
@@ -41,10 +72,17 @@ function(add_hylo_executable result_target)
   add_executable(${result_target} ${files})
   target_link_libraries(${result_target} PRIVATE ${_DEPENDENCIES})
 
-  set_property(TARGET ${result_target} APPEND
-    PROPERTY CMAKE_Swift_FLAGS -warnings-as-errors)
+  hylo_common_target_setup(${result_target})
 endfunction()
 
+# add_hylo_library(<target-name>
+#   [PATH <swift-source-root>]
+#   [DEPENDENCIES <library-dependencies>])
+#
+# Adds a library target called <target-name> composed of the
+# ``.swift`` files in <swift-source-root> and its subdirectories (or in
+# <target-name>/ and subdirectories if PATH is omitted), linking to
+# the targets named in DEPENDENCIES.
 function(add_hylo_library result_target)
   cmake_parse_arguments("" # <prefix>
     "" # <options>
@@ -58,15 +96,14 @@ function(add_hylo_library result_target)
   add_library(${result_target} ${files})
   target_link_libraries(${result_target} ${_DEPENDENCIES})
 
-  set_property(TARGET ${result_target} APPEND
-    PROPERTY CMAKE_Swift_FLAGS -warnings-as-errors)
-
   target_compile_options(${result_target}
     PRIVATE $<$<BOOL:${BUILD_TESTING}>:-enable-testing>)
 
   set_target_properties(${result_target} PROPERTIES
     # This is required in order to be an XCTest testee.
     FRAMEWORK $<BOOL:${BUILD_TESTING}>)
+
+  hylo_common_target_setup(${result_target})
 endfunction()
 
 # set_unique_subdirs(output_variable common_prefix <paths>...)
@@ -101,6 +138,21 @@ function(paths_with_prefix output_variable prefix)
   set("${output_variable}" "${result}" PARENT_SCOPE)
 endfunction()
 
+# add_hylo_test_of(<testee>
+#   NAMED <target-name>
+#   [PATH <swift-source-root>]
+#   [DEPENDENCIES <library-dependencies>])
+#
+# Using a source root directory <swift-source-root> (or
+# <target-name>/ if PATH is omitted):
+#
+# - If any ``.swift`` files are found under the source root (recursively),
+#   creates a test target from them called <target-name>, testing <testee>.
+# - For each subdirectory of the source root containing ``.hylo``
+#   files, creates a test target that runs the annotated hylo file
+#   tests in that subdirectory.
+#
+# All created tests are linked to <library-dependencies>.
 function(add_hylo_test_of testee)
   cmake_parse_arguments("" # <prefix>
     "" # <options>
@@ -115,10 +167,9 @@ function(add_hylo_test_of testee)
   set_recursive_file_glob(swift_files ${_PATH}/*.swift)
 
   if(swift_files)
-    add_swift_xctest(${top_target} ${testee} ${swift_files})
-    target_link_libraries(${top_target} PRIVATE ${_DEPENDENCIES})
-    set_property(TARGET ${top_target} APPEND
-      PROPERTY CMAKE_Swift_FLAGS -warnings-as-errors)
+    add_swift_xctest("${top_target}" ${testee} ${swift_files})
+    target_link_libraries("${top_target}" PRIVATE ${_DEPENDENCIES})
+    hylo_common_target_setup("${top_target}")
   endif()
 
   set_recursive_file_glob(hylo_files "${_PATH}/*.hylo")
@@ -151,8 +202,7 @@ function(add_hylo_test_of testee)
 
     add_swift_xctest("${hylo_test_target}" ${testee} ${generated_swift_file})
     target_link_libraries(${hylo_test_target} PRIVATE ${_DEPENDENCIES})
-    set_property(TARGET ${hylo_test_target} APPEND
-      PROPERTY CMAKE_Swift_FLAGS -warnings-as-errors)
+    hylo_common_target_setup(${hylo_test_target})
   endforeach()
 
 endfunction()
