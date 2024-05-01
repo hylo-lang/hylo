@@ -55,12 +55,12 @@ jobs:
     steps:
       - id: get-tag
         run: |
-          if [[ $GITHUB_REF == refs/tags/* ]]; then
-            version=${GITHUB_REF#refs/tags/}
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            version="${GITHUB_REF#refs/tags/}"
           else
             version=""
           fi
-          echo "version=$version" >> $GITHUB_OUTPUT
+          echo "version=$version" >> "$GITHUB_OUTPUT"
 
   devcontainer:
     needs: determine-version
@@ -277,7 +277,7 @@ jobs:
           PATH="${{ github.workspace }}/${{ env.llvm_package_basename }}/bin:$PATH"
             hylo/Tools/make-pkgconfig.sh pkg-config/llvm.pc
 
-          echo 'PKG_CONFIG_PATH=${{ github.workspace }}/pkg-config' >> $GITHUB_ENV
+          echo 'PKG_CONFIG_PATH=${{ github.workspace }}/pkg-config' >> "$GITHUB_ENV"
         shell: bash
 
       - if: ${{ matrix.spm_works }}
