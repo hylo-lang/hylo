@@ -152,7 +152,7 @@ jobs:
 
             cmake --build .ninja-build
 
-            ctest --parallel --test-dir .ninja-build
+            ctest -V --parallel --test-dir .ninja-build
           push: never
 
   native:
@@ -266,7 +266,7 @@ jobs:
         run: cmake --build hylo/.cmake-build
 
       - name: Test (CMake)
-        run: ctest -V --test-dir hylo/.cmake-build
+        run: ctest -V --parallel --test-dir hylo/.cmake-build
 
       - name: Create LLVM pkgconfig file and make it findable
         run: >-
