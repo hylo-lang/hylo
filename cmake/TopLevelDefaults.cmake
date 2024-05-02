@@ -123,15 +123,15 @@ function(set_unique_subdirs output_variable common_prefix)
   set("${output_variable}" "${output}" PARENT_SCOPE)
 endfunction()
 
-# paths_with_prefix(output_variable prefix <paths>...)
+# paths_in_directory(output_variable directory <paths>...)
 #
-# Sets output_variable to the members of <paths> having the given
-# prefix.
-function(paths_with_prefix output_variable prefix)
+# Sets output_variable to the members of <paths> whose directory is
+# <directory>.
+function(paths_in_directory output_variable directory)
   set(result)
   foreach(s ${ARGN})
-    cmake_path(IS_PREFIX prefix "${s}" has_prefix)
-    if(has_prefix)
+    cmake_path(GET s PARENT_PATH d)
+    if(d PATH_EQUAL directory)
       list(APPEND result "${s}")
     endif()
   endforeach()
@@ -177,7 +177,7 @@ function(add_hylo_test_of testee)
   set_unique_subdirs(hylo_subdirs ${absolute_subdir_prefix} ${hylo_files})
 
   foreach(hylo_subdir ${hylo_subdirs})
-    paths_with_prefix(subdir_files "${absolute_subdir_prefix}" ${hylo_files})
+    paths_in_directory(subdir_files "${absolute_subdir_prefix}/${hylo_subdir}" ${hylo_files})
 
     string(REGEX REPLACE "[^A-Za-z0-9_]()|^([0-9])" "_\\1" target_fragment "${hylo_subdir}")
 
