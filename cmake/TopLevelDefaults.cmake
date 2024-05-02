@@ -181,28 +181,49 @@ function(add_hylo_test_of testee)
 
     string(REGEX REPLACE "[^A-Za-z0-9_]()|^([0-9])" "_\\1" target_fragment "${hylo_subdir}")
 
-    set(hylo_test_target "${top_target}_${target_fragment}")
-    set(generated_swift_file "${CMAKE_CURRENT_BINARY_DIR}/${hylo_test_target}.swift")
+    set(maximum_batch_size 10)
+    list(LENGTH subdir_files file_count)
 
-    add_custom_command(
-      OUTPUT ${generated_swift_file}
-      # If the executable target depends on DLLs their directories need to be injected into the PATH
-      # or they won't be found and the target will fail to run, so invoke it through cmake.  Because
-      COMMAND
-        ${CMAKE_COMMAND} -E env
-        "PATH=$<SHELL_PATH:$<TARGET_RUNTIME_DLL_DIRS:GenerateHyloFileTests>;$ENV{PATH}>"
-        --
-        $<TARGET_FILE:GenerateHyloFileTests>
-        -o "${generated_swift_file}"
-        -n "${hylo_test_target}"
-        ${subdir_files}
-      DEPENDS ${subdir_files} GenerateHyloFileTests
-      WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
-      COMMENT "Generate Swift test file for ${_PATH}/${hylo_subdir}")
+    math(EXPR batch_count "(${file_count} + ${maximum_batch_size} - 1) / ${maximum_batch_size}")
+    math(EXPR max_batch "${batch_count} - 1")
 
-    add_swift_xctest("${hylo_test_target}" ${testee} ${generated_swift_file})
-    target_link_libraries(${hylo_test_target} PRIVATE ${_DEPENDENCIES})
-    hylo_common_target_setup(${hylo_test_target})
+    foreach(batch RANGE ${max_batch})
+
+      if(batch_count EQUAL 1)
+        set(batch_suffix)
+      else()
+        set(batch_suffix "_${batch}")
+      endif()
+
+      set(hylo_test_target "${top_target}_${target_fragment}${batch_suffix}")
+      set(generated_swift_file "${CMAKE_CURRENT_BINARY_DIR}/${hylo_test_target}.swift")
+      math(EXPR batch_start "${batch} * ${file_count} / ${batch_count}")
+      math(EXPR batch_end "(${batch} + 1) * ${file_count} / ${batch_count}")
+      math(EXPR batch_size "${batch_end} - ${batch_start}")
+
+      list(SUBLIST subdir_files ${batch_start} ${batch_size} batch_files)
+
+      add_custom_command(
+        OUTPUT ${generated_swift_file}
+        # If the executable target depends on DLLs their directories need to be injected into the PATH
+        # or they won't be found and the target will fail to run, so invoke it through cmake.  Because
+        COMMAND
+          ${CMAKE_COMMAND} -E env
+          "PATH=$<SHELL_PATH:$<TARGET_RUNTIME_DLL_DIRS:GenerateHyloFileTests>;$ENV{PATH}>"
+          --
+          $<TARGET_FILE:GenerateHyloFileTests>
+          -o "${generated_swift_file}"
+          -n "${hylo_test_target}"
+          ${batch_files}
+        DEPENDS ${batch_files} GenerateHyloFileTests
+        WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+        COMMENT "Generate Swift test file ${batch} for ${_PATH}/${hylo_subdir}")
+
+      add_swift_xctest("${hylo_test_target}" ${testee} ${generated_swift_file})
+      target_link_libraries(${hylo_test_target} PRIVATE ${_DEPENDENCIES})
+      hylo_common_target_setup(${hylo_test_target})
+
+      endforeach()
   endforeach()
 
 endfunction()
