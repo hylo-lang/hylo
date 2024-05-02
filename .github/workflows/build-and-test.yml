@@ -139,6 +139,9 @@ jobs:
           runCmd: .build/${{ matrix.spm_configuration }}/hc --version
           push: never
 
+      - name: Reclaim disk space
+        run: rm -rf .build
+
       - name: Build and Test via CMake
         uses: devcontainers/ci@v0.3
         env:
