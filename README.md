@@ -28,9 +28,10 @@ If you are using this package for development we strongly recommend
 the use of an LLVM with assertions enabled such as
 [these](https://github.com/hylo-lang/llvm-build); otherwise it's much
 too easy to violate LLVM's preconditions without knowing it.  This
-package's devcontainer (in the `.devcontainer` subdirectory) has
-assert-enabled LLVM builds preinstalled in `/opt/llvm-Debug` and
-`/opt/llvm-MinSizeRel`.
+package's devcontainer (in the `.devcontainer` subdirectory) has an
+assert-enabled LLVM build preinstalled in
+`/opt/llvm-MinSizeRel`. Instructions to install a debug build are in a
+comment in `.devcontainer/Dockerfile`.
 
 *If* you want to build with the Swift Package Manager and you choose
 to get LLVM some other way, you'll need an installation with an
@@ -143,9 +144,9 @@ Then, build the Devcontainer with the VSCode command: `> Dev Containers: Rebuild
 
 Finally, open a new integrated terminal in VSCode and confirm that the shell user is `vscode`. You can run `whoami` to check this.
 
-That integrated terminal is connected to the Devcontainer, as if by ssh.
-Use the `make-pkgconfig` tool to configure LLVM's library description (see steps 3 in [prerequisites](#prerequisites)).
-You can now run `swift test -c release` to build and test for Linux.
+That integrated terminal is connected to the Devcontainer, as if by ssh.  
+You can now follow the instructions for Building and testing [with CMake and Ninja](#building_with_ cmake_and_ninja) or [with Swift Package Manager](#building_with_swift_package_manager).
+All prerequisites, including the `llvm.pc` file in the default `PKG_CONFIG_PATH`, are preinstalled.
 
 The Hylo repository files are mounted into the container, so any changes made locally (in VSCode or in other editors) will be automatically propagated into the Devcontainer. However, if you need to modify any of the files in the `.devcontainer` directory, you will need to rebuild the container with `> Dev Containers: Rebuild and Reopen in Container`.
 

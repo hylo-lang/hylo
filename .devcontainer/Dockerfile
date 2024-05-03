@@ -10,6 +10,7 @@ ENV HYLO_LLVM_DOWNLOAD_URL="https://github.com/hylo-lang/llvm-build/releases/dow
 
 RUN apt install -y gnupg
 RUN apt update
+# llvm-15 is installed to get llvm-cov, which is needed to generate our coverage reports.
 RUN apt install -y curl libzstd-dev libzstd1 lsb-release make ninja-build tar wget zstd software-properties-common python3-pip llvm-15
 
 # Get a recent cmake (https://www.kitware.com//cmake-python-wheels/)
@@ -19,12 +20,15 @@ RUN pip3 install --upgrade cmake
 # Reclaim some disk, maybe.
 RUN apt-get clean
 
-# Get the LLVM builds for the host architecture
+# Get the LLVM build(s) for the host architecture
 RUN <<EOT bash -ex -o pipefail
 
     file_prefix="llvm-\${HYLO_LLVM_VERSION}-\$(uname -m)-unknown-linux-gnu"
     url_prefix="\${HYLO_LLVM_DOWNLOAD_URL}/\${HYLO_LLVM_BUILD_RELEASE}/\$file_prefix"
 
+    # Add 'Debug' to the loop below to install a debug build of LLVM
+    # as well.  It is not there by default because it was causing us
+    # to run out of disk space in GitHub CI.
     for build_type in MinSizeRel; do
         curl --no-progress-meter -L "\${url_prefix}-\${build_type}.tar.zst" | tar -x --zstd -C /opt
         ln -s /opt/\${file_prefix}-\${build_type} /opt/llvm-\${build_type}
