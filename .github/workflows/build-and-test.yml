@@ -95,6 +95,25 @@ jobs:
           runCmd: uname -a
           push: never
 
+      - name: Build and Test via CMake
+        uses: devcontainers/ci@v0.3
+        env:
+          HYLO_LLVM_BUILD_TYPE: ${{ matrix.HYLO_LLVM_BUILD_TYPE }}
+        with:
+          runCmd: >-
+            cmake -GNinja -S . -B .ninja-build
+            -DCMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }}
+            -DBUILD_TESTING=YES
+            -DLLVM_DIR=/opt/llvm-${{ matrix.HYLO_LLVM_BUILD_TYPE }}/lib/cmake/llvm
+
+            cmake --build .ninja-build
+
+            ctest --parallel --test-dir .ninja-build
+          push: never
+
+      - name: Reclaim disk space
+        run: rm -rf .ninja-build
+
       - name: Restore Cache for SPM
         uses: actions/cache@v4
         with:
@@ -137,25 +156,6 @@ jobs:
         uses: devcontainers/ci@v0.3
         with:
           runCmd: .build/${{ matrix.spm_configuration }}/hc --version
-          push: never
-
-      - name: Reclaim disk space
-        run: rm -rf .build
-
-      - name: Build and Test via CMake
-        uses: devcontainers/ci@v0.3
-        env:
-          HYLO_LLVM_BUILD_TYPE: ${{ matrix.HYLO_LLVM_BUILD_TYPE }}
-        with:
-          runCmd: >-
-            cmake -GNinja -S . -B .ninja-build
-            -DCMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }}
-            -DBUILD_TESTING=YES
-            -DLLVM_DIR=/opt/llvm-${{ matrix.HYLO_LLVM_BUILD_TYPE }}/lib/cmake/llvm
-
-            cmake --build .ninja-build
-
-            ctest --parallel --test-dir .ninja-build
           push: never
 
   native:
