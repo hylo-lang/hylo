@@ -1,0 +1,4 @@
+extends: default
+
+rules:
+  line-length: disable # Breaking commands across lines to limit length is too much trouble.
