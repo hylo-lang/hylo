@@ -26,9 +26,6 @@
         "seccomp=unconfined",
         "--network=host"
     ],
-    "storage-opts" : [
-        "dm.basesize=20G"
-    ],
     // Configure tool-specific properties.
     "customizations": {
         // Configure properties specific to VS Code.
