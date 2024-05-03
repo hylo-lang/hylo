@@ -109,6 +109,7 @@ jobs:
             cmake --build .ninja-build
 
             find .ninja-build -name '*.o' -delete
+
             find .ninja-build -name '*.a' -delete
 
             ctest --parallel --test-dir .ninja-build
