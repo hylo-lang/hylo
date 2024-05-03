@@ -22,7 +22,7 @@ RUN <<EOT bash -ex -o pipefail
     file_prefix="llvm-\${HYLO_LLVM_VERSION}-\$(uname -m)-unknown-linux-gnu"
     url_prefix="\${HYLO_LLVM_DOWNLOAD_URL}/\${HYLO_LLVM_BUILD_RELEASE}/\$file_prefix"
 
-    for build_type in Debug MinSizeRel; do
+    for build_type in MinSizeRel; do
         curl --no-progress-meter -L "\${url_prefix}-\${build_type}.tar.zst" | tar -x --zstd -C /opt
         ln -s /opt/\${file_prefix}-\${build_type} /opt/llvm-\${build_type}
     done

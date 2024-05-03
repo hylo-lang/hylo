@@ -73,7 +73,7 @@ jobs:
           - spm_configuration: debug
             cmake_build_type: Debug
             more-spm-test-options: --enable-code-coverage
-            HYLO_LLVM_BUILD_TYPE: Debug
+            HYLO_LLVM_BUILD_TYPE: MinSizeRel
 
           - spm_configuration: release
             cmake_build_type: Release
