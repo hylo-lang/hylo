@@ -1,4 +1,3 @@
-import Core
 import Utils
 
 /// A constraint specifying that a name expression refers to one of several declarations,

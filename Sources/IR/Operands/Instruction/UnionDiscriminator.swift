@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 
 /// Copy the discriminator of a union container.
 public struct UnionDiscriminator: Instruction {

@@ -1,4 +1,3 @@
-import Core
 import Foundation
 import FrontEnd
 import OrderedCollections
@@ -257,9 +256,9 @@ public struct Module {
   }
 
   /// Returns the identity of the IR function corresponding to `i`.
-  mutating func demandDeclaration(lowering i: Core.Conformance.Implementation) -> Function.ID {
+  mutating func demandDeclaration(lowering i: FrontEnd.Conformance.Implementation) -> Function.ID {
     switch i {
-    case .concrete(let d):
+    case .explicit(let d):
       return demandDeclaration(lowering: d)!
     case .synthetic(let d):
       return demandDeclaration(lowering: d)
@@ -419,14 +418,14 @@ public struct Module {
   /// - Requires: `r` identifies a function or subscript requirement in the trait for which
   ///   `witness` has been established.
   mutating func demandImplementation<T: Decl>(
-    of r: T.ID, for witness: Core.Conformance
+    of r: T.ID, for witness: FrontEnd.Conformance
   ) -> Function.ID {
     demandDeclaration(lowering: witness.implementations[r]!)
   }
 
   /// Returns the IR function implementing the deinitializer defined in `c`.
   mutating func demandDeinitDeclaration(
-    from c: Core.Conformance
+    from c: FrontEnd.Conformance
   ) -> Function.ID {
     let d = program.ast.core.deinitializable.deinitialize
     return demandDeclaration(lowering: c.implementations[d]!)
@@ -439,7 +438,7 @@ public struct Module {
   ///   - k: The semantics of a move operation. It must be either `.set` or `.inout`.
   ///   - conformanceToMovable: A conformance to `Movable`.
   mutating func demandTakeValueDeclaration(
-    _ k: AccessEffect, definedBy conformanceToMovable: Core.Conformance
+    _ k: AccessEffect, definedBy conformanceToMovable: FrontEnd.Conformance
   ) -> Function.ID {
     switch k {
     case .set:
@@ -457,7 +456,7 @@ public struct Module {
   ///
   /// - Parameter conformanceToCopyable: A conformance to `Copyable`.
   mutating func demandCopyDeclaration(
-    definedBy conformanceToCopyable: Core.Conformance
+    definedBy conformanceToCopyable: FrontEnd.Conformance
   ) -> Function.ID {
     let d = program.ast.core.copyable.copy
     return demandDeclaration(lowering: conformanceToCopyable.implementations[d]!)
@@ -468,7 +467,7 @@ public struct Module {
   /// - Requires: `r` identifies a function or subscript requirement in the trait for which
   ///   `witness` has been established.
   mutating func reference<T: Decl>(
-    toImplementationOf r: T.ID, for witness: Core.Conformance
+    toImplementationOf r: T.ID, for witness: FrontEnd.Conformance
   ) -> FunctionReference {
     let d = demandImplementation(of: r, for: witness)
     return reference(to: d, implementedFor: witness)
@@ -476,7 +475,7 @@ public struct Module {
 
   /// Returns a function reference to `d`, which is an implementation that's part of `witness`.
   func reference(
-    to d: Function.ID, implementedFor witness: Core.Conformance
+    to d: Function.ID, implementedFor witness: FrontEnd.Conformance
   ) -> FunctionReference {
     var a = witness.arguments
     if let m = program.traitMember(referredBy: d) {
@@ -608,7 +607,7 @@ public struct Module {
   }
 
   /// Returns the lowered form of `c`.
-  private mutating func loweredConformance(_ c: Core.Conformance) -> IR.Conformance {
+  private mutating func loweredConformance(_ c: FrontEnd.Conformance) -> IR.Conformance {
     var implementations = IR.Conformance.ImplementationMap()
     for (r, i) in c.implementations where (r.kind != AssociatedTypeDecl.self) {
       let f = demandDeclaration(lowering: i)

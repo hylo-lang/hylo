@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 
 /// Projects a value from a subscript bundle.
 public struct ProjectBundle: Instruction {

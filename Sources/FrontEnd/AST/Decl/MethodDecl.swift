@@ -1,5 +1,5 @@
 /// A method declaration.
-public struct MethodDecl: BundleDecl, GenericDecl, GenericScope {
+public struct MethodDecl: BundleDecl, GenericDecl {
 
   public static let constructDescription = "method declaration"
 

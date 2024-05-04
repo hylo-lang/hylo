@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 import OrderedCollections
 import Utils
 
@@ -218,7 +218,7 @@ extension IR.Program {
     // except for the argument to the receiver parameter. This parameter may be associated with
     // a trait other the one declaring the requirement if the implementation is in an extension.
     var monomorphizationArguments = c.arguments
-    if case .concrete(let d) = i, let t = base.traitDeclaring(d), t != trait {
+    if case .explicit(let d) = i, let t = base.traitDeclaring(d), t != trait {
       monomorphizationArguments[base[t.decl].receiver] = .type(model)
     } else {
       monomorphizationArguments[receiver] = .type(model)

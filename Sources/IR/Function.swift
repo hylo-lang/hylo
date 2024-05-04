@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 import Utils
 
 /// A collection of basic blocks representing a lowered function.

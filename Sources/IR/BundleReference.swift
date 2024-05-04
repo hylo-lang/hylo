@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 
 /// A reference to a method or subscript bundle.
 public struct BundleReference<T: BundleDecl>: Hashable {

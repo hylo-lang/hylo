@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 
 /// A void constant.
 public struct VoidConstant: Constant, Hashable {

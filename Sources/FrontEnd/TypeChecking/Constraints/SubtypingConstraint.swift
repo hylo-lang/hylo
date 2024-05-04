@@ -1,4 +1,3 @@
-import Core
 import Utils
 
 /// A constraint `L <: R` (or `L < R`) specifying that `L` is subtype (or strict subtype) of `R`.

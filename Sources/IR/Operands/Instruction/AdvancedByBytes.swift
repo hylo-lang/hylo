@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 
 /// Computes a `source` address value advanced by `offset` bytes.
 public struct AdvancedByBytes: Instruction {

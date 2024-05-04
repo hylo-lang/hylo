@@ -1,5 +1,3 @@
-import Core
-
 /// Information identifying a run-time argument of a function or subscript call.
 public enum ArgumentResolutionResult: Hashable, Monotonic {
 

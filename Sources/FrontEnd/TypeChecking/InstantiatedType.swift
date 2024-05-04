@@ -1,4 +1,3 @@
-import Core
 import Utils
 
 /// A type whose generic parameters have been substituted by variables along with the constraints

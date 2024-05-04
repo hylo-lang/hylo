@@ -1,7 +1,7 @@
 import Utils
 
 /// A function declaration.
-public struct FunctionDecl: CapturingDecl, ExposableDecl, GenericDecl, GenericScope {
+public struct FunctionDecl: CapturingDecl, ExposableDecl, GenericDecl {
 
   public static let constructDescription = "function declaration"
 

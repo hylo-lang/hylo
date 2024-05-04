@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 
 /// The witness of a type's conformance to the `Collection` trait from the standard library.
 struct CollectionWitness {
@@ -22,7 +22,7 @@ struct CollectionWitness {
   let access: FunctionReference
 
   /// Creates the lowered witness of the conformance `c` for use in `module`.
-  init(_ c: Core.Conformance, in module: inout Module) {
+  init(_ c: FrontEnd.Conformance, in module: inout Module) {
     let collection = module.program.ast.core.collection
 
     self.position = module.program.associatedType(collection.position, for: c)

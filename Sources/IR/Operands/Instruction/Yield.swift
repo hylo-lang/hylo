@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 
 /// Projects the address of an object.
 public struct Yield: Instruction {

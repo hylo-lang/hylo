@@ -1,5 +1,5 @@
-import Core
 import Driver
+import FrontEnd
 import Utils
 import XCTest
 
@@ -99,6 +99,7 @@ extension XCTestCase {
   ///   - expectSuccess: true if an error from `process` represents a test failure, false if the
   ///     lack of an error represents a test failure; nil if that information is to be derived
   ///     from the contents of the file.
+  @nonobjc
   public func checkAnnotatedHyloFileDiagnostics(
     inFileAt hyloFilePath: String,
     expectSuccess: Bool,
@@ -164,11 +165,13 @@ extension XCTestCase {
   }
 
   /// Calls `compileAndRun(hyloFilePath, withOptimizations: false, expectSuccess: expectSuccess)`.
+  @nonobjc
   public func compileAndRun(_ hyloFilePath: String, expectSuccess: Bool) throws {
     try compileAndRun(hyloFilePath, withOptimizations: false, expectSuccess: expectSuccess)
   }
 
   /// Calls `compileAndRun(hyloFilePath, withOptimizations: true, expectSuccess: expectSuccess)`.
+  @nonobjc
   public func compileAndRunWithOptimizations(_ hyloFilePath: String, expectSuccess: Bool) throws {
     try compileAndRun(hyloFilePath, withOptimizations: true, expectSuccess: expectSuccess)
   }
@@ -176,6 +179,7 @@ extension XCTestCase {
   /// Compiles and runs the hylo file at `hyloFilePath`, applying program optimizations iff
   /// `withOptimizations` is `true`, and `XCTAssert`ing that diagnostics and exit codes match
   /// annotated expectations.
+  @nonobjc
   public func compileAndRun(
     _ hyloFilePath: String, withOptimizations: Bool, expectSuccess: Bool
   ) throws {
@@ -214,6 +218,7 @@ extension XCTestCase {
 
   /// Compiles the hylo file at `hyloFilePath` up until emitting LLVM code, `XCTAssert`ing that diagnostics and exit
   /// codes match annotated expectations.
+  @nonobjc
   public func compileToLLVM(_ hyloFilePath: String, expectSuccess: Bool) throws {
     if swiftyLLVMMandatoryPassesCrash { return }
     try checkAnnotatedHyloFileDiagnostics(inFileAt: hyloFilePath, expectSuccess: expectSuccess) {
@@ -233,6 +238,7 @@ extension XCTestCase {
 
   /// Compiles `input` with the given arguments and returns the URL of the output file, throwing
   /// diagnostics if there are any errors.
+  @nonobjc
   public func compile(_ input: URL, with arguments: [String]) throws -> URL {
     let output = FileManager.default.makeTemporaryFileURL()
     let cli = try Driver.parse(arguments + ["-o", output.relativePath, input.relativePath])

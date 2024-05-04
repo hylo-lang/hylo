@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 
 /// Creates an access on an object.
 ///

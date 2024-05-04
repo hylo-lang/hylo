@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 import Utils
 
 /// Releases accesses captures in an allocation.

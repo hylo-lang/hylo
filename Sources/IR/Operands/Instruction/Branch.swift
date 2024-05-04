@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 
 /// Branches unconditionally to the start of a basic block.
 public struct Branch: Terminator {

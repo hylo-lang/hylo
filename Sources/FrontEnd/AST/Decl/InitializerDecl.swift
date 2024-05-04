@@ -1,5 +1,5 @@
 /// An initializer declaration.
-public struct InitializerDecl: ExposableDecl, GenericDecl, GenericScope {
+public struct InitializerDecl: ExposableDecl, GenericDecl {
 
   public static let constructDescription = "initializer declaration"
 

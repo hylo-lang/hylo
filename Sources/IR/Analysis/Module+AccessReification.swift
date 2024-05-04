@@ -1,5 +1,5 @@
-import Core
 import DequeModule
+import FrontEnd
 import Utils
 
 /// Implementation notes

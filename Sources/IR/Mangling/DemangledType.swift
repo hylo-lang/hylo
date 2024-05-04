@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 import Utils
 
 /// The payload of a `DemangledSymbol.type`.

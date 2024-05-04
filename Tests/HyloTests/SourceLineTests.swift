@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 import XCTest
 
 final class SourceLineTests: XCTestCase {

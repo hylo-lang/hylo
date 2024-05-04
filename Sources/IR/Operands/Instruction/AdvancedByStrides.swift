@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 
 /// Computes a `source` address advanced by `count` strides of its referred type.
 ///

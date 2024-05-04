@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 
 /// Deallocates memory previously allocated by `alloc_stack`.
 public struct DeallocStack: Instruction {

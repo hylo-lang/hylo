@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 
 /// Projects a value.
 public struct Project: RegionEntry {

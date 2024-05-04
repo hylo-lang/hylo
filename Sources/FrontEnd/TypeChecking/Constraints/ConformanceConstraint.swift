@@ -1,4 +1,3 @@
-import Core
 import Utils
 
 /// A constraint `L : T` specifying that `L` conforms to trait `T`.

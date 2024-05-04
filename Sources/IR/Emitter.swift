@@ -1,5 +1,4 @@
 import BigInt
-import Core
 import FrontEnd
 import Utils
 
@@ -2533,7 +2532,7 @@ struct Emitter {
     emitInitialize(storage: source, to: foreign, at: site)
 
     switch foreignConvertibleConformance.implementations[r]! {
-    case .concrete(let m):
+    case .explicit(let m):
       let convert = module.demandDeclaration(lowering: m)!
       let f = module.reference(to: convert, implementedFor: foreignConvertibleConformance)
 
@@ -2571,7 +2570,7 @@ struct Emitter {
     // TODO: Handle cases where the foreign representation of `t` is not built-in.
 
     switch foreignConvertibleConformance.implementations[r]! {
-    case .concrete(let m):
+    case .explicit(let m):
       let convert = module.demandDeclaration(lowering: m)!
       let f = module.reference(to: convert, implementedFor: foreignConvertibleConformance)
 
@@ -2892,7 +2891,7 @@ struct Emitter {
   /// - Requires: `storage` does not have a built-in type.
   private mutating func emitMove(
     _ semantics: AccessEffect, _ value: Operand, to storage: Operand,
-    withMovableConformance movable: Core.Conformance, at site: SourceRange
+    withMovableConformance movable: FrontEnd.Conformance, at site: SourceRange
   ) {
     let d = module.demandTakeValueDeclaration(semantics, definedBy: movable)
     let f = module.reference(to: d, implementedFor: movable)
@@ -2935,7 +2934,7 @@ struct Emitter {
   /// implementation of the copy operation.
   private mutating func emitCopy(
     _ source: Operand, to target: Operand,
-    withCopyableConformance copyable: Core.Conformance, at site: SourceRange
+    withCopyableConformance copyable: FrontEnd.Conformance, at site: SourceRange
   ) {
     let d = module.demandCopyDeclaration(definedBy: copyable)
     let f = module.reference(to: d, implementedFor: copyable)
@@ -2976,7 +2975,7 @@ struct Emitter {
   /// Inserts the IR for deinitializing `storage`, using `deinitializable` to identify the locate
   /// the deinitializer to apply.
   private mutating func emitDeinit(
-    _ storage: Operand, withDeinitializableConformance deinitializable: Core.Conformance,
+    _ storage: Operand, withDeinitializableConformance deinitializable: FrontEnd.Conformance,
     at site: SourceRange
   ) {
     let d = module.demandDeinitDeclaration(from: deinitializable)

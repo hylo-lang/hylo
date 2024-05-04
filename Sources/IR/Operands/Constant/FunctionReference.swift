@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 import Utils
 
 /// A Hylo IR reference to a user function.

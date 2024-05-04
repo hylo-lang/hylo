@@ -1,5 +1,3 @@
-import Core
-
 /// The result of a name resolution request.
 enum NameResolutionResult {
 

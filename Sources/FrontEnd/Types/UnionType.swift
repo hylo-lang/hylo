@@ -4,7 +4,7 @@ import Utils
 public struct UnionType: TypeProtocol {
 
   // Note: The elements of the union are stored in an array rather than a set of that the internal
-  // representation of a particular instance is deterministic across compiler runs, as rhe order in
+  // representation of a particular instance is deterministic across compiler runs, as the order in
   // which elements have been inserted typically depends on the order in which a type expression
   // has been visited. Further, most union types are small and therefore using a set wouldn't bring
   // performance benefits for most lookups.

@@ -1,4 +1,3 @@
-import Core
 import Utils
 
 /// A collection of constraints over a set of open type variables and a set of unresolved name

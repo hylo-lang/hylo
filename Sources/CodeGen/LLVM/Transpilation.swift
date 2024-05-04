@@ -1,5 +1,5 @@
-import Core
 import Foundation
+import FrontEnd
 import IR
 import SwiftyLLVM
 import Utils

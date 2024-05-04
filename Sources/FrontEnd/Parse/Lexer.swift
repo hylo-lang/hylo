@@ -1,5 +1,3 @@
-import Core
-
 /// A type that tokenize a source file.
 public struct Lexer: IteratorProtocol, Sequence {
 

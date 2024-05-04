@@ -1,4 +1,3 @@
-import Core
 import Utils
 
 /// A constraint `L ⤷ R` specifying that `R` is the type of a parameter and `L` the type of an

@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 
 /// A load instruction.
 public struct Load: Instruction {

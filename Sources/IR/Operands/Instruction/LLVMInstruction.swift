@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 
 /// An instruction whose semantics is defined by LLVM.
 public struct LLVMInstruction: Instruction {

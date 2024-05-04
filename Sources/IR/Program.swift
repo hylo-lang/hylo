@@ -1,16 +1,15 @@
-import Core
 import FrontEnd
 
 /// A program lowered to Hylo IR.
-public struct Program: Core.Program {
+public struct Program: FrontEnd.Program {
 
-  public var ast: Core.AST { base.ast }
+  public var ast: FrontEnd.AST { base.ast }
 
-  public var nodeToScope: Core.ASTProperty<Core.AnyScopeID> { base.nodeToScope }
+  public var nodeToScope: ASTProperty<AnyScopeID> { base.nodeToScope }
 
-  public var scopeToDecls: Core.ASTProperty<Core.DeclIDs> { base.scopeToDecls }
+  public var scopeToDecls: ASTProperty<DeclIDs> { base.scopeToDecls }
 
-  public var varToBinding: [Core.VarDecl.ID: Core.BindingDecl.ID] { base.varToBinding }
+  public var varToBinding: [VarDecl.ID: BindingDecl.ID] { base.varToBinding }
 
   /// The high-level form of the program.
   public let base: TypedProgram

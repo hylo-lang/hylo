@@ -284,11 +284,11 @@ extension NativeInstruction.MathFlags {
 /// if such instance cannot be parsed.
 ///
 /// - Note: a prefix of `tokens` may have been consumed even if the function returns `nil`.
-private typealias Parser<T> = (_ tokens: inout ArraySlice<Substring>) -> T?
+private typealias BuiltinFunctionParser<T> = (_ tokens: inout ArraySlice<Substring>) -> T?
 
 /// Returns a parser that consumes an element equal to `s` and returns `.some(s)`, or returns
 /// `.some(nil)` if such an element can't be consumed.
-private func maybe(_ s: String) -> Parser<String?> {
+private func maybe(_ s: String) -> BuiltinFunctionParser<String?> {
   { (stream: inout ArraySlice<Substring>) -> String?? in
     if let r = exactly(s)(&stream) { return .some(r) }
     return .some(nil)
@@ -296,7 +296,7 @@ private func maybe(_ s: String) -> Parser<String?> {
 }
 
 /// Returns a parser that consumes and returns an element equal to `s`.
-private func exactly(_ s: String) -> Parser<String> {
+private func exactly(_ s: String) -> BuiltinFunctionParser<String> {
   { (stream: inout ArraySlice<Substring>) -> String? in
     stream.first == s[...] ? (stream.popFirst(), .some(s)).1 : nil
   }
@@ -304,7 +304,9 @@ private func exactly(_ s: String) -> Parser<String> {
 
 /// Returns a parser that returns the result of applying `a` and then `b` or `nil` if either `a`
 /// or `b` returns `nil`.
-private func ++ <A, B>(_ a: @escaping Parser<A>, _ b: @escaping Parser<B>) -> Parser<(A, B)> {
+private func ++ <A, B>(
+  _ a: @escaping BuiltinFunctionParser<A>, _ b: @escaping BuiltinFunctionParser<B>
+) -> BuiltinFunctionParser<(A, B)> {
   { (stream: inout ArraySlice<Substring>) -> (A, B)? in
     a(&stream).flatMap({ (x) in b(&stream).map({ (x, $0) }) })
   }
@@ -312,7 +314,9 @@ private func ++ <A, B>(_ a: @escaping Parser<A>, _ b: @escaping Parser<B>) -> Pa
 
 /// Returns a parser that returns an instance of `T` if it can be built by consuming the next
 /// element in the stream.
-private func take<T: RawRepresentable>(_: T.Type) -> Parser<T> where T.RawValue == String {
+private func take<T: RawRepresentable>(
+  _: T.Type
+) -> BuiltinFunctionParser<T> where T.RawValue == String {
   { (stream: inout ArraySlice<Substring>) -> T? in
     stream.popFirst().flatMap({ T(rawValue: .init($0)) })
   }

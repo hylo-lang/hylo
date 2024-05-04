@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 
 /// Where, how, and under what conditions a type satisfies the requirements of a trait.
 public struct Conformance {

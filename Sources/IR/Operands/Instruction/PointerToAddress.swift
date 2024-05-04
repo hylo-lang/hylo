@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 
 /// Converts a built-in pointer value to an address.
 ///

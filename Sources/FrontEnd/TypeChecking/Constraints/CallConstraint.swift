@@ -1,4 +1,3 @@
-import Core
 import Utils
 
 /// A constraint `F(A1, ..., An) -> R` or `F[A1, ..., An]: R` specifying that `F` is the type of a

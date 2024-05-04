@@ -4,7 +4,7 @@ public struct TranslationUnit: Node, LexicalScope {
   public let site: SourceRange
 
   /// The declarations in this unit.
-  public private(set) var decls: [AnyDeclID]
+  public let decls: [AnyDeclID]
 
   /// Creates an instance with the given properties.
   public init(decls: [AnyDeclID], site: SourceRange) {

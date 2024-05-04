@@ -1,5 +1,3 @@
-import Core
-
 /// How a binding declaration is being used.
 enum BindingDeclUse: Hashable {
 

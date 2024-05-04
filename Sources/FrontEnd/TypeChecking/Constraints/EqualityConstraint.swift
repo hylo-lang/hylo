@@ -1,4 +1,3 @@
-import Core
 import Utils
 
 /// A constraint `L == R` specifying that `L` is exactly the same type as `R`.

@@ -1,4 +1,4 @@
-import Core
+import FrontEnd
 import Utils
 
 /// Invokes `callee`, which is a foreign function interface, with `operands`.

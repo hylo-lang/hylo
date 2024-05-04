@@ -1,5 +1,3 @@
-import Core
-
 /// The traits of a refinement cluster sorted in topological order w.r.t. to their refinements.
 ///
 /// The order of the traits in the sequence is such that the refinements of a trait always occur
