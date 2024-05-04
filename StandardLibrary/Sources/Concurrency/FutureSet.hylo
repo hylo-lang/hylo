@@ -4,7 +4,9 @@ public type FutureSet<E: Movable & Deinitializable> {
   /// The underlying frame object that is used to connect the spawned set of computations with the await point.
   private var frame: PointerToMutable<BulkSpawnFrame<E>>
 
-  /// Initializes `self` with `f`, and spawns the computation.
+  /// Initializes `self` with `action`, and spawns the computation.
+  ///
+  /// `action` will eventually be called for all the indices in range [0, count).
   public init(count: Int, action: sink [E](index: Int) -> Void) {
     &self.frame = BulkSpawnFrame<E>.allocate_and_spawn(count: count, action: action)
   }

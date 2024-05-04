@@ -15,6 +15,8 @@ public fun escaping_spawn_<E: Movable & Deinitializable>(_ f: sink [E]() -> Int)
 
 /// Spawns multiple computations at once and returns a future that can be used to await their completion.
 ///
+/// `action` will eventually be called for all the indices in range [0, count).
+///
 /// The future cannot escape the current scope.
 public fun spawn_<E: Movable & Deinitializable>(count: Int, action: sink [E](index: Int) -> Void) -> FutureSet<E> {
   FutureSet<E>(count: count, action: action)
