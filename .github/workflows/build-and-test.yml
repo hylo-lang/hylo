@@ -259,6 +259,11 @@ jobs:
 
           ${{ matrix.unpackage_command }} ${{ env.llvm_package_basename }}${{ matrix.llvm_package_suffix }}
 
+      - name: CMake Diagnostics
+        run: |
+          cmake --version
+          cmake --help-command set_target_properties
+
       - name: Configure (CMake)
         # We explicitly point to swiftc in the PATH because otherwise CMake picks up the one in XCode.
         run: >-
