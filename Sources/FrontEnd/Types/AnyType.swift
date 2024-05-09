@@ -235,9 +235,16 @@ public struct AnyType {
 
   /// Inserts the type variables that occur free in `self` into `s`.
   public func collectOpenVariables(in s: inout Set<TypeVariable>) {
-    _ = self.transform(mutating: &s) { (partialResult, t) in
+    forEachOpenVariable(mutate: &s, with: { (partialResult, v) in partialResult.insert(v) })
+  }
+
+  /// Calls `action` on `m` and each type variable that occurs free in `self`.
+  public func forEachOpenVariable<T>(
+    mutate m: inout T, with action: (inout T, TypeVariable) -> Void
+  ) {
+    _ = self.transform(mutating: &m) { (s, t) in
       if let v = TypeVariable(t) {
-        partialResult.insert(v)
+        action(&s, v)
         return .stepOver(t)
       } else if t[.hasVariable] {
         return .stepInto(t)

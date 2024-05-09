@@ -30,11 +30,7 @@ struct SubstitutionMap {
 
   /// Returns the substitution for `variable`, if any.
   subscript(variable: TypeVariable) -> AnyType? {
-    if let t = storage[variable] {
-      return self[t]
-    } else {
-      return nil
-    }
+    storage[walk(variable)]
   }
 
   /// Returns the substitution for `type` if it is a variable to which a type is assigned in this
@@ -61,7 +57,28 @@ struct SubstitutionMap {
       }
       walked = b
     }
+
+    precondition(
+      !occurCheck(walked, substitution),
+      "illegal substitution: '\(walked)' for '\(substitution)'")
     storage[walked] = substitution
+  }
+
+  /// Returns the type variable representing the equivalence class of `v` in `self`.
+  private func walk(_ v: TypeVariable) -> TypeVariable {
+    var w = v
+    while let a = TypeVariable(storage[w]) { w = a }
+    return w
+  }
+
+  /// Returns `true` if any variable in the equivalence class of `v` occurs nested in `t`.
+  private func occurCheck(_ v: TypeVariable, _ t: AnyType) -> Bool {
+    if (t.base is TypeVariable) || !t[.hasVariable] { return false }
+    var occurs = false
+    t.forEachOpenVariable(mutate: &occurs) { (c, u) in
+      c = c || walk(u) == v
+    }
+    return occurs
   }
 
   /// Substitutes each type variable occurring in `type` by its corresponding substitution in `self`,
