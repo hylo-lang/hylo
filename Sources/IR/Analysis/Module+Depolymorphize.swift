@@ -81,7 +81,7 @@ extension IR.Program {
 
     let g = monomorphize(s.callee, for: s.specialization, usedIn: modules[m]!.scope(containing: i))
     let new = modules[m]!.makeProject(
-      s.projection, applying: g, specializedBy: [:], to: s.operands, at: s.site)
+      s.projection, applying: g, specializedBy: .empty, to: s.operands, at: s.site)
     modules[m]!.replace(i, with: new)
   }
 

@@ -86,7 +86,8 @@ extension IR.Program {
     precondition(val[.isCanonical])
 
     let fields = base.storage(of: val.base).map { (part) in
-      let u = base.specialize(part.type, for: val.arguments, in: AnyScopeID(base.ast.coreLibrary!))
+      let z = GenericArguments(val)
+      let u = base.specialize(part.type, for: z, in: AnyScopeID(base.ast.coreLibrary!))
       return llvm(u, in: &module)
     }
 
@@ -142,7 +143,7 @@ extension IR.Program {
     precondition(val[.isCanonical])
 
     var payload: SwiftyLLVM.IRType = SwiftyLLVM.StructType([], in: &module)
-    if val == .never {
+    if val.isNever {
       return payload
     }
 

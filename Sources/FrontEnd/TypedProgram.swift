@@ -273,7 +273,8 @@ public struct TypedProgram {
   /// Returns the names and types of `t`'s stored properties.
   public func storage(of t: BoundGenericType) -> [TupleType.Element] {
     storage(of: t.base).map { (p) in
-      let t = specialize(p.type, for: t.arguments, in: AnyScopeID(base.ast.coreLibrary!))
+      let z = GenericArguments(t)
+      let t = specialize(p.type, for: z, in: AnyScopeID(base.ast.coreLibrary!))
       return .init(label: p.label, type: t)
     }
   }
@@ -416,7 +417,7 @@ public struct TypedProgram {
     }
 
     return .init(
-      model: model, concept: concept, arguments: [:], conditions: [], scope: scopeOfUse,
+      model: model, concept: concept, arguments: .empty, conditions: [], scope: scopeOfUse,
       implementations: implementations, isStructural: false, origin: nil)
   }
 
@@ -454,7 +455,9 @@ public struct TypedProgram {
     for requirement in ast.requirements(of: concept.decl) {
       guard let k = ast.synthesizedKind(of: requirement) else { return nil }
 
-      let a: GenericArguments = [ast[concept.decl].receiver: .type(model)]
+      var a = GenericArguments.empty
+      a[ast[concept.decl].receiver] = .type(model)
+
       let t = ArrowType(specialize(declType[requirement]!, for: a, in: scopeOfUse))!
       let d = SynthesizedFunctionDecl(k, typed: t, parameterizedBy: h, in: scopeOfUse)
       implementations[requirement] = .synthetic(d)

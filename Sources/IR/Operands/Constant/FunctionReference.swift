@@ -25,7 +25,7 @@ public struct FunctionReference: Constant, Hashable {
 
     self.function = f
     self.type = .address(t)
-    self.specialization = [:]
+    self.specialization = .empty
   }
 
   /// Creates a reference to `f`, which is in `module`, specialized by `specialization` in

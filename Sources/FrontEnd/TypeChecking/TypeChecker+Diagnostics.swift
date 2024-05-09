@@ -360,6 +360,26 @@ extension Diagnostic {
   }
 
   static func error(
+    referenceTo d: SourceRepresentable<Name>, requires t: AnyType, conformsTo u: TraitType,
+    dueToConstraintAt constraintSite: SourceRange
+  ) -> Diagnostic {
+    .error(
+      "reference to '\(d.value)' requires that '\(t)' be conforming to '\(u)'",
+      at: d.site,
+      notes: [.note("constraint declared here", at: constraintSite)])
+  }
+
+  static func error(
+    referenceTo d: SourceRepresentable<Name>, requires t: AnyType, equals u: AnyType,
+    dueToConstraintAt constraintSite: SourceRange
+  ) -> Diagnostic {
+    .error(
+      "reference to '\(d.value)' requires that '\(t)' be equal to '\(u)'",
+      at: d.site,
+      notes: [.note("constraint declared here", at: constraintSite)])
+  }
+
+  static func error(
     invalidReferenceToAssociatedType a: AssociatedTypeDecl.ID, at site: SourceRange, in ast: AST
   ) -> Diagnostic {
     .error(

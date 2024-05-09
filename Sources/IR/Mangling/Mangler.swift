@@ -341,9 +341,14 @@ struct Mangler {
   ) {
     write(operator: .monomorphizedFunctionDecl, to: &output)
     mangle(function: symbol, to: &output)
-    write(integer: arguments.count, to: &output)
-    for u in arguments.values {
-      mangle(value: u, to: &output)
+    write(specialization: arguments, to: &output)
+  }
+
+  /// Writes the mangled representation of `specialization` to `output`.
+  private mutating func write(specialization: GenericArguments, to output: inout Output) {
+    write(integer: specialization.count, to: &output)
+    for (_, v) in specialization.sorted(by: \.key.rawValue) {
+      mangle(value: v, to: &output)
     }
   }
 
@@ -387,13 +392,10 @@ struct Mangler {
   /// Writes the mangled representation of `r` to `output`.
   mutating func mangle(reference r: DeclReference, to output: inout Output) {
     switch r {
-    case .direct(let d, let parameterization):
+    case .direct(let d, let z):
       write(operator: .directDeclReference, to: &output)
       mangle(decl: d, to: &output)
-      write(integer: parameterization.count, to: &output)
-      for u in parameterization.values {
-        mangle(value: u, to: &output)
-      }
+      write(specialization: z, to: &output)
 
     default:
       UNIMPLEMENTED()

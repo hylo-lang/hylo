@@ -2145,7 +2145,7 @@ struct Emitter {
     switch program[callee].referredDecl {
     case .direct(let d, let a) where d.isCallable:
       // Callee is a direct reference to a lambda declaration.
-      guard ArrowType(canonical(program[callee].type))!.environment == .void else {
+      guard ArrowType(canonical(program[callee].type))!.environment.isVoid else {
         UNIMPLEMENTED("Generate IR for calls to local functions with captures #1088")
       }
       let f = FunctionReference(to: d, in: &module, specializedBy: a, in: insertionScope!)
@@ -2252,7 +2252,7 @@ struct Emitter {
     switch program[callee].referredDecl {
     case .direct(let d, let a) where d.kind == SubscriptDecl.self:
       // Callee is a direct reference to a subscript declaration.
-      guard SubscriptType(canonical(program[d].type))!.environment == .void else {
+      guard SubscriptType(canonical(program[d].type))!.environment.isVoid else {
         UNIMPLEMENTED("subscript with non-empty environment")
       }
 

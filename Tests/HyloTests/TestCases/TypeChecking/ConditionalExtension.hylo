@@ -18,6 +18,6 @@ extension B where X: T {
 }
 
 public fun main() {
-  //! @+1 diagnostic type 'Bool' does not conform to trait 'T'
+  //! @+1 diagnostic reference to 'foo' requires that 'Bool' be conforming to 'T'
   B<Bool>().foo()
 }

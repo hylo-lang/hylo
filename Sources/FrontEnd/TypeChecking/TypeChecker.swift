@@ -95,7 +95,7 @@ struct TypeChecker {
     if t[.isCanonical] { return ^t }
 
     let b = canonical(t.base, in: scopeOfUse)
-    let a = canonical(t.arguments, in: scopeOfUse)
+    let a = canonical(GenericArguments(t), in: scopeOfUse)
     let s = specialize(b, for: a, in: scopeOfUse)
     return canonical(s, in: scopeOfUse)
   }
@@ -165,7 +165,9 @@ struct TypeChecker {
   }
 
   /// Returns the traits to which `t` is declared conforming in `scopeOfUse`.
-  mutating func conformedTraits(of t: AnyType, in scopeOfUse: AnyScopeID) -> Set<TraitType> {
+  mutating func conformedTraits(
+    of t: AnyType, in scopeOfUse: AnyScopeID
+  ) -> Set<TraitType> {
     // Computation is not memoized for generic type parameters because queries might come from
     // generic arguments under construction.
     if let u = GenericTypeParameterType(t) {
@@ -220,8 +222,8 @@ struct TypeChecker {
   /// possible traits, one must gather the conformances of `Y` in the trait defining `Y` **and**
   /// the conformances of `X.Y` in the traits defining `X`.
   ///
-  /// `base` is the qualification of the associated type composed `suffix`in reverse order. For
-  /// example, the base `T.X` and suffix `[Z, Y]` denote the associated type `T.X.Z.Y`.
+  /// `base` is the qualification of the associated type composed of `suffix` in reverse order. For
+  /// example, the base `T.X` and suffix `[Z, Y]` denote the associated type `T.X.Y.Z`.
   private mutating func accumulateConformedTraits(
     declaredInTraitsRequiring base: AssociatedTypeType,
     suffixedBy suffix: [AssociatedTypeDecl.ID],
@@ -272,10 +274,15 @@ struct TypeChecker {
   private mutating func conformedTraits(
     of t: GenericTypeParameterType, in scopeOfUse: AnyScopeID
   ) -> Set<TraitType> {
+    let scopeOfDeclaration = program[t.decl].scope
+
     // Trait receivers conform to their traits.
     var result: Set<TraitType>
-    if let d = TraitDecl.ID(program[t.decl].scope) {
+    if let d = TraitDecl.ID(scopeOfDeclaration) {
       result = refinements(of: TraitType(d, ast: program.ast)).unordered
+    } else if !isNotionallyContained(scopeOfUse, in: scopeOfDeclaration) {
+      let e = possiblyPartiallyFormedEnvironment(of: AnyDeclID(scopeOfDeclaration)!)!
+      result = e.conformedTraits(of: ^t)
     } else {
       result = []
     }
@@ -330,9 +337,9 @@ struct TypeChecker {
   /// Returns the traits to which `t` is declared conforming in its generic environment.
   ///
   /// `t` is a generic type parameter or an associated type introduced by a generic environment
-  /// logically containing `scopeOfUse`. The return value is the set of traits used as bounds of
+  /// notionally containing `scopeOfUse`. The return value is the set of traits used as bounds of
   /// `t` in that environment.
-  mutating func conformedTraits(
+  private mutating func conformedTraits(
     declaredByConstraintsOn t: AnyType, exposedTo scopeOfUse: AnyScopeID
   ) -> Set<TraitType> {
     if let s = program.scopes(from: scopeOfUse).first(where: \.isGenericScope) {
@@ -343,11 +350,8 @@ struct TypeChecker {
     }
   }
 
-  /// Returns `true` if `model` is declared conforming to `trait` or if its conformance can be
-  /// synthesized in `scopeOfUse`.
-  ///
-  /// A conformance *M: T* is synthesizable iff *M* structurally conforms to *T*.
-  private mutating func conforms(
+  /// Returns `true` if `model` conforms to `trait` explicitly or structurally in `scopeOfUse`.
+  mutating func conforms(
     _ model: AnyType, to trait: TraitType, in scopeOfUse: AnyScopeID
   ) -> Bool {
     conformedTraits(of: model, in: scopeOfUse).contains(trait)
@@ -359,15 +363,13 @@ struct TypeChecker {
   /// Given a trait describing basis operations (e.g., copy) of values, a structural conformance
   /// *M: T* holds iff all the stored parts of *M* conform to *T*, structurally or otherwise. In
   /// that case, the conformance can be synthesized because its implementation is obvious.
-  ///
-  /// Note that this method is intended to test whether a conformance is synthesizable. It does not
-  /// look for explicit conformances of `model` to `trait`.
   private mutating func structurallyConforms(
     _ model: AnyType, to trait: TraitType, in scopeOfUse: AnyScopeID
   ) -> Bool {
     switch model.base {
-    case let m as BoundGenericType:
-      return structurallyConforms(m, to: trait, in: scopeOfUse)
+    case is BoundGenericType:
+      let m = canonical(model, in: scopeOfUse)
+      return !(m.base is BoundGenericType) && structurallyConforms(m, to: trait, in: scopeOfUse)
     case let m as BufferType:
       // FIXME: To remove once conditional conformance is implemented
       return conforms(m.element, to: trait, in: scopeOfUse)
@@ -375,8 +377,6 @@ struct TypeChecker {
       return conforms(m.environment, to: trait, in: scopeOfUse)
     case is MetatypeType:
       return true
-    case let m as ProductType:
-      return structurallyConforms(m, to: trait, in: scopeOfUse)
     case let m as RemoteType:
       return conforms(m.bareType, to: trait, in: scopeOfUse)
     case let m as TupleType:
@@ -390,28 +390,45 @@ struct TypeChecker {
     }
   }
 
+  /// Returns `true` if a conformance of `model` to `trait` is synthesizable in `scopeOfUse`.
+  ///
+  /// A conformance *M: T* is synthesizable iff *M* structurally conforms to *T*.
+  private mutating func canSynthesizeConformance(
+    _ model: AnyType, to trait: TraitType, in scopeOfUse: AnyScopeID
+  ) -> Bool {
+    switch model.base {
+    case let m as BoundGenericType:
+      return canSynthesizeConformance(m, to: trait, in: scopeOfUse)
+    case let m as ProductType:
+      return canSynthesizeConformance(m, to: trait, in: scopeOfUse)
+    default:
+      return structurallyConforms(model, to: trait, in: scopeOfUse)
+    }
+  }
+
   /// Returns `true` if `model` structurally conforms to `trait` in `scopeOfUse`.
-  private mutating func structurallyConforms(
+  private mutating func canSynthesizeConformance(
     _ model: BoundGenericType, to trait: TraitType, in scopeOfUse: AnyScopeID
   ) -> Bool {
     let base = canonical(model.base, in: scopeOfUse)
+    let z = GenericArguments(model)
 
     // If the base is a product type, we specialize each stored part individually to check whether
     // the conformance holds for a specialized whole. Othwrwise, we specialize the base directly.
     if let b = ProductType(base) {
       let s = AnyScopeID(b.decl)
       return program.storedParts(of: b.decl).allSatisfy { (p) in
-        let t = specialize(uncheckedType(of: p), for: model.arguments, in: s)
+        let t = specialize(uncheckedType(of: p), for: z, in: s)
         return conforms(t, to: trait, in: s)
       }
     } else {
-      let t = specialize(base, for: model.arguments, in: scopeOfUse)
-      return structurallyConforms(t, to: trait, in: scopeOfUse)
+      let t = specialize(base, for: z, in: scopeOfUse)
+      return canSynthesizeConformance(t, to: trait, in: scopeOfUse)
     }
   }
 
   /// Returns `true` if `model` structurally conforms to `trait` in `scopeOfUse`.
-  private mutating func structurallyConforms(
+  private mutating func canSynthesizeConformance(
     _ model: ProductType, to trait: TraitType, in scopeOfUse: AnyScopeID
   ) -> Bool {
     program.storedParts(of: model.decl).allSatisfy { (p) in
@@ -479,7 +496,7 @@ struct TypeChecker {
     }
 
     return .init(
-      model: model.base, concept: trait, arguments: model.arguments, conditions: [],
+      model: model.base, concept: trait, arguments: GenericArguments(model), conditions: [],
       scope: c.scope, implementations: c.implementations, isStructural: c.isStructural,
       origin: c.origin)
   }
@@ -636,7 +653,7 @@ struct TypeChecker {
 
       if let s = candidates.uniqueElement, let u = MetatypeType(me.uncheckedType(of: s)) {
         if let b = BoundGenericType(me.canonical(d, in: scopeOfUse)) {
-          return me.specialize(u.instance, for: b.arguments, in: scopeOfUse)
+          return me.specialize(u.instance, for: .init(b), in: scopeOfUse)
         } else {
           return u.instance
         }
@@ -658,12 +675,10 @@ struct TypeChecker {
         b = t.base.transform(mutating: &me, transform)
       }
 
-      var a = GenericArguments()
-      for (p, v) in t.arguments {
+      let a = t.arguments.mapValues { (v) in
         let w = v.asType ?? UNIMPLEMENTED("generic value arguments")
-        a[p] = .type(w.transform(mutating: &me, transform))
+        return CompileTimeValue.type(w.transform(mutating: &me, transform))
       }
-
       return ^BoundGenericType(b, arguments: a)
     }
 
@@ -682,9 +697,8 @@ struct TypeChecker {
         TypeAliasType(aliasing: u, declaredBy: t.decl, in: me.program.ast), declaredBy: t.decl)
     }
 
-    /// If `t` is an unspecialized generic type, returns its specialization taking the arguments in
-    /// `substitutions` corresponding to the parameters introduced by `d`; returns `t` unchanged
-    /// otherwise.
+    /// If `t` is an unspecialized generic type, returns a bound generic type applying that applies
+    /// `substitution` and maps unbound parameters to fresh variables. Otherwise, returns `t`.
     ///
     /// - Requires: `t` is not a trait.
     func transform<T: TypeProtocol, D: GenericScope>(
@@ -696,11 +710,11 @@ struct TypeChecker {
         return ^t
       }
 
-      var arguments: GenericArguments = [:]
+      var a: BoundGenericType.Arguments = [:]
       for p in parameters {
-        arguments[p] = specialization[p] ?? .type(^me.freshVariable())
+        a[p] = specialization[p] ?? .type(^me.freshVariable())
       }
-      return ^BoundGenericType(t, arguments: arguments)
+      return ^BoundGenericType(t, arguments: a)
     }
   }
 
@@ -725,8 +739,7 @@ struct TypeChecker {
     }
   }
 
-  /// Returns the type declared by `d` bound to open variables for each generic parameter
-  /// introduced by `d`.
+  /// Returns the type declared by `d` with its generic parameters bound to fresh variables.
   ///
   /// - Requires: `d` is a a generic product type or type alias declaration.
   mutating func openForUnification(_ d: AnyDeclID) -> BoundGenericType {
@@ -740,8 +753,10 @@ struct TypeChecker {
     }
 
     let b = MetatypeType(uncheckedType(of: d))!.instance
-    let a = GenericArguments(
-      uniqueKeysWithValues: parameters.map({ (key: $0, value: .type(^freshVariable())) }))
+    var a: BoundGenericType.Arguments = [:]
+    for p in parameters {
+      a[p] = .type(^freshVariable())
+    }
     return BoundGenericType(b, arguments: a)
   }
 
@@ -1492,7 +1507,7 @@ struct TypeChecker {
 
     let c = Conformance(
       model: BoundGenericType(model)?.base ?? model, concept: trait,
-      arguments: [:], conditions: [], scope: scopeOfExposition,
+      arguments: .empty, conditions: [], scope: scopeOfExposition,
       implementations: implementations, isStructural: false, origin: origin)
     insertConformance(c)
     return
@@ -1591,7 +1606,7 @@ struct TypeChecker {
     ) -> SynthesizedFunctionDecl? {
       guard
         let k = program.ast.synthesizedKind(of: requirement),
-        structurallyConforms(model, to: trait, in: scopeOfDefinition)
+        canSynthesizeConformance(model, to: trait, in: scopeOfDefinition)
       else { return nil }
 
       let t = ArrowType(expectedAPI.type)!
@@ -2159,12 +2174,12 @@ struct TypeChecker {
     // We can apply name resolution on the components of `bound` as long as they don't have
     // generic arguments. A name expression with arguments can't denote a trait.
     var parent: NameResolutionContext? = nil
-    for component in n.reversed() {
-      if !program[component].arguments.isEmpty {
+    for c in n.reversed() {
+      if !program[c].arguments.isEmpty {
         return (nil, false)
       }
 
-      let candidates = resolve(component, in: parent, usedAs: .unapplied)
+      let candidates = resolve(c, in: parent, usedAs: .unapplied)
       if candidates.isEmpty {
         return (nil, true)
       }
@@ -2175,7 +2190,7 @@ struct TypeChecker {
 
       switch pick.type.base {
       case is ModuleType, is NamespaceType, is TraitType:
-        parent = .init(type: pick.type, arguments: [:], receiver: .explicit(AnyExprID(component)))
+        parent = .init(type: pick.type, arguments: .empty, receiver: .explicit(AnyExprID(c)))
       default:
         return (nil, false)
       }
@@ -3900,7 +3915,12 @@ struct TypeChecker {
       if let c = candidates.elements.uniqueElement {
         report(c.diagnostics.elements)
       } else {
-        report(.error(noViableCandidateToResolve: name, notes: []))
+        let notes = candidates.elements.map { (c) -> Diagnostic in
+          let s = c.reference.decl.map(program.ast.siteForDiagnostics(about:))
+          let m = c.diagnostics.elements.min(by: Diagnostic.isLoggedBefore)?.message
+          return .note(m ?? "candidate not viable", at: s ?? name.site)
+        }
+        report(.error(noViableCandidateToResolve: name, notes: notes))
       }
       return []
     }
@@ -3967,10 +3987,16 @@ struct TypeChecker {
         continue
       }
 
-      let cs = collectConstraints(
-        associatedWith: m, specializedBy: specialization, in: scopeOfUse, at: name.site)
+      var deferred: ConstraintSet = []
+      forEachConstraint(associatedWith: m, in: scopeOfUse) { (me, c) in
+        let k = me.evaluateResolutionConstraint(
+          c, associatedWith: name, specializedBy: specialization, in: scopeOfUse,
+          reportingDiagnosticsTo: &log)
+        if let k = k { deferred.insert(k) }
+      }
+
       candidates.insert(
-        .init(reference: r, type: candidateType, constraints: cs, diagnostics: log))
+        .init(reference: r, type: candidateType, constraints: deferred, diagnostics: log))
     }
 
     if let labels = purpose.labels {
@@ -4166,12 +4192,11 @@ struct TypeChecker {
 
     // TODO: Report invalid uses of mutation markers
 
-    // The specialization of the entity includes that of context in which it was looked up.
-    //
-    // The resolution context may contain information necessary to determine the specialization of
+    // The specialization of the entity includes that of the context in which it was looked up. In
+    // particular, the context may contain information necessary to determine the specialization of
     // a qualified name. For example, given an instance of `type S<T> { let foo: Array<T> }`, the
     // type of the member `foo` depends on the specialization of its qualification.
-    var specialization = genericArguments(inScopeIntroducing: d, resolvedIn: context)
+    var specialization = genericQualificationArguments(inScopeIntroducing: d, resolvedIn: context)
     entityType = specialize(entityType, for: specialization, in: scopeOfUse)
 
     // Keep track of generic arguments that should be captured later on.
@@ -4204,15 +4229,13 @@ struct TypeChecker {
       }
     }
 
-    // Re-specialize the candidate's type now that the substitution map is complete.
-    //
-    // The specialization map now contains the substitutions accumulated from the candidate's
-    // qualification as well as the ones related to the resolution of the candidate itself. For
-    // example, if we resolved `A<X>.f<Y>`, we'd get `X` from the resolution of the qualification
-    // and `Y` from the resolution of the candidate.
+    // Re-specialize the candidate's type now that the substitution map is complete contains the
+    // substitutions accumulated from the candidate's qualification as well as the ones related to
+    // the resolution of the candidate itself. For example, if we resolved `A<X>.f<Y>`, we'd get
+    // `X` from the resolution of the qualification and `Y` from the resolution of the candidate.
     entityType = specialize(entityType, for: specialization, in: scopeOfUse)
 
-    var capturedArguments: GenericArguments = [:]
+    var capturedArguments = GenericArguments.empty
     for p in capturedGenericParameter(of: d) {
       capturedArguments[p] = specialization[p]
     }
@@ -4364,12 +4387,17 @@ struct TypeChecker {
       return nil
     }
 
-    guard let parameters = program[scopeOfUse].genericClause?.value.parameters else {
+    // Nothing more to do if the receiver isn't generic.
+    guard let clause = program[scopeOfUse].genericClause else {
       return unspecialized
     }
 
-    let arguments = GenericArguments(skolemizing: parameters, in: program.ast)
-    return MetatypeType(of: BoundGenericType(unspecialized.instance, arguments: arguments))
+    // Skolemize generic parameters.
+    var a: BoundGenericType.Arguments = [:]
+    for p in clause.value.parameters {
+      a[p] = .type(^GenericTypeParameterType(p, ast: program.ast))
+    }
+    return MetatypeType(of: BoundGenericType(unspecialized.instance, arguments: a))
   }
 
   /// Computes and returns the type of `Self` in `scopeOfUse`.
@@ -4394,7 +4422,7 @@ struct TypeChecker {
   }
 
   /// Computes and returns the type of `Self` as a trait receiver in `scopeOfUse`, returning `nil`
-  /// if `scopeOfUse` isn't logically contained in a trait.
+  /// if `scopeOfUse` isn't notionally contained in a trait.
   private mutating func resolveTraitReceiver(
     in scopeOfUse: AnyScopeID
   ) -> GenericTypeParameterType? {
@@ -4426,8 +4454,8 @@ struct TypeChecker {
     }
   }
 
-  /// Returns the list of generic arguments passed to `d`, which has type `t` and is being referred
-  /// to by `name`, reporting diagnostics to `log`.
+  /// Returns the generic arguments passed to `d`, which has type `t` and is being referred to by
+  /// `name`, reporting diagnostics to `log`.
   private func genericArguments(
     passedTo d: AnyDeclID, typed t: AnyType,
     referredToBy name: SourceRepresentable<Name>, specializedBy arguments: [CompileTimeValue],
@@ -4435,19 +4463,20 @@ struct TypeChecker {
   ) -> GenericArguments {
     if let g = BoundGenericType(t) {
       assert(arguments.isEmpty, "generic declaration bound twice")
-      return g.arguments
+      return .init(g)
     } else {
       let p = program.ast.genericParameters(introducedBy: d)
       return associateGenericParameters(p, of: name, to: arguments, reportingDiagnosticsTo: &log)
     }
   }
 
-  /// Returns the generic arguments passed to symbols occurring in `d` and looked up in `context`.
+  /// Returns the generic arguments passed to the qualification of symbols introduced in `d` that
+  /// that have been looked up in `context`.
   ///
   /// The arguments of `context` are returned if the latter isn't `nil`. Otherwise, the arguments
-  /// captured in the scope introducing `d` are returned in the form of a table mapping accumulated
-  /// generic parameters to a skolem.
-  private mutating func genericArguments(
+  /// captured in the scope introducing `d` are returned as a table mapping accumulated generic
+  /// parameters to a skolem.
+  private mutating func genericQualificationArguments(
     inScopeIntroducing d: AnyDeclID, resolvedIn context: NameResolutionContext?
   ) -> GenericArguments {
     if let c = context {
@@ -4456,7 +4485,7 @@ struct TypeChecker {
       let parameters = accumulatedGenericParameters(in: program[d].scope)
       return .init(skolemizing: parameters, in: program.ast)
     } else {
-      return [:]
+      return .empty
     }
   }
 
@@ -4484,49 +4513,74 @@ struct TypeChecker {
     return result
   }
 
-  /// Returns the type checking constraints associated with a reference to `d` with the given
-  /// `specialization` in `scopeOfUse`, anchoring those constraints at `site`.
-  private mutating func collectConstraints(
-    associatedWith d: AnyDeclID, specializedBy specialization: GenericArguments,
-    in scopeOfUse: AnyScopeID, at site: SourceRange
-  ) -> ConstraintSet {
+  /// Calls `action` on `self` and each constraint that must hold for a reference to `d` occurring
+  /// in `scopeOfUse`.
+  private mutating func forEachConstraint(
+    associatedWith d: AnyDeclID, in scopeOfUse: AnyScopeID,
+    do action: (inout Self, GenericConstraint) -> Void
+  ) {
     switch d.kind {
     case ModuleDecl.self:
-      // Modules have no constraints.
-      return []
+      return  // Modules have no constraints.
     case AssociatedTypeDecl.self, AssociatedValueDecl.self:
-      // Constraints on associated types and values are assumed satisfied in their scope.
-      return []
+      return  // Constraints on associated types and values are assumed in their scope.
     case TraitDecl.self:
-      // References to traits are unconstrained.
-      return []
+      return  // References to traits are unconstrained.
     default:
       break
     }
 
-    let origin = ConstraintOrigin(.whereClause, at: site)
-    var result = ConstraintSet()
-
     if let e = possiblyPartiallyFormedEnvironment(of: d) {
-      insertConstraints(declaredIn: e)
+      for c in e.constraints { action(&self, c) }
     }
 
     let lca = program.innermostCommonScope(program[d].scope, scopeOfUse)
     for s in program.scopes(from: program[d].scope) {
       if s == lca { break }
       if let g = AnyDeclID(s), let e = possiblyPartiallyFormedEnvironment(of: g) {
-        insertConstraints(declaredIn: e)
+        for c in e.constraints { action(&self, c) }
       }
     }
-    return result
+  }
 
-    /// Inserts the constraints declared in `e` in `result`.
-    func insertConstraints(declaredIn e: GenericEnvironment) {
-      for g in e.constraints {
-        let c = specialize(g, for: specialization, in: scopeOfUse, origin: origin)
-        result.insert(c)
+  /// Checks `c`, which is caused by the resolution of `n` specialized by `z` in `scopeOfUse`,
+  /// reporting diagnostics to `log`.
+  ///
+  /// If the constraint does not contain skolems or open type variables, the result is `nil` and
+  /// a diagnostic is reported to `log` iff the constraint does not hold. Otherwise, the result is
+  /// a type checking constraint that has to be solved in context.
+  private mutating func evaluateResolutionConstraint(
+    _ c: GenericConstraint,
+    associatedWith n: SourceRepresentable<Name>,
+    specializedBy z: GenericArguments,
+    in scopeOfUse: AnyScopeID,
+    reportingDiagnosticsTo log: inout DiagnosticSet
+  ) -> Constraint? {
+    switch c.value {
+    case .conformance(let lhs, let rhs):
+      let a = specialize(lhs, for: z, in: scopeOfUse)
+      if a.isSkolem || a[.hasVariable] {
+        return ConformanceConstraint(a, conformsTo: rhs, origin: .init(.binding, at: n.site))
+      } else if !conforms(a, to: rhs, in: scopeOfUse) {
+        log.insert(
+          .error(referenceTo: n, requires: a, conformsTo: rhs, dueToConstraintAt: c.site))
       }
+
+    case .equality(let lhs, let rhs):
+      let a = specialize(lhs, for: z, in: scopeOfUse)
+      let b = specialize(rhs, for: z, in: scopeOfUse)
+      if a.isSkolem || a[.hasVariable] || b.isSkolem || b[.hasVariable] {
+        return EqualityConstraint(a, b, origin: .init(.binding, at: n.site))
+      } else if !areEquivalent(a, b, in: scopeOfUse) {
+        log.insert(
+          .error(referenceTo: n, requires: a, equals: rhs, dueToConstraintAt: c.site))
+      }
+
+    default:
+      UNIMPLEMENTED()
     }
+
+    return nil
   }
 
   /// Returns the generic parameters introduced in the generic environment of `d`.
@@ -6484,7 +6538,7 @@ extension Program {
         return .member(d, specialization, p.receiver!)
       } else {
         let r = innermostReceiver(in: scopeOfUse)!
-        return .member(d, specialization, .elided(.direct(AnyDeclID(r), [:])))
+        return .member(d, specialization, .elided(.direct(AnyDeclID(r), .empty)))
       }
     } else {
       return .direct(d, specialization)
