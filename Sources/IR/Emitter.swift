@@ -2395,7 +2395,8 @@ struct Emitter {
   ///
   /// - Requires: `e.type` is `Hylo.Bool`
   private mutating func emit(branchCondition e: AnyExprID) -> Operand {
-    precondition(canonical(program[e].type) == ast.coreType("Bool")!)
+    precondition(
+      program.areEquivalent(program[e].type, ^ast.coreType("Bool")!, in: insertionScope!))
     let wrapper = emitLValue(e)
     return emitLoadBuiltinBool(wrapper, at: ast[e].site)
   }

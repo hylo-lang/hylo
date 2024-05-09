@@ -129,9 +129,24 @@ struct TypeChecker {
     arguments.mapValues({ canonical($0, in: scopeOfUse) })
   }
 
-  /// Returns `true` iff `t` and `u` are equivalent types in `scopeOfUse`.
+  /// Returns `true` iff `t` and `u` are semantically equivalent in `scopeOfUse`.
   mutating func areEquivalent(_ t: AnyType, _ u: AnyType, in scopeOfUse: AnyScopeID) -> Bool {
-    canonical(t, in: scopeOfUse) == canonical(u, in: scopeOfUse)
+    if let a = GenericTypeParameterType(t) {
+      return areEquivalent(a, u, in: scopeOfUse)
+    } else if !t[.isCanonical] {
+      return areEquivalent(u, canonical(t, in: scopeOfUse), in: scopeOfUse)
+    } else {
+      return t == canonical(u, in: scopeOfUse)
+    }
+  }
+
+  /// Returns `true` iff `t` and `u` are semantically equivalent in `scopeOfUse`.
+  mutating func areEquivalent(
+    _ t: GenericTypeParameterType, _ u: AnyType, in scopeOfUse: AnyScopeID
+  ) -> Bool {
+    let b = canonical(u, in: scopeOfUse)
+    let e = environment(of: program[t.decl].scope)!
+    return e.areEquivalent(^t, b) || (t == u)
   }
 
   /// Returns `true` iff `t` is a refinement of `u` and `t != u`.
@@ -1741,6 +1756,7 @@ struct TypeChecker {
       }
 
       assert(expectedType[.isCanonical] && b.type[.isCanonical])
+      // TODO: Use semantic equality
       if program[d].isDefinition && (b.type == expectedType) {
         s.append(AnyDeclID(d))
       }

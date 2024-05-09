@@ -384,32 +384,32 @@ extension AnyType: TypeProtocol {
 
 extension AnyType: Equatable {
 
-  /// Returns whether `l` is equal to `r`.
+  /// Returns whether `l` is syntactically equal to `r`.
   public static func == (l: Self, r: Self) -> Bool {
     l.wrapped.equals(r.wrapped)
   }
 
-  /// Returns whether `l` is equal to `r`.
+  /// Returns whether `l` is syntactically equal to `r`.
   public static func == <T: TypeProtocol>(l: Self, r: T) -> Bool {
     l.wrapped.unwrap(as: T.self) == r
   }
 
-  /// Returns whether `l` is not equal to `r`.
+  /// Returns whether `l` is not syntactically equal to `r`.
   public static func != <T: TypeProtocol>(l: Self, r: T) -> Bool {
     !(l == r)
   }
 
-  /// Returns whether `l` is equal to `r`.
+  /// Returns whether `l` is syntactically equal to `r`.
   public static func == <T: TypeProtocol>(l: T, r: Self) -> Bool {
     l == r.wrapped.unwrap(as: T.self)
   }
 
-  /// Returns whether `l` is not equal to `r`.
+  /// Returns whether `l` is not syntactically equal to `r`.
   public static func != <T: TypeProtocol>(l: T, r: Self) -> Bool {
     !(l == r)
   }
 
-  /// Returns whether `subject` matches `pattern`.
+  /// Returns whether `subject` syntactically matches `pattern`.
   ///
   /// This operator is used in switch statements to match the wrapped value of an `AnyType`.
   ///
@@ -427,12 +427,12 @@ extension AnyType: Equatable {
     pattern == subject
   }
 
-  /// Returns whether `subject` matches `pattern`.
+  /// Returns whether `subject` syntactically matches `pattern`.
   public static func ~= (pattern: Self, subject: Self) -> Bool {
     pattern == subject
   }
 
-  /// Returns whether `subject` matches `pattern`.
+  /// Returns whether `subject` syntactically matches `pattern`.
   public static func ~= <T: TypeProtocol>(pattern: T, subject: Self) -> Bool {
     pattern == subject
   }
