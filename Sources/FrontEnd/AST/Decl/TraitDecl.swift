@@ -16,8 +16,8 @@ public struct TraitDecl: ExposableDecl, SingleEntityDecl, LexicalScope {
   /// The identifier of the trait.
   public let identifier: SourceRepresentable<Identifier>
 
-  /// The names of traits which the trait refines.
-  public let refinements: [NameExpr.ID]
+  /// The names of inherited traits.
+  public let bounds: [NameExpr.ID]
 
   /// The member declarations in the lexical scope of the trait.
   public let members: [AnyDeclID]
@@ -30,7 +30,7 @@ public struct TraitDecl: ExposableDecl, SingleEntityDecl, LexicalScope {
     introducerSite: SourceRange,
     accessModifier: SourceRepresentable<AccessModifier>,
     identifier: SourceRepresentable<Identifier>,
-    refinements: [NameExpr.ID],
+    bounds: [NameExpr.ID],
     members: [AnyDeclID],
     selfParameterDecl: GenericParameterDecl.ID,
     site: SourceRange
@@ -41,7 +41,7 @@ public struct TraitDecl: ExposableDecl, SingleEntityDecl, LexicalScope {
     self.site = site
     self.accessModifier = accessModifier
     self.identifier = identifier
-    self.refinements = refinements
+    self.bounds = bounds
     self.receiver = selfParameterDecl
     self.members = members
   }

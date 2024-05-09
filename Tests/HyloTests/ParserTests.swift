@@ -229,7 +229,7 @@ final class ParserTests: XCTestCase {
       """
     let (declID, ast) = try input.parseWithDeclPrologue(with: Parser.parseTraitDecl)
     let decl = try XCTUnwrap(ast[declID])
-    XCTAssertEqual(decl.refinements.count, 1)
+    XCTAssertEqual(decl.bounds.count, 1)
   }
 
   func testMethodBundleRequirement() throws {
