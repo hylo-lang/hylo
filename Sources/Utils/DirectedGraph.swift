@@ -38,22 +38,25 @@ public struct DirectedGraph<Vertex: Hashable, Label> {
 
   }
 
+  /// The type of a table mapping a vertex to its outgoing edges.
+  private typealias Out = [Vertex: OutgoingEdges]
+
   /// A table from a vertex to its outgoing edges.
-  private var outgoingEdges: [Vertex: OutgoingEdges]
+  private var out: Out
 
   /// Creates an empty graph.
   public init() {
-    outgoingEdges = [:]
+    out = [:]
   }
 
   /// The vertices of the graph.
   public var vertices: some Collection<Vertex> {
-    outgoingEdges.keys
+    out.keys
   }
 
   /// The edges of the graph.
   public var edges: some Collection<Edge> {
-    outgoingEdges.lazy
+    out.lazy
       .map({ (s, o) in o.lazy.map({ (t, l) in .init(source: s, label: l, target: t) }) })
       .joined()
   }
@@ -80,8 +83,8 @@ public struct DirectedGraph<Vertex: Hashable, Label> {
   public mutating func insertEdge(
     from source: Vertex, to target: Vertex, labeledBy label: Label
   ) -> (inserted: Bool, labelAfterInsert: Label) {
-    _ = outgoingEdges[target].setIfNil([:])
-    return modify(&outgoingEdges[source, default: [:]]) { (tips) in
+    _ = out[target].setIfNil([:])
+    return modify(&out[source, default: [:]]) { (tips) in
       if let currentLabel = tips[target] {
         return (false, currentLabel)
       } else {
@@ -98,7 +101,7 @@ public struct DirectedGraph<Vertex: Hashable, Label> {
   /// - Complexity: O(1).
   @discardableResult
   public mutating func removeEdge(from source: Vertex, to target: Vertex) -> Label? {
-    modify(&outgoingEdges[source, default: [:]]) { (tips) in
+    modify(&out[source, default: [:]]) { (tips) in
       if let i = tips.index(forKey: target) {
         defer { tips.remove(at: i) }
         return tips[i].value
@@ -113,16 +116,16 @@ public struct DirectedGraph<Vertex: Hashable, Label> {
   /// - Returns: If there exists a edge from from `source` to `target`, the label of that edge.
   ///   Otherwise, `nil`.
   public subscript(from source: Vertex, to target: Vertex) -> Label? {
-    _read { yield outgoingEdges[source]?[target] }
-    _modify { yield &outgoingEdges[source, default: [:]][target] }
+    _read { yield out[source]?[target] }
+    _modify { yield &out[source, default: [:]][target] }
   }
 
   /// Accesses the outgoing edges of `source`.
   ///
   /// - Complexity: O(1).
   public subscript(from source: Vertex) -> OutgoingEdges {
-    _read { yield outgoingEdges[source, default: [:]] }
-    _modify { yield &outgoingEdges[source, default: [:]] }
+    _read { yield out[source, default: [:]] }
+    _modify { yield &out[source, default: [:]] }
   }
 
 }
@@ -145,10 +148,10 @@ extension DirectedGraph: Equatable where Label: Equatable {
 
   public static func == (l: Self, r: Self) -> Bool {
     var sources: Set<Vertex> = []
-    sources.reserveCapacity(l.outgoingEdges.count)
+    sources.reserveCapacity(l.out.count)
 
-    for (source, lhs) in l.outgoingEdges {
-      let rhs = r.outgoingEdges[source, default: [:]]
+    for (source, lhs) in l.out {
+      let rhs = r.out[source, default: [:]]
       if lhs.count != rhs.count { return false }
       for (target, label) in lhs {
         if rhs[target] != label { return false }
@@ -156,7 +159,7 @@ extension DirectedGraph: Equatable where Label: Equatable {
       sources.insert(source)
     }
 
-    return r.outgoingEdges.keys.allSatisfy(sources.contains(_:))
+    return r.out.keys.allSatisfy(sources.contains(_:))
   }
 
 }
@@ -165,7 +168,7 @@ extension DirectedGraph: Hashable where Label: Hashable {
 
   public func hash(into hasher: inout Hasher) {
     var h = 0
-    for (source, tips) in outgoingEdges where !tips.isEmpty {
+    for (source, tips) in out where !tips.isEmpty {
       var _hasher = hasher
       _hasher.combine(source)
       _hasher.combine(tips)
