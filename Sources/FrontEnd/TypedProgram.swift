@@ -160,10 +160,10 @@ public struct TypedProgram {
     return checker.canonical(arguments, in: scopeOfUse)
   }
 
-  /// Returns `true` iff `t` and `u` are equivalent types in `scopeOfUse`.
+  /// Returns true iff t and u are semantically equivalent in scopeOfUse.
   public func areEquivalent(_ t: AnyType, _ u: AnyType, in scopeOfUse: AnyScopeID) -> Bool {
     var checker = TypeChecker(asContextFor: self)
-    return checker.canonical(t, in: scopeOfUse) == checker.canonical(u, in: scopeOfUse)
+    return checker.areEquivalent(t, u, in: scopeOfUse)
   }
 
   /// Returns `generic` with occurrences of parameters keying `specialization` replaced by their

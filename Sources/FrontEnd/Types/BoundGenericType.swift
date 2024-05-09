@@ -71,6 +71,7 @@ public struct BoundGenericType: TypeProtocol {
 
 extension BoundGenericType: Equatable {
 
+  /// Returns `true` iff `l` is syntactically equal to `r`.
   public static func == (l: Self, r: Self) -> Bool {
     guard l.base == r.base else { return false }
     return l.arguments.elementsEqual(r.arguments) { (a, b) in

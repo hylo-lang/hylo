@@ -51,6 +51,15 @@ public struct GenericEnvironment {
     }
   }
 
+  /// Returns `true` iff `t` is known to be semantically equivalent to `u` in this environment.
+  public func areEquivalent(_ t: AnyType, _ u: AnyType) -> Bool {
+    if let i = ledger[t] {
+      return entries[i].equivalences.contains(u)
+    } else {
+      return t == u
+    }
+  }
+
   /// Inserts constraint `c` to the environment, updating equivalence classes.
   public mutating func insertConstraint(_ c: GenericConstraint) {
     // TODO: Eliminate duplicates
