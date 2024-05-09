@@ -160,6 +160,9 @@ function(add_hylo_test_of testee)
     "DEPENDENCIES" # <multi_value_keywords>
     ${ARGN})
 
+  # FIXME: Why this should be needed is a mystery.
+  list(APPEND _DEPENDENCIES ArgumentParser)
+
   set(top_target "${_NAMED}")
   if(NOT _PATH)
     set(_PATH ${top_target})

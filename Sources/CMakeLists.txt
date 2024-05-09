@@ -20,11 +20,13 @@ add_hylo_executable(hc DEPENDENCIES Driver
 
 add_hylo_executable(hylo-demangle DEPENDENCIES IR
   # TODO: why are these needed?
-  Durian SwiftyLLVM)
+  Durian SwiftyLLVM Collections)
 set_target_properties(hylo-demangle PROPERTIES Swift_MODULE_NAME HyloDemangle)
 
 add_hylo_library(Driver
-  DEPENDENCIES CodeGenLLVM FrontEnd IR StandardLibrary ArgumentParser)
+  DEPENDENCIES CodeGenLLVM FrontEnd IR StandardLibrary ArgumentParser
+  # TODO: why is this needed?
+  Collections)
 
 add_hylo_library(FrontEnd
   DEPENDENCIES BigInt OrderedCollections Durian SwiftyLLVM Utils)
