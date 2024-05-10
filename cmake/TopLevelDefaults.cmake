@@ -14,7 +14,7 @@ block()
   set(FETCHCONTENT_TRY_FIND_PACKAGE_MODE NEVER)
   FetchContent_Declare(Hylo-CMakeModules
     GIT_REPOSITORY https://github.com/hylo-lang/CMakeModules.git
-    GIT_TAG        main
+    GIT_TAG        module-directories
     OVERRIDE_FIND_PACKAGE
   )
 
@@ -70,7 +70,7 @@ function(add_hylo_executable result_target)
   endif()
   set_recursive_file_glob(files ${_PATH}/*.swift)
   add_executable(${result_target} ${files})
-  target_link_libraries(${result_target} PRIVATE ${_DEPENDENCIES})
+  target_link_libraries(${result_target} PUBLIC ${_DEPENDENCIES})
 
   hylo_common_target_setup(${result_target})
 endfunction()

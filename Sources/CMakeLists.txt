@@ -23,12 +23,11 @@ add_hylo_executable(hylo-demangle DEPENDENCIES IR
   Durian SwiftyLLVM)
 set_target_properties(hylo-demangle PROPERTIES Swift_MODULE_NAME HyloDemangle)
 
-
 add_hylo_library(Driver
   DEPENDENCIES CodeGenLLVM FrontEnd IR StandardLibrary ArgumentParser)
 
 add_hylo_library(FrontEnd
-  DEPENDENCIES BigInt Collections Durian SwiftyLLVM Utils)
+  DEPENDENCIES BigInt OrderedCollections Durian SwiftyLLVM Utils)
 
 add_hylo_library(IR
   DEPENDENCIES FrontEnd Utils)
@@ -38,7 +37,7 @@ add_hylo_library(CodeGenLLVM
   PATH CodeGen/LLVM)
 
 add_hylo_library(Utils
-  DEPENDENCIES BigInt Collections Algorithms)
+  DEPENDENCIES BigInt DequeModule Algorithms)
 
 add_hylo_library(StandardLibrary
   DEPENDENCIES FrontEnd Utils
