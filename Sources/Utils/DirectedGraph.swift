@@ -15,12 +15,6 @@ public struct NoLabel: Hashable {
 ///   to be `Equatable`.
 public struct DirectedGraph<Vertex: Hashable, Label> {
 
-  /// The base of an edge.
-  public typealias EdgeBase = (source: Vertex, label: Label)
-
-  /// The tip of an edge.
-  public typealias EdgeTip = (target: Vertex, label: Label)
-
   /// A collection with the outgoing edges of a vertex.
   public typealias OutgoingEdges = [Vertex: Label]
 
