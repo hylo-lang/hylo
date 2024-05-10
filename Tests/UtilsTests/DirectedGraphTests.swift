@@ -103,6 +103,28 @@ final class DirectedGraphTests: XCTestCase {
     XCTAssertFalse(g.isReachable(2, from: 1))
   }
 
+  func testSCC() {
+    var g = DirectedGraph<Int, NoLabel>()
+    g.insertEdge(from: 1, to: 0)
+    g.insertEdge(from: 0, to: 2)
+    g.insertEdge(from: 2, to: 1)
+    g.insertEdge(from: 0, to: 3)
+    g.insertEdge(from: 3, to: 4)
+
+    var s = StronglyConnectedComponents(g)
+
+    let a0 = s.component(containing: 0)
+    XCTAssertEqual(Set(s.vertices(in: a0)), [0, 1, 2])
+    let a1 = s.component(containing: 1)
+    XCTAssertEqual(Set(s.vertices(in: a1)), [0, 1, 2])
+    let a2 = s.component(containing: 2)
+    XCTAssertEqual(Set(s.vertices(in: a2)), [0, 1, 2])
+    let a3 = s.component(containing: 3)
+    XCTAssertEqual(Set(s.vertices(in: a3)), [3])
+    let a4 = s.component(containing: 4)
+    XCTAssertEqual(Set(s.vertices(in: a4)), [4])
+  }
+
 }
 
 extension DirectedGraph<Int, String>.Edge {
