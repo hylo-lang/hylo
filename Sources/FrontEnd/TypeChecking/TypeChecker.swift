@@ -2122,8 +2122,7 @@ struct TypeChecker {
         return
       }
 
-      let r2 = r.map({ (e) in NameExpr.ID.init(e)! })
-      for (_, rhs) in evalTraitComposition(r2) {
+      for (_, rhs) in evalTraitComposition(r) {
         insertConstraint(.init(.conformance(lhs, rhs), at: c.site), in: &e)
       }
 
