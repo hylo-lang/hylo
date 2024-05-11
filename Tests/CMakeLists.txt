@@ -18,7 +18,7 @@ add_hylo_test_of(Utils NAMED UtilsTests
   DEPENDENCIES Algorithms DequeModule)
 
 add_hylo_test_of(Driver NAMED DriverTests
-  DEPENDENCIES TestUtils ArgumentParser
+  DEPENDENCIES TestUtils
   # TODO: why are these needed?
   Durian SwiftyLLVM)
 
