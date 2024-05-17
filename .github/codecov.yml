@@ -1,6 +1,5 @@
 ignore:
-  - Tests
-  - Package.swift
+  - !Sources/**/*
 
 comment:
   require_changes: true
