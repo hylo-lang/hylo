@@ -1,5 +1,5 @@
 ignore:
-  - '!Sources/'
+  - '!(Sources|StandardLibrary)/'
 
 comment:
   require_changes: true
