@@ -1,5 +1,5 @@
 ignore:
-  - !Sources/**/*
+  - '!Sources/'
 
 comment:
   require_changes: true
