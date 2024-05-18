@@ -198,12 +198,7 @@ jobs:
             windows_only: ''
 
           - os: windows-latest
-            spm_configuration: debug
             use_spm: false
-
-          - os: windows-latest
-            spm_configuration: release
-            on_windows_and_spm_works: true
 
           - os: macos-13
             triple_suffix: apple-darwin23.3.0
@@ -294,7 +289,8 @@ jobs:
       - name: Test (CMake)
         run: ctest --parallel --test-dir hylo/.ninja-build ${{ matrix.cmake_generator == 'Xcode' && format('-C {0}', matrix.cmake_build_type) || '' }}
 
-      - name: Create LLVM pkgconfig file and make it findable
+      - if: ${{ matrix.spm_works }}
+        name: Create LLVM pkgconfig file and make it findable
         run: >-
           set -ex -o pipefail
 
