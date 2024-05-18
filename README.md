@@ -81,7 +81,7 @@ file for LLVM.
 
 ## Building with CMake and Xcode
 
-For now you will need to buid yourself [a patched version of
+For now you will need to build yourself [a patched version of
 cmake](https://gitlab.kitware.com/cmake/cmake/-/merge_requests/9501).
 
 1. **Generate Xcode project**: choose a *build-directory* and then,
