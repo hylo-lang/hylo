@@ -289,7 +289,7 @@ jobs:
       - name: Test (CMake)
         run: ctest --parallel --test-dir hylo/.ninja-build ${{ matrix.cmake_generator == 'Xcode' && format('-C {0}', matrix.cmake_build_type) || '' }}
 
-      - if: ${{ matrix.spm_works }}
+      - if: ${{ matrix.use_spm }}
         name: Create LLVM pkgconfig file and make it findable
         run: >-
           set -ex -o pipefail
