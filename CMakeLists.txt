@@ -16,6 +16,8 @@ project(Hylo
 enable_testing()
 include(CTest)
 
+set(CMAKE_OSX_DEPLOYMENT_TARGET "12.0")
+
 list(PREPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/modules)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ${BUILD_SHARED_LIBS}) # Needed?
