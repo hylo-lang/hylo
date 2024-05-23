@@ -365,12 +365,23 @@ struct TypeChecker {
     }
   }
 
-  /// Returns `true` if `model` conforms to `trait` explicitly or structurally in `scopeOfUse`.
+  /// Returns `true` if `m` conforms to `c` explicitly or structurally in `scopeOfUse`.
+  ///
+  /// See also `explicitlyConforms` and `structurallyConforms`.
   mutating func conforms(
+    _ m: AnyType, to c: TraitType, in scopeOfUse: AnyScopeID
+  ) -> Bool {
+    explicitlyConforms(m, to: c, in: scopeOfUse) || structurallyConforms(m, to: c, in: scopeOfUse)
+  }
+
+  /// Returns `true` if `model` conforms to `trait` explicitly in `scopeOfUse`.
+  ///
+  /// A conformance is explicit if it has been declared in sources, or if it is the consequence of
+  /// generic requirements written in sources.
+  private mutating func explicitlyConforms(
     _ model: AnyType, to trait: TraitType, in scopeOfUse: AnyScopeID
   ) -> Bool {
     conformedTraits(of: model, in: scopeOfUse).contains(trait)
-      || structurallyConforms(model, to: trait, in: scopeOfUse)
   }
 
   /// Returns `true` if `model` structurally conforms to `trait` in `scopeOfUse`.
@@ -569,7 +580,7 @@ struct TypeChecker {
     var result: [ConformanceOrigin] = []
     let s = evalTraitComposition(program[d].conformances)
     for (n, t) in s {
-      if conformedTraits(of: ^t, in: scopeOfUse).contains(trait) {
+      if explicitlyConforms(^t, to: trait, in: scopeOfUse) {
         result.append(.init(d, at: program[n].site))
       }
     }
@@ -5153,7 +5164,7 @@ struct TypeChecker {
       return constrain(e, to: .error, in: &obligations)
     }
 
-    guard conformedTraits(of: s, in: program[e].scope).contains(lens) else {
+    guard conforms(s, to: lens, in: program[e].scope) else {
       report(.error(s, doesNotConformTo: lens, at: program[e].lens.site))
       return constrain(e, to: .error, in: &obligations)
     }
@@ -5836,19 +5847,17 @@ struct TypeChecker {
     guard let domain = checkedType(of: program[s].domain.value).errorFree else { return nil }
 
     let isConsuming = program.ast.isConsuming(s)
-    let domainTraits = conformedTraits(of: domain, in: program[s].scope)
     let collection = program.ast.core.collection.type
+    let iterator = program.ast.core.iterator.type
 
     // By default, non-consuming loops use `Collection`.
-    if !isConsuming && domainTraits.contains(collection) {
+    if !isConsuming && conforms(domain, to: collection, in: program[s].scope) {
       let r = AssociatedTypeDecl.ID(program.ast.requirements("Element", in: collection.decl)[0])!
       return demandImplementation(of: r, for: domain, in: program[s].scope)
     }
 
-    let iterator = program.ast.core.iterator.type
-
     // Any kind of for loop can consume an iterator.
-    if domainTraits.contains(iterator) {
+    if conforms(domain, to: iterator, in: program[s].scope) {
       let r = AssociatedTypeDecl.ID(program.ast.requirements("Element", in: iterator.decl)[0])!
       return demandImplementation(of: r, for: domain, in: program[s].scope)
     }

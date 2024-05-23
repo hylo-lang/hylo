@@ -407,8 +407,7 @@ public struct TypedProgram {
     if !model.isSkolem { return nil }
 
     var checker = TypeChecker(asContextFor: self)
-    let bounds = checker.conformedTraits(of: model, in: scopeOfUse)
-    if !bounds.contains(concept) { return nil }
+    if !checker.conforms(model, to: concept, in: scopeOfUse) { return nil }
 
     // An abstract conformance maps each requirement to itself.
     var implementations = Conformance.ImplementationMap()
