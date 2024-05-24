@@ -164,13 +164,20 @@ jobs:
 
   native:
     needs: determine-version
-    name: "Native: ${{ matrix.os }}/${{ matrix.spm_configuration }}"
+    name: "Native: ${{ matrix.os }}/${{ matrix.spm_configuration }}/${{ matrix.cmake_generator }}"
     strategy:
       fail-fast: false
       matrix:
         # macos-latest is apparently not the latest.
         os: [macos-13, ubuntu-latest, windows-latest]
         spm_configuration: [debug, release]
+        cmake_generator: [Ninja, Xcode]
+
+        exclude:
+          - os: ubuntu-latest
+            cmake_generator: Xcode
+          - os: windows-latest
+            cmake_generator: Xcode
 
         include:
           - HYLO_LLVM_BUILD_RELEASE: 20240303-215025
@@ -182,7 +189,7 @@ jobs:
           # https://github.com/apple/swift/issues/72121
           - windows_only: '# WINDOWS ONLY:'
           - on_windows_and_spm_works: false
-          - spm_works: true
+          - use_spm: true
 
           - os: windows-latest
             unpackage_command: 7z x -t7z
@@ -191,7 +198,7 @@ jobs:
             windows_only: ''
 
           - os: windows-latest
-            spm_works: false
+            use_spm: false
 
           - os: macos-13
             triple_suffix: apple-darwin23.3.0
@@ -204,6 +211,9 @@ jobs:
 
           - spm_configuration: release
             cmake_build_type: Release
+
+          - cmake_generator: Xcode
+            use_spm: false
 
     runs-on: ${{ matrix.os }}
     env:
@@ -244,6 +254,15 @@ jobs:
       - name: Set up latest CMake and Ninja
         uses: lukka/get-cmake@latest
 
+      - name: Build a patched CMake for testing Xcode
+        if: ${{ matrix.cmake_generator == 'Xcode' }}
+        run: |
+          git clone --quiet https://gitlab.kitware.com/dabrahams/cmake.git --branch swift-xcode
+          cd cmake
+          cmake -S . -B ./build -GNinja
+          cmake --build ./build
+          echo "${{ github.workspace }}/cmake/build/bin" >> "$GITHUB_PATH"
+
       - name: Install LLVM
         # 7z doesn't support decompressing from a stream or we'd do this all as one statement. Maybe
         # we should find a way to use zstd on windows.
@@ -257,20 +276,20 @@ jobs:
       - name: Configure (CMake)
         # We explicitly point to swiftc in the PATH because otherwise CMake picks up the one in XCode.
         run: >-
-          cmake -GNinja -S . -B .ninja-build
-          -DCMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }}
+          cmake -G '${{ matrix.cmake_generator }}' -S . -B .ninja-build
+          ${{ matrix.cmake_generator != 'Xcode' && format('-DCMAKE_BUILD_TYPE={0}', matrix.cmake_build_type) || '' }}
           -DBUILD_TESTING=YES
           -DLLVM_DIR=${{ github.workspace }}/${{ env.llvm_package_basename }}/lib/cmake/llvm
           ${{ matrix.os == 'macos-13' && '-D CMAKE_Swift_COMPILER=swiftc' || '' }}
         working-directory: hylo
 
       - name: Build (CMake)
-        run: cmake --build hylo/.ninja-build
+        run: cmake --build hylo/.ninja-build ${{ matrix.cmake_generator == 'Xcode' && format('--config {0}', matrix.cmake_build_type) || '' }}
 
       - name: Test (CMake)
-        run: ctest --parallel --test-dir hylo/.ninja-build
+        run: ctest --parallel --test-dir hylo/.ninja-build ${{ matrix.cmake_generator == 'Xcode' && format('-C {0}', matrix.cmake_build_type) || '' }}
 
-      - if: ${{ matrix.spm_works }}
+      - if: ${{ matrix.use_spm }}
         name: Create LLVM pkgconfig file and make it findable
         run: >-
           set -ex -o pipefail
@@ -283,7 +302,7 @@ jobs:
           echo 'PKG_CONFIG_PATH=${{ github.workspace }}/pkg-config' >> "$GITHUB_ENV"
         shell: bash
 
-      - if: ${{ matrix.spm_works }}
+      - if: ${{ matrix.use_spm }}
         uses: actions/cache@v4
         name: SPM cache setup
         with:
@@ -308,7 +327,7 @@ jobs:
           }
         working-directory: hylo
 
-      - if: ${{ matrix.spm_works }}
+      - if: ${{ matrix.use_spm }}
         name: Build
         run: |
           swift build -c ${{ matrix.spm_configuration }} ${{ env.spm-build-options }} --build-tests
@@ -316,7 +335,7 @@ jobs:
 
         working-directory: hylo
 
-      - if: ${{ matrix.spm_works }}
+      - if: ${{ matrix.use_spm }}
         name: Test
         run: |
           swift test --skip-build -c ${{ matrix.spm_configuration }} ${{ env.spm-build-options }} ${{ env.spm-test-options }}
