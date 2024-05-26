@@ -26,7 +26,7 @@ concurrency:
 jobs:
   build:
     if: github.repository == 'hylo-lang/hylo'
-    runs-on: macos-13
+    runs-on: macos-14
     env:
       llvm_url_prefix: https://github.com/hylo-lang/llvm-build/releases/download/20240303-215025
       llvm_package_basename: llvm-17.0.6-x86_64-apple-darwin23.3.0-MinSizeRel
