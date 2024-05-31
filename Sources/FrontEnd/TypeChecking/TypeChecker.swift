@@ -1875,7 +1875,6 @@ struct TypeChecker {
   ///
   /// A scope `s` inherits from a generic environment `g` if:
   /// - `s` is notionally contained in `g`; and/or
-  /// - `s` declares a trait `t` and `g` is the environment of a trait refined by `t`; and/or
   /// - `s` is an extension and `g` is the environment of the type extended by `s`.
   private mutating func forEachGenericParentScope(
     inheritedBy s: AnyScopeID,
@@ -1888,11 +1887,6 @@ struct TypeChecker {
       if let e = scopeExtended(by: ConformanceDecl.ID(s)!) { action(&self, e) }
     case ExtensionDecl.self:
       if let e = scopeExtended(by: ExtensionDecl.ID(s)!) { action(&self, e) }
-    case TraitDecl.self:
-      let t = TraitType(TraitDecl.ID(s)!, ast: program.ast)
-      for u in bases(of: t).unordered where u != t {
-        action(&self, AnyScopeID(u.decl))
-      }
     default:
       break
     }
@@ -2051,20 +2045,6 @@ struct TypeChecker {
     return commit(partialResult)
   }
 
-  /// Returns the generic environment introduced by the declaration of `t`, if any.
-  private mutating func environment(introducedByDeclOf t: AnyType) -> GenericEnvironment? {
-    switch t.base {
-    case let u as GenericTypeParameterType:
-      return environment(of: program[u.decl].scope)
-    case let u as ProductType:
-      return environment(of: u.decl)
-    case let u as TypeAliasType:
-      return environment(of: u.decl)
-    default:
-      return nil
-    }
-  }
-
   /// Creates the partially formed generic environment of `d`, which introduces `parameters`,
   /// initialized with constraints inherited from the enclosing generic environment.
   private mutating func initialEnvironment<T: Decl>(
@@ -2123,18 +2103,6 @@ struct TypeChecker {
     cache.partiallyFormedEnvironment[e.decl] = nil
     cache.write(e, at: \.environment[e.decl])
     return e
-  }
-
-  /// Returns the generic environment introduced by `m` or its immediate parent if `m` is a variant
-  /// in a bundled declaration.
-  private mutating func memberEnvironment(of m: AnyDeclID) -> GenericEnvironment? {
-    if (m.kind == MethodImpl.self) || (m.kind == SubscriptImpl.self) {
-      return environment(of: program[m].scope)
-    } else if let s = AnyScopeID(m) {
-      return environment(of: s)
-    } else {
-      return nil
-    }
   }
 
   /// Inserts `d`'s constraints in `e`.
