@@ -2148,7 +2148,14 @@ struct TypeChecker {
       [.parameterType(program[t].receiver.id), .associatedType(d)],
       [.associatedType(d)])
     insertRequirement(i, in: &e.requirements)
-    insertAnnotatedConstraints(on: d, in: &e)
+
+    // Synthesize sugared conformance constraint, if any.
+    if let lhs = MetatypeType(uncheckedType(of: d))?.instance {
+      for (n, t) in evalTraitComposition(program[d].conformances) {
+        insertConstraint(.init(.conformance(lhs, t), at: program[n].site), in: &e)
+      }
+    }
+
     for c in (program[d].whereClause?.value.constraints ?? []) {
       insertConstraint(c, in: &e)
     }
@@ -2162,22 +2169,6 @@ struct TypeChecker {
   ) {
     for c in (program[d].whereClause?.value.constraints ?? []) {
       insertConstraint(c, in: &e)
-    }
-  }
-
-  /// Inserts the constraints declared as `p`'s annotations in `e`.
-  ///
-  /// `p` is a generic parameter, associated type, or associated value declaration. `e` is the
-  /// environment in which `p` is introduced.
-  private mutating func insertAnnotatedConstraints<T: ConstrainedGenericTypeDecl>(
-    on p: T.ID, in e: inout GenericEnvironment
-  ) {
-    let t = uncheckedType(of: p)
-    guard let lhs = MetatypeType(t)?.instance else { return }
-
-    // Synthesize sugared conformance constraint, if any.
-    for (n, t) in evalTraitComposition(program[p].conformances) {
-      insertConstraint(.init(.conformance(lhs, t), at: program[n].site), in: &e)
     }
   }
 
