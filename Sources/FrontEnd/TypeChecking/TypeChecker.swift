@@ -2111,12 +2111,6 @@ struct TypeChecker {
   private mutating func insertConstraints(
     of d: AssociatedTypeDecl.ID, in e: inout GenericEnvironment
   ) {
-    let t = TraitDecl.ID(program[d].scope)!
-    let i = RequirementRule(
-      [.parameterType(program[t].receiver.id), .associatedType(d)],
-      [.associatedType(d)])
-    insertRequirement(i, in: &e.requirements)
-
     // Synthesize sugared conformance constraint, if any.
     if let lhs = MetatypeType(uncheckedType(of: d))?.instance {
       for (n, t) in evalTraitComposition(program[d].conformances) {
