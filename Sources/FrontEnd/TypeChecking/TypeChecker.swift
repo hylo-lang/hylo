@@ -1967,22 +1967,22 @@ struct TypeChecker {
   private mutating func environment(of d: TraitDecl.ID) -> GenericEnvironment {
     // Environment already created?
     if let e = cache.read(\.environment[d]) { return e }
-
-    // Recursive constraints involving more than a single trait are not supported yet.
     let t = TraitType(uncheckedType(of: d))!
-    let s = GenericTypeParameterType(selfParameterOf: d, in: program.ast)
-    let c = traitComponent(containing: t)
-    precondition(
-      cache.traitDependencyComponents.vertices(in: c).count == 1,
-      "Recursive constraints involving more than a single trait are not supported yet")
 
     // Create a partially formed environment to break cycles in general name resolution.
-    var partialResult = GenericEnvironment(of: AnyDeclID(d), introducing: [s.decl])
+    var partialResult = GenericEnvironment(of: AnyDeclID(d), introducing: [program[d].receiver.id])
     cache.partiallyFormedEnvironment[d] = partialResult
-    partialResult.registerDependencies(dependencies(of: d))
+
+    // Recursive constraints involving more than a single trait are not supported yet.
+    let c = traitComponent(containing: t)
+    if cache.traitDependencyComponents.vertices(in: c).count > 1 {
+      report(.error(circularRefinementAt: program[d].introducerSite))
+      return commit(partialResult)
+    }
 
     // Gather the requirements defined by trait dependencies, ignoring those on generic parameters
     // not introduced nor captured by the environment.
+    partialResult.registerDependencies(dependencies(of: d))
     for u in partialResult.dependencies where u != t {
       for r in environment(of: u.decl).publicRules {
         if !r.parametersAreContained(in: partialResult.parameters) { continue }
@@ -1993,39 +1993,50 @@ struct TypeChecker {
     // Requirements gathered so far are not inherited by dependent environments.
     partialResult.markRequirementsAsInherited()
 
+    generatePublicRequirements(of: t, in: &partialResult)
+    return commit(partialResult)
+  }
+
+  /// Inserts the public requirements introduced by the generic signature of `t` in its partially
+  /// formed environment.
+  private mutating func generatePublicRequirements(
+    of t: TraitType,
+    in partiallyFormedEnvironment: inout GenericEnvironment
+  ) {
     // Synthesize `Self: T`.
-    partialResult.registerConstraint(.init(.conformance(^s, t), at: program[d].identifier.site))
+    let s = GenericTypeParameterType(selfParameterOf: t.decl, in: program.ast)
+    partiallyFormedEnvironment.registerConstraint(
+      .init(.conformance(^s, t), at: program[t.decl].identifier.site))
     insertRequirement(
-      RequirementRule([.parameterType(s.decl), .trait(d)], [.parameterType(s.decl)]),
-      in: &partialResult.requirements)
+      RequirementRule([.parameterType(s.decl), .trait(t.decl)], [.parameterType(s.decl)]),
+      in: &partiallyFormedEnvironment.requirements)
 
     // Traits are never nested in generic scopes. Their dependencies and parameters are defined by
     // the traits that they refine.
     for u in bases(of: t).unordered where u != t {
       let e = environment(of: u.decl)
-      partialResult.registerConstraints(e.constraints)
+      partiallyFormedEnvironment.registerConstraints(e.constraints)
       let v = RequirementTerm([.parameterType(program[u.decl].receiver.id)])
       for r in e.publicRules {
         insertRequirement(
-          r.substituting(v, for: [.parameterType(s.decl)]), in: &partialResult.requirements)
+          r.substituting(v, for: [.parameterType(s.decl)]),
+          in: &partiallyFormedEnvironment.requirements)
       }
     }
 
     // Name resolution can use `Self: T` and its consequences to form additional constraints.
-    cache.partiallyFormedEnvironment[d] = partialResult
+    cache.partiallyFormedEnvironment[t.decl] = partiallyFormedEnvironment
 
-    for m in program[d].members {
+    for m in program[t.decl].members {
       switch m.kind {
       case AssociatedTypeDecl.self:
-        insertConstraints(of: AssociatedTypeDecl.ID(m)!, in: &partialResult)
+        insertConstraints(of: AssociatedTypeDecl.ID(m)!, in: &partiallyFormedEnvironment)
       case AssociatedValueDecl.self:
-        insertConstraints(of: AssociatedValueDecl.ID(m)!, in: &partialResult)
+        insertConstraints(of: AssociatedValueDecl.ID(m)!, in: &partiallyFormedEnvironment)
       default:
         continue
       }
     }
-
-    return commit(partialResult)
   }
 
   /// Returns the generic environment introduced by `d`.
