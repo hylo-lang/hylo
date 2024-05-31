@@ -2330,7 +2330,7 @@ struct TypeChecker {
   /// Returns the traits to which a conformance can be derived given the constraints in `g`.
   private mutating func traitMentions(in g: GenericClause) -> [TraitType] {
     var result: [TraitType] = []
-    for m in g.parameters {
+    for m in g.parameters where uncheckedType(of: m).base is MetatypeType {
       result.append(contentsOf: evalTraitComposition(program[m].conformances).map(\.trait))
     }
     if let w = g.whereClause {
