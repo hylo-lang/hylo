@@ -131,22 +131,16 @@ struct TypeChecker {
 
   /// Returns `true` iff `t` and `u` are semantically equivalent in `scopeOfUse`.
   mutating func areEquivalent(_ t: AnyType, _ u: AnyType, in scopeOfUse: AnyScopeID) -> Bool {
-    if let a = GenericTypeParameterType(t) {
-      return areEquivalent(a, u, in: scopeOfUse)
-    } else if !t[.isCanonical] {
-      return areEquivalent(u, canonical(t, in: scopeOfUse), in: scopeOfUse)
-    } else {
-      return t == canonical(u, in: scopeOfUse)
-    }
-  }
+    let lhs = canonical(t, in: scopeOfUse)
+    let rhs = canonical(u, in: scopeOfUse)
 
-  /// Returns `true` iff `t` and `u` are semantically equivalent in `scopeOfUse`.
-  mutating func areEquivalent(
-    _ t: GenericTypeParameterType, _ u: AnyType, in scopeOfUse: AnyScopeID
-  ) -> Bool {
-    let b = canonical(u, in: scopeOfUse)
-    let e = environment(of: program[t.decl].scope)!
-    return e.areEquivalent(^t, b, querying: &self) || (t == u)
+    if lhs == rhs {
+      return true
+    } else if let s = program.scopes(from: scopeOfUse).first(where: \.isGenericScope) {
+      return environment(of: s)!.areEquivalent(lhs, rhs, querying: &self)
+    } else {
+      return false
+    }
   }
 
   /// Returns `true` iff `t` is a refinement of `u` and `t != u`.
