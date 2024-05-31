@@ -2250,65 +2250,68 @@ struct TypeChecker {
 
     // Check if work has to be done.
     if let t = cache.read(\.declType[d], ignoringSharedCache: ignoreSharedCache) {
-      return commit(t)
+      return commitUncheckedType(t, for: AnyDeclID(d))
     }
 
     // Do the work.
+    var result: AnyType
     switch d.kind {
     case AssociatedTypeDecl.self:
-      return commit(_uncheckedType(of: AssociatedTypeDecl.ID(d)!))
+      result = _uncheckedType(of: AssociatedTypeDecl.ID(d)!)
     case AssociatedValueDecl.self:
-      return commit(_uncheckedType(of: AssociatedValueDecl.ID(d)!))
+      result = _uncheckedType(of: AssociatedValueDecl.ID(d)!)
     case BindingDecl.self:
-      return commit(_uncheckedType(of: BindingDecl.ID(d)!))
+      result = _uncheckedType(of: BindingDecl.ID(d)!)
     case ConformanceDecl.self:
-      return commit(_uncheckedType(of: ConformanceDecl.ID(d)!))
+      result = _uncheckedType(of: ConformanceDecl.ID(d)!)
     case ExtensionDecl.self:
-      return commit(_uncheckedType(of: ExtensionDecl.ID(d)!))
+      result = _uncheckedType(of: ExtensionDecl.ID(d)!)
     case FunctionDecl.self:
-      return commit(_uncheckedType(of: FunctionDecl.ID(d)!))
+      result = _uncheckedType(of: FunctionDecl.ID(d)!)
     case GenericParameterDecl.self:
-      return commit(_uncheckedType(of: GenericParameterDecl.ID(d)!))
+      result = _uncheckedType(of: GenericParameterDecl.ID(d)!)
     case ImportDecl.self:
-      return commit(_uncheckedType(of: ImportDecl.ID(d)!))
+      result = _uncheckedType(of: ImportDecl.ID(d)!)
     case InitializerDecl.self:
-      return commit(_uncheckedType(of: InitializerDecl.ID(d)!))
+      result = _uncheckedType(of: InitializerDecl.ID(d)!)
     case MethodDecl.self:
-      return commit(_uncheckedType(of: MethodDecl.ID(d)!))
+      result = _uncheckedType(of: MethodDecl.ID(d)!)
     case MethodImpl.self:
-      return commit(_uncheckedType(of: MethodImpl.ID(d)!))
+      result = _uncheckedType(of: MethodImpl.ID(d)!)
     case ModuleDecl.self:
-      return commit(_uncheckedType(of: ModuleDecl.ID(d)!))
+      result = _uncheckedType(of: ModuleDecl.ID(d)!)
     case NamespaceDecl.self:
-      return commit(_uncheckedType(of: NamespaceDecl.ID(d)!))
+      result = _uncheckedType(of: NamespaceDecl.ID(d)!)
     case OperatorDecl.self:
-      return commit(_uncheckedType(of: OperatorDecl.ID(d)!))
+      result = _uncheckedType(of: OperatorDecl.ID(d)!)
     case ParameterDecl.self:
-      return commit(_uncheckedType(of: ParameterDecl.ID(d)!))
+      result = _uncheckedType(of: ParameterDecl.ID(d)!)
     case ProductTypeDecl.self:
-      return commit(_uncheckedType(of: ProductTypeDecl.ID(d)!))
+      result = _uncheckedType(of: ProductTypeDecl.ID(d)!)
     case SubscriptDecl.self:
-      return commit(_uncheckedType(of: SubscriptDecl.ID(d)!))
+      result = _uncheckedType(of: SubscriptDecl.ID(d)!)
     case SubscriptImpl.self:
-      return commit(_uncheckedType(of: SubscriptImpl.ID(d)!))
+      result = _uncheckedType(of: SubscriptImpl.ID(d)!)
     case TraitDecl.self:
-      return commit(_uncheckedType(of: TraitDecl.ID(d)!))
+      result = _uncheckedType(of: TraitDecl.ID(d)!)
     case TypeAliasDecl.self:
-      return commit(_uncheckedType(of: TypeAliasDecl.ID(d)!))
+      result = _uncheckedType(of: TypeAliasDecl.ID(d)!)
     case VarDecl.self:
-      return commit(_uncheckedType(of: VarDecl.ID(d)!))
+      result = _uncheckedType(of: VarDecl.ID(d)!)
     default:
       unexpected(d, in: program.ast)
     }
 
-    /// Commits `t` as the unchecked type of `d` to the local cache.
-    func commit(_ t: AnyType) -> AnyType {
-      modify(&cache.uncheckedType[d]!) { (old) in
-        if let u = old.computed { assert(u == t, "non-monotonic update") }
-        old = .computed(t)
-      }
-      return t
+    return commitUncheckedType(result, for: AnyDeclID(d))
+  }
+
+  /// Commits `t` as the unchecked type of `d` to the local cache.
+  private mutating func commitUncheckedType(_ t: AnyType, for d: AnyDeclID) -> AnyType {
+    modify(&cache.uncheckedType[d]!) { (old) in
+      if let u = old.computed { assert(u == t, "non-monotonic update") }
+      old = .computed(t)
     }
+    return t
   }
 
   /// Computes and returns the type of `d`.
