@@ -6314,6 +6314,27 @@ struct TypeChecker {
     !(program.isRequirement(d) || program[d].isForeignInterface || program[d].isExternal)
   }
 
+  /// Returns the trait whose `g` is the receiver, if any.
+  private func traitIntroducing(_ g: GenericParameterDecl.ID) -> TraitType? {
+    TraitDecl.ID(program[g].scope).map({ (d) in TraitType(d, ast: program.ast) })
+  }
+
+  /// Returns how `a` and `b` are ordered.
+  private mutating func compareOrder(
+    _ a: TraitType, _ b: TraitType
+  ) -> StrictOrdering {
+    let ab = bases(of: a)
+    let bb = bases(of: b)
+
+    if ab.unordered.count > bb.unordered.count {
+      return .descending // !!! .ascending in Slava's work
+    } else if ab.unordered.count == bb.unordered.count {
+      return .init(between: a.decl.rawValue, and: b.decl.rawValue)
+    } else {
+      return .descending
+    }
+  }
+
   // MARK: Caching
 
   /// A possibly shared instance of a typed program.
