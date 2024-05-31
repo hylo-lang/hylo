@@ -4621,8 +4621,8 @@ struct TypeChecker {
 
     // Capture-less functions are not captured.
     if d.kind == FunctionDecl.self {
-      return areEquivalent(
-        ArrowType(uncheckedType(of: d))?.environment ?? .error, .void, in: scopeOfUse)
+      let captures = ArrowType(uncheckedType(of: d))?.environment ?? .error
+      return areEquivalent(captures, .void, in: scopeOfUse)
     } else {
       return true
     }
