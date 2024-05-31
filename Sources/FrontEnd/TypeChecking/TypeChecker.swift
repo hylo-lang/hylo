@@ -4380,10 +4380,12 @@ struct TypeChecker {
     }
 
     // If the match is a trait member, specialize its receiver.
-    if let t = traitDeclaring(d) {
-      if let r = context?.type ?? resolveReceiverMetatype(in: scopeOfUse)?.instance {
-        specialization[program[t.decl].receiver] = .type(r)
-      }
+    if
+      d.kind != AssociatedTypeDecl.self,
+      let t = traitDeclaring(d),
+      let r = context?.type ?? resolveReceiverMetatype(in: scopeOfUse)?.instance
+    {
+      specialization[program[t.decl].receiver] = .type(r)
     }
 
     // If the name resolves to an initializer, determine if it is used as a constructor.
