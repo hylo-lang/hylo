@@ -2262,7 +2262,7 @@ struct TypeChecker {
     // Enumerate base traits.
     var result = evalTraitComposition(program[d].bounds).map(\.trait)
 
-    // Enumerate traits occuring in associated type declarations.
+    // Enumerate traits occurring in associated type declarations.
     for m in program[d].members.filter(AssociatedTypeDecl.self) {
       result.append(contentsOf: evalTraitComposition(program[m].conformances).map(\.trait))
       if let w = program[m].whereClause {

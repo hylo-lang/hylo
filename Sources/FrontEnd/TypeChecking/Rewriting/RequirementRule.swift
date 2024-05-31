@@ -1,4 +1,4 @@
-/// A rule in a requirement rewritting system.
+/// A rule in a requirement rewriting system.
 struct RequirementRule {
 
   /// The left-hand side of the rule.
