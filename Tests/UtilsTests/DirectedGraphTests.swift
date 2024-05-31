@@ -111,17 +111,17 @@ final class DirectedGraphTests: XCTestCase {
     g.insertEdge(from: 0, to: 3)
     g.insertEdge(from: 3, to: 4)
 
-    var s = StronglyConnectedComponents(g)
+    var s = StronglyConnectedComponents<Int>()
 
-    let a0 = s.component(containing: 0)
+    let a0 = s.component(containing: 0, in: g)
     XCTAssertEqual(Set(s.vertices(in: a0)), [0, 1, 2])
-    let a1 = s.component(containing: 1)
+    let a1 = s.component(containing: 1, in: g)
     XCTAssertEqual(Set(s.vertices(in: a1)), [0, 1, 2])
-    let a2 = s.component(containing: 2)
+    let a2 = s.component(containing: 2, in: g)
     XCTAssertEqual(Set(s.vertices(in: a2)), [0, 1, 2])
-    let a3 = s.component(containing: 3)
+    let a3 = s.component(containing: 3, in: g)
     XCTAssertEqual(Set(s.vertices(in: a3)), [3])
-    let a4 = s.component(containing: 4)
+    let a4 = s.component(containing: 4, in: g)
     XCTAssertEqual(Set(s.vertices(in: a4)), [4])
   }
 
@@ -131,6 +131,14 @@ extension DirectedGraph<Int, String>.Edge {
 
   fileprivate static func == (_ l: Self, r: (Int, String, Int)) -> Bool {
     (l.source == r.0) && (l.label == r.1) && (l.target == r.2)
+  }
+
+}
+
+extension StronglyConnectedComponents {
+
+  mutating func component<E>(containing v: Vertex, in g: DirectedGraph<Vertex, E>) -> Int {
+    component(containing: v, enumeratingSuccessorsWith: { (u) in g[from: u].map(\.key) })
   }
 
 }
