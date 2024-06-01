@@ -1,16 +1,16 @@
 import Utils
 
-/// A set of rewriting rules describing the requirements of a generic signature.
-struct RequirementSystem {
+/// A set of rewriting rules describing some equational equivalences.
+struct RewritingSystem<Term: RewritingTerm> {
 
   /// The identifier of a rule in a rewriting system.
   typealias RuleID = Int
 
   /// The rules in the system, including those that may have been simplified.
-  private(set) var rules: [RequirementRule]
+  private(set) var rules: [RewritingRule<Term>]
 
   /// A map from terms to the rule of which they are the left-hand side.
-  private var termToRule: Trie<RequirementTerm, RuleID>
+  private var termToRule: Trie<Term, RuleID>
 
   /// Creates an empty system.
   init() {
@@ -24,18 +24,18 @@ struct RequirementSystem {
   }
 
   /// The rules in the system excluding those that have been simplified.
-  var activeRules: some Collection<RequirementRule> {
+  var activeRules: some Collection<RewritingRule<Term>> {
     rules.lazy.filter({ (r) in !r.isSimplified })
   }
 
   /// Rewrites `u` with the rules in `self` until a normal form is reached.
   ///
   /// The rewriting process is notionally nondeterministic unless `self` is confluent.
-  func reduce(_ u: RequirementTerm) -> RequirementTerm {
+  func reduce(_ u: Term) -> Term {
     for p in u.indices {
       let (n, q) = termToRule.longestPrefix(startingWith: u[p...])
       if p != q, let r = n[[]] {
-        let x = RequirementTerm(u[..<p])
+        let x = Term(u[..<p])
         let v = rules[r].rhs
         let z = u[(p + rules[r].lhs.count)...]
         return reduce(x + v + z)
@@ -56,8 +56,8 @@ struct RequirementSystem {
   /// - Precondition: The source of the rule is ordered after its target.
   @discardableResult
   mutating func insert(
-    _ r: RequirementRule,
-    orderingTermsWith compareOrder: (RequirementTerm, RequirementTerm) -> StrictOrdering
+    _ r: RewritingRule<Term>,
+    orderingTermsWith compareOrder: (Term, Term) -> StrictOrdering
   ) -> (inserted: Bool, ruleAfterInsertion: RuleID) {
     precondition(compareOrder(r.lhs, r.rhs) == .descending, "invalid rewriting rule")
     precondition(!r.isSimplified)
@@ -109,7 +109,7 @@ struct RequirementSystem {
   /// This method uses Knuth-Bendix completion algorithm to transform `self` into a terminating
   /// confluent system or fails if it suspects that the completion won't terminate.
   mutating func complete(
-    orderingTermsWith compareOrder: (RequirementTerm, RequirementTerm) -> StrictOrdering
+    orderingTermsWith compareOrder: (Term, Term) -> StrictOrdering
   ) {
     var visitedOverlaps = Set<OverlapIdentifier>()
     var pairs: [CriticalPair] = []
@@ -141,14 +141,14 @@ struct RequirementSystem {
 
 
   /// Calls `action` on each overlap between two rules of the system.
-  private func forEachOverlap(do action: (RuleID, RuleID, RequirementTerm.Index) -> Void) {
+  private func forEachOverlap(do action: (RuleID, RuleID, Term.Index) -> Void) {
     for i in indices {
       forEachOverlap(involving: i, do: { (j, p) in action(i, j, p) })
     }
   }
 
   /// Calls `action` on each overlap involving `i`.
-  private func forEachOverlap(involving i: RuleID, do action: (RuleID, RequirementTerm.Index) -> Void) {
+  private func forEachOverlap(involving i: RuleID, do action: (RuleID, Term.Index) -> Void) {
     let u = rules[i].lhs
     for p in u.indices {
       forEachOverlap(of: u[p...], in: termToRule[prefix: []]!) { (j) in
@@ -165,7 +165,7 @@ struct RequirementSystem {
   /// If the key/value pair `(t, i)` is contained in `terms`, then `t` is the suffix of some term
   /// `l` and `i` identifies a rewriting rule `l => r`.
   private func forEachOverlap(
-    of suffix: RequirementTerm.SubSequence, in terms: SubTrie<RequirementTerm, RuleID>,
+    of suffix: Term.SubSequence, in terms: SubTrie<Term, RuleID>,
     do action: (RuleID) -> Void
   ) {
     var t = suffix
@@ -188,7 +188,9 @@ struct RequirementSystem {
 
   /// Returns the critical pair formed by the rules `lhs` and `rhs`, which overlap at the `i`-th
   /// position of `lhs`'s source.
-  private func formCriticalPair(_ lhs: RuleID, _ rhs: RuleID, overlappingAt i: Int) -> CriticalPair {
+  private func formCriticalPair(
+    _ lhs: RuleID, _ rhs: RuleID, overlappingAt i: Int
+  ) -> CriticalPair {
     // Let `lhs` and `rhs` denote rewriting rules u1 => v1 and u2 => v2, respectively.
     let (u1, v1) = rules[lhs].deconstructed
     let (u2, v2) = rules[rhs].deconstructed
@@ -212,8 +214,8 @@ struct RequirementSystem {
   /// to order pairs of terms.
   private func resolveCriticalPair(
     _ p: CriticalPair,
-    orderingTermsWith compareOrder: (RequirementTerm, RequirementTerm) -> StrictOrdering
-  ) -> RequirementRule? {
+    orderingTermsWith compareOrder: (Term, Term) -> StrictOrdering
+  ) -> RewritingRule<Term>? {
     // Fast path: critical pair is trivial without any reduction.
     if p.first == p.second { return nil }
 
@@ -249,39 +251,39 @@ struct RequirementSystem {
     }
   }
 
-}
+  /// The rewritings of a term by two different rules or the same rule at two different positions.
+  private struct CriticalPair {
 
-/// The rewritings of a term by two different rules or the same rule at two different positions.
-struct CriticalPair {
+    /// The first term of the pair.
+    let first: Term
 
-  /// The first term of the pair.
-  let first: RequirementTerm
+    /// The first term of the pair.
+    let second: Term
 
-  /// The first term of the pair.
-  let second: RequirementTerm
+    /// Creates an instance with the given terms.
+    init(_ u: Term, _ v: Term) {
+      self.first = u
+      self.second = v
+    }
 
-  /// Creates an instance with the given terms.
-  init(_ u: RequirementTerm, _ v: RequirementTerm) {
-    self.first = u
-    self.second = v
   }
 
-}
+  /// The identifier of an overlap between rewriting rules.
+  private struct OverlapIdentifier: Hashable {
 
-/// The identifier of an overlap between rewriting rules.
-struct OverlapIdentifier: Hashable {
+    /// The raw value of this identifier.
+    private let rawValue: UInt64
 
-  /// The raw value of this identifier.
-  private let rawValue: UInt64
+    /// Creates an instance identifying an overlap between `lhs` and `rhs` at the `i`-th position
+    /// of `lhs`'s source.
+    init(
+      _ lhs: RewritingSystem.RuleID, _ rhs: RewritingSystem.RuleID,
+      at i: Term.Index
+    ) {
+      precondition((i | lhs | rhs) & ~((1 << 16) - 1) == 0)
+      self.rawValue = UInt64(truncatingIfNeeded: i | (lhs << 16) | (rhs << 32))
+    }
 
-  /// Creates an instance identifying an overlap between `lhs` and `rhs` at the `i`-th position of
-  /// `lhs`'s source.
-  init(
-    _ lhs: RequirementSystem.RuleID, _ rhs: RequirementSystem.RuleID,
-    at i: RequirementTerm.Index
-  ) {
-    precondition((i | lhs | rhs) & ~((1 << 16) - 1) == 0)
-    self.rawValue = UInt64(truncatingIfNeeded: i | (lhs << 16) | (rhs << 32))
   }
 
 }

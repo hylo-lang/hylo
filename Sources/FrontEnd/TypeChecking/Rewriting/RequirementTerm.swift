@@ -1,7 +1,13 @@
 import Utils
 
+/// A set of rewriting rules describing the requirements of a generic signature.
+typealias RequirementSystem = RewritingSystem<RequirementTerm>
+
+/// A rule in a requirement rewriting system.
+typealias RequirementRule = RewritingRule<RequirementTerm>
+
 /// A term corresponding to a type or trait in a generic requirement.
-struct RequirementTerm: Equatable {
+struct RequirementTerm: RewritingTerm {
 
   /// The parts of the term.
   let symbols: [RequirementSymbol]

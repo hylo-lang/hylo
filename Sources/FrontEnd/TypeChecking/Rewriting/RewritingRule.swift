@@ -1,24 +1,24 @@
-/// A rule in a requirement rewriting system.
-struct RequirementRule {
+/// A rule in a rewriting system.
+struct RewritingRule<Term: RewritingTerm> {
 
   /// The left-hand side of the rule.
-  let lhs: RequirementTerm
+  let lhs: Term
 
   /// The right-hand side of the rule.
-  let rhs: RequirementTerm
+  let rhs: Term
 
   /// `true` if `self` has been simplified.
-  private(set) var flags: Flags
+  private(set) var flags: RequirementRuleFlags
 
   /// Creates an instance rewriting `lhs` to `rhs`.
-  init(_ lhs: RequirementTerm, _ rhs: RequirementTerm) {
+  init(_ lhs: Term, _ rhs: Term) {
     self.lhs = lhs
     self.rhs = rhs
     self.flags = []
   }
 
   /// `self` as a pair `(source, target)`.
-  var deconstructed: (RequirementTerm, RequirementTerm) { (lhs, rhs) }
+  var deconstructed: (Term, Term) { (lhs, rhs) }
 
   /// `true` if `self` has been simplified.
   var isSimplified: Bool {
@@ -26,9 +26,18 @@ struct RequirementRule {
   }
 
   /// Returns a copy of `self` in which occurrences of `s` have been replaced by `t`.
-  func substituting(_ s: RequirementTerm, for t: RequirementTerm) -> RequirementRule {
+  func substituting(_ s: Term, for t: Term) -> Self {
     .init(lhs.substituting(s, for: t), rhs.substituting(s, for: t))
   }
+
+  /// Raises the flags `fs` in the rule.
+  mutating func raiseFlags(_ fs: RequirementRuleFlags) {
+    flags.insert(fs)
+  }
+
+}
+
+extension RewritingRule where Term == RequirementTerm {
 
   /// Returns `true` if the generic parameters mentioned by this rule are contained in `ps`.
   func parametersAreContained(in ps: [GenericParameterDecl.ID]) -> Bool {
@@ -39,24 +48,19 @@ struct RequirementRule {
     }
   }
 
-  /// Raises the flags `fs` in the rule.
-  mutating func raiseFlags(_ fs: Flags) {
-    flags.insert(fs)
-  }
+}
 
-  /// A set of flags associated with a rewriting rule.
-  struct Flags: OptionSet {
+/// A set of flags associated with a rewriting rule.
+struct RequirementRuleFlags: OptionSet {
 
-    typealias RawValue = UInt8
+  typealias RawValue = UInt8
 
-    var rawValue: UInt8
+  var rawValue: UInt8
 
-    /// Indicates that a rule has been removed by left-simplification.
-    static let isLeftSimplified = Flags(rawValue: 1)
+  /// Indicates that a rule has been removed by left-simplification.
+  static let isLeftSimplified = RequirementRuleFlags(rawValue: 1)
 
-    /// Indicates that a rule has been removed by right-simplification.
-    static let isRightSimplified = Flags(rawValue: 2)
-
-  }
+  /// Indicates that a rule has been removed by right-simplification.
+  static let isRightSimplified = RequirementRuleFlags(rawValue: 2)
 
 }
