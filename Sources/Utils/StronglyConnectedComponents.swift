@@ -65,16 +65,16 @@ public struct StronglyConnectedComponents<Vertex: Hashable> {
   private struct Properties {
 
     /// The smallest index of any vertex reachable from this vertex.
-    var low: Int = -1
+    var low: Int
 
     /// The index of this vertex.
-    var index: Int = -1
+    var index: Int
 
     /// The component in which this vertex belongs.
-    var component: Int = -1
+    var component: Int
 
     /// True iff this vertex is on the stack.
-    var isOnStack: Bool = false
+    var isOnStack: Bool
 
   }
 
