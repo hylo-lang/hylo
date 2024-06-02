@@ -234,9 +234,11 @@ struct RewritingSystem<Term: RewritingTerm> {
   private mutating func leftSimplify() {
     for i in 0 ..< rules.count where !rules[i].isSimplified {
       for j in rules[i].lhs.indices {
-        guard let k = termToRule[rules[i].lhs[j...]], k != i else { continue }
-        rules[i].raiseFlags(.isLeftSimplified)
-        termToRule[rules[i].lhs] = nil
+        if let k = termToRule[rules[i].lhs[j...]], k != i {
+          rules[i].raiseFlags(.isLeftSimplified)
+          termToRule[rules[i].lhs] = nil
+          break
+        }
       }
     }
   }
