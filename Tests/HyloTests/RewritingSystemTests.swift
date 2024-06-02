@@ -36,20 +36,20 @@ final class RewritingSystemTests: XCTestCase {
 
   func testCompletion() {
     var s = RewritingSystem<Term>()
-    s.insert(.init("ab", "a"))
-    s.insert(.init("ba", "b"))
+    s.insert(.init("12", "1"))
+    s.insert(.init("21", "2"))
 
     // Knuth-Bendix succeeds.
     XCTAssert(s.complete(orderingTermsWith: StrictOrdering.init))
-    XCTAssert(s.rules.contains(.init("aa", "a")))
-    XCTAssert(s.rules.contains(.init("bb", "b")))
+    XCTAssert(s.rules.contains(.init("11", "1")))
+    XCTAssert(s.rules.contains(.init("22", "2")))
   }
 
   func testNonTerminatingCompletion() {
     var s = RewritingSystem<Term>()
-    s.insert(.init("ab", "a"))
-    s.insert(.init("ba", "b"))
-    s.insert(.init("ca", "ac"))
+    s.insert(.init("12", "1"))
+    s.insert(.init("21", "2"))
+    s.insert(.init("31", "13"))
 
     // Knuth-Bendix fails.
     XCTAssertFalse(s.complete(orderingTermsWith: StrictOrdering.init))
