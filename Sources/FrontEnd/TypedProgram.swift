@@ -606,24 +606,4 @@ extension TypedProgram: Program {
   /// A map from variable declaration its containing binding declaration.
   public var varToBinding: [VarDecl.ID: BindingDecl.ID] { base.varToBinding }
 
-  /// Prints a debug description of `m`.
-  func show(_ m: RequirementSystem) {
-    var p = RequirementPrinter(program: self)
-    for r in m.rules.indices where !m.rules[r].isSimplified {
-      print("\(r): \(p.describe(m.rules[r]))")
-    }
-  }
-
-  /// Prints a debug description of `r`.
-  func show(_ r: RequirementRule) {
-    var p = RequirementPrinter(program: self)
-    print(p.describe(r))
-  }
-
-  /// Prints a debug description of `t`.
-  func show(_ t: RequirementTerm) {
-    var p = RequirementPrinter(program: self)
-    print(p.describe(t))
-  }
-
 }
