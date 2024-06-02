@@ -3,6 +3,23 @@ import XCTest
 
 final class DirectedGraphTests: XCTestCase {
 
+  func testInsertVertex() {
+    var g = DirectedGraph<Int, Int>()
+    XCTAssert(g.insertVertex(0))
+    XCTAssert(g.insertVertex(1))
+    XCTAssertFalse(g.insertVertex(0))
+  }
+
+  func testVertices() {
+    var g = DirectedGraph<Int, Int>()
+    XCTAssert(g.vertices.isEmpty)
+
+    g.insertVertex(0)
+    XCTAssertEqual(Array(g.vertices), [0])
+    g.insertEdge(from: 0, to: 1, labeledBy: 2)
+    XCTAssertEqual(Array(g.vertices).sorted(), [0, 1])
+  }
+
   func testInsertEdge() {
     var g = DirectedGraph<Int, Int>()
 
@@ -101,6 +118,47 @@ final class DirectedGraphTests: XCTestCase {
 
     XCTAssertFalse(g.isReachable(0, from: 3))
     XCTAssertFalse(g.isReachable(2, from: 1))
+  }
+
+  func testEquatable() {
+    var g1 = DirectedGraph<Int, Bool>()
+    g1.insertEdge(from: 0, to: 1, labeledBy: true)
+    g1.insertEdge(from: 1, to: 0, labeledBy: false)
+
+    var g2 = g1
+    XCTAssertEqual(g1, g2)
+    g2.removeEdge(from: 0, to: 1)
+    XCTAssertNotEqual(g1, g2)
+    g2.insertEdge(from: 0, to: 1, labeledBy: true)
+    XCTAssertEqual(g1, g2)
+  }
+
+  func testHashable() {
+    var g1 = DirectedGraph<Int, Bool>()
+    g1.insertEdge(from: 0, to: 1, labeledBy: true)
+    g1.insertEdge(from: 1, to: 0, labeledBy: false)
+
+    var h1 = Hasher()
+    var h2 = Hasher()
+    g1.hash(into: &h1)
+    g1.hash(into: &h2)
+    XCTAssertEqual(h1.finalize(), h2.finalize())
+
+    var g2 = g1
+    g2.removeEdge(from: 0, to: 1)
+
+    h1 = Hasher()
+    h2 = Hasher()
+    g1.hash(into: &h1)
+    g2.hash(into: &h2)
+    XCTAssertNotEqual(h1.finalize(), h2.finalize())
+
+    g2.insertEdge(from: 0, to: 1, labeledBy: true)
+    h1 = Hasher()
+    h2 = Hasher()
+    g1.hash(into: &h1)
+    g2.hash(into: &h2)
+    XCTAssertEqual(h1.finalize(), h2.finalize())
   }
 
   func testSCC() {
