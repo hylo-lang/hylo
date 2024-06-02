@@ -310,7 +310,13 @@ public struct SubTrie<Key: Collection, Value> where Key.Element: Hashable {
 
   /// The number of key/value pairs in `self`.
   public var count: Int {
-    base.nodes[root...].reduce(0, { (c, n) in c + (n.value == nil ? 0 : 1) })
+    var work = [root]
+    var result = 0
+    while let n = work.popLast() {
+      if base.nodes[n].value != nil { result += 1 }
+      work.append(contentsOf: base.nodes[n].children.values)
+    }
+    return result
   }
 
   /// Returns a collection with the key/value pairs in `self`.
