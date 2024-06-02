@@ -1,5 +1,5 @@
 /// A rule in a rewriting system.
-struct RewritingRule<Term: RewritingTerm> {
+struct RewritingRule<Term: RewritingTerm>: Equatable {
 
   /// The left-hand side of the rule.
   let lhs: Term
