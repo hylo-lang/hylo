@@ -2092,7 +2092,9 @@ struct TypeChecker {
   /// Writes `finalResult` to the cache.
   private mutating func commit(_ finalResult: consuming GenericEnvironment) -> GenericEnvironment {
     var e = finalResult
-    e.requirements.complete(orderingTermsWith: { (a, b) in compareOrder(a, b) })
+    if !e.requirements.complete(orderingTermsWith: { (a, b) in compareOrder(a, b) }) {
+      report(.error(cannotConstructRequirementSystem: e.decl, in: program.ast))
+    }
 
     cache.partiallyFormedEnvironment[e.decl] = nil
     cache.write(e, at: \.environment[e.decl])

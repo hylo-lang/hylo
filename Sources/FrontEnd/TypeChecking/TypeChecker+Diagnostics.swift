@@ -27,6 +27,10 @@ extension Diagnostic {
     .error("circular dependency", at: site)
   }
 
+  static func error(cannotConstructRequirementSystem d: AnyDeclID, in ast: AST) -> Diagnostic {
+    .error("requirement system too complex to build", at: ast.siteForDiagnostics(about: d))
+  }
+
   static func error(cannotConstructTrait t: TraitType, at site: SourceRange) -> Diagnostic {
     .error("cannot construct an instance of trait '\(t)'; did you mean 'any \(t)'?", at: site)
   }
