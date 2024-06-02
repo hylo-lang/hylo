@@ -18,16 +18,6 @@ struct RewritingSystem<Term: RewritingTerm> {
     self.termToRule = Trie()
   }
 
-  /// The indices of the active rules in the system.
-  var indices: [RuleID] {
-    rules.indices.filter({ (r) in !rules[r].isSimplified })
-  }
-
-  /// The rules in the system excluding those that have been simplified.
-  var activeRules: some Collection<RewritingRule<Term>> {
-    rules.lazy.filter({ (r) in !r.isSimplified })
-  }
-
   /// Rewrites `u` with the rules in `self` until a normal form is reached.
   ///
   /// The rewriting process is notionally nondeterministic unless `self` is confluent.
@@ -142,7 +132,7 @@ struct RewritingSystem<Term: RewritingTerm> {
 
   /// Calls `action` on each overlap between two rules of the system.
   private func forEachOverlap(do action: (RuleID, RuleID, Term.Index) -> Void) {
-    for i in indices {
+    for i in rules.indices where !rules[i].isSimplified {
       forEachOverlap(involving: i, do: { (j, p) in action(i, j, p) })
     }
   }

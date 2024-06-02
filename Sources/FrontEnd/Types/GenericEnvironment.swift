@@ -28,11 +28,6 @@ public struct GenericEnvironment {
     self.parameters = parameters
   }
 
-  /// `true` if this environment doesn't introduce any generic parameter or constraint.
-  public var isEmpty: Bool {
-    parameters.isEmpty && requirements.indices.isEmpty
-  }
-
   /// The non-inherited requirement rules in the environment.
   var publicRules: some Collection<RequirementRule> {
     requirements.rules[publicStart...].lazy.filter({ (r) in !r.isSimplified })
