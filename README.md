@@ -1,11 +1,14 @@
 # Hylo (formerly Val)
 
-Hylo is a programming language that leverages [mutable value semantics](https://www.jot.fm/issues/issue_2022_02/article2.pdf) and [generic programming](https://fm2gp.com) for high-level systems programming.
+
+[![codecov](https://codecov.io/gh/hylo-lang/hylo/graph/badge.svg?token=YF1Q8W88VN)](https://codecov.io/gh/hylo-lang/hylo)
+
+Hylo is a programming language that leverages [mutable value semantics](Docs/ImplementationStrategiesForMutableValueSemantics.pdf) and [generic programming](https://fm2gp.com) for high-level systems programming.
 
 This repository contains the sources of the reference implementation of Hylo.
 Please visit our [website](https://hylo-lang.org) to get more information about the language itself.
 
-## Building
+## Developement/Use Requirements
 
 This project is written in [Swift](https://swift.org) and distributed in the form of a package, built with [Swift Package Manager](https://swift.org/package-manager/).
 You will need Swift 5.9 or higher to build the compiler from sources.
@@ -19,7 +22,7 @@ them.
 need to [enable support](https://stackoverflow.com/a/59761201/125349)
 for them before checking it out.
 
-### LLVM Prerequisite
+### LLVM
 
 This package requires LLVM 17.  Major versions of LLVM are not
 interchangeable or backward-compatible.
@@ -38,9 +41,9 @@ to get LLVM some other way, you'll need an installation with an
 `llvm-config` executable, which we will use to create a `pkg-config`
 file for LLVM.
 
-### Building with CMake and Ninja
+## Building with CMake and Ninja
 
-1. **Configure**: choose a *build-directory* and a CMake `build-type`
+1. **Configure**: choose a *build-directory* and a CMake *build type*
    (usually `Debug` or `Release`) and then, where `<LLVM>` is the path
    to the root directory of your LLVM installation,
 
@@ -73,10 +76,39 @@ file for LLVM.
 3. **Test** (requires `-DBUILD_TESTING=1` in step 1):
 
    ```
-   ctest --test-dir <build-directory>
+   ctest --parallel --test-dir <build-directory>
    ```
 
-### Building with Swift Package Manager
+## Building with CMake and Xcode
+
+For now you will need to build yourself [a patched version of
+cmake](https://gitlab.kitware.com/cmake/cmake/-/merge_requests/9501).
+
+1. **Generate Xcode project**: choose a *build-directory* and then,
+   where `<LLVM>` is the path to the root directory of your LLVM
+   installation,
+
+    ```
+    cmake -D LLVM_DIR=<LLVM>/lib/cmake/llvm \
+      -G Xcode -S . -B <build-directory>
+    ```
+
+    If you want to run tests, add `-DBUILD_TESTING=1`.
+
+2. **Profit**: open the `.xcodeproj` file in the *build-directory* and
+   use Xcode's UI to build and test.
+
+## Building with Swift Package Manager
+
+**Windows Users:** Swift Package Manager is poorly supported on
+Windows and we've been seeing a number of tests act flaky on Windows
+only when run under Swift Package Manager.  We strongly recommend
+[using CMake](#building-with-cmake-and-ninja) instead.
+
+**Everyone:** Swift Package Manager is poorly supported in general and
+we're considering dropping our use of it, so think about [using CMake
+with ninja](#building-with-cmake-and-ninja) or [with
+Xcode](#building-with-cmake-and-xcode) instead.
 
 First, you need to create a `pkgconfig` file specific to your
 installation and make it visible to your build tools.  We use a `bash`
@@ -119,20 +151,18 @@ swift build -c release
 That command will create an executable named `hc` in `.build/release`.
 That's Hylo's compiler!
 
+To test your compiler,
+
+```bash
+swift test -c release --parallel
+```
+
 #### Notes to macOS users:
 
 1. Add `platforms: [.macOS("xxx")]` to `Package.swift` where `xxx` is
    your macOS version to address the warning complaining that an
    "object file was built for newer macOS version than being linked".
 2. You may need to add the path to `zstd` library in `llvm.pc`.
-
-#### Running the tests
-
-To test your compiler,
-
-```bash
-swift test -c release --parallel
-```
 
 ### Building a Hylo Devcontainer with VSCode
 
@@ -178,6 +208,12 @@ For example, `hc --emit raw-ast -o main.json main.hylo` will parse `main.hylo`, 
 A more detailed description of the current implementation status is available on our [roadmap page](https://www.hylo-lang.org/pages/implementation-status.html).
 
 ## Related video and audio
+
+### Scientific Talks
+
+| Venue | Year    | Speaker                       | Title                                                                    |
+| :---: | :-----: | :---------------------------: | :------------------------------------------------------------------------|
+| IWACO | 2023-05 | Dimi Racordon                 | [Borrow checking Hylo](https://youtu.be/oFupPFniD9s?si=1fxnavY5YSiPTBN8) |
 
 ### Conference Talks
 
