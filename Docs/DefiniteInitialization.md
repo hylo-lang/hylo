@@ -110,7 +110,7 @@ Finally, terminating condition (2) is met because the second visit does not chan
 #### Interpretation
 
 The instructions of a block are interpreted sequentially to update the context of the interpreter.
-Instruction results are stored in the `locals` table while side effects on the memory are reflected on the `memory` table.
+Instruction results are stored in the `locals` table while side effects on memory are reflected on the `memory` table.
 
 Instruction results with an object type are assigned to fully initialized objects while instruction results with an address type are assigned to sets of abstract memory locations.
 Sets are being used as a conservative approximation of the actual memory location produced by the instruction during concrete execution.
@@ -138,7 +138,7 @@ Statically, `%7` is assumed to be either `(%0.0, [0])` or `(%0.0, [1])`.
 A valid program maintains the invariant that if a register is assigned to a set of locations `L`, then all objects at that location have the same initialization state.
 
 *Note: The invariant does not hold when uniqueness is violated.*
-*DI will not catch such violation, but __Ownership__ will.*
+*DI will not catch such a violation, but __Ownership__ will.*
 
 #### Context merging
 
@@ -171,4 +171,4 @@ Therefore, DI should catch the attempt to return the value of `x` in `bb2`.
 
 When the before-context of `bb2` is computed, the interpreter observes that `(%0.0, [])` is initialized in the after-context of `bb1`, but not in that of `bb0`.
 In response, it inserts the deinitialization of that object before `bb1` branches and considers the location uninitialized in the before-context of `bb2`.
-Therefore, when `%5 = load %1` is executed, the interpreter properly diagnoses that `x` is not definitely initialized.
+Therefore, when `%5 = load %1` is executed, the interpreter properly diagnoses that `x` may not be initialized.

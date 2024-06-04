@@ -74,10 +74,10 @@ It is expected to call that lambda when it is done with the projection.
 *Note: this approach is related to  [yield-once returned-continuation lowering](https://llvm.org/docs/Coroutines.html#returned-continuation-lowering).*
 
 The second approach, which we'll call *subscripts-as-sessions*, also compiles a ramp and its slides, but the ramp returns the yielded value rather than calling a continuation with it.
-To avoid dynamic allocation, the ramp accepts a pointer to a pre-allocated representing its stack, which the caller can push on its stack before the call.
+To avoid dynamic allocation, the ramp accepts a pointer to a pre-allocated buffer representing its stack, which the caller can push on its stack before the call.
 
 The term "session" captures the intuition that the caller initiates a session by calling a ramp and terminates it by calling a slide.
-The advantage of this approach is that it requires involves code transformation.
+The disadvantage of this approach is that it requires code transformation.
 
 ### Using continuations
 
@@ -130,13 +130,13 @@ The continuation passed to the ramp starting `t`'s projection must contain at le
 But it cannot contain `%x4 = call @print, %s` because `%x4` is not dominated by `%t`.
 
 These two restrictions serve two goals:
-1. Guarantee that continuations cannot break control flow and cannot.
+1. Guarantee that continuations cannot break control flow.
 2. Handle overlapping projections that do not nest.
 
 One over-approximation of a continuation's scope is the dominance frontier of the basic block in which the projection starts, excluding the instructions before the start of the projection.
 In the above example, the continuation associated with `t` would contain all instructions in `loop.body` after the definition of `%t`.
 
-Using dominance frontiers also obviates the difficulty to identify definitions may escape a continuation.
+Using dominance frontiers also obviates the difficulty to identify where definitions may escape a continuation.
 Those represent intermediate results computed within the lifetime of the projection and used after.
 For example, in the following sequence, `%2` escapes the useful lifetime of `%1`:
 
@@ -147,7 +147,7 @@ end_project %1
 %3 = load %2
 ```
 
-Still, intermediate results that are passed as block arguments beyond across a dominance frontier must be extracted out of the continuation.
+Still, intermediate results that are passed as block arguments beyond a dominance frontier must be extracted out of the continuation.
 Those must be stored in the continuation's argument and read by the ramp's caller to which this continuation was passed.
 
 ### Using sessions
@@ -156,7 +156,7 @@ With subscripts-as-sessions, one issue is that the caller must determine how muc
 To maintain ABI stability, this information cannot be part of the ramp's signature, as it would imply that any change of a subscript's *implementation* may modify its ABI signature.
 
 One simple workaround is to define an additional helper function that returns the size and alignment of the ramp's frame.
-However, an inherant limitation of this approach is that it restricts ramps to use fixed-size frames, thereby prohibiting the use of `alloca` and similar features.
+However, an inherent limitation of this approach is that it restricts ramps to use fixed-size frames, thereby prohibiting the use of `alloca` and similar features.
 
 ### Constructing frames
 

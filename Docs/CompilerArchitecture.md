@@ -2,34 +2,34 @@
 
 ## Project Overview
 
-The hylo compiler is written in [Swift] and uses [LLVM] as it's code generation
+The Hylo compiler is written in [Swift] and uses [LLVM] as its code generation
 backend. It conforms to the the standard swift project layout:
 * [Package.swift] the manifest file used by SPM
 * [Sources] all the source code for the compiler
 * [Tests] all the test code
 
-Then there are some extra directories specific to the hylo project:
+Then there are some extra directories specific to the Hylo project:
 * [Tools] Scripts to aid in development
-* [Examples] Some real world hylo programs
-* [Library] The hylo standard (and core) library
+* [Examples] Some real world Hylo programs
+* [Library] The Hylo standard (and core) library
 
 ## Stages of compilation
 
-The hylo compiler goes through the standard stages of compilation:
+The Hylo compiler goes through the standard stages of compilation:
 
-1. Tokenisation: Transforms hylo source code (Strings) to stream of distinct
+1. Tokenisation: Transforms Hylo source code (Strings) to a stream of distinct
    tokens
 1. Parsing: Creates an [abstract syntax tree] from the token stream
 1. Type-checking: Inspects the abstract syntax tree for type errors
 1. IR-lowering: Generates the [intermediate representation] from the abstract
    syntax tree
-1. LLVM IR generation: Convert hylo IR into [LLVM] IR
+1. LLVM IR generation: Convert Hylo IR into [LLVM] IR
 1. Machine Code Generation: This is completely handled by [LLVM]
 
 These top-level stages of the compiler are laid out in [Driver] where you
 can see the outline of the compilation phases with their entry points.
-Depending on the flags passed to the compiler, the compiler can exit early at
-some of these stages.
+Depending on the flags passed to the compiler, it can exit early at some of
+these stages.
 
 ### Interesting parts
 
@@ -44,7 +44,7 @@ to other nodes using their `NodeID`. `NodeID` is generic over node types and
 allows us to constrain which nodes are allowed as leaves of other nodes.
 
 The use of `NodeID` types as indices into an array allows us to define the
-existence of a node, by it's `NodeID`, without providing access to the node.
+existence of a node, by its `NodeID`, without providing access to the node.
 For access you still need the array. This is in contrast to traditional
 references that provide existence AND access without allowing separation.
 
@@ -63,18 +63,18 @@ previous stage:
 
 [AST] < [ScopedProgram] < [TypedProgram] < [IR/Program]
 
-A successfully created `TypedProgram` means the hylo program is well typed.
+A successfully created `TypedProgram` means the Hylo program is well typed.
 
 #### Hylo IR
 
 The Hylo IR is composed of instructions defined in the [Instruction] module.
-The [Emitter] is the component responsible for creating the `IR` an inserting
-it into the [IR/Module], module-by-module and creating an [IR/Program].
+The [Emitter] is the component responsible for creating the `IR` and inserting it
+into the [IR/Module], module-by-module and creating an [IR/Program].
 
-The hylo IR is only valid after it has gone through some mandatory passes
+The Hylo IR is only valid after it has gone through some mandatory passes
 defined in `Module+*` files of [IR/Analysis]. After these passes the IR should
-be valid and executable by a *theortical* hylo VM. Some [more passes] may be
-necessary dependent on the target.
+be valid and executable by a *theoretical* Hylo VM. Some [more passes] may be
+necessary depending on the target.
 
 [Swift]: https://en.wikipedia.org/wiki/Swift_(programming_language)
 [LLVM]: https://en.wikipedia.org/wiki/LLVM

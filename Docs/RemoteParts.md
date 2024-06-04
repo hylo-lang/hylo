@@ -22,9 +22,9 @@ The compiler should emit a warning if a remote part is taken as a parameter of a
 The compiler should emit a warning if a remote part is taken as a parameter of any other method.
 
 Local `var` bindings operate differently than stored `var` properties.
-When we assign into a local `var`, the value that it held is destroyed (unless we do the `copy(into:)` optimization).
+When we assign into a local `var`, the value that it held previously is destroyed (unless we do the `copy(into:)` optimization).
 When we assign into a stored `var`, the value of its container is modified in place.
-The theoretical rationale is that a dotted access is always projection: the LHS of `foo.bar = 2` is not actually a `var`.
+The theoretical rationale is that a dotted access is always a projection: the LHS of `foo.bar = 2` is not actually a `var`.
 Example:
 
 ```
@@ -77,7 +77,7 @@ extension Array {
 }
 ```
 
-*Note: it's okay to write `var s = Slice(self, range)` because initialization is not consuming: it's binding a value.*
+*Note: It's okay to write `var s = Slice(self, range)` because initialization is not consuming: it's binding a value.*
 *Assigning a remote part can never change the referred part; it's modifying the yielded value anyway.*
 *Translate to C++: References can't be reseated.*
 
