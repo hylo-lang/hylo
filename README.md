@@ -213,7 +213,7 @@ A more detailed description of the current implementation status is available on
 
 | Venue | Year    | Speaker                       | Title                                                                    |
 | :---: | :-----: | :---------------------------: | :------------------------------------------------------------------------|
-| IWACO | 2023-05 | Dimi Racordon                 | [Borrow checking Hylo](https://youtu.be/oFupPFniD9s?si=1fxnavY5YSiPTBN8) |
+| IWACO | 2023-05 | Dimi Racordon                 | [Borrow checking Hylo](https://youtu.be/oFupPFniD9s) |
 
 ### Conference Talks
 
