@@ -1974,7 +1974,7 @@ struct TypeChecker {
     for u in partialResult.dependencies where u != t {
       for r in environment(of: u.decl).publicRules {
         if !r.parametersAreContained(in: partialResult.parameters) { continue }
-        insertRequirement(r, in: &partialResult.requirements)
+        insertRequirement(r, in: &partialResult)
       }
     }
 
@@ -1997,7 +1997,7 @@ struct TypeChecker {
       .init(.conformance(^s, t), at: program[t.decl].identifier.site))
     insertRequirement(
       RequirementRule([.parameterType(s.decl), .trait(t.decl)], [.parameterType(s.decl)]),
-      in: &partiallyFormedEnvironment.requirements)
+      in: &partiallyFormedEnvironment)
 
     // Traits are never nested in generic scopes. Their dependencies and parameters are defined by
     // the traits that they refine.
@@ -2008,7 +2008,7 @@ struct TypeChecker {
       for r in e.publicRules {
         insertRequirement(
           r.substituting(v, for: [.parameterType(s.decl)]),
-          in: &partiallyFormedEnvironment.requirements)
+          in: &partiallyFormedEnvironment)
       }
     }
 
@@ -2059,7 +2059,7 @@ struct TypeChecker {
       let inheritedEnvironment = me.environment(of: p)!
       e.registerInheritance(inheritedEnvironment)
       for r in inheritedEnvironment.publicRules {
-        me.insertRequirement(r, in: &e.requirements)
+        me.insertRequirement(r, in: &e)
       }
     }
 
@@ -2068,7 +2068,7 @@ struct TypeChecker {
     for u in e.dependencies where u.decl.rawValue != d.rawValue {
       for r in environment(of: u.decl).publicRules {
         if !r.parametersAreContained(in: e.parameters) { continue }
-        insertRequirement(r, in: &e.requirements)
+        insertRequirement(r, in: &e)
       }
     }
 
@@ -2198,12 +2198,12 @@ struct TypeChecker {
     }
   }
 
-  /// Inserts the requirement `r` into `m`.
+  /// Inserts the requirement `r` into `e`.
   @discardableResult
   private mutating func insertRequirement(
-    _ r: RequirementRule, in m: inout RequirementSystem
+    _ r: RequirementRule, in e: inout GenericEnvironment
   ) -> (inserted: Bool, ruleAfterInsertion: RequirementSystem.RuleID) {
-    m.insert(r, orderingTermsWith: { (a, b) in compareOrder(a, b) })
+    e.requirements.insert(r, orderingTermsWith: { (a, b) in compareOrder(a, b) })
   }
 
   /// Returns the traits to which a conformance can be derived in the environment of `d`.
