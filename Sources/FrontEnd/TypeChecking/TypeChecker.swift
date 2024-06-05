@@ -1937,8 +1937,9 @@ struct TypeChecker {
       guard !bounds.isEmpty, let t = MetatypeType(lhs) else { continue }
 
       for (n, u) in evalTraitComposition(bounds) {
-        let c = GenericConstraint(.conformance(t.instance, u), at: program[n].site)
-        insertConstraint(c, in: &partialResult)
+        partialResult.registerConstraint(.init(.conformance(t.instance, u), at: program[n].site))
+        insertConformanceRequirement(t.instance, u, in: &partialResult)
+        cache.partiallyFormedEnvironment[d] = partialResult
       }
     }
 
@@ -2110,7 +2111,9 @@ struct TypeChecker {
     // Synthesize sugared conformance constraint, if any.
     if let lhs = MetatypeType(uncheckedType(of: d))?.instance {
       for (n, t) in evalTraitComposition(program[d].conformances) {
-        insertConstraint(.init(.conformance(lhs, t), at: program[n].site), in: &e)
+        e.registerConstraint(.init(.conformance(lhs, t), at: program[n].site))
+        insertConformanceRequirement(lhs, t, in: &e)
+        cache.partiallyFormedEnvironment[e.decl] = e
       }
     }
 
@@ -2142,7 +2145,9 @@ struct TypeChecker {
       else { return }
 
       if lhs.isTypeParameter || rhs.isTypeParameter {
-        insertConstraint(.init(.equality(lhs, rhs), at: c.site), in: &e)
+        e.registerConstraint(.init(.equality(lhs, rhs), at: c.site))
+        insertEqualityRequirement(lhs, rhs, in: &e)
+        cache.partiallyFormedEnvironment[e.decl] = e
       } else {
         report(.error(invalidEqualityConstraintBetween: lhs, and: rhs, at: c.site))
       }
@@ -2155,47 +2160,53 @@ struct TypeChecker {
       }
 
       for (_, rhs) in evalTraitComposition(r) {
-        insertConstraint(.init(.conformance(lhs, rhs), at: c.site), in: &e)
+        e.registerConstraint(.init(.conformance(lhs, rhs), at: c.site))
+        insertConformanceRequirement(lhs, rhs, in: &e)
+        cache.partiallyFormedEnvironment[e.decl] = e
       }
 
-    case .value(let p):
-      // TODO: Symbolic execution
-      insertConstraint(.init(.predicate(p), at: c.site), in: &e)
-    }
-  }
-
-  /// Inserts `c` in `e` and registers the conformances and equalities that `c` implies.
-  private mutating func insertConstraint(_ c: GenericConstraint, in e: inout GenericEnvironment) {
-    e.registerConstraint(c)
-    insertRequirement(c, in: &e.requirements)
-    cache.partiallyFormedEnvironment[e.decl] = e
-  }
-
-  /// Inserts the requirement described by `c` into `m`.
-  private mutating func insertRequirement(_ c: GenericConstraint, in m: inout RequirementSystem) {
-    switch c.value {
-    case .conformance(let l, let r):
-      let e = possiblyPartiallyFormedEnvironment(of: AnyDeclID(r.decl))!
-      let u = RequirementTerm([.parameterType(program[r.decl].receiver.id)])
-      let v = buildTerm(^l)
-      for rule in e.publicRules {
-        insertRequirement(rule.substituting(u, for: v), in: &m)
-      }
-
-    case .equality(let l, let r):
-      // Make sure `a` is not concrete.
-      let (a, b) = l.isTypeParameter ? (l, r) : (r, l)
-      assert(a.isTypeParameter)
-
-      // Rule orientation depends on ordering.
-      var v = buildTerm(a)
-      var u = b.isTypeParameter ? buildTerm(b) : v.appending(.concrete(b))
-      if compareOrder(u, v) == .ascending { swap(&v, &u) }
-      insertRequirement(.init(u, v), in: &m)
-
-    case .instance, .predicate:
+    case .value:
       UNIMPLEMENTED("generic value constraints")
     }
+  }
+
+  /// Inserts a rule in `e`'s requirement system specifying that `l` conforms to `r`.
+  private mutating func insertConformanceRequirement(
+    _ l: AnyType, _ r: TraitType, in e: inout GenericEnvironment
+  ) {
+    let f = possiblyPartiallyFormedEnvironment(of: AnyDeclID(r.decl))!
+    let u = RequirementTerm([.parameterType(program[r.decl].receiver.id)])
+    var v = buildTerm(l)
+
+    if let t = TraitDecl.ID(e.decl), l.base is AssociatedTypeType {
+      assert(v.first == .parameterType(program[t].receiver))
+      v = .init(v.dropFirst())
+    }
+
+    for rule in f.publicRules {
+      insertRequirement(rule.substituting(u, for: v), in: &e)
+    }
+  }
+
+  /// Inserts a rule in `e`'s requirement system specifying that `l` is equal to `r`.
+  private mutating func insertEqualityRequirement(
+    _ l: AnyType, _ r: AnyType, in e: inout GenericEnvironment
+  ) {
+    // Make sure `a` is not concrete.
+    let (a, b) = l.isTypeParameter ? (l, r) : (r, l)
+    assert(a.isTypeParameter)
+
+    // Rule orientation depends on ordering.
+    var v = buildTerm(a)
+    var u = b.isTypeParameter ? buildTerm(b) : v.appending(.concrete(b))
+
+    if let t = TraitDecl.ID(e.decl) {
+      v = v.substituting([.parameterType(program[t].receiver)], for: [.trait(t)])
+      u = u.substituting([.parameterType(program[t].receiver)], for: [.trait(t)])
+    }
+
+    if compareOrder(u, v) == .ascending { swap(&v, &u) }
+    insertRequirement(.init(u, v), in: &e)
   }
 
   /// Inserts the requirement `r` into `e`.
