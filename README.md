@@ -81,8 +81,7 @@ file for LLVM.
 
 ## Building with CMake and Xcode
 
-For now you will need to build yourself [a patched version of
-cmake](https://gitlab.kitware.com/cmake/cmake/-/merge_requests/9501).
+You will need CMake 3.3.0-rc1 or newer.
 
 1. **Generate Xcode project**: choose a *build-directory* and then,
    where `<LLVM>` is the path to the root directory of your LLVM
@@ -213,7 +212,7 @@ A more detailed description of the current implementation status is available on
 
 | Venue | Year    | Speaker                       | Title                                                                    |
 | :---: | :-----: | :---------------------------: | :------------------------------------------------------------------------|
-| IWACO | 2023-05 | Dimi Racordon                 | [Borrow checking Hylo](https://youtu.be/oFupPFniD9s?si=1fxnavY5YSiPTBN8) |
+| IWACO | 2023-05 | Dimi Racordon                 | [Borrow checking Hylo](https://youtu.be/oFupPFniD9s) |
 
 ### Conference Talks
 

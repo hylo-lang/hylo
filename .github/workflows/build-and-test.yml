@@ -253,15 +253,8 @@ jobs:
 
       - name: Set up latest CMake and Ninja
         uses: lukka/get-cmake@latest
-
-      - name: Build a patched CMake for testing Xcode
-        if: ${{ matrix.cmake_generator == 'Xcode' }}
-        run: |
-          git clone --quiet https://gitlab.kitware.com/dabrahams/cmake.git --branch swift-xcode
-          cd cmake
-          cmake -S . -B ./build -GNinja
-          cmake --build ./build
-          echo "${{ github.workspace }}/cmake/build/bin" >> "$GITHUB_PATH"
+        with:
+          cmakeVersion: latestrc
 
       - name: Install LLVM
         # 7z doesn't support decompressing from a stream or we'd do this all as one statement. Maybe

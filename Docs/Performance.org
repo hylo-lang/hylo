@@ -4,7 +4,7 @@
 
 This document collects some examples that illustrate performance benefits of a
 language that statically enforces mutable value semantics. We do this by
-exploring some C++ examples were inspired from Fedor G Pikus's /The Art of
+exploring some C++ examples that were inspired by Fedor G Pikus's /The Art of
 Writing Efficient Programs/.
 
 * Branch free optimization
@@ -137,4 +137,4 @@ way, implies global variables are not permitted.
 * Conclusion
 
 We've looked at a couple cases where strict mutable value semantics enables compilers to better
-optimize code due the sharing rules.
+optimize code due to the sharing rules.
