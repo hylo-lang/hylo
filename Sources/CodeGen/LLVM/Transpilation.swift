@@ -511,7 +511,7 @@ extension SwiftyLLVM.Module {
       addAttribute(.init(.nocapture, in: &self), to: r)
       addAttribute(.init(.nofree, in: &self), to: r)
 
-      if m[f].output == .never {
+      if m[f].output.isNever {
         addAttribute(.init(.noreturn, in: &self), to: llvmFunction)
       }
     }

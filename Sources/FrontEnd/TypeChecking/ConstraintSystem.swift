@@ -213,18 +213,10 @@ struct ConstraintSystem {
       return nil
     }
 
-    // Process explicit conformances.
-    if checker.conformedTraits(of: goal.model, in: scope).contains(goal.concept) {
+    // Check whether the conformance holds, either explicitly or structually.
+    if checker.conforms(goal.model, to: goal.concept, in: scope) {
       return .success
-    }
-
-    // Process structural conformances.
-    switch goal.concept {
-    case checker.program.ast.core.movable.type:
-      return solve(structuralConformance: goal)
-    case checker.program.ast.core.deinitializable.type:
-      return solve(structuralConformance: goal)
-    default:
+    } else {
       return .failure(failureToSolve(goal))
     }
   }
@@ -950,6 +942,7 @@ struct ConstraintSystem {
       return unify(checker.canonical(t, in: scope), checker.canonical(u, in: scope))
 
     default:
+      // TODO: Use semantic equality
       return t == u
     }
   }

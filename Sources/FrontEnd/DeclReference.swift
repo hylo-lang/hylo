@@ -86,7 +86,7 @@ public enum DeclReference: Hashable {
     case .constructor(_, let a):
       return a
     default:
-      return [:]
+      return .empty
     }
   }
 

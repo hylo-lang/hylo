@@ -111,11 +111,11 @@ public struct AnyType {
   public var specialization: GenericArguments {
     switch base {
     case let u as BoundGenericType:
-      return u.arguments
+      return .init(u)
     case let u as TypeAliasType:
       return u.resolved.specialization
     default:
-      return [:]
+      return .empty
     }
   }
 
@@ -174,12 +174,19 @@ public struct AnyType {
     }
   }
 
-  /// Indicates whether `self` is Hylo's `Void` or `Never` type.
-  ///
-  /// - Requires: `self` is canonical.
+  /// `true` iff `self` is syntactically equal to Hylo's `Void` or `Never` type.
   public var isVoidOrNever: Bool {
-    precondition(self[.isCanonical])
-    return (self == .void) || (self == .never)
+    isVoid || isNever
+  }
+
+  /// `true` iff `self` is syntactically equal to Hylo's `Void` type.
+  public var isVoid: Bool {
+    self == .void
+  }
+
+  /// `true` iff `self` is syntactically equal to Hylo's `Never` type.
+  public var isNever: Bool {
+    self == .never
   }
 
   /// Indicates whether `self` is a generic type parameter or associated type.
@@ -228,9 +235,16 @@ public struct AnyType {
 
   /// Inserts the type variables that occur free in `self` into `s`.
   public func collectOpenVariables(in s: inout Set<TypeVariable>) {
-    _ = self.transform(mutating: &s) { (partialResult, t) in
+    forEachOpenVariable(mutate: &s, with: { (partialResult, v) in partialResult.insert(v) })
+  }
+
+  /// Calls `action` on `m` and each type variable that occurs free in `self`.
+  public func forEachOpenVariable<T>(
+    mutate m: inout T, with action: (inout T, TypeVariable) -> Void
+  ) {
+    _ = self.transform(mutating: &m) { (s, t) in
       if let v = TypeVariable(t) {
-        partialResult.insert(v)
+        action(&s, v)
         return .stepOver(t)
       } else if t[.hasVariable] {
         return .stepInto(t)
@@ -370,32 +384,32 @@ extension AnyType: TypeProtocol {
 
 extension AnyType: Equatable {
 
-  /// Returns whether `l` is equal to `r`.
+  /// Returns whether `l` is syntactically equal to `r`.
   public static func == (l: Self, r: Self) -> Bool {
     l.wrapped.equals(r.wrapped)
   }
 
-  /// Returns whether `l` is equal to `r`.
+  /// Returns whether `l` is syntactically equal to `r`.
   public static func == <T: TypeProtocol>(l: Self, r: T) -> Bool {
     l.wrapped.unwrap(as: T.self) == r
   }
 
-  /// Returns whether `l` is not equal to `r`.
+  /// Returns whether `l` is not syntactically equal to `r`.
   public static func != <T: TypeProtocol>(l: Self, r: T) -> Bool {
     !(l == r)
   }
 
-  /// Returns whether `l` is equal to `r`.
+  /// Returns whether `l` is syntactically equal to `r`.
   public static func == <T: TypeProtocol>(l: T, r: Self) -> Bool {
     l == r.wrapped.unwrap(as: T.self)
   }
 
-  /// Returns whether `l` is not equal to `r`.
+  /// Returns whether `l` is not syntactically equal to `r`.
   public static func != <T: TypeProtocol>(l: T, r: Self) -> Bool {
     !(l == r)
   }
 
-  /// Returns whether `subject` matches `pattern`.
+  /// Returns whether `subject` syntactically matches `pattern`.
   ///
   /// This operator is used in switch statements to match the wrapped value of an `AnyType`.
   ///
@@ -413,12 +427,12 @@ extension AnyType: Equatable {
     pattern == subject
   }
 
-  /// Returns whether `subject` matches `pattern`.
+  /// Returns whether `subject` syntactically matches `pattern`.
   public static func ~= (pattern: Self, subject: Self) -> Bool {
     pattern == subject
   }
 
-  /// Returns whether `subject` matches `pattern`.
+  /// Returns whether `subject` syntactically matches `pattern`.
   public static func ~= <T: TypeProtocol>(pattern: T, subject: Self) -> Bool {
     pattern == subject
   }

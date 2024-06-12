@@ -956,7 +956,7 @@ public enum Parser {
 
     // Parse the parts of the declaration.
     let name = try state.expect("identifier", using: { $0.take(.name) })
-    let refinements = try conformanceList.parse(&state) ?? []
+    let bounds = try conformanceList.parse(&state) ?? []
     var members = try state.expect(
       "trait body",
       using: { (s) in
@@ -981,7 +981,7 @@ public enum Parser {
         introducerSite: introducer.site,
         accessModifier: declAccessModifier(ofDeclPrologue: prologue, in: &state),
         identifier: state.token(name),
-        refinements: refinements,
+        bounds: bounds,
         members: members,
         selfParameterDecl: selfParameterDecl,
         site: state.range(from: prologue.startIndex)))

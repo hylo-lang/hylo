@@ -7,7 +7,7 @@ document will probably express most examples in terms of translations between Hy
 *** High priority
 1. Interop with C++ adds no new language rules to Hylo code.
   - A Hylo module can be constructed from a C++ module.
-  - All language rules related to C++ interop captured in that construction. Hylo code using that
+  - All language rules related to C++ interop are captured in that construction. Hylo code using that
     module is just interoperating with other Hylo code.
 2. No public C++ APIs (except preprocessor macros and those using =volatile=) are inaccessible from
    Hylo.  Why the exception for preprocessor macros? Most of them have no first-class representation
@@ -93,8 +93,8 @@ These are intended to describe defaults. =[[attributes]]= can be used to overrid
 - =inout=: Presented to C++ as =T&=.
   We could leave it up to the C++ code to ensure `inout` parameters don't overlap any others.
   Is there a way to add dynamic checking?
-  We could create a C++ wrapper that moves-in/moves-out, which would ensure the LoE is upheld at
-  some efficiencly code.
+  We could create a C++ wrapper that moves-in/moves-out, which would ensure that the LoE is upheld
+  for some efficient code.
 - =sink=: Presented to C++ as =T&&=.  Hylo will destroy the referent so we need to reconstitute it
   after the call or move out of it before the call.  The former is more efficient.  If =T= is a C++
   type, either one could be illegal, so a smart wrapper will detect which one is needed and choose.
@@ -116,7 +116,7 @@ These are intended to describe defaults. =[[attributes]]= can be used to overrid
   }
   #+END_SRC
 - =set=: the best translation is unclear.  A safe API passes an empty =optional<T>&=.  However, if
-  someone is wants to initialize a =T= in place, there may be no =optional= wrapper available.
+  someone wants to initialize a =T= in place, there may be no =optional= wrapper available.
 *** function return
 Return values from Hylo are fully owned by C++ code, just as in Hylo.
 *** projections

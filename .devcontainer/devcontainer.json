@@ -3,7 +3,7 @@
     "build": {
         "dockerfile": "Dockerfile",
         "args": {
-            "SWIFT_VERSION" : "5.9",
+            "SWIFT_VERSION" : "5.10",
             "HYLO_LLVM_BUILD_TYPE": "${localEnv:HYLO_LLVM_BUILD_TYPE:MinSizeRel}"
         }
     },

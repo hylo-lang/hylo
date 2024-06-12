@@ -81,7 +81,7 @@ extension IR.Program {
 
     let g = monomorphize(s.callee, for: s.specialization, usedIn: modules[m]!.scope(containing: i))
     let new = modules[m]!.makeProject(
-      s.projection, applying: g, specializedBy: [:], to: s.operands, at: s.site)
+      s.projection, applying: g, specializedBy: .empty, to: s.operands, at: s.site)
     modules[m]!.replace(i, with: new)
   }
 
@@ -218,7 +218,7 @@ extension IR.Program {
     // except for the argument to the receiver parameter. This parameter may be associated with
     // a trait other the one declaring the requirement if the implementation is in an extension.
     var monomorphizationArguments = c.arguments
-    if case .concrete(let d) = i, let t = base.traitDeclaring(d), t != trait {
+    if case .explicit(let d) = i, let t = base.traitDeclaring(d), t != trait {
       monomorphizationArguments[base[t.decl].receiver] = .type(model)
     } else {
       monomorphizationArguments[receiver] = .type(model)

@@ -1,4 +1,4 @@
-// swift-tools-version:5.9
+// swift-tools-version:5.10
 import Foundation
 import PackageDescription
 
@@ -31,6 +31,7 @@ let package = Package(
   products: [
     .executable(name: "hc", targets: ["hc"]),
     .executable(name: "hylo-demangle", targets: ["hylo-demangle"]),
+    .library(name: "FrontEnd", targets: ["FrontEnd"]),
   ],
 
   dependencies: [

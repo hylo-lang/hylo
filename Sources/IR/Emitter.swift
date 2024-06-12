@@ -2145,7 +2145,7 @@ struct Emitter {
     switch program[callee].referredDecl {
     case .direct(let d, let a) where d.isCallable:
       // Callee is a direct reference to a lambda declaration.
-      guard ArrowType(canonical(program[callee].type))!.environment == .void else {
+      guard ArrowType(canonical(program[callee].type))!.environment.isVoid else {
         UNIMPLEMENTED("Generate IR for calls to local functions with captures #1088")
       }
       let f = FunctionReference(to: d, in: &module, specializedBy: a, in: insertionScope!)
@@ -2252,7 +2252,7 @@ struct Emitter {
     switch program[callee].referredDecl {
     case .direct(let d, let a) where d.kind == SubscriptDecl.self:
       // Callee is a direct reference to a subscript declaration.
-      guard SubscriptType(canonical(program[d].type))!.environment == .void else {
+      guard SubscriptType(canonical(program[d].type))!.environment.isVoid else {
         UNIMPLEMENTED("subscript with non-empty environment")
       }
 
@@ -2395,7 +2395,8 @@ struct Emitter {
   ///
   /// - Requires: `e.type` is `Hylo.Bool`
   private mutating func emit(branchCondition e: AnyExprID) -> Operand {
-    precondition(canonical(program[e].type) == ast.coreType("Bool")!)
+    precondition(
+      program.areEquivalent(program[e].type, ^ast.coreType("Bool")!, in: insertionScope!))
     let wrapper = emitLValue(e)
     return emitLoadBuiltinBool(wrapper, at: ast[e].site)
   }
@@ -2532,7 +2533,7 @@ struct Emitter {
     emitInitialize(storage: source, to: foreign, at: site)
 
     switch foreignConvertibleConformance.implementations[r]! {
-    case .concrete(let m):
+    case .explicit(let m):
       let convert = module.demandDeclaration(lowering: m)!
       let f = module.reference(to: convert, implementedFor: foreignConvertibleConformance)
 
@@ -2570,7 +2571,7 @@ struct Emitter {
     // TODO: Handle cases where the foreign representation of `t` is not built-in.
 
     switch foreignConvertibleConformance.implementations[r]! {
-    case .concrete(let m):
+    case .explicit(let m):
       let convert = module.demandDeclaration(lowering: m)!
       let f = module.reference(to: convert, implementedFor: foreignConvertibleConformance)
 

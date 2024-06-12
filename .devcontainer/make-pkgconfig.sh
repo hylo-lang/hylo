@@ -32,7 +32,7 @@ case "${machine}" in
 esac
 
 libs=()
-for x in -L$(llvm-config --libdir) ${zstd_dash_L} ${libs} $(llvm-config --system-libs --libs analysis bitwriter core native passes target); do
+for x in -L$(llvm-config --libdir) ${zstd_dash_L} $(llvm-config --system-libs --libs analysis bitwriter core native passes target); do
     libs+=($(printf '%q' "$x"))
 done
 cflags=()

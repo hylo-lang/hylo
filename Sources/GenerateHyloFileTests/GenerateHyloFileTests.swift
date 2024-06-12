@@ -46,6 +46,7 @@ struct GenerateHyloFileTests: ParsableCommand {
     var output =
       """
       import XCTest
+      import TestUtils
 
       final class \(testCaseName.asSwiftIdentifier): XCTestCase {
 

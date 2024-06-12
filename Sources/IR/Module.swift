@@ -258,7 +258,7 @@ public struct Module {
   /// Returns the identity of the IR function corresponding to `i`.
   mutating func demandDeclaration(lowering i: FrontEnd.Conformance.Implementation) -> Function.ID {
     switch i {
-    case .concrete(let d):
+    case .explicit(let d):
       return demandDeclaration(lowering: d)!
     case .synthetic(let d):
       return demandDeclaration(lowering: d)
@@ -479,7 +479,9 @@ public struct Module {
   ) -> FunctionReference {
     var a = witness.arguments
     if let m = program.traitMember(referredBy: d) {
-      a = a.merging([program[m.trait.decl].receiver: .type(witness.model)])
+      let r = program[m.trait.decl].receiver.id
+      assert(a[r] == nil)
+      a[r] = .type(witness.model)
     }
     return FunctionReference(to: d, in: self, specializedBy: a, in: witness.scope)
   }
