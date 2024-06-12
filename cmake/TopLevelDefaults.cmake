@@ -14,7 +14,7 @@ block()
   set(FETCHCONTENT_TRY_FIND_PACKAGE_MODE NEVER)
   FetchContent_Declare(Hylo-CMakeModules
     GIT_REPOSITORY https://github.com/hylo-lang/CMakeModules.git
-    GIT_TAG        43ee6f5
+    GIT_TAG        a080578
     OVERRIDE_FIND_PACKAGE
   )
 
@@ -159,6 +159,9 @@ function(add_hylo_test_of testee)
     "PATH;NAMED" # <one_value_keywords>
     "DEPENDENCIES" # <multi_value_keywords>
     ${ARGN})
+
+  # FIXME: Why this should be needed is a mystery.
+  list(APPEND _DEPENDENCIES ArgumentParser)
 
   set(top_target "${_NAMED}")
   if(NOT _PATH)

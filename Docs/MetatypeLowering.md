@@ -21,7 +21,7 @@ Here is the information we should be able to get from a metatype:
 - Textual representation (e.g., name)
 - Kind (e.g., product type, lambda type, etc.)
 - Generic arguments (if any)
-- Name, types, and offsets of stored properties
+- Names, types, and offsets of stored properties
 
 ### About reflective programming
 
@@ -34,7 +34,7 @@ For other, more advanced use cases, my sense is that if we store the additional 
 ## Detailed design
 
 Concretely, a metatype is just a pointer to some static data generated during compilation.
-This, the question is: what is the representation of this generated data?
+The question is this: what is the representation of this generated data?
 
 An arbitrary metatype is represented by the following structure:
 ```c++
@@ -54,7 +54,7 @@ struct hylo_metatype {
 `size` and `alignment` are computed statically when the metatype value is generated.
 
 `representation` is used to encode other reflective information.
-Because every different types can have widely different representations, this property denotes a variant encoded as a tagged pointer to the actual representation.
+Because different types can have widely different representations, this property denotes a variant encoded as a tagged pointer to the actual representation.
 
 **Product types:**
 

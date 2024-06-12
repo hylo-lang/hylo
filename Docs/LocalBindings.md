@@ -23,11 +23,11 @@ A local binding is said to have storage if the value that it represents may be s
 The lifetime of a binding's storage is bound to the lexical scope of that binding.
 At the IR level, that lifetime is equal to the live-range of the `alloc_stack` representing the binding's storage.
 
-*Note: The live-range of binding's storage is never empty in a well-formed program because an `alloc_stack` must be operand of exactly one `dealloc_stack` on each possible execution path.*
+*Note: The live-range of a binding's storage is never empty in a well-formed program because an `alloc_stack` must be an operand of exactly one `dealloc_stack` on each possible execution path.*
 
 ### `var` bindings
 
-A `var` binding always have storage.
+A `var` binding always has storage.
 
 ```hylo
 public fun main() {
@@ -35,7 +35,7 @@ public fun main() {
 }
 ```
 
-`foo` has storage because it is initialized with a rvalue.
+`foo` has storage because it is initialized with an rvalue.
 In raw IR, `main` is translated as follows:
 
 ```
@@ -49,7 +49,7 @@ bb0:
 }
 ```
 
-The first instruction corresponds to the evaluation of the integer literal, resulting in a rvalue assigned to `%0`.
+The first instruction corresponds to the evaluation of the integer literal, resulting in an rvalue assigned to `%0`.
 The next instruction allocates storage for `foo`.
 The address of that storage is then borrowed to initialize it with the store instruction.
 
@@ -59,7 +59,7 @@ At the source level, the initializer of a binding is the expression of an object
 
 *Note: a binding might be initialized with a value that is only a part of a larger object evaluated by its initializer (e.g., `let (a, _) = make_pair()`).*
 
-A `let` binding may several possible initializers if its initialization depends on control flow.
+A `let` binding may have several possible initializers if its initialization depends on control flow.
 For example, `bar` has two initializers in the following snippet: one in each branch of the conditional expression.
 
 ```hylo
@@ -71,11 +71,11 @@ public fun main() {
 For a `let` binding of type `T`:
 1. no storage is allocated if all its initializers evaluate to lvalues;
 2. storage of type `T` is allocated if all its initializers evaluate to rvalues;
-3. storage of type `Optional<T>` is allocated if one of its initializers evaluates to a rvalue and another to a lvalue.
+3. storage of type `Optional<T>` is allocated if one of its initializers evaluates to an rvalue and another to an lvalue.
 
 *Note: the first case is identical to the behavior of a `var` binding.*
 
-In the second case, storage is allocated with a `nil` value on every execution path where the corresponding `let` binding is initialized with a lvalue.
+In the second case, storage is allocated with a `nil` value on every execution path where the corresponding `let` binding is initialized with an lvalue.
 For example:
 
 ```hylo
@@ -126,8 +126,8 @@ bb3(%15 : &Int):
 The initialization of `bar` starts with the `alloc_stack` assigned to `%3`, representing the allocation of its storage.
 The program jumps to either `bb1` or `bb2` depending on the value of `condition`.
 In the first branch, `bar`'s storage is initialized with a nil value.
-Then, a `let` access to `foo`'s storage is borrowed and passed as argument to the block `bb3` before jumping to it.
-In the second branch, `bar`'s storage is initialized with the result of an integer literal wrapped inside a optional container.
+Then, a `let` access to `foo`'s storage is borrowed and passed as an argument to the block `bb3` before jumping to it.
+In the second branch, `bar`'s storage is initialized with the result of an integer literal wrapped inside an optional container.
 Then, that value is borrowed and passed as an argument to `bb3` before jumping to it.
 
 Crucially, `bar`'s storage gets allocated in both branches.
@@ -135,7 +135,7 @@ Hence, it will be safe to deinitialize that storage in `bb3` with `Optional`'s d
 
 ### `inout` bindings
 
-An `inout` binding never have storage and is always represented as a borrowed access at the IR level.
+An `inout` binding never has storage and is always represented as a borrowed access at the IR level.
 For example:
 
 ```hylo
@@ -181,7 +181,7 @@ bb0(%0 : &Int, %1 : &Int):
 In the scope of the function, those arguments live in memory at the locations denoted by `%0` and `%1`.
 Meanwhile, the result of the call to `Hylo.Int.infix+(_:_:)` lives in register and is assigned to `%4`.
 
-Objects that live in register are *initialized* when first assigned to a register and get eventually *consumed* before the function returns.
+Objects that live in registers are *initialized* when first assigned to a register and eventually get *consumed* before the function returns.
 Because they are treated as linear resources, any operation in which an object appears as an operand consumes it.
 For example, the `return` instruction in the program above consumes the object living in `%4`.
 
@@ -192,7 +192,7 @@ A memory location may be in the following states:
 - *Initialized*: memory is providing storage for a fully initialized object.
 - *Partial*: memory is providing storage for an object that is only partially initialized or consumed.
 
-*Note: `alloc_stack` allocates a memory and binds it to a type at the same time.*
+*Note: `alloc_stack` allocates memory and binds it to a type at the same time.*
 *Hence, the resulting location is uninitialized rather than raw.*
 
 Instructions that operate on memory locations typically have preconditions and postconditions on the initialization state of those locations.
@@ -207,4 +207,4 @@ DI is implemented as an intraprocedural abstract interpreter that models the con
 The abstract interpreter keeps track of the initialization state of the memory and maps local registers to the set of memory locations they may represent.
 
 Before evaluating each instruction, the interpreter verifies that its operands have a suitable initialization state.
-If they don't, it either inserts additional instruction to satisfy the constraints or concludes that the program is ill-formed and emits a diagnostic.
+If they don't, it either inserts additional instructions to satisfy the constraints or concludes that the program is ill-formed and emits a diagnostic.

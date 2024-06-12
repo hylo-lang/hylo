@@ -13,7 +13,7 @@ For example, given the generic signature above, the corresponding environment ca
 
 > Note that trait declarations also describe a generic environment.
 > All traits define an implicit generic parameter denoting `Self` that is bound by the trait they declare.
-> Constraints on associated type and values define additional axioms.
+> Constraints on associated types and values define additional axioms.
 
 ## Why are generic environments hard to build?
 
@@ -44,7 +44,7 @@ fun h<T: Collection, U: Collection where T.Element == U.Element>(_ x: T, _ y: U)
 }
 ```
 
-To evaluate `T.Position`, name resolution finds the environment declaring `T`, asks for the traits to which `T` conforms, and then proceed with quialified name lookup in those traits to find an associated type or value declaration.
+To evaluate `T.Position`, name resolution finds the environment declaring `T`, asks for the traits to which `T` conforms, and then proceeds with qualified name lookup in those traits to find an associated type or value declaration.
 This strategy requires the environment to be built.
 Therefore, if the construction of an environment is implemented as a single logical step, we can't evaluate `T.Element` in the above function because the fact that `T` conforms to `Collection` is not known yet.
 
@@ -66,7 +66,7 @@ One may think that a simple solution could be to assign a type variable to each 
 After all, we already have a way to solve member constraints that depend on unification to deal with generic argument deduction and overloading.
 Sadly, name resolution isn't the only roadblock.
 
-As tempting is it may be to throw all constraints at the solver, the problem here is that it is harder to establish facts about type variables.
+As tempting as it may be to throw all constraints at the solver, the problem here is that it is harder to establish facts about type variables.
 To illustrate, consider the following example:
 
 ```hylo
@@ -104,7 +104,7 @@ fun bar<T where T: Collection, T == Bool>() { ... }
 
 Here, `bar` has an inconsistent environment, assuming there is no user-defined conformance in scope making `Bool` a `Collection`.
 Either of the two constraints can be blamed.
-This problem is not specific to environment checking, though, as we also need a way to assign blame when infer the type of any other expression.
+This problem is not specific to environment checking, though, as we also need a way to assign blame when inferrig the type of any other expression.
 
 ## Construction strategy
 
@@ -129,11 +129,11 @@ If we read this signature from left to right, we can conclude that:
 6. `T.Element` is `Int[n]` (by 4 and 5)
 
 At this point we have read all declarations and constraints before `T.Element.Element: Collection` and can consider them granted.
-We have yet to evaluate `T.Element.Element: Collection`, which at this point is a constraint we must _check_ w.r.t. the information we already gather.
+We have yet to evaluate `T.Element.Element: Collection`, which at this point is a constraint we must _check_ w.r.t. the information we already gathered.
 If the check passed, then the implications of the constraints would be merged with our typing context.
-Here, however, it doesn't because at this point we now that `T.Element.Element` is `Int` (by 6) and `Int: Collection` does not hold (assuming there is no user-defined conformance in scope).
+Here, however, it doesn't because at this point we know that `T.Element.Element` is `Int` (by 6) and `Int: Collection` does not hold (assuming there is no user-defined conformance in scope).
 
-There is one rule we must add to use this evaluation order: a generic parameters introduced without a bound are assumed type-kinded.
+There is one rule we must add to use this evaluation order: a generic parameter introduced without a bound is assumed to be type-kinded.
 With this assumption, we never have to look at uses of a generic parameter to determine whether it is a type or a value.
 For example, this signature is ill-formed: `<T, U where T == Int[U]>`.
 Further, note that generic parameters can't be instantiated as traits, so if we see `T: U` we can always conclude that `T` must be a value and that `U` must be a type.
@@ -141,7 +141,7 @@ Further, note that generic parameters can't be instantiated as traits, so if we 
 The next challenge is to deduce the implications of a constraint, given a partially constructed environment.
 Before we tackle this one, let's make a few observations:
 
-- Since traits can't be declared in types, if the root of a name expression is a type we now that a constraint of the form `A: B` is an instance constraint.
+- Since traits can't be declared in types, if the root of a name expression is a type we know that a constraint of the form `A: B` is an instance constraint.
 
 - The LHS and/or RHS of an equality constraint must be rooted at a generic parameter.
   That means we do not have to infer `T == U` from `Array<T> == Array<U>`.
@@ -165,7 +165,7 @@ extension Collection {
 
 ### Determining the kind of generic parameters
 
-Given the above observations, we can define a strategy to determine whether a generic parameter declaration denote a value or a type:
+Given the above observations, we can define a strategy to determine whether a generic parameter declaration denotes a value or a type:
 
 - If the parameter has no bound, it is a type.
 - If the parameter has a bound, it is a type if and only if that bound is a name expression composed exclusively of nominal components that do not refer to any generic parameter.
@@ -182,6 +182,6 @@ Consider the following generic signature:
 ```
 
 Once we have verified that `Array<U>` is well-formed, we should look at the traits to which `T` is known to conform.
-Then, for each of these traits, we should look how `Array<U>` implements associated types and declarations to establish additional facts.
+Then, for each of these traits, we should look at how `Array<U>` implements associated types and declarations to establish additional facts.
 In this case, because `Array<U>::Collection.Element == U`, we can derive an additional constraint `T.Element == U` from `T == U`, which we must check.
 Because at this point we'll have already concluded that `T.Element == Int` and `U == Bool`, we can conclude that the environment is inconsistent.
