@@ -238,7 +238,12 @@ A more detailed description of the current implementation status is available on
 We welcome contributions to Hylo.
 Please read through [CONTRIBUTING.md](CONTRIBUTING.md) for details on how to get started.
 
-You can also get in touch with the community by joining our [Slack](https://join.slack.com/t/val-qs97696/shared_invite/zt-1z3dsblrq-y4qXfEE6wr6uMEJSN9uFyg) or one of our [Zoom Meetings](https://unige.zoom.us/j/63321463694?pwd=L0VuY3QwUEx5K3BaRWIyMjArdkhEQT09) (ID: 633 2146 3694, Passcode: 409180) on Tuesdays and Thursdays, 12:30-1:00 Pacific time.
+You can also get in touch with the community by joining our [Slack][join-slack] or one of our [Zoom Meetings][join-zoom]
+(ID: 633 2146 3694, Passcode: 409180) on Tuesdays and Thursdays, 13:00-13:30 Pacific time or 22:00-22:30 Central
+European time.
+
+[join-slack]: https://join.slack.com/t/val-qs97696/shared_invite/zt-1z3dsblrq-y4qXfEE6wr6uMEJSN9uFyg
+[join-zoom]: https://unige.zoom.us/j/63321463694?pwd=L0VuY3QwUEx5K3BaRWIyMjArdkhEQT09
 
 ## License
 
