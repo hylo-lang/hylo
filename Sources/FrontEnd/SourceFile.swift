@@ -64,16 +64,13 @@ public struct SourceFile {
   ///
   /// If `baseName` is not provided, a unique name will be generated.
   ///
-  /// - Precondition: the same baseName must not be used for different text, as
-  ///   synthesized files with the same `baseName` will share storage.
-  ///
+  /// - Precondition: No synthetic source file named `baseName` has been created yet.
   public init(synthesizedText text: String, named baseName: String = UUID().uuidString) {
     let storage = Storage(URL(string: "synthesized://\(baseName)")!) { text[...] }
     self.storage = storage
 
     // The assertion is not evaluated in release builds.
-    assert(text == self.storage.text, "Precondition violated: synthesized files with the " +
-      "same baseName must have the same text globally.")
+    assert(text == self.storage.text, "duplicate synthesized filename")
   }
 
   /// The name of the source file, sans path qualification or extension.
