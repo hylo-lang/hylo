@@ -1,11 +1,14 @@
 # Hylo (formerly Val)
 
-Hylo is a programming language that leverages [mutable value semantics](https://www.jot.fm/issues/issue_2022_02/article2.pdf) and [generic programming](https://fm2gp.com) for high-level systems programming.
+
+[![codecov](https://codecov.io/gh/hylo-lang/hylo/graph/badge.svg?token=YF1Q8W88VN)](https://codecov.io/gh/hylo-lang/hylo)
+
+Hylo is a programming language that leverages [mutable value semantics](Docs/ImplementationStrategiesForMutableValueSemantics.pdf) and [generic programming](https://fm2gp.com) for high-level systems programming.
 
 This repository contains the sources of the reference implementation of Hylo.
 Please visit our [website](https://hylo-lang.org) to get more information about the language itself.
 
-## Building
+## Developement/Use Requirements
 
 This project is written in [Swift](https://swift.org) and distributed in the form of a package, built with [Swift Package Manager](https://swift.org/package-manager/).
 You will need Swift 5.9 or higher to build the compiler from sources.
@@ -19,7 +22,7 @@ them.
 need to [enable support](https://stackoverflow.com/a/59761201/125349)
 for them before checking it out.
 
-### LLVM Prerequisite
+### LLVM
 
 This package requires LLVM 17.  Major versions of LLVM are not
 interchangeable or backward-compatible.
@@ -38,9 +41,9 @@ to get LLVM some other way, you'll need an installation with an
 `llvm-config` executable, which we will use to create a `pkg-config`
 file for LLVM.
 
-### Building with CMake and Ninja
+## Building with CMake and Ninja
 
-1. **Configure**: choose a *build-directory* and a CMake `build-type`
+1. **Configure**: choose a *build-directory* and a CMake *build type*
    (usually `Debug` or `Release`) and then, where `<LLVM>` is the path
    to the root directory of your LLVM installation,
 
@@ -73,10 +76,38 @@ file for LLVM.
 3. **Test** (requires `-DBUILD_TESTING=1` in step 1):
 
    ```
-   ctest --test-dir <build-directory>
+   ctest --parallel --test-dir <build-directory>
    ```
 
-### Building with Swift Package Manager
+## Building with CMake and Xcode
+
+You will need CMake 3.3.0-rc1 or newer.
+
+1. **Generate Xcode project**: choose a *build-directory* and then,
+   where `<LLVM>` is the path to the root directory of your LLVM
+   installation,
+
+    ```
+    cmake -D LLVM_DIR=<LLVM>/lib/cmake/llvm \
+      -G Xcode -S . -B <build-directory>
+    ```
+
+    If you want to run tests, add `-DBUILD_TESTING=1`.
+
+2. **Profit**: open the `.xcodeproj` file in the *build-directory* and
+   use Xcode's UI to build and test.
+
+## Building with Swift Package Manager
+
+**Windows Users:** Swift Package Manager is poorly supported on
+Windows and we've been seeing a number of tests act flaky on Windows
+only when run under Swift Package Manager.  We strongly recommend
+[using CMake](#building-with-cmake-and-ninja) instead.
+
+**Everyone:** Swift Package Manager is poorly supported in general and
+we're considering dropping our use of it, so think about [using CMake
+with ninja](#building-with-cmake-and-ninja) or [with
+Xcode](#building-with-cmake-and-xcode) instead.
 
 First, you need to create a `pkgconfig` file specific to your
 installation and make it visible to your build tools.  We use a `bash`
@@ -119,20 +150,18 @@ swift build -c release
 That command will create an executable named `hc` in `.build/release`.
 That's Hylo's compiler!
 
+To test your compiler,
+
+```bash
+swift test -c release --parallel
+```
+
 #### Notes to macOS users:
 
 1. Add `platforms: [.macOS("xxx")]` to `Package.swift` where `xxx` is
    your macOS version to address the warning complaining that an
    "object file was built for newer macOS version than being linked".
 2. You may need to add the path to `zstd` library in `llvm.pc`.
-
-#### Running the tests
-
-To test your compiler,
-
-```bash
-swift test -c release --parallel
-```
 
 ### Building a Hylo Devcontainer with VSCode
 
@@ -179,6 +208,12 @@ A more detailed description of the current implementation status is available on
 
 ## Related video and audio
 
+### Scientific Talks
+
+| Venue | Year    | Speaker                       | Title                                                                    |
+| :---: | :-----: | :---------------------------: | :------------------------------------------------------------------------|
+| IWACO | 2023-05 | Dimi Racordon                 | [Borrow checking Hylo](https://youtu.be/oFupPFniD9s) |
+
 ### Conference Talks
 
 | Conference |  Year   |            Speaker            |                                                           Title                                                           |
@@ -203,7 +238,12 @@ A more detailed description of the current implementation status is available on
 We welcome contributions to Hylo.
 Please read through [CONTRIBUTING.md](CONTRIBUTING.md) for details on how to get started.
 
-You can also get in touch with the community by joining our [Slack](https://join.slack.com/t/val-qs97696/shared_invite/zt-1z3dsblrq-y4qXfEE6wr6uMEJSN9uFyg) or one of our [Zoom Meetings](https://unige.zoom.us/j/63321463694?pwd=L0VuY3QwUEx5K3BaRWIyMjArdkhEQT09) (ID: 633 2146 3694, Passcode: 409180) on Tuesdays and Thursdays, 12:30-1:00 Pacific time.
+You can also get in touch with the community by joining our [Slack][join-slack] or one of our [Zoom Meetings][join-zoom]
+(ID: 633 2146 3694, Passcode: 409180) on Tuesdays and Thursdays, 13:00-13:30 Pacific time or 22:00-22:30 Central
+European time.
+
+[join-slack]: https://join.slack.com/t/val-qs97696/shared_invite/zt-1z3dsblrq-y4qXfEE6wr6uMEJSN9uFyg
+[join-zoom]: https://unige.zoom.us/j/63321463694?pwd=L0VuY3QwUEx5K3BaRWIyMjArdkhEQT09
 
 ## License
 

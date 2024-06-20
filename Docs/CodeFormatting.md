@@ -26,11 +26,11 @@ Tools/run-swift-format.sh fix
 Please note that `swift-format` might not be able to fix all issues raised by the `lint` command.
 Hence, you may have to manually format your code to comply, even after using the `fix` command.
 
-### Configuring your IDE with `swift-format``
+### Configuring your IDE with `swift-format`
 
-#### VisualStudio Code
+#### Visual Studio Code
 
-The simplest way to configure `swift-format` with VSCode is to install the [`apple-swift-format`](https://marketplace.visualstudio.com/items?itemName=vknabel.vscode-apple-swift-format) extension.
+The simplest way to configure `swift-format` with VS Code is to install the [`apple-swift-format`](https://marketplace.visualstudio.com/items?itemName=vknabel.vscode-apple-swift-format) extension.
 Once it's installed and configured, you can run the `Format Document` or `Format Selection` commands to format your code.
 The default keyboard shortcut for running the formatter on the current document is `Alt+Shift+F`.
 
