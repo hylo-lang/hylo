@@ -2112,6 +2112,11 @@ struct Emitter {
     case .addressOf:
       let source = emitLValue(arguments[0].value)
       return insert(module.makeAddressToPointer(source, at: site))!
+
+    case .markUninitialized:
+      let source = emitLValue(arguments[0].value)
+      insert(module.makeMarkState(source, initialized: false, at: site))
+      return .void
     }
   }
 
