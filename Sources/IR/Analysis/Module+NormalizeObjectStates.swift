@@ -453,10 +453,17 @@ extension Module {
     func interpret(return i: InstructionID, in context: inout Context) -> PC? {
       // Make sure that all non-sink parameters are initialized on exit.
       let entry = entry(of: f)!
-      for (i, p) in self[f].inputs.enumerated() where p.type.access != .sink {
-        ensureInitializedOnExit(
-          .parameter(entry, i), passed: p.type.access, in: &context,
-          reportingDiagnosticsAt: diagnosticSite(for: p, in: f))
+      for (k, p) in self[f].inputs.enumerated() {
+        let source = Operand.parameter(entry, k)
+        if p.type.access == .sink {
+          ensureUninitializedOnExit(
+            source, in: &context, insertingDeinitializationBefore: i,
+            reportingDiagnosticsAt: self[i].site)
+        } else {
+          ensureInitializedOnExit(
+            source, passed: p.type.access, in: &context,
+            reportingDiagnosticsAt: diagnosticSite(for: p, in: f))
+        }
       }
 
       // Make sure that the return value is initialized on exit.
@@ -579,6 +586,28 @@ extension Module {
             .illegalParameterEscape(consumedBy: o.value.consumers, in: self, at: site))
         }
       }
+    }
+
+    /// Checks that entry parameter `p` is deinitialized in `context`, inserting definitialization
+    /// before instruction `i` if it isn't, reporting diagnostics at `site`.
+    func ensureUninitializedOnExit(
+      _ p: Operand, in context: inout Context,
+      insertingDeinitializationBefore i: InstructionID,
+      reportingDiagnosticsAt site: SourceRange
+    ) {
+      context.withObject(at: .root(p), { (o) in
+        let s = o.value.initializedSubfields
+        if s == [[]] && isDeinit(i.function) {
+          // We cannot call `deinit` in `deinit` itself.
+          insertDeinitParts(
+            p, before: i, anchoringInstructionsTo: site, reportingDiagnosticsTo: &diagnostics)
+        } else {
+          insertDeinit(
+            p, at: s, anchoredTo: site, before: i, reportingDiagnosticsTo: &diagnostics)
+        }
+
+        o.value = .full(.uninitialized)
+      })
     }
 
     /// Checks that the return value is initialized in `context`.
@@ -729,6 +758,19 @@ extension Module {
         let s = e.emitSubfieldView(root, at: path, at: site)
         e.emitDeinit(s, at: site)
       }
+    }
+  }
+
+  /// Inserts ID for the deinitialization of `whole`'s parts before instruction `i`, anchoring
+  /// new instructions to `site`.
+  private mutating func insertDeinitParts(
+    _ whole: Operand, before i: InstructionID,
+    anchoringInstructionsTo site: SourceRange,
+    reportingDiagnosticsTo log: inout DiagnosticSet
+  ) {
+    Emitter.withInstance(insertingIn: &self, reportingDiagnosticsTo: &log) { (e) in
+      e.insertionPoint = .before(i)
+      e.emitDeinitParts(of: whole, at: site)
     }
   }
 

@@ -179,6 +179,20 @@ public struct Module {
     return d.dominates(lhs.block, rhs.block)
   }
 
+  /// Returns `true` if `i` is a deinitializer.
+  public func isDeinit(_ i: Function.ID) -> Bool {
+    switch i.value {
+    case .lowered(let d):
+      return FunctionDecl.ID(d).map({ (n) in program.ast[n].isDeinit }) ?? false
+    case .existentialized(let j):
+      return isDeinit(j)
+    case .monomorphized(let j, arguments: _):
+      return isDeinit(j)
+    case .synthesized(let d):
+      return d.kind == .deinitialize
+    }
+  }
+
   /// Returns whether the IR in `self` is well-formed.
   ///
   /// Use this method as a sanity check to verify the module's invariants.
