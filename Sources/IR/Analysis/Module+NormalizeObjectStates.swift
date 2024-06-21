@@ -129,7 +129,8 @@ extension Module {
         if p.isEmpty { break }
 
         insertDeinit(
-          s.source, at: p, anchoredTo: s.site, before: i, reportingDiagnosticsTo: &diagnostics)
+          s.source, at: p, before: i,
+          anchoringInstructionsTo: s.site, reportingDiagnosticsTo: &diagnostics)
         o.value = .full(.uninitialized)
         context.forEachObject(at: s.source, { $0 = o })
 
@@ -251,8 +252,8 @@ extension Module {
 
       case .sink:
         insertDeinit(
-          s.start, at: projection.value.initializedSubfields, anchoredTo: s.site, before: i,
-          reportingDiagnosticsTo: &diagnostics)
+          s.start, at: projection.value.initializedSubfields, before: i,
+          anchoringInstructionsTo: s.site, reportingDiagnosticsTo: &diagnostics)
         context.withObject(at: l, { $0.value = .full(.uninitialized) })
 
       case .yielded:
@@ -305,8 +306,8 @@ extension Module {
       // erasing the deallocated memory from the context.
       let p = context.withObject(at: l, \.value.initializedSubfields)
       insertDeinit(
-        s.location, at: p, anchoredTo: s.site, before: i,
-        reportingDiagnosticsTo: &diagnostics)
+        s.location, at: p, before: i,
+        anchoringInstructionsTo: s.site, reportingDiagnosticsTo: &diagnostics)
       context.memory[l] = nil
       return successor(of: i)
     }
@@ -600,10 +601,12 @@ extension Module {
         if s == [[]] && isDeinit(i.function) {
           // We cannot call `deinit` in `deinit` itself.
           insertDeinitParts(
-            p, before: i, anchoringInstructionsTo: site, reportingDiagnosticsTo: &diagnostics)
+            of: p, before: i,
+            anchoringInstructionsTo: site, reportingDiagnosticsTo: &diagnostics)
         } else {
           insertDeinit(
-            p, at: s, anchoredTo: site, before: i, reportingDiagnosticsTo: &diagnostics)
+            p, at: s, before: i,
+            anchoringInstructionsTo: site, reportingDiagnosticsTo: &diagnostics)
         }
 
         o.value = .full(.uninitialized)
@@ -666,8 +669,8 @@ extension Module {
 
       case .sink:
         insertDeinit(
-          start, at: projection.value.initializedSubfields, anchoredTo: self[exit].site,
-          before: exit, reportingDiagnosticsTo: &diagnostics)
+          start, at: projection.value.initializedSubfields, before: exit,
+          anchoringInstructionsTo: self[exit].site, reportingDiagnosticsTo: &diagnostics)
         context.withObject(at: l, { $0.value = .full(.uninitialized) })
 
       case .yielded:
@@ -749,8 +752,9 @@ extension Module {
   /// Inserts IR for the deinitialization of `root` at given `initializedSubfields` before
   /// instruction `i`, anchoring instructions to `site`.
   private mutating func insertDeinit(
-    _ root: Operand, at initializedSubfields: [RecordPath], anchoredTo site: SourceRange,
-    before i: InstructionID, reportingDiagnosticsTo log: inout DiagnosticSet
+    _ root: Operand, at initializedSubfields: [RecordPath], before i: InstructionID,
+    anchoringInstructionsTo site: SourceRange,
+    reportingDiagnosticsTo log: inout DiagnosticSet
   ) {
     for path in initializedSubfields {
       Emitter.withInstance(insertingIn: &self, reportingDiagnosticsTo: &log) { (e) in
@@ -764,7 +768,7 @@ extension Module {
   /// Inserts ID for the deinitialization of `whole`'s parts before instruction `i`, anchoring
   /// new instructions to `site`.
   private mutating func insertDeinitParts(
-    _ whole: Operand, before i: InstructionID,
+    of whole: Operand, before i: InstructionID,
     anchoringInstructionsTo site: SourceRange,
     reportingDiagnosticsTo log: inout DiagnosticSet
   ) {
