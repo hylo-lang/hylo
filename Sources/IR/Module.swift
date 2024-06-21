@@ -179,6 +179,20 @@ public struct Module {
     return d.dominates(lhs.block, rhs.block)
   }
 
+  /// Returns `true` if `i` is a deinitializer.
+  public func isDeinit(_ i: Function.ID) -> Bool {
+    switch i.value {
+    case .lowered(let d):
+      return FunctionDecl.ID(d).map({ (n) in program.ast[n].isDeinit }) ?? false
+    case .existentialized(let j):
+      return isDeinit(j)
+    case .monomorphized(let j, arguments: _):
+      return isDeinit(j)
+    case .synthesized(let d):
+      return d.kind == .deinitialize
+    }
+  }
+
   /// Returns whether the IR in `self` is well-formed.
   ///
   /// Use this method as a sanity check to verify the module's invariants.
@@ -507,12 +521,19 @@ public struct Module {
 
   /// Returns the lowered declarations of `d`'s parameters.
   private func loweredParameters(of d: FunctionDecl.ID) -> [Parameter] {
-    let captures = ArrowType(program[d].type)!.captures.lazy.map { (e) in
+    let declType = ArrowType(program[d].type)!
+    let captures = declType.captures.lazy.map { (e) in
       program.canonical(e.type, in: program[d].scope)
     }
+
     var result: [Parameter] = zip(program.captures(of: d), captures).map({ (c, e) in
-      .init(c, capturedAs: e)
+      if let t = RemoteType(e) {
+        return Parameter(decl: c, type: ParameterType(t))
+      } else {
+        return Parameter(decl: c, type: ParameterType(declType.receiverEffect, e))
+      }
     })
+
     result.append(contentsOf: program.ast[d].parameters.map(pairedWithLoweredType(parameter:)))
     return result
   }
@@ -537,11 +558,17 @@ public struct Module {
 
   /// Returns the lowered declarations of `d`'s parameters.
   private func loweredParameters(of d: SubscriptImpl.ID) -> [Parameter] {
-    let captures = SubscriptImplType(program[d].type)!.captures.lazy.map { (e) in
+    let declType = SubscriptImplType(program[d].type)!
+    let captures = declType.captures.lazy.map { (e) in
       program.canonical(e.type, in: program[d].scope)
     }
+
     var result: [Parameter] = zip(program.captures(of: d), captures).map({ (c, e) in
-      .init(c, capturedAs: e)
+      if let t = RemoteType(e) {
+        return Parameter(decl: c, type: ParameterType(t))
+      } else {
+        return Parameter(decl: c, type: ParameterType(declType.receiverEffect, e))
+      }
     })
 
     let bundle = SubscriptDecl.ID(program[d].scope)!

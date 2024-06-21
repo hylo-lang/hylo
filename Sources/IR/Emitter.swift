@@ -2112,6 +2112,11 @@ struct Emitter {
     case .addressOf:
       let source = emitLValue(arguments[0].value)
       return insert(module.makeAddressToPointer(source, at: site))!
+
+    case .markUninitialized:
+      let source = emitLValue(arguments[0].value)
+      insert(module.makeMarkState(source, initialized: false, at: site))
+      return .void
     }
   }
 
@@ -2994,7 +2999,7 @@ struct Emitter {
 
   /// If `storage` is deinitializable in `self.insertionScope`, inserts the IR for deinitializing
   /// it; reports a diagnostic for each part that isn't deinitializable otherwise.
-  private mutating func emitDeinitParts(of storage: Operand, at site: SourceRange) {
+  mutating func emitDeinitParts(of storage: Operand, at site: SourceRange) {
     let t = module.type(of: storage).ast
 
     if program.isTriviallyDeinitializable(t, in: insertionScope!) {

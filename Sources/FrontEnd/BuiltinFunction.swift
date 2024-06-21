@@ -14,6 +14,10 @@ public struct BuiltinFunction: Hashable {
       let p = ParameterType(.let, ^freshVariable())
       return .init(inputs: [.init(label: "of", type: ^p)], output: .builtin(.ptr))
 
+    case .markUninitialized:
+      let p = ParameterType(.let, ^freshVariable())
+      return .init(inputs: [.init(label: nil, type: ^p)], output: .void)
+
     case .llvm(let s):
       return s.type
     }
@@ -37,6 +41,11 @@ extension BuiltinFunction {
     /// measures may be needed to keep the argument alive during the pointer's use.
     case addressOf
 
+    /// `Builtin.mark_uninitialized<T>(_ v: sink T) -> Void`
+    ///
+    /// Marks `v` as being uninitialized.
+    case markUninitialized
+
   }
 
 }
@@ -49,6 +58,8 @@ extension BuiltinFunction.Name: CustomStringConvertible {
       return n.description
     case .addressOf:
       return "address(of:)"
+    case .markUninitialized:
+      return "mark_uninitialized(_:)"
     }
   }
 
@@ -63,6 +74,8 @@ extension BuiltinFunction {
     switch n {
     case "address":
       self.init(name: .addressOf)
+    case "mark_uninitialized":
+      self.init(name: .markUninitialized)
     default:
       self.init(native: n)
     }
