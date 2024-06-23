@@ -61,9 +61,16 @@ public struct SourceFile {
   }
 
   /// Creates a synthetic source file with the specified contents and base name.
+  ///
+  /// If `baseName` is not provided, a unique name will be generated.
+  ///
+  /// - Precondition: No synthetic source file named `baseName` has been created yet.
   public init(synthesizedText text: String, named baseName: String = UUID().uuidString) {
     let storage = Storage(URL(string: "synthesized://\(baseName)")!) { text[...] }
     self.storage = storage
+
+    // The assertion is not evaluated in release builds.
+    assert(text == self.storage.text, "duplicate synthesized filename")
   }
 
   /// The name of the source file, sans path qualification or extension.
