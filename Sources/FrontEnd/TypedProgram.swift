@@ -192,6 +192,26 @@ public struct TypedProgram {
     }
   }
 
+  /// Returns the declarations that introduce an entity with given `stem` exposed to `scopeOfUse`
+  /// without qualification.
+  ///
+  /// - Requires: The imports of the module containing `scopeOfUse` have been configured.
+  public func lookup(
+    unqualified stem: String, in scopeOfUse: AnyScopeID
+  ) -> Set<AnyDeclID> {
+    var checker = TypeChecker(asContextFor: self)
+    return checker.lookup(unqualified: stem, in: scopeOfUse)
+  }
+
+  /// Returns the declarations that introduce a name with given `stem` as member of `nominalScope`
+  /// and are exposed to `scopeOfUse`.
+  public func lookup(
+    _ stem: String, memberOf nominalScope: AnyType, exposedTo scopeOfUse: AnyScopeID
+  ) -> Set<AnyDeclID> {
+    var checker = TypeChecker(asContextFor: self)
+    return checker.lookup(stem, memberOf: nominalScope, exposedTo: scopeOfUse)
+  }
+
   /// Returns `true` iff deinitializing an instance of `t` in `scopeOfUse` is a no-op.
   ///
   /// A type is "trivially deinitializable" if deinitializing its instances doesn't have runtime

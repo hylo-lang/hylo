@@ -3169,7 +3169,7 @@ struct TypeChecker {
   /// without qualification.
   ///
   /// - Requires: The imports of the module containing `scopeOfUse` have been configured.
-  private mutating func lookup(
+  mutating func lookup(
     unqualified stem: String, in scopeOfUse: AnyScopeID
   ) -> Set<AnyDeclID> {
     var matches = Set<AnyDeclID>()
@@ -3289,7 +3289,7 @@ struct TypeChecker {
 
   /// Returns the declarations that introduce a name with given `stem` as member of `nominalScope`
   /// and are exposed to `scopeOfUse`.
-  private mutating func lookup(
+  mutating func lookup(
     _ stem: String, memberOf nominalScope: AnyType, exposedTo scopeOfUse: AnyScopeID
   ) -> Set<AnyDeclID> {
     switch nominalScope.base {
