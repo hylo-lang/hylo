@@ -3,6 +3,23 @@ import XCTest
 
 final class DirectedGraphTests: XCTestCase {
 
+  func testInsertVertex() {
+    var g = DirectedGraph<Int, Int>()
+    XCTAssert(g.insertVertex(0))
+    XCTAssert(g.insertVertex(1))
+    XCTAssertFalse(g.insertVertex(0))
+  }
+
+  func testVertices() {
+    var g = DirectedGraph<Int, Int>()
+    XCTAssert(g.vertices.isEmpty)
+
+    g.insertVertex(0)
+    XCTAssertEqual(Array(g.vertices), [0])
+    g.insertEdge(from: 0, to: 1, labeledBy: 2)
+    XCTAssertEqual(Array(g.vertices).sorted(), [0, 1])
+  }
+
   func testInsertEdge() {
     var g = DirectedGraph<Int, Int>()
 
@@ -103,12 +120,83 @@ final class DirectedGraphTests: XCTestCase {
     XCTAssertFalse(g.isReachable(2, from: 1))
   }
 
+  func testEquatable() {
+    var g1 = DirectedGraph<Int, Bool>()
+    g1.insertEdge(from: 0, to: 1, labeledBy: true)
+    g1.insertEdge(from: 1, to: 0, labeledBy: false)
+
+    var g2 = g1
+    XCTAssertEqual(g1, g2)
+    g2.removeEdge(from: 0, to: 1)
+    XCTAssertNotEqual(g1, g2)
+    g2.insertEdge(from: 0, to: 1, labeledBy: true)
+    XCTAssertEqual(g1, g2)
+  }
+
+  func testHashable() {
+    var g1 = DirectedGraph<Int, Bool>()
+    g1.insertEdge(from: 0, to: 1, labeledBy: true)
+    g1.insertEdge(from: 1, to: 0, labeledBy: false)
+
+    var h1 = Hasher()
+    var h2 = Hasher()
+    g1.hash(into: &h1)
+    g1.hash(into: &h2)
+    XCTAssertEqual(h1.finalize(), h2.finalize())
+
+    var g2 = g1
+    g2.removeEdge(from: 0, to: 1)
+
+    h1 = Hasher()
+    h2 = Hasher()
+    g1.hash(into: &h1)
+    g2.hash(into: &h2)
+    XCTAssertNotEqual(h1.finalize(), h2.finalize())
+
+    g2.insertEdge(from: 0, to: 1, labeledBy: true)
+    h1 = Hasher()
+    h2 = Hasher()
+    g1.hash(into: &h1)
+    g2.hash(into: &h2)
+    XCTAssertEqual(h1.finalize(), h2.finalize())
+  }
+
+  func testSCC() {
+    var g = DirectedGraph<Int, NoLabel>()
+    g.insertEdge(from: 1, to: 0)
+    g.insertEdge(from: 0, to: 2)
+    g.insertEdge(from: 2, to: 1)
+    g.insertEdge(from: 0, to: 3)
+    g.insertEdge(from: 3, to: 4)
+
+    var s = StronglyConnectedComponents<Int>()
+
+    let a0 = s.component(containing: 0, in: g)
+    XCTAssertEqual(Set(s.vertices(in: a0)), [0, 1, 2])
+    let a1 = s.component(containing: 1, in: g)
+    XCTAssertEqual(Set(s.vertices(in: a1)), [0, 1, 2])
+    let a2 = s.component(containing: 2, in: g)
+    XCTAssertEqual(Set(s.vertices(in: a2)), [0, 1, 2])
+    let a3 = s.component(containing: 3, in: g)
+    XCTAssertEqual(Set(s.vertices(in: a3)), [3])
+    let a4 = s.component(containing: 4, in: g)
+    XCTAssertEqual(Set(s.vertices(in: a4)), [4])
+  }
+
 }
 
 extension DirectedGraph<Int, String>.Edge {
 
   fileprivate static func == (_ l: Self, r: (Int, String, Int)) -> Bool {
     (l.source == r.0) && (l.label == r.1) && (l.target == r.2)
+  }
+
+}
+
+extension StronglyConnectedComponents {
+
+  mutating func component<E>(containing v: Vertex, in g: DirectedGraph<Vertex, E>) -> Int {
+    component(containing: v, enumeratingSuccessorsWith: { (u) in g[from: u].map(\.key) })
   }
 
 }
