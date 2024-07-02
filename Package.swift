@@ -135,7 +135,7 @@ let package = Package(
       name: "StandardLibrary",
       dependencies: ["FrontEnd", "Utils"],
       path: "StandardLibrary",
-      exclude: ["Sources"],
+      resources: [.copy("Sources")],
       swiftSettings: allTargetsSwiftSettings),
 
     .plugin(
