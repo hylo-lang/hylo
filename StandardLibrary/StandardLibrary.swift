@@ -2,17 +2,23 @@ import Foundation
 import FrontEnd
 import Utils
 
-// This path points into the source tree rather than to some copy so that when diagnostics are
-// issued for the standard library, they point to the original source files and edits to those
-// source files actually fix the problems (see https://github.com/hylo-lang/hylo/issues/932).  If we
-// ever change that, some other mechanism is needed to ensure that diagnostics refer to the original
-// source files.
-//
+
 /// The parent directory of the standard library sources directory.
-private let libraryRoot = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+private let useBuiltinStandardLibrary = ProcessInfo.processInfo.environment["HYLO_USE_BUILTIN_STDLIB"] == "true"
+
+private let libraryRoot = if useBuiltinStandardLibrary {
+  // This path points into the source tree rather than to some copy so that when diagnostics are
+  // issued for the standard library, they point to the original source files and edits to those
+  // source files actually fix the problems (see https://github.com/hylo-lang/hylo/issues/932).  If we
+  // ever change that, some other mechanism is needed to ensure that diagnostics refer to the original
+  // source files.
+  URL(fileURLWithPath: #filePath).appendingPathComponent("Sources")
+} else {
+  Bundle.module.url(forResource: "Sources", withExtension: nil)!
+}
 
 /// The root of a directory hierarchy containing all the standard library sources.
-private let hostedLibrarySourceRoot = libraryRoot.appendingPathComponent("Sources")
+private let hostedLibrarySourceRoot = libraryRoot
 
 /// The root of a directory hierarchy containing the sources for the standard library's freestanding
 /// core.
