@@ -3,7 +3,7 @@ import FrontEnd
 import Utils
 
 private let standardLibrarySourceFolder = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Sources")
-#if canImport(SPMUtility) // Check if SPM is being used
+#if SWIFT_PACKAGE // Check if SPM is being used
   /// The parent directory of the standard library sources directory.
   private let useBuiltinStandardLibrary = ProcessInfo.processInfo.environment["HYLO_USE_BUILTIN_STDLIB"] == "true"
 
