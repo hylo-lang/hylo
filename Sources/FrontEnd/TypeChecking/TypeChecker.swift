@@ -1997,6 +1997,9 @@ struct TypeChecker {
     partiallyFormedEnvironment.registerConstraint(
       .init(.conformance(^s, t), at: program[t.decl].identifier.site))
     insertRequirement(
+      RequirementRule([.trait(t.decl), .trait(t.decl)], [.trait(t.decl)]),
+      in: &partiallyFormedEnvironment)
+    insertRequirement(
       RequirementRule([.parameterType(s.decl), .trait(t.decl)], [.parameterType(s.decl)]),
       in: &partiallyFormedEnvironment)
 
