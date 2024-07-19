@@ -230,17 +230,36 @@ struct RewritingSystem<Term: RewritingTerm> {
     }
   }
 
-  /// Removes the rules in `self` whose left hand side can already be reduced by another rule.
+  /// Removes the rules in `self` whose left hand side can be reduced by a simpler rule.
   private mutating func leftSimplify() {
     for i in 0 ..< rules.count where !rules[i].isSimplified {
-      for j in rules[i].lhs.indices {
-        if let k = termToRule[rules[i].lhs[j...]], k != i {
-          rules[i].raiseFlags(.isLeftSimplified)
-          termToRule[rules[i].lhs] = nil
-          break
-        }
+      for p in rules[i].lhs.indices {
+        if simplify(i, lookingForTermsInSuffixFrom: p) { break }
       }
     }
+  }
+
+  /// Removes `i` from `self` if the suffix of its left-hand side starting from `p` contains a
+  /// subterm that can be reduced by another rule.
+  private mutating func simplify(_ i: RuleID, lookingForTermsInSuffixFrom p: Term.Index) -> Bool {
+    let w = rules[i].lhs
+    var n = termToRule[prefix: []]!
+
+    for q in w[p...].indices {
+      if let m = n[prefix: w[q ..< w.index(after: q)]] {
+        if let j = m[[]], i != j {
+          rules[i].raiseFlags(.isLeftSimplified)
+          termToRule[rules[i].lhs] = nil
+          return true
+        } else {
+          n = m
+        }
+      } else {
+        return false
+      }
+    }
+
+    return false
   }
 
   /// The rewritings of a term by two different rules or the same rule at two different positions.

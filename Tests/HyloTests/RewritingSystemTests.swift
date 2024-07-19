@@ -57,10 +57,12 @@ final class RewritingSystemTests: XCTestCase {
 
   func testLeftSimplification() {
     var s = RewritingSystem<Term>()
-    let (_, r) = s.insert(.init("abcabc", "abc"))
-    s.insert(.init("abc", "a"))
+    let (_, r1) = s.insert(.init("abcabc", "abc"))
+    s.insert(.init("c", "b"))
+    let (_, r2) = s.insert(.init("abc", "a"))
     XCTAssert(s.complete(orderingTermsWith: StrictOrdering.init))
-    XCTAssert(s.rules[r].flags.contains(.isLeftSimplified))
+    XCTAssert(s.rules[r1].flags.contains(.isLeftSimplified))
+    XCTAssert(s.rules[r2].flags.contains(.isLeftSimplified))
   }
 
 }
