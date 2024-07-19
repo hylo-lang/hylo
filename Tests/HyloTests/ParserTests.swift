@@ -1452,9 +1452,9 @@ final class ParserTests: XCTestCase {
   //   }
   // }
 
-  func testTraitComposition() throws {
+  func testBoundComposition() throws {
     let input: SourceFile = "T & U & V"
-    let list = try XCTUnwrap(try apply(Parser.traitComposition, on: input).element)
+    let list = try XCTUnwrap(try apply(Parser.boundComposition, on: input).element)
     XCTAssertEqual(list.count, 3)
   }
 

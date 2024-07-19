@@ -1331,7 +1331,7 @@ public enum Parser {
 
   static let genericParameter =
     (maybe(typeAttribute).andCollapsingSoftFailures(take(.name))
-      .and(maybe(take(.colon).and(traitComposition)))
+      .and(maybe(take(.colon).and(boundComposition)))
       .and(maybe(take(.assign).and(expr)))
       .map({ (state, tree) -> GenericParameterDecl.ID in
         state.insert(
@@ -1762,7 +1762,7 @@ public enum Parser {
     guard let introducer = state.take(.any) else { return nil }
 
     // Parse the parts of the expression.
-    let traits = try state.expect("trait composition", using: traitComposition)
+    let traits = try state.expect("trait composition", using: boundComposition)
     let clause = try whereClause.parse(&state)
 
     return state.insert(
@@ -3289,7 +3289,7 @@ public enum Parser {
 
       // bound-constraint
       if state.take(.colon) != nil {
-        let rhs = try state.expect("type expression", using: boundList)
+        let rhs = try state.expect("type expression", using: boundComposition)
         return SourceRepresentable(
           value: .bound(l: lhs, r: rhs),
           range: state.ast[lhs].site.extended(upTo: state.currentIndex))
@@ -3306,13 +3306,9 @@ public enum Parser {
           range: tree.0.site.extended(upTo: state.currentIndex))
       }))
 
-  static let traitComposition =
+  static let boundComposition =
     (nameTypeExpr.and(zeroOrMany(take(.ampersand).and(nameTypeExpr).second))
-      .map({ (state, tree) -> TraitComposition in [tree.0] + tree.1 }))
-
-  private static let boundList =
-    (expr.and(zeroOrMany(take(.ampersand).and(expr).second))
-      .map({ (state, tree) -> [AnyExprID] in [tree.0] + tree.1 }))
+      .map({ (state, tree) -> [NameExpr.ID] in [tree.0] + tree.1 }))
 
   // MARK: Attributes
 

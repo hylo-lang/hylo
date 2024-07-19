@@ -13,7 +13,7 @@ public struct WhereClause: Codable {
     case equality(l: NameExpr.ID, r: AnyExprID)
 
     /// A conformance or instance constraint on a skolem.
-    case bound(l: NameExpr.ID, r: [AnyExprID])
+    case bound(l: NameExpr.ID, r: [NameExpr.ID])
 
     /// A constraint on a value parameter.
     case value(AnyExprID)

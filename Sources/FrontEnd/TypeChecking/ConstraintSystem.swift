@@ -942,8 +942,7 @@ struct ConstraintSystem {
       return unify(checker.canonical(t, in: scope), checker.canonical(u, in: scope))
 
     default:
-      // TODO: Use semantic equality
-      return t == u
+      return checker.areEquivalent(t, u, in: scope)
     }
   }
 
