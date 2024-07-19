@@ -43,7 +43,7 @@ struct RequirementPrinter {
         result.append("[concrete: \(t)]")
       }
     }
-    return result.joined(separator: ".")
+    return result.isEmpty ? "ε" : result.joined(separator: ".")
   }
 
 }
