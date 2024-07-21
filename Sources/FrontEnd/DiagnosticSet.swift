@@ -33,6 +33,11 @@ public struct DiagnosticSet: Error {
     containsError = containsError || other.containsError
   }
 
+  /// Removes from `self` the elements that are not also contained in `other`.
+  public mutating func formIntersection(_ other: Self) {
+    self = .init(elements.filter(other.elements.contains(_:)))
+  }
+
   /// Throws `self` if any errors were reported.
   public func throwOnError() throws {
     if containsError { throw self }
