@@ -83,6 +83,7 @@ struct Solution {
   mutating func formIntersection(_ other: Self) {
     typeAssumptions.formIntersection(other.typeAssumptions)
     bindingAssumptions.formIntersection(other.bindingAssumptions)
+    diagnostics.formIntersection(other.diagnostics)
     penalties = max(penalties, other.penalties)
   }
 
