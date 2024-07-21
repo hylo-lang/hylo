@@ -61,7 +61,8 @@ public struct SourceFile {
   }
 
   /// Creates a synthetic source file with the specified contents and base name.
-  public init(synthesizedText text: String, named baseName: String = UUID().uuidString) {
+  public init(synthesizedText text: String) {
+    let baseName = UUID().uuidString
     let storage = Storage(URL(string: "synthesized://\(baseName)")!) { text[...] }
     self.storage = storage
   }

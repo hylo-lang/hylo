@@ -65,7 +65,7 @@ final class ManglingTests: XCTestCase {
       }
       """
 
-    let input = SourceFile(synthesizedText: text, named: "main")
+    let input = SourceFile(synthesizedText: text)
     let (p, m) = try checkNoDiagnostic { (d) in
       var ast = try Utils.Host.hostedLibraryAST.get()
       let main = try ast.makeModule("Main", sourceCode: [input], diagnostics: &d)
