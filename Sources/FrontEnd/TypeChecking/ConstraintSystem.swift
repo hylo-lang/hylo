@@ -192,11 +192,17 @@ struct ConstraintSystem {
       penalties: penalties, diagnostics: d, stale: stale.map({ goals[$0] }))
   }
 
-  /// Creates an ambiguous solution.
+  /// Creates an ambiguous solution, reporting the ambiguity with `d`.
+  ///
+  /// The return value is the intersection of the choices and diagnostics that are identical in
+  /// each result along with an additional diagnostic describing the ambiguity.
+  ///
+  /// - Requires: `result` contains at least two elements.
   private func formAmbiguousSolution<T>(
     _ results: Explorations<T>, diagnosedBy d: Diagnostic
   ) -> Solution {
-    var s = results.elements.reduce(into: Solution(), { (s, r) in s.formIntersection(r.solution) })
+    let (first, others) = results.elements.headAndTail!
+    var s = others.reduce(into: first.solution, { (s, r) in s.formIntersection(r.solution) })
     s.incorporate(d)
     return s
   }
