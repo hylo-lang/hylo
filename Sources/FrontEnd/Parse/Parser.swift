@@ -19,17 +19,19 @@ import Utils
 /// A namespace for the routines of Hylo's parser.
 public enum Parser {
 
-  /// Adds a parse of `input` to `ast` and returns its identity, reporting errors and warnings to
-  /// `diagnostics`.
+  /// Parses the contents of `input` as a translation unit, registering the identities of newly
+  /// formed ASTs in space `k` and reporting errors to `diagnostics`.
   ///
   /// - Throws: Diagnostics if syntax errors were encountered.
   public static func parse(
     _ input: SourceFile,
+    inNodeSpace k: Int,
     in ast: inout AST,
     diagnostics: inout DiagnosticSet
   ) throws -> TranslationUnit.ID {
     // Temporarily stash the AST and diagnostics in the parser state, avoiding CoW costs
-    var state = ParserState(ast: ast, lexer: Lexer(tokenizing: input), diagnostics: diagnostics)
+    var state = ParserState(
+      ast: ast, space: k, lexer: Lexer(tokenizing: input), reportingDiagnosticsTo: diagnostics)
     defer { diagnostics = state.diagnostics }
     diagnostics = DiagnosticSet()
 
@@ -3734,20 +3736,19 @@ extension AST {
     builtinModuleAccess: Bool = false,
     diagnostics: inout DiagnosticSet
   ) throws -> ModuleDecl.ID where S.Element == SourceFile {
-    var translations: [TranslationUnit.ID] = []
-    for f in sourceCode {
-      do {
-        try translations.append(Parser.parse(f, in: &self, diagnostics: &diagnostics))
-      } catch _ as DiagnosticSet {
-        // Suppress the error until all files are parsed.
+    try loadModule { (me, k) in
+      // Suppress thrown diagnostics until all files are parsed.
+      let translations = sourceCode.compactMap { (f) in
+        try? Parser.parse(f, inNodeSpace: k, in: &me, diagnostics: &diagnostics)
       }
-    }
 
-    let m = insert(
-      ModuleDecl(name, sources: translations, builtinModuleAccess: builtinModuleAccess),
-      diagnostics: &diagnostics)
-    try diagnostics.throwOnError()
-    return m
+      let m = me.insert(
+        ModuleDecl(name, sources: translations, builtinModuleAccess: builtinModuleAccess),
+        inNodeSpace: k,
+        reportingDiagnosticsTo: &diagnostics)
+      try diagnostics.throwOnError()
+      return m
+    }
   }
 
 }

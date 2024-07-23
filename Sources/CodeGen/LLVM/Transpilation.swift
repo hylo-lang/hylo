@@ -302,7 +302,7 @@ extension SwiftyLLVM.Module {
 
       for (r, d) in c.implementations {
         let requirement: [SwiftyLLVM.IRValue] = [
-          word().constant(r.rawValue),
+          word().constant(r.rawValue.bits),
           transpiledRequirementImplementation(d, from: ir),
         ]
         implementations.append(SwiftyLLVM.StructConstant(aggregating: requirement, in: &self))

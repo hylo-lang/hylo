@@ -7,7 +7,7 @@ public struct AST {
   private struct Storage: Codable {
 
     /// The nodes in `self`.
-    public var nodes: [AnyNode] = []
+    public var nodes: [[AnyNode]] = []
 
     /// The indices of the modules in the AST.
     ///
@@ -43,13 +43,6 @@ public struct AST {
     _modify { yield &storage.coreTraits }
   }
 
-  /// The nodes in `self`.
-  private var nodes: [AnyNode] {
-    get { storage.nodes }
-    set { storage.nodes = newValue }
-    _modify { yield &storage.nodes }
-  }
-
   /// The indices of the modules.
   ///
   /// - Invariant: All referred modules have a different name.
@@ -77,50 +70,67 @@ public struct AST {
     self.storage = Storage(compilationConditions)
   }
 
-  /// Inserts `n` into `self`, updating `diagnostics` if `n` is ill-formed.
-  public mutating func insert<T: Node>(_ n: T, diagnostics: inout DiagnosticSet) -> T.ID {
-    n.validateForm(in: self, reportingDiagnosticsTo: &diagnostics)
+  /// Creates a new node space and returns its identifier.
+  public mutating func createNodeSpace() -> Int {
+    storage.nodes.append([])
+    return storage.nodes.count - 1
+  }
 
-    let i = T.ID(rawValue: nodes.count)
+  /// Loads a new module in `self`, calling `makeModule` to form its contents.
+  public mutating func loadModule(
+    make: (_ ast: inout Self, _ nodeSpace: Int) throws -> ModuleDecl.ID
+  ) rethrows -> ModuleDecl.ID {
+    let k = createNodeSpace()
+    return try make(&self, k)
+  }
+
+  /// Inserts `n` into `self`, registering its identity in space `k` and reporting well-formedness
+  /// issues to `log`.
+  public mutating func insert<T: Node>(
+    _ n: T, inNodeSpace k: Int, reportingDiagnosticsTo log: inout DiagnosticSet
+  ) -> T.ID {
+    n.validateForm(in: self, reportingDiagnosticsTo: &log)
+
+    let i = T.ID(rawValue: .init(base: k, offset: storage.nodes[k].count))
     if let n = n as? ModuleDecl {
       precondition(
         !modules.contains(where: { self[$0].baseName == n.baseName }), "duplicate module")
       modules.append(i as! ModuleDecl.ID)
     }
-    nodes.append(AnyNode(n))
+    storage.nodes[k].append(AnyNode(n))
     return i
   }
 
-  /// Inserts `n` into `self`.
+  /// Inserts `n` into `self`, registering its identity in space `k`.
   ///
   /// - Precondition: `n` is well formed.
-  public mutating func insert<T: Node>(synthesized n: T) -> T.ID {
+  public mutating func insert<T: Node>(synthesized n: T, inNodeSpace k: Int) -> T.ID {
     var d = DiagnosticSet()
-    let r = insert(n, diagnostics: &d)
+    let r = insert(n, inNodeSpace: k, reportingDiagnosticsTo: &d)
     precondition(d.elements.isEmpty, "ill-formed synthesized node \(n)\n\(d)")
     return r
   }
 
   // MARK: Node access
 
-  /// Accesses the node at `position`.
-  public subscript<T: ConcreteNodeID>(position: T) -> T.Subject {
-    nodes[position.rawValue].node as! T.Subject
+  /// Accesses the node identified by `i`.
+  public subscript<T: ConcreteNodeID>(i: T) -> T.Subject {
+    storage.nodes[i.rawValue.base][i.rawValue.offset].node as! T.Subject
   }
 
-  /// Accesses the node at `position`.
-  public subscript<T: ConcreteNodeID>(position: T?) -> T.Subject? {
-    position.map({ nodes[$0.rawValue].node as! T.Subject })
+  /// Accesses the node identified by `i`.
+  public subscript<T: ConcreteNodeID>(i: T?) -> T.Subject? {
+    i.map({ (j) in storage.nodes[j.rawValue.base][j.rawValue.offset].node as! T.Subject })
   }
 
-  /// Accesses the node at `position`.
-  public subscript<T: NodeIDProtocol>(position: T) -> Node {
-    nodes[position.rawValue].node
+  /// Accesses the node identified by `i`.
+  public subscript<T: NodeIDProtocol>(i: T) -> Node {
+    storage.nodes[i.rawValue.base][i.rawValue.offset].node
   }
 
-  /// Accesses the node at `position`.
-  public subscript<T: NodeIDProtocol>(position: T?) -> Node? {
-    position.map({ nodes[$0.rawValue].node })
+  /// Accesses the node identified by `i`.
+  public subscript<T: NodeIDProtocol>(i: T?) -> Node? {
+    i.map({ (j) in storage.nodes[j.rawValue.base][j.rawValue.offset].node })
   }
 
   /// A sequence of concrete nodes projected from an AST.

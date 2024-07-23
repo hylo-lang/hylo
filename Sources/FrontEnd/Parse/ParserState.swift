@@ -29,8 +29,11 @@ struct ParserState {
 
   }
 
-  /// The AST being parsed.
+  /// The AST being constructed by the parser.
   var ast: AST
+
+  /// The node space into which new node identities must be registered.
+  private let space: Int
 
   /// The lexer generating the tokens to parse.
   private(set) var lexer: Lexer
@@ -47,12 +50,14 @@ struct ParserState {
   /// A stack describing the parsing context.
   var contexts: [Context] = []
 
-  /// Creates a new context, using `lexer` to generate tokens.
-  init(ast: AST, lexer: Lexer, diagnostics: DiagnosticSet? = nil) {
+  /// Creates a new context for parsing parts of `ast`, registering the identities of newly
+  /// formed ASTs in space `k`, using `lexer` to generate tokens and reporting errors to `log`.
+  init(ast: AST, space: Int, lexer: Lexer, reportingDiagnosticsTo log: DiagnosticSet? = nil) {
     self.ast = ast
+    self.space = space
     self.lexer = lexer
     self.currentIndex = lexer.sourceCode.text.startIndex
-    self.diagnostics = diagnostics ?? DiagnosticSet()
+    self.diagnostics = log ?? DiagnosticSet()
   }
 
   /// Indicates whether the parser is at global scope.
@@ -314,14 +319,14 @@ struct ParserState {
 
   /// Inserts `n` into `self.ast`, accumulating any diagnostics in `self.diagnostics`.
   mutating func insert<T: Node>(_ n: T) -> T.ID {
-    ast.insert(n, diagnostics: &diagnostics)
+    ast.insert(n, inNodeSpace: space, reportingDiagnosticsTo: &diagnostics)
   }
 
   /// Inserts `n` into `self.ast`.
   ///
   /// - Precondition: `n` is well-formed.
   mutating func insert<T: Node>(synthesized n: T) -> T.ID {
-    ast.insert(synthesized: n)
+    ast.insert(synthesized: n, inNodeSpace: space)
   }
 }
 

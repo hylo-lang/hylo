@@ -8,12 +8,14 @@ final class ASTTests: XCTestCase {
 
   func testAppendModule() throws {
     var ast = AST()
-    let i = checkNoDiagnostic { (d) in
-      ast.insert(ModuleDecl("Hylo", sources: []), diagnostics: &d)
+    let i = ast.loadModule { (tree, k) in
+      tree.insert(synthesized: ModuleDecl("A", sources: []), inNodeSpace: k)
     }
     XCTAssert(ast.modules.contains(i))
 
-    let j = ast.insert(synthesized: ModuleDecl("Hylo1", sources: []))
+    let j = ast.loadModule { (tree, k) in
+      tree.insert(synthesized: ModuleDecl("B", sources: []), inNodeSpace: k)
+    }
     XCTAssert(ast.modules.contains(j))
   }
 

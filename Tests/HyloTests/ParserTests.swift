@@ -1924,8 +1924,7 @@ final class ParserTests: XCTestCase {
 
   func testTakeOperator() throws {
     let input: SourceFile = "+ & == | < <= > >="
-    var context = ParserState(
-      ast: AST(), lexer: Lexer(tokenizing: input))
+    var context = ParserState(ast: AST(), space: 0, lexer: Lexer(tokenizing: input))
     XCTAssertEqual(context.takeOperator()?.value, "+")
     XCTAssertEqual(context.takeOperator()?.value, "&")
     XCTAssertEqual(context.takeOperator()?.value, "==")
@@ -1979,13 +1978,14 @@ extension SourceFile {
     inContext context: ParserState.Context? = nil,
     with parser: (inout ParserState) throws -> Element
   ) rethrows -> (element: Element, ast: AST) {
-    var state = ParserState(ast: AST(), lexer: Lexer(tokenizing: self))
+    var tree = AST()
+    let k = tree.createNodeSpace()
+    var s = ParserState(ast: tree, space: k, lexer: Lexer(tokenizing: self))
     if let c = context {
-      state.contexts.append(c)
+      s.contexts.append(c)
     }
-
-    let element = try parser(&state)
-    return (element, state.ast)
+    let element = try parser(&s)
+    return (element, s.ast)
   }
 
   /// Parses `self` with `parser`, optionally setting `context` in the parser state.
