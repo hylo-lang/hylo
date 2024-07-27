@@ -23,8 +23,8 @@ struct GenerateHyloFileTests: ParsableCommand {
     transform: URL.init(fileURLWithPath:))
   var hyloSourceFiles: [URL]
 
-  /// Returns the Swift source of the test function for the Hylo file at `source`.
-  func swiftFunctionTesting(valAt source: URL) throws -> String {
+  /// Returns the Swift source of the test function for the Hylo program at `source`.
+  func swiftFunctionTesting(hyloProgramAt source: URL) throws -> String {
     let firstLine = try String(contentsOf: source).prefix { !$0.isNewline }
     let parsed = try firstLine.parsedAsFirstLineOfAnnotatedHyloFileTest()
     let testID = source.deletingPathExtension().lastPathComponent.asSwiftIdentifier
@@ -55,7 +55,7 @@ struct GenerateHyloFileTests: ParsableCommand {
 
     for f in hyloSourceFiles {
       do {
-        output += try swiftFunctionTesting(valAt: f)
+        output += try swiftFunctionTesting(hyloProgramAt: f)
       } catch let e as FirstLineError {
         try! FileHandle.standardError.write(
           contentsOf: Data("\(f.fileSystemPath):1: error: \(e.details)\n".utf8))
