@@ -189,7 +189,7 @@ struct Mangler {
   /// Writes the mangled representation of `d` to `output`.
   private mutating func write(anonymousScope d: AnyScopeID, to output: inout Output) {
     write(operator: .anonymousScope, to: &output)
-    write(integer: d.rawValue, to: &output)
+    write(integer: Int(d.rawValue.bits), to: &output)
   }
 
   /// Writes the mangled representation of `d` to `output`.
@@ -385,7 +385,7 @@ struct Mangler {
     case .autoclosure(let e):
       write(base64Didit: 5, to: &output)
       // To allow using multiple autoclosures in the same scope, also write the expression ID.
-      write(integer: e.rawValue, to: &output)
+      write(integer: Int(e.rawValue.bits), to: &output)
     }
   }
 

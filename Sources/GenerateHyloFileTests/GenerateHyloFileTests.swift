@@ -35,7 +35,8 @@ struct GenerateHyloFileTests: ParsableCommand {
         func test_\(p.methodName)_\(testID)() throws {
           try \(p.methodName)(
             \(String(reflecting: source.fileSystemPath)),
-            expectSuccess: \(p.expectSuccess))
+            extending: programToExtend!,
+            expectingSuccess: \(p.expectSuccess))
         }
 
       """
@@ -45,10 +46,10 @@ struct GenerateHyloFileTests: ParsableCommand {
   func run() throws {
     var output =
       """
-      import XCTest
       import TestUtils
+      import XCTest
 
-      final class \(testCaseName.asSwiftIdentifier): XCTestCase {
+      final class \(testCaseName.asSwiftIdentifier): HyloTestCase {
 
       """
 

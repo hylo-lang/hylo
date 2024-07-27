@@ -3,16 +3,22 @@ import Utils
 /// An abstract syntax tree.
 public struct AST {
 
+  /// A function inserting the contents of a module in `ast`, registering the identities of newly
+  /// formed ASTs in `nodeSpace` and reporting diagnostics to `log`.
+  public typealias ModuleLoader = (
+    _ ast: inout AST, _ log: inout DiagnosticSet, _ nodeSpace: Int
+  ) throws -> ModuleDecl.ID
+
   /// The stored representation of an AST; distinguished for encoding/decoding purposes.
   private struct Storage: Codable {
 
     /// The nodes in `self`.
-    public var nodes: [AnyNode] = []
+    public var nodes: [[AnyNode]] = []
 
     /// The indices of the modules in the AST.
     ///
-    /// Indices are ordered by module dependency. If the module identified by the index at position
-    /// `i` depends on the one identified by the index at position `j`, then `i` precedes `j`.
+    /// Indices are ordered by module dependency. If `i` and `j` are the indices of two modules `A`
+    /// and `B`, respectively, and `A` depends on `B`, then `i` precedes `j` in this property.
     ///
     /// - Invariant: All referred modules have a different name.
     public var modules: [ModuleDecl.ID] = []
@@ -26,7 +32,8 @@ public struct AST {
     /// Conditions for selecting conditional compilation branches.
     public let compilationConditions: ConditionalCompilationFactors
 
-    /// Creates an empty instance, using `compilationConditions` as conditions for selecting conditional compilation branches.
+    /// Creates an empty instance, using `compilationConditions` as conditions for selecting
+    /// conditional compilation branches.
     public init(_ compilationConditions: ConditionalCompilationFactors) {
       self.compilationConditions = compilationConditions
     }
@@ -41,13 +48,6 @@ public struct AST {
     get { storage.coreTraits }
     set { storage.coreTraits = newValue }
     _modify { yield &storage.coreTraits }
-  }
-
-  /// The nodes in `self`.
-  private var nodes: [AnyNode] {
-    get { storage.nodes }
-    set { storage.nodes = newValue }
-    _modify { yield &storage.nodes }
   }
 
   /// The indices of the modules.
@@ -70,57 +70,102 @@ public struct AST {
     storage.compilationConditions
   }
 
-  /// Creates an empty AST, using using `compilationConditions` as conditions for selecting conditional compilation branches.
+  /// Creates an empty AST, using using `compilationConditions` as conditions for selecting
+  /// conditional compilation branches.
   public init(
     _ compilationConditions: ConditionalCompilationFactors = ConditionalCompilationFactors()
   ) {
     self.storage = Storage(compilationConditions)
   }
 
-  /// Inserts `n` into `self`, updating `diagnostics` if `n` is ill-formed.
-  public mutating func insert<T: Node>(_ n: T, diagnostics: inout DiagnosticSet) -> T.ID {
-    n.validateForm(in: self, reportingDiagnosticsTo: &diagnostics)
+  /// Creates a new node space and returns its identifier.
+  public mutating func createNodeSpace() -> Int {
+    storage.nodes.append([])
+    return storage.nodes.count - 1
+  }
 
-    let i = T.ID(rawValue: nodes.count)
+  /// Loads a new module in `self`, calling `makeModule` to form its contents and reporting
+  /// diagnostics to `log`.
+  public mutating func loadModule(
+    reportingDiagnosticsTo log: inout DiagnosticSet, make: ModuleLoader
+  ) rethrows -> ModuleDecl.ID {
+    let k = createNodeSpace()
+    return try make(&self, &log, k)
+  }
+
+  /// Loads a new module in `self`, parsing its contents from `sourceCode` and reporting
+  /// diagnostics to `log`.
+  ///
+  /// - Parameters:
+  ///   - name: The name of the loaded module.
+  ///   - builtinModuleAccess: Whether the module is allowed to access the builtin module.
+  public mutating func loadModule<S: Sequence>(
+    _ name: String, sourceCode: S,
+    builtinModuleAccess: Bool = false,
+    reportingDiagnosticsTo log: inout DiagnosticSet
+  ) throws -> ModuleDecl.ID where S.Element == SourceFile {
+    try loadModule(reportingDiagnosticsTo: &log) { (me, log, k) in
+      // Suppress thrown diagnostics until all files are parsed.
+      let translations = sourceCode.compactMap { (f) in
+        try? Parser.parse(f, inNodeSpace: k, in: &me, diagnostics: &log)
+      }
+
+      let m = me.insert(
+        ModuleDecl(name, sources: translations, builtinModuleAccess: builtinModuleAccess),
+        inNodeSpace: k,
+        reportingDiagnosticsTo: &log)
+      try log.throwOnError()
+      return m
+    }
+  }
+
+  /// Inserts `n` into `self`, registering its identity in space `k` and reporting well-formedness
+  /// issues to `log`.
+  public mutating func insert<T: Node>(
+    _ n: T, inNodeSpace k: Int, reportingDiagnosticsTo log: inout DiagnosticSet
+  ) -> T.ID {
+    n.validateForm(in: self, reportingDiagnosticsTo: &log)
+
+    let i = T.ID(rawValue: .init(base: k, offset: storage.nodes[k].count))
     if let n = n as? ModuleDecl {
       precondition(
         !modules.contains(where: { self[$0].baseName == n.baseName }), "duplicate module")
       modules.append(i as! ModuleDecl.ID)
     }
-    nodes.append(AnyNode(n))
+    storage.nodes[k].append(AnyNode(n))
     return i
   }
 
-  /// Inserts `n` into `self`.
+  /// Inserts `n` into `self`, registering its identity in space `k`.
   ///
   /// - Precondition: `n` is well formed.
-  public mutating func insert<T: Node>(synthesized n: T) -> T.ID {
+  public mutating func insert<T: Node>(synthesized n: T, inNodeSpace k: Int) -> T.ID {
     var d = DiagnosticSet()
-    let r = insert(n, diagnostics: &d)
+    let r = insert(n, inNodeSpace: k, reportingDiagnosticsTo: &d)
     precondition(d.elements.isEmpty, "ill-formed synthesized node \(n)\n\(d)")
     return r
   }
 
   // MARK: Node access
 
-  /// Accesses the node at `position`.
-  public subscript<T: ConcreteNodeID>(position: T) -> T.Subject {
-    nodes[position.rawValue].node as! T.Subject
+  /// Accesses the node identified by `i`.
+  public subscript<T: ConcreteNodeID>(i: T) -> T.Subject {
+    storage.nodes[i.rawValue.base][i.rawValue.offset].node as! T.Subject
   }
 
-  /// Accesses the node at `position`.
-  public subscript<T: ConcreteNodeID>(position: T?) -> T.Subject? {
-    position.map({ nodes[$0.rawValue].node as! T.Subject })
+  /// Accesses the node identified by `i`.
+  public subscript<T: ConcreteNodeID>(i: T?) -> T.Subject? {
+    i.map({ (j) in storage.nodes[j.rawValue.base][j.rawValue.offset].node as! T.Subject })
   }
 
-  /// Accesses the node at `position`.
-  public subscript<T: NodeIDProtocol>(position: T) -> Node {
-    nodes[position.rawValue].node
+  /// Accesses the node identified by `i`.
+  public subscript<T: NodeIDProtocol>(i: T) -> Node {
+    storage.nodes[i.rawValue.base][i.rawValue.offset].node
   }
 
-  /// Accesses the node at `position`.
-  public subscript<T: NodeIDProtocol>(position: T?) -> Node? {
-    position.map({ nodes[$0.rawValue].node })
+  /// Accesses the node identified by `i`.
+  public subscript<T: NodeIDProtocol>(i: T?) -> Node? {
+    i.map({ (j) in storage.nodes[j.rawValue.base][j.rawValue.offset].node })
   }
 
   /// A sequence of concrete nodes projected from an AST.
@@ -274,7 +319,7 @@ public struct AST {
     runtimeParameters(of: d)?.map({ self[$0].defaultValue })
   }
 
-  /// Returns the name of entity defining the implementation of the declared function if it is external.
+  /// Returns the name of entity defining the implementation of `d` if it is external.
   public func externalName(of d: FunctionDecl.ID) -> String? {
     self[d].attributes.first(where: { $0.value.name.value == "@external" }).map { (a) in
       if a.value.arguments[0].value.kind.value is StringLiteralExpr.Type {
@@ -361,9 +406,8 @@ public struct AST {
     ) {
       switch pattern.kind {
       case BindingPattern.self:
-        visit(
-          pattern: self[BindingPattern.ID(pattern)!].subpattern, subfield: subfield, result: &result
-        )
+        let s = self[BindingPattern.ID(pattern)!].subpattern
+        visit(pattern: s, subfield: subfield, result: &result)
 
       case ExprPattern.self:
         break

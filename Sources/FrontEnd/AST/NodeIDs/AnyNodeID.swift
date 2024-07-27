@@ -1,7 +1,7 @@
 /// The type-erased ID of a node.
 public struct AnyNodeID: NodeIDProtocol {
 
-  public let rawValue: NodeID.RawValue
+  public let rawValue: NodeRawIdentity
 
   public let kind: NodeKind
 

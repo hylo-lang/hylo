@@ -2,7 +2,7 @@
 public protocol NodeIDProtocol: Hashable, Codable, CustomStringConvertible {
 
   /// The raw value of the ID.
-  var rawValue: NodeID.RawValue { get }
+  var rawValue: NodeRawIdentity { get }
 
   /// The identifier of type of the referred node.
   var kind: NodeKind { get }
@@ -30,13 +30,48 @@ public protocol ConcreteNodeID: NodeIDProtocol {
 
 }
 
+/// The type of a node ID's raw value.
+public struct NodeRawIdentity: Hashable, Codable {
+
+  public let bits: UInt64
+
+  public init(base: Int, offset: Int) {
+    precondition(base < (1 << 16))
+    self.bits = UInt64(base) + (UInt64(offset) << 16)
+  }
+
+  public var base: Int { Int(self.bits & ((1 << 16) - 1)) }
+
+  public var offset: Int { Int(self.bits >> 16) }
+
+}
+
+extension NodeRawIdentity: Comparable {
+
+  public static func < (l: Self, r: Self) -> Bool {
+    l.bits < r.bits
+  }
+
+}
+
+extension NodeRawIdentity: ExpressibleByIntegerLiteral {
+
+  public init(integerLiteral value: Int) {
+    self.bits = UInt64(value)
+  }
+
+}
+
+extension NodeRawIdentity: CustomStringConvertible {
+
+  public var description: String { bits.description }
+
+}
+
 /// The ID of a node in an AST.
 public struct NodeID<Subject: Node>: ConcreteNodeID {
 
-  /// The type of a node ID's raw value.
-  public typealias RawValue = Int
-
-  public let rawValue: RawValue
+  public let rawValue: NodeRawIdentity
 
   /// The dynamic type of node being referred to.
   public var kind: NodeKind { NodeKind(Subject.self) }
@@ -53,7 +88,7 @@ public struct NodeID<Subject: Node>: ConcreteNodeID {
   /// Creates an instance having the given raw value.
   ///
   /// The result can only be used correctly in an AST where the identified node has type `Subject`.
-  init(rawValue: RawValue) {
+  init(rawValue: NodeRawIdentity) {
     self.rawValue = rawValue
   }
 

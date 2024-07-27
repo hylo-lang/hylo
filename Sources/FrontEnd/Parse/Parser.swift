@@ -19,17 +19,19 @@ import Utils
 /// A namespace for the routines of Hylo's parser.
 public enum Parser {
 
-  /// Adds a parse of `input` to `ast` and returns its identity, reporting errors and warnings to
-  /// `diagnostics`.
+  /// Parses the contents of `input` as a translation unit, registering the identities of newly
+  /// formed ASTs in space `k` and reporting errors to `diagnostics`.
   ///
   /// - Throws: Diagnostics if syntax errors were encountered.
   public static func parse(
     _ input: SourceFile,
+    inNodeSpace k: Int,
     in ast: inout AST,
     diagnostics: inout DiagnosticSet
   ) throws -> TranslationUnit.ID {
     // Temporarily stash the AST and diagnostics in the parser state, avoiding CoW costs
-    var state = ParserState(ast: ast, lexer: Lexer(tokenizing: input), diagnostics: diagnostics)
+    var state = ParserState(
+      ast: ast, space: k, lexer: Lexer(tokenizing: input), reportingDiagnosticsTo: diagnostics)
     defer { diagnostics = state.diagnostics }
     diagnostics = DiagnosticSet()
 
@@ -3719,35 +3721,6 @@ extension ParserState {
 
   fileprivate func token(_ t: Token) -> SourceRepresentable<Identifier> {
     .init(value: String(lexer.sourceCode[t.site]), range: t.site)
-  }
-
-}
-
-extension AST {
-
-  /// Imports and returns a new module with the given `name` from `sourceCode`, writing diagnostics
-  /// to `diagnostics`.
-  ///
-  /// - Parameter builtinModuleAccess: whether the module is allowed to access the builtin module.
-  public mutating func makeModule<S: Sequence>(
-    _ name: String, sourceCode: S,
-    builtinModuleAccess: Bool = false,
-    diagnostics: inout DiagnosticSet
-  ) throws -> ModuleDecl.ID where S.Element == SourceFile {
-    var translations: [TranslationUnit.ID] = []
-    for f in sourceCode {
-      do {
-        try translations.append(Parser.parse(f, in: &self, diagnostics: &diagnostics))
-      } catch _ as DiagnosticSet {
-        // Suppress the error until all files are parsed.
-      }
-    }
-
-    let m = insert(
-      ModuleDecl(name, sources: translations, builtinModuleAccess: builtinModuleAccess),
-      diagnostics: &diagnostics)
-    try diagnostics.throwOnError()
-    return m
   }
 
 }

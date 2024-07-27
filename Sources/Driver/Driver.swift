@@ -137,6 +137,7 @@ public struct Driver: ParsableCommand {
     transform: URL.init(fileURLWithPath:))
   private var inputs: [URL] = []
 
+  /// Creates a new instance with default options.
   public init() {}
 
   /// The URL of the current working directory.
@@ -144,6 +145,7 @@ public struct Driver: ParsableCommand {
     URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true)
   }
 
+  /// Executes the command.
   public func run() throws {
     do {
       let (exitCode, diagnostics) = try execute()
@@ -193,9 +195,9 @@ public struct Driver: ParsableCommand {
     var ast = try (freestanding ? Host.freestandingLibraryAST : Host.hostedLibraryAST).get()
 
     // The module whose Hylo files were given on the command-line
-    let sourceModule = try ast.makeModule(
+    let sourceModule = try ast.loadModule(
       productName, sourceCode: sourceFiles(in: inputs),
-      builtinModuleAccess: importBuiltinModule, diagnostics: &diagnostics)
+      builtinModuleAccess: importBuiltinModule, reportingDiagnosticsTo: &diagnostics)
 
     if outputType == .rawAST {
       try write(ast, to: astFile(productName))
