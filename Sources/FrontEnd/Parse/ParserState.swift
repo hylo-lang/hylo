@@ -169,15 +169,12 @@ struct ParserState {
   /// Consumes and returns the next token, if any.
   mutating func take() -> Token? {
     // Return the token in the lookahead buffer, if available.
-    if let token = lookahead.popFirst() {
+    if let token = lookahead.popFirst() ?? lexer.next() {
       currentIndex = token.site.endIndex
       return token
+    } else {
+      return nil
     }
-
-    // Attempt to pull a new element from the lexer.
-    guard let token = lexer.next() else { return nil }
-    currentIndex = token.site.endIndex
-    return token
   }
 
   /// Consumes and returns the next token if it has the specified kind.
