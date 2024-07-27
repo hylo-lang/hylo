@@ -11,8 +11,8 @@ public struct AST {
 
     /// The indices of the modules in the AST.
     ///
-    /// Indices are ordered by module dependency. If the module identified by the index at position
-    /// `i` depends on the one identified by the index at position `j`, then `i` precedes `j`.
+    /// Indices are ordered by module dependency. If `i` and `j` are the indices of two modules `A`
+    /// and `B`, respectively, and `A` depends on `B`, then `i` precedes `j` in this property.
     ///
     /// - Invariant: All referred modules have a different name.
     public var modules: [ModuleDecl.ID] = []
@@ -63,7 +63,8 @@ public struct AST {
     storage.compilationConditions
   }
 
-  /// Creates an empty AST, using using `compilationConditions` as conditions for selecting conditional compilation branches.
+  /// Creates an empty AST, using using `compilationConditions` as conditions for selecting
+  /// conditional compilation branches.
   public init(
     _ compilationConditions: ConditionalCompilationFactors = ConditionalCompilationFactors()
   ) {
