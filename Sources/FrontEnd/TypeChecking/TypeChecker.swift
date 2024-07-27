@@ -923,11 +923,10 @@ struct TypeChecker {
     checkEnvironment(of: d)
     checkParameters(program[d].parameters, of: d)
 
-    let funcAttr = FunctionAttributes(
+    let a = FunctionAttributes(
       externalName: program[d].isExternal ? program.ast.externalName(of: d) : nil,
-      foreignName: program[d].isForeignInterface ? program.ast.foreignName(of: d) : nil
-    )
-    cache.write(funcAttr, at: \.functionAttributes[d], ignoringSharedCache: ignoreSharedCache)
+      foreignName: program[d].isForeignInterface ? program.ast.foreignName(of: d) : nil)
+    cache.write(a, at: \.functionAttributes[d], ignoringSharedCache: ignoreSharedCache)
 
     switch program[d].body {
     case .block(let b):
