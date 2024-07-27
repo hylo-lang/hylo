@@ -137,6 +137,7 @@ public struct Driver: ParsableCommand {
     transform: URL.init(fileURLWithPath:))
   private var inputs: [URL] = []
 
+  /// Creates a new instance with default options.
   public init() {}
 
   /// The URL of the current working directory.
@@ -144,6 +145,7 @@ public struct Driver: ParsableCommand {
     URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true)
   }
 
+  /// Executes the command.
   public func run() throws {
     do {
       let (exitCode, diagnostics) = try execute()
