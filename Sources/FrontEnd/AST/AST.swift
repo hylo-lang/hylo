@@ -26,7 +26,8 @@ public struct AST {
     /// Conditions for selecting conditional compilation branches.
     public let compilationConditions: ConditionalCompilationFactors
 
-    /// Creates an empty instance, using `compilationConditions` as conditions for selecting conditional compilation branches.
+    /// Creates an empty instance, using `compilationConditions` as conditions for selecting
+    /// conditional compilation branches.
     public init(_ compilationConditions: ConditionalCompilationFactors) {
       self.compilationConditions = compilationConditions
     }
@@ -311,7 +312,7 @@ public struct AST {
     runtimeParameters(of: d)?.map({ self[$0].defaultValue })
   }
 
-  /// Returns the name of entity defining the implementation of the declared function if it is external.
+  /// Returns the name of entity defining the implementation of `d` if it is external.
   public func externalName(of d: FunctionDecl.ID) -> String? {
     self[d].attributes.first(where: { $0.value.name.value == "@external" }).map { (a) in
       if a.value.arguments[0].value.kind.value is StringLiteralExpr.Type {
@@ -398,9 +399,8 @@ public struct AST {
     ) {
       switch pattern.kind {
       case BindingPattern.self:
-        visit(
-          pattern: self[BindingPattern.ID(pattern)!].subpattern, subfield: subfield, result: &result
-        )
+        let s = self[BindingPattern.ID(pattern)!].subpattern
+        visit(pattern: s, subfield: subfield, result: &result)
 
       case ExprPattern.self:
         break
