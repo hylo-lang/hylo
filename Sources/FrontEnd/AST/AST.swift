@@ -84,6 +84,32 @@ public struct AST {
     return try make(&self, k)
   }
 
+  /// Loads a new module in `self`, parsing its contents from `sourceCode` and reporting
+  /// diagnostics to `log`.
+  ///
+  /// - Parameters:
+  ///   - name: The name of the loaded module.
+  ///   - builtinModuleAccess: Whether the module is allowed to access the builtin module.
+  public mutating func loadModule<S: Sequence>(
+    _ name: String, sourceCode: S,
+    builtinModuleAccess: Bool = false,
+    reportingDiagnosticsTo log: inout DiagnosticSet
+  ) throws -> ModuleDecl.ID where S.Element == SourceFile {
+    try loadModule { (me, k) in
+      // Suppress thrown diagnostics until all files are parsed.
+      let translations = sourceCode.compactMap { (f) in
+        try? Parser.parse(f, inNodeSpace: k, in: &me, diagnostics: &log)
+      }
+
+      let m = me.insert(
+        ModuleDecl(name, sources: translations, builtinModuleAccess: builtinModuleAccess),
+        inNodeSpace: k,
+        reportingDiagnosticsTo: &log)
+      try log.throwOnError()
+      return m
+    }
+  }
+
   /// Inserts `n` into `self`, registering its identity in space `k` and reporting well-formedness
   /// issues to `log`.
   public mutating func insert<T: Node>(

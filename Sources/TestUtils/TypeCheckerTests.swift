@@ -15,9 +15,9 @@ extension XCTestCase {
 
       var ast = try Host.freestandingLibraryAST.get()
 
-      _ = try ast.makeModule(
+      _ = try ast.loadModule(
         source.baseName, sourceCode: [source], builtinModuleAccess: true,
-        diagnostics: &diagnostics)
+        reportingDiagnosticsTo: &diagnostics)
       let base = ScopedProgram(ast)
       _ = try TypedProgram(annotating: base, reportingDiagnosticsTo: &diagnostics)
     }

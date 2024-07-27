@@ -193,9 +193,9 @@ public struct Driver: ParsableCommand {
     var ast = try (freestanding ? Host.freestandingLibraryAST : Host.hostedLibraryAST).get()
 
     // The module whose Hylo files were given on the command-line
-    let sourceModule = try ast.makeModule(
+    let sourceModule = try ast.loadModule(
       productName, sourceCode: sourceFiles(in: inputs),
-      builtinModuleAccess: importBuiltinModule, diagnostics: &diagnostics)
+      builtinModuleAccess: importBuiltinModule, reportingDiagnosticsTo: &diagnostics)
 
     if outputType == .rawAST {
       try write(ast, to: astFile(productName))

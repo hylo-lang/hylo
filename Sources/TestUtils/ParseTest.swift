@@ -11,8 +11,8 @@ extension XCTestCase {
     try checkAnnotatedHyloFileDiagnostics(inFileAt: hyloFilePath, expectSuccess: expectSuccess) {
       (hyloSource, diagnostics) in
       var ast = AST()
-      _ = try ast.makeModule(
-        hyloSource.baseName, sourceCode: [hyloSource], diagnostics: &diagnostics)
+      _ = try ast.loadModule(
+        hyloSource.baseName, sourceCode: [hyloSource], reportingDiagnosticsTo: &diagnostics)
     }
 
   }

@@ -20,7 +20,7 @@ final class ParserTests: XCTestCase {
 
     var a = AST()
     try checkNoDiagnostic { d in
-      _ = try a.makeModule("Main", sourceCode: [input], diagnostics: &d)
+      _ = try a.loadModule("Main", sourceCode: [input], reportingDiagnosticsTo: &d)
     }
   }
 
@@ -39,7 +39,7 @@ final class ParserTests: XCTestCase {
 
     var a = AST()
     let m = try checkNoDiagnostic { d in
-      try a.makeModule("Main", sourceCode: [input], diagnostics: &d)
+      try a.loadModule("Main", sourceCode: [input], reportingDiagnosticsTo: &d)
     }
     XCTAssertEqual(a[a[m].sources.first!].decls.count, 4)
   }

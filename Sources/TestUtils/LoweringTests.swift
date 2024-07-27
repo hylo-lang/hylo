@@ -16,9 +16,9 @@ extension XCTestCase {
       // Note: built-in module is visible so that we can test built-in function calls.
       var ast = try Host.freestandingLibraryAST.get()
 
-      let module = try ast.makeModule(
+      let module = try ast.loadModule(
         valSource.baseName, sourceCode: [valSource], builtinModuleAccess: true,
-        diagnostics: &diagnostics)
+        reportingDiagnosticsTo: &diagnostics)
 
       // Run the type checker
       let base = ScopedProgram(ast)

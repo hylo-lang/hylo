@@ -3724,31 +3724,3 @@ extension ParserState {
   }
 
 }
-
-extension AST {
-
-  /// Imports and returns a new module with the given `name` from `sourceCode`, writing diagnostics
-  /// to `diagnostics`.
-  ///
-  /// - Parameter builtinModuleAccess: whether the module is allowed to access the builtin module.
-  public mutating func makeModule<S: Sequence>(
-    _ name: String, sourceCode: S,
-    builtinModuleAccess: Bool = false,
-    diagnostics: inout DiagnosticSet
-  ) throws -> ModuleDecl.ID where S.Element == SourceFile {
-    try loadModule { (me, k) in
-      // Suppress thrown diagnostics until all files are parsed.
-      let translations = sourceCode.compactMap { (f) in
-        try? Parser.parse(f, inNodeSpace: k, in: &me, diagnostics: &diagnostics)
-      }
-
-      let m = me.insert(
-        ModuleDecl(name, sources: translations, builtinModuleAccess: builtinModuleAccess),
-        inNodeSpace: k,
-        reportingDiagnosticsTo: &diagnostics)
-      try diagnostics.throwOnError()
-      return m
-    }
-  }
-
-}
