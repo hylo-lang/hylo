@@ -1,4 +1,4 @@
-//- compileAndRun expecting: success
+//- compileAndRun expecting: .success
 
 public type A: Deinitializable, Strideable {
 

@@ -1,4 +1,4 @@
-//- compileAndRun expecting: success
+//- compileAndRun expecting: .success
 
 /// Appends `0 ..< limit` to `a`
 fun append_count(up_to limit: Int, to a: inout Array<Int>) {

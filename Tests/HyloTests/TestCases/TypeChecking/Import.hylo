@@ -1,4 +1,4 @@
-//- typeCheck expecting: failure
+//- typeCheck expecting: .failure
 
 import Hylo
 import Import   //! diagnostic needless import: source file is part of 'Import'

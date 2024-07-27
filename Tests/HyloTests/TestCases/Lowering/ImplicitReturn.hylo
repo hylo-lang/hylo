@@ -1,4 +1,4 @@
-//- lowerToFinishedIR expecting: failure
+//- lowerToFinishedIR expecting: .failure
 
 fun f0() -> Int {
   if true { 42 } else { 1337 }

@@ -1,4 +1,4 @@
-//- lowerToFinishedIR expecting: success
+//- lowerToFinishedIR expecting: .success
 
 public fun f() -> Int {
   _ = 1

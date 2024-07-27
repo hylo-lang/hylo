@@ -1,4 +1,4 @@
-//- compileAndRun expecting: success
+//- compileAndRun expecting: .success
 
 type A: Regular {
   public var x: Optional<Int>

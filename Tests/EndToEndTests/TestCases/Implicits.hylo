@@ -1,4 +1,4 @@
-//- compileAndRun expecting: success
+//- compileAndRun expecting: .success
 
 public fun foo(x?: let Int) -> Int { bar() }
 

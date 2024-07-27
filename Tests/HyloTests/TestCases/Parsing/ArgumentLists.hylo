@@ -1,4 +1,4 @@
-//- parse expecting: failure
+//- parse expecting: .failure
 
 public fun main() {
   ; foo(1 1)  //! diagnostic expected ',' separator

@@ -1,4 +1,4 @@
-//- typeCheck expecting: success
+//- typeCheck expecting: .success
 
 fun f() -> Int {
   1 + 1         //! diagnostic unused result of type 'Int'

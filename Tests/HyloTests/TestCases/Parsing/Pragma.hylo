@@ -1,4 +1,4 @@
-//- parse expecting: failure
+//- parse expecting: .failure
 
 //! @+1 diagnostic unknown pragma 'unknown'
 let x: Int = #unknown

@@ -1,4 +1,4 @@
-//- compileAndRun expecting: success
+//- compileAndRun expecting: .success
 
 fun use(_ x: Bool[2]) {}
 

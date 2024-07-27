@@ -1,4 +1,4 @@
-//- compileAndRun expecting: success
+//- compileAndRun expecting: .success
 
 public fun test_conformance_to_iterator() {
   var r = 1 ..< 3

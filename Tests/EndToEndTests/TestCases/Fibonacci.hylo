@@ -1,4 +1,4 @@
-//- compileAndRun expecting: success
+//- compileAndRun expecting: .success
 
 fun fibonacci(_ n: Int) -> Int {
   precondition(n >= 0, "domain error")

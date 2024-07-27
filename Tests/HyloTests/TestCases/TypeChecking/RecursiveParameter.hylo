@@ -1,4 +1,4 @@
-//- typeCheck expecting: failure
+//- typeCheck expecting: .failure
 
 //! @+3 diagnostic definition recursively depends on itself
 //! @+2 diagnostic undefined name 'x' in this scope

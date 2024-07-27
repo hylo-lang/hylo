@@ -1,4 +1,4 @@
-//- compileToLLVM expecting: success
+//- compileToLLVM expecting: .success
 
 fun do_greet() -> Int {
   print("Hello, concurrent world!")

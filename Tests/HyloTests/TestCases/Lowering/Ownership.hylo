@@ -1,4 +1,4 @@
-//- lowerToFinishedIR expecting: failure
+//- lowerToFinishedIR expecting: .failure
 
 fun read<T>(_ x: T) {}
 fun modify<T>(_ x: inout T) {}

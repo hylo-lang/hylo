@@ -9,11 +9,11 @@ extension XCTestCase {
   /// errors match annotated expectations.
   @nonobjc
   public func typeCheck(
-    _ hyloFilePath: String, extending p: TypedProgram, expectingSuccess expectSuccess: Bool
+    _ hyloFilePath: String, extending p: TypedProgram, expecting expectation: ExpectedTestOutcome
   ) throws {
 
     try checkAnnotatedHyloFileDiagnostics(
-      inFileAt: hyloFilePath, expectingSuccess: expectSuccess
+      inFileAt: hyloFilePath, expecting: expectation
     ) { (hyloSource, log) in
       _ = try p.loadModule(reportingDiagnosticsTo: &log) { (ast, log, space) in
         try ast.loadModule(

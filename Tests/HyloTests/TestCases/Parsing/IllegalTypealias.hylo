@@ -1,4 +1,4 @@
-//- parse expecting: failure
+//- parse expecting: .failure
 
 //! @+1 diagnostic declaration requires definition
 typealias X: Y = Z

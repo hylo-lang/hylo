@@ -1,4 +1,4 @@
-//- typeCheck expecting: success
+//- typeCheck expecting: .success
 
 type M<T: Deinitializable> {
   public var x: T

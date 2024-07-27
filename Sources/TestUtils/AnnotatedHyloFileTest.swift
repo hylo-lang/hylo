@@ -30,6 +30,13 @@ extension Result {
 
 }
 
+/// The expected outcome of a test.
+public enum ExpectedTestOutcome {
+
+  case success, failure
+
+}
+
 extension XCTestCase {
 
   /// The effects of running the `processAndCheck` parameter to `checkAnnotatedHyloFiles`.
@@ -102,7 +109,7 @@ extension XCTestCase {
   @nonobjc
   public func checkAnnotatedHyloFileDiagnostics(
     inFileAt hyloFilePath: String,
-    expectingSuccess expectSuccess: Bool,
+    expecting expectation: ExpectedTestOutcome,
     _ process: (_ file: SourceFile, _ diagnostics: inout DiagnosticSet) throws -> Void
   ) throws {
     let f = try SourceFile(at: hyloFilePath)
@@ -115,7 +122,7 @@ extension XCTestCase {
       return []
     }
 
-    if (thrownError == nil) != expectSuccess {
+    if (thrownError == nil) != (expectation == .success) {
       record(XCTIssue(unexpectedOutcomeDiagnostic(thrownError: thrownError, at: f.wholeRange)))
     }
   }
@@ -167,19 +174,19 @@ extension XCTestCase {
   /// Calls `compileAndRun` with optimizations disabled.
   @nonobjc
   public func compileAndRun(
-    _ hyloFilePath: String, extending p: TypedProgram, expectingSuccess expectSuccess: Bool
+    _ hyloFilePath: String, extending p: TypedProgram, expecting expectation: ExpectedTestOutcome
   ) throws {
     try compileAndRun(
-      hyloFilePath, withOptimizations: false, extending: p, expectingSuccess: expectSuccess)
+      hyloFilePath, withOptimizations: false, extending: p, expecting: expectation)
   }
 
   /// Calls `compileAndRun` with optimizations enabled.
   @nonobjc
-  public func compileAndRunWithOptimizations(
-    _ hyloFilePath: String, extending p: TypedProgram, expectingSuccess expectSuccess: Bool
+  public func compileAndRunOptimized(
+    _ hyloFilePath: String, extending p: TypedProgram, expecting expectation: ExpectedTestOutcome
   ) throws {
     try compileAndRun(
-      hyloFilePath, withOptimizations: true, extending: p, expectingSuccess: expectSuccess)
+      hyloFilePath, withOptimizations: true, extending: p, expecting: expectation)
   }
 
   /// Compiles and runs the hylo file at `hyloFilePath`, applying program optimizations iff
@@ -188,11 +195,11 @@ extension XCTestCase {
   @nonobjc
   public func compileAndRun(
     _ hyloFilePath: String, withOptimizations: Bool, extending p: TypedProgram,
-    expectingSuccess expectSuccess: Bool
+    expecting expectation: ExpectedTestOutcome
   ) throws {
     if swiftyLLVMMandatoryPassesCrash { return }
     try checkAnnotatedHyloFileDiagnostics(
-      inFileAt: hyloFilePath, expectingSuccess: expectSuccess
+      inFileAt: hyloFilePath, expecting: expectation
     ) { (hyloSource, log) in
       try compileAndRun(
         hyloSource, withOptimizations: withOptimizations, extending: p,
@@ -221,11 +228,11 @@ extension XCTestCase {
   /// diagnostics and exit codes match annotated expectations.
   @nonobjc
   public func compileToLLVM(
-    _ hyloFilePath: String, extending p: TypedProgram, expectingSuccess expectSuccess: Bool
+    _ hyloFilePath: String, extending p: TypedProgram, expecting expectation: ExpectedTestOutcome
   ) throws {
     if swiftyLLVMMandatoryPassesCrash { return }
     try checkAnnotatedHyloFileDiagnostics(
-      inFileAt: hyloFilePath, expectingSuccess: expectSuccess
+      inFileAt: hyloFilePath, expecting: expectation
     ) { (hyloSource, log) in
       try XCTestCase.capturingThrownInstances(into: &log) {
         _ = try compile(hyloSource.url, with: ["--emit", "llvm"])

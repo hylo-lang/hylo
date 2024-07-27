@@ -1,4 +1,4 @@
-//- typeCheck expecting: success
+//- typeCheck expecting: .success
 
 extension Float64 {
   public static fun gravity() -> Float64 { 9.81 }

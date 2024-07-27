@@ -10,11 +10,11 @@ extension XCTestCase {
   /// that diagnostics and thrown errors match annotated expectations.
   @nonobjc
   public func lowerToFinishedIR(
-    _ hyloFilePath: String, extending p: TypedProgram, expectingSuccess expectSuccess: Bool
+    _ hyloFilePath: String, extending p: TypedProgram, expecting expectation: ExpectedTestOutcome
   ) throws {
 
     try checkAnnotatedHyloFileDiagnostics(
-      inFileAt: hyloFilePath, expectingSuccess: expectSuccess
+      inFileAt: hyloFilePath, expecting: expectation
     ) { (hyloSource, log) in
 
       let (p, m) = try p.loadModule(reportingDiagnosticsTo: &log) { (ast, log, space) in

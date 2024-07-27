@@ -1,4 +1,4 @@
-//- compileAndRun expecting: success
+//- compileAndRun expecting: .success
 
 public fun main() {
   let c = CollectionOfOne(42)

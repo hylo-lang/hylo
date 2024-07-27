@@ -1,4 +1,4 @@
-//- typeCheck expecting: success
+//- typeCheck expecting: .success
 
 trait P { type Z }
 trait Q { type Y }
