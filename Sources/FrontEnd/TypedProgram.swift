@@ -11,7 +11,7 @@ public struct TypedProgram {
   public typealias ConformanceTable = [TraitType: Set<Conformance>]
 
   /// The program annotated by the properties of `self`.
-  private let base: ScopedProgram
+  private var base: ScopedProgram
 
   /// A map from translation unit to its imports.
   public internal(set) var imports: [TranslationUnit.ID: Set<ModuleDecl.ID>] = [:]
@@ -96,6 +96,29 @@ public struct TypedProgram {
       try log.throwOnError()
       return checker.program
     }
+  }
+
+  /// Returns a copy of `self` in which a new module has been loaded, calling `makeModule` to form
+  /// its contents and reporting diagnostics to `log`.
+  ///
+  /// - Parameters:
+  ///   - shouldTraceInference: A closure accepting a node and its containing program, returning
+  ///     `true` if a trace of type inference should be logged on the console for that node.
+  public func loadModule(
+    reportingDiagnosticsTo log: inout DiagnosticSet,
+    tracingInferenceIf shouldTraceInference: ((AnyNodeID, TypedProgram) -> Bool)? = nil,
+    make: AST.ModuleLoader
+  ) throws -> (Self, ModuleDecl.ID) {
+    let (p, m) = try base.loadModule(reportingDiagnosticsTo: &log, make: make)
+    var extended = self
+    extended.base = consume p
+
+    var checker = TypeChecker(constructing: extended, tracingInferenceIf: shouldTraceInference)
+    checker.checkModule(m)
+
+    log.formUnion(checker.diagnostics)
+    try log.throwOnError()
+    return (checker.program, m)
   }
 
   /// The type checking of a collection of source files.

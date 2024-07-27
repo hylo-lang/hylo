@@ -3,6 +3,12 @@ import Utils
 /// An abstract syntax tree.
 public struct AST {
 
+  /// A function inserting the contents of a module in `ast`, registering the identities of newly
+  /// formed ASTs in `nodeSpace` and reporting diagnostics to `log`.
+  public typealias ModuleLoader = (
+    _ ast: inout AST, _ log: inout DiagnosticSet, _ nodeSpace: Int
+  ) throws -> ModuleDecl.ID
+
   /// The stored representation of an AST; distinguished for encoding/decoding purposes.
   private struct Storage: Codable {
 
@@ -78,12 +84,13 @@ public struct AST {
     return storage.nodes.count - 1
   }
 
-  /// Loads a new module in `self`, calling `makeModule` to form its contents.
+  /// Loads a new module in `self`, calling `makeModule` to form its contents and reporting
+  /// diagnostics to `log`.
   public mutating func loadModule(
-    make: (_ ast: inout Self, _ nodeSpace: Int) throws -> ModuleDecl.ID
+    reportingDiagnosticsTo log: inout DiagnosticSet, make: ModuleLoader
   ) rethrows -> ModuleDecl.ID {
     let k = createNodeSpace()
-    return try make(&self, k)
+    return try make(&self, &log, k)
   }
 
   /// Loads a new module in `self`, parsing its contents from `sourceCode` and reporting
@@ -97,7 +104,7 @@ public struct AST {
     builtinModuleAccess: Bool = false,
     reportingDiagnosticsTo log: inout DiagnosticSet
   ) throws -> ModuleDecl.ID where S.Element == SourceFile {
-    try loadModule { (me, k) in
+    try loadModule(reportingDiagnosticsTo: &log) { (me, log, k) in
       // Suppress thrown diagnostics until all files are parsed.
       let translations = sourceCode.compactMap { (f) in
         try? Parser.parse(f, inNodeSpace: k, in: &me, diagnostics: &log)

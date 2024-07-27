@@ -792,6 +792,11 @@ struct TypeChecker {
     check(program.ast.modules)
   }
 
+  /// Type checks `m`.
+  mutating func checkModule(_ m: ModuleDecl.ID) {
+    check(m)
+  }
+
   /// Type checks the sources in `batch`.
   mutating func check<S: Sequence<TranslationUnit.ID>>(_ batch: S) {
     for u in batch { check(u) }
