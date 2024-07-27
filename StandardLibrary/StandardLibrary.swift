@@ -34,12 +34,18 @@ extension Utils.Host {
 
   /// An AST representing the whole standard library, conditionally compiled for targeting the host
   /// platform.
-  public static let hostedLibraryAST
-    = Result { try AST(libraryRoot: hostedLibrarySourceRoot, ConditionalCompilationFactors(freestanding: false)) }
+  public static let hostedLibraryAST = Result {
+    try AST(
+      libraryRoot: hostedLibrarySourceRoot,
+      ConditionalCompilationFactors(freestanding: false))
+  }
 
   /// An AST representing the freestanding core of standard library, conditionally compiled for
   /// targeting the host platform.
-  public static let freestandingLibraryAST
-    = Result { try AST(libraryRoot: freestandingLibrarySourceRoot, ConditionalCompilationFactors(freestanding: true)) }
+  public static let freestandingLibraryAST = Result {
+    try AST(
+      libraryRoot: freestandingLibrarySourceRoot,
+      ConditionalCompilationFactors(freestanding: true))
+  }
 
 }
