@@ -2,8 +2,8 @@ import ArgumentParser
 import Foundation
 import Utils
 
-/// A command-line tool that generates XCTest cases for a list of annotated ".hylo"
-/// files as part of our build process.
+/// A command-line tool that generates XCTest cases for a list of annotated ".hylo" files as part
+/// of our build process.
 @main
 struct GenerateHyloFileTests: ParsableCommand {
 
