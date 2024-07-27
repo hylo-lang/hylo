@@ -102,7 +102,7 @@ extension XCTestCase {
   @nonobjc
   public func checkAnnotatedHyloFileDiagnostics(
     inFileAt hyloFilePath: String,
-    expectSuccess: Bool,
+    expectingSuccess expectSuccess: Bool,
     _ process: (_ file: SourceFile, _ diagnostics: inout DiagnosticSet) throws -> Void
   ) throws {
     let f = try SourceFile(at: hyloFilePath)
@@ -164,16 +164,22 @@ extension XCTestCase {
     return testFailures
   }
 
-  /// Calls `compileAndRun(hyloFilePath, withOptimizations: false, expectSuccess: expectSuccess)`.
+  /// Calls `compileAndRun` with optimizations disabled.
   @nonobjc
-  public func compileAndRun(_ hyloFilePath: String, expectSuccess: Bool) throws {
-    try compileAndRun(hyloFilePath, withOptimizations: false, expectSuccess: expectSuccess)
+  public func compileAndRun(
+    _ hyloFilePath: String, extending p: TypedProgram, expectingSuccess expectSuccess: Bool
+  ) throws {
+    try compileAndRun(
+      hyloFilePath, withOptimizations: false, extending: p, expectingSuccess: expectSuccess)
   }
 
-  /// Calls `compileAndRun(hyloFilePath, withOptimizations: true, expectSuccess: expectSuccess)`.
+  /// Calls `compileAndRun` with optimizations enabled.
   @nonobjc
-  public func compileAndRunWithOptimizations(_ hyloFilePath: String, expectSuccess: Bool) throws {
-    try compileAndRun(hyloFilePath, withOptimizations: true, expectSuccess: expectSuccess)
+  public func compileAndRunWithOptimizations(
+    _ hyloFilePath: String, extending p: TypedProgram, expectingSuccess expectSuccess: Bool
+  ) throws {
+    try compileAndRun(
+      hyloFilePath, withOptimizations: true, extending: p, expectingSuccess: expectSuccess)
   }
 
   /// Compiles and runs the hylo file at `hyloFilePath`, applying program optimizations iff
@@ -181,57 +187,48 @@ extension XCTestCase {
   /// annotated expectations.
   @nonobjc
   public func compileAndRun(
-    _ hyloFilePath: String, withOptimizations: Bool, expectSuccess: Bool
+    _ hyloFilePath: String, withOptimizations: Bool, extending p: TypedProgram,
+    expectingSuccess expectSuccess: Bool
   ) throws {
     if swiftyLLVMMandatoryPassesCrash { return }
     try checkAnnotatedHyloFileDiagnostics(
-      inFileAt: hyloFilePath, expectSuccess: expectSuccess
-    ) { (hyloSource, diagnostics) in
+      inFileAt: hyloFilePath, expectingSuccess: expectSuccess
+    ) { (hyloSource, log) in
       try compileAndRun(
-        hyloSource, withOptimizations: withOptimizations, reportingDiagnosticsTo: &diagnostics)
+        hyloSource, withOptimizations: withOptimizations, extending: p,
+        reportingDiagnosticsTo: &log)
     }
   }
 
   /// Compiles and runs `hyloSource`, applying program optimizations iff `withOptimizations` is
   /// `true`, and `XCTAssert`ing that diagnostics and exit codes match annotated expectations.
   private func compileAndRun(
-    _ hyloSource: SourceFile, withOptimizations: Bool,
-    reportingDiagnosticsTo diagnostics: inout DiagnosticSet
+    _ hyloSource: SourceFile, withOptimizations: Bool, extending p: TypedProgram,
+    reportingDiagnosticsTo log: inout DiagnosticSet
   ) throws {
     var arguments = ["--emit", "binary"]
     if withOptimizations { arguments.append("-O") }
 
-    var executable: URL
-    do {
-      executable = try compile(hyloSource.url, with: arguments)
-    } catch let d as DiagnosticSet {
-      // Recapture the diagnostics so the annotation testing framework can use them.  The need for
-      // this ugliness makes me wonder how important it is to test cli.execute, which after all is
-      // just a thin wrapper over cli.executeCommand (currently private).
-      diagnostics = d
-      throw d
+    let executable = try XCTestCase.capturingThrownInstances(into: &log) {
+      try compile(hyloSource.url, with: arguments)
     }
 
-    // discard any outputs.
+    // Discard the output of the process.
     _ = try Process.run(executable, arguments: [])
   }
 
-  /// Compiles the hylo file at `hyloFilePath` up until emitting LLVM code, `XCTAssert`ing that diagnostics and exit
-  /// codes match annotated expectations.
+  /// Compiles the hylo file at `hyloFilePath` up until emitting LLVM code, `XCTAssert`ing that
+  /// diagnostics and exit codes match annotated expectations.
   @nonobjc
-  public func compileToLLVM(_ hyloFilePath: String, expectSuccess: Bool) throws {
+  public func compileToLLVM(
+    _ hyloFilePath: String, extending p: TypedProgram, expectingSuccess expectSuccess: Bool
+  ) throws {
     if swiftyLLVMMandatoryPassesCrash { return }
-    try checkAnnotatedHyloFileDiagnostics(inFileAt: hyloFilePath, expectSuccess: expectSuccess) {
-      (hyloSource, diagnostics) in
-
-      do {
-        let _ = try compile(hyloSource.url, with: ["--emit", "llvm"])
-      } catch let d as DiagnosticSet {
-        // Recapture the diagnostics so the annotation testing framework can use them.  The need for
-        // this ugliness makes me wonder how important it is to test cli.execute, which after all is
-        // just a thin wrapper over cli.executeCommand (currently private).
-        diagnostics = d
-        throw d
+    try checkAnnotatedHyloFileDiagnostics(
+      inFileAt: hyloFilePath, expectingSuccess: expectSuccess
+    ) { (hyloSource, log) in
+      try XCTestCase.capturingThrownInstances(into: &log) {
+        _ = try compile(hyloSource.url, with: ["--emit", "llvm"])
       }
     }
   }
@@ -262,6 +259,22 @@ extension XCTestCase {
       "Compilation output file not found: \(output.relativePath)")
 
     return output
+  }
+
+  /// Returns the result of calling `action` or captures the Hylo diagnostics it has thrown and
+  /// rethrows all errors.
+  private static func capturingThrownInstances<T>(
+    into log: inout DiagnosticSet, calling action: () throws -> T
+  ) throws -> T {
+    do {
+      return try action()
+    } catch let d as DiagnosticSet {
+      // Recapture the diagnostics so the annotation testing framework can use them. The need for
+      // this ugliness makes me wonder how important it is to test cli.execute, which after all is
+      // just a thin wrapper over cli.executeCommand (currently private).
+      log = d
+      throw d
+    }
   }
 
 }
