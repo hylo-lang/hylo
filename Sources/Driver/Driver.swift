@@ -50,6 +50,20 @@ public struct Driver: ParsableCommand {
     case binary = "binary"
   }
 
+  /// The result of a compiler invocation.
+  public struct CompilationResult {
+
+    /// The exit status of the compiler.
+    public let status: ExitCode
+
+    /// The URL of the output file.
+    public let output: URL
+
+    /// The generated diagnostics.
+    public let diagnostics: DiagnosticSet
+
+  }
+
   public static let configuration = CommandConfiguration(commandName: "hc")
 
   @Flag(
@@ -149,37 +163,46 @@ public struct Driver: ParsableCommand {
     URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true)
   }
 
+  /// Compiles `input` with the given command line arguments and returns the compiler's exit
+  /// status, the URL of the output file, and any diagnostics.
+  ///
+  /// - Parameters:
+  ///   - input The URL of a single Hylo source file or the root directory of a Hylo module.
+  ///   - option The compiler's options sans input and output arguments.
+  public static func compileToTemporary(
+    _ input: URL, withOptions options: [String]
+  ) throws -> CompilationResult {
+    // Prepare the driver.
+    let output = FileManager.default.makeTemporaryFileURL()
+    let cli = try Driver.parse(options + ["-o", output.relativePath, input.relativePath])
+
+    // Execute the command.
+    var log = DiagnosticSet()
+    try log.capturingErrors(thrownBy: cli.executeCommand(reportingDiagnosticsTo:))
+    let status = log.containsError ? ExitCode.failure : ExitCode.success
+    return .init(status: status, output: output, diagnostics: log)
+  }
+
   /// Executes the command.
   public func run() throws {
+    var log = DiagnosticSet()
+    let status: ExitCode
+
     do {
-      let (exitCode, diagnostics) = try execute()
-      diagnostics.render(
-        into: &standardError, style: ProcessInfo.ansiTerminalIsConnected ? .styled : .unstyled)
-      Driver.exit(withError: exitCode)
+      try log.capturingErrors(thrownBy: executeCommand(reportingDiagnosticsTo:))
+      status = log.containsError ? ExitCode.failure : ExitCode.success
     } catch let e {
       print("Unexpected error\n")
       Driver.exit(withError: e)
     }
+
+    log.render(
+      into: &standardError, style: ProcessInfo.ansiTerminalIsConnected ? .styled : .unstyled)
+    Driver.exit(withError: status)
   }
 
-  /// Executes the command, returning its exit status and any generated diagnostics.
-  ///
-  /// Propagates any thrown errors that are not Hylo diagnostics,
-  public func execute() throws -> (ExitCode, DiagnosticSet) {
-    var diagnostics = DiagnosticSet()
-    do {
-      try executeCommand(diagnostics: &diagnostics)
-    } catch let d as DiagnosticSet {
-      assert(d.containsError, "Diagnostics containing no errors were thrown")
-      diagnostics.formUnion(d)
-      return (ExitCode.failure, diagnostics)
-    }
-    return (ExitCode.success, diagnostics)
-  }
-
-  /// Executes the command, accumulating diagnostics in `diagnostics`.
-  private func executeCommand(diagnostics: inout DiagnosticSet) throws {
-
+  /// Executes the command, reporting diagnostics to `log`.
+  public func executeCommand(reportingDiagnosticsTo log: inout DiagnosticSet) throws {
     if version {
       standardError.write("\(hcVersion)\n")
       return
@@ -201,7 +224,7 @@ public struct Driver: ParsableCommand {
     // The module whose Hylo files were given on the command-line
     let sourceModule = try ast.loadModule(
       productName, sourceCode: sourceFiles(in: inputs),
-      builtinModuleAccess: importBuiltinModule, reportingDiagnosticsTo: &diagnostics)
+      builtinModuleAccess: importBuiltinModule, reportingDiagnosticsTo: &log)
 
     if outputType == .rawAST {
       try write(ast, to: astFile(productName))
@@ -210,13 +233,13 @@ public struct Driver: ParsableCommand {
 
     let program = try TypedProgram(
       annotating: ScopedProgram(ast), inParallel: experimentalParallelTypeChecking,
-      reportingDiagnosticsTo: &diagnostics,
+      reportingDiagnosticsTo: &log,
       tracingInferenceIf: shouldTraceInference)
     if typeCheckOnly { return }
 
     // IR
 
-    var ir = try lower(program: program, reportingDiagnosticsTo: &diagnostics)
+    var ir = try lower(program: program, reportingDiagnosticsTo: &log)
 
     if outputType == .ir || outputType == .rawIR {
       let m = ir.modules[sourceModule]!
@@ -272,15 +295,13 @@ public struct Driver: ParsableCommand {
     let binaryPath = executableOutputPath(default: productName)
 
     #if os(macOS)
-      try makeMacOSExecutable(at: binaryPath, linking: objectFiles, diagnostics: &diagnostics)
+      try makeMacOSExecutable(at: binaryPath, linking: objectFiles, diagnostics: &log)
     #elseif os(Linux)
-      try makeLinuxExecutable(at: binaryPath, linking: objectFiles, diagnostics: &diagnostics)
+      try makeLinuxExecutable(at: binaryPath, linking: objectFiles, diagnostics: &log)
     #elseif os(Windows)
-      try makeWindowsExecutable(at: binaryPath, linking: objectFiles, diagnostics: &diagnostics)
-
+      try makeWindowsExecutable(at: binaryPath, linking: objectFiles, diagnostics: &log)
     #else
-      _ = objectFiles
-      _ = binaryPath
+      _ = (objectFiles, binaryPath)
       UNIMPLEMENTED()
     #endif
   }

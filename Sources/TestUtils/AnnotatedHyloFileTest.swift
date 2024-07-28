@@ -213,15 +213,13 @@ extension XCTestCase {
     _ hyloSource: SourceFile, withOptimizations: Bool, extending p: TypedProgram,
     reportingDiagnosticsTo log: inout DiagnosticSet
   ) throws {
-    var arguments = ["--emit", "binary"]
-    if withOptimizations { arguments.append("-O") }
+    var options = ["--emit", "binary"]
+    if withOptimizations { options.append("-O") }
 
-    let executable = try XCTestCase.capturingThrownInstances(into: &log) {
-      try compile(hyloSource.url, with: arguments)
-    }
-
-    // Discard the output of the process.
-    _ = try Process.run(executable, arguments: [])
+    let compilation = try Driver.compileToTemporary(hyloSource.url, withOptions: options)
+    log.formUnion(compilation.diagnostics)
+    try compilation.diagnostics.throwOnError()
+    _ = try Process.run(compilation.output, arguments: [])
   }
 
   /// Compiles the hylo file at `hyloFilePath` up until emitting LLVM code, `XCTAssert`ing that
@@ -234,53 +232,9 @@ extension XCTestCase {
     try checkAnnotatedHyloFileDiagnostics(
       inFileAt: hyloFilePath, expecting: expectation
     ) { (hyloSource, log) in
-      try XCTestCase.capturingThrownInstances(into: &log) {
-        _ = try compile(hyloSource.url, with: ["--emit", "llvm"])
-      }
-    }
-  }
-
-  /// Compiles `input` with the given arguments and returns the URL of the output file, throwing
-  /// diagnostics if there are any errors.
-  @nonobjc
-  public func compile(_ input: URL, with arguments: [String]) throws -> URL {
-    let output = FileManager.default.makeTemporaryFileURL()
-    let cli = try Driver.parse(arguments + ["-o", output.relativePath, input.relativePath])
-    let (status, diagnostics) = try cli.execute()
-    if !status.isSuccess {
-      throw diagnostics
-    }
-
-    XCTAssert(
-      !diagnostics.containsError,
-      "CLI reported success but \(input) contains errors: \(diagnostics.rendered())")
-
-    #if os(Windows)
-      let executableSuffix = ".exe"
-    #else
-      let executableSuffix = ""
-    #endif
-
-    XCTAssert(
-      FileManager.default.fileExists(atPath: output.relativePath + executableSuffix),
-      "Compilation output file not found: \(output.relativePath)")
-
-    return output
-  }
-
-  /// Returns the result of calling `action` or captures the Hylo diagnostics it has thrown and
-  /// rethrows all errors.
-  private static func capturingThrownInstances<T>(
-    into log: inout DiagnosticSet, calling action: () throws -> T
-  ) throws -> T {
-    do {
-      return try action()
-    } catch let d as DiagnosticSet {
-      // Recapture the diagnostics so the annotation testing framework can use them. The need for
-      // this ugliness makes me wonder how important it is to test cli.execute, which after all is
-      // just a thin wrapper over cli.executeCommand (currently private).
-      log = d
-      throw d
+      let options = ["--emit", "llvm"]
+      let compilation = try Driver.compileToTemporary(hyloSource.url, withOptions: options)
+      log.formUnion(compilation.diagnostics)
     }
   }
 

@@ -43,6 +43,20 @@ public struct DiagnosticSet: Error {
     if containsError { throw self }
   }
 
+  /// Returns the result of calling `action` or captures the Hylo diagnostics it has thrown and
+  /// returns `nil`, rethrowing any other errors.
+  public mutating func capturingErrors<T>(
+    thrownBy action: (inout Self) throws -> T
+  ) rethrows -> T? {
+    do {
+      return try action(&self)
+    } catch let d as DiagnosticSet {
+      assert(d.containsError, "non-error diagnostics were thrown")
+      self.formUnion(d)
+      return nil
+    }
+  }
+
   /// Whether `self` contains no elements.
   public var isEmpty: Bool { elements.isEmpty }
 
