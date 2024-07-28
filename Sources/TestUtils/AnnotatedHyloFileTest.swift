@@ -1,5 +1,6 @@
 import Driver
 import FrontEnd
+import IR
 import Utils
 import XCTest
 
@@ -108,8 +109,7 @@ extension XCTestCase {
   ///   - expectSuccess: true if an error from `process` represents a test failure, false if the
   ///     lack of an error represents a test failure; nil if that information is to be derived
   ///     from the contents of the file.
-  @nonobjc
-  public func checkAnnotatedHyloFileDiagnostics(
+  private func checkAnnotatedHyloFileDiagnostics(
     inFileAt hyloFilePath: String,
     expecting expectation: ExpectedTestOutcome,
     _ process: (_ file: SourceFile, _ diagnostics: inout DiagnosticSet) throws -> Void
@@ -237,6 +237,64 @@ extension XCTestCase {
       let compilation = try Driver.compileToTemporary(
         hyloSource.url, withOptions: options, extending: p)
       log.formUnion(compilation.diagnostics)
+    }
+  }
+
+  /// Lowers the hylo file at `hyloFilePath` to IR, applying any mandatory passes, and `XCTAssert`s
+  /// that diagnostics and thrown errors match annotated expectations.
+  @nonobjc
+  public func lowerToFinishedIR(
+    _ hyloFilePath: String, extending p: TypedProgram, expecting expectation: ExpectedTestOutcome
+  ) throws {
+    try checkAnnotatedHyloFileDiagnostics(
+      inFileAt: hyloFilePath, expecting: expectation
+    ) { (hyloSource, log) in
+
+      let (p, m) = try p.loadModule(reportingDiagnosticsTo: &log) { (ast, log, space) in
+        // Note: built-in module is visible so that we can test built-in function calls.
+        try ast.loadModule(
+          hyloSource.baseName, parsing: [hyloSource], inNodeSpace: space,
+          withBuiltinModuleAccess: true,
+          reportingDiagnosticsTo: &log)
+      }
+
+      // Emit Hylo IR.
+      var ir = try Module(lowering: m, in: p, reportingDiagnosticsTo: &log)
+      // Run mandatory IR analysis and transformation passes.
+      try ir.applyMandatoryPasses(reportingDiagnosticsTo: &log)
+    }
+  }
+
+  /// Parses the hylo file at `hyloFilePath`, `XCTAssert`ing that diagnostics and thrown
+  /// errors match annotated expectations.
+  @nonobjc
+  public func parse(
+    _ hyloFilePath: String, extending p: TypedProgram, expecting expectation: ExpectedTestOutcome
+  ) throws {
+    try checkAnnotatedHyloFileDiagnostics(
+      inFileAt: hyloFilePath, expecting: expectation
+    ) { (hyloSource, log) in
+      var ast = AST()
+      _ = try ast.loadModule(
+        hyloSource.baseName, parsing: [hyloSource], reportingDiagnosticsTo: &log)
+    }
+  }
+
+  /// Type-checks the Hylo file at `hyloFilePath`, `XCTAssert`ing that diagnostics and thrown
+  /// errors match annotated expectations.
+  @nonobjc
+  public func typeCheck(
+    _ hyloFilePath: String, extending p: TypedProgram, expecting expectation: ExpectedTestOutcome
+  ) throws {
+    try checkAnnotatedHyloFileDiagnostics(
+      inFileAt: hyloFilePath, expecting: expectation
+    ) { (hyloSource, log) in
+      _ = try p.loadModule(reportingDiagnosticsTo: &log) { (ast, log, space) in
+        try ast.loadModule(
+          hyloSource.baseName, parsing: [hyloSource], inNodeSpace: space,
+          withBuiltinModuleAccess: true,
+          reportingDiagnosticsTo: &log)
+      }
     }
   }
 
