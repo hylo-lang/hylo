@@ -65,8 +65,10 @@ public struct Driver: ParsableCommand {
   @Flag(
     name: [.customLong("freestanding")],
     help:
-      "Import only the freestanding core of the standard library, omitting any definitions that depend on having an operating system."
-  )
+      """
+      Import only the freestanding core of the standard library, omitting any definitions that \
+      depend on having an operating system.
+      """)
   private var freestanding: Bool = false
 
   @Flag(
@@ -441,8 +443,8 @@ public struct Driver: ParsableCommand {
     throw EnvironmentError("not found: executable invoked as \(invocationName)")
   }
 
-  /// Runs the executable at `path`, passing `arguments` on the command line, and returns
-  /// its standard output sans any leading or trailing whitespace.
+  /// Runs the executable at `path`, passing `arguments` on the command line, and returns its
+  /// standard output sans any leading or trailing whitespace.
   @discardableResult
   private func runCommandLine(
     _ programPath: String,
@@ -481,8 +483,8 @@ public struct Driver: ParsableCommand {
     outputURL ?? URL(fileURLWithPath: productName + ".ll")
   }
 
-  /// Given the desired name of the compiler's product, returns the file to write when "intel-asm" is
-  /// selected as the output type.
+  /// Given the desired name of the compiler's product, returns the file to write when "intel-asm"
+  /// is selected as the output type.
   private func intelASMFile(_ productName: String) -> URL {
     outputURL ?? URL(fileURLWithPath: productName + ".s")
   }
