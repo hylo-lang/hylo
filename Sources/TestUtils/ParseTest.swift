@@ -15,7 +15,7 @@ extension XCTestCase {
     ) { (hyloSource, log) in
       var ast = AST()
       _ = try ast.loadModule(
-        hyloSource.baseName, sourceCode: [hyloSource], reportingDiagnosticsTo: &log)
+        hyloSource.baseName, parsing: [hyloSource], reportingDiagnosticsTo: &log)
     }
 
   }

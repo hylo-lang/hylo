@@ -38,13 +38,14 @@ public struct ScopedProgram: Program {
     self.varToBinding = s.varToBinding
   }
 
-  /// Returns a copy of `self` in which a new module has been loaded, calling `makeModule` to form
-  /// its contents and reporting diagnostics to `log`.
+  /// Returns a copy of `self` in which a new module has been loaded, calling `make` to form its
+  /// contents and reporting diagnostics to `log`.
   public func loadModule(
-    reportingDiagnosticsTo log: inout DiagnosticSet, make: AST.ModuleLoader
+    reportingDiagnosticsTo log: inout DiagnosticSet,
+    creatingContentsWith make: AST.ModuleLoader
   ) throws -> (ScopedProgram, ModuleDecl.ID) {
     var extended = ast
-    let m = try extended.loadModule(reportingDiagnosticsTo: &log, make: make)
+    let m = try extended.loadModule(reportingDiagnosticsTo: &log, creatingContentsWith: make)
 
     var s = ScopeVisitor(extending: self)
     extended.walk(m, notifying: &s)

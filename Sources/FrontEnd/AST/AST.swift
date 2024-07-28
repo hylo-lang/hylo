@@ -84,24 +84,29 @@ public struct AST {
     return storage.nodes.count - 1
   }
 
-  /// Loads a new module in `self`, calling `makeModule` to form its contents and reporting
+  /// Loads a new module in `self`, calling `make` to parse its contents and reporting
   /// diagnostics to `log`.
   public mutating func loadModule(
-    reportingDiagnosticsTo log: inout DiagnosticSet, make: ModuleLoader
+    inNodeSpace space: Int? = nil,
+    reportingDiagnosticsTo log: inout DiagnosticSet,
+    creatingContentsWith parseSources: ModuleLoader
   ) rethrows -> ModuleDecl.ID {
-    let k = createNodeSpace()
-    return try make(&self, &log, k)
+    try parseSources(&self, &log, space ?? createNodeSpace())
   }
 
-  /// Loads a new module in `self`, parsing its contents from `sourceCode` and reporting
-  /// diagnostics to `log`.
+  /// Loads a new module in `self`, parsing its contents from `sourceCode`, registering the
+  /// identities of newly formed ASTs in space `space`, and reporting diagnostics to `log`.
   ///
   /// - Parameters:
   ///   - name: The name of the loaded module.
+  ///   - sourceCode: The URL of a single source file or the root directory of the module.
+  ///   - space: The space in which the module's ASTs are registered. This argument should be `nil`
+  ///     unless this method is called in a module loader.
   ///   - builtinModuleAccess: Whether the module is allowed to access the builtin module.
+  ///   - log: A set extended with the diagnostics reported by this method.
   public mutating func loadModule<S: Sequence>(
-    _ name: String, sourceCode: S,
-    builtinModuleAccess: Bool = false,
+    _ name: String, parsing sourceCode: S, inNodeSpace space: Int? = nil,
+    withBuiltinModuleAccess builtinModuleAccess: Bool = false,
     reportingDiagnosticsTo log: inout DiagnosticSet
   ) throws -> ModuleDecl.ID where S.Element == SourceFile {
     try loadModule(reportingDiagnosticsTo: &log) { (me, log, k) in

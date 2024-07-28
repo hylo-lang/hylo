@@ -2,7 +2,9 @@ import Foundation
 import FrontEnd
 import Utils
 
-private let standardLibrarySourceFolder = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Sources")
+private let standardLibrarySourceFolder = URL(
+  fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Sources")
+
 #if SWIFT_PACKAGE // Check if SPM is being used
   /// The parent directory of the standard library sources directory.
   private let useBuiltinStandardLibrary = ProcessInfo.processInfo.environment["HYLO_USE_BUILTIN_STDLIB"] == "true"
@@ -10,9 +12,9 @@ private let standardLibrarySourceFolder = URL(fileURLWithPath: #filePath).deleti
   private let libraryRoot = if useBuiltinStandardLibrary {
     // This path points into the source tree rather than to some copy so that when diagnostics are
     // issued for the standard library, they point to the original source files and edits to those
-    // source files actually fix the problems (see https://github.com/hylo-lang/hylo/issues/932).  If we
-    // ever change that, some other mechanism is needed to ensure that diagnostics refer to the original
-    // source files.
+    // source files actually fix the problems (see https://github.com/hylo-lang/hylo/issues/932).
+    // If we ever change that, some other mechanism is needed to ensure that diagnostics refer to
+    // the original source files.
     standardLibrarySourceFolder
   } else {
     Bundle.module.url(forResource: "Sources", withExtension: nil)!
