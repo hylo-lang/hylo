@@ -1,4 +1,4 @@
-//- lowerToFinishedIR expecting: success
+//- lowerToFinishedIR expecting: .success
 
 fun foo() {}
 

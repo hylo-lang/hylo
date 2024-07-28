@@ -1,4 +1,4 @@
-//- typeCheck expecting: failure
+//- typeCheck expecting: .failure
 
 //! @+1 diagnostic declaration requires a body
 fun f()

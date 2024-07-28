@@ -1,4 +1,4 @@
-//- typeCheck expecting: success
+//- typeCheck expecting: .success
 
 fun f0() {}
 

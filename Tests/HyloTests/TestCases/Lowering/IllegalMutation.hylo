@@ -1,4 +1,4 @@
-//- lowerToFinishedIR expecting: failure
+//- lowerToFinishedIR expecting: .failure
 
 fun inc(_ x: Int) {
   //! @+1 diagnostic illegal mutable access

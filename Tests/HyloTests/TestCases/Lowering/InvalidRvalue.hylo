@@ -1,4 +1,4 @@
-//- lowerToFinishedIR expecting: failure
+//- lowerToFinishedIR expecting: .failure
 
 subscript s(_ x: Int): Int {
   let { yield x }

@@ -1,4 +1,4 @@
-//- typeCheck expecting: failure
+//- typeCheck expecting: .failure
 
 trait T {}
 

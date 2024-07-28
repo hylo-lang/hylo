@@ -1,4 +1,4 @@
-//- compileToLLVM expecting: success
+//- compileToLLVM expecting: .success
 
 // TODO: type-erasure for the future type
 fun do_spawn() -> EscapingFuture<{}> {

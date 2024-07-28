@@ -1,4 +1,4 @@
-//- compileAndRun expecting: success
+//- compileAndRun expecting: .success
 
 fun test_min() {
   precondition(min[1, 2] == 1)

@@ -1,4 +1,4 @@
-//- lowerToFinishedIR expecting: failure
+//- lowerToFinishedIR expecting: .failure
 
 type A: Deinitializable {
   public var x: Int

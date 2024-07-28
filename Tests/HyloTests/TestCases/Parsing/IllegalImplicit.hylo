@@ -1,4 +1,4 @@
-//- parse expecting: failure
+//- parse expecting: .failure
 
 //! @+1 diagnostic 'inout'-parameter cannot be implicit
 fun bar(x?: inout Int) -> Int { x.copy() }

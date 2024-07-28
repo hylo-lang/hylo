@@ -1,4 +1,4 @@
-//- parse expecting: failure
+//- parse expecting: .failure
 
 //! @+1 diagnostic unterminated comment
 /* This block never ends

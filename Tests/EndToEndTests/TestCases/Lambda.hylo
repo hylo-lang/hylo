@@ -1,4 +1,4 @@
-//- compileAndRun expecting: success
+//- compileAndRun expecting: .success
 
 fun apply<E>(_ f: inout ([E]() inout -> Int)) -> Int {
   &f()

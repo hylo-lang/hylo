@@ -1,4 +1,4 @@
-//- compileAndRun expecting: success
+//- compileAndRun expecting: .success
 
 fun triplet() -> {Int, Int, Int} {
   (1, 2, 3)

@@ -1,4 +1,4 @@
-//- compileAndRun expecting: success
+//- compileAndRun expecting: .success
 
 public trait Eq {
   fun infix== (_ other: Self) -> Bool

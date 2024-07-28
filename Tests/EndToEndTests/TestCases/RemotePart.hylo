@@ -1,4 +1,4 @@
-//- compileAndRun expecting: success
+//- compileAndRun expecting: .success
 
 fun inefficient_eq(_ x: Int, _ y: Int) {
   precondition(x - y == 0)

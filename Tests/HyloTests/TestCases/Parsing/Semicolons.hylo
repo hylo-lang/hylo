@@ -1,4 +1,4 @@
-//- parse expecting: success
+//- parse expecting: .success
 
 ;;
 import Foo;
