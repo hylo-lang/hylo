@@ -5236,8 +5236,10 @@ struct TypeChecker {
       let head = inferredType(of: elements.head, withHint: elementHint, updating: &obligations)
       for x in elements.tail {
         let t = inferredType(of: x, withHint: head, updating: &obligations)
-        let o = ConstraintOrigin(.structural, at: program[x].site)
-        obligations.insert(EqualityConstraint(head, t, origin: o))
+        if !areEquivalent(t, head, in: program[e].scope) {
+          let o = ConstraintOrigin(.structural, at: program[x].site)
+          obligations.insert(EqualityConstraint(head, t, origin: o))
+        }
       }
 
       let n = program[e].elements.count
@@ -5817,44 +5819,47 @@ struct TypeChecker {
   ///
   /// If `hint` is not `nil`, it is constrained to be conforming to the `ExpressibleBy***Literal`
   /// corresponding to `defaultType` and the type of `e` if inferred as `hint`. Otherwise, the
-  /// type of `e` is inferred as `defaultType`.
+  /// type of `literal` is inferred as `defaultType`.
   ///
-  /// - Requires: `e` is a literal expression.
+  /// - Requires: `literal` is a literal expression.
   private mutating func _inferredType<T: Expr>(
     ofLiteral literal: T.ID, withHint hint: AnyType? = nil, defaultingTo defaultType: AnyType,
     updating obligations: inout ProofObligations
   ) -> AnyType {
+    // Use the default type in the absence of any hint.
     guard let h = hint else {
       return constrain(literal, to: defaultType, in: &obligations)
     }
 
-    // Fast path if `e` is the default type.
+    // Trivial if `h` is the default type.
     if areEquivalent(defaultType, h, in: program[literal].scope) {
       return constrain(literal, to: h, in: &obligations)
     }
 
-    let cause = ConstraintOrigin(.literal, at: program[literal].site)
-    let t = ^freshVariable()
+    // Trivial if `h` conforms to `ExpressibleBy***Literal`.
     let p = program.ast.coreTrait(forTypesExpressibleBy: T.self)!
+    if conforms(h, to: p, in: program[literal].scope) {
+      return constrain(literal, to: h, in: &obligations)
+    }
 
-    let preferred: ConstraintSet = [
-      EqualityConstraint(t, defaultType, origin: cause),
-      EqualityConstraint(defaultType, h, origin: cause),
-    ]
-    let alternative: ConstraintSet = [
-      EqualityConstraint(t, h, origin: cause),
-      ConformanceConstraint(h, conformsTo: p, origin: cause),
-    ]
+    // Trivial if `h` provably doesn't conform to `ExpressibleBy***Literal`.
+    if !h[.hasVariable] {
+      report(.error(h, doesNotConformTo: p, at: program[literal].site))
+      return .error
+    }
 
+    // In other cases, we infer a type conforming to `ExpressibleBy***Literal`, preferring the
+    // default type if the hint doesn't give us any better information.
+    let cause = ConstraintOrigin(.literal, at: program[literal].site)
+    let a: ConstraintSet = [EqualityConstraint(defaultType, h, origin: cause)]
+    let b: ConstraintSet = [ConformanceConstraint(h, conformsTo: p, origin: cause)]
     obligations.insert(
       DisjunctionConstraint(
-        between: [
-          .init(constraints: preferred, penalties: 0),
-          .init(constraints: alternative, penalties: 1),
-        ],
+        between: [.init(constraints: a, penalties: 0), .init(constraints: b, penalties: 1)],
         origin: cause))
 
-    return constrain(literal, to: t, in: &obligations)
+    // return constrain(literal, to: t, in: &obligations)
+    return constrain(literal, to: h, in: &obligations)
   }
 
   /// Returns the inferred type of `e`'s output, updating `obligations` and gathering contextual
