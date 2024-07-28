@@ -167,10 +167,13 @@ public struct Driver: ParsableCommand {
   /// status, the URL of the output file, and any diagnostics.
   ///
   /// - Parameters:
-  ///   - input The URL of a single Hylo source file or the root directory of a Hylo module.
-  ///   - option The compiler's options sans input and output arguments.
+  ///   - input: The URL of a single Hylo source file or the root directory of a Hylo module.
+  ///   - options: The compiler's options sans input and output arguments.
+  ///   - baseProgram: A program with some or all of the dependencies of the compiler's input,
+  ///     which have been compiled with options compatible with `options`. All dependencies are
+  ///     loaded from disk if this argument is `nil`
   public static func compileToTemporary(
-    _ input: URL, withOptions options: [String]
+    _ input: URL, withOptions options: [String], extending baseProgram: TypedProgram? = nil
   ) throws -> CompilationResult {
     // Prepare the driver.
     let output = FileManager.default.makeTemporaryFileURL()
@@ -178,7 +181,9 @@ public struct Driver: ParsableCommand {
 
     // Execute the command.
     var log = DiagnosticSet()
-    try log.capturingErrors(thrownBy: cli.executeCommand(reportingDiagnosticsTo:))
+    try log.capturingErrors { (ds) in
+      try cli.executeCommand(extending: baseProgram, reportingDiagnosticsTo: &ds)
+    }
     let status = log.containsError ? ExitCode.failure : ExitCode.success
     return .init(status: status, output: output, diagnostics: log)
   }
@@ -189,7 +194,9 @@ public struct Driver: ParsableCommand {
     let status: ExitCode
 
     do {
-      try log.capturingErrors(thrownBy: executeCommand(reportingDiagnosticsTo:))
+      try log.capturingErrors { (ds) in
+        try executeCommand(reportingDiagnosticsTo: &ds)
+      }
       status = log.containsError ? ExitCode.failure : ExitCode.success
     } catch let e {
       print("Unexpected error\n")
@@ -201,8 +208,17 @@ public struct Driver: ParsableCommand {
     Driver.exit(withError: status)
   }
 
-  /// Executes the command, reporting diagnostics to `log`.
-  public func executeCommand(reportingDiagnosticsTo log: inout DiagnosticSet) throws {
+  /// Executes the command, loading modules into `baseProgram` and reporting diagnostics to `log`.
+  ///
+  /// - Parameters:
+  ///   - baseProgram: A program with some or all of the dependencies of the compiler's input,
+  ///     which have been compiled with options compatible with the driver's current configuration.
+  ///     All dependencies are loaded from disk if this argument is `nil`
+  ///   - log: A set of diagnostics that doesn't contain any error.
+  public func executeCommand(
+    extending baseProgram: TypedProgram? = nil,
+    reportingDiagnosticsTo log: inout DiagnosticSet
+  ) throws {
     if version {
       standardError.write("\(hcVersion)\n")
       return
@@ -218,23 +234,41 @@ public struct Driver: ParsableCommand {
 
     let productName = makeProductName(inputs)
 
-    /// An instance that includes just the standard library.
-    var ast = try (freestanding ? Host.freestandingLibraryAST : Host.hostedLibraryAST).get()
-
-    // The module whose Hylo files were given on the command-line
-    let sourceModule = try ast.loadModule(
-      productName, sourceCode: sourceFiles(in: inputs),
-      builtinModuleAccess: importBuiltinModule, reportingDiagnosticsTo: &log)
-
+    // There's no need to load the standard library under `--emit raw-ast`.
     if outputType == .rawAST {
-      try write(ast, to: astFile(productName))
+      var a = AST()
+      _ = try a.loadModule(
+        productName, sourceCode: sourceFiles(in: inputs),
+        builtinModuleAccess: importBuiltinModule, reportingDiagnosticsTo: &log)
+      try write(a, to: astFile(productName))
       return
     }
 
-    let program = try TypedProgram(
-      annotating: ScopedProgram(ast), inParallel: experimentalParallelTypeChecking,
-      reportingDiagnosticsTo: &log,
-      tracingInferenceIf: shouldTraceInference)
+    // Type checking
+
+    let dependencies: TypedProgram
+    if let p = baseProgram {
+      precondition(
+        p.ast.compilationConditions.freestanding == freestanding,
+        "program to extend has incompatible compilation factors")
+      dependencies = p
+    } else {
+      let a = try (freestanding ? Host.freestandingLibraryAST : Host.hostedLibraryAST).get()
+      dependencies = try TypedProgram(
+        annotating: ScopedProgram(a), inParallel: experimentalParallelTypeChecking,
+        reportingDiagnosticsTo: &log,
+        tracingInferenceIf: shouldTraceInference)
+    }
+
+    let (program, sourceModule) = try dependencies.loadModule(
+      reportingDiagnosticsTo: &log, tracingInferenceIf: shouldTraceInference
+    ) { (ast, log, space) in
+      try ast.loadModule(
+        productName, sourceCode: sourceFiles(in: inputs),
+        builtinModuleAccess: importBuiltinModule,
+        reportingDiagnosticsTo: &log)
+    }
+
     if typeCheckOnly { return }
 
     // IR

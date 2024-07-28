@@ -178,8 +178,7 @@ extension XCTestCase {
   public func compileAndRun(
     _ hyloFilePath: String, extending p: TypedProgram, expecting expectation: ExpectedTestOutcome
   ) throws {
-    try compileAndRun(
-      hyloFilePath, withOptimizations: false, extending: p, expecting: expectation)
+    try compileAndRun(hyloFilePath, withOptimizations: false, extending: p, expecting: expectation)
   }
 
   /// Calls `compileAndRun` with optimizations enabled.
@@ -187,8 +186,7 @@ extension XCTestCase {
   public func compileAndRunOptimized(
     _ hyloFilePath: String, extending p: TypedProgram, expecting expectation: ExpectedTestOutcome
   ) throws {
-    try compileAndRun(
-      hyloFilePath, withOptimizations: true, extending: p, expecting: expectation)
+    try compileAndRun(hyloFilePath, withOptimizations: true, extending: p, expecting: expectation)
   }
 
   /// Compiles and runs the hylo file at `hyloFilePath`, applying program optimizations iff
@@ -212,13 +210,14 @@ extension XCTestCase {
   /// Compiles and runs `hyloSource`, applying program optimizations iff `withOptimizations` is
   /// `true`, and `XCTAssert`ing that diagnostics and exit codes match annotated expectations.
   private func compileAndRun(
-    _ hyloSource: SourceFile, withOptimizations: Bool, extending p: TypedProgram,
+    _ hyloSource: SourceFile, withOptimizations: Bool, extending baseProgram: TypedProgram,
     reportingDiagnosticsTo log: inout DiagnosticSet
   ) throws {
     var options = ["--emit", "binary"]
     if withOptimizations { options.append("-O") }
 
-    let compilation = try Driver.compileToTemporary(hyloSource.url, withOptions: options)
+    let compilation = try Driver.compileToTemporary(
+      hyloSource.url, withOptions: options, extending: baseProgram)
     log.formUnion(compilation.diagnostics)
     try compilation.diagnostics.throwOnError()
     _ = try Process.run(compilation.output, arguments: [])
@@ -235,7 +234,8 @@ extension XCTestCase {
       inFileAt: hyloFilePath, expecting: expectation
     ) { (hyloSource, log) in
       let options = ["--emit", "llvm"]
-      let compilation = try Driver.compileToTemporary(hyloSource.url, withOptions: options)
+      let compilation = try Driver.compileToTemporary(
+        hyloSource.url, withOptions: options, extending: p)
       log.formUnion(compilation.diagnostics)
     }
   }
