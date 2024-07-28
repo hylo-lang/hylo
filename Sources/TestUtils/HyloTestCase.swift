@@ -25,7 +25,7 @@ open class HyloTestCase: XCTestCase {
   /// Returns a copy of `base`, creating it if necessary.
   private func checkedBaseProgram() throws -> TypedProgram {
     return try self.checkNoDiagnostic { (d) in
-      let a = try Utils.Host.freestandingLibraryAST.get()
+      let a = try Utils.Host.hostedLibraryAST.get()
       let b = ScopedProgram(a)
       return try TypedProgram(annotating: b, reportingDiagnosticsTo: &d)
     }
