@@ -10,8 +10,8 @@ extension AST {
     var diagnostics = DiagnosticSet()
     coreLibrary = try loadModule(
       "Hylo",
-      sourceCode: sourceFiles(in: [libraryRoot]),
-      builtinModuleAccess: true,
+      parsing: sourceFiles(in: [libraryRoot]),
+      withBuiltinModuleAccess: true,
       reportingDiagnosticsTo: &diagnostics)
     assert(coreModuleIsLoaded)
     self.coreTraits = .init(self)

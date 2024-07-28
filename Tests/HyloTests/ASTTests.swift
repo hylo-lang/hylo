@@ -25,7 +25,7 @@ final class ASTTests: XCTestCase {
 
     var a = AST()
     let m = try checkNoDiagnostic { (d) in
-      try a.loadModule("Main", sourceCode: [input], reportingDiagnosticsTo: &d)
+      try a.loadModule("Main", parsing: [input], reportingDiagnosticsTo: &d)
     }
 
     // Note: we use `XCTUnwrap` when we're expecting a non-nil value produced by a subscript under
@@ -63,7 +63,7 @@ final class ASTTests: XCTestCase {
 
     var a = AST()
     let m = try checkNoDiagnostic { (d) in
-      try a.loadModule("Main", sourceCode: [input], reportingDiagnosticsTo: &d)
+      try a.loadModule("Main", parsing: [input], reportingDiagnosticsTo: &d)
     }
 
     struct V: ASTWalkObserver {

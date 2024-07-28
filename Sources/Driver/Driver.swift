@@ -238,8 +238,9 @@ public struct Driver: ParsableCommand {
     if outputType == .rawAST {
       var a = AST()
       _ = try a.loadModule(
-        productName, sourceCode: sourceFiles(in: inputs),
-        builtinModuleAccess: importBuiltinModule, reportingDiagnosticsTo: &log)
+        productName, parsing: sourceFiles(in: inputs),
+        withBuiltinModuleAccess: importBuiltinModule,
+        reportingDiagnosticsTo: &log)
       try write(a, to: astFile(productName))
       return
     }
@@ -264,8 +265,8 @@ public struct Driver: ParsableCommand {
       reportingDiagnosticsTo: &log, tracingInferenceIf: shouldTraceInference
     ) { (ast, log, space) in
       try ast.loadModule(
-        productName, sourceCode: sourceFiles(in: inputs),
-        builtinModuleAccess: importBuiltinModule,
+        productName, parsing: sourceFiles(in: inputs), inNodeSpace: space,
+        withBuiltinModuleAccess: importBuiltinModule,
         reportingDiagnosticsTo: &log)
     }
 

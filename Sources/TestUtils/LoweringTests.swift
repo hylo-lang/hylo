@@ -20,7 +20,8 @@ extension XCTestCase {
       let (p, m) = try p.loadModule(reportingDiagnosticsTo: &log) { (ast, log, space) in
         // Note: built-in module is visible so that we can test built-in function calls.
         try ast.loadModule(
-          hyloSource.baseName, sourceCode: [hyloSource], builtinModuleAccess: true,
+          hyloSource.baseName, parsing: [hyloSource], inNodeSpace: space,
+          withBuiltinModuleAccess: true,
           reportingDiagnosticsTo: &log)
       }
 

@@ -98,8 +98,8 @@ public struct TypedProgram {
     }
   }
 
-  /// Returns a copy of `self` in which a new module has been loaded, calling `makeModule` to form
-  /// its contents and reporting diagnostics to `log`.
+  /// Returns a copy of `self` in which a new module has been loaded, calling `make` to form its
+  /// contents and reporting diagnostics to `log`.
   ///
   /// - Parameters:
   ///   - shouldTraceInference: A closure accepting a node and its containing program, returning
@@ -107,9 +107,9 @@ public struct TypedProgram {
   public func loadModule(
     reportingDiagnosticsTo log: inout DiagnosticSet,
     tracingInferenceIf shouldTraceInference: ((AnyNodeID, TypedProgram) -> Bool)? = nil,
-    make: AST.ModuleLoader
+    creatingContentsWith make: AST.ModuleLoader
   ) throws -> (Self, ModuleDecl.ID) {
-    let (p, m) = try base.loadModule(reportingDiagnosticsTo: &log, make: make)
+    let (p, m) = try base.loadModule(reportingDiagnosticsTo: &log, creatingContentsWith: make)
     var extended = self
     extended.base = consume p
 

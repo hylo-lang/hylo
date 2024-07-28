@@ -17,7 +17,8 @@ extension XCTestCase {
     ) { (hyloSource, log) in
       _ = try p.loadModule(reportingDiagnosticsTo: &log) { (ast, log, space) in
         try ast.loadModule(
-          hyloSource.baseName, sourceCode: [hyloSource], builtinModuleAccess: true,
+          hyloSource.baseName, parsing: [hyloSource], inNodeSpace: space,
+          withBuiltinModuleAccess: true,
           reportingDiagnosticsTo: &log)
       }
     }
