@@ -57,7 +57,7 @@ extension XCTestCase {
   ///   - processAndCheck: applies some compilation phases to `file`, updating `diagnostics`
   ///     with any generated diagnostics, then checks `annotationsToCheck` against the results,
   ///     returning corresponding test failures. Throws an `Error` if any phases failed.
-  fileprivate func checkAnnotations(
+  private func checkAnnotations(
     in hyloToTest: SourceFile,
     checkingAnnotationCommands checkedCommands: Set<String> = [],
     _ processAndCheck: (
@@ -138,7 +138,7 @@ extension XCTestCase {
 
   /// Given the effects of processing, the annotations not specifically handled by `processAndCheck`
   /// above, returns the final set of test failures to be reported to XCTest.
-  fileprivate func failuresToReport(
+  private func failuresToReport(
     effectsOfProcessing processing: ProcessingEffects,
     unhandledAnnotations: ArraySlice<TestAnnotation>
   ) -> [XCTIssue] {

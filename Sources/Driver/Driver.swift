@@ -10,7 +10,8 @@ import Utils
 public struct Driver: ParsableCommand {
 
   /// A validation error that includes the command's full help message.
-  struct ValidationErrorWithHelp: Error, CustomStringConvertible {
+  private struct ValidationErrorWithHelp: Error, CustomStringConvertible {
+
     var message: String
 
     init(_ message: String) {
@@ -24,6 +25,7 @@ public struct Driver: ParsableCommand {
       \(Driver.helpMessage())
       """
     }
+
   }
 
   /// The type of the output files to generate.
