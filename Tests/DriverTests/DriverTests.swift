@@ -79,6 +79,20 @@ final class DriverTests: XCTestCase {
     #endif
   }
 
+  func testFreestanding() throws {
+    let source = try FileManager.default.temporaryFile(
+      containing: "public fun main() { print(0) }")
+    let result = try Driver.compileToTemporary(source, withOptions: ["--freestanding"])
+    XCTAssertFalse(result.status.isSuccess)
+    result.checkDiagnosticText(
+      is: """
+        \(source.relativePath):1.21-26: error: undefined name 'print' in this scope
+        public fun main() { print(0) }
+                            ~~~~~
+
+        """)
+  }
+
   func testParseFailure() throws {
     let source = try FileManager.default.temporaryFile(containing: "fun x")
     let result = try Driver.compileToTemporary(source, withOptions: [])
