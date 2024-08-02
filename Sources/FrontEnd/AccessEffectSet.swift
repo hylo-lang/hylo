@@ -66,7 +66,8 @@ public struct AccessEffectSet: OptionSet, Hashable {
   }
 
   public mutating func update(with newMember: AccessEffect) -> AccessEffect? {
-    insert(newMember).memberAfterInsert
+    let (i, k) = insert(newMember)
+    return i ? nil : k
   }
 
   /// A set with `set` and `inout`.
