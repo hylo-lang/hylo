@@ -99,17 +99,59 @@ public struct Module {
     }
   }
 
-  /// If `p` is a parameter, returns its passing convention. Otherwise, returns `nil`.
+  /// Returns `true` iff cannot be used to modify or update a value.
+  public func isBoundImmutably(_ p: Operand) -> Bool {
+    switch p {
+    case .parameter(let e, let i):
+      let f = e.function
+      return (entry(of: f) == e) && (passingConvention(parameter: i, of: f) == .let)
+    case .constant:
+      return false
+    case .register(let i):
+      return isBoundImmutably(register: i)
+    }
+  }
+
+  /// Returns `true` iff the result of `i` cannot be used to modify or update a value.
+  public func isBoundImmutably(register i: InstructionID) -> Bool {
+    switch self[i] {
+    case is AllocStack:
+      return false
+    case let s as AdvancedByBytes:
+      return isBoundImmutably(s.base)
+    case let s as Access:
+      return isBoundImmutably(s.source)
+    case let s as OpenCapture:
+      return s.isAccess(.let)
+    case is OpenUnion:
+      return false
+    case let s as PointerToAddress:
+      return s.isAccess(.let)
+    case let s as Project:
+      return s.projection.access == .let
+    case let s as SubfieldView:
+      return isBoundImmutably(s.recordAddress)
+    case let s as WrapExistentialAddr:
+      return isBoundImmutably(s.witness)
+    default:
+      return true
+    }
+  }
+
+  /// If `p` is a function parameter, returns its passing convention. Otherwise, returns `nil`.
   public func passingConvention(of p: Operand) -> AccessEffect? {
-    if case .parameter(let e, let i) = p {
-      assert(entry(of: e.function) == e)
-      return read(self[e.function].inputs) { (ps) in
-        // The last parameter of a function denotes its return value.
-        (i == ps.count) ? .set : ps[i].type.access
-      }
+    if case .parameter(let e, let i) = p, (entry(of: e.function) == e) {
+      return passingConvention(parameter: i, of: e.function)
     } else {
       return nil
     }
+  }
+
+  /// Returns the passing convention of the `i`-th parameter of `f`.
+  public func passingConvention(parameter i: Int, of f: Function.ID) -> AccessEffect {
+    // The last parameter of a function denotes its return value.
+    let ps = self[f].inputs
+    return (i == ps.count) ? .set : ps[i].type.access
   }
 
   /// Returns the scope in which `i` is used.
