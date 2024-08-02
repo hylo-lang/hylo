@@ -1,0 +1,19 @@
+//- lowerToFinishedIR expecting: .failure
+
+type Thing : Deinitializable {
+  public let position: Int
+  public let speed: Int
+  public memberwise init
+}
+
+fun update_physics(_ t: Thing) {
+//! @+1 diagnostic illegal mutable access
+  &t.position += t.speed
+}
+
+public fun main() {
+  let t = Thing(position: 0, speed: 1)
+  update_physics(t)
+  update_physics(t)
+  print(t.position)
+}
