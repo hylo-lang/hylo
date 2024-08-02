@@ -947,11 +947,9 @@ public struct Module {
     case let s as Access:
       return provenances(s.source)
     case let s as Project:
-      return s.operands.reduce(
-        into: [],
-        { (p, o) in
-          if type(of: o).isAddress { p.formUnion(provenances(o)) }
-        })
+      return s.operands.reduce(into: []) { (p, o) in
+        if type(of: o).isAddress { p.formUnion(provenances(o)) }
+      }
     case let s as SubfieldView:
       return provenances(s.recordAddress)
     case let s as WrapExistentialAddr:
