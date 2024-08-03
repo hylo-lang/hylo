@@ -10,6 +10,8 @@ Please visit our [website](https://hylo-lang.org) to get more information about 
 
 ## Developement/Use Requirements
 
+Check out the [Setup Guides](Docs/SetupGuide.md) for detailed instructions for your platform.
+
 This project is written in [Swift](https://swift.org) and distributed in the form of a package, built with [Swift Package Manager](https://swift.org/package-manager/).
 You will need Swift 5.9 or higher to build the compiler from sources.
 
@@ -118,10 +120,9 @@ script as follows in the top-level directory of this project:
 ``` 
 
 if you are on Windows, your `git` installation (which is required for
-Swift) contains a `bash` executable so you can do something like:
-
+Swift) contains a `bash` executable, so you can run the following line from PowerShell:
 ```bash
-C:\Program Files\Git\bin\bash ./Tools/make-pkgconfig.sh ./llvm.pc
+& 'C:\Program Files\Git\bin\bash.exe' .\Tools\make-pkgconfig.sh .\llvm.pc
 ``` 
 
 The command above generates `llvm.pc` in the current directory and
