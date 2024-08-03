@@ -352,7 +352,9 @@ private func mathFlags(_ stream: inout ArraySlice<Substring>) -> NativeInstructi
 }
 
 /// Returns an overflow behavior parsed from `stream` or `.ignore` if none can be parsed.
-private func overflowBehavior(_ stream: inout ArraySlice<Substring>) -> SwiftyLLVM.OverflowBehavior {
+private func overflowBehavior(
+  _ stream: inout ArraySlice<Substring>
+) -> SwiftyLLVM.OverflowBehavior {
   switch stream.first {
   case "nuw":
     stream.removeFirst()

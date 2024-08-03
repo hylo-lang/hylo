@@ -322,7 +322,8 @@ extension SwiftyLLVM.Module {
     if !implementations.isEmpty {
       tableContents.append(
         SwiftyLLVM.ArrayConstant(
-          of: SwiftyLLVM.StructType([word(), ptr], in: &self), containing: implementations, in: &self))
+          of: SwiftyLLVM.StructType([word(), ptr], in: &self), containing: implementations,
+          in: &self))
     }
 
     let table = SwiftyLLVM.StructConstant(aggregating: tableContents, in: &self)
@@ -927,42 +928,48 @@ extension SwiftyLLVM.Module {
         let r = llvm(s.operands[1])
         let f = intrinsic(
           named: Intrinsic.llvm.sadd.with.overflow, for: [ir.llvm(builtinType: t, in: &self)])!
-        register[.register(i)] = insertCall(SwiftyLLVM.Function(f)!, on: [l, r], at: insertionPoint)
+        register[.register(i)] = insertCall(
+          SwiftyLLVM.Function(f)!, on: [l, r], at: insertionPoint)
 
       case .unsignedAdditionWithOverflow(let t):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
         let f = intrinsic(
           named: Intrinsic.llvm.uadd.with.overflow, for: [ir.llvm(builtinType: t, in: &self)])!
-        register[.register(i)] = insertCall(SwiftyLLVM.Function(f)!, on: [l, r], at: insertionPoint)
+        register[.register(i)] = insertCall(
+          SwiftyLLVM.Function(f)!, on: [l, r], at: insertionPoint)
 
       case .signedSubtractionWithOverflow(let t):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
         let f = intrinsic(
           named: Intrinsic.llvm.ssub.with.overflow, for: [ir.llvm(builtinType: t, in: &self)])!
-        register[.register(i)] = insertCall(SwiftyLLVM.Function(f)!, on: [l, r], at: insertionPoint)
+        register[.register(i)] = insertCall(
+          SwiftyLLVM.Function(f)!, on: [l, r], at: insertionPoint)
 
       case .unsignedSubtractionWithOverflow(let t):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
         let f = intrinsic(
           named: Intrinsic.llvm.usub.with.overflow, for: [ir.llvm(builtinType: t, in: &self)])!
-        register[.register(i)] = insertCall(SwiftyLLVM.Function(f)!, on: [l, r], at: insertionPoint)
+        register[.register(i)] = insertCall(
+          SwiftyLLVM.Function(f)!, on: [l, r], at: insertionPoint)
 
       case .signedMultiplicationWithOverflow(let t):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
         let f = intrinsic(
           named: Intrinsic.llvm.smul.with.overflow, for: [ir.llvm(builtinType: t, in: &self)])!
-        register[.register(i)] = insertCall(SwiftyLLVM.Function(f)!, on: [l, r], at: insertionPoint)
+        register[.register(i)] = insertCall(
+          SwiftyLLVM.Function(f)!, on: [l, r], at: insertionPoint)
 
       case .unsignedMultiplicationWithOverflow(let t):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
         let f = intrinsic(
           named: Intrinsic.llvm.umul.with.overflow, for: [ir.llvm(builtinType: t, in: &self)])!
-        register[.register(i)] = insertCall(SwiftyLLVM.Function(f)!, on: [l, r], at: insertionPoint)
+        register[.register(i)] = insertCall(
+          SwiftyLLVM.Function(f)!, on: [l, r], at: insertionPoint)
 
       case .icmp(let p, _):
         let l = llvm(s.operands[0])
@@ -1046,7 +1053,8 @@ extension SwiftyLLVM.Module {
       case .ctpop(let t):
         let source = llvm(s.operands[0])
         let f = intrinsic(named: Intrinsic.llvm.ctpop, for: [ir.llvm(builtinType: t, in: &self)])!
-        register[.register(i)] = insertCall(SwiftyLLVM.Function(f)!, on: [source], at: insertionPoint)
+        register[.register(i)] = insertCall(
+          SwiftyLLVM.Function(f)!, on: [source], at: insertionPoint)
 
       case .ctlz(let t):
         let source = llvm(s.operands[0])

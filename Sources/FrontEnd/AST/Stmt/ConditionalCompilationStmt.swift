@@ -52,6 +52,12 @@ public struct ConditionalCompilationStmt: Stmt {
     /// Holds iff the payload doesn't.
     case not(Condition)
 
+    /// Holds iff both conditions in the payload do.
+    case and(Condition, Condition)
+
+    /// Holds iff either condition in the payload does.
+    case or(Condition, Condition)
+
     /// `true` iff the body of the conditional-compilation shouldn't be parsed.
     public var mayNotNeedParsing: Bool {
       switch self {
@@ -63,6 +69,10 @@ public struct ConditionalCompilationStmt: Stmt {
         return true
       case .not(let c):
         return c.mayNotNeedParsing
+      case .and(let l, let r):
+        return l.mayNotNeedParsing && r.mayNotNeedParsing
+      case .or(let l, let r):
+        return l.mayNotNeedParsing || r.mayNotNeedParsing
       default:
         return false
       }
@@ -89,6 +99,10 @@ public struct ConditionalCompilationStmt: Stmt {
         return comparison.evaluate(for: factors.hyloVersion)
       case .not(let c):
         return !c.holds(for: factors)
+      case .and(let l, let r):
+        return l.holds(for: factors) && r.holds(for: factors)
+      case .or(let l, let r):
+        return l.holds(for: factors) || r.holds(for: factors)
       }
     }
 

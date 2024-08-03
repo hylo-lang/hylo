@@ -192,7 +192,7 @@ fileprivate struct TestArgument: CustomStringConvertible {
 }
 
 /// Information necessary to generate a test case.
-fileprivate struct TestDescription {
+private struct TestDescription {
 
   /// The name of the method implementing the logic of the test runner.
   let methodName: TestMethod

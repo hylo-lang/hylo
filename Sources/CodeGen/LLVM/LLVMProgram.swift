@@ -55,7 +55,9 @@ public struct LLVMProgram {
   /// to `directory`, returning the URL of each written file.
   ///
   /// - Returns: The URL of each written product, one for each module in `self`.
-  public func write(_ type: SwiftyLLVM.CodeGenerationResultType, to directory: URL) throws -> [URL] {
+  public func write(
+    _ type: SwiftyLLVM.CodeGenerationResultType, to directory: URL
+  ) throws -> [URL] {
     precondition(directory.hasDirectoryPath)
     var result: [URL] = []
     for m in llvmModules.values {

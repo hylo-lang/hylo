@@ -2986,9 +2986,74 @@ public enum Parser {
 
   static let compilerConditionStmt = Apply(parseCompilerConditionStmt(in:))
 
-  private static func parseCompilerConditionStmt(in state: inout ParserState) throws -> AnyStmtID? {
-    let head = state.take(.poundIf)
-    return head != nil ? try parseCompilerConditionTail(head: head!, in: &state) : nil
+  private static func parseCompilerConditionStmt(
+    in state: inout ParserState
+  ) throws -> AnyStmtID? {
+    try state.take(.poundIf).map { (head) in
+      try parseCompilerConditionTail(head: head, in: &state)
+    }
+  }
+
+  /// Parses a logical connective from `state`.
+  private static func parseConnective(in state: inout ParserState) -> Connective? {
+    // Next token must be an operator.
+    guard let t = state.peek(), t.kind == .oper else { return nil }
+
+    // The value of the token must be either `||` or `&&`.
+    var r: Connective
+    switch t.site.text {
+    case "||":
+      r = .disjunction
+    case "&&":
+      r = .conjunction
+    default:
+      return nil
+    }
+
+    // Consume the token and "succeed".
+    _ = state.take()
+    return r
+  }
+
+  /// Parses a `Condition` for a `ConditionalCompilationStmt`.
+  private static func parseCondition(
+    in state: inout ParserState
+  ) throws -> ConditionalCompilationStmt.Condition {
+    return try condition(withInfixConnectiveStrongerOrEqualTo: .disjunction, in: &state)
+
+    /// Parses a condition as a proposition, a negation, or an infix sentence whose operator has
+    /// a precedence at least as strong as `p`.
+    func condition(
+      withInfixConnectiveStrongerOrEqualTo p: Connective,
+      in state: inout ParserState
+    ) throws -> ConditionalCompilationStmt.Condition {
+      var lhs = try parseCompilerCondition(in: &state)
+
+      while true {
+        // Tentatively parse a connective.
+        let backup = state.backup()
+        guard let c = parseConnective(in: &state) else { return lhs }
+
+        // Backtrack if the connective we got hasn't strong enough precedence.
+        if (c.rawValue < p.rawValue) {
+          state.restore(from: backup)
+          return lhs
+        }
+
+        // If we parsed `||` the RHS must be a conjunction. Otherwise it must be a proposition or
+        // negation. In either case we'll come back here to parse the remainder of the expression.
+        switch c {
+        case .disjunction:
+          let rhs = try condition(withInfixConnectiveStrongerOrEqualTo: .conjunction, in: &state)
+          lhs = .or(lhs, rhs)
+        case .conjunction:
+          let rhs = try parseCompilerCondition(in: &state)
+          lhs = .and(lhs, rhs)
+        }
+      }
+
+      return lhs
+    }
   }
 
   /// Parses a compiler condition structure, after the initial token (#if or #elseif).
@@ -2996,7 +3061,7 @@ public enum Parser {
     head: Token, in state: inout ParserState
   ) throws -> AnyStmtID {
     // Parse the condition.
-    let condition = try parseCompilerCondition(in: &state)
+    let condition = try parseCondition(in: &state)
 
     // Parse the body of the compiler condition.
     let stmts: [AnyStmtID]
@@ -3007,28 +3072,28 @@ public enum Parser {
       stmts = try parseConditionalCompilationBranch(in: &state)
     }
 
-    // The next token may be #endif, #else or #elseif.
+    // Parse the other branch(es) of the condition.
     let fallback: [AnyStmtID]
-    if state.take(.poundEndif) != nil {
+
+    switch state.peek()?.kind {
+    case .poundEndif:
       fallback = []
-    } else if state.take(.poundElse) != nil {
-      if condition.mayNotNeedParsing && condition.holds(for: state.ast.compilationConditions) {
-        try skipConditionalCompilationBranch(in: &state, stoppingAtElse: false)
-        fallback = []
-      } else {
-        fallback = try parseConditionalCompilationBranch(in: &state)
-      }
-      // Expect #endif.
       _ = try state.expect("'#endif'", using: { $0.take(.poundEndif) })
-    } else if let head2 = state.take(.poundElseif) {
+
+    case .poundElse, .poundElseif:
+      let h = state.take()!
       if condition.mayNotNeedParsing && condition.holds(for: state.ast.compilationConditions) {
         try skipConditionalCompilationBranch(in: &state, stoppingAtElse: false)
         fallback = []
-      } else {
-        // We continue with another conditional compilation statement.
-        fallback = [try parseCompilerConditionTail(head: head2, in: &state)]
+        _ = try state.expect("'#endif'", using: { $0.take(.poundEndif) })
+      } else if h.kind == .poundElse {
+        fallback = try parseConditionalCompilationBranch(in: &state)
+        _ = try state.expect("'#endif'", using: { $0.take(.poundEndif) })
+      } else{
+        fallback = [try parseCompilerConditionTail(head: h, in: &state)]
       }
-    } else {
+
+    default:
       try fail(.error(expected: "statement, #endif, #else or #elseif", at: state.currentLocation))
     }
 
@@ -3485,6 +3550,17 @@ struct ParameterInterface {
 
   /// The implicit marker of the parameter, if any.
   let implicitMarker: Token?
+
+}
+
+/// A conjunction (`&&`) or disjunction (`||`) operator.
+enum Connective: Int {
+
+  /// The logical disjunction.
+  case disjunction
+
+  /// The logical conjunction.
+  case conjunction
 
 }
 
