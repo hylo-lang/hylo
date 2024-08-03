@@ -69,6 +69,10 @@ public struct ConditionalCompilationStmt: Stmt {
         return true
       case .not(let c):
         return c.mayNotNeedParsing
+      case .and(let l, let r):
+        return l.mayNotNeedParsing && r.mayNotNeedParsing
+      case .or(let l, let r):
+        return l.mayNotNeedParsing || r.mayNotNeedParsing
       default:
         return false
       }
