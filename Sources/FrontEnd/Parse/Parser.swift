@@ -2986,9 +2986,12 @@ public enum Parser {
 
   static let compilerConditionStmt = Apply(parseCompilerConditionStmt(in:))
 
-  private static func parseCompilerConditionStmt(in state: inout ParserState) throws -> AnyStmtID? {
-    let head = state.take(.poundIf)
-    return head != nil ? try parseCompilerConditionTail(head: head!, in: &state) : nil
+  private static func parseCompilerConditionStmt(
+    in state: inout ParserState
+  ) throws -> AnyStmtID? {
+    try state.take(.poundIf).map { (head) in
+      try parseCompilerConditionTail(head: head, in: &state)
+    }
   }
 
   /// Parses a logical connective from `state`.
@@ -3069,28 +3072,28 @@ public enum Parser {
       stmts = try parseConditionalCompilationBranch(in: &state)
     }
 
-    // The next token may be #endif, #else or #elseif.
+    // Parse the other branch(es) of the condition.
     let fallback: [AnyStmtID]
-    if state.take(.poundEndif) != nil {
+
+    switch state.peek()?.kind {
+    case .poundEndif:
       fallback = []
-    } else if state.take(.poundElse) != nil {
-      if condition.mayNotNeedParsing && condition.holds(for: state.ast.compilationConditions) {
-        try skipConditionalCompilationBranch(in: &state, stoppingAtElse: false)
-        fallback = []
-      } else {
-        fallback = try parseConditionalCompilationBranch(in: &state)
-      }
-      // Expect #endif.
       _ = try state.expect("'#endif'", using: { $0.take(.poundEndif) })
-    } else if let head2 = state.take(.poundElseif) {
+
+    case .poundElse, .poundElseif:
+      let h = state.take()!
       if condition.mayNotNeedParsing && condition.holds(for: state.ast.compilationConditions) {
         try skipConditionalCompilationBranch(in: &state, stoppingAtElse: false)
         fallback = []
-      } else {
-        // We continue with another conditional compilation statement.
-        fallback = [try parseCompilerConditionTail(head: head2, in: &state)]
+        _ = try state.expect("'#endif'", using: { $0.take(.poundEndif) })
+      } else if h.kind == .poundElse {
+        fallback = try parseConditionalCompilationBranch(in: &state)
+        _ = try state.expect("'#endif'", using: { $0.take(.poundEndif) })
+      } else{
+        fallback = [try parseCompilerConditionTail(head: h, in: &state)]
       }
-    } else {
+
+    default:
       try fail(.error(expected: "statement, #endif, #else or #elseif", at: state.currentLocation))
     }
 
