@@ -1355,14 +1355,16 @@ struct TypeChecker {
   }
 
   /// Returns the modules visible as imports in `u`.
+  ///
+  /// The returned set contains the modules declared as explicit imports at the top of `u` along
+  /// with the standard library and the module containing `u`.
   private mutating func imports(exposedTo u: TranslationUnit.ID) -> Set<ModuleDecl.ID> {
     if let result = cache.read(\.imports[u]) {
       return result
     }
 
     // The core library and the containing module are always implicitly imported.
-    var result = Set<ModuleDecl.ID>()
-    result.insert(ModuleDecl.ID(program[u].scope)!)
+    var result: Set<ModuleDecl.ID> = [ModuleDecl.ID(program[u].scope)!]
     if let m = program.ast.coreLibrary {
       result.insert(m)
     }
