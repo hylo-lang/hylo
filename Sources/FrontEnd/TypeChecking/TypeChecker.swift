@@ -2207,7 +2207,7 @@ struct TypeChecker {
 
     // Rule orientation depends on ordering.
     var v = buildTerm(a)
-    var u = b.isTypeParameter ? buildTerm(b) : v.appending(.concrete(b))
+    var u = buildTerm(b)
 
     if let t = TraitDecl.ID(e.decl) {
       v = v.substituting([.parameterType(program[t].receiver)], for: [.trait(t)])
