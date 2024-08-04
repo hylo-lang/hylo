@@ -1,0 +1,20 @@
+//- typeCheck expecting: .failure
+
+type Box<Contents: Regular> {
+  public var contents: Contents
+  public memberwise init
+}
+
+extension Box where Contents == Int {
+  public fun contains_zero() -> Bool {
+    contents == 0
+  }
+}
+
+public fun main() {
+  let b0 = Box(contents: true)
+  _ = b0.contains_zero() //! diagnostic reference to 'contains_zero' requires that 'Bool' be equal to 'Int'
+
+  let b1 = Box(contents: 1)
+  _ = b1.contains_zero()
+}
