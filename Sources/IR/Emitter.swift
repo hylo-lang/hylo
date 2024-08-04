@@ -2516,7 +2516,7 @@ struct Emitter {
   private func unexpectedCoercion(
     from lhs: AnyType, to rhs: AnyType, file: StaticString = #file, line: UInt = #line
   ) -> Never {
-    fatalError("unexpected coercion from '\(lhs)' to \(rhs)", file: file, line: line)
+    fatalError("unexpected coercion from '\(lhs)' to '\(rhs)'", file: file, line: line)
   }
 
   /// Inserts the IR for converting `foreign` to a value of type `ir`.
