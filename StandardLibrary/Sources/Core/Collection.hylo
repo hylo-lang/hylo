@@ -85,3 +85,15 @@ public extension Collection {
   }
 
 }
+
+public extension Collection where Element: Equatable {
+
+  /// Returns the position of the first element of `self` that is equal to `needle`, or
+  /// `end_position()` if no such element exists.
+  ///
+  /// - Complexity: O(n), where n is the number of elements in `self`.
+  public fun first_position(of needle: Element) -> Position {
+    first_position(where: fun (_ e) { e == needle })
+  }
+
+}

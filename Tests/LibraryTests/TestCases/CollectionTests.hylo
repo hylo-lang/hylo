@@ -21,6 +21,7 @@ fun test_count() {
 fun test_first_position() {
   let a = 4
   precondition(a.first_position(where: fun (_ x) { x.copy() }) == 2)
+  precondition(a.first_position(of: true) == 2)
 }
 
 fun test_reduce() {
