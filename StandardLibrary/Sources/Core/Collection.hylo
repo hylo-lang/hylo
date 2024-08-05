@@ -28,6 +28,15 @@ public trait Collection {
 
 public extension Collection {
 
+  /// Returns the number of elements in `self`.
+  ///
+  /// - Complexity: O(n), where n is the number of elements in `self`.
+  public fun count() -> Int {
+    var r = 0
+    for let _ in self { &r += 1 }
+    return r
+  }
+
   /// Returns the result of applying `combine` on an accumulator, initialized with `initial_value`,
   /// and each element of `self`, in order.
   ///
