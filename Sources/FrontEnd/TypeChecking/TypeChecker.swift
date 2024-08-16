@@ -5801,9 +5801,8 @@ struct TypeChecker {
   ) -> AnyType {
     switch callee.kind {
     case InoutExpr.self:
-      let e = InoutExpr.ID(callee)!
-      let t = inferredType(
-        ofCallee: program[e].subject, usedAs: purpose, implicitlyIn: q, updating: &obligations)
+      let e = program[InoutExpr.ID(callee)!].subject.id
+      let t = inferredType(ofCallee: e, usedAs: purpose, implicitlyIn: q, updating: &obligations)
       return constrain(callee, to: t, in: &obligations)
 
     case NameExpr.self:
