@@ -2068,8 +2068,7 @@ struct Emitter {
     let arguments = emitArguments(
       to: ast[e].callee, in: CallID(e),
       usingExplicit: ast[e].arguments, synthesizingDefaultAt: .empty(at: ast[e].site.end))
-    let m = ast.isMarkedForMutation(ast[e].callee)
-    let (callee, captures) = emitSubscriptCallee(ast[e].callee, markedForMutation: m)
+    let (callee, captures) = emitSubscriptCallee(ast[e].callee)
     return (callee, captures + arguments)
   }
 
@@ -2172,7 +2171,7 @@ struct Emitter {
   }
 
   /// Inserts the IR evaluating `callee`, which refers to a member function marked for mutation
-  /// iff `isMutating` is `true`, returning the callee's value along with the call receiver.
+    /// iff `isMutating` is `true`, returning the callee's value along with the call receiver.
   private mutating func emitMemberFunctionCallee(
     _ callee: NameExpr.ID, markedForMutation isMutating: Bool
   ) -> (callee: Callee, captures: [Operand]) {
@@ -2181,17 +2180,20 @@ struct Emitter {
     let receiver = emitLValue(receiver: s, at: ast[callee].site)
     let receiverType = module.type(of: receiver).ast
 
-    let request = program.requestedCapabilities(
-      onBundleProviding: receiverCapabilities(program[callee].type),
-      forInPlaceMutation: isMutating)
+    let available = receiverCapabilities(program[callee].type)
+    var requested = available.intersection(.forUseOfBundle(performingInPlaceMutation: isMutating))
+
+    // TODO: Should report an error when available is `let|sink` and requested is `inout/set`
+    requested = requested.isEmpty ? available : requested
+
     let entityToCall = module.memberCallee(
-      referringTo: d, memberOf: receiverType, accessedWith: request,
+      referringTo: d, memberOf: receiverType, accessedWith: requested,
       specializedBy: a, usedIn: program[callee].scope)
 
     if case .bundle(let b) = entityToCall {
       return emitMethodBundleCallee(referringTo: b, on: receiver, at: program[callee].site)
     } else {
-      let c = insert(module.makeAccess(request, from: receiver, at: program[callee].site))!
+      let c = insert(module.makeAccess(requested, from: receiver, at: program[callee].site))!
       return (callee: entityToCall, captures: [c])
     }
   }
@@ -2233,26 +2235,24 @@ struct Emitter {
     }
   }
 
-  /// Inserts the IR for given `callee`, which is marked for mutation if `isMutating` is `true`,
-  /// and returns the callee's value along with its lifted arguments.
+  /// Inserts the IR for given `callee` and returns its value along with its lifted arguments.
   private mutating func emitSubscriptCallee(
-    _ callee: AnyExprID, markedForMutation isMutating: Bool
+    _ callee: AnyExprID
   ) -> (callee: BundleReference<SubscriptDecl>, captures: [Operand]) {
     // TODO: Handle captures
     switch callee.kind {
     case NameExpr.self:
-      return emitNamedSubscriptCallee(.init(callee)!, markedForMutation: isMutating)
+      return emitNamedSubscriptCallee(.init(callee)!)
     case InoutExpr.self:
-      return emitSubscriptCallee(ast[InoutExpr.ID(callee)!].subject, markedForMutation: true)
+      return emitSubscriptCallee(ast[InoutExpr.ID(callee)!].subject)
     default:
       UNIMPLEMENTED("call to an anonymous subscript of an rvalue")
     }
   }
 
-  /// Inserts the IR for given `callee`, which is marked for mutation if `isMutating` is `true`,
-  /// and returns the callee's value along with its lifted arguments.
+  /// Inserts the IR for given `callee` and returns its value along with its lifted arguments.
   private mutating func emitNamedSubscriptCallee(
-    _ callee: NameExpr.ID, markedForMutation isMutating: Bool
+    _ callee: NameExpr.ID
   ) -> (callee: BundleReference<SubscriptDecl>, captures: [Operand]) {
     switch program[callee].referredDecl {
     case .direct(let d, let a) where d.kind == SubscriptDecl.self:
@@ -2261,13 +2261,12 @@ struct Emitter {
         UNIMPLEMENTED("subscript with non-empty environment")
       }
 
-      let entityToCall = program.subscriptBundleReference(
-        to: .init(d)!, specializedBy: a, markedForMutation: isMutating)
+      let entityToCall = program.subscriptBundleReference(to: .init(d)!, specializedBy: a)
       return (entityToCall, [])
 
     case .member(let d, _, _) where d.kind == SubscriptDecl.self:
       // Callee is a member reference; the receiver is the only capture.
-      return emitMemberSubscriptCallee(callee, markedForMutation: isMutating)
+      return emitMemberSubscriptCallee(callee)
 
     case .builtinFunction, .builtinType:
       // There are no built-in subscripts.
@@ -2278,15 +2277,14 @@ struct Emitter {
     }
   }
 
-  /// Inserts the IR evaluating `callee`, which refers to a member subscript marked for mutation
-  /// iff `isMutating` is `true`, returning the callee's value along with the call receiver.
+  /// Inserts the IR evaluating `callee`, which refers to a member subscript, returning the
+  /// callee's value along with the call receiver.
   private mutating func emitMemberSubscriptCallee(
-    _ callee: NameExpr.ID, markedForMutation isMutating: Bool
+    _ callee: NameExpr.ID
   ) -> (callee: BundleReference<SubscriptDecl>, captures: [Operand]) {
     guard case .member(let d, let a, let s) = program[callee].referredDecl else { unreachable() }
 
-    let entityToCall = program.subscriptBundleReference(
-      to: .init(d)!, specializedBy: a, markedForMutation: isMutating)
+    let entityToCall = program.subscriptBundleReference(to: .init(d)!, specializedBy: a)
     let r = emitLValue(receiver: s, at: ast[callee].site)
     let c = insert(module.makeAccess(entityToCall.capabilities, from: r, at: ast[callee].site))!
     return (entityToCall, [c])
