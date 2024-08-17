@@ -446,6 +446,14 @@ struct ConstraintSystem {
         return delegate(to: [s])
       }
 
+    case (let l as AssociatedTypeType, _) where l.root.base is TypeVariable:
+      postpone(g)
+      return nil
+
+    case (_, let r as AssociatedTypeType) where r.root.base is TypeVariable:
+      postpone(g)
+      return nil
+
     default:
       if !goal.left[.isCanonical] || !goal.right[.isCanonical] {
         let l = checker.canonical(goal.left, in: scope)
