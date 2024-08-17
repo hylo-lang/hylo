@@ -90,11 +90,9 @@ struct SubstitutionMap {
   func reify(
     _ type: AnyType, withVariables substitutionPolicy: SubstitutionPolicy = .substitutedByError
   ) -> AnyType {
-    return type.transform(transform(type:))
-
-    func transform(type: AnyType) -> TypeTransformAction {
-      if type.base is TypeVariable {
-        let walked = self[type]
+    type.transform { (t: AnyType) -> TypeTransformAction in
+      if t.base is TypeVariable {
+        let walked = self[t]
 
         // Substitute `walked` for `type`.
         if walked.base is TypeVariable {
@@ -102,17 +100,17 @@ struct SubstitutionMap {
           case .substitutedByError:
             return .stepOver(.error)
           case .kept:
-            return .stepOver(type)
+            return .stepOver(walked)
           }
         } else {
           return .stepInto(walked)
         }
-      } else if !type[.hasVariable] {
+      } else if !t[.hasVariable] {
         // Nothing to do if the type doesn't contain any variable.
-        return .stepOver(type)
+        return .stepOver(t)
       } else {
         // Recursively visit other types.
-        return .stepInto(type)
+        return .stepInto(t)
       }
     }
   }
