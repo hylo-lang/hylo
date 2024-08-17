@@ -6184,26 +6184,6 @@ struct TypeChecker {
     assert(solution.isSound || diagnostics.containsError, "inference failed without diagnostics")
   }
 
-  /// Commits `r` in the program, where `r` is the name resolution result for a name component
-  /// used in a type expression, returning the type of that component.
-  ///
-  /// - Precondition: `r` has a single candidate.
-  private mutating func bindTypeAnnotation(
-    _ r: NameResolutionResult.ResolvedComponent
-  ) -> AnyType {
-    let c = r.candidates.uniqueElement!
-    cache.write(c.reference, at: \.referredDecl[r.component], ignoringSharedCache: true)
-
-    let t: AnyType
-    if isBoundToNominalTypeDecl(c.reference) {
-      t = MetatypeType(c.type)!.instance
-    } else {
-      t = c.type
-    }
-    cache.write(t, at: \.exprType[r.component], ignoringSharedCache: true)
-    return t
-  }
-
   /// Calls `action` on `self`, logging a trace of constraint solving iff `shouldTraceInference(n)`
   /// returns `true`.
   private mutating func tracingInference<T: NodeIDProtocol>(
