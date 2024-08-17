@@ -230,49 +230,6 @@ struct ConstraintSystem {
     }
   }
 
-  /// If `goal.model` is a structural type, creates and returns sub-goals checking that its parts
-  /// conform to `goal.concept`; returns `.failure` otherwise.
-  ///
-  /// - Requires: `goal.concept` is a trait supporting structural conformances and `goal.model` is
-  ///   not a type variable.
-  private mutating func solve(structuralConformance goal: ConformanceConstraint) -> Outcome {
-    let model = checker.canonical(goal.model, in: scope)
-    assert(!(model.base is TypeVariable))
-
-    switch model.base {
-    case let t as ArrowType:
-      return delegate(structuralConformance: goal, for: [t.environment])
-    case let t as TupleType:
-      return delegate(structuralConformance: goal, for: t.elements.lazy.map(\.type))
-    case let t as UnionType:
-      return delegate(structuralConformance: goal, for: t.elements)
-    default:
-      return .failure(failureToSolve(goal))
-    }
-  }
-
-  /// Returns the outcome of breaking down `goal`, which is a structural conformance constraint,
-  /// into a set containing a conformance constraint for each type in `elements`.
-  private mutating func delegate<S: Collection<AnyType>>(
-    structuralConformance goal: ConformanceConstraint, for elements: S
-  ) -> Outcome {
-    if elements.isEmpty {
-      return .success
-    }
-
-    let subordinateOrigin = goal.origin.subordinate()
-    var subordinates: [GoalIdentity] = []
-    for e in elements {
-      let c = ConformanceConstraint(e, conformsTo: goal.concept, origin: subordinateOrigin)
-      subordinates.append(schedule(c))
-    }
-
-    return .product(subordinates) { (d, m, _) in
-      let t = m.reify(goal.model)
-      d.insert(.error(t, doesNotConformTo: goal.concept, at: goal.origin.site))
-    }
-  }
-
   /// Returns a closure diagnosing a failure to solve `goal`.
   private mutating func failureToSolve(_ goal: ConformanceConstraint) -> DiagnoseFailure {
     return { (d, m, _) in
