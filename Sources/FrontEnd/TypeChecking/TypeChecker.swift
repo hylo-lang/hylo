@@ -2759,17 +2759,6 @@ struct TypeChecker {
     return (e, i)
   }
 
-  /// Computes and returns the type of `d`.
-  ///
-  /// - Requires: `d` has a type annotation.
-  private mutating func uncheckedInputType(of d: ParameterDecl.ID) -> CallableTypeParameter {
-    .init(
-      label: program[d].label?.value,
-      type: uncheckedType(of: d, ignoringSharedCache: true),
-      hasDefault: program[d].defaultValue != nil,
-      isImplicit: program[d].isImplicit)
-  }
-
   /// Computes and returns the types of the inputs `ps` of `d`.
   ///
   /// - Requires: The parameters in `ps` have type annotations.
