@@ -106,7 +106,10 @@ struct ConstraintSystem {
         return nil
       }
 
-      goals[g].modifyTypes({ typeAssumptions[$0] })
+      goals[g].modifyTypes { (t) in
+        typeAssumptions.reify(t, withVariables: .kept)
+      }
+
       log("- solve: \"\(goals[g])\"")
       indentation += 1
       log("actions:")
