@@ -25,7 +25,9 @@ public struct AssociatedTypeType: TypeProtocol {
   /// Creates an instance with the given properties.
   init(decl: AssociatedTypeDecl.ID, domain: AnyType, name: String) {
     var fs = domain.flags
-    if !domain.isSkolem && !(domain.base is TypeVariable) {
+
+    let d = AssociatedTypeType(domain)?.root ?? domain
+    if !(d.isSkolem || d.base is TypeVariable) {
       fs.remove(.isCanonical)
     }
 
@@ -33,6 +35,11 @@ public struct AssociatedTypeType: TypeProtocol {
     self.domain = domain
     self.name = Incidental(name)
     self.flags = fs
+  }
+
+  /// Returns the root of `self`'s qualification.
+  public var root: AnyType {
+    AssociatedTypeType(domain)?.root ?? domain
   }
 
   public func transformParts<M>(

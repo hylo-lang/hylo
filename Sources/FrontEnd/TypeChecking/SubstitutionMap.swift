@@ -81,8 +81,8 @@ struct SubstitutionMap {
     return occurs
   }
 
-  /// Substitutes each type variable occurring in `type` by its corresponding substitution in `self`,
-  /// apply `substitutionPolicy` to deal with free variables.
+  /// Returns a copy of `type` where type variable occurring in is replaced by its corresponding
+  /// substitution in `self`, applying `substitutionPolicy` to deal with free variables.
   ///
   /// The default substitution policy is `substituteByError` because we typically use `reify` after
   /// having built a complete solution and therefore don't expect its result to still contain open
@@ -90,11 +90,9 @@ struct SubstitutionMap {
   func reify(
     _ type: AnyType, withVariables substitutionPolicy: SubstitutionPolicy = .substitutedByError
   ) -> AnyType {
-    return type.transform(transform(type:))
-
-    func transform(type: AnyType) -> TypeTransformAction {
-      if type.base is TypeVariable {
-        let walked = self[type]
+    type.transform { (t: AnyType) -> TypeTransformAction in
+      if t.base is TypeVariable {
+        let walked = self[t]
 
         // Substitute `walked` for `type`.
         if walked.base is TypeVariable {
@@ -102,23 +100,23 @@ struct SubstitutionMap {
           case .substitutedByError:
             return .stepOver(.error)
           case .kept:
-            return .stepOver(type)
+            return .stepOver(walked)
           }
         } else {
           return .stepInto(walked)
         }
-      } else if !type[.hasVariable] {
+      } else if !t[.hasVariable] {
         // Nothing to do if the type doesn't contain any variable.
-        return .stepOver(type)
+        return .stepOver(t)
       } else {
         // Recursively visit other types.
-        return .stepInto(type)
+        return .stepInto(t)
       }
     }
   }
 
-  /// Returns `r` where each type variable occurring in its generic arguments of `r` are replaced by
-  /// their corresponding value in `self`, applying `substitutionPolicy` to handle free variables.
+  /// Returns a copy of `r` where each generic argument is replaced by the result of applying
+  /// `reify(withVariables:)` on it.
   func reify(
     _ r: DeclReference, withVariables substitutionPolicy: SubstitutionPolicy
   ) -> DeclReference {

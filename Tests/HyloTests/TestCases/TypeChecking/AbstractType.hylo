@@ -1,0 +1,48 @@
+//- typeCheck expecting: .success
+
+trait P: SemiRegular {
+  type T: SemiRegular
+  type U: SemiRegular
+
+  fun t(_ x: T)
+  fun u(_ x: U)
+}
+
+trait Q: SemiRegular {
+  type V: P
+  property v: V { let }
+}
+
+type A<V: P>: Q {
+  public let _v: V
+  public init (v: sink V) { &self._v = v }
+  public property v: V { yield _v }
+  public fun infix== (_ other: Self) -> Bool { self.v == other.v }
+}
+
+type B<W: Q>: Deinitializable {
+  public let w: W
+  public memberwise init
+
+  public fun t(_ x: W.V.T) { w.v.t(x) }
+  public fun u(_ x: W.V.U) { w.v.u(x) }
+}
+
+conformance Array: P {
+  public typealias T = Element
+  public typealias U = Self.Position
+
+  public fun t(_ x: Element) {}
+  public fun u(_ x: Self.Position) {}
+}
+
+fun foo<X: P>(p: sink X, t: sink X.T, u: sink X.U) {
+  let a = A(v: p)
+  let b = B(w: a)
+  b.t(t)
+  b.u(u)
+}
+
+public fun main() {
+  foo(p: Array<Bool>(), t: true, u: 1)
+}

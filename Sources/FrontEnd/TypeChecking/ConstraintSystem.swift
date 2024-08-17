@@ -106,7 +106,10 @@ struct ConstraintSystem {
         return nil
       }
 
-      goals[g].modifyTypes({ typeAssumptions[$0] })
+      goals[g].modifyTypes { (t) in
+        typeAssumptions.reify(t, withVariables: .kept)
+      }
+
       log("- solve: \"\(goals[g])\"")
       indentation += 1
       log("actions:")
@@ -443,10 +446,20 @@ struct ConstraintSystem {
         return delegate(to: [s])
       }
 
+    case (let l as AssociatedTypeType, _) where l.root.base is TypeVariable:
+      postpone(g)
+      return nil
+
+    case (_, let r as AssociatedTypeType) where r.root.base is TypeVariable:
+      postpone(g)
+      return nil
+
     default:
       if !goal.left[.isCanonical] || !goal.right[.isCanonical] {
         let l = checker.canonical(goal.left, in: scope)
         let r = checker.canonical(goal.right, in: scope)
+        assert(l[.isCanonical] && r[.isCanonical])
+
         let s = schedule(
           SubtypingConstraint(l, r, strictly: goal.isStrict, origin: goal.origin.subordinate()))
         return delegate(to: [s])

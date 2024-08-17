@@ -296,9 +296,12 @@ public struct TypedProgram {
   /// Returns the names and types of `t`'s stored properties.
   public func storage(of t: BoundGenericType) -> [TupleType.Element] {
     storage(of: t.base).map { (p) in
+      // FIXME: Probably wrong to specialize/canonicalize in any random scope.
+      let arbitraryScope = AnyScopeID(base.ast.coreLibrary!)
       let z = GenericArguments(t)
-      let t = specialize(p.type, for: z, in: AnyScopeID(base.ast.coreLibrary!))
-      return .init(label: p.label, type: t)
+      let u = specialize(p.type, for: z, in: arbitraryScope)
+      let v = canonical(u, in: arbitraryScope)
+      return .init(label: p.label, type: v)
     }
   }
 

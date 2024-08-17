@@ -79,6 +79,8 @@ struct TypeChecker {
     if t[.isCanonical] { return t }
 
     switch t.base {
+    case let u as AssociatedTypeType:
+      return canonical(u, in: scopeOfUse)
     case let u as BoundGenericType:
       return canonical(u, in: scopeOfUse)
     case let u as TypeAliasType:
@@ -87,6 +89,15 @@ struct TypeChecker {
       return canonical(u, in: scopeOfUse)
     default:
       return t.transformParts(mutating: &self, { .stepOver($0.canonical($1, in: scopeOfUse)) })
+    }
+  }
+
+  /// Returns the canonical form of `t` in `scopeOfUse`.
+  private mutating func canonical(_ t: AssociatedTypeType, in scopeOfUse: AnyScopeID) -> AnyType {
+    if let u = demandImplementation(of: t.decl, for: t.domain, in: scopeOfUse) {
+      return canonical(u, in: scopeOfUse)
+    } else {
+      return .error
     }
   }
 
@@ -595,15 +606,18 @@ struct TypeChecker {
     return result
   }
 
-  /// Returns the type implementing requirement `r` for the model `m` in `scopeOfUse`, or `nil` if
-  /// `m` does not implement `r`.
+  /// Returns the type implementing `requirement` for `model` in `scopeOfUse`, or `nil` if `model`
+  /// does not implement `requirement`.
   private mutating func demandImplementation(
-    of r: AssociatedTypeDecl.ID, for m: AnyType, in scopeOfUse: AnyScopeID
+    of requirement: AssociatedTypeDecl.ID, for model: AnyType, in scopeOfUse: AnyScopeID
   ) -> AnyType? {
-    if let c = demandConformance(of: m, to: traitDeclaring(r)!, exposedTo: scopeOfUse) {
-      return demandImplementation(of: r, in: c)
+    let p = traitDeclaring(requirement)!
+    let m = canonical(model, in: scopeOfUse)
+
+    if let c = demandConformance(of: m, to: p, exposedTo: scopeOfUse) {
+      return demandImplementation(of: requirement, in: c)
     } else if m.base is GenericTypeParameterType {
-      return ^AssociatedTypeType(r, domain: m, ast: program.ast)
+      return ^AssociatedTypeType(requirement, domain: m, ast: program.ast)
     } else {
       return nil
     }
