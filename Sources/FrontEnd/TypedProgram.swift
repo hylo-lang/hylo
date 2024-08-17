@@ -297,11 +297,11 @@ public struct TypedProgram {
   public func storage(of t: BoundGenericType) -> [TupleType.Element] {
     storage(of: t.base).map { (p) in
       // FIXME: Probably wrong to specialize/canonicalize in any random scope.
-      let s = AnyScopeID(base.ast.coreLibrary!)
+      let arbitraryScope = AnyScopeID(base.ast.coreLibrary!)
       let z = GenericArguments(t)
-      let t = specialize(p.type, for: z, in: s)
-      let u = canonical(t, in: s)
-      return .init(label: p.label, type: u)
+      let u = specialize(p.type, for: z, in: arbitraryScope)
+      let v = canonical(u, in: arbitraryScope)
+      return .init(label: p.label, type: v)
     }
   }
 
