@@ -450,6 +450,8 @@ struct ConstraintSystem {
       if !goal.left[.isCanonical] || !goal.right[.isCanonical] {
         let l = checker.canonical(goal.left, in: scope)
         let r = checker.canonical(goal.right, in: scope)
+        assert(l[.isCanonical] && r[.isCanonical])
+
         let s = schedule(
           SubtypingConstraint(l, r, strictly: goal.isStrict, origin: goal.origin.subordinate()))
         return delegate(to: [s])
