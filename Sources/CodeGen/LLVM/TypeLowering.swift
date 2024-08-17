@@ -87,11 +87,7 @@ extension IR.Program {
   ) -> SwiftyLLVM.IRType {
     precondition(val[.isCanonical])
 
-    let fields = base.storage(of: val.base).map { (part) in
-      let z = GenericArguments(val)
-      let u = base.specialize(part.type, for: z, in: AnyScopeID(base.ast.coreLibrary!))
-      return llvm(u, in: &module)
-    }
+    let fields = base.storage(of: val).map({ (p) in llvm(p.type, in: &module) })
 
     switch val.base.base {
     case let u as ProductType:
