@@ -79,6 +79,8 @@ struct TypeChecker {
     if t[.isCanonical] { return t }
 
     switch t.base {
+    case let u as AssociatedTypeType:
+      return canonical(u, in: scopeOfUse)
     case let u as BoundGenericType:
       return canonical(u, in: scopeOfUse)
     case let u as TypeAliasType:
@@ -87,6 +89,15 @@ struct TypeChecker {
       return canonical(u, in: scopeOfUse)
     default:
       return t.transformParts(mutating: &self, { .stepOver($0.canonical($1, in: scopeOfUse)) })
+    }
+  }
+
+  /// Returns the canonical form of `t` in `scopeOfUse`.
+  private mutating func canonical(_ t: AssociatedTypeType, in scopeOfUse: AnyScopeID) -> AnyType {
+    if let u = demandImplementation(of: t.decl, for: t.domain, in: scopeOfUse) {
+      return canonical(u, in: scopeOfUse)
+    } else {
+      return .error
     }
   }
 
