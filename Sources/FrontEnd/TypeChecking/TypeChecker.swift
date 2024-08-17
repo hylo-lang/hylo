@@ -606,15 +606,18 @@ struct TypeChecker {
     return result
   }
 
-  /// Returns the type implementing requirement `r` for the model `m` in `scopeOfUse`, or `nil` if
-  /// `m` does not implement `r`.
+  /// Returns the type implementing `requirement` for `model` in `scopeOfUse`, or `nil` if `model`
+  /// does not implement `requirement`.
   private mutating func demandImplementation(
-    of r: AssociatedTypeDecl.ID, for m: AnyType, in scopeOfUse: AnyScopeID
+    of requirement: AssociatedTypeDecl.ID, for model: AnyType, in scopeOfUse: AnyScopeID
   ) -> AnyType? {
-    if let c = demandConformance(of: m, to: traitDeclaring(r)!, exposedTo: scopeOfUse) {
-      return demandImplementation(of: r, in: c)
+    let p = traitDeclaring(requirement)!
+    let m = canonical(model, in: scopeOfUse)
+
+    if let c = demandConformance(of: m, to: p, exposedTo: scopeOfUse) {
+      return demandImplementation(of: requirement, in: c)
     } else if m.base is GenericTypeParameterType {
-      return ^AssociatedTypeType(r, domain: m, ast: program.ast)
+      return ^AssociatedTypeType(requirement, domain: m, ast: program.ast)
     } else {
       return nil
     }
