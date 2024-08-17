@@ -81,8 +81,8 @@ struct SubstitutionMap {
     return occurs
   }
 
-  /// Substitutes each type variable occurring in `type` by its corresponding substitution in `self`,
-  /// apply `substitutionPolicy` to deal with free variables.
+  /// Returns a copy of `type` where type variable occurring in is replaced by its corresponding
+  /// substitution in `self`, applying `substitutionPolicy` to deal with free variables.
   ///
   /// The default substitution policy is `substituteByError` because we typically use `reify` after
   /// having built a complete solution and therefore don't expect its result to still contain open
@@ -115,8 +115,8 @@ struct SubstitutionMap {
     }
   }
 
-  /// Returns `r` where each type variable occurring in its generic arguments of `r` are replaced by
-  /// their corresponding value in `self`, applying `substitutionPolicy` to handle free variables.
+  /// Returns a copy of `r` where each generic argument is replaced by the result of applying
+  /// `reify(withVariables:)` on it.
   func reify(
     _ r: DeclReference, withVariables substitutionPolicy: SubstitutionPolicy
   ) -> DeclReference {
