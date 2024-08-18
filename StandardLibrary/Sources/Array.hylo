@@ -176,7 +176,7 @@ public type Array<Element: SemiRegular>: SemiRegular {
     var i = count() - 1
     var j = 0
     while i > j {
-      swap_at(i, j)
+      &swap_at(i, j)
       &i -= 1
       &j += 1
     }
