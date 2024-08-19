@@ -1552,17 +1552,9 @@ struct Emitter {
       usingExplicit: ast[e].arguments, synthesizingDefaultAt: .empty(at: ast[e].site.end))
     let m = ast.isMarkedForMutation(ast[e].callee)
     let (callee, captures) = emitFunctionCallee(ast[e].callee, markedForMutation: m)
-    let inputs = captures + arguments
 
     // Call is evaluated last.
-    switch callee {
-    case .direct(let r):
-      emitApply(.constant(r), to: inputs, writingResultTo: storage, at: ast[e].site)
-    case .lambda(let r):
-      emitApply(r, to: inputs, writingResultTo: storage, at: ast[e].site)
-    case .bundle(let r):
-      emitApply(r, to: inputs, writingResultTo: storage, at: ast[e].site)
-    }
+    emitApply(callee, to: captures + arguments, writingResultTo: storage, at: ast[e].site)
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
@@ -1851,6 +1843,21 @@ struct Emitter {
     insert(module.makeCapture(a, in: x0, at: site))
     insert(module.makeEndAccess(x0, at: site))
     frames.top.setMayHoldCaptures(s)
+  }
+
+  /// Inserts the IR for calling `callee` on `arguments`, storing the result to `storage`.
+  private mutating func emitApply(
+    _ callee: Callee, to arguments: [Operand],
+    writingResultTo storage: Operand, at site: SourceRange
+  ) {
+    switch callee {
+    case .direct(let r):
+      emitApply(.constant(r), to: arguments, writingResultTo: storage, at: site)
+    case .lambda(let r):
+      emitApply(r, to: arguments, writingResultTo: storage, at: site)
+    case .bundle(let r):
+      emitApply(r, to: arguments, writingResultTo: storage, at: site)
+    }
   }
 
   /// Inserts the IR for calling `callee` on `arguments`, storing the result to `storage`.
