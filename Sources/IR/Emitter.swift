@@ -1644,8 +1644,8 @@ struct Emitter {
   private mutating func emitStore(_ e: FoldedSequenceExpr, to storage: Operand) {
     switch e {
     case .infix(let callee, let lhs, let rhs):
-      let t = program[callee.expr].type
-      let calleeType = ArrowType(canonical(t))!.lifted
+      let t = canonical(program[callee.expr].type)
+      let calleeType = ArrowType(t)!.lifted
 
       // Emit the operands, starting with RHS.
       let r = emit(infixOperand: rhs, passed: ParameterType(calleeType.inputs[1].type)!.access)
@@ -1656,13 +1656,13 @@ struct Emitter {
         unreachable()
       }
 
-      let o = FunctionReference(to: d, in: &module, specializedBy: a, in: insertionScope!)
-      let f = Operand.constant(o)
-
-      // Emit the call.
-      let site = ast.site(of: e)
-      let result = insert(module.makeAccess(.set, from: storage, at: site))!
-      insert(module.makeCall(applying: f, to: [l, r], writingResultTo: result, at: site))
+      let site = program[callee.expr].site
+      let lhsIsMarkedForMutation = program.ast.isMarkedForMutation(lhs)
+      let (callee, captures) = emitMemberFunctionCallee(
+        referringTo: d, memberOf: l, markedForMutation: lhsIsMarkedForMutation,
+        specializedBy: a, in: program[callee.expr].scope,
+        at: site)
+      emitApply(callee, to: captures + [r], writingResultTo: storage, at: site)
 
     case .leaf(let v):
       emitStore(value: v, to: storage)
@@ -2165,23 +2165,37 @@ struct Emitter {
   ) -> (callee: Callee, captures: [Operand]) {
     guard case .member(let d, let a, let s) = program[callee].referredDecl else { unreachable() }
 
-    let receiver = emitLValue(receiver: s, at: ast[callee].site)
-    let receiverType = module.type(of: receiver).ast
+    let r = emitLValue(receiver: s, at: ast[callee].site)
+    return emitMemberFunctionCallee(
+      referringTo: d, memberOf: r, markedForMutation: isMutating,
+      specializedBy: a, in:program[callee].scope,
+      at: program[callee].site)
+  }
 
-    let available = receiverCapabilities(program[callee].type)
+  /// Inserts the IR constructing the callee of a call referring to `d`, which is a member function
+  /// of `r`, returning the callee's value along with the call receiver.
+  ///
+  /// The callee is marked for mutation iff `isMutating` is `true`, in which case the receiver is
+  /// accessed with a `set` or `inout` capability.
+  private mutating func emitMemberFunctionCallee(
+    referringTo d: AnyDeclID, memberOf r: Operand, markedForMutation isMutating: Bool,
+    specializedBy a: GenericArguments, in scopeOfUse: AnyScopeID,
+    at site: SourceRange
+  ) -> (callee: Callee, captures: [Operand]) {
+    let available = receiverCapabilities(program[d].type)
     var requested = available.intersection(.forUseOfBundle(performingInPlaceMutation: isMutating))
 
     // TODO: Should report an error when available is `let|sink` and requested is `inout/set`
     requested = requested.isEmpty ? available : requested
 
     let entityToCall = module.memberCallee(
-      referringTo: d, memberOf: receiverType, accessedWith: requested,
-      specializedBy: a, usedIn: program[callee].scope)
+      referringTo: d, memberOf: module.type(of: r).ast, accessedWith: requested,
+      specializedBy: a, usedIn: scopeOfUse)
 
     if case .bundle(let b) = entityToCall {
-      return emitMethodBundleCallee(referringTo: b, on: receiver, at: program[callee].site)
+      return emitMethodBundleCallee(referringTo: b, on: r, at: site)
     } else {
-      let c = insert(module.makeAccess(requested, from: receiver, at: program[callee].site))!
+      let c = insert(module.makeAccess(requested, from: r, at: site))!
       return (callee: entityToCall, captures: [c])
     }
   }
