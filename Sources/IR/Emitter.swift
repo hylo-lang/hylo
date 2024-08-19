@@ -2107,7 +2107,7 @@ struct Emitter {
     }
   }
 
-  /// Inserts the IR for given `callee`, which is marked for mutation if `isMutating` is `true`,
+  /// Inserts the IR for given `callee`, which is marked for mutation iff `isMutating` is `true`,
   /// and returns the callee's value along with its lifted arguments.
   ///
   /// Lifted arguments correspond to the captures of the `callee`, which are additional parameters
@@ -2158,8 +2158,11 @@ struct Emitter {
     }
   }
 
-  /// Inserts the IR evaluating `callee`, which refers to a member function marked for mutation
-    /// iff `isMutating` is `true`, returning the callee's value along with the call receiver.
+  /// Inserts the IR evaluating `callee`, which refers to a member function, returning the callee's
+  /// value along with the call receiver.
+  ///
+  /// The callee is marked for mutation iff `isMutating` is `true`, in which case the receiver is
+  /// accessed with a `set` or `inout` capability.
   private mutating func emitMemberFunctionCallee(
     _ callee: NameExpr.ID, markedForMutation isMutating: Bool
   ) -> (callee: Callee, captures: [Operand]) {
