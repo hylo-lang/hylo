@@ -645,15 +645,15 @@ struct Emitter {
   mutating func lower(synthetic d: SynthesizedFunctionDecl) {
     switch d.kind {
     case .deinitialize:
-      return withClearContext({ $0.lower(syntheticDeinit: d) })
+      lower(syntheticDeinit: d)
     case .moveInitialization:
-      return withClearContext({ $0.lower(syntheticMoveInit: d) })
+      lower(syntheticMoveInit: d)
     case .moveAssignment:
-      return withClearContext({ $0.lower(syntheticMoveAssign: d) })
+      lower(syntheticMoveAssign: d)
     case .copy:
-      return withClearContext({ $0.lower(syntheticCopy: d) })
+      lower(syntheticCopy: d)
     case .globalInitialization:
-      return withClearContext({ $0.lower(globalBindingInitializer: d) })
+      lower(globalBindingInitializer: d)
     case .autoclosure:
       // nothing do to here; expansion is done at the caller side.
       break
@@ -662,54 +662,34 @@ struct Emitter {
 
   /// Inserts the IR for `d`, which is a synthetic deinitializer.
   private mutating func lower(syntheticDeinit d: SynthesizedFunctionDecl) {
-    let f = module.demandDeclaration(lowering: d)
-    if !shouldEmitBody(of: d, loweredTo: f) { return }
+    withPrologue(of: d) { (me, site, entry) in
+      // The receiver is a sink parameter representing the object to deinitialize.
+      let receiver = Operand.parameter(entry, 0)
+      me.emitDeinitParts(of: receiver, at: site)
 
-    let site = ast[module.id].site
-    let entry = module.appendEntry(in: d.scope, to: f)
-    insertionPoint = .end(of: entry)
-    self.frames.push()
-    defer {
-      self.frames.pop()
-      assert(self.frames.isEmpty)
+      me.insert(me.module.makeMarkState(me.returnValue!, initialized: true, at: site))
+      me.emitDeallocTopFrame(at: site)
+      me.insert(me.module.makeReturn(at: site))
     }
-
-    // The receiver is a sink parameter representing the object to deinitialize.
-    let receiver = Operand.parameter(entry, 0)
-    emitDeinitParts(of: receiver, at: site)
-
-    insert(module.makeMarkState(returnValue!, initialized: true, at: site))
-    emitDeallocTopFrame(at: site)
-    insert(module.makeReturn(at: site))
   }
 
   /// Inserts the IR for `d`, which is a synthetic move initialization method.
   private mutating func lower(syntheticMoveInit d: SynthesizedFunctionDecl) {
-    let f = module.demandDeclaration(lowering: d)
-    if !shouldEmitBody(of: d, loweredTo: f) { return }
+    withPrologue(of: d) { (me, site, entry) in
+      let receiver = Operand.parameter(entry, 0)
+      let argument = Operand.parameter(entry, 1)
+      let object = me.module.type(of: receiver).ast
 
-    let site = ast[module.id].site
-    let entry = module.appendEntry(in: d.scope, to: f)
-    insertionPoint = .end(of: entry)
-    self.frames.push()
-    defer {
-      self.frames.pop()
-      assert(self.frames.isEmpty)
+      if object.hasRecordLayout {
+        me.emitMoveInitRecordParts(of: receiver, consuming: argument, at: site)
+      } else if object.base is UnionType {
+        me.emitMoveInitUnionPayload(of: receiver, consuming: argument, at: site)
+      }
+
+      me.insert(me.module.makeMarkState(me.returnValue!, initialized: true, at: site))
+      me.emitDeallocTopFrame(at: site)
+      me.insert(me.module.makeReturn(at: site))
     }
-
-    let receiver = Operand.parameter(entry, 0)
-    let argument = Operand.parameter(entry, 1)
-    let object = module.type(of: receiver).ast
-
-    if object.hasRecordLayout {
-      emitMoveInitRecordParts(of: receiver, consuming: argument, at: site)
-    } else if object.base is UnionType {
-      emitMoveInitUnionPayload(of: receiver, consuming: argument, at: site)
-    }
-
-    insert(module.makeMarkState(returnValue!, initialized: true, at: site))
-    emitDeallocTopFrame(at: site)
-    insert(module.makeReturn(at: site))
   }
 
   /// Inserts the IR for initializing the stored parts of `receiver`, which stores a record,
@@ -799,57 +779,61 @@ struct Emitter {
 
   /// Inserts the IR for `d`, which is a synthetic move initialization method.
   private mutating func lower(syntheticMoveAssign d: SynthesizedFunctionDecl) {
-    let f = module.demandDeclaration(lowering: d)
-    if !shouldEmitBody(of: d, loweredTo: f) { return }
+    withPrologue(of: d) { (me, site, entry) in
+      let receiver = Operand.parameter(entry, 0)
+      let argument = Operand.parameter(entry, 1)
 
-    let site = ast[module.id].site
-    let entry = module.appendEntry(in: d.scope, to: f)
-    insertionPoint = .end(of: entry)
-    self.frames.push()
-    defer {
-      self.frames.pop()
-      assert(self.frames.isEmpty)
+      // Deinitialize the receiver.
+      me.emitDeinit(receiver, at: site)
+
+      // Apply the move-initializer.
+      me.emitMove([.set], argument, to: receiver, at: site)
+      me.insert(me.module.makeMarkState(me.returnValue!, initialized: true, at: site))
+      me.emitDeallocTopFrame(at: site)
+      me.insert(me.module.makeReturn(at: site))
     }
-
-    let receiver = Operand.parameter(entry, 0)
-    let argument = Operand.parameter(entry, 1)
-
-    // Deinitialize the receiver.
-    emitDeinit(receiver, at: site)
-
-    // Apply the move-initializer.
-    emitMove([.set], argument, to: receiver, at: site)
-    insert(module.makeMarkState(returnValue!, initialized: true, at: site))
-    emitDeallocTopFrame(at: site)
-    insert(module.makeReturn(at: site))
   }
 
   /// Inserts the IR for `d`, which is a synthetic copy method.
   private mutating func lower(syntheticCopy d: SynthesizedFunctionDecl) {
-    let f = module.demandDeclaration(lowering: d)
-    if !shouldEmitBody(of: d, loweredTo: f) { return }
+    withPrologue(of: d) { (me, site, entry) in
+      let source = Operand.parameter(entry, 0)
+      let target = Operand.parameter(entry, 1)
+      let object = me.module.type(of: source).ast
 
-    let site = ast[module.id].site
-    let entry = module.appendEntry(in: d.scope, to: f)
-    insertionPoint = .end(of: entry)
-    self.frames.push()
-    defer {
-      self.frames.pop()
-      assert(self.frames.isEmpty)
+      if object.hasRecordLayout {
+        me.emitCopyRecordParts(from: source, to: target, at: site)
+      } else if object.base is UnionType {
+        me.emitCopyUnionPayload(from: source, to: target, at: site)
+      }
+
+      me.emitDeallocTopFrame(at: site)
+      me.insert(me.module.makeReturn(at: site))
     }
+  }
 
-    let source = Operand.parameter(entry, 0)
-    let target = Operand.parameter(entry, 1)
-    let object = module.type(of: source).ast
+  /// Declares `d` in the current module and returns its corresponding identifier, calls `action`
+  /// to generate its implementation if it should be emitted the current module.
+  @discardableResult
+  private mutating func withPrologue(
+    of d: SynthesizedFunctionDecl,
+    _ action: (inout Self, _ site: SourceRange, _ entry: Block.ID) -> Void
+  ) -> Function.ID {
+    withClearContext { (me) in
+      let f = me.module.demandDeclaration(lowering: d)
+      if me.shouldEmitBody(of: d, loweredTo: f) {
+        let site = me.ast[me.module.id].site
+        let entry = me.module.appendEntry(in: d.scope, to: f)
+        me.insertionPoint = .end(of: entry)
+        me.frames.push()
 
-    if object.hasRecordLayout {
-      emitCopyRecordParts(from: source, to: target, at: site)
-    } else if object.base is UnionType {
-      emitCopyUnionPayload(from: source, to: target, at: site)
+        action(&me, site, entry)
+
+        me.frames.pop()
+        assert(me.frames.isEmpty)
+      }
+      return f
     }
-
-    emitDeallocTopFrame(at: site)
-    insert(module.makeReturn(at: site))
   }
 
   /// Inserts the IR for copying the stored parts of `source`, which stores a record, to `target`
@@ -927,31 +911,20 @@ struct Emitter {
   /// the lowered function.
   @discardableResult
   private mutating func lower(globalBindingInitializer d: SynthesizedFunctionDecl) -> Function.ID {
-    let f = module.demandDeclaration(lowering: d)
-    if !shouldEmitBody(of: d, loweredTo: f) {
-      return f
+    withPrologue(of: d) { (me, _, entry) in
+      let storage = Operand.parameter(entry, 0)
+      guard case .globalInitialization(let binding) = d.kind else { unreachable() }
+
+      let initializer = me.program[binding].initializer!
+      let site = me.program[initializer].site
+
+      me.emitInitStoredLocalBindings(
+        in: me.program[binding].pattern.subpattern, referringTo: [], relativeTo: storage,
+        consuming: initializer)
+      me.insert(me.module.makeMarkState(me.returnValue!, initialized: true, at: site))
+      me.emitDeallocTopFrame(at: site)
+      me.insert(me.module.makeReturn(at: site))
     }
-
-    let entry = module.appendEntry(in: d.scope, to: f)
-    insertionPoint = .end(of: entry)
-    self.frames.push()
-    defer {
-      self.frames.pop()
-      assert(self.frames.isEmpty)
-    }
-
-    let storage = Operand.parameter(entry, 0)
-    guard case .globalInitialization(let binding) = d.kind else { unreachable() }
-    let initializer = program[binding].initializer!
-
-    emitInitStoredLocalBindings(
-      in: program[binding].pattern.subpattern, referringTo: [], relativeTo: storage,
-      consuming: initializer)
-    insert(module.makeMarkState(returnValue!, initialized: true, at: program[initializer].site))
-    emitDeallocTopFrame(at: program[initializer].site)
-    insert(module.makeReturn(at: program[initializer].site))
-
-    return f
   }
 
   private mutating func lower(syntheticAutoclosure d: SynthesizedFunctionDecl) -> Function.ID {
