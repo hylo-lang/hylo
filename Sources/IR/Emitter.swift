@@ -1405,9 +1405,7 @@ struct Emitter {
 
   /// Inserts the IR for storing the value of `e` to `storage`.
   private mutating func emitStore(_ e: BooleanLiteralExpr.ID, to storage: Operand) {
-    let x0 = emitSubfieldView(storage, at: [0], at: ast[e].site)
-    let x1 = insert(module.makeAccess(.set, from: x0, at: ast[e].site))!
-    insert(module.makeStore(.i1(ast[e].value), at: x1, at: ast[e].site))
+    emitStore(boolean: ast[e].value, to: storage, at: ast[e].site)
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
@@ -1804,6 +1802,16 @@ struct Emitter {
     let x1 = insert(module.makeAccess(.set, from: x0, at: syntax.site))!
     let x2 = Operand.constant(IntegerConstant(bits))
     insert(module.makeStore(x2, at: x1, at: syntax.site))
+  }
+
+  /// Writes an instance of `Hylo.Bool` with value `v` to `storage`.
+  ///
+  /// - Requires: `storage` is the address of uninitialized memory of type `Hylo.Int`.
+  private mutating func emitStore(boolean v: Bool, to storage: Operand, at site: SourceRange) {
+    let x0 = emitSubfieldView(storage, at: [0], at: site)
+    let x1 = insert(module.makeAccess(.set, from: x0, at: site))!
+    insert(module.makeStore(.i1(v), at: x1, at: site))
+    insert(module.makeEndAccess(x1, at: site))
   }
 
   /// Writes an instance of `Hylo.Int` with value `v` to `storage`.
