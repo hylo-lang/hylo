@@ -18,6 +18,9 @@ public struct SynthesizedFunctionDecl: Hashable {
     /// A copy method.
     case copy
 
+    /// An equality method.
+    case equal
+
     /// A global initializer for a binding declaration.
     case globalInitialization(BindingDecl.ID)
 

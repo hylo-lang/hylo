@@ -303,7 +303,6 @@ public struct AST {
   /// Returns the kind identifying synthesized declarations of `requirement`, or `nil` if
   /// `requirement` is not synthesizable.
   public func synthesizedKind<T: DeclID>(of requirement: T) -> SynthesizedFunctionDecl.Kind? {
-    // If the requirement is defined in `Deinitializable`, it must be the deinitialization method.
     switch requirement.rawValue {
     case core.deinitializable.deinitialize.rawValue:
       return .deinitialize
@@ -313,6 +312,8 @@ public struct AST {
       return .moveAssignment
     case core.copyable.copy.rawValue:
       return .copy
+    case core.equatable.equal.rawValue:
+      return .equal
     default:
       return nil
     }
