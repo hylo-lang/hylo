@@ -3001,7 +3001,7 @@ struct Emitter {
     } else if m.isBuiltinOrRawTuple {
       insert(module.makeMarkState(storage, initialized: false, at: site))
     } else {
-      report(.error(module.type(of: storage).ast, doesNotConformTo: d, at: site))
+      report(.error(m, doesNotConformTo: d, at: site))
     }
   }
 
