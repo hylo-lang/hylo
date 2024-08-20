@@ -1,0 +1,28 @@
+//- compileAndRun expecting: .success
+
+type A: Regular {
+  public let x: Int
+  public let y: Int
+  public memberwise init
+}
+
+type B: Regular {
+  public let a: A
+  public memberwise init
+}
+
+typealias IntOrBool = Union<Int, Bool>
+
+conformance IntOrBool: Equatable {}
+
+public fun main() {
+  precondition(B(a: A(x: 1, y: 2)) == B(a: A(x: 1, y: 2)))
+  precondition(B(a: A(x: 1, y: 2)) != B(a: A(x: 2, y: 1)))
+
+  let n: IntOrBool = 42 as _
+  let m: IntOrBool = 1337 as _
+  let b: IntOrBool = true as _
+  precondition(n == n)
+  precondition(n != m) // inequal payloads
+  precondition(n != b) // inequal discriminators
+}
