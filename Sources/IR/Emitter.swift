@@ -652,6 +652,8 @@ struct Emitter {
       lower(syntheticMoveAssign: d)
     case .copy:
       lower(syntheticCopy: d)
+    case .equal:
+      lower(syntheticEqual: d)
     case .globalInitialization:
       lower(globalBindingInitializer: d)
     case .autoclosure:
@@ -805,6 +807,26 @@ struct Emitter {
         me.emitCopyRecordParts(from: source, to: target, at: site)
       } else if object.base is UnionType {
         me.emitCopyUnionPayload(from: source, to: target, at: site)
+      }
+
+      me.emitDeallocTopFrame(at: site)
+      me.insert(me.module.makeReturn(at: site))
+    }
+  }
+
+  /// Inserts the ID for `d`, which is an equality operator.
+  private mutating func lower(syntheticEqual d: SynthesizedFunctionDecl) {
+    withPrologue(of: d) { (me, site, entry) in
+      let lhs = Operand.parameter(entry, 0)
+      let rhs = Operand.parameter(entry, 1)
+      let t = me.module.type(of: lhs).ast
+
+      if t.hasRecordLayout {
+        me.emitStorePartsEquality(lhs, rhs, to: me.returnValue!, at: site)
+      } else if t.base is UnionType {
+        me.emitStoreUnionPayloadEquality(lhs, rhs, to: me.returnValue!, at: site)
+      } else {
+        UNIMPLEMENTED("synthetic equality for type '\(t)'")
       }
 
       me.emitDeallocTopFrame(at: site)
@@ -3091,6 +3113,116 @@ struct Emitter {
     let x0 = insert(module.makeOpenUnion(storage, as: payload, at: site))!
     emitDeinit(x0, at: site)
     insert(module.makeCloseUnion(x0, at: site))
+  }
+
+  // MARK: Equality
+
+  private mutating func emitStoreEquality(
+    _ lhs: Operand, _ rhs: Operand, to target: Operand, at site: SourceRange
+  ) {
+    let m = module.type(of: lhs).ast
+    let d = program.ast.core.equatable.type
+
+    if let equatable = program.conformance(of: m, to: d, exposedTo: insertionScope!) {
+      let d = module.demandEqualDeclaration(definedBy: equatable)
+      let f = module.reference(to: d, implementedFor: equatable)
+
+      let x0 = insert(module.makeAccess(.set, from: target, at: site))!
+      let x1 = insert(module.makeAccess(.let, from: lhs, at: site))!
+      let x2 = insert(module.makeAccess(.let, from: rhs, at: site))!
+      insert(module.makeCall(applying: .constant(f), to: [x1, x2], writingResultTo: x0, at: site))
+      insert(module.makeEndAccess(x2, at: site))
+      insert(module.makeEndAccess(x1, at: site))
+      insert(module.makeEndAccess(x0, at: site))
+    } else {
+      report(.error(m, doesNotConformTo: d, at: site))
+    }
+  }
+
+  /// Inserts the IR writing in `target` whether the parts of `lhs` and `rhs` are pairwise equal.
+  private mutating func emitStorePartsEquality(
+    _ lhs: Operand, _ rhs: Operand,
+    to target: Operand, at site: SourceRange
+  ) {
+    let layout = AbstractTypeLayout(
+      of: module.type(of: lhs).ast, definedIn: module.program)
+
+    // If the object is empty, return true.
+    var parts = layout.properties[...]
+    if parts.isEmpty {
+      emitStore(boolean: true, to: target, at: site)
+      return
+    }
+
+    // Otherwise, compare all parts pairwise.
+    let tail = appendBlock()
+    while !parts.isEmpty {
+      let x0 = emitSubfieldView(lhs, at: [parts.startIndex], at: site)
+      let x1 = emitSubfieldView(rhs, at: [parts.startIndex], at: site)
+      emitStoreEquality(x0, x1, to: target, at: site)
+
+      parts = parts.dropFirst()
+      if parts.isEmpty {
+        insert(module.makeBranch(to: tail, at: site))
+        insertionPoint = .end(of: tail)
+      } else {
+        let x2 = emitLoadBuiltinBool(target, at: site)
+        let next = appendBlock()
+        insert(module.makeCondBranch(if: x2, then: next, else: tail, at: site))
+        insertionPoint = .end(of: next)
+      }
+    }
+  }
+
+  /// Inserts the IR writing in `target` whether the payloads of `lhs` and `rhs` are equal.
+  private mutating func emitStoreUnionPayloadEquality(
+    _ lhs: Operand, _ rhs: Operand,
+    to target: Operand, at site: SourceRange
+  ) {
+    let union = UnionType(module.type(of: lhs).ast)!
+
+    // If the union is empty, return true.
+    if union.elements.isEmpty {
+      emitStore(boolean: true, to: target, at: site)
+      return
+    }
+
+    // Otherwise, compare their payloads.
+    let elements = program.discriminatorToElement(in: union)
+
+    let same = appendBlock()
+    var successors: [Block.ID] = []
+    for _ in elements {
+      successors.append(appendBlock())
+    }
+    let fail = appendBlock()
+    let tail = appendBlock()
+
+    // The success blocks compare discriminators and then payloads.
+    let dl = emitUnionDiscriminator(lhs, at: site)
+    let dr = emitUnionDiscriminator(rhs, at: site)
+    let x0 = insert(module.makeLLVM(applying: .icmp(.eq, .discriminator), to: [dl, dr], at: site))!
+    insert(module.makeCondBranch(if: x0, then: same, else: fail, at: site))
+
+    insertionPoint = .end(of: same)
+    insert(module.makeSwitch(on: dl, toOneOf: successors, at: site))
+    for i in 0 ..< elements.count {
+      insertionPoint = .end(of: successors[i])
+      let y0 = insert(module.makeOpenUnion(lhs, as: elements[i], at: site))!
+      let y1 = insert(module.makeOpenUnion(rhs, as: elements[i], at: site))!
+      emitStoreEquality(y0, y1, to: target, at: site)
+      insert(module.makeCloseUnion(y1, at: site))
+      insert(module.makeCloseUnion(y0, at: site))
+      insert(module.makeBranch(to: tail, at: site))
+    }
+
+    // The failure block writes `false` to the return storage.
+    insertionPoint = .end(of: fail)
+    emitStore(boolean: false, to: target, at: site)
+    insert(module.makeBranch(to: tail, at: site))
+
+    // The tail block represents the continuation.
+    insertionPoint = .end(of: tail)
   }
 
   // MARK: Helpers

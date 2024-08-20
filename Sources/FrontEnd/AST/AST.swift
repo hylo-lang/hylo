@@ -313,6 +313,8 @@ public struct AST {
       return .moveAssignment
     case core.copyable.copy.rawValue:
       return .copy
+    case core.equatable.equal.rawValue:
+      return .equal
     default:
       return nil
     }

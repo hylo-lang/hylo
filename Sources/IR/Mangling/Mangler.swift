@@ -379,11 +379,13 @@ struct Mangler {
       write(base64Didit: 2, to: &output)
     case .copy:
       write(base64Didit: 3, to: &output)
-    case .globalInitialization(let d):
+    case .equal:
       write(base64Didit: 4, to: &output)
+    case .globalInitialization(let d):
+      write(base64Didit: 5, to: &output)
       write(entity: d, to: &output)
     case .autoclosure(let e):
-      write(base64Didit: 5, to: &output)
+      write(base64Didit: 6, to: &output)
       // To allow using multiple autoclosures in the same scope, also write the expression ID.
       write(integer: Int(e.rawValue.bits), to: &output)
     }
