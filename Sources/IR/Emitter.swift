@@ -2644,6 +2644,8 @@ struct Emitter {
   /// Inserts the IR for lvalue `e`.
   private mutating func emitLValue(upcast e: CastExpr.ID) -> Operand {
     switch ast[e].left.kind {
+    case BooleanLiteralExpr.self:
+      return emitStore(value: ast[e].left)
     case FloatLiteralExpr.self:
       return emitStore(value: ast[e].left)
     case IntegerLiteralExpr.self:
