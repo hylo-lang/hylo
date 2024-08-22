@@ -4434,9 +4434,16 @@ struct TypeChecker {
     // `X` from the resolution of the qualification and `Y` from the resolution of the candidate.
     entityType = specialize(entityType, for: specialization, in: scopeOfUse)
 
+    // If `d` is a trait requirement, we have to remember the generic arguments that are part of
+    // its qualification in case its implementation is synthesized. Otherwise, we should only
+    // remember arguments to parameters that are in `d`'s scope.
     var capturedArguments = GenericArguments.empty
-    for p in capturedGenericParameter(of: d) {
-      capturedArguments[p] = specialization[p]
+    if program.isRequirement(d) {
+      capturedArguments = specialization
+    } else {
+      for p in capturedGenericParameter(of: d) {
+        capturedArguments[p] = specialization[p]
+      }
     }
 
     return (entityType, capturedArguments, isConstructor)
