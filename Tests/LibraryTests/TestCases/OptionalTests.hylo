@@ -1,6 +1,8 @@
 //- compileAndRun expecting: .success
 
 public fun main() {
+  precondition(None<Int>() == None<Int>())
+
   var x = 42 as Optional<Int>
   let y = if let i: Int = x { i.copy() } else { 0 }
   precondition(y == 42)
