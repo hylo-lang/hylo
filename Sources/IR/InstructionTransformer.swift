@@ -239,6 +239,15 @@ extension IR.Program {
         target.makeUnionDiscriminator(x0, at: s.site)
       }
 
+    case let s as UnionSwitch:
+      let x0 = t.transform(s.scrutinee, in: &self)
+      let x1 = s.targets.reduce(into: UnionSwitch.Targets()) { (d, kv) in
+        _ = d[t.transform(kv.key, in: &self)].setIfNil(t.transform(kv.value, in: &self))
+      }
+      return insert(at: p, in:n) { (target) in
+        target.makeUnionSwitch(on: x0, toOneOf: x1, at: s.site)
+      }
+
     case let s as Unreachable:
       return modules[n]!.insert(s, at: p)
 

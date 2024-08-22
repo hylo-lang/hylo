@@ -737,20 +737,15 @@ struct Emitter {
     }
 
     // Otherwise, use a switch to select the correct move-initialization.
-    let elements = program.discriminatorToElement(in: t)
-    var successors: [Block.ID] = []
-    for _ in t.elements {
-      successors.append(appendBlock())
-    }
-
-    let n = emitUnionDiscriminator(argument, at: site)
-    insert(module.makeSwitch(on: n, toOneOf: successors, at: site))
+    let targets = UnionSwitch.Targets(
+      t.elements.map({ (e) in (key: e, value: appendBlock()) }),
+      uniquingKeysWith: { (a, _) in a })
+    insert(module.makeUnionSwitch(on: receiver, toOneOf: targets, at: site))
 
     let tail = appendBlock()
-    for i in 0 ..< elements.count {
-      insertionPoint = .end(of: successors[i])
-      emitMoveInitUnionPayload(
-        of: receiver, consuming: argument, containing: elements[i], at: site)
+    for (u, b) in targets {
+      insertionPoint = .end(of: b)
+      emitMoveInitUnionPayload(of: receiver, consuming: argument, containing: u, at: site)
       insert(module.makeBranch(to: tail, at: site))
     }
 
@@ -897,20 +892,16 @@ struct Emitter {
       return
     }
 
-    // Otherwise, use a switch to select the correct move-initialization.
-    let elements = program.discriminatorToElement(in: t)
-    var successors: [Block.ID] = []
-    for _ in t.elements {
-      successors.append(appendBlock())
-    }
-
-    let n = emitUnionDiscriminator(source, at: site)
-    insert(module.makeSwitch(on: n, toOneOf: successors, at: site))
+    // Otherwise, use a switch to select the correct copy method.
+    let targets = UnionSwitch.Targets(
+      t.elements.map({ (e) in (key: e, value: appendBlock()) }),
+      uniquingKeysWith: { (a, _) in a })
+    insert(module.makeUnionSwitch(on: source, toOneOf: targets, at: site))
 
     let tail = appendBlock()
-    for i in 0 ..< elements.count {
-      insertionPoint = .end(of: successors[i])
-      emitCopyUnionPayload(from: source, containing: elements[i], to: target, at: site)
+    for (u, b) in targets {
+      insertionPoint = .end(of: b)
+      emitCopyUnionPayload(from: source, containing: u, to: target, at: site)
       insert(module.makeBranch(to: tail, at: site))
     }
 
@@ -2391,24 +2382,22 @@ struct Emitter {
   ///
   /// This method method implements conditional narrowing for union types.
   private mutating func emitConditionalNarrowing(
-    _ subject: Operand, typed subjectType: UnionType,
+    _ subject: Operand, typed union: UnionType,
     as pattern: BindingPattern.ID, typed patternType: AnyType,
     to storage: Operand,
     else failure: Block.ID, in scope: AnyScopeID
   ) -> Block.ID {
     // TODO: Implement narrowing to an arbitrary subtype.
-    guard subjectType.elements.contains(patternType) else { UNIMPLEMENTED() }
+    guard union.elements.contains(patternType) else { UNIMPLEMENTED() }
     let site = ast[pattern].site
 
-    let i = program.discriminatorToElement(in: subjectType).firstIndex(of: patternType)!
-    let expected = IntegerConstant(i, bitWidth: 64)  // FIXME: should be width of 'word'
-    let actual = emitUnionDiscriminator(subject, at: site)
-
-    let test = insert(
-      module.makeLLVM(applying: .icmp(.eq, .word), to: [.constant(expected), actual], at: site))!
     let next = appendBlock(in: scope)
-    insert(module.makeCondBranch(if: test, then: next, else: failure, at: site))
+    var targets = UnionSwitch.Targets(
+      union.elements.map({ (e) in (key: e, value: failure) }),
+      uniquingKeysWith: { (a, _) in a })
+    targets[patternType] = next
 
+    insert(module.makeUnionSwitch(on: subject, toOneOf: targets, at: site))
     insertionPoint = .end(of: next)
     let x0 = insert(module.makeOpenUnion(subject, as: patternType, at: site))!
     pushing(Frame()) { (this) in
@@ -3085,19 +3074,15 @@ struct Emitter {
     }
 
     // One successor per member in the union, ordered by their mangled representation.
-    let elements = program.discriminatorToElement(in: t)
-    var successors: [Block.ID] = []
-    for _ in t.elements {
-      successors.append(appendBlock())
-    }
-
-    let n = emitUnionDiscriminator(storage, at: site)
-    insert(module.makeSwitch(on: n, toOneOf: successors, at: site))
+    let targets = UnionSwitch.Targets(
+      t.elements.map({ (e) in (key: e, value: appendBlock()) }),
+      uniquingKeysWith: { (a, _) in a })
+    insert(module.makeUnionSwitch(on: storage, toOneOf: targets, at: site))
 
     let tail = appendBlock()
-    for i in 0 ..< elements.count {
-      insertionPoint = .end(of: successors[i])
-      emitDeinitUnionPayload(of: storage, containing: elements[i], at: site)
+    for (u, b) in targets {
+      insertionPoint = .end(of: b)
+      emitDeinitUnionPayload(of: storage, containing: u, at: site)
       insert(module.makeBranch(to: tail, at: site))
     }
 
@@ -3188,13 +3173,10 @@ struct Emitter {
     }
 
     // Otherwise, compare their payloads.
-    let elements = program.discriminatorToElement(in: union)
-
     let same = appendBlock()
-    var successors: [Block.ID] = []
-    for _ in elements {
-      successors.append(appendBlock())
-    }
+    let targets = UnionSwitch.Targets(
+      union.elements.map({ (e) in (key: e, value: appendBlock()) }),
+      uniquingKeysWith: { (a, _) in a })
     let fail = appendBlock()
     let tail = appendBlock()
 
@@ -3205,11 +3187,11 @@ struct Emitter {
     insert(module.makeCondBranch(if: x0, then: same, else: fail, at: site))
 
     insertionPoint = .end(of: same)
-    insert(module.makeSwitch(on: dl, toOneOf: successors, at: site))
-    for i in 0 ..< elements.count {
-      insertionPoint = .end(of: successors[i])
-      let y0 = insert(module.makeOpenUnion(lhs, as: elements[i], at: site))!
-      let y1 = insert(module.makeOpenUnion(rhs, as: elements[i], at: site))!
+    insert(module.makeUnionSwitch(on: lhs, toOneOf: targets, at: site))
+    for (u, b) in targets {
+      insertionPoint = .end(of: b)
+      let y0 = insert(module.makeOpenUnion(lhs, as: u, at: site))!
+      let y1 = insert(module.makeOpenUnion(rhs, as: u, at: site))!
       emitStoreEquality(y0, y1, to: target, at: site)
       insert(module.makeCloseUnion(y1, at: site))
       insert(module.makeCloseUnion(y0, at: site))
