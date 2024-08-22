@@ -1207,16 +1207,22 @@ extension SwiftyLLVM.Module {
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(unionSwitch i: IR.InstructionID) {
       let s = m[i] as! UnionSwitch
-      let d = discriminator(s.scrutinee)
-      let e = m.program.discriminatorToElement(in: UnionType(m.type(of: s.scrutinee).ast)!)
-      let branches = s.targets.map { (t, b) in
-        (word().constant(e.firstIndex(of: t)!), block[b]!)
-      }
 
-      // The last branch is the "default".
-      insertSwitch(
-        on: d, cases: branches.dropLast(), default: branches.last!.1,
-        at: insertionPoint)
+      if let (_, b) = s.targets.elements.uniqueElement {
+        insertBr(to: block[b]!, at: insertionPoint)
+      } else {
+        let d = discriminator(s.scrutinee)
+        let t = UnionType(m.type(of: s.scrutinee).ast)!
+        let e = m.program.discriminatorToElement(in: t)
+        let branches = s.targets.map { (t, b) in
+          (word().constant(e.firstIndex(of: t)!), block[b]!)
+        }
+
+        // The last branch is the "default".
+        insertSwitch(
+          on: d, cases: branches.dropLast(), default: branches.last!.1,
+          at: insertionPoint)
+      }
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
