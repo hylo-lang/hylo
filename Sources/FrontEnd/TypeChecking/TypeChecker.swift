@@ -421,49 +421,51 @@ struct TypeChecker {
     }
   }
 
-  /// Returns `true` if a conformance of `model` to `trait` is synthesizable in `scopeOfUse`.
+  /// Returns `true` if implementations of `trait`'s requirements can be synthesized for `model` in
+  /// `scopeOfImplementation`.
   ///
   /// A conformance *M: T* is synthesizable iff *M* structurally conforms to *T*.
   private mutating func canSynthesizeConformance(
-    _ model: AnyType, to trait: TraitType, in scopeOfUse: AnyScopeID
+    _ model: AnyType, to trait: TraitType, in scopeOfImplementation: AnyScopeID
   ) -> Bool {
     switch model.base {
     case let m as BoundGenericType:
-      return canSynthesizeConformance(m, to: trait, in: scopeOfUse)
+      return canSynthesizeConformance(m, to: trait, in: scopeOfImplementation)
     case let m as ProductType:
-      return canSynthesizeConformance(m, to: trait, in: scopeOfUse)
+      return canSynthesizeConformance(m, to: trait, in: scopeOfImplementation)
     default:
-      return structurallyConforms(model, to: trait, in: scopeOfUse)
+      return structurallyConforms(model, to: trait, in: scopeOfImplementation)
     }
   }
 
-  /// Returns `true` if `model` structurally conforms to `trait` in `scopeOfUse`.
+  /// Returns `true` if implementations of `trait`'s requirements can be synthesized for `model` in
+  /// `scopeOfImplementation`.
   private mutating func canSynthesizeConformance(
-    _ model: BoundGenericType, to trait: TraitType, in scopeOfUse: AnyScopeID
+    _ model: BoundGenericType, to trait: TraitType, in scopeOfImplementation: AnyScopeID
   ) -> Bool {
-    let base = canonical(model.base, in: scopeOfUse)
+    let base = canonical(model.base, in: scopeOfImplementation)
     let z = GenericArguments(model)
 
     // If the base is a product type, we specialize each stored part individually to check whether
     // the conformance holds for a specialized whole. Othwrwise, we specialize the base directly.
     if let b = ProductType(base) {
-      let s = AnyScopeID(b.decl)
       return program.storedParts(of: b.decl).allSatisfy { (p) in
-        let t = specialize(uncheckedType(of: p), for: z, in: s)
-        return conforms(t, to: trait, in: s)
+        let t = specialize(uncheckedType(of: p), for: z, in: scopeOfImplementation)
+        return conforms(t, to: trait, in: scopeOfImplementation)
       }
     } else {
-      let t = specialize(base, for: z, in: scopeOfUse)
-      return canSynthesizeConformance(t, to: trait, in: scopeOfUse)
+      let t = specialize(base, for: z, in: scopeOfImplementation)
+      return canSynthesizeConformance(t, to: trait, in: scopeOfImplementation)
     }
   }
 
-  /// Returns `true` if `model` structurally conforms to `trait` in `scopeOfUse`.
+  /// Returns `true` if implementations of `trait`'s requirements can be synthesized for `model` in
+  /// `scopeOfImplementation`.
   private mutating func canSynthesizeConformance(
-    _ model: ProductType, to trait: TraitType, in scopeOfUse: AnyScopeID
+    _ model: ProductType, to trait: TraitType, in scopeOfImplementation: AnyScopeID
   ) -> Bool {
     program.storedParts(of: model.decl).allSatisfy { (p) in
-      conforms(uncheckedType(of: p), to: trait, in: scopeOfUse)
+      conforms(uncheckedType(of: p), to: trait, in: scopeOfImplementation)
     }
   }
 
@@ -1644,16 +1646,19 @@ struct TypeChecker {
     func syntheticImplementation(
       of requirement: AnyDeclID, withAPI expectedAPI: API
     ) -> SynthesizedFunctionDecl? {
-      guard
+      let scopeOfImplementation = AnyScopeID(origin.source)!
+      if
         let k = program.ast.synthesizedKind(of: requirement),
-        canSynthesizeConformance(model, to: trait, in: scopeOfDefinition)
-      else { return nil }
+        canSynthesizeConformance(model, to: trait, in: scopeOfImplementation)
+      {
+        let t = ArrowType(expectedAPI.type)!
+        let h = Array(t.environment.skolems)
 
-      let t = ArrowType(expectedAPI.type)!
-      let h = Array(t.environment.skolems)
-
-      // Note: compiler-known requirement is assumed to be well-typed.
-      return .init(k, typed: t, parameterizedBy: h, in: AnyScopeID(origin.source)!)
+        // Note: compiler-known requirement is assumed to be well-typed.
+        return .init(k, typed: t, parameterizedBy: h, in: scopeOfImplementation)
+      } else {
+        return nil
+      }
     }
 
     /// Returns a concrete implementation of `requirement` for `model` with given `expectedAPI`,
