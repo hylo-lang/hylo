@@ -90,6 +90,8 @@ extension Module {
           pc = interpret(subfieldView: user, in: &context)
         case is UnionDiscriminator:
           pc = interpret(unionDiscriminator: user, in: &context)
+        case is UnionSwitch:
+          pc = successor(of: user)
         case is Unreachable:
           pc = successor(of: user)
         case is WrapExistentialAddr:

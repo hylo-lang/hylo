@@ -674,6 +674,8 @@ extension SwiftyLLVM.Module {
         insert(switch: i)
       case is IR.UnionDiscriminator:
         insert(unionDiscriminator: i)
+      case is IR.UnionSwitch:
+        insert(unionSwitch: i)
       case is IR.Unreachable:
         insert(unreachable: i)
       case is IR.WrapExistentialAddr:
@@ -1199,14 +1201,22 @@ extension SwiftyLLVM.Module {
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(unionDiscriminator i: IR.InstructionID) {
       let s = m[i] as! UnionDiscriminator
-      let t = UnionType(m.type(of: s.container).ast)!
+      register[.register(i)] = discriminator(s.container)
+    }
 
-      let baseType = ir.llvm(unionType: t, in: &self)
-      let container = llvm(s.container)
-      let indices = [i32.constant(0), i32.constant(1)]
-      let discriminator = insertGetElementPointerInBounds(
-        of: container, typed: baseType, indices: indices, at: insertionPoint)
-      register[.register(i)] = insertLoad(word(), from: discriminator, at: insertionPoint)
+    /// Inserts the transpilation of `i` at `insertionPoint`.
+    func insert(unionSwitch i: IR.InstructionID) {
+      let s = m[i] as! UnionSwitch
+      let d = discriminator(s.scrutinee)
+      let e = m.program.discriminatorToElement(in: UnionType(m.type(of: s.scrutinee).ast)!)
+      let branches = s.targets.map { (t, b) in
+        (word().constant(e.firstIndex(of: t)!), block[b]!)
+      }
+
+      // The last branch is the "default".
+      insertSwitch(
+        on: d, cases: branches.dropLast(), default: branches.last!.1,
+        at: insertionPoint)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
@@ -1291,6 +1301,17 @@ extension SwiftyLLVM.Module {
       v = insertInsertValue(llvm(witness), at: 0, into: v, at: insertionPoint)
       v = insertInsertValue(llvm(table), at: 1, into: v, at: insertionPoint)
       return v
+    }
+
+    /// Returns the value of `container`'s discriminator.
+    func discriminator(_ container: IR.Operand) -> SwiftyLLVM.Instruction {
+      let union = UnionType(m.type(of: container).ast)!
+      let baseType = ir.llvm(unionType: union, in: &self)
+      let container = llvm(container)
+      let indices = [i32.constant(0), i32.constant(1)]
+      let discriminator = insertGetElementPointerInBounds(
+        of: container, typed: baseType, indices: indices, at: insertionPoint)
+      return insertLoad(word(), from: discriminator, at: insertionPoint)
     }
   }
 
