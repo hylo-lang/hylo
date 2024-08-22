@@ -9,11 +9,6 @@ public type None<T>: Regular {
   /// Creates a value denoting the absence of an instance of `T`.
   public memberwise init
 
-  // TODO: Remove when #1078 is implemented.
-  public fun infix==(_ other: Self) -> Bool {
-    true
-  }
-
 }
 
 public extension Optional {
