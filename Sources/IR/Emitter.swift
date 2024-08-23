@@ -1661,8 +1661,8 @@ struct Emitter {
       let calleeType = ArrowType(t)!.lifted
 
       // Emit the operands, starting with RHS.
-      let r = emit(infixOperand: rhs, passed: ParameterType(calleeType.inputs[1].type)!.access)
-      let l = emit(infixOperand: lhs, passed: ParameterType(calleeType.inputs[0].type)!.access)
+      let r = emit(infixOperand: rhs, passedTo: ParameterType(calleeType.inputs[1].type)!)
+      let l = emit(infixOperand: lhs, passedTo: ParameterType(calleeType.inputs[0].type)!)
 
       // The callee must be a reference to member function.
       guard case .member(let d, let a, _) = program[callee.expr].referredDecl else {
@@ -2073,24 +2073,21 @@ struct Emitter {
     return (callee, captures + arguments)
   }
 
-  /// Inserts the IR for infix operand `e` passed with convention `access`.
+  /// Inserts the IR for infix operand `e` passed to a parameter of type `p`.
   private mutating func emit(
-    infixOperand e: FoldedSequenceExpr, passed access: AccessEffect
+    infixOperand e: FoldedSequenceExpr, passedTo p: ParameterType
   ) -> Operand {
-    let storage: Operand
-
     switch e {
-    case .infix(let callee, _, _):
-      let t = ArrowType(canonical(program[callee.expr].type))!.lifted
-      storage = emitAllocStack(for: t.output, at: ast.site(of: e))
-      emitStore(e, to: storage)
+    case .infix(let f, _, _):
+      let t = ArrowType(canonical(program[f.expr].type))!.lifted
+      let s = emitAllocStack(for: t.output, at: ast.site(of: e))
+      emitStore(e, to: s)
+      let u = emitCoerce(s, to: p.bareType, at: ast.site(of: e))
+      return insert(module.makeAccess(p.access, from: u, at: ast.site(of: e)))!
 
     case .leaf(let e):
-      let x0 = emitLValue(e)
-      storage = unwrapCapture(x0, at: program[e].site)
+      return emitArgument(e, to: p, at: program[e].site)
     }
-
-    return insert(module.makeAccess(access, from: storage, at: ast.site(of: e)))!
   }
 
   /// Emits the IR of a call to `f` with given `arguments` at `site`.
