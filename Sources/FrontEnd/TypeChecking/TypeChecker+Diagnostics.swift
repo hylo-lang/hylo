@@ -19,6 +19,10 @@ extension Diagnostic {
     .error("declaration of \(a) binding requires an initializer", at: site)
   }
 
+  static func error(invalidOptionPattern p: OptionPattern.ID, in ast: AST) -> Diagnostic {
+    .error("optional pattern may only be used as a condition", at: ast[p].site)
+  }
+
   static func error(circularRefinementAt site: SourceRange) -> Diagnostic {
     .error("circular trait refinement", at: site)
   }

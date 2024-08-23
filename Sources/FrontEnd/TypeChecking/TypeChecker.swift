@@ -5087,9 +5087,8 @@ struct TypeChecker {
     updating obligations: inout ProofObligations
   ) -> AnyType {
     let p = program[d].pattern
-    let pattern = inferredType(
-      of: p.id, withHint: purpose.filteredType, updating: &obligations)
-    if pattern[.hasError] { return pattern }
+    let lhs = inferredType(of: p.id, withHint: purpose.filteredType, updating: &obligations)
+    if lhs[.hasError] { return lhs }
 
     // If `d` has no initializer, its type is that of its annotation, if present. Otherwise, its
     // pattern must be used as a filter and `d` is inferred to have the same type.
@@ -5101,40 +5100,60 @@ struct TypeChecker {
           report(.error(binding: p.introducer.value, requiresInitializerAt: p.introducer.site))
           return .error
         } else {
-          return pattern
+          return lhs
         }
 
       case .condition:
         assert(p.annotation != nil, "expected type annotation")
-        return pattern
+        return lhs
 
       case .filter:
-        return pattern
+        return lhs
       }
     }
 
     // Note: `i` should not have been assigned a type if before `d` is checked.
     assert(cache.local.exprType[i] == nil)
-    let initializer = constrain(i, to: ^freshVariable(), in: &obligations)
+    let rhs = constrain(i, to: ^freshVariable(), in: &obligations)
 
-    // If `d` has no annotation, its type is inferred as that of its initializer. Otherwise, the
-    // type of its initializer must be subtype or supertype of its pattern if the latter is used
-    // irrefutably or as a condition/filter, respectively.
-    if p.annotation == nil {
+    // If `p` is an option pattern, the initializer must be an option of the pattern's type.
+    // E.g. `if let x? = y { ... }`
+    if let q = OptionPattern.ID(p.subpattern.id) {
+      if purpose == .irrefutable {
+        report(.error(invalidOptionPattern: q, in: program.ast))
+        return .error
+      } else {
+        let u = program.ast.optional(lhs)
+        let o = ConstraintOrigin(.optionalBinding, at: program[i].site)
+        obligations.insert(EqualityConstraint(^u, rhs, origin: o))
+      }
+    }
+
+    // If `d` has no annotation, its type is inferred as that of its initializer.
+    // E.g. `let x = 42`
+    else if p.annotation == nil {
       let o = ConstraintOrigin(.initializationWithPattern, at: program[i].site)
-      obligations.insert(EqualityConstraint(initializer, pattern, origin: o))
-    } else if purpose == .irrefutable {
+      obligations.insert(EqualityConstraint(rhs, lhs, origin: o))
+    }
+
+    // If `d` is used irrefutably, the initializer's type must be subtype of the pattern's.
+    // E.g. `let x: Int = 42`
+    else if purpose == .irrefutable {
       let o = ConstraintOrigin(.initializationWithHint, at: program[i].site)
-      obligations.insert(SubtypingConstraint(initializer, pattern, origin: o))
-    } else {
+      obligations.insert(SubtypingConstraint(rhs, lhs, origin: o))
+    }
+
+    // If `d` is used as a condition, the initializer's type must be supertype of the pattern's.
+    // E.g. `if let x: Int = y { ... }`
+    else {
       let o = ConstraintOrigin(.optionalBinding, at: program[i].site)
-      obligations.insert(SubtypingConstraint(pattern, initializer, origin: o))
+      obligations.insert(SubtypingConstraint(lhs, rhs, origin: o))
     }
 
     // Collect the proof obligations for the initializer. The resulting type can be discarded; the
     // type of `i` will be assigned after the all proof obligations are discharged.
-    _ = inferredType(of: i, withHint: pattern, updating: &obligations)
-    return pattern
+    _ = inferredType(of: i, withHint: lhs, updating: &obligations)
+    return lhs
   }
 
   /// Returns the inferred type of `e`, updating `obligations` and gathering contextual information
@@ -5907,6 +5926,8 @@ struct TypeChecker {
       return inferredType(of: ExprPattern.ID(p)!, withHint: hint, updating: &obligations)
     case NamePattern.self:
       return inferredType(of: NamePattern.ID(p)!, withHint: hint, updating: &obligations)
+    case OptionPattern.self:
+      return inferredType(of: OptionPattern.ID(p)!, withHint: hint, updating: &obligations)
     case TuplePattern.self:
       return inferredType(of: TuplePattern.ID(p)!, withHint: hint, updating: &obligations)
     case WildcardPattern.self:
@@ -5958,6 +5979,15 @@ struct TypeChecker {
     let t = cache.local.declType[program[p].decl] ?? hint ?? ^freshVariable()
     obligations.assign(t, to: AnyDeclID(program[p].decl))
     return t
+  }
+
+  /// Returns the inferred type of `p`, updating `obligations` and gathering contextual information
+  /// from `hint`.
+  private mutating func inferredType(
+    of p: OptionPattern.ID, withHint hint: AnyType? = nil,
+    updating obligations: inout ProofObligations
+  ) -> AnyType {
+    inferredType(of: program[p].name, updating: &obligations)
   }
 
   /// Returns the inferred type of `p`, updating `obligations` and gathering contextual information

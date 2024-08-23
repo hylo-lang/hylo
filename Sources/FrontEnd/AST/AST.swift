@@ -431,6 +431,10 @@ public struct AST {
       case NamePattern.self:
         result.append((subfield: subfield, pattern: NamePattern.ID(pattern)!))
 
+      case OptionPattern.self:
+        let n = self[OptionPattern.ID(pattern)!].name
+        result.append((subfield: subfield, pattern: n))
+
       case TuplePattern.self:
         let x = TuplePattern.ID(pattern)!
         for i in 0 ..< self[x].elements.count {
