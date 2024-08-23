@@ -19,3 +19,10 @@ public extension Optional {
   }
 
 }
+
+// Note: We can't declare confitional conformance of `Optional` to "umbrella traits" yet without
+// causing ambiguities. See #1566
+
+public conformance Optional: Deinitializable where T: Deinitializable {}
+
+public conformance Optional: Equatable where T: Equatable {}
