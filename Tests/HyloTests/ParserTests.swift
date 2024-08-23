@@ -1504,6 +1504,14 @@ final class ParserTests: XCTestCase {
     XCTAssertEqual(ast[pattern.decl].baseName, "foo")
   }
 
+  func testOptionPattern() throws {
+    let input: SourceFile = "let foo?"
+    let (p, ast) = try input.parse(with: Parser.parseBindingPattern(in:))
+    let b = try XCTUnwrap(p)
+    let o = try XCTUnwrap(OptionPattern.ID(ast[b].subpattern))
+    XCTAssertEqual(ast[ast[ast[o].name].decl].baseName, "foo")
+  }
+
   func testTuplePattern() throws {
     let input: SourceFile = "()"
     let (patternID, ast) = try apply(Parser.tuplePattern, on: input)

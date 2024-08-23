@@ -160,6 +160,8 @@ extension AST {
       traverse(self[n] as! ExprPattern, notifying: &o)
     case NamePattern.self:
       traverse(self[n] as! NamePattern, notifying: &o)
+    case OptionPattern.self:
+      traverse(self[n] as! OptionPattern, notifying: &o)
     case TuplePattern.self:
       traverse(self[n] as! TuplePattern, notifying: &o)
     case WildcardPattern.self:
@@ -635,6 +637,13 @@ extension AST {
     _ n: NamePattern, notifying o: inout O
   ) {
     walk(n.decl, notifying: &o)
+  }
+
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
+  public func traverse<O: ASTWalkObserver>(
+    _ n: OptionPattern, notifying o: inout O
+  ) {
+    walk(n.name, notifying: &o)
   }
 
   /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.

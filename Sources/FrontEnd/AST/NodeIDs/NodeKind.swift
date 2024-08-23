@@ -132,6 +132,7 @@ extension NodeKind {
     BindingPattern.self,
     ExprPattern.self,
     NamePattern.self,
+    OptionPattern.self,
     TuplePattern.self,
     WildcardPattern.self,
 
