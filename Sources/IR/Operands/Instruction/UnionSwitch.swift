@@ -7,8 +7,11 @@ public struct UnionSwitch: Terminator {
   /// The type of a map from payload type to its target.
   public typealias Targets = OrderedDictionary<AnyType, Block.ID>
 
-  /// The union container whose discriminator is read.
-  public private(set) var scrutinee: Operand
+  /// The discriminator of the union container over which the instruction switches.
+  public private(set) var discriminator: Operand
+
+  /// The type of the union over which the instruction switches.
+  public let union: UnionType
 
   /// A map from payload type to its target.
   public private(set) var targets: Targets
@@ -17,8 +20,9 @@ public struct UnionSwitch: Terminator {
   public let site: SourceRange
 
   /// Creates an instance with the given properties.
-  fileprivate init(scrutinee: Operand, targets: Targets, site: SourceRange) {
-    self.scrutinee = scrutinee
+  fileprivate init(discriminator: Operand, union: UnionType, targets: Targets, site: SourceRange) {
+    self.discriminator = discriminator
+    self.union = union
     self.targets = targets
     self.site = site
   }
@@ -26,7 +30,7 @@ public struct UnionSwitch: Terminator {
   
 
   public var operands: [Operand] {
-    [scrutinee]
+    [discriminator]
   }
 
   public var successors: [Block.ID] {
@@ -35,7 +39,7 @@ public struct UnionSwitch: Terminator {
 
   public mutating func replaceOperand(at i: Int, with new: Operand) {
     precondition(i == 0)
-    scrutinee = new
+    discriminator = new
   }
 
   mutating func replaceSuccessor(_ old: Block.ID, with new: Block.ID) -> Bool {
@@ -51,7 +55,7 @@ public struct UnionSwitch: Terminator {
 extension UnionSwitch: CustomStringConvertible {
 
   public var description: String {
-    var s = "union_switch \(scrutinee)"
+    var s = "union_switch \(discriminator)"
     for (t, b) in targets {
       s.write(", \(t) => \(b)")
     }
@@ -62,21 +66,21 @@ extension UnionSwitch: CustomStringConvertible {
 
 extension Module {
 
-  /// Creates a `union_switch` anchored at `site` that jumps to the block assigned to the type of
-  /// `scrutinee`'s payload in `targets`.
+  /// Creates a `union_switch` anchored at `site` that switches over `discriminator`, which is the
+  /// discriminator of a container of type `union`, jumping to corresponding block in `target`.
   ///
-  /// - Requires: `scrutinee` is a union container and `targets` has a key defined for each of the
-  ///   elements in scrutinee's type.
+  /// If `union` is generic, `discriminator` should be the result of `union_discriminator` rather
+  /// than a constant.
+  ///
+  /// - Requires: `targets` has a key defined for each of `union`.
   func makeUnionSwitch(
-    on scrutinee: Operand, toOneOf targets: UnionSwitch.Targets, at site: SourceRange
+    over discriminator: Operand, of union: UnionType, toOneOf targets: UnionSwitch.Targets,
+    at site: SourceRange
   ) -> UnionSwitch {
-    let t = type(of: scrutinee)
-    guard t.isAddress, let u = UnionType(t.ast) else {
-      preconditionFailure("invalid type '\(t)'")
-    }
-    precondition(u.elements.allSatisfy({ (e) in targets[e] != nil }))
-
-    return .init(scrutinee: scrutinee, targets: targets, site: site)
+    let t = type(of: discriminator)
+    precondition(t.isObject && t.ast.isBuiltinInteger)
+    precondition(union.elements.allSatisfy({ (e) in targets[e] != nil }))
+    return .init(discriminator: discriminator, union: union, targets: targets, site: site)
   }
 
 }

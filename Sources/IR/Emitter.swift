@@ -740,7 +740,7 @@ struct Emitter {
     let targets = UnionSwitch.Targets(
       t.elements.map({ (e) in (key: e, value: appendBlock()) }),
       uniquingKeysWith: { (a, _) in a })
-    insert(module.makeUnionSwitch(on: receiver, toOneOf: targets, at: site))
+    emitUnionSwitch(on: receiver, toOneOf: targets, at: site)
 
     let tail = appendBlock()
     for (u, b) in targets {
@@ -896,7 +896,7 @@ struct Emitter {
     let targets = UnionSwitch.Targets(
       t.elements.map({ (e) in (key: e, value: appendBlock()) }),
       uniquingKeysWith: { (a, _) in a })
-    insert(module.makeUnionSwitch(on: source, toOneOf: targets, at: site))
+    emitUnionSwitch(on: source, toOneOf: targets, at: site)
 
     let tail = appendBlock()
     for (u, b) in targets {
@@ -2397,7 +2397,7 @@ struct Emitter {
       uniquingKeysWith: { (a, _) in a })
     targets[patternType] = next
 
-    insert(module.makeUnionSwitch(on: subject, toOneOf: targets, at: site))
+    emitUnionSwitch(on: subject, toOneOf: targets, at: site)
     insertionPoint = .end(of: next)
     let x0 = insert(module.makeOpenUnion(subject, as: patternType, at: site))!
     pushing(Frame()) { (this) in
@@ -3077,7 +3077,7 @@ struct Emitter {
     let targets = UnionSwitch.Targets(
       t.elements.map({ (e) in (key: e, value: appendBlock()) }),
       uniquingKeysWith: { (a, _) in a })
-    insert(module.makeUnionSwitch(on: storage, toOneOf: targets, at: site))
+    emitUnionSwitch(on: storage, toOneOf: targets, at: site)
 
     let tail = appendBlock()
     for (u, b) in targets {
@@ -3187,7 +3187,7 @@ struct Emitter {
     insert(module.makeCondBranch(if: x0, then: same, else: fail, at: site))
 
     insertionPoint = .end(of: same)
-    insert(module.makeUnionSwitch(on: lhs, toOneOf: targets, at: site))
+    emitUnionSwitch(on: lhs, toOneOf: targets, at: site)
     for (u, b) in targets {
       insertionPoint = .end(of: b)
       let y0 = insert(module.makeOpenUnion(lhs, as: u, at: site))!
@@ -3297,6 +3297,16 @@ struct Emitter {
     let x1 = insert(module.makeUnionDiscriminator(x0, at: site))!
     insert(module.makeEndAccess(x0, at: site))
     return x1
+  }
+
+  /// Appends the IR for jumping to the block assigned to the type of `scrutinee`'s payload in
+  /// `targets`.
+  private mutating func emitUnionSwitch(
+    on scrutinee: Operand, toOneOf targets: UnionSwitch.Targets, at site: SourceRange
+  ) {
+    let u = UnionType(module.type(of: scrutinee).ast)!
+    let i = emitUnionDiscriminator(scrutinee, at: site)
+    insert(module.makeUnionSwitch(over: i, of: u, toOneOf: targets, at: site))
   }
 
   /// Returns the result of calling `action` on a copy of `self` in which a `newFrame` is the top

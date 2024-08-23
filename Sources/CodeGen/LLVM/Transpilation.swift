@@ -1211,14 +1211,13 @@ extension SwiftyLLVM.Module {
       if let (_, b) = s.targets.elements.uniqueElement {
         insertBr(to: block[b]!, at: insertionPoint)
       } else {
-        let d = discriminator(s.scrutinee)
-        let t = UnionType(m.type(of: s.scrutinee).ast)!
-        let e = m.program.discriminatorToElement(in: t)
+        let e = m.program.discriminatorToElement(in: s.union)
         let branches = s.targets.map { (t, b) in
           (word().constant(e.firstIndex(of: t)!), block[b]!)
         }
 
         // The last branch is the "default".
+        let d = llvm(s.discriminator)
         insertSwitch(
           on: d, cases: branches.dropLast(), default: branches.last!.1,
           at: insertionPoint)
