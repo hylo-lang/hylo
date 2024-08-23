@@ -2579,10 +2579,16 @@ public enum Parser {
       return AnyPatternID(p)
     }
 
-    // Attempt to parse a name pattern if we're in the context of a binding pattern.
+    // Attempt to parse a name or option pattern if we're in the context of a binding pattern.
     if state.contexts.last == .bindingPattern {
       if let p = try namePattern.parse(&state) {
-        return AnyPatternID(p)
+        if let mark = state.takePostfixQuestionMark() {
+          let s = state.ast[p].site.extended(toCover: mark.site)
+          let o = state.insert(OptionPattern(name: p, site: s))
+          return AnyPatternID(o)
+        } else {
+          return AnyPatternID(p)
+        }
       }
     }
 
