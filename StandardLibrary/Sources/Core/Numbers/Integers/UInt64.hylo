@@ -268,7 +268,7 @@ public conformance UInt64: FixedWidthInteger {
 
   public fun infix&<< (_ n: Int) -> Self {
     var lhs = self.copy()
-    lhs &<<= n
+    &lhs &<<= n
     return lhs
   }
 
@@ -278,7 +278,7 @@ public conformance UInt64: FixedWidthInteger {
 
   public fun infix&>> (_ n: Int) -> Self {
     var lhs = self.copy()
-    lhs &>>= n
+    &lhs &>>= n
     return lhs
   }
 
