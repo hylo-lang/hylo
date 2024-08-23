@@ -43,6 +43,12 @@ extension Module {
         this.makeCloseCapture(.register(i), at: site)
       }
 
+    case is OpenUnion:
+      let region = extendedLiveRange(of: .register(i))
+      insertClose(i, atBoundariesOf: region) { (this, site) in
+        this.makeCloseUnion(.register(i), at: site)
+      }
+
     case is Project:
       let region = extendedLiveRange(of: .register(i))
       insertClose(i, atBoundariesOf: region) { (this, site) in

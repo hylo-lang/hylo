@@ -1,0 +1,18 @@
+//- lowerToFinishedIR expecting: .success
+
+fun use<T>(_ x: T) {}
+
+public fun main() {
+  var x: Optional<Int> = 1 as _
+
+  if let y: Int = x {
+    // Additional access to `x` is legal.
+    use(x)
+    use(y)
+  }
+
+  if sink let y: Int = x {
+    // Mutation of `x` is legal since it has been consumed.
+    &x = .none()
+  }
+}
