@@ -64,7 +64,7 @@ extension Module {
 
       forEachClient(of: i) { (u) in
         let rs = requests(u)
-        lower = max(rs.weakest!, lower)
+        if let w = rs.weakest { lower = max(w, lower) }
         upper = rs.strongest(including: upper)
       }
 
