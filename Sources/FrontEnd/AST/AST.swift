@@ -189,6 +189,16 @@ public struct AST {
   /// Indicates whether the Core library has been loaded.
   public var coreModuleIsLoaded: Bool { coreLibrary != nil }
 
+  /// Returns the Hylo type of an optional `t`.
+  ///
+  /// - Requires: The Core library must have been loaded.
+  public func optional(_ t: AnyType) -> UnionType {
+    let none = coreType("None")!
+    let p = self[none.decl].genericParameters[0]
+    let u = BoundGenericType(none, arguments: [p: .type(t)])
+    return UnionType([t, ^u])
+  }
+
   /// Returns the type named `name` defined in the core library or `nil` it does not exist.
   ///
   /// - Requires: The Core library must have been loaded.
