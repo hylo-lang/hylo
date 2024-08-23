@@ -737,7 +737,7 @@ struct Emitter {
     let targets = UnionSwitch.Targets(
       t.elements.map({ (e) in (key: e, value: appendBlock()) }),
       uniquingKeysWith: { (a, _) in a })
-    emitUnionSwitch(on: receiver, toOneOf: targets, at: site)
+    emitUnionSwitch(on: argument, toOneOf: targets, at: site)
 
     let tail = appendBlock()
     for (u, b) in targets {
@@ -757,12 +757,9 @@ struct Emitter {
     of receiver: Operand, consuming argument: Operand, containing payload: AnyType,
     at site: SourceRange
   ) {
-    // Deinitialize the receiver.
+    // Move the argument.
     let x0 = insert(
       module.makeOpenUnion(receiver, as: payload, forInitialization: true, at: site))!
-    emitDeinit(x0, at: site)
-
-    // Move the argument.
     let x1 = insert(module.makeOpenUnion(argument, as: payload, at: site))!
     emitMove([.set], x1, to: x0, at: site)
 
