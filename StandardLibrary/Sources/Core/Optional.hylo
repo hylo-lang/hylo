@@ -18,6 +18,41 @@ public extension Optional {
     None() as Optional
   }
 
+  /// Returns `true` iff `self` is equal to `.none()`.
+  public fun is_empty() -> Bool {
+    if let _: T = self { false } else { true }
+  }
+
+  /// Returns an optional containing the result of calling `transform` on the value wrapped in
+  /// `self` or `.none()` is `self` is empty.
+  public fun map<E, R>(_ transform: inout [E](T) -> R) -> Optional<R> {
+    if let w? = self { transform(w) as _ } else { .none() }
+  }
+
+}
+
+public extension Optional where T: Movable {
+
+  /// Returns the value wrapped in `self` or stops execution if `self` is empty.
+  ///
+  /// - Requires: `self` is not empty.
+  public fun postfix!() sink -> T {
+    if sink let r? = self {
+      return r
+    } else {
+      fatal_error("optional is empty")
+    }
+  }
+
+  /// Returns the value wrapped in `self` and assigns it to `.none()`.
+  ///
+  /// - Requires: `self` is not empty.
+  public fun release() inout -> T {
+    sink let wrapped = self!
+    &self = .none()
+    return wrapped
+  }
+
 }
 
 // Note: We can't declare confitional conformance of `Optional` to "umbrella traits" yet without
