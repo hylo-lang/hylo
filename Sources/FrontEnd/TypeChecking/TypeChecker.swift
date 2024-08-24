@@ -3044,6 +3044,19 @@ struct TypeChecker {
     }
   }
 
+  /// Evaluates `e` as a buffer type expression, having inferred that the type of the buffer's
+  /// elements is `t`.
+  private func evalBufferTypeExpression(
+    _ e: SubscriptCallExpr.ID, havingInferredElementType t: AnyType
+  ) -> MetatypeType {
+    if let a = IntegerLiteralExpr.ID(program[e].arguments[0].value) {
+      let r = BufferType(t, .compilerKnown(Int(program[a].value)!))
+      return MetatypeType(of: r)
+    } else {
+      UNIMPLEMENTED("arbitrary buffer type argument expression")
+    }
+  }
+
   /// Ensures that `t` is a valid type for an annotation and returns its meaning iff it is;
   /// otherwise, returns `nil`.
   private mutating func ensureValidTypeAnnotation(
@@ -5680,20 +5693,19 @@ struct TypeChecker {
     }
 
     // The callee has a metatype and is a name expression bound to a nominal type declaration,
-    // meaning that the call is actually a sugared buffer type expression.
+    // meaning that the call is actually a sugared array or buffer type expression.
     if isBoundToNominalTypeDecl(program[e].callee, in: obligations) {
-      let n = program[e].arguments.count
-      if n != 1 {
+      let t = MetatypeType(callee)!.instance
+      switch program[e].arguments.count {
+      case 0:
+        let u = MetatypeType(of: program.ast.array(t))
+        return constrain(e, to: ^u, in: &obligations)
+      case 1:
+        let u = evalBufferTypeExpression(e, havingInferredElementType: t)
+        return constrain(e, to: ^u, in: &obligations)
+      case let n:
         report(.error(invalidBufferTypeArgumentCount: n, at: program[e].callee.site))
         return constrain(e, to: .error, in: &obligations)
-      }
-
-      if let a = IntegerLiteralExpr.ID(program[e].arguments[0].value) {
-        let t = MetatypeType(callee)!.instance
-        let r = BufferType(t, .compilerKnown(Int(program[a].value)!))
-        return constrain(e, to: ^MetatypeType(of: r), in: &obligations)
-      } else {
-        UNIMPLEMENTED("arbitrary buffer type argument expression")
       }
     }
 
