@@ -174,7 +174,7 @@ public struct TypedProgram {
 
   /// Returns the canonical form of `t` in `scopeOfUse`.
   public func canonical(_ t: AnyType, in scopeOfUse: AnyScopeID) -> AnyType {
-    if t[.isCanonical] { return t }
+    if t.isCanonical { return t }
     var checker = TypeChecker(asContextFor: self)
     return checker.canonical(t, in: scopeOfUse)
   }
@@ -444,7 +444,7 @@ public struct TypedProgram {
   private func structuralConformance(
     of model: AnyType, to concept: TraitType, exposedTo scopeOfUse: AnyScopeID
   ) -> Conformance? {
-    assert(model[.isCanonical])
+    assert(model.isCanonical)
 
     switch model.base {
     case let m as BufferType:

@@ -412,10 +412,10 @@ struct ConstraintSystem {
       return nil
 
     default:
-      if !goal.left[.isCanonical] || !goal.right[.isCanonical] {
+      if !goal.left.isCanonical || !goal.right.isCanonical {
         let l = checker.canonical(goal.left, in: scope)
         let r = checker.canonical(goal.right, in: scope)
-        assert(l[.isCanonical] && r[.isCanonical])
+        assert(l.isCanonical && r.isCanonical)
 
         let s = schedule(
           SubtypingConstraint(l, r, strictly: goal.isStrict, origin: goal.origin.subordinate()))
@@ -914,7 +914,7 @@ struct ConstraintSystem {
     case (let l as UnionType, let r as UnionType):
       return unifySyntacticallyInequal(l, r)
 
-    case _ where !t[.isCanonical] || !u[.isCanonical]:
+    case _ where !t.isCanonical || !u.isCanonical:
       return unify(checker.canonical(t, in: scope), checker.canonical(u, in: scope))
 
     default:

@@ -460,7 +460,7 @@ struct Mangler {
     let n = Symbol.type(s)
     if appendIf(reservedOrRecorded: n, to: &output) { return }
 
-    assert(s[.isCanonical])
+    assert(s.isCanonical)
     switch s.base {
     case let t as ArrowType:
       append(arrow: t, to: &output)

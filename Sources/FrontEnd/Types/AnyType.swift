@@ -146,7 +146,7 @@ public struct AnyType {
   ///
   /// - Requires: `self` is canonical.
   public var isBuiltin: Bool {
-    precondition(self[.isCanonical])
+    precondition(isCanonical)
     return base is BuiltinType
   }
 
@@ -154,7 +154,7 @@ public struct AnyType {
   ///
   /// - Requires: `self` is canonical.
   public var isBuiltinInteger: Bool {
-    precondition(self[.isCanonical])
+    precondition(isCanonical)
     if let b = BuiltinType(self) {
       return b.isInteger
     } else {
@@ -166,7 +166,7 @@ public struct AnyType {
   ///
   /// - Requires: `self` is canonical.
   public var isBuiltinOrRawTuple: Bool {
-    precondition(self[.isCanonical])
+    precondition(isCanonical)
     if let b = TupleType(self) {
       return b.elements.allSatisfy(\.type.isBuiltin)
     } else {

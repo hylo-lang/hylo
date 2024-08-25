@@ -19,11 +19,11 @@ public struct ExistentialType: TypeProtocol {
     public var flags: TypeFlags {
       switch self {
       case .traits(let ts):
-        return .init(merging: ts.map(\.flags))
+        return .init(ts.map(\.flags))
       case .generic(let t):
         return t.flags
       case .metatype:
-        return .isCanonical
+        return .init()
       }
     }
 

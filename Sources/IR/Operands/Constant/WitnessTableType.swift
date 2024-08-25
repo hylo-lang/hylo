@@ -6,7 +6,7 @@ public struct WitnessTableType: TypeProtocol, CustomStringConvertible {
   /// Creates an instance.
   public init() {}
 
-  public var flags: TypeFlags { .isCanonical }
+  public var flags: TypeFlags { .init() }
 
   public var description: String { "WitnessTable" }
 

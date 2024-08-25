@@ -28,7 +28,7 @@ public struct AssociatedTypeType: TypeProtocol {
 
     let d = AssociatedTypeType(domain)?.root ?? domain
     if !(d.isSkolem || d.base is TypeVariable) {
-      fs.remove(.isCanonical)
+      fs.insert(.hasNonCanonical)
     }
 
     self.decl = decl

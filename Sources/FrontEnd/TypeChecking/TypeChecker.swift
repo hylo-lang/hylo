@@ -76,7 +76,7 @@ struct TypeChecker {
 
   /// Returns the canonical form of `t` in `scopeOfUse`.
   mutating func canonical(_ t: AnyType, in scopeOfUse: AnyScopeID) -> AnyType {
-    if t[.isCanonical] { return t }
+    if t.isCanonical { return t }
 
     switch t.base {
     case let u as AssociatedTypeType:
@@ -103,7 +103,7 @@ struct TypeChecker {
 
   /// Returns the canonical form of `t` in `scopeOfUse`.
   private mutating func canonical(_ t: BoundGenericType, in scopeOfUse: AnyScopeID) -> AnyType {
-    if t[.isCanonical] { return ^t }
+    if t.isCanonical { return ^t }
 
     let b = canonical(t.base, in: scopeOfUse)
     let a = canonical(GenericArguments(t), in: scopeOfUse)
@@ -113,7 +113,7 @@ struct TypeChecker {
 
   /// Returns the canonical form of `t` in `scopeOfUse`.
   private mutating func canonical(_ t: UnionType, in scopeOfUse: AnyScopeID) -> AnyType {
-    if t[.isCanonical] { return ^t }
+    if t.isCanonical { return ^t }
 
     var elements = Set<AnyType>()
     for e in t.elements {
@@ -499,7 +499,7 @@ struct TypeChecker {
   func cachedConformance(
     of model: AnyType, to trait: TraitType, exposedTo scopeOfUse: AnyScopeID
   ) -> Conformance? {
-    assert(model[.isCanonical])
+    assert(model.isCanonical)
 
     // `A<X>: T` iff `A: T`.
     if let t = BoundGenericType(model) {
@@ -1785,7 +1785,7 @@ struct TypeChecker {
         return
       }
 
-      assert(expectedType[.isCanonical] && b.type[.isCanonical])
+      assert(expectedType.isCanonical && b.type.isCanonical)
       // TODO: Use semantic equality
       if program[d].isDefinition && (b.type == expectedType) {
         s.append(AnyDeclID(d))

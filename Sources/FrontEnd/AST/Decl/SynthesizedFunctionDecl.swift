@@ -50,7 +50,7 @@ public struct SynthesizedFunctionDecl: Hashable {
     parameterizedBy genericParameters: [GenericParameterDecl.ID],
     in scope: AnyScopeID
   ) {
-    precondition(type[.isCanonical])
+    precondition(type.isCanonical)
     precondition(type.environment.base is TupleType)
     self.type = type
     self.genericParameters = genericParameters

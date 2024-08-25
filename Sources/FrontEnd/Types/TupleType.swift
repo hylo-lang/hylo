@@ -28,7 +28,7 @@ public struct TupleType: TypeProtocol {
   /// Creates a tuple type with a sequence of elements.
   public init<S: Sequence>(_ elements: S) where S.Element == Element {
     self.elements = Array(elements)
-    self.flags = TypeFlags(merging: self.elements.map(\.type.flags))
+    self.flags = TypeFlags(self.elements.map(\.type.flags))
   }
 
   /// Creates a tuple type with a sequence of label-type pairs.

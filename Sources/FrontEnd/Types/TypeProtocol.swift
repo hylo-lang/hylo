@@ -38,6 +38,11 @@ extension TypeProtocol {
   /// Returns whether the specified flags are raised on this type.
   public subscript(fs: TypeFlags) -> Bool { flags.contains(fs) }
 
+  /// Indicates whether `self` is canonical.
+  public var isCanonical: Bool {
+    !self[.hasNonCanonical]
+  }
+
   /// Returns this type transformed with `transformer` applied to `m`.
   ///
   /// This method visits the structure of the type and calls `transformer` on `m` and each type

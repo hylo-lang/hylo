@@ -25,7 +25,7 @@ public struct TypeAliasType: TypeProtocol {
     self.decl = decl
     self.name = Incidental(name)
     self.aliasee = Incidental(aliasee)
-    self.flags = aliasee.flags.removing(.isCanonical)
+    self.flags = aliasee.flags | .hasNonCanonical
   }
 
   /// The transitive aliasee of this alias.

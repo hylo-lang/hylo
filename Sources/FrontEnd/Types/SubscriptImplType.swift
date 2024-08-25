@@ -31,11 +31,7 @@ public struct SubscriptImplType: TypeProtocol {
     self.environment = environment
     self.inputs = inputs
     self.output = output
-
-    var fs = environment.flags
-    for i in inputs { fs.merge(i.type.flags) }
-    fs.merge(output.flags)
-    flags = fs
+    self.flags = inputs.reduce(output.flags | environment.flags, { (fs, p) in fs | p.type.flags })
   }
 
   /// Indicates whether `self` has an empty environment.

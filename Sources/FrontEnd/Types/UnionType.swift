@@ -21,9 +21,9 @@ public struct UnionType: TypeProtocol {
   public init<S: Sequence>(_ elements: S) where S.Element == AnyType {
     self.elements = Array(elements)
 
-    var fs = TypeFlags(merging: self.elements.map(\.flags))
+    var fs = TypeFlags(self.elements.map(\.flags))
     if self.elements.count == 1 {
-      fs.remove(.isCanonical)
+      fs.insert(.hasNonCanonical)
     }
     self.flags = fs
   }

@@ -22,13 +22,8 @@ public struct BoundGenericType: TypeProtocol {
     self.base = ^base
     self.arguments = arguments
 
-    var flags: TypeFlags = base.flags
-    for (_, a) in arguments {
-      if case .type(let t) = a {
-        flags.merge(t.flags)
-      } else {
-        UNIMPLEMENTED()
-      }
+    var flags = arguments.reduce(base.flags) { (fs, a) in
+      fs | (a.value.asType ?? UNIMPLEMENTED()).flags
     }
 
     // The type isn't canonical if `base` is structural.
@@ -38,7 +33,7 @@ public struct BoundGenericType: TypeProtocol {
     case is ProductType:
       break
     default:
-      flags.remove(.isCanonical)
+      flags.insert(.hasNonCanonical)
     }
 
     self.flags = flags
