@@ -83,9 +83,6 @@ public struct TypeFlags: Hashable {
   /// The type contains one or more generic value parameters.
   public static let hasGenericValueParameter = TypeFlags(universal: 0, existential: 1 << 3)
 
-  /// The type contains one or more remote types.
-  public static let hasRemoteType = TypeFlags(universal: 0, existential: 1 << 4)
-
 }
 
 extension TypeFlags: ExpressibleByArrayLiteral {

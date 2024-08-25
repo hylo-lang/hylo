@@ -13,7 +13,7 @@ public struct RemoteType: TypeProtocol {
   public init(_ access: AccessEffect, _ bareType: AnyType) {
     self.access = access
     self.bareType = bareType
-    self.flags = bareType.flags.inserting(.hasRemoteType)
+    self.flags = bareType.flags
   }
 
   /// Creates an instance converting `t`.
