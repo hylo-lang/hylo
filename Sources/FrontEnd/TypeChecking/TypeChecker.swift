@@ -78,18 +78,22 @@ struct TypeChecker {
   mutating func canonical(_ t: AnyType, in scopeOfUse: AnyScopeID) -> AnyType {
     if t.isCanonical { return t }
 
+    let r: AnyType
     switch t.base {
     case let u as AssociatedTypeType:
-      return canonical(u, in: scopeOfUse)
+      r = canonical(u, in: scopeOfUse)
     case let u as BoundGenericType:
-      return canonical(u, in: scopeOfUse)
+      r = canonical(u, in: scopeOfUse)
     case let u as TypeAliasType:
-      return canonical(u.aliasee.value, in: scopeOfUse)
+      r = canonical(u.aliasee.value, in: scopeOfUse)
     case let u as UnionType:
-      return canonical(u, in: scopeOfUse)
+      r = canonical(u, in: scopeOfUse)
     default:
-      return t.transformParts(mutating: &self, { .stepOver($0.canonical($1, in: scopeOfUse)) })
+      r = t.transformParts(mutating: &self, { .stepOver($0.canonical($1, in: scopeOfUse)) })
     }
+
+    assert(r.isCanonical)
+    return r
   }
 
   /// Returns the canonical form of `t` in `scopeOfUse`.
