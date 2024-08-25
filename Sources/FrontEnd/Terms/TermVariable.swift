@@ -11,6 +11,8 @@ public struct TermVariable: TermProtocol {
     self.rawValue = rawValue
   }
 
+  public var flags: ValueFlags { .hasVariable }
+
   /// The context in which this instance was created.
   var context: UInt8 { UInt8(rawValue >> 56) }
 

@@ -9,6 +9,8 @@ public struct ConcreteTerm: TermProtocol {
     self.value = value
   }
 
+  public var flags: ValueFlags { .init() }
+
 }
 
 extension ConcreteTerm: CustomStringConvertible {

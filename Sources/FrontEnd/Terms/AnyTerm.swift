@@ -70,7 +70,11 @@ public struct AnyTerm {
 
 }
 
-extension AnyTerm: TermProtocol {}
+extension AnyTerm: TermProtocol {
+
+  public var flags: ValueFlags { base.flags }
+
+}
 
 extension AnyTerm: Equatable {
 

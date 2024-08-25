@@ -1,5 +1,10 @@
 /// A protocol describing the API of a Hylo term.
-public protocol TermProtocol: Hashable {}
+public protocol TermProtocol: Hashable {
+
+  /// Properties about the representation of `self`.
+  var flags: ValueFlags { get }
+
+}
 
 extension TermProtocol {
 
@@ -22,5 +27,8 @@ extension TermProtocol {
       return nil
     }
   }
+
+  /// Returns whether the specified flags are raised on this term.
+  public subscript(fs: ValueFlags) -> Bool { flags.contains(fs) }
 
 }

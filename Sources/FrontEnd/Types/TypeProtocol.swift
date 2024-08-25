@@ -3,7 +3,7 @@ import Utils
 /// A protocol describing the API of a Hylo type.
 public protocol TypeProtocol: Hashable {
 
-  /// A set of flags describing recursive properties.
+  /// Properties about the representation of `self`.
   var flags: ValueFlags { get }
 
   /// Apply `transform(_:_:)` on `m` and the types that are part of `self`.
