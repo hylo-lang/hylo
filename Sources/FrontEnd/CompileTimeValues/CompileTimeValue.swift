@@ -4,16 +4,17 @@ public enum CompileTimeValue: Hashable {
   /// A type.
   case type(AnyType)
 
-  /// An instance of a type known by the compiler (e.g. `Int`).
-  case compilerKnown(AnyHashable)
+  /// A term.
+  case term(AnyTerm)
 
   /// The payload of `.type`.
   public var asType: AnyType? {
-    if case .type(let t) = self {
-      return t
-    } else {
-      return nil
-    }
+    if case .type(let v) = self { v } else { nil }
+  }
+
+  /// The payload of `.term`.
+  public var asTerm: AnyTerm? {
+    if case .term(let v) = self { v } else { nil }
   }
 
   /// `true` iff self is in canonical form.
@@ -23,16 +24,12 @@ public enum CompileTimeValue: Hashable {
 
   /// `true` if `self` is a `TypeVariable`.
   public var isTypeVariable: Bool {
-    asType?.base is TypeVariable
+    self.asType?.base is TypeVariable
   }
 
   /// The payload of `.compilerKnown` as an instance of `T`.
   public func asCompilerKnown<T>(_: T.Type) -> T? {
-    if case .compilerKnown(let v) = self {
-      return v as? T
-    } else {
-      return nil
-    }
+    ConcreteTerm(self.asTerm)?.value as? T
   }
 
 }
@@ -43,7 +40,7 @@ extension CompileTimeValue: CustomStringConvertible {
     switch self {
     case .type(let v):
       return "\(v)"
-    case .compilerKnown(let v):
+    case .term(let v):
       return "\(v)"
     }
   }

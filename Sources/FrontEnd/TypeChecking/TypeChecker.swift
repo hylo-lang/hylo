@@ -3046,14 +3046,20 @@ struct TypeChecker {
 
   /// Evaluates `e` as a buffer type expression, having inferred that the type of the buffer's
   /// elements is `t`.
-  private func evalBufferTypeExpression(
+  private mutating func evalBufferTypeExpression(
     _ e: SubscriptCallExpr.ID, havingInferredElementType t: AnyType
   ) -> MetatypeType {
-    if let a = IntegerLiteralExpr.ID(program[e].arguments[0].value) {
-      let r = BufferType(t, .compilerKnown(Int(program[a].value)!))
-      return MetatypeType(of: r)
+    let n = program[e].arguments[0].value
+    let i = program.ast.coreType("Int")!
+    let j = checkedType(of: n, withHint: ^i)
+
+    // Bail out if the type of the argument isn't `Hylo.Int`.
+    if j != i {
+      report(.error(j, doesNotMatch: ^i, at: program[n].site))
+      return MetatypeType(of: BufferType(t, .term(^ConcreteTerm(wrapping: 0))))
     } else {
-      UNIMPLEMENTED("arbitrary buffer type argument expression")
+      let v = denotation(of: n)
+      return MetatypeType(of: BufferType(t, v))
     }
   }
 
@@ -3097,7 +3103,7 @@ struct TypeChecker {
   /// Returns the value expressed by `e`
   private func denotation(of e: IntegerLiteralExpr.ID) -> CompileTimeValue {
     if cache.local.exprType[e]! == program.ast.coreType("Int")! {
-      return .compilerKnown(Int(program[e].value)!)
+      return .term(^ConcreteTerm(wrapping: Int(program[e].value)!))
     } else {
       UNIMPLEMENTED("arbitrary compile-time literals")
     }
@@ -4972,7 +4978,7 @@ struct TypeChecker {
         cs.formUnion(x.constraints)
         return .type(x.shape)
 
-      case .compilerKnown:
+      default:
         return v
       }
     }
@@ -5291,10 +5297,11 @@ struct TypeChecker {
         }
       }
 
-      let n = program[e].elements.count
-      return constrain(e, to: ^BufferType(head, .compilerKnown(n)), in: &obligations)
+      let n = ConcreteTerm(wrapping: program[e].elements.count)
+      return constrain(e, to: ^BufferType(head, .term(^n)), in: &obligations)
     } else {
-      return constrain(e, to: ^BufferType(elementHint, .compilerKnown(0)), in: &obligations)
+      let n = ConcreteTerm(wrapping: 0)
+      return constrain(e, to: ^BufferType(elementHint, .term(^n)), in: &obligations)
     }
   }
 

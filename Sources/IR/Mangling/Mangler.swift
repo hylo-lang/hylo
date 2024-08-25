@@ -431,9 +431,16 @@ struct Mangler {
     switch s {
     case .type(let t):
       append(type: t, to: &output)
-    case .compilerKnown(let v) where v is Int:
-      append(integer: v as! Int, to: &output)
-    default:
+    case .term(let t):
+      append(term: t, to: &output)
+    }
+  }
+
+  /// Writes the mangled representation of `symbol` to `output`.
+  private mutating func append(term symbol: AnyTerm, to output: inout Output) {
+    if let v = ConcreteTerm(symbol)?.value as? Int {
+      append(integer: v, to: &output)
+    } else {
       UNIMPLEMENTED()
     }
   }
