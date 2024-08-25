@@ -1,7 +1,7 @@
-/// A substitution table mapping type variables to assumptions during type inference.
+/// A substitution table mapping type and term variables to assumptions during inference.
 struct SubstitutionMap {
 
-  /// A policy for substituting type variales during reification.
+  /// A policy for substituting variables during reification.
   enum SubstitutionPolicy {
 
     /// Free variables are substituted by errors.
@@ -12,11 +12,11 @@ struct SubstitutionMap {
 
   }
 
-  /// The internal storage of a substitution table.
-  typealias Storage = [TypeVariable: AnyType]
+  /// A map from type variable to its assignment.
+  private(set) var types: [TypeVariable: AnyType] = [:]
 
-  /// The internal storage of the map.
-  private(set) var storage: Storage = [:]
+  /// A map from term variable to its assignment.
+  private(set) var terms: [TermVariable: AnyTerm] = [:]
 
   /// Creates an empty substitution map.
   init() {}
@@ -24,21 +24,38 @@ struct SubstitutionMap {
   /// Returns a copy of this instance with its internal representation optimized.
   func optimized() -> Self {
     var result = SubstitutionMap()
-    result.storage = storage.mapValues({ self[$0] })
+    result.types = types.mapValues({ self[$0] })
     return result
   }
 
-  /// Returns the substitution for `variable`, if any.
-  subscript(variable: TypeVariable) -> AnyType? {
-    storage[walk(variable)]
+  /// Returns the substitution for `v`, if any.
+  subscript(v: TypeVariable) -> AnyType? {
+    types[walk(v)]
   }
 
-  /// Returns the substitution for `type` if it is a variable to which a type is assigned in this
-  /// map; returns `type` otherwise.
-  subscript(type: AnyType) -> AnyType {
-    var walked = type
+  /// Returns the substitution of `t` in this map or `t` is no such substitution exists.
+  subscript(t: AnyType) -> AnyType {
+    var walked = t
     while let a = TypeVariable(walked) {
-      if let b = storage[a] {
+      if let b = types[a] {
+        walked = b
+      } else {
+        break
+      }
+    }
+    return walked
+  }
+
+  /// Returns the substitution for `v`, if any.
+  subscript(v: TermVariable) -> AnyTerm? {
+    terms[walk(v)]
+  }
+
+  /// Returns the substitution of `t` in this map or `t` is no such substitution exists.
+  subscript(t: AnyTerm) -> AnyTerm {
+    var walked = t
+    while let a = TermVariable(walked) {
+      if let b = terms[a] {
         walked = b
       } else {
         break
@@ -50,7 +67,7 @@ struct SubstitutionMap {
   /// Assigns `substitution` to `variable`.
   mutating func assign(_ substitution: AnyType, to variable: TypeVariable) {
     var walked = variable
-    while let a = storage[walked] {
+    while let a = types[walked] {
       guard let b = TypeVariable(a) else {
         precondition(a == substitution, "'\(variable)' already bound to '\(a)'")
         return
@@ -61,13 +78,20 @@ struct SubstitutionMap {
     precondition(
       !occurCheck(walked, substitution),
       "illegal substitution: '\(walked)' for '\(substitution)'")
-    storage[walked] = substitution
+    types[walked] = substitution
   }
 
   /// Returns the type variable representing the equivalence class of `v` in `self`.
   private func walk(_ v: TypeVariable) -> TypeVariable {
     var w = v
-    while let a = TypeVariable(storage[w]) { w = a }
+    while let a = TypeVariable(types[w]) { w = a }
+    return w
+  }
+
+  /// Returns the term variable representing the equivalence class of `v` in `self`.
+  private func walk(_ v: TermVariable) -> TermVariable {
+    var w = v
+    while let a = TermVariable(terms[w]) { w = a }
     return w
   }
 
@@ -154,34 +178,30 @@ struct SubstitutionMap {
 
   /// Removes the key/value pairs in `self` that are not also in `other`.
   mutating func formIntersection(_ other: Self) {
-    for (key, lhs) in storage {
-      storage[key] = (lhs == other[key]) ? lhs : nil
-    }
+    self = self.intersection(other)
   }
 
   /// Returns a new substitution map containing the key/value pairs common to `self` and `other`.
   func intersection(_ other: Self) -> Self {
     var result = SubstitutionMap()
-    for (key, lhs) in storage {
-      result.storage[key] = (lhs == other[key]) ? lhs : nil
+    result.types.reserveCapacity(types.capacity)
+    result.terms.reserveCapacity(terms.capacity)
+    for (key, lhs) in types {
+      result.types[key] = (lhs == other[key]) ? lhs : nil
+    }
+    for (key, lhs) in terms {
+      result.terms[key] = (lhs == other[key]) ? lhs : nil
     }
     return result
   }
 
 }
 
-extension SubstitutionMap: ExpressibleByDictionaryLiteral {
-
-  init(dictionaryLiteral elements: (TypeVariable, AnyType)...) {
-    for (k, v) in elements {
-      self.assign(v, to: k)
-    }
-  }
-
-}
-
 extension SubstitutionMap: CustomStringConvertible {
 
-  var description: String { String(describing: storage) }
+  var description: String {
+    let items = types.map(String.init(describing:)) + terms.map(String.init(describing:))
+    return "[\(list: items)]"
+  }
 
 }

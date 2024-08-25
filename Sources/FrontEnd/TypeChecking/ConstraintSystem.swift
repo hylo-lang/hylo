@@ -27,19 +27,19 @@ struct ConstraintSystem {
   /// The root goals that could not be solved.
   private var failureRoots: [GoalIdentity] = []
 
-  /// A map from open type variable to its assignment.
+  /// A map from open type or term variable to its assignment.
   ///
-  /// This map is monotonically extended during constraint solving to assign a type to each open
-  /// variable in the constraint system. A system is complete if it can be used to derive a
-  /// complete substitution map w.r.t. its open type variables.
-  private var typeAssumptions = SubstitutionMap()
+  /// This map is monotonically extended during constraint solving to assign a type or term to each
+  /// open variable in the constraint system. A system is complete if it can be used to derive a
+  /// complete substitution map w.r.t. its open variables.
+  private var substitutions = SubstitutionMap()
 
   /// A map from name expression to its referred declaration.
   ///
   /// This map is monotonically extended during constraint solving to assign a declaration to each
   /// unresolved name expression in the constraint system. A system is complete if it can be used
   /// to derive a complete name binding map w.r.t. its unresolved name expressions.
-  private var bindingAssumptions: [NameExpr.ID: DeclReference]
+  private var bindings: [NameExpr.ID: DeclReference]
 
   /// A map from call expression to its operands after desugaring and implicit resolution.
   private var callOperands: [CallID: [ArgumentResolutionResult]] = [:]
@@ -60,7 +60,7 @@ struct ConstraintSystem {
   /// deduction process if `loggingIsEnabled` is `true`.
   init(_ obligations: ProofObligations, logging loggingIsEnabled: Bool) {
     self.scope = obligations.scope
-    self.bindingAssumptions = obligations.referredDecl
+    self.bindings = obligations.referredDecl
     self.loggingIsEnabled = loggingIsEnabled
     _ = insert(fresh: obligations.constraints)
   }
@@ -73,8 +73,8 @@ struct ConstraintSystem {
     self.fresh = other.fresh
     self.stale = other.stale
     self.failureRoots = other.failureRoots
-    self.typeAssumptions = other.typeAssumptions
-    self.bindingAssumptions = other.bindingAssumptions
+    self.substitutions = other.substitutions
+    self.bindings = other.bindings
     self.callOperands = other.callOperands
     self.penalties = other.penalties
     self.loggingIsEnabled = other.loggingIsEnabled
@@ -107,7 +107,7 @@ struct ConstraintSystem {
       }
 
       goals[g].modifyTypes { (t) in
-        typeAssumptions.reify(t, withVariables: .kept)
+        substitutions.reify(t, withVariables: .kept)
       }
 
       log("- solve: \"\(goals[g])\"")
@@ -184,14 +184,14 @@ struct ConstraintSystem {
       setOutcome(.failure({ (_, _, _) in () }), for: g)
     }
 
-    let m = typeAssumptions.optimized()
+    let m = substitutions.optimized()
     var d = DiagnosticSet()
     for (k, v) in zip(goals.indices, outcomes) where isFailureRoot(k) {
       v!.diagnoseFailure!(&d, m, outcomes)
     }
 
     return Solution(
-      substitutions: m, bindings: bindingAssumptions, callOperands: callOperands,
+      substitutions: m, bindings: bindings, callOperands: callOperands,
       penalties: penalties, diagnostics: d, stale: stale.map({ goals[$0] }))
   }
 
@@ -585,7 +585,7 @@ struct ConstraintSystem {
 
     if let i = candidates.viable.uniqueElement {
       let c = candidates.elements[i]
-      bindingAssumptions[goal.memberExpr] = c.reference
+      bindings[goal.memberExpr] = c.reference
 
       var subordinates = insert(fresh: c.constraints)
       subordinates.append(
@@ -777,7 +777,7 @@ struct ConstraintSystem {
 
     let results: Explorations<OverloadConstraint> = explore(g) { (solver, choice) in
       solver.penalties += choice.penalties
-      solver.bindingAssumptions[goal.overloadedExpr] = choice.reference
+      solver.bindings[goal.overloadedExpr] = choice.reference
       return solver.insert(fresh: choice.constraints)
     }
 
@@ -899,8 +899,8 @@ struct ConstraintSystem {
 
   /// Returns `true` iff `lhs` and `rhs` can be unified.
   private mutating func unifySyntacticallyInequal(_ lhs: AnyType, _ rhs: AnyType) -> Bool {
-    let t = typeAssumptions[lhs]
-    let u = typeAssumptions[rhs]
+    let t = substitutions[lhs]
+    let u = substitutions[rhs]
 
     switch (t.base, u.base) {
     case (let l as TypeVariable, _):
@@ -939,13 +939,13 @@ struct ConstraintSystem {
   /// Extends the type substution table to map `tau` to `substitute`.
   private mutating func assume(_ tau: TypeVariable, equals substitute: AnyType) {
     log("- assume: \"\(tau) = \(substitute)\"")
-    typeAssumptions.assign(substitute, to: tau)
+    substitutions.assign(substitute, to: tau)
 
     // Refresh stale constraints.
     for i in (0 ..< stale.count).reversed() {
       var changed = false
       goals[stale[i]].modifyTypes({ (type) in
-        let u = typeAssumptions.reify(type, withVariables: .kept)
+        let u = substitutions.reify(type, withVariables: .kept)
         changed = changed || (type != u)
         return u
       })

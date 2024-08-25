@@ -42,7 +42,7 @@ struct Solution {
   /// Creates an empty solution.
   init() {
     self.init(
-      substitutions: [:], bindings: [:], callOperands: [:],
+      substitutions: .init(), bindings: [:], callOperands: [:],
       penalties: 0, diagnostics: [], stale: [])
   }
 
@@ -95,7 +95,7 @@ extension Solution: CustomStringConvertible {
     var result = ""
 
     result.append("typeAssumptions:\n")
-    for (k, v) in typeAssumptions.storage {
+    for (k, v) in typeAssumptions.types {
       result.append("  \(k) : \(v)\n")
     }
 
