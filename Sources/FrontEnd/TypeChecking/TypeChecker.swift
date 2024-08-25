@@ -5011,7 +5011,7 @@ struct TypeChecker {
 
     func transform(mutating me: inout Self, _ t: AnyType) -> TypeTransformAction {
       // Nothing to do if `t` doesn't contain any generic parameter.
-      if !t[.hasGenericTypeParameter] && !t[.hasGenericValueParameter] {
+      if !t[.hasSkolem] {
         return .stepOver(t)
       }
 

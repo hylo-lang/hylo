@@ -289,7 +289,7 @@ public struct AnyType {
         return .stepOver(t)
 
       default:
-        return t[.hasGenericTypeParameter] ? .stepInto(t) : .stepOver(t)
+        return t[.hasSkolem] ? .stepInto(t) : .stepOver(t)
       }
     }
   }

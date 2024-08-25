@@ -74,14 +74,11 @@ public struct TypeFlags: Hashable {
   /// The type contains one or more error types.
   public static let hasError = TypeFlags(universal: 0, existential: 1 << 0)
 
-  /// Te type contains one or more type variables.
+  /// The type contains open type variables.
   public static let hasVariable = TypeFlags(universal: 0, existential: 1 << 1)
 
-  /// The type contains one or more generic type parameters.
-  public static let hasGenericTypeParameter = TypeFlags(universal: 0, existential: 1 << 2)
-
-  /// The type contains one or more generic value parameters.
-  public static let hasGenericValueParameter = TypeFlags(universal: 0, existential: 1 << 3)
+  /// The type contains skolemized variables.
+  public static let hasSkolem = TypeFlags(universal: 0, existential: 1 << 2)
 
 }
 
