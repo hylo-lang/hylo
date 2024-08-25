@@ -15,7 +15,7 @@ public struct AssociatedTypeType: TypeProtocol {
   public let name: Incidental<String>
 
   /// A set of flags describing recursive properties.
-  public let flags: TypeFlags
+  public let flags: ValueFlags
 
   /// Creates an instance denoting the associated type declared by `decl` as a member of `domain`.
   public init(_ decl: AssociatedTypeDecl.ID, domain: AnyType, ast: AST) {

@@ -41,7 +41,7 @@ public enum BuiltinType: TypeProtocol {
     }
   }
 
-  public var flags: TypeFlags { .init() }
+  public var flags: ValueFlags { .init() }
 
 }
 

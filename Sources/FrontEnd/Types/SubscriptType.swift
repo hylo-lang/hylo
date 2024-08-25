@@ -18,7 +18,7 @@ public struct SubscriptType: TypeProtocol {
   /// The type of the value projected by the subscript.
   public let output: AnyType
 
-  public let flags: TypeFlags
+  public let flags: ValueFlags
 
   /// Creates an instance with the given properties.
   public init(

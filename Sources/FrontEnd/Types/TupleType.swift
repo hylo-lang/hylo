@@ -23,12 +23,12 @@ public struct TupleType: TypeProtocol {
   /// The elements of the tuple.
   public let elements: [Element]
 
-  public let flags: TypeFlags
+  public let flags: ValueFlags
 
   /// Creates a tuple type with a sequence of elements.
   public init<S: Sequence>(_ elements: S) where S.Element == Element {
     self.elements = Array(elements)
-    self.flags = TypeFlags(self.elements.map(\.type.flags))
+    self.flags = ValueFlags(self.elements.map(\.type.flags))
   }
 
   /// Creates a tuple type with a sequence of label-type pairs.

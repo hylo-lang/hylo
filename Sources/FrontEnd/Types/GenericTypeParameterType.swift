@@ -20,7 +20,7 @@ public struct GenericTypeParameterType: TypeProtocol {
     self.init(ast[trait].receiver, ast: ast)
   }
 
-  public var flags: TypeFlags { [.hasSkolem] }
+  public var flags: ValueFlags { .hasSkolem }
 
 }
 

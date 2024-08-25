@@ -16,7 +16,7 @@ public struct ExistentialType: TypeProtocol {
     case metatype
 
     /// A set of flags describing recursive properties.
-    public var flags: TypeFlags {
+    public var flags: ValueFlags {
       switch self {
       case .traits(let ts):
         return .init(ts.map(\.flags))
@@ -37,7 +37,7 @@ public struct ExistentialType: TypeProtocol {
   /// - Note: This set shall only contain equality and conformance constraints.
   public let constraints: Set<GenericConstraint>
 
-  public let flags: TypeFlags
+  public let flags: ValueFlags
 
   /// Creates a new existential type bound by the given interface and constraints.
   public init(_ interface: Interface, constraints: Set<GenericConstraint>) {

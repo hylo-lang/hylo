@@ -8,7 +8,7 @@ public struct BufferType: TypeProtocol {
   public let count: CompileTimeValue
 
   /// The structural properties of the type.
-  public let flags: TypeFlags
+  public let flags: ValueFlags
 
   /// Creates an instance with the given properties.
   public init(_ element: AnyType, _ count: CompileTimeValue) {

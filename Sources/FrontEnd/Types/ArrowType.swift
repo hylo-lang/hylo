@@ -15,7 +15,7 @@ public struct ArrowType: TypeProtocol {
   /// The output type of the arrow.
   public let output: AnyType
 
-  public let flags: TypeFlags
+  public let flags: ValueFlags
 
   /// Creates an instance with the given properties.
   public init(

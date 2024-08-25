@@ -372,7 +372,7 @@ public struct AnyType {
 
 extension AnyType: TypeProtocol {
 
-  public var flags: TypeFlags { base.flags }
+  public var flags: ValueFlags { base.flags }
 
   public func transformParts<M>(
     mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction

@@ -15,7 +15,7 @@ public struct NamespaceType: TypeProtocol {
     self.name = Incidental(ast[decl].baseName)
   }
 
-  public var flags: TypeFlags { .init() }
+  public var flags: ValueFlags { .init() }
 
 }
 

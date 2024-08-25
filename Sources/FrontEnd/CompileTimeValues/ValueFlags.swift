@@ -1,5 +1,5 @@
-/// A set of type flags.
-public struct TypeFlags: Hashable, OptionSet {
+/// Properties about the representation of a type or term.
+public struct ValueFlags: Hashable, OptionSet {
 
   public typealias RawValue = UInt8
 
@@ -20,15 +20,15 @@ public struct TypeFlags: Hashable, OptionSet {
   }
 
   /// The type contains one or more error types.
-  public static let hasError = TypeFlags(rawValue: 1 << 0)
+  public static let hasError = ValueFlags(rawValue: 1 << 0)
 
   /// The type contains open type variables.
-  public static let hasVariable = TypeFlags(rawValue: 1 << 1)
+  public static let hasVariable = ValueFlags(rawValue: 1 << 1)
 
   /// The type contains skolemized variables.
-  public static let hasSkolem = TypeFlags(rawValue: 1 << 2)
+  public static let hasSkolem = ValueFlags(rawValue: 1 << 2)
 
   /// The type is not canonical.
-  public static let hasNonCanonical = TypeFlags(rawValue: 1 << 3)
+  public static let hasNonCanonical = ValueFlags(rawValue: 1 << 3)
 
 }

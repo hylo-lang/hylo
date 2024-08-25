@@ -12,7 +12,7 @@ public struct BoundGenericType: TypeProtocol {
   /// The type and value arguments of the base type.
   public let arguments: Arguments
 
-  public let flags: TypeFlags
+  public let flags: ValueFlags
 
   /// Creates a bound generic type binding `base` to the given `arguments`.
   ///
