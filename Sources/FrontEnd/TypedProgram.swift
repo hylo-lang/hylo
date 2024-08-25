@@ -317,7 +317,7 @@ public struct TypedProgram {
 
   /// Returns the names and types of `t`'s stored properties.
   public func storage(of t: BufferType) -> [TupleType.Element] {
-    if let w = t.count.asCompilerKnown(Int.self) {
+    if let w = ConcreteTerm(t.count)?.value as? Int {
       return Array(repeating: .init(label: nil, type: t.element), count: w)
     } else {
       return []

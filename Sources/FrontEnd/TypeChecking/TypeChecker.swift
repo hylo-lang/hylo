@@ -3060,9 +3060,9 @@ struct TypeChecker {
     // Bail out if the type of the argument isn't `Hylo.Int`.
     if j != i {
       report(.error(j, doesNotMatch: ^i, at: program[n].site))
-      return MetatypeType(of: BufferType(t, .term(^ConcreteTerm(wrapping: 0))))
+      return MetatypeType(of: BufferType(t, ^ConcreteTerm(wrapping: 0)))
     } else {
-      let v = denotation(of: n)
+      let v = denotation(of: n).asTerm!
       return MetatypeType(of: BufferType(t, v))
     }
   }
@@ -5302,10 +5302,10 @@ struct TypeChecker {
       }
 
       let n = ConcreteTerm(wrapping: program[e].elements.count)
-      return constrain(e, to: ^BufferType(head, .term(^n)), in: &obligations)
+      return constrain(e, to: ^BufferType(head, ^n), in: &obligations)
     } else {
       let n = ConcreteTerm(wrapping: 0)
-      return constrain(e, to: ^BufferType(elementHint, .term(^n)), in: &obligations)
+      return constrain(e, to: ^BufferType(elementHint, ^n), in: &obligations)
     }
   }
 

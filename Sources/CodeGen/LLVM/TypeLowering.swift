@@ -49,7 +49,7 @@ extension IR.Program {
   /// - Requires: `t` is representable in LLVM.
   func llvm(bufferType t: BufferType, in module: inout SwiftyLLVM.Module) -> SwiftyLLVM.IRType {
     let e = llvm(t.element, in: &module)
-    guard let n = t.count.asCompilerKnown(Int.self) else {
+    guard let n = ConcreteTerm(t.count)?.value as? Int else {
       notLLVMRepresentable(t)
     }
     return SwiftyLLVM.ArrayType(n, e, in: &module)

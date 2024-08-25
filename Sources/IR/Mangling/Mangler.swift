@@ -531,7 +531,7 @@ struct Mangler {
   private mutating func append(buffer t: BufferType, to output: inout Output) {
     append(operator: .bufferType, to: &output)
     append(type: t.element, to: &output)
-    append(value: t.count, to: &output)
+    append(term: t.count, to: &output)
   }
 
   /// Writes the mangled representation of `z` to `output`.
