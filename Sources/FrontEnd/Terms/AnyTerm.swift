@@ -45,6 +45,9 @@ private struct ConcreteTermBox<Base: TermProtocol>: TermBox {
 /// The compile-time representation of the value of an expression.
 public struct AnyTerm {
 
+  /// A shorthand for `^ErrorTerm()`.
+  public static let error = ^ErrorTerm()
+
   /// The value wrapped by this instance.
   private var wrapped: TermBox
 
