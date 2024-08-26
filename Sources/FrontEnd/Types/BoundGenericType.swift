@@ -23,7 +23,7 @@ public struct BoundGenericType: TypeProtocol {
     self.arguments = arguments
 
     var flags = arguments.reduce(base.flags) { (fs, a) in
-      fs | (a.value.asType ?? UNIMPLEMENTED()).flags
+      fs | a.value.flags
     }
 
     // The type isn't canonical if `base` is structural.
