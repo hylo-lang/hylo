@@ -247,8 +247,9 @@ struct SubstitutionMap {
 extension SubstitutionMap: CustomStringConvertible {
 
   var description: String {
-    let items = types.map(String.init(describing:)) + terms.map(String.init(describing:))
-    return "[\(list: items)]"
+    let ts = types.map({ "\($0.key): \($0.value)" })
+    let us = terms.map({ "\($0.key): \($0.value)" })
+    return "[\(list: ts + us)]"
   }
 
 }
