@@ -11,6 +11,22 @@ public type Array<Element: SemiRegular>: SemiRegular {
     &storage = .new()
   }
 
+  /// Creates an array with the given `elements`.
+  public init<n: Int>(_ elements: sink Element[n]) {
+    &storage = .new()
+    &reserve_capacity(n)
+
+    // Note: lifetime of `p` is guaranteed by the use of `elements` after the loop.
+    let p = PointerToMutable<Element>(type_punning: mutable_pointer[to: &elements])
+    var i = 0
+    while i < n {
+      &append(p.advance(by: i).unsafe_pointee())
+      &i += 1
+    }
+
+    Builtin.mark_uninitialized(elements)
+  }
+
   /// Creates an array whose contents are the results, of calling `initialize` with the values
   /// `0 ..< count`, in order.
   ///
