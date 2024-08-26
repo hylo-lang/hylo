@@ -109,6 +109,19 @@ struct SubstitutionMap {
     types[walked] = substitution
   }
 
+  /// Assigns `substitution` to `variable`.
+  mutating func assign(_ substitution: AnyTerm, to variable: TermVariable) {
+    var walked = variable
+    while let a = terms[walked] {
+      guard let b = TermVariable(a) else {
+        precondition(a == substitution, "'\(variable)' already bound to '\(a)'")
+        return
+      }
+      walked = b
+    }
+    terms[walked] = substitution
+  }
+
   /// Returns the type variable representing the equivalence class of `v` in `self`.
   private func walk(_ v: TypeVariable) -> TypeVariable {
     var w = v
