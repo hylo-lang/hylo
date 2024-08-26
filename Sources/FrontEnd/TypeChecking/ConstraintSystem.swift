@@ -267,6 +267,7 @@ struct ConstraintSystem {
   /// If the constraint is strict, then `g.left` must be different than `g.right`.
   private mutating func solve(subtyping g: GoalIdentity) -> Outcome? {
     let goal = goals[g] as! SubtypingConstraint
+    lazy var o = goal.origin.subordinate()
 
     // Note: we're not using canonical equality here since we'll be dealing with aliases and
     // structural equivalences during unification anyway.
@@ -297,7 +298,6 @@ struct ConstraintSystem {
       }
 
       // If `R` has a single element, it must be above (the canonical form of) `L`.
-      let o = goal.origin.subordinate()
       if let e = r.elements.uniqueElement {
         let s = schedule(SubtypingConstraint(goal.left, e, origin: o))
         return delegate(to: [s])
@@ -335,7 +335,6 @@ struct ConstraintSystem {
         postpone(g)
         return nil
       } else {
-        let o = goal.origin.subordinate()
         let s = schedule(inferenceConstraint(goal.left, isSubtypeOf: goal.right, origin: o))
         return delegate(to: [s])
       }
@@ -350,13 +349,11 @@ struct ConstraintSystem {
         postpone(g)
         return nil
       } else {
-        let o = goal.origin.subordinate()
         let s = schedule(inferenceConstraint(goal.left, isSubtypeOf: goal.right, origin: o))
         return delegate(to: [s])
       }
 
     case (let l as RemoteType, _):
-      let o = goal.origin.subordinate()
       let s = schedule(
         SubtypingConstraint(l.bareType, goal.right, strictly: goal.isStrict, origin: o))
       return delegate(to: [s])
@@ -374,7 +371,6 @@ struct ConstraintSystem {
           return .success
         } else {
           var subordinates: [GoalIdentity] = []
-          let o = goal.origin.subordinate()
           for t in traits {
             subordinates.append(
               schedule(ConformanceConstraint(goal.left, conformsTo: t, origin: o)))
@@ -394,12 +390,12 @@ struct ConstraintSystem {
         }
 
         let r = checker.openForUnification(d)
-        let s = schedule(EqualityConstraint(goal.left, ^r, origin: goal.origin.subordinate()))
+        let s = schedule(EqualityConstraint(goal.left, ^r, origin: o))
         return delegate(to: [s])
 
       case .metatype:
         let r = MetatypeType(of: checker.freshVariable())
-        let s = schedule(EqualityConstraint(goal.left, ^r, origin: goal.origin.subordinate()))
+        let s = schedule(EqualityConstraint(goal.left, ^r, origin: o))
         return delegate(to: [s])
       }
 
@@ -415,14 +411,9 @@ struct ConstraintSystem {
       if !goal.left.isCanonical || !goal.right.isCanonical {
         let l = checker.canonical(goal.left, in: scope)
         let r = checker.canonical(goal.right, in: scope)
-        assert(l.isCanonical && r.isCanonical)
-
-        let s = schedule(
-          SubtypingConstraint(l, r, strictly: goal.isStrict, origin: goal.origin.subordinate()))
+        let s = schedule(SubtypingConstraint(l, r, strictly: goal.isStrict, origin: o))
         return delegate(to: [s])
-      }
-
-      if goal.isStrict {
+      } else if goal.isStrict {
         return .failure(failureToSolve(goal))
       } else {
         return unify(goal.left, goal.right) ? .success : .failure(failureToSolve(goal))
