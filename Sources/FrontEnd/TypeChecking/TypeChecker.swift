@@ -3094,7 +3094,15 @@ struct TypeChecker {
 
   /// Returns the value expressed by `e`
   private func denotation(of e: NameExpr.ID) -> CompileTimeValue {
-    UNIMPLEMENTED()
+    guard let d = cache.local.referredDecl[e] else {
+      return .term(^ErrorTerm())
+    }
+
+    if let p = d.decl.flatMap(GenericParameterDecl.ID.init(_:)) {
+      return .term(^GenericTermParameter(p, ast: program.ast))
+    } else {
+      UNIMPLEMENTED("denotation of \(e.kind)")
+    }
   }
 
   /// Evaluates and returns the qualification of `e`, which is a type annotation.
@@ -4669,7 +4677,7 @@ struct TypeChecker {
 
   /// Returns the generic arguments passed to `d`, which has type `t` and is being referred to by
   /// `name`, reporting diagnostics to `log`.
-  private func genericArguments(
+  private mutating func genericArguments(
     passedTo d: AnyDeclID, typed t: AnyType,
     referredToBy name: SourceRepresentable<Name>, specializedBy arguments: [CompileTimeValue],
     reportingDiagnosticsTo log: inout DiagnosticSet
@@ -4702,10 +4710,10 @@ struct TypeChecker {
     }
   }
 
-  /// Associates `parameters`, which are introduced by `name`'s declaration, to corresponding
-  /// values in `arguments` if the two arrays have the same length; returns `nil` otherwise,
-  /// reporting diagnostics to `log`.
-  private func associateGenericParameters(
+  /// Returns a table mapping the elements of `parameters`, which are introduced by `name`'s
+  /// declaration, to their corresponding values in `arguments` if the two arrays have the same
+  /// length. Otherwise, returns `nil` and reports diagnostics to `log`.
+  private mutating func associateGenericParameters(
     _ parameters: [GenericParameterDecl.ID], of name: SourceRepresentable<Name>,
     to arguments: [CompileTimeValue],
     reportingDiagnosticsTo log: inout DiagnosticSet
@@ -4715,7 +4723,11 @@ struct TypeChecker {
       result[p] = a
     }
     for p in parameters.dropFirst(arguments.count) {
-      result[p] = .type(^GenericTypeParameterType(p, ast: program.ast))
+      if isTypeKinded(p) {
+        result[p] = .type(^GenericTypeParameterType(p, ast: program.ast))
+      } else {
+        result[p] = .term(^GenericTermParameter(p, ast: program.ast))
+      }
     }
 
     if !arguments.isEmpty && (parameters.count != arguments.count) {
@@ -4944,9 +4956,9 @@ struct TypeChecker {
   /// Replaces the generic parameters in `candidate` by fresh variables if their environments don't
   /// contain `scopeOfUse`, updating `substitutions` with opened generic parameters and anchoring
   /// instantiation constraints at `cause`.
-  mutating func instantiate(
+  private mutating func instantiate(
     _ candidate: NameResolutionResult.Candidate, in scopeOfUse: AnyScopeID,
-    updating substitutions: inout [GenericParameterDecl.ID: AnyType],
+    updating substitutions: inout GenericArguments,
     anchoringInstantiationConstraintsAt cause: ConstraintOrigin
   ) -> NameResolutionResult.Candidate {
     let ctx = instantiationContext(candidate.reference, in: scopeOfUse)
@@ -4961,8 +4973,8 @@ struct TypeChecker {
         cs.formUnion(x.constraints)
         return .type(x.shape)
 
-      default:
-        return v
+      case .term(let w):
+        return .term(instantiate(w, in: ctx, updating: &s))
       }
     }
 
@@ -4979,7 +4991,7 @@ struct TypeChecker {
     _ subject: AnyType, in scopeOfUse: AnyScopeID, cause: ConstraintOrigin
   ) -> InstantiatedType {
     let ctx = instantiationContext(in: scopeOfUse)
-    var substitutions: [GenericParameterDecl.ID: AnyType] = [:]
+    var substitutions = GenericArguments()
     return instantiate(subject, in: ctx, cause: cause, updating: &substitutions)
   }
 
@@ -4987,7 +4999,7 @@ struct TypeChecker {
   /// contain `contextOfUse`, assigning `cause` to instantiation constraints.
   private mutating func instantiate(
     _ subject: AnyType, in contextOfUse: InstantiationContext, cause: ConstraintOrigin,
-    updating substitutions: inout [GenericParameterDecl.ID: AnyType]
+    updating substitutions: inout GenericArguments
   ) -> InstantiatedType {
     let shape = subject.transform(mutating: &self, transform)
     return InstantiatedType(shape: shape, constraints: [])
@@ -5001,8 +5013,10 @@ struct TypeChecker {
       switch t.base {
       case let u as AssociatedTypeType:
         return transform(mutating: &me, u)
-      case let u as GenericTypeParameterType:
+      case let u as BufferType:
         return transform(mutating: &me, u)
+      case let u as GenericTypeParameterType:
+        return .stepInto(me.instantiate(u, in: contextOfUse, updating: &substitutions))
       default:
         return .stepInto(t)
       }
@@ -5016,16 +5030,51 @@ struct TypeChecker {
     }
 
     func transform(
-      mutating me: inout Self, _ t: GenericTypeParameterType
+      mutating me: inout Self, _ t: BufferType
     ) -> TypeTransformAction {
-      if let t = substitutions[t.decl] {
-        return .stepOver(t)
-      } else if me.shouldOpen(t, in: contextOfUse) {
-        // TODO: Collect constraints
-        return .stepOver(substitutions[t.decl].setIfNil(^me.freshVariable()))
-      } else {
-        return .stepOver(substitutions[t.decl].setIfNil(^t))
-      }
+      let n = me.instantiate(t.count, in: contextOfUse, updating: &substitutions)
+      return .stepInto(^BufferType(t.element, n))
+    }
+  }
+
+  /// Replaces the generic parameters in `subject` by fresh variables if their environments don't
+  /// contain `contextOfUse`.
+  private mutating func instantiate(
+    _ subject: AnyTerm, in contextOfUse: InstantiationContext,
+    updating substitutions: inout GenericArguments
+  ) -> AnyTerm {
+    if let p = GenericTermParameter(subject) {
+      return instantiate(p, in: contextOfUse, updating: &substitutions)
+    } else {
+      return subject
+    }
+  }
+
+  /// Returns a fresh variables if `p`' environment doesn't contain `contextOfUse`.
+  private mutating func instantiate(
+    _ p: GenericTypeParameterType, in contextOfUse: InstantiationContext,
+    updating substitutions: inout GenericArguments
+  ) -> AnyType {
+    if let v = substitutions[p.decl]?.asType {
+      return v
+    } else {
+      let v = shouldOpen(p.decl, in: contextOfUse) ? ^freshVariable() : ^p
+      substitutions[p.decl] = .type(v)
+      return v
+    }
+  }
+
+  /// Returns a fresh variables if `p`' environment doesn't contain `contextOfUse`.
+  private mutating func instantiate(
+    _ p: GenericTermParameter, in contextOfUse: InstantiationContext,
+    updating substitutions: inout GenericArguments
+  ) -> AnyTerm {
+    if let v = substitutions[p.decl]?.asTerm {
+      return v
+    } else {
+      let v = shouldOpen(p.decl, in: contextOfUse) ? ^freshTermVariable() : ^p
+      substitutions[p.decl] = .term(v)
+      return v
     }
   }
 
@@ -5033,7 +5082,7 @@ struct TypeChecker {
   /// opened generic parameters and anchoring instantiation constraints at `cause`.
   private mutating func instantiate(
     constraints: inout ConstraintSet, in contextOfUse: InstantiationContext,
-    updating substitutions: inout [GenericParameterDecl.ID: AnyType],
+    updating substitutions: inout GenericArguments,
     anchoringInstantiationConstraintsAt cause: ConstraintOrigin
   ) {
     var work = ConstraintSet()
@@ -5051,10 +5100,10 @@ struct TypeChecker {
 
   /// Returns `true` iff `contextOfUse` is not contained in `p`'s environment.
   private func shouldOpen(
-    _ p: GenericTypeParameterType, in contextOfUse: InstantiationContext
+    _ p: GenericParameterDecl.ID, in contextOfUse: InstantiationContext
   ) -> Bool {
     // Generic parameters introduced by a trait can't be referenced outside of their environment.
-    let introductionScope = program[p.decl].scope
+    let introductionScope = program[p].scope
     if introductionScope.kind == TraitDecl.self {
       return false
     }
@@ -6135,7 +6184,7 @@ struct TypeChecker {
     _ components: [NameResolutionResult.ResolvedComponent], in obligations: inout ProofObligations
   ) -> AnyType {
     var last: AnyType?
-    var substitutions: [GenericParameterDecl.ID: AnyType] = [:]
+    var substitutions = GenericArguments()
     for p in components {
       last = constrain(p.component, to: p.candidates, in: &obligations, extending: &substitutions)
     }
@@ -6149,7 +6198,7 @@ struct TypeChecker {
   private mutating func constrain(
     _ name: NameExpr.ID, to candidates: [NameResolutionResult.Candidate],
     in obligations: inout ProofObligations,
-    extending substitutions: inout [GenericParameterDecl.ID: AnyType]
+    extending substitutions: inout GenericArguments
   ) -> AnyType {
     precondition(!candidates.isEmpty)
     let site = program[name].site
@@ -6479,6 +6528,14 @@ struct TypeChecker {
   ///
   /// The returned instance is unique access concurrent type checker instances.
   mutating func freshVariable() -> TypeVariable {
+    defer { nextFreshVariableIdentifier += 1 }
+    return .init(nextFreshVariableIdentifier)
+  }
+
+  /// Creates a fresh term variable.
+  ///
+  /// The returned instance is unique access concurrent type checker instances.
+  mutating func freshTermVariable() -> TermVariable {
     defer { nextFreshVariableIdentifier += 1 }
     return .init(nextFreshVariableIdentifier)
   }
