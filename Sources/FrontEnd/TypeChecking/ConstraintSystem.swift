@@ -241,7 +241,7 @@ struct ConstraintSystem {
   /// Returns eiteher `.success` if `g.left` is unifiable with `g.right` or `.failure` otherwise.
   private mutating func solve(equality g: GoalIdentity) -> Outcome {
     let goal = goals[g] as! EqualityConstraint
-    if unify(goal.left, goal.right) {
+    if solve(goal.left, equals: goal.right) {
       return .success
     } else {
       return .failure(failureToSolve(goal))
@@ -294,7 +294,7 @@ struct ConstraintSystem {
     case (_, let r as UnionType):
       // If `R` is an empty union, so must be `L`.
       if r.elements.isEmpty {
-        return unify(goal.left, goal.right) ? .success : .failure(failureToSolve(goal))
+        return solve(goal.left, equals: goal.right) ? .success : .failure(failureToSolve(goal))
       }
 
       // If `R` has a single element, it must be above (the canonical form of) `L`.
@@ -344,7 +344,7 @@ struct ConstraintSystem {
       // coercible to `R` and that are above `L`, but that set is unbounded unless `R` is a leaf.
       // If it isn't, we have no choice but to postpone the goal.
       if goal.right.isLeaf {
-        return unify(goal.left, goal.right) ? .success : .failure(failureToSolve(goal))
+        return solve(goal.left, equals: goal.right) ? .success : .failure(failureToSolve(goal))
       } else if goal.isStrict {
         postpone(g)
         return nil
@@ -416,7 +416,7 @@ struct ConstraintSystem {
       } else if goal.isStrict {
         return .failure(failureToSolve(goal))
       } else {
-        return unify(goal.left, goal.right) ? .success : .failure(failureToSolve(goal))
+        return solve(goal.left, equals: goal.right) ? .success : .failure(failureToSolve(goal))
       }
     }
   }
@@ -877,19 +877,17 @@ struct ConstraintSystem {
     stale.append(g)
   }
 
-  /// Returns `true` iff `lhs` and `rhs` can be unified, updating the type substitution table.
+  /// Returns `true` iff `lhs` and `rhs` can be unified, updating the substitution table.
   ///
   /// Type unification consists of finding substitutions that makes `lhs` and `rhs` equal. Both
-  /// types are visited in lockstep, updating `self.typeAssumptions` every time either side is a
-  /// type variable for which no substitution has been made yet.
-  private mutating func unify(_ lhs: AnyType, _ rhs: AnyType) -> Bool {
-    lhs.matches(rhs, mutating: &self) { (this, a, b) in
-      this.unifySyntacticallyInequal(a, b)
-    }
+  /// types are visited in lockstep, updating `self.subscritutions` every time either side is a
+  /// variable for which no substitution has been made yet.
+  private mutating func solve(_ lhs: AnyType, equals rhs: AnyType) -> Bool {
+    matches(lhs, rhs)
   }
 
   /// Returns `true` iff `lhs` and `rhs` can be unified.
-  private mutating func unifySyntacticallyInequal(_ lhs: AnyType, _ rhs: AnyType) -> Bool {
+  private mutating func unify(_ lhs: AnyType, _ rhs: AnyType) -> Bool {
     let t = substitutions[lhs]
     let u = substitutions[rhs]
 
@@ -903,10 +901,10 @@ struct ConstraintSystem {
       return true
 
     case (let l as UnionType, let r as UnionType):
-      return unifySyntacticallyInequal(l, r)
+      return unify(l, r)
 
     case _ where !t.isCanonical || !u.isCanonical:
-      return unify(checker.canonical(t, in: scope), checker.canonical(u, in: scope))
+      return solve(checker.canonical(t, in: scope), equals: checker.canonical(u, in: scope))
 
     default:
       return checker.areEquivalent(t, u, in: scope)
@@ -914,12 +912,12 @@ struct ConstraintSystem {
   }
 
   /// Returns `true` iff `lhs` and `rhs` can be unified.
-  private mutating func unifySyntacticallyInequal(
+  private mutating func unify(
     _ lhs: UnionType, _ rhs: UnionType
   ) -> Bool {
     for a in lhs.elements {
       var success = false
-      for b in rhs.elements where unify(a, b) {
+      for b in rhs.elements where solve(a, equals: b) {
         success = true
       }
       if !success { return false }
@@ -927,19 +925,132 @@ struct ConstraintSystem {
     return true
   }
 
+  /// Returns `true` iff `lhs` and `rhs` can be unified.
+  private mutating func unify(_ lhs: AnyTerm, _ rhs: AnyTerm) -> Bool {
+    let t = substitutions[lhs]
+    let u = substitutions[rhs]
+
+    switch (t.base, u.base) {
+    case (let l as TermVariable, _):
+      assume(l, equals: u)
+      return true
+
+    case (_, let r as TermVariable):
+      assume(r, equals: t)
+      return true
+
+    default:
+      return t == u
+    }
+  }
+
+  /// Returns `true` iff `t` and `u` are equal under some substitution of their variables.
+  private mutating func matches(_ t: AnyType, _ u: AnyType) -> Bool {
+    switch (t.base, u.base) {
+    case (let lhs as BoundGenericType, let rhs as BoundGenericType):
+      if lhs.arguments.count != rhs.arguments.count { return false }
+      var result = matches(lhs.base, rhs.base)
+      for (a, b) in zip(lhs.arguments, rhs.arguments) {
+        result = matches(a.value, b.value) && result
+      }
+      return result
+
+    case (let lhs as MetatypeType, let rhs as MetatypeType):
+      return matches(lhs.instance, rhs.instance)
+
+    case (let lhs as TupleType, let rhs as TupleType):
+      if !lhs.labels.elementsEqual(rhs.labels) { return false }
+      return matches(lhs.elements, rhs.elements, at: \.type)
+
+    case (let lhs as ArrowType, let rhs as ArrowType):
+      if !lhs.labels.elementsEqual(rhs.labels) { return false }
+      var result = matches(lhs.inputs, rhs.inputs, at: \.type)
+      result = matches(lhs.output, rhs.output) && result
+      result = matches(lhs.environment, rhs.environment) && result
+      return result
+
+    case (let lhs as BufferType, let rhs as BufferType):
+      return matches(lhs.element, rhs.element) && matches(lhs.count, rhs.count)
+
+    case (let lhs as MethodType, let rhs as MethodType):
+      if !lhs.labels.elementsEqual(rhs.labels) || (lhs.capabilities != rhs.capabilities) {
+        return false
+      }
+
+      var result = matches(lhs.inputs, rhs.inputs, at: \.type)
+      result = matches(lhs.output, rhs.output) && result
+      result = matches(lhs.receiver, rhs.receiver) && result
+      return result
+
+    case (let lhs as ParameterType, let rhs as ParameterType):
+      if lhs.access != rhs.access { return false }
+      return matches(lhs.bareType, rhs.bareType)
+
+    case (let lhs as RemoteType, let rhs as RemoteType):
+      if lhs.access != rhs.access { return false }
+      return matches(lhs.bareType, rhs.bareType)
+
+    default:
+      return (t == u) || unify(t, u)
+    }
+  }
+
+  /// Returns `true` iff the result of `matches(_:_:)` applied on all elements from `ts` and `us`
+  /// pairwise is `true`.
+  private mutating func matches<T: Sequence>(
+    _ ts: T, _ us: T, at p: KeyPath<T.Element, AnyType>
+  ) -> Bool {
+    var result = true
+    for (a, b) in zip(ts, us) {
+      result = matches(a[keyPath: p], b[keyPath: p]) && result
+    }
+    return result
+  }
+
+  /// Returns `true` iff `t` and `u` are equal under some substitution of their variables.
+  private mutating func matches(_ t: AnyTerm, _ u: AnyTerm) -> Bool {
+    (t == u) || unify(t, u)
+  }
+
+  /// Returns `true` iff `t` and `u` are equal under some substitution of their variables.
+  private mutating func matches(_ t: CompileTimeValue, _ u: CompileTimeValue) -> Bool {
+    switch (t, u) {
+    case (.type(let lhs), .type(let rhs)):
+      return matches(lhs, rhs)
+    case (.term(let lhs), .term(let rhs)):
+      return matches(lhs, rhs)
+    default:
+      return false
+    }
+  }
+
   /// Extends the type substution table to map `tau` to `substitute`.
   private mutating func assume(_ tau: TypeVariable, equals substitute: AnyType) {
     log("- assume: \"\(tau) = \(substitute)\"")
     substitutions.assign(substitute, to: tau)
+    refresh()
+  }
 
-    // Refresh stale constraints.
+  /// Extends the term substution table to map `tau` to `substitute`.
+  private mutating func assume(_ tau: TermVariable, equals substitute: AnyTerm) {
+    log("- assume: \"\(tau) = \(substitute)\"")
+    substitutions.assign(substitute, to: tau)
+    refresh()
+  }
+
+  /// Refresh stale constraints containing variables that have been assigned.
+  private mutating func refresh() {
     for i in (0 ..< stale.count).reversed() {
       var changed = false
-      goals[stale[i]].modifyTypes({ (type) in
-        let u = substitutions.reify(type, withVariables: .kept)
-        changed = changed || (type != u)
-        return u
-      })
+      goals[stale[i]].modifyTypes { (t) in
+        if t[.hasVariable] {
+          let u = substitutions.reify(t, withVariables: .kept)
+          changed = changed || (t != u)
+          return u
+        } else {
+          return t
+        }
+      }
 
       if changed {
         log("- refresh \(goals[stale[i]])")
