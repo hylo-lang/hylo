@@ -437,10 +437,14 @@ struct Mangler {
   }
 
   /// Writes the mangled representation of `symbol` to `output`.
-  private mutating func append(term symbol: AnyTerm, to output: inout Output) {
-    if let v = ConcreteTerm(symbol)?.value as? Int {
+  mutating func append(term symbol: AnyTerm, to output: inout Output) {
+    switch symbol.base {
+    case let t as ConcreteTerm:
+      let v = (t.value as? Int) ?? UNIMPLEMENTED()
       append(integer: v, to: &output)
-    } else {
+    case let t as GenericTermParameter:
+      append(entity: t.decl, to: &output)
+    default:
       UNIMPLEMENTED()
     }
   }
