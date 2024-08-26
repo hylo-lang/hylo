@@ -1177,7 +1177,7 @@ struct TypeChecker {
     // Note: in theory, we should make sure this update is monotonic. In practice, such a test
     // would require prohibitively expensive structural comparisons.
     modify(&cache.uncheckedType[d]!) { (u) in
-      let v = solution.typeAssumptions.reify(u.computed!)
+      let v = solution.substitutions.reify(u.computed!)
       u = .computed(v)
       return v
     }
@@ -1862,7 +1862,7 @@ struct TypeChecker {
     var obligations = ProofObligations(scope: program[d].scope)
     let t = inferredType(of: d, usedAs: purpose, updating: &obligations)
     let s = discharge(obligations, relatedTo: d)
-    let u = s.typeAssumptions.reify(t)
+    let u = s.substitutions.reify(t)
     cache.write(s.isSound ? u : .error, at: \.declType[d], ignoringSharedCache: ignoreSharedCache)
     return u
   }
@@ -1871,7 +1871,7 @@ struct TypeChecker {
   private mutating func checkedType(of e: AnyExprID, withHint hint: AnyType? = nil) -> AnyType {
     let (incompleteType, obligations) = partiallyCheckedType(of: e, withHint: hint)
     let s = discharge(obligations, relatedTo: e)
-    return s.typeAssumptions.reify(incompleteType)
+    return s.substitutions.reify(incompleteType)
   }
 
   /// Type checks `e` as an argument to `p` and returns its type.
@@ -1882,7 +1882,7 @@ struct TypeChecker {
     obligations.insert(
       ParameterConstraint(incompleteType, ^p, origin: .init(.argument, at: program[e].site)))
     let s = discharge(obligations, relatedTo: e)
-    return s.typeAssumptions.reify(incompleteType)
+    return s.substitutions.reify(incompleteType)
   }
 
   /// Returns the inferred type of `e`, along with a set of goals to solve to check that type.
@@ -6215,13 +6215,13 @@ struct TypeChecker {
     _ solution: Solution, satisfying obligations: ProofObligations,
     ignoringSharedCache ignoreSharedCache: Bool
   ) {
-    for (n, r) in solution.bindingAssumptions {
-      var s = solution.typeAssumptions.reify(r, withVariables: .kept)
+    for (n, r) in solution.bindings {
+      var s = solution.substitutions.reify(reference: r, withVariables: .kept)
 
-      let t = solution.typeAssumptions.reify(obligations.exprType[n]!, withVariables: .kept)
+      let t = solution.substitutions.reify(obligations.exprType[n]!, withVariables: .kept)
       if t[.hasVariable] || s.arguments.values.contains(where: { $0.isTypeVariable }) {
         report(.error(notEnoughContextToInferArgumentsAt: program[n].site))
-        s = solution.typeAssumptions.reify(s, withVariables: .substitutedByError)
+        s = solution.substitutions.reify(reference: s, withVariables: .substitutedByError)
       }
 
       cache.write(s, at: \.referredDecl[n], ignoringSharedCache: ignoreSharedCache)
@@ -6232,7 +6232,7 @@ struct TypeChecker {
     }
 
     for (e, t) in obligations.exprType {
-      let u = solution.typeAssumptions.reify(t, withVariables: .substitutedByError)
+      let u = solution.substitutions.reify(t, withVariables: .substitutedByError)
       cache.write(u, at: \.exprType[e], ignoringSharedCache: ignoreSharedCache)
     }
 
@@ -6240,7 +6240,7 @@ struct TypeChecker {
 
     // Note: Post-inference checks run after other choices have been committed.
     for (d, t) in obligations.declType {
-      let u = solution.typeAssumptions.reify(t, withVariables: .substitutedByError)
+      let u = solution.substitutions.reify(t, withVariables: .substitutedByError)
       cache.uncheckedType[d].updateMonotonically(.computed(u))
       checkPostInference(d, solution: solution, ignoringSharedCache: ignoreSharedCache)
     }
@@ -6271,8 +6271,8 @@ struct TypeChecker {
     var ranking: StrictPartialOrdering = .equal
     var namesInCommon = 0
 
-    for (n, lhs) in lhs.bindingAssumptions {
-      guard let rhs = rhs.bindingAssumptions[n] else { continue }
+    for (n, lhs) in lhs.bindings {
+      guard let rhs = rhs.bindings[n] else { continue }
       namesInCommon += 1
 
       // Nothing to do if both functions have the same binding.
@@ -6292,23 +6292,23 @@ struct TypeChecker {
       }
     }
 
-    if lhs.bindingAssumptions.count < rhs.bindingAssumptions.count {
-      if namesInCommon == lhs.bindingAssumptions.count {
+    if lhs.bindings.count < rhs.bindings.count {
+      if namesInCommon == lhs.bindings.count {
         return ranking != .ascending ? .descending : nil
       } else {
         return nil
       }
     }
 
-    if lhs.bindingAssumptions.count > rhs.bindingAssumptions.count {
-      if namesInCommon == rhs.bindingAssumptions.count {
+    if lhs.bindings.count > rhs.bindings.count {
+      if namesInCommon == rhs.bindings.count {
         return ranking != .descending ? .ascending : nil
       } else {
         return nil
       }
     }
 
-    return namesInCommon == lhs.bindingAssumptions.count ? ranking : nil
+    return namesInCommon == lhs.bindings.count ? ranking : nil
   }
 
   /// Compares `lhs` and `rhs` in `scopeOfUse` and returns whether one has either shadows or is
