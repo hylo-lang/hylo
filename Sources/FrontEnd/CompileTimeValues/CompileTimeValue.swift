@@ -7,6 +7,14 @@ public enum CompileTimeValue: Hashable {
   /// A term.
   case term(AnyTerm)
 
+  /// Properties about the representation of self.
+  public var flags: ValueFlags {
+    switch self {
+    case .type(let t): return t.flags
+    case .term(let t): return t.flags
+    }
+  }
+
   /// The payload of `.type`.
   public var asType: AnyType? {
     if case .type(let v) = self { v } else { nil }
