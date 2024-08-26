@@ -14,7 +14,7 @@ public struct BufferType: TypeProtocol {
   public init(_ element: AnyType, _ count: AnyTerm) {
     self.element = element
     self.count = count
-    self.flags = element.flags
+    self.flags = element.flags | count.flags
   }
 
   public func transformParts<M>(
