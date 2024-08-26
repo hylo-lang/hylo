@@ -10,22 +10,50 @@ struct SubstitutionMap {
     /// Free variables are kept.
     case kept
 
+    /// Returns the application of this policy to `t`.
+    fileprivate func callAsFunction(_ t: TypeVariable) -> AnyType {
+      switch self {
+      case .substitutedByError:
+        return .error
+      case .kept:
+        return ^t
+      }
+    }
+
+    /// Returns the application of this policy to `t`.
+    fileprivate func callAsFunction(_ t: TermVariable) -> AnyTerm {
+      switch self {
+      case .substitutedByError:
+        return .error
+      case .kept:
+        return ^t
+      }
+    }
+
   }
 
   /// A map from type variable to its assignment.
-  private(set) var types: [TypeVariable: AnyType] = [:]
+  private(set) var types: [TypeVariable: AnyType]
 
   /// A map from term variable to its assignment.
-  private(set) var terms: [TermVariable: AnyTerm] = [:]
+  private(set) var terms: [TermVariable: AnyTerm]
 
   /// Creates an empty substitution map.
-  init() {}
+  init() {
+    self.init(types: [:], terms: [:])
+  }
+
+  /// Creates an instance with the given properties.
+  private init(types: [TypeVariable: AnyType], terms: [TermVariable: AnyTerm]) {
+    self.types = types
+    self.terms = terms
+  }
 
   /// Returns a copy of this instance with its internal representation optimized.
   func optimized() -> Self {
-    var result = SubstitutionMap()
-    result.types = types.mapValues({ self[$0] })
-    return result
+    .init(
+      types: types.mapValues({ self[$0] }),
+      terms: terms.mapValues({ self[$0] }))
   }
 
   /// Returns the substitution for `v`, if any.
@@ -105,8 +133,8 @@ struct SubstitutionMap {
     return occurs
   }
 
-  /// Returns a copy of `type` where type variable occurring in is replaced by its corresponding
-  /// substitution in `self`, applying `substitutionPolicy` to deal with free variables.
+  /// Returns a copy of `type` where each variable is replaced by its substitution in `self` or the
+  /// application of `substitutionPolicy` is no such substitution exists.
   ///
   /// The default substitution policy is `substituteByError` because we typically use `reify` after
   /// having built a complete solution and therefore don't expect its result to still contain open
@@ -115,64 +143,70 @@ struct SubstitutionMap {
     _ type: AnyType, withVariables substitutionPolicy: SubstitutionPolicy = .substitutedByError
   ) -> AnyType {
     type.transform { (t: AnyType) -> TypeTransformAction in
-      if t.base is TypeVariable {
-        let walked = self[t]
+      switch t.base {
+      case let u as BufferType:
+        let n = reify(u.count, withVariables: substitutionPolicy)
+        return .stepInto(^BufferType(u.element, n))
 
-        // Substitute `walked` for `type`.
-        if walked.base is TypeVariable {
-          switch substitutionPolicy {
-          case .substitutedByError:
-            return .stepOver(.error)
-          case .kept:
-            return .stepOver(walked)
-          }
+      case _ where t[.hasVariable]:
+        let walked = self[t]
+        if let w = TypeVariable(walked) {
+          return .stepOver(substitutionPolicy(w))
         } else {
           return .stepInto(walked)
         }
-      } else if !t[.hasVariable] {
+
+      default:
         // Nothing to do if the type doesn't contain any variable.
         return .stepOver(t)
-      } else {
-        // Recursively visit other types.
-        return .stepInto(t)
       }
     }
+  }
+
+  /// Returns a copy of `term` where each variable is replaced by its substitution in `self` or the
+  /// application of `substitutionPolicy` is no such substitution exists.
+  func reify(
+    _ term: AnyTerm, withVariables substitutionPolicy: SubstitutionPolicy
+  ) -> AnyTerm {
+    let walked = self[term]
+    return TermVariable(walked).map({ (w) in substitutionPolicy(w) }) ?? walked
   }
 
   /// Returns a copy of `r` where each generic argument is replaced by the result of applying
   /// `reify(withVariables:)` on it.
   func reify(
-    _ r: DeclReference, withVariables substitutionPolicy: SubstitutionPolicy
+    reference r: DeclReference, withVariables substitutionPolicy: SubstitutionPolicy
   ) -> DeclReference {
     switch r {
     case .direct(let d, let a):
-      return .direct(d, reify(a, withVariables: substitutionPolicy))
+      return .direct(d, reify(argument: a, withVariables: substitutionPolicy))
     case .member(let d, let a, let r):
-      return .member(d, reify(a, withVariables: substitutionPolicy), r)
+      return .member(d, reify(argument: a, withVariables: substitutionPolicy), r)
     case .constructor(let d, let a):
-      return .constructor(d, reify(a, withVariables: substitutionPolicy))
+      return .constructor(d, reify(argument: a, withVariables: substitutionPolicy))
     case .builtinModule, .builtinType, .builtinFunction, .compilerKnownType:
       return r
     }
   }
 
-  /// Returns `a` with its type variables replaced by their their corresponding value in `self`,
-  /// applying `substitutionPolicy` to handle free variables.
+  /// Returns a copy of `a` where each variable is replaced by its substitution value in `self` or
+  /// the application `substitutionPolicy` is no such substitution exists.
   private func reify(
-    _ a: GenericArguments, withVariables substitutionPolicy: SubstitutionPolicy
+    argument a: GenericArguments, withVariables substitutionPolicy: SubstitutionPolicy
   ) -> GenericArguments {
     a.mapValues({ reify(value: $0, withVariables: substitutionPolicy) })
   }
 
-  /// Returns `v` with its type variables replaced by their their corresponding value in `self`,
-  /// applying `substitutionPolicy` to handle free variables.
+  /// Returns a copy of `v` where each variable is replaced by its substitution value in `self` or
+  /// the application `substitutionPolicy` is no such substitution exists.
   private func reify(
     value v: CompileTimeValue, withVariables substitutionPolicy: SubstitutionPolicy
   ) -> CompileTimeValue {
-    if case .type(let t) = v {
+    switch v {
+    case .type(let t):
       return .type(reify(t, withVariables: substitutionPolicy))
-    } else {
-      return v
+    case .term(let t):
+      return .term(reify(t, withVariables: substitutionPolicy))
     }
   }
 
