@@ -49,10 +49,9 @@ public struct TupleType: TypeProtocol {
   public func transformParts<M>(
     mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction
   ) -> Self {
-    let newElements = elements.map(
-      { (e) -> Element in
-        .init(label: e.label, type: e.type.transform(mutating: &m, transformer))
-      })
+    let newElements = elements.map { (e) -> Element in
+      .init(label: e.label, type: e.type.transform(mutating: &m, transformer))
+    }
     return TupleType(newElements)
   }
 
