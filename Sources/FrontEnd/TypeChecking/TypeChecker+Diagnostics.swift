@@ -242,10 +242,6 @@ extension Diagnostic {
     .error("non-generic type '\(type)' has no generic parameters", at: site)
   }
 
-  static func error(tooManyAnnotationsOnGenericValueParametersAt site: SourceRange) -> Diagnostic {
-    .error("only one annotation is allowed on generic value parameter declarations", at: site)
-  }
-
   static func error(
     invalidBufferTypeExprArgumentCount e: SubscriptCallExpr.ID, in ast: AST
   ) -> Diagnostic {

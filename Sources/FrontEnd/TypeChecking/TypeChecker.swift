@@ -2568,32 +2568,11 @@ struct TypeChecker {
 
   /// Computes and returns the type of `d`.
   private mutating func _uncheckedType(of d: GenericParameterDecl.ID) -> AnyType {
-    // If `p` is introduced without any bounds, it is assumed to be type-kinded.
-    guard let bounds = program[d].conformances.headAndTail else {
+    if isTypeKinded(d) {
       return ^MetatypeType(of: GenericTypeParameterType(d, ast: program.ast))
-    }
-
-    // Otherwise, the first bound of `p` determines its kind.
-    let (firstBoundAsTrait, nameResolutionFailed) = resolveTrait(
-      expressedBy: bounds.head, inEnvironmentOf: program[d].scope)
-
-    // Register failures so we can fail fast.
-    if nameResolutionFailed {
-      return ^MetatypeType(of: GenericTypeParameterType(d, ast: program.ast))
-    }
-
-    // If the first bound is a trait, then `p` is type-kinded.
-    if firstBoundAsTrait != nil {
-      return ^MetatypeType(of: GenericTypeParameterType(d, ast: program.ast))
-    }
-
-    // Otherwise, `p` is value-kinded.
-    else {
-      let rhs = evalTypeAnnotation(AnyExprID(bounds.head))
-      if let n = bounds.tail.first {
-        report(.error(tooManyAnnotationsOnGenericValueParametersAt: program[n].site))
-      }
-      return rhs
+    } else {
+      let bound = program[d].conformances.uniqueElement!
+      return evalTypeAnnotation(AnyExprID(bound))
     }
   }
 
@@ -5099,6 +5078,44 @@ struct TypeChecker {
     } else {
       return false
     }
+  }
+
+  /// Returns `true` iff `d` represents a variable ranging over types.
+  private mutating func isTypeKinded(_ d: GenericParameterDecl.ID) -> Bool {
+    // Only parameters with exactly one bound may be value-kinded.
+    guard let bound = program[d].conformances.uniqueElement else {
+      return true
+    }
+
+    // Traits can only be qualified by name expresions.
+    var (unresolved, domain) = program.ast.splitNominalComponents(of: bound)
+    if domain != .none {
+      return false
+    }
+
+    var p: AnyType? = nil
+    while let u = unresolved.popLast() {
+      // Traits have no arguments.
+      if !program[u].arguments.isEmpty {
+        return false
+      }
+
+      let candidates = lookup(program[u].name, memberOf: p, exposedTo: program[d].scope)
+      guard let pick = candidates.uniqueElement else {
+        return false
+      }
+
+      switch pick.kind {
+      case ModuleDecl.self, NamespaceDecl.self:
+        p = uncheckedType(of: pick)
+      case TraitDecl.self:
+        return unresolved.isEmpty
+      default:
+        return false
+      }
+    }
+
+    return false
   }
 
   // MARK: Type inference
