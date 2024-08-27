@@ -1180,7 +1180,10 @@ extension SwiftyLLVM.Module {
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(store i: IR.InstructionID) {
       let s = m[i] as! IR.Store
-      insertStore(llvm(s.object), to: llvm(s.target), at: insertionPoint)
+      let v = llvm(s.object)
+      if layout.storageSize(of: v.type) > 0 {
+        insertStore(llvm(s.object), to: llvm(s.target), at: insertionPoint)
+      }
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
