@@ -102,6 +102,12 @@ extension Diagnostic {
     .error("incompatible types '\(l)' and '\(r)'", at: site)
   }
 
+  static func error(
+    expected: AnyType, found: AnyType, at site: SourceRange
+  ) -> Diagnostic {
+    .error("expected type '\(expected)' but found '\(found)'", at: site)
+  }
+
   static func error(invalidDestructuringOfType type: AnyType, at site: SourceRange) -> Diagnostic {
     .error("invalid destructuring of type '\(type)'", at: site)
   }

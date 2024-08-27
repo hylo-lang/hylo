@@ -2980,7 +2980,7 @@ struct TypeChecker {
 
     // Bail out if the type of the argument isn't `Hylo.Int`.
     if j != i {
-      report(.error(j, doesNotMatch: ^i, at: program[n].site))
+      report(.error(expected: ^i, found: j, at: program[n].site))
       return MetatypeType(of: BufferType(t, ^ConcreteTerm(wrapping: 0)))
     } else {
       let v = denotation(of: n).asTerm!
