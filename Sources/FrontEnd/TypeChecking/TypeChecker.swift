@@ -5136,7 +5136,7 @@ struct TypeChecker {
       return true
     }
 
-    // Traits can only be qualified by name expresions.
+    // Traits can only be qualified by name expressions.
     var (unresolved, domain) = program.ast.splitNominalComponents(of: bound)
     if domain != .none {
       return false
