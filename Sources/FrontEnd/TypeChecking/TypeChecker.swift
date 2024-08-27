@@ -2355,64 +2355,6 @@ struct TypeChecker {
     return i
   }
 
-  /// Returns `(trait, hasError)` where `trait` is the trait to which `bound` resolves or `nil` if
-  /// it resolves to another entity, and `hasError` is `true` iff name resolution failed.
-  ///
-  /// This method does not run standard name resolution on `bound`, as it may require information
-  /// in which `bound` occurs. Instead, it processes the components of `bound` one by one, bailing
-  /// out as soon as it find one that denotes a type or expression since trait declarations can
-  /// only occur at global scope.
-  ///
-  /// - Parameters:
-  ///   - bound: The expression of a bound on a generic parameter declaration or the RHS of a
-  ///     conformance constraint in a where clause.
-  ///   - scopeOfUse: The declaration defining the environment in which `bound` occurs.
-  private mutating func resolveTrait(
-    expressedBy bound: NameExpr.ID,
-    inEnvironmentOf scopeOfUse: AnyScopeID
-  ) -> (trait: TraitType?, hasError: Bool) {
-    let (n, d) = program.ast.splitNominalComponents(of: bound)
-
-    // `bound` can't denote a trait if it contains a non-nominal component.
-    if d != .none {
-      return (nil, false)
-    }
-
-    // `bound` can't denote a trait if it refers to a generic parameter.
-    if let ns = names(introducedIn: scopeOfUse)[program[n.last!].name.value.stem] {
-      if ns.contains(where: { $0.kind == GenericParameterDecl.self }) {
-        return (nil, false)
-      }
-    }
-
-    // We can apply name resolution on the components of `bound` as long as they don't have
-    // generic arguments. A name expression with arguments can't denote a trait.
-    var parent: NameResolutionContext? = nil
-    for c in n.reversed() {
-      if !program[c].arguments.isEmpty {
-        return (nil, false)
-      }
-
-      let candidates = resolve(c, in: parent, usedAs: .unapplied)
-      if candidates.isEmpty {
-        return (nil, true)
-      }
-
-      guard let pick = candidates.uniqueElement else {
-        return (nil, false)
-      }
-
-      switch pick.type.base {
-      case is ModuleType, is NamespaceType, is TraitType:
-        parent = .init(type: pick.type, arguments: .empty, receiver: .explicit(AnyExprID(c)))
-      default:
-        return (nil, false)
-      }
-    }
-
-    return (TraitType(parent?.type), false)
-  }
-
   /// Returns the type of `d`, computing it if necessary, without type checking `d`.
   ///
   /// This method returns the value for `d` in `cache[\.declType]` or `cache.uncheckedType` if
