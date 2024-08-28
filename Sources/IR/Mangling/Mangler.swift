@@ -391,19 +391,6 @@ struct Mangler {
     }
   }
 
-  /// Writes the mangled representation of `r` to `output`.
-  mutating func mangle(reference r: DeclReference, to output: inout Output) {
-    switch r {
-    case .direct(let d, let z):
-      write(operator: .directDeclReference, to: &output)
-      mangle(decl: d, to: &output)
-      write(specialization: z, to: &output)
-
-    default:
-      UNIMPLEMENTED()
-    }
-  }
-
   /// Writes the mangled representation of `symbol` to `output`.
   mutating func mangle(table symbol: WitnessTable, to output: inout Output) {
     write(operator: .witnessTable, to: &output)
