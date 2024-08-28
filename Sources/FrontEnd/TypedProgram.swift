@@ -162,6 +162,16 @@ public struct TypedProgram {
     self.base = base
   }
 
+  /// Returns the canonical form of `d`'s type.
+  public func canonical<T: DeclID>(typeOf d: T) -> AnyType {
+    canonical(declType[d]!, in: nodeToScope[d]!)
+  }
+
+  /// Returns the canonical form of `e`'s type.
+  public func canonical<T: ExprID>(typeOf e: T) -> AnyType {
+    canonical(exprType[e]!, in: nodeToScope[e]!)
+  }
+
   /// Returns the canonical form of `t` in `scopeOfUse`.
   public func canonical(_ t: AnyType, in scopeOfUse: AnyScopeID) -> AnyType {
     if t[.isCanonical] { return t }

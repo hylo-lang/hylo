@@ -16,6 +16,11 @@ public enum CompileTimeValue: Hashable {
     }
   }
 
+  /// `true` iff self is in canonical form.
+  public var isCanonical: Bool {
+    if let t = asType { t[.isCanonical] } else { true }
+  }
+
   /// `true` if `self` is a `TypeVariable`.
   public var isTypeVariable: Bool {
     asType?.base is TypeVariable
