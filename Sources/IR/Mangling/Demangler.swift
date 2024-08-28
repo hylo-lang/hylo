@@ -110,6 +110,10 @@ struct Demangler {
       case .varDecl:
         demangled = take(VarDecl.self, qualifiedBy: qualification, from: &stream)
 
+      case .lookupRelative:
+        fatalError()
+      case .bindingDecl:
+        fatalError()
       case .subscriptImplType:
         fatalError()
 
