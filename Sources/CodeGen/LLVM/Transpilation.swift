@@ -13,6 +13,9 @@ struct CodeGenerationContext {
   /// The Hylo module being compiled.
   let module: ModuleDecl.ID
 
+  /// A table from string constant to its representation in LLVM.
+  var strings = Trie<Data, SwiftyLLVM.GlobalVariable>()
+
   /// Creates an instance for compiling `m`, which is a module of `p`.
   init(forCompiling m: ModuleDecl.ID, of p: IR.Program) {
     self.ir = p
@@ -834,7 +837,14 @@ extension SwiftyLLVM.Module {
         register[.register(i)] = i64.constant(units)
       }
 
-      // Contents require out-of-line storage.
+      // Contents has already been incorporated in the module.
+      else if let storage = context.strings[s.value] {
+        let x0 = insertPtrToInt(storage, to: i64, at: insertionPoint)
+        let x1 = insertBitwiseOr(x0, i64(0b11), at: insertionPoint)
+        register[.register(i)] = x1
+      }
+
+      // Contents require new out-of-line storage.
       else {
         let w = word()
 
@@ -844,10 +854,11 @@ extension SwiftyLLVM.Module {
           aggregating: [w(count), w(count), payload] as [IRValue],
           in: &self)
 
-        let storage = declareGlobalVariable(UUID().uuidString, storageType)
+        let storage = declareGlobalVariable("_" + UUID().uuidString, storageType)
         setInitializer(storageValue, for: storage)
         setLinkage(.private, for: storage)
         setGlobalConstant(true, for: storage)
+        context.strings[s.value] = storage
 
         let x0 = insertPtrToInt(storage, to: i64, at: insertionPoint)
         let x1 = insertBitwiseOr(x0, i64(0b11), at: insertionPoint)
