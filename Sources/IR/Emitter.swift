@@ -494,7 +494,7 @@ struct Emitter {
     precondition(program.isGlobal(d))
     precondition(read(program[d].pattern.introducer.value, { ($0 == .let) || ($0 == .sinklet) }))
 
-    let r = RemoteType(.set, program[d].type)
+    let r = RemoteType(.set, program.canonical(typeOf: d))
     let l = ArrowType(
       receiverEffect: .set, environment: ^TupleType(types: [^r]), inputs: [], output: .void)
     let f = SynthesizedFunctionDecl(

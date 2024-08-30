@@ -79,7 +79,8 @@ extension IR.Program {
 
     // TODO: Use existentialization unless the subscript is inlinable
 
-    let g = monomorphize(s.callee, for: s.specialization, usedIn: modules[m]!.scope(containing: i))
+    let z = base.canonical(s.specialization, in: modules[m]!.scope(containing: i))
+    let g = monomorphize(s.callee, for: z, usedIn: modules[m]!.scope(containing: i))
     let new = modules[m]!.makeProject(
       s.projection, applying: g, specializedBy: .empty, to: s.operands, at: s.site)
     modules[m]!.replace(i, with: new)
