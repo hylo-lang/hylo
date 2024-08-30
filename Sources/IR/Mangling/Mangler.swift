@@ -385,6 +385,7 @@ struct Mangler {
     append(synthesizedKind: s.kind, to: &output)
     appendQualification(of: s.scope, to: &output)
     append(scope: s.scope, to: &output)
+    append(operator: .endOfSequence, to: &output)
     append(type: ^s.type, to: &output)
   }
 

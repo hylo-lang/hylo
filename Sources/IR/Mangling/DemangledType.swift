@@ -98,7 +98,7 @@ extension DemangledType: CustomStringConvertible {
       let i = inputs.map { (p) -> String in
         (p.label.map({ $0 + ": " }) ?? "") + p.type.description
       }
-      return "[\(environment)](\(list: i) \(effect) -> \(output)"
+      return "[\(environment)](\(list: i)) \(effect) -> \(output)"
 
     case .associatedType(let domain, let name):
       return "\(domain).\(name)"
@@ -135,7 +135,7 @@ extension DemangledType: CustomStringConvertible {
         (p.label.map({ $0 + ": " }) ?? "") + p.type.description
       }
       let cs = capabilities.elements.descriptions(joinedBy: " ")
-      return "[\(environment)](\(list: i) : \(output) { \(cs) }"
+      return "[\(environment)](\(list: i)) : \(output) { \(cs) }"
 
     case .union(let elements):
       return "Union<\(list: elements)>"

@@ -81,7 +81,7 @@ final class ManglingTests: XCTestCase {
       "Main.Stash",
       "Main.Stash.A",
       "Main.Angle.init",
-      "Main.Angle.degrees().inout",
+      "Main.Angle.degrees[].inout",
       "Main.français(_:label:).bar",
     ]
 
