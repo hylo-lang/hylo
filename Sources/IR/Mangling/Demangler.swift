@@ -236,16 +236,10 @@ struct Demangler {
     qualifiedBy qualification: DemangledQualification?,
     from stream: inout Substring
   ) -> DemangledSymbol? {
-    guard let n = takeInteger(from: &stream) else { return nil }
-
-    var vs: [DemangledEntity] = []
-    vs.reserveCapacity(Int(n.rawValue))
-    for _ in 0 ..< n.rawValue {
-      guard let a = demangle(from: &stream)?.entity else { return nil }
-      vs.append(a)
+    let vs = takeItems(from: &stream) { (me, s) in
+      me.demangle(from: &s)?.entity
     }
-
-    return .binding(names: vs)
+    return vs.map({ (ns) in .binding(names: ns) })
   }
 
   /// Demangles a function from `stream`.
@@ -447,14 +441,7 @@ struct Demangler {
 
   /// Demangles a list of generic arguments from `stream`.
   private mutating func takeGenericArguments(from stream: inout Substring) -> [DemangledSymbol]? {
-    guard let n = takeInteger(from: &stream) else { return nil }
-    var z: [DemangledSymbol] = []
-    z.reserveCapacity(Int(n.rawValue))
-    for _ in 0 ..< n.rawValue {
-      guard let a = demangle(from: &stream) else { return nil }
-      z.append(a)
-    }
-    return z
+    takeItems(from: &stream, takingEachWith: { (me, s) in me.demangle(from: &s) })
   }
 
   /// Demangles a buffer type from `stream`.
@@ -498,40 +485,17 @@ struct Demangler {
   private mutating func takeExistentialTraitType(
     from stream: inout Substring
   ) -> DemangledSymbol? {
-    guard
-      let traitCount = takeInteger(from: &stream)
-    else { return nil }
-
-    var traits: [DemangledType] = []
-    traits.reserveCapacity(Int(traitCount.rawValue))
-    for _ in 0 ..< traitCount.rawValue {
-      guard
-        let t = demangleType(from: &stream)
-      else { return nil }
-      traits.append(t)
+    let ts = takeItems(from: &stream) { (me, s) in
+      me.demangleType(from: &s)
     }
-
-    return .type(.existentialTrait(traits))
+    return ts.map({ (s) in .type(.existentialTrait(s))})
   }
 
   /// Demangles an arrow type from `stream`.
   private mutating func takeArrowType(from stream: inout Substring) -> DemangledSymbol? {
     guard
       let environment = demangleType(from: &stream),
-      let inputCount = takeInteger(from: &stream)
-    else { return nil }
-
-    var inputs: [DemangledType.Parameter] = []
-    inputs.reserveCapacity(Int(inputCount.rawValue))
-    for _ in 0 ..< inputCount.rawValue {
-      guard
-        let l = takeString(from: &stream),
-        let t = demangleType(from: &stream)
-      else { return nil }
-      inputs.append(.init(label: l.isEmpty ? nil : String(l), type: t))
-    }
-
-    guard
+      let inputs = takeParameters(from: &stream),
       let output = demangleType(from: &stream)
     else { return nil }
 
@@ -573,20 +537,7 @@ struct Demangler {
     guard
       let capabilities = take(AccessEffectSet.self, from: &stream),
       let environment = demangleType(from: &stream),
-      let inputCount = takeInteger(from: &stream)
-    else { return nil }
-
-    var inputs: [DemangledType.Parameter] = []
-    inputs.reserveCapacity(Int(inputCount.rawValue))
-    for _ in 0 ..< inputCount.rawValue {
-      guard
-        let l = takeString(from: &stream),
-        let t = demangleType(from: &stream)
-      else { return nil }
-      inputs.append(.init(label: l.isEmpty ? nil : String(l), type: t))
-    }
-
-    guard
+      let inputs = takeParameters(from: &stream),
       let output = demangleType(from: &stream)
     else { return nil }
 
@@ -597,21 +548,7 @@ struct Demangler {
 
   /// Demangles a tuple type from `stream`.
   private mutating func takeTupleType(from stream: inout Substring) -> DemangledSymbol? {
-    guard
-      let count = takeInteger(from: &stream)
-    else { return nil }
-
-    var elements: [DemangledType.Parameter] = []
-    elements.reserveCapacity(Int(count.rawValue))
-    for _ in 0 ..< count.rawValue {
-      guard
-        let l = takeString(from: &stream),
-        let t = demangleType(from: &stream)
-      else { return nil }
-      elements.append(.init(label: l.isEmpty ? nil : String(l), type: t))
-    }
-
-    return .type(.tuple(elements))
+    takeParameters(from: &stream).map({ (s) in .type(.tuple(s)) })
   }
 
   /// Demangles a union type from `stream`.
@@ -632,6 +569,22 @@ struct Demangler {
     }
 
     return .type(.union(elements))
+  }
+
+  /// Demangles a list of parameters or tuple elements from `stream`.
+  private mutating func takeParameters(
+    from stream: inout Substring
+  ) -> [DemangledType.Parameter]? {
+    takeItems(from: &stream, takingEachWith: { (me, s) in me.takeParameter(from: &s) })
+  }
+
+  /// Demangles a parameter or tuple element from `stream`.
+  private mutating func takeParameter(from stream: inout Substring) -> DemangledType.Parameter? {
+    guard
+      let l = takeString(from: &stream),
+      let t = demangleType(from: &stream)
+    else { return nil }
+    return .init(label: l.isEmpty ? nil : String(l), type: t)
   }
 
   /// If `stream` starts with a mangling operator, consumes and returns it; returns
@@ -718,6 +671,22 @@ struct Demangler {
     _: T.Type, from stream: inout Substring
   ) -> T? where T.RawValue == UInt8 {
     takeBase64Digit(from: &stream).flatMap({ (d) in T(rawValue: d.rawValue) })
+  }
+
+  /// Demangles a list of `T`s from `stream`, calling `takeItem` to parse each individual element.
+  private mutating func takeItems<T>(
+    from stream: inout Substring,
+    takingEachWith takeItem: (inout Self, inout Substring) -> T?
+  ) -> [T]? {
+    guard let n = takeInteger(from: &stream) else { return nil }
+    var xs: [T] = []
+    xs.reserveCapacity(Int(n.rawValue))
+
+    for _ in 0 ..< n.rawValue {
+      guard let x = takeItem(&self, &stream) else { return nil }
+      xs.append(x)
+    }
+    return xs
   }
 
 }
