@@ -164,20 +164,20 @@ struct Demangler {
   private mutating func demangleEntity<T: Node>(
     _: T.Type, from stream: inout Substring
   ) -> DemangledEntity? {
-    guard
-      case .entity(let e) = demangle(from: &stream),
-      e.kind?.value == T.self
-    else { return nil }
-
-    return e
+    if case .entity(let e) = demangle(from: &stream), e.kind?.value == T.self {
+      return e
+    } else {
+      return nil
+    }
   }
 
   /// Demangles a type from `stream`.
   private mutating func demangleType(from stream: inout Substring) -> DemangledType? {
-    guard case .type(let t) = demangle(from: &stream) else {
+    if case .type(let t) = demangle(from: &stream) {
+      return t
+    } else {
       return nil
     }
-    return t
   }
 
   /// Demangles an entity declaration of type `T` from `stream`.
@@ -413,27 +413,17 @@ struct Demangler {
 
   /// Demangles a direct declaration reference from `stream`.
   private mutating func takeDirectDeclReference(from stream: inout Substring) -> DemangledSymbol? {
-    guard
-      let e = demangle(from: &stream)
-    else { return nil }
-    print(e)
-    return nil
+    UNIMPLEMENTED()
   }
 
   /// Demangles a reference to a symbol from `stream`.
   private mutating func takeLookup(from stream: inout Substring) -> DemangledSymbol? {
-    guard
-      let position = takeInteger(from: &stream)
-    else { return nil }
-    return symbols[Int(position.rawValue)]
+    takeInteger(from: &stream).flatMap({ (n) in symbols[Int(n.rawValue)] })
   }
 
   /// Demangles a reserved symbol from `stream`.
   private mutating func takeReserved(from stream: inout Substring) -> DemangledSymbol? {
-    guard
-      let r = take(ReservedSymbol.self, from: &stream)
-    else { return nil }
-    return DemangledSymbol(reserved: r)
+    take(ReservedSymbol.self, from: &stream).map(DemangledSymbol.init(reserved:))
   }
 
   /// Demangles an associated type from `stream`.
@@ -478,26 +468,19 @@ struct Demangler {
 
   /// Demangles a built-in integer type from `stream`.
   private mutating func takeBuiltinIntegerType(from stream: inout Substring) -> DemangledSymbol? {
-    guard
-      let width = takeInteger(from: &stream)
-    else { return nil }
-    return .type(.builtin(.i(Int(width.rawValue))))
+    takeInteger(from: &stream).map({ (w) in .type(.builtin(.i(Int(w.rawValue)))) })
   }
 
   /// Demangles a built-in float type from `stream`.
   private mutating func takeBuiltinFloatType(from stream: inout Substring) -> DemangledSymbol? {
-    guard
-      let width = takeInteger(from: &stream)
-    else { return nil }
-
-    switch width.rawValue {
-    case 16:
+    switch takeInteger(from: &stream)?.rawValue {
+    case .some(16):
       return .type(.builtin(.float16))
-    case 32:
+    case .some(32):
       return .type(.builtin(.float32))
-    case 64:
+    case .some(64):
       return .type(.builtin(.float64))
-    case 128:
+    case .some(128):
       return .type(.builtin(.float128))
     default:
       return nil
@@ -508,10 +491,7 @@ struct Demangler {
   private mutating func takeExistentialGenericType(
     from stream: inout Substring
   ) -> DemangledSymbol? {
-    guard
-      let interface = demangleType(from: &stream)
-    else { return nil }
-    return .type(.existentialGeneric(interface))
+    demangleType(from: &stream).map({ (i) in .type(.existentialGeneric(i)) })
   }
 
   /// Demangles an existential generic type from `stream`.
@@ -562,18 +542,12 @@ struct Demangler {
   private mutating func takeNominalType<T: SingleEntityDecl>(
     declaredBy _: T.Type, from stream: inout Substring
   ) -> DemangledSymbol? {
-    guard
-      let e = demangleEntity(T.self, from: &stream)
-    else { return nil }
-    return .type(.nominal(e))
+    demangleEntity(T.self, from: &stream).map({ (e) in .type(.nominal(e)) })
   }
 
   /// Demangles a metatype from `stream`.
   private mutating func takeMetatypeType(from stream: inout Substring) -> DemangledSymbol? {
-    guard
-      let instance = demangleType(from: &stream)
-    else { return nil }
-    return .type(.metatype(instance))
+    demangleType(from: &stream).map({ (t) in .type(.metatype(t)) })
   }
 
   /// Demangles a parameter type from `stream`.
@@ -743,10 +717,7 @@ struct Demangler {
   private func take<T: RawRepresentable>(
     _: T.Type, from stream: inout Substring
   ) -> T? where T.RawValue == UInt8 {
-    guard let d = takeBase64Digit(from: &stream) else {
-      return nil
-    }
-    return T(rawValue: d.rawValue)
+    takeBase64Digit(from: &stream).flatMap({ (d) in T(rawValue: d.rawValue) })
   }
 
 }
