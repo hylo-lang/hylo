@@ -24,7 +24,8 @@ public struct LLVMProgram {
   ) throws {
     self.target = try target ?? SwiftyLLVM.TargetMachine(for: .host())
     for m in ir.modules.keys {
-      let transpilation = SwiftyLLVM.Module(transpiling: m, from: ir)
+      var context = CodeGenerationContext(forCompiling: m, of: ir)
+      let transpilation = SwiftyLLVM.Module(transpiling: m, in: &context)
       do {
         try transpilation.verify()
       } catch {
