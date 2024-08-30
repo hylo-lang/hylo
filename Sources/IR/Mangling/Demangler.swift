@@ -3,6 +3,9 @@ import FrontEnd
 /// Hylo's demangling algorithm.
 struct Demangler {
 
+  /// The list of demangled strings, in order of appearance (a.k.a. the string lookup table).
+  private var strings: [Substring] = []
+
   /// The list of demangled symbols, in order of appearance (a.k.a. the symbol lookup table).
   private var symbols: [DemangledSymbol] = []
 
@@ -608,7 +611,7 @@ struct Demangler {
 
   /// Assuming `stream` starts with a mangled name, consumes and returns it. Returns `nil` iff
   /// data seems corrupted
-  private func takeName(from stream: inout Substring) -> Name? {
+  private mutating func takeName(from stream: inout Substring) -> Name? {
     guard let tag = takeBase64Digit(from: &stream) else {
       return nil
     }
@@ -638,15 +641,21 @@ struct Demangler {
 
   /// Assuming `stream` starts with a mangled string, consumes and returns it. Returns `nil` iff
   ///the data seems corrupted
-  private func takeString(from stream: inout Substring) -> Substring? {
-    guard let length = takeInteger(from: &stream) else {
+  private mutating func takeString(from stream: inout Substring) -> Substring? {
+    switch takeInteger(from: &stream)?.rawValue {
+    case .some(0):
+      return stream[stream.startIndex ..< stream.startIndex]
+    case .some(1):
+      return takeInteger(from: &stream).flatMap({ (m) in strings[Int(m.rawValue)] })
+    case .some(let n):
+      let j = stream.index(stream.startIndex, offsetBy: Int(n - 2))
+      let r = stream[..<j]
+      strings.append(r)
+      stream = stream[j...]
+      return r
+    default:
       return nil
     }
-
-    let j = stream.index(stream.startIndex, offsetBy: Int(length.rawValue))
-    let r = stream[..<j]
-    stream = stream[j...]
-    return r
   }
 
   /// Assuming `stream` starts with a mangled integer, consumes and returns it; returns `nil`

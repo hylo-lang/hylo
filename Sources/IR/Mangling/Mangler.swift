@@ -21,6 +21,9 @@ struct Mangler {
   /// The program defining the symbols being defined.
   private let program: TypedProgram
 
+  /// A table mapping mangled strings to their position in the string lookup table.
+  private var stringPosition: [String: Int] = [:]
+
   /// A table mapping mangled symbols to their position in the symbol lookup table.
   private var symbolPosition: [Symbol: Int] = [:]
 
@@ -79,9 +82,11 @@ struct Mangler {
   private mutating func mangled<T>(
     _ s: T, manglingWith mangle: (inout Self, T, inout Output) -> Void
   ) -> Output {
+    var c = stringPosition
     var p = symbolPosition
     var q = qualification
     defer {
+      swap(&c, &stringPosition)
       swap(&p, &symbolPosition)
       swap(&q, &qualification)
     }
@@ -650,7 +655,7 @@ struct Mangler {
   }
 
   /// Writes the mangled representation of `name` to `output`.
-  private func append(name: Name, to output: inout Output) {
+  private mutating func append(name: Name, to output: inout Output) {
     // Only encode notation and introducer; labels are encoded in types.
     var tag: UInt8 = 0
     if name.notation != nil { tag = 1 }
@@ -667,9 +672,19 @@ struct Mangler {
   }
 
   /// Writes `string` to `output`, prefixed by its length encoded as a variable-length integer.
-  private func append<T: StringProtocol>(string: T, to output: inout Output) {
-    append(integer: string.count, to: &output)
-    string.write(to: &output)
+  private mutating func append<T: StringProtocol>(string: T, to output: inout Output) {
+    let s = String(string)
+
+    if s.isEmpty {
+      append(integer: 0, to: &output)
+    } else if let n = stringPosition[s] {
+      append(integer: 1, to: &output)
+      append(integer: n, to: &output)
+    } else {
+      append(integer: s.count + 2, to: &output)
+      string.write(to: &output)
+      stringPosition[s] = stringPosition.count
+    }
   }
 
   /// Writes `v` encoded as a variable-length integer to `output`.
