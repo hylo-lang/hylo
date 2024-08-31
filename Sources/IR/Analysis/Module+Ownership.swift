@@ -33,8 +33,6 @@ extension Module {
           interpret(endBorrow: user, in: &context)
         case is EndProject:
           interpret(endProject: user, in: &context)
-        case is EndProject:
-          interpret(endProjectWitness: user, in: &context)
         case is GenericParameter:
           interpret(genericParameter: user, in: &context)
         case is GlobalAddr:
@@ -47,8 +45,6 @@ extension Module {
           interpret(pointerToAddress: user, in: &context)
         case is Project:
           interpret(project: user, in: &context)
-        case is ProjectWitness:
-          interpret(projectWitness: user, in: &context)
         case is SubfieldView:
           interpret(subfieldView: user, in: &context)
         case is WrapExistentialAddr:
@@ -220,13 +216,6 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(endProject i: InstructionID, in context: inout Context) {
       let s = self[i] as! EndProject
-      let r = self[s.start.instruction!] as! Project
-      finalize(region: s.start, projecting: r.projection.access, exitedWith: i, in: &context)
-    }
-
-    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(endProjectWitness i: InstructionID, in context: inout Context) {
-      let s = self[i] as! EndProjectWitness
       let r = self[s.start.instruction!] as! Project
       finalize(region: s.start, projecting: r.projection.access, exitedWith: i, in: &context)
     }
