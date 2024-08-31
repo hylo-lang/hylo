@@ -28,6 +28,28 @@ public trait Collection {
 
 public extension Collection {
 
+  /// Returns the number of elements in `self`.
+  ///
+  /// - Complexity: O(n), where n is the number of elements in `self`.
+  public fun count() -> Int {
+    var r = 0
+    for let _ in self { &r += 1 }
+    return r
+  }
+
+  /// Returns the position of the first element of `self` satisfying `predicate`, or
+  /// `end_position()` if no such element exists.
+  ///
+  /// - Complexity: O(n), where n is the number of elements in `self`.
+  public fun first_position<E>(where predicate: [E](Element) -> Bool) -> Position {
+    var i = start_position()
+    let j = end_position()
+    while (i != j) && !predicate(self[i]) {
+      &i = self.position(after: i)
+    }
+    return i
+  }
+
   /// Returns the result of applying `combine` on an accumulator, initialized with `initial_value`,
   /// and each element of `self`, in order.
   ///
@@ -60,6 +82,18 @@ public extension Collection {
       if !predicate(e) { return false }
     }
     return true
+  }
+
+}
+
+public extension Collection where Element: Equatable {
+
+  /// Returns the position of the first element of `self` that is equal to `needle`, or
+  /// `end_position()` if no such element exists.
+  ///
+  /// - Complexity: O(n), where n is the number of elements in `self`.
+  public fun first_position(of needle: Element) -> Position {
+    first_position(where: fun (_ e) { e == needle })
   }
 
 }
