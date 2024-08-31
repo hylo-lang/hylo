@@ -14,11 +14,6 @@ public struct ValueFlags: Hashable, OptionSet {
     l.union(r)
   }
 
-  /// Returns the intersection of `l` with `r`.
-  public static func & (l: Self, r: Self) -> Self {
-    l.intersection(r)
-  }
-
   /// The type contains one or more error types.
   public static let hasError = ValueFlags(rawValue: 1 << 0)
 
