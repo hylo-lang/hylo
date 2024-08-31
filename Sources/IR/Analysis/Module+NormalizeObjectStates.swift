@@ -54,8 +54,6 @@ extension Module {
           pc = successor(of: user)
         case is EndProject:
           pc = interpret(endProject: user, in: &context)
-        case is EndProjectWitness:
-          pc = interpret(endProjectWitness: user, in: &context)
         case is GenericParameter:
           pc = interpret(genericParameter: user, in: &context)
         case is GlobalAddr:
@@ -78,8 +76,6 @@ extension Module {
           pc = interpret(pointerToAddress: user, in: &context)
         case is Project:
           pc = interpret(project: user, in: &context)
-        case is ProjectWitness:
-          pc = interpret(projectWitness: user, in: &context)
         case is ReleaseCaptures:
           pc = successor(of: user)
         case is Return:
@@ -327,18 +323,6 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(endProjectWitness i: InstructionID, in context: inout Context) -> PC? {
-      let s = self[i] as! EndProjectWitness
-      let r = self[s.start.instruction!] as! ProjectWitness
-
-      let sources = context.locals[r.container]!.unwrapLocations()!
-      finalize(
-        region: s.start, projecting: r.projection.access, from: sources,
-        exitedWith: i, in: &context)
-      return successor(of: i)
-    }
-
-    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(genericParameter i: InstructionID, in context: inout Context) -> PC? {
       context.declareStorage(assignedTo: i, in: self, initially: .initialized)
       return successor(of: i)
@@ -441,13 +425,6 @@ extension Module {
 
       // TODO: Process arguments
 
-      initializeRegister(createdBy: i, projecting: s.projection, in: &context)
-      return successor(of: i)
-    }
-
-    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(projectWitness i: InstructionID, in context: inout Context) -> PC? {
-      let s = self[i] as! ProjectWitness
       initializeRegister(createdBy: i, projecting: s.projection, in: &context)
       return successor(of: i)
     }

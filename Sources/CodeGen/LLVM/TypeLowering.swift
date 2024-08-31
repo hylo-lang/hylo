@@ -86,19 +86,9 @@ extension IR.Program {
     boundGenericType t: BoundGenericType, in module: inout SwiftyLLVM.Module
   ) -> SwiftyLLVM.IRType {
     precondition(t[.isCanonical])
-
-    switch t.base.base {
-    case is ProductType:
-      return demandStruct(named: base.mangled(t), in: &module) { (m) in
-        llvm(fields: base.storage(of: t), in: &m)
-      }
-
-    case is TupleType:
-      let fs = llvm(fields: base.storage(of: t), in: &module)
-      return SwiftyLLVM.StructType(fs, in: &module)
-
-    default:
-      unreachable()
+    precondition(t.base.base is ProductType)
+    return demandStruct(named: base.mangled(t), in: &module) { (m) in
+      llvm(fields: base.storage(of: t), in: &m)
     }
   }
 
