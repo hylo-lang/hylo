@@ -87,13 +87,16 @@ extension IR.Program {
   ) -> SwiftyLLVM.IRType {
     precondition(t[.isCanonical])
 
-    let fields = base.storage(of: t).map({ (p) in llvm(p.type, in: &module) })
-
     switch t.base.base {
-    case let u as ProductType:
-      return SwiftyLLVM.StructType(named: u.name.value, fields, in: &module)
+    case is ProductType:
+      return demandStruct(named: base.mangled(t), in: &module) { (m) in
+        llvm(fields: base.storage(of: t), in: &m)
+      }
+
     case is TupleType:
-      return SwiftyLLVM.StructType(fields, in: &module)
+      let fs = llvm(fields: base.storage(of: t), in: &module)
+      return SwiftyLLVM.StructType(fs, in: &module)
+
     default:
       unreachable()
     }
@@ -104,20 +107,9 @@ extension IR.Program {
   /// - Requires: `t` is representable in LLVM.
   func llvm(productType t: ProductType, in module: inout SwiftyLLVM.Module) -> SwiftyLLVM.IRType {
     precondition(t[.isCanonical])
-
-    let n = base.mangled(t)
-    if let u = module.type(named: n) {
-      assert(SwiftyLLVM.StructType(u) != nil)
-      return u
+    return demandStruct(named: base.mangled(t), in: &module) { (m) in
+      llvm(fields: AbstractTypeLayout(of: t, definedIn: base).properties, in: &m)
     }
-
-    let l = AbstractTypeLayout(of: t, definedIn: base)
-    var fields: [SwiftyLLVM.IRType] = []
-    for p in l.properties {
-      fields.append(llvm(p.type, in: &module))
-    }
-
-    return SwiftyLLVM.StructType(named: n, fields, in: &module)
   }
 
   /// Returns the LLVM form of `t` in `module`.
@@ -125,13 +117,15 @@ extension IR.Program {
   /// - Requires: `t` is representable in LLVM.
   func llvm(tupleType t: TupleType, in module: inout SwiftyLLVM.Module) -> SwiftyLLVM.IRType {
     precondition(t[.isCanonical])
+    let fs = llvm(fields: t.elements, in: &module)
+    return SwiftyLLVM.StructType(fs, in: &module)
+  }
 
-    var fields: [SwiftyLLVM.IRType] = []
-    for e in t.elements {
-      fields.append(llvm(e.type, in: &module))
-    }
-
-    return SwiftyLLVM.StructType(fields, in: &module)
+  /// Rethrns the LLVM forms of `fields` in `module`.
+  private func llvm(
+    fields: [TupleType.Element], in module: inout SwiftyLLVM.Module
+  ) -> [SwiftyLLVM.IRType] {
+    fields.map({ (p) in llvm(p.type, in: &module) })
   }
 
   /// Returns the LLVM form of `t` in `module`.
@@ -152,6 +146,20 @@ extension IR.Program {
       }
     }
     return StructType([payload, module.word()], in: &module)
+  }
+
+  /// Returns a LLVM struct named `n` and having the fields returned by `fields`, declaring it in
+  /// `module` if it does not already exist.
+  private func demandStruct(
+    named n: String, in module: inout SwiftyLLVM.Module,
+    fields: (inout SwiftyLLVM.Module) -> [SwiftyLLVM.IRType]
+  ) -> SwiftyLLVM.StructType {
+    if let u = module.type(named: n) {
+      return SwiftyLLVM.StructType(u) ?? fatalError("'\(n)' is not a struct")
+    } else {
+      let fs = fields(&module)
+      return SwiftyLLVM.StructType(named: n, fs, in: &module)
+    }
   }
 
 }
