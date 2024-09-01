@@ -12,7 +12,7 @@ public type Array<Element: SemiRegular>: SemiRegular {
   }
 
   /// Creates an array with the given `elements`.
-  public init<n: Int>(_ elements: sink Element[n]) {
+  public init<value n: Int>(_ elements: sink Element[n]) {
     &storage = .new()
     &reserve_capacity(n)
 

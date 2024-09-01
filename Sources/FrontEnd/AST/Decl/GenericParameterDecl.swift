@@ -48,4 +48,9 @@ public struct GenericParameterDecl: SingleEntityDecl, ConstrainedGenericTypeDecl
 
   public var baseName: String { identifier.value }
 
+  /// `true` iff `self` is denotes a variable that ranges over types.
+  public var isTypeKinded: Bool {
+    introducer?.value != .value
+  }
+
 }

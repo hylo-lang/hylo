@@ -11,5 +11,5 @@ trait Q {
 }
 
 extension P {
-  public fun f<T: Q, v: Int>(x: T.B) {}
+  public fun f<T: Q, value v: Int>(x: T.B) {}
 }
