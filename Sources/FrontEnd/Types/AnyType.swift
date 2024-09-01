@@ -92,8 +92,7 @@ public struct AnyType {
   /// The `base` property can be cast back to its original type using one of the type casting
   /// operators (`as?`, `as!`, or `as`).
   public var base: any TypeProtocol {
-    get { wrapped.unwrap() }
-    set { wrapped = AnyType(newValue).wrapped }
+    wrapped.unwrap()
   }
 
   /// `self` if `!self[.hasError]`; otherwise, `nil`.

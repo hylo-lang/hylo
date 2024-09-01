@@ -67,8 +67,7 @@ public struct AnyTerm {
   /// The `base` property can be cast back to its original type using one of the type casting
   /// operators (`as?`, `as!`, or `as`).
   public var base: any TermProtocol {
-    get { wrapped.unwrap() }
-    set { wrapped = AnyTerm(newValue).wrapped }
+    wrapped.unwrap()
   }
 
 }
