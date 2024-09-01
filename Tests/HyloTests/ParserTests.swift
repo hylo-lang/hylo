@@ -1458,16 +1458,6 @@ final class ParserTests: XCTestCase {
     }
   }
 
-  // func testWhereClauseValueConstraintSansHint() throws {
-  //   let input: SourceFile = "x > 2"
-  //   let constraint = try XCTUnwrap(try apply(Parser.valueConstraint, on: input).element)
-  //   if case .value(let exprID) = constraint.value {
-  //     XCTAssertEqual(exprID.kind, .init(SequenceExpr.self))
-  //   } else {
-  //     XCTFail()
-  //   }
-  // }
-
   func testBoundComposition() throws {
     let input: SourceFile = "T & U & V"
     let list = try XCTUnwrap(try apply(Parser.boundComposition, on: input).element)
