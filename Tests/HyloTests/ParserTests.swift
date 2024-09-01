@@ -837,6 +837,22 @@ final class ParserTests: XCTestCase {
     XCTAssertEqual(decl.baseName, "T")
   }
 
+  func testGenericParameterWithTypeIntroducer() throws {
+    let input: SourceFile = "type T"
+    let (d, a) = try apply(Parser.genericParameter, on: input)
+    let n = try XCTUnwrap(a[d])
+    XCTAssertEqual(n.baseName, "T")
+    XCTAssertEqual(n.introducer?.value, .type)
+  }
+
+  func testGenericParameterWithValueIntroducer() throws {
+    let input: SourceFile = "value T"
+    let (d, a) = try apply(Parser.genericParameter, on: input)
+    let n = try XCTUnwrap(a[d])
+    XCTAssertEqual(n.baseName, "T")
+    XCTAssertEqual(n.introducer?.value, .value)
+  }
+
   func testGenericParameterWithConformances() throws {
     let input: SourceFile = "T: Foo & Bar"
     let (declID, ast) = try apply(Parser.genericParameter, on: input)
