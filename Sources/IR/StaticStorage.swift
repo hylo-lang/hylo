@@ -17,7 +17,7 @@ public struct StaticStorage {
   public init(
     _ t: AnyType, identifiedBy id: AnyDeclID, initializedWith initializer: Function.ID
   ) {
-    precondition(t[.isCanonical])
+    precondition(t.isCanonical)
     self.id = id
     self.pointee = t
     self.initializer = initializer

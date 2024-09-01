@@ -1,0 +1,11 @@
+//- typeCheck expecting: .failure
+
+public fun main() {
+  // Buffer type.
+  let x0: Int[2] = [1, 2]
+  // Array type.
+  let x1: Int[] = Array()
+
+  //! @+1 diagnostic buffer type requires exactly one generic argument (found 2)
+  let x2: Int[1, 2]
+}

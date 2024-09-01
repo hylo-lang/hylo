@@ -92,8 +92,7 @@ public struct AnyType {
   /// The `base` property can be cast back to its original type using one of the type casting
   /// operators (`as?`, `as!`, or `as`).
   public var base: any TypeProtocol {
-    get { wrapped.unwrap() }
-    set { wrapped = AnyType(newValue).wrapped }
+    wrapped.unwrap()
   }
 
   /// `self` if `!self[.hasError]`; otherwise, `nil`.
@@ -146,7 +145,7 @@ public struct AnyType {
   ///
   /// - Requires: `self` is canonical.
   public var isBuiltin: Bool {
-    precondition(self[.isCanonical])
+    precondition(isCanonical)
     return base is BuiltinType
   }
 
@@ -154,7 +153,7 @@ public struct AnyType {
   ///
   /// - Requires: `self` is canonical.
   public var isBuiltinInteger: Bool {
-    precondition(self[.isCanonical])
+    precondition(isCanonical)
     if let b = BuiltinType(self) {
       return b.isInteger
     } else {
@@ -166,7 +165,7 @@ public struct AnyType {
   ///
   /// - Requires: `self` is canonical.
   public var isBuiltinOrRawTuple: Bool {
-    precondition(self[.isCanonical])
+    precondition(isCanonical)
     if let b = TupleType(self) {
       return b.elements.allSatisfy(\.type.isBuiltin)
     } else {
@@ -289,82 +288,8 @@ public struct AnyType {
         return .stepOver(t)
 
       default:
-        return t[.hasGenericTypeParameter] ? .stepInto(t) : .stepOver(t)
+        return t[.hasSkolem] ? .stepInto(t) : .stepOver(t)
       }
-    }
-  }
-
-  /// Returns `true` if `self` matches `other`, calling `unify` on `unifier` to attempt unifying
-  /// syntactically different parts.
-  ///
-  /// The method visits `self` and `other` are visited "side-by-side", calling `unify` on inequal
-  /// pairs of non-structural type terms. `unify` returns `true` if these terms can be "unified",
-  /// i.e., considered equivalent under some substitution.
-  public func matches<U>(
-    _ other: AnyType, mutating unifier: inout U,
-    _ unify: (inout U, _ lhs: AnyType, _ rhs: AnyType) -> Bool
-  ) -> Bool {
-    switch (self.base, other.base) {
-    case (let lhs as BoundGenericType, let rhs as BoundGenericType):
-      if lhs.arguments.count != rhs.arguments.count { return false }
-
-      var result = lhs.base.matches(rhs.base, mutating: &unifier, unify)
-      for (a, b) in zip(lhs.arguments, rhs.arguments) {
-        switch (a.value, b.value) {
-        case (.type(let vl), .type(let vr)):
-          result = vl.matches(vr, mutating: &unifier, unify) && result
-        default:
-          result = a.value == b.value && result
-        }
-      }
-      return result
-
-    case (let lhs as MetatypeType, let rhs as MetatypeType):
-      return lhs.instance.matches(rhs.instance, mutating: &unifier, unify)
-
-    case (let lhs as TupleType, let rhs as TupleType):
-      if !lhs.labels.elementsEqual(rhs.labels) { return false }
-
-      var result = true
-      for (a, b) in zip(lhs.elements, rhs.elements) {
-        result = a.type.matches(b.type, mutating: &unifier, unify) && result
-      }
-      return result
-
-    case (let lhs as ArrowType, let rhs as ArrowType):
-      if !lhs.labels.elementsEqual(rhs.labels) { return false }
-
-      var result = true
-      for (a, b) in zip(lhs.inputs, rhs.inputs) {
-        result = a.type.matches(b.type, mutating: &unifier, unify) && result
-      }
-      result = lhs.output.matches(rhs.output, mutating: &unifier, unify) && result
-      result = lhs.environment.matches(rhs.environment, mutating: &unifier, unify) && result
-      return result
-
-    case (let lhs as MethodType, let rhs as MethodType):
-      if !lhs.labels.elementsEqual(rhs.labels) || (lhs.capabilities != rhs.capabilities) {
-        return false
-      }
-
-      var result = true
-      for (a, b) in zip(lhs.inputs, rhs.inputs) {
-        result = a.type.matches(b.type, mutating: &unifier, unify) && result
-      }
-      result = lhs.output.matches(rhs.output, mutating: &unifier, unify) && result
-      result = lhs.receiver.matches(rhs.receiver, mutating: &unifier, unify) && result
-      return result
-
-    case (let lhs as ParameterType, let rhs as ParameterType):
-      if lhs.access != rhs.access { return false }
-      return lhs.bareType.matches(rhs.bareType, mutating: &unifier, unify)
-
-    case (let lhs as RemoteType, let rhs as RemoteType):
-      if lhs.access != rhs.access { return false }
-      return lhs.bareType.matches(rhs.bareType, mutating: &unifier, unify)
-
-    default:
-      return (self == other) || unify(&unifier, self, other)
     }
   }
 
@@ -372,7 +297,7 @@ public struct AnyType {
 
 extension AnyType: TypeProtocol {
 
-  public var flags: TypeFlags { base.flags }
+  public var flags: ValueFlags { base.flags }
 
   public func transformParts<M>(
     mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction

@@ -39,7 +39,7 @@ extension Function {
 
     /// Creates the identity of the lowered form of `s`.
     init(_ s: SynthesizedFunctionDecl) {
-      precondition(s.type[.isCanonical])
+      precondition(s.type.isCanonical)
       self.value = .synthesized(s)
     }
 

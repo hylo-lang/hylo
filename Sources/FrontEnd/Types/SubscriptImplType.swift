@@ -16,7 +16,7 @@ public struct SubscriptImplType: TypeProtocol {
   /// The type of the value projected by the subscript implementation.
   public let output: AnyType
 
-  public let flags: TypeFlags
+  public let flags: ValueFlags
 
   /// Creates an instance with the given properties.
   public init(
@@ -31,11 +31,7 @@ public struct SubscriptImplType: TypeProtocol {
     self.environment = environment
     self.inputs = inputs
     self.output = output
-
-    var fs = environment.flags
-    for i in inputs { fs.merge(i.type.flags) }
-    fs.merge(output.flags)
-    flags = fs
+    self.flags = inputs.reduce(output.flags | environment.flags, { (fs, p) in fs | p.type.flags })
   }
 
   /// Indicates whether `self` has an empty environment.
@@ -53,16 +49,6 @@ public struct SubscriptImplType: TypeProtocol {
       environment: environment.transform(mutating: &m, transformer),
       inputs: inputs.map({ $0.transform(mutating: &m, transformer) }),
       output: output.transform(mutating: &m, transformer))
-  }
-
-  private static func makeTransformer<M>() -> (inout M, AnyType) -> TypeTransformAction {
-    { (m, t) in
-      if let type = RemoteType(t), type.access == .yielded {
-        return .stepInto(^RemoteType(.let, type.bareType))
-      } else {
-        return .stepInto(t)
-      }
-    }
   }
 
 }

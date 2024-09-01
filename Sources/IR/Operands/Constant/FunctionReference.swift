@@ -21,7 +21,7 @@ public struct FunctionReference: Constant, Hashable {
 
     let v = module[f]
     let t = ArrowType(inputs: v.inputs.map({ .init(type: ^$0.type) }), output: v.output)
-    assert(t[.isCanonical])
+    assert(t.isCanonical)
 
     self.function = f
     self.type = .address(t)

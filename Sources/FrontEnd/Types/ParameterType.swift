@@ -12,7 +12,7 @@ public struct ParameterType: TypeProtocol {
   /// `true` iff the parameter is an autoclosure.
   public let isAutoclosure: Bool
 
-  public let flags: TypeFlags
+  public let flags: ValueFlags
 
   /// Creates an instance with the given properties.
   public init(_ access: AccessEffect, _ bareType: AnyType, isAutoclosure: Bool = false) {

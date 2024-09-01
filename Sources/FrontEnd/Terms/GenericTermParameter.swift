@@ -1,7 +1,7 @@
 import Utils
 
 /// A generic type parameter.
-public struct GenericTypeParameterType: TypeProtocol {
+public struct GenericTermParameter: TermProtocol {
 
   /// The declaration that introduces the parameter.
   public let decl: GenericParameterDecl.ID
@@ -15,16 +15,11 @@ public struct GenericTypeParameterType: TypeProtocol {
     self.name = Incidental(ast[decl].baseName)
   }
 
-  /// Creates an instance denoting the `Self` parameter of `trait`.
-  public init(selfParameterOf trait: TraitDecl.ID, in ast: AST) {
-    self.init(ast[trait].receiver, ast: ast)
-  }
-
   public var flags: ValueFlags { .hasSkolem }
 
 }
 
-extension GenericTypeParameterType: CustomStringConvertible {
+extension GenericTermParameter: CustomStringConvertible {
 
   public var description: String { name.value }
 

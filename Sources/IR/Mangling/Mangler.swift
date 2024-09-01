@@ -431,8 +431,19 @@ struct Mangler {
     switch s {
     case .type(let t):
       append(type: t, to: &output)
-    case .compilerKnown(let v) where v is Int:
-      append(integer: v as! Int, to: &output)
+    case .term(let t):
+      append(term: t, to: &output)
+    }
+  }
+
+  /// Writes the mangled representation of `symbol` to `output`.
+  mutating func append(term symbol: AnyTerm, to output: inout Output) {
+    switch symbol.base {
+    case let t as ConcreteTerm:
+      let v = (t.value as? Int) ?? UNIMPLEMENTED()
+      append(integer: v, to: &output)
+    case let t as GenericTermParameter:
+      append(entity: t.decl, to: &output)
     default:
       UNIMPLEMENTED()
     }
@@ -453,7 +464,7 @@ struct Mangler {
     let n = Symbol.type(s)
     if appendIf(reservedOrRecorded: n, to: &output) { return }
 
-    assert(s[.isCanonical])
+    assert(s.isCanonical)
     switch s.base {
     case let t as ArrowType:
       append(arrow: t, to: &output)
@@ -524,7 +535,7 @@ struct Mangler {
   private mutating func append(buffer t: BufferType, to output: inout Output) {
     append(operator: .bufferType, to: &output)
     append(type: t.element, to: &output)
-    append(value: t.count, to: &output)
+    append(term: t.count, to: &output)
   }
 
   /// Writes the mangled representation of `z` to `output`.

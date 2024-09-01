@@ -23,12 +23,12 @@ public struct TupleType: TypeProtocol {
   /// The elements of the tuple.
   public let elements: [Element]
 
-  public let flags: TypeFlags
+  public let flags: ValueFlags
 
   /// Creates a tuple type with a sequence of elements.
   public init<S: Sequence>(_ elements: S) where S.Element == Element {
     self.elements = Array(elements)
-    self.flags = TypeFlags(merging: self.elements.map(\.type.flags))
+    self.flags = ValueFlags(self.elements.map(\.type.flags))
   }
 
   /// Creates a tuple type with a sequence of label-type pairs.
@@ -49,10 +49,9 @@ public struct TupleType: TypeProtocol {
   public func transformParts<M>(
     mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction
   ) -> Self {
-    let newElements = elements.map(
-      { (e) -> Element in
-        .init(label: e.label, type: e.type.transform(mutating: &m, transformer))
-      })
+    let newElements = elements.map { (e) -> Element in
+      .init(label: e.label, type: e.type.transform(mutating: &m, transformer))
+    }
     return TupleType(newElements)
   }
 

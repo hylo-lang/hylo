@@ -39,7 +39,7 @@ extension IR.Program {
   ///
   /// - Requires: `t` is representable in LLVM.
   func llvm(arrowType t: ArrowType, in module: inout SwiftyLLVM.Module) -> SwiftyLLVM.IRType {
-    precondition(t[.isCanonical])
+    precondition(t.isCanonical)
     let e = llvm(t.environment, in: &module)
     return SwiftyLLVM.StructType([module.ptr, e], in: &module)
   }
@@ -49,7 +49,7 @@ extension IR.Program {
   /// - Requires: `t` is representable in LLVM.
   func llvm(bufferType t: BufferType, in module: inout SwiftyLLVM.Module) -> SwiftyLLVM.IRType {
     let e = llvm(t.element, in: &module)
-    guard let n = t.count.asCompilerKnown(Int.self) else {
+    guard let n = ConcreteTerm(t.count)?.value as? Int else {
       notLLVMRepresentable(t)
     }
     return SwiftyLLVM.ArrayType(n, e, in: &module)
@@ -85,7 +85,7 @@ extension IR.Program {
   func llvm(
     boundGenericType t: BoundGenericType, in module: inout SwiftyLLVM.Module
   ) -> SwiftyLLVM.IRType {
-    precondition(t[.isCanonical])
+    precondition(t.isCanonical)
     precondition(t.base.base is ProductType)
     return demandStruct(named: base.mangled(t), in: &module) { (m) in
       llvm(fields: base.storage(of: t), in: &m)
@@ -96,7 +96,7 @@ extension IR.Program {
   ///
   /// - Requires: `t` is representable in LLVM.
   func llvm(productType t: ProductType, in module: inout SwiftyLLVM.Module) -> SwiftyLLVM.IRType {
-    precondition(t[.isCanonical])
+    precondition(t.isCanonical)
     return demandStruct(named: base.mangled(t), in: &module) { (m) in
       llvm(fields: AbstractTypeLayout(of: t, definedIn: base).properties, in: &m)
     }
@@ -106,7 +106,7 @@ extension IR.Program {
   ///
   /// - Requires: `t` is representable in LLVM.
   func llvm(tupleType t: TupleType, in module: inout SwiftyLLVM.Module) -> SwiftyLLVM.IRType {
-    precondition(t[.isCanonical])
+    precondition(t.isCanonical)
     let fs = llvm(fields: t.elements, in: &module)
     return SwiftyLLVM.StructType(fs, in: &module)
   }
@@ -122,7 +122,7 @@ extension IR.Program {
   ///
   /// - Requires: `t` is representable in LLVM.
   func llvm(unionType t: UnionType, in module: inout SwiftyLLVM.Module) -> SwiftyLLVM.IRType {
-    precondition(t[.isCanonical])
+    precondition(t.isCanonical)
 
     var payload: SwiftyLLVM.IRType = SwiftyLLVM.StructType([], in: &module)
     if t.isNever {

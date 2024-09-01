@@ -10,7 +10,7 @@ public struct WitnessType: TypeProtocol {
   }
 
   /// A set of flags describing recursive properties.
-  public var flags: TypeFlags { container.flags }
+  public var flags: ValueFlags { container.flags }
 
   /// Apply `transform(_:_:)` on `m` and the types that are part of `self`.
   public func transformParts<M>(

@@ -7,7 +7,7 @@ public struct ConformanceLensType: TypeProtocol {
   /// The trait through which the subject is viewed.
   public let lens: TraitType
 
-  public let flags: TypeFlags
+  public let flags: ValueFlags
 
   /// Creates a new conformance lens.
   public init(viewing subject: AnyType, through lens: TraitType) {

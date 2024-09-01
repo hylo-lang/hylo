@@ -7,13 +7,13 @@ public struct RemoteType: TypeProtocol {
   /// The type of the projected object.
   public let bareType: AnyType
 
-  public let flags: TypeFlags
+  public let flags: ValueFlags
 
   /// Creates an instance with the given properties.
   public init(_ access: AccessEffect, _ bareType: AnyType) {
     self.access = access
     self.bareType = bareType
-    self.flags = bareType.flags.inserting(.hasRemoteType)
+    self.flags = bareType.flags
   }
 
   /// Creates an instance converting `t`.

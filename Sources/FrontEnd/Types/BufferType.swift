@@ -5,16 +5,16 @@ public struct BufferType: TypeProtocol {
   public let element: AnyType
 
   /// The number of elements in the buffer.
-  public let count: CompileTimeValue
+  public let count: AnyTerm
 
   /// The structural properties of the type.
-  public let flags: TypeFlags
+  public let flags: ValueFlags
 
   /// Creates an instance with the given properties.
-  public init(_ element: AnyType, _ count: CompileTimeValue) {
+  public init(_ element: AnyType, _ count: AnyTerm) {
     self.element = element
     self.count = count
-    self.flags = element.flags
+    self.flags = element.flags | count.flags
   }
 
   public func transformParts<M>(

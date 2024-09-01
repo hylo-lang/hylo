@@ -15,7 +15,7 @@ public struct MethodType: TypeProtocol {
   /// The output type of the method.
   public let output: AnyType
 
-  public let flags: TypeFlags
+  public let flags: ValueFlags
 
   /// Creates an instance with the given properties.
   public init(
@@ -28,11 +28,7 @@ public struct MethodType: TypeProtocol {
     self.receiver = receiver
     self.inputs = inputs
     self.output = output
-
-    var fs = receiver.flags
-    for i in inputs { fs.merge(i.type.flags) }
-    fs.merge(output.flags)
-    flags = fs
+    self.flags = inputs.reduce(output.flags | receiver.flags, { (fs, p) in fs | p.type.flags })
   }
 
   /// Returns the type of the variant `k` in this bundle.

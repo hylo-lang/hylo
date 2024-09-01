@@ -27,19 +27,19 @@ struct ConstraintSystem {
   /// The root goals that could not be solved.
   private var failureRoots: [GoalIdentity] = []
 
-  /// A map from open type variable to its assignment.
+  /// A map from open type or term variable to its assignment.
   ///
-  /// This map is monotonically extended during constraint solving to assign a type to each open
-  /// variable in the constraint system. A system is complete if it can be used to derive a
-  /// complete substitution map w.r.t. its open type variables.
-  private var typeAssumptions = SubstitutionMap()
+  /// This map is monotonically extended during constraint solving to assign a type or term to each
+  /// open variable in the constraint system. A system is complete if it can be used to derive a
+  /// complete substitution map w.r.t. its open variables.
+  private var substitutions = SubstitutionMap()
 
   /// A map from name expression to its referred declaration.
   ///
   /// This map is monotonically extended during constraint solving to assign a declaration to each
   /// unresolved name expression in the constraint system. A system is complete if it can be used
   /// to derive a complete name binding map w.r.t. its unresolved name expressions.
-  private var bindingAssumptions: [NameExpr.ID: DeclReference]
+  private var bindings: [NameExpr.ID: DeclReference]
 
   /// A map from call expression to its operands after desugaring and implicit resolution.
   private var callOperands: [CallID: [ArgumentResolutionResult]] = [:]
@@ -60,7 +60,7 @@ struct ConstraintSystem {
   /// deduction process if `loggingIsEnabled` is `true`.
   init(_ obligations: ProofObligations, logging loggingIsEnabled: Bool) {
     self.scope = obligations.scope
-    self.bindingAssumptions = obligations.referredDecl
+    self.bindings = obligations.referredDecl
     self.loggingIsEnabled = loggingIsEnabled
     _ = insert(fresh: obligations.constraints)
   }
@@ -73,8 +73,8 @@ struct ConstraintSystem {
     self.fresh = other.fresh
     self.stale = other.stale
     self.failureRoots = other.failureRoots
-    self.typeAssumptions = other.typeAssumptions
-    self.bindingAssumptions = other.bindingAssumptions
+    self.substitutions = other.substitutions
+    self.bindings = other.bindings
     self.callOperands = other.callOperands
     self.penalties = other.penalties
     self.loggingIsEnabled = other.loggingIsEnabled
@@ -107,7 +107,7 @@ struct ConstraintSystem {
       }
 
       goals[g].modifyTypes { (t) in
-        typeAssumptions.reify(t, withVariables: .kept)
+        substitutions.reify(t, withVariables: .kept)
       }
 
       log("- solve: \"\(goals[g])\"")
@@ -184,14 +184,14 @@ struct ConstraintSystem {
       setOutcome(.failure({ (_, _, _) in () }), for: g)
     }
 
-    let m = typeAssumptions.optimized()
+    let m = substitutions.optimized()
     var d = DiagnosticSet()
     for (k, v) in zip(goals.indices, outcomes) where isFailureRoot(k) {
       v!.diagnoseFailure!(&d, m, outcomes)
     }
 
     return Solution(
-      substitutions: m, bindings: bindingAssumptions, callOperands: callOperands,
+      substitutions: m, bindings: bindings, callOperands: callOperands,
       penalties: penalties, diagnostics: d, stale: stale.map({ goals[$0] }))
   }
 
@@ -241,7 +241,7 @@ struct ConstraintSystem {
   /// Returns eiteher `.success` if `g.left` is unifiable with `g.right` or `.failure` otherwise.
   private mutating func solve(equality g: GoalIdentity) -> Outcome {
     let goal = goals[g] as! EqualityConstraint
-    if unify(goal.left, goal.right) {
+    if solve(goal.left, equals: goal.right) {
       return .success
     } else {
       return .failure(failureToSolve(goal))
@@ -267,6 +267,7 @@ struct ConstraintSystem {
   /// If the constraint is strict, then `g.left` must be different than `g.right`.
   private mutating func solve(subtyping g: GoalIdentity) -> Outcome? {
     let goal = goals[g] as! SubtypingConstraint
+    lazy var o = goal.origin.subordinate()
 
     // Note: we're not using canonical equality here since we'll be dealing with aliases and
     // structural equivalences during unification anyway.
@@ -293,11 +294,10 @@ struct ConstraintSystem {
     case (_, let r as UnionType):
       // If `R` is an empty union, so must be `L`.
       if r.elements.isEmpty {
-        return unify(goal.left, goal.right) ? .success : .failure(failureToSolve(goal))
+        return solve(goal.left, equals: goal.right) ? .success : .failure(failureToSolve(goal))
       }
 
       // If `R` has a single element, it must be above (the canonical form of) `L`.
-      let o = goal.origin.subordinate()
       if let e = r.elements.uniqueElement {
         let s = schedule(SubtypingConstraint(goal.left, e, origin: o))
         return delegate(to: [s])
@@ -335,7 +335,6 @@ struct ConstraintSystem {
         postpone(g)
         return nil
       } else {
-        let o = goal.origin.subordinate()
         let s = schedule(inferenceConstraint(goal.left, isSubtypeOf: goal.right, origin: o))
         return delegate(to: [s])
       }
@@ -345,18 +344,16 @@ struct ConstraintSystem {
       // coercible to `R` and that are above `L`, but that set is unbounded unless `R` is a leaf.
       // If it isn't, we have no choice but to postpone the goal.
       if goal.right.isLeaf {
-        return unify(goal.left, goal.right) ? .success : .failure(failureToSolve(goal))
+        return solve(goal.left, equals: goal.right) ? .success : .failure(failureToSolve(goal))
       } else if goal.isStrict {
         postpone(g)
         return nil
       } else {
-        let o = goal.origin.subordinate()
         let s = schedule(inferenceConstraint(goal.left, isSubtypeOf: goal.right, origin: o))
         return delegate(to: [s])
       }
 
     case (let l as RemoteType, _):
-      let o = goal.origin.subordinate()
       let s = schedule(
         SubtypingConstraint(l.bareType, goal.right, strictly: goal.isStrict, origin: o))
       return delegate(to: [s])
@@ -374,7 +371,6 @@ struct ConstraintSystem {
           return .success
         } else {
           var subordinates: [GoalIdentity] = []
-          let o = goal.origin.subordinate()
           for t in traits {
             subordinates.append(
               schedule(ConformanceConstraint(goal.left, conformsTo: t, origin: o)))
@@ -394,12 +390,12 @@ struct ConstraintSystem {
         }
 
         let r = checker.openForUnification(d)
-        let s = schedule(EqualityConstraint(goal.left, ^r, origin: goal.origin.subordinate()))
+        let s = schedule(EqualityConstraint(goal.left, ^r, origin: o))
         return delegate(to: [s])
 
       case .metatype:
         let r = MetatypeType(of: checker.freshVariable())
-        let s = schedule(EqualityConstraint(goal.left, ^r, origin: goal.origin.subordinate()))
+        let s = schedule(EqualityConstraint(goal.left, ^r, origin: o))
         return delegate(to: [s])
       }
 
@@ -412,20 +408,15 @@ struct ConstraintSystem {
       return nil
 
     default:
-      if !goal.left[.isCanonical] || !goal.right[.isCanonical] {
+      if !goal.left.isCanonical || !goal.right.isCanonical {
         let l = checker.canonical(goal.left, in: scope)
         let r = checker.canonical(goal.right, in: scope)
-        assert(l[.isCanonical] && r[.isCanonical])
-
-        let s = schedule(
-          SubtypingConstraint(l, r, strictly: goal.isStrict, origin: goal.origin.subordinate()))
+        let s = schedule(SubtypingConstraint(l, r, strictly: goal.isStrict, origin: o))
         return delegate(to: [s])
-      }
-
-      if goal.isStrict {
+      } else if goal.isStrict {
         return .failure(failureToSolve(goal))
       } else {
-        return unify(goal.left, goal.right) ? .success : .failure(failureToSolve(goal))
+        return solve(goal.left, equals: goal.right) ? .success : .failure(failureToSolve(goal))
       }
     }
   }
@@ -585,7 +576,7 @@ struct ConstraintSystem {
 
     if let i = candidates.viable.uniqueElement {
       let c = candidates.elements[i]
-      bindingAssumptions[goal.memberExpr] = c.reference
+      bindings[goal.memberExpr] = c.reference
 
       var subordinates = insert(fresh: c.constraints)
       subordinates.append(
@@ -777,7 +768,7 @@ struct ConstraintSystem {
 
     let results: Explorations<OverloadConstraint> = explore(g) { (solver, choice) in
       solver.penalties += choice.penalties
-      solver.bindingAssumptions[goal.overloadedExpr] = choice.reference
+      solver.bindings[goal.overloadedExpr] = choice.reference
       return solver.insert(fresh: choice.constraints)
     }
 
@@ -886,21 +877,19 @@ struct ConstraintSystem {
     stale.append(g)
   }
 
-  /// Returns `true` iff `lhs` and `rhs` can be unified, updating the type substitution table.
+  /// Returns `true` iff `lhs` and `rhs` can be unified, updating the substitution table.
   ///
   /// Type unification consists of finding substitutions that makes `lhs` and `rhs` equal. Both
-  /// types are visited in lockstep, updating `self.typeAssumptions` every time either side is a
-  /// type variable for which no substitution has been made yet.
-  private mutating func unify(_ lhs: AnyType, _ rhs: AnyType) -> Bool {
-    lhs.matches(rhs, mutating: &self) { (this, a, b) in
-      this.unifySyntacticallyInequal(a, b)
-    }
+  /// types are visited in lockstep, updating `self.subscritutions` every time either side is a
+  /// variable for which no substitution has been made yet.
+  private mutating func solve(_ lhs: AnyType, equals rhs: AnyType) -> Bool {
+    matches(lhs, rhs)
   }
 
   /// Returns `true` iff `lhs` and `rhs` can be unified.
-  private mutating func unifySyntacticallyInequal(_ lhs: AnyType, _ rhs: AnyType) -> Bool {
-    let t = typeAssumptions[lhs]
-    let u = typeAssumptions[rhs]
+  private mutating func unify(_ lhs: AnyType, _ rhs: AnyType) -> Bool {
+    let t = substitutions[lhs]
+    let u = substitutions[rhs]
 
     switch (t.base, u.base) {
     case (let l as TypeVariable, _):
@@ -912,10 +901,10 @@ struct ConstraintSystem {
       return true
 
     case (let l as UnionType, let r as UnionType):
-      return unifySyntacticallyInequal(l, r)
+      return unify(l, r)
 
-    case _ where !t[.isCanonical] || !u[.isCanonical]:
-      return unify(checker.canonical(t, in: scope), checker.canonical(u, in: scope))
+    case _ where !t.isCanonical || !u.isCanonical:
+      return solve(checker.canonical(t, in: scope), equals: checker.canonical(u, in: scope))
 
     default:
       return checker.areEquivalent(t, u, in: scope)
@@ -923,12 +912,12 @@ struct ConstraintSystem {
   }
 
   /// Returns `true` iff `lhs` and `rhs` can be unified.
-  private mutating func unifySyntacticallyInequal(
+  private mutating func unify(
     _ lhs: UnionType, _ rhs: UnionType
   ) -> Bool {
     for a in lhs.elements {
       var success = false
-      for b in rhs.elements where unify(a, b) {
+      for b in rhs.elements where solve(a, equals: b) {
         success = true
       }
       if !success { return false }
@@ -936,19 +925,132 @@ struct ConstraintSystem {
     return true
   }
 
+  /// Returns `true` iff `lhs` and `rhs` can be unified.
+  private mutating func unify(_ lhs: AnyTerm, _ rhs: AnyTerm) -> Bool {
+    let t = substitutions[lhs]
+    let u = substitutions[rhs]
+
+    switch (t.base, u.base) {
+    case (let l as TermVariable, _):
+      assume(l, equals: u)
+      return true
+
+    case (_, let r as TermVariable):
+      assume(r, equals: t)
+      return true
+
+    default:
+      return t == u
+    }
+  }
+
+  /// Returns `true` iff `t` and `u` are equal under some substitution of their variables.
+  private mutating func matches(_ t: AnyType, _ u: AnyType) -> Bool {
+    switch (t.base, u.base) {
+    case (let lhs as BoundGenericType, let rhs as BoundGenericType):
+      if lhs.arguments.count != rhs.arguments.count { return false }
+      var result = matches(lhs.base, rhs.base)
+      for (a, b) in zip(lhs.arguments, rhs.arguments) {
+        result = matches(a.value, b.value) && result
+      }
+      return result
+
+    case (let lhs as MetatypeType, let rhs as MetatypeType):
+      return matches(lhs.instance, rhs.instance)
+
+    case (let lhs as TupleType, let rhs as TupleType):
+      if !lhs.labels.elementsEqual(rhs.labels) { return false }
+      return matches(lhs.elements, rhs.elements, at: \.type)
+
+    case (let lhs as ArrowType, let rhs as ArrowType):
+      if !lhs.labels.elementsEqual(rhs.labels) { return false }
+      var result = matches(lhs.inputs, rhs.inputs, at: \.type)
+      result = matches(lhs.output, rhs.output) && result
+      result = matches(lhs.environment, rhs.environment) && result
+      return result
+
+    case (let lhs as BufferType, let rhs as BufferType):
+      return matches(lhs.element, rhs.element) && matches(lhs.count, rhs.count)
+
+    case (let lhs as MethodType, let rhs as MethodType):
+      if !lhs.labels.elementsEqual(rhs.labels) || (lhs.capabilities != rhs.capabilities) {
+        return false
+      }
+
+      var result = matches(lhs.inputs, rhs.inputs, at: \.type)
+      result = matches(lhs.output, rhs.output) && result
+      result = matches(lhs.receiver, rhs.receiver) && result
+      return result
+
+    case (let lhs as ParameterType, let rhs as ParameterType):
+      if lhs.access != rhs.access { return false }
+      return matches(lhs.bareType, rhs.bareType)
+
+    case (let lhs as RemoteType, let rhs as RemoteType):
+      if lhs.access != rhs.access { return false }
+      return matches(lhs.bareType, rhs.bareType)
+
+    default:
+      return (t == u) || unify(t, u)
+    }
+  }
+
+  /// Returns `true` iff the result of `matches(_:_:)` applied on all elements from `ts` and `us`
+  /// pairwise is `true`.
+  private mutating func matches<T: Sequence>(
+    _ ts: T, _ us: T, at p: KeyPath<T.Element, AnyType>
+  ) -> Bool {
+    var result = true
+    for (a, b) in zip(ts, us) {
+      result = matches(a[keyPath: p], b[keyPath: p]) && result
+    }
+    return result
+  }
+
+  /// Returns `true` iff `t` and `u` are equal under some substitution of their variables.
+  private mutating func matches(_ t: AnyTerm, _ u: AnyTerm) -> Bool {
+    (t == u) || unify(t, u)
+  }
+
+  /// Returns `true` iff `t` and `u` are equal under some substitution of their variables.
+  private mutating func matches(_ t: CompileTimeValue, _ u: CompileTimeValue) -> Bool {
+    switch (t, u) {
+    case (.type(let lhs), .type(let rhs)):
+      return matches(lhs, rhs)
+    case (.term(let lhs), .term(let rhs)):
+      return matches(lhs, rhs)
+    default:
+      return false
+    }
+  }
+
   /// Extends the type substution table to map `tau` to `substitute`.
   private mutating func assume(_ tau: TypeVariable, equals substitute: AnyType) {
     log("- assume: \"\(tau) = \(substitute)\"")
-    typeAssumptions.assign(substitute, to: tau)
+    substitutions.assign(substitute, to: tau)
+    refresh()
+  }
 
-    // Refresh stale constraints.
+  /// Extends the term substution table to map `tau` to `substitute`.
+  private mutating func assume(_ tau: TermVariable, equals substitute: AnyTerm) {
+    log("- assume: \"\(tau) = \(substitute)\"")
+    substitutions.assign(substitute, to: tau)
+    refresh()
+  }
+
+  /// Refresh stale constraints containing variables that have been assigned.
+  private mutating func refresh() {
     for i in (0 ..< stale.count).reversed() {
       var changed = false
-      goals[stale[i]].modifyTypes({ (type) in
-        let u = typeAssumptions.reify(type, withVariables: .kept)
-        changed = changed || (type != u)
-        return u
-      })
+      goals[stale[i]].modifyTypes { (t) in
+        if t[.hasVariable] {
+          let u = substitutions.reify(t, withVariables: .kept)
+          changed = changed || (t != u)
+          return u
+        } else {
+          return t
+        }
+      }
 
       if changed {
         log("- refresh \(goals[stale[i]])")

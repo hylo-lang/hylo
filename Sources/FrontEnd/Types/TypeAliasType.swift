@@ -13,7 +13,7 @@ public struct TypeAliasType: TypeProtocol {
   public let aliasee: Incidental<AnyType>
 
   /// A set of flags describing recursive properties.
-  public let flags: TypeFlags
+  public let flags: ValueFlags
 
   /// Creates a type alias resolving to `aliasee` and declared by `d` in `ast`.
   public init(aliasing aliasee: AnyType, declaredBy d: TypeAliasDecl.ID, in ast: AST) {
@@ -25,7 +25,7 @@ public struct TypeAliasType: TypeProtocol {
     self.decl = decl
     self.name = Incidental(name)
     self.aliasee = Incidental(aliasee)
-    self.flags = aliasee.flags.removing(.isCanonical)
+    self.flags = aliasee.flags | .hasNonCanonical
   }
 
   /// The transitive aliasee of this alias.

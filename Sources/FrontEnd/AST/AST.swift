@@ -199,6 +199,15 @@ public struct AST {
     return UnionType([t, ^u])
   }
 
+  /// Returns the Hylo type of an array of `t`.
+  ///
+  /// - Requires: The Core library must have been loaded.
+  public func array(_ t: AnyType) -> BoundGenericType {
+    let b = coreType("Array")!
+    let e = self[b.decl].genericParameters[0]
+    return BoundGenericType(b, arguments: [e: .type(t)])
+  }
+
   /// Returns the type named `name` defined in the core library or `nil` it does not exist.
   ///
   /// - Requires: The Core library must have been loaded.

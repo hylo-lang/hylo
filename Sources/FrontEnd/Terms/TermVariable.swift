@@ -1,7 +1,7 @@
 import Utils
 
-/// A type variable.
-public struct TypeVariable: TypeProtocol {
+/// A term variable.
+public struct TermVariable: TermProtocol {
 
   /// The identifier of the variable.
   public let rawValue: UInt64
@@ -21,8 +21,8 @@ public struct TypeVariable: TypeProtocol {
 
 }
 
-extension TypeVariable: CustomStringConvertible {
+extension TermVariable: CustomStringConvertible {
 
-  public var description: String { "%\(context).\(identifier)" }
+  public var description: String { "%\(context).\(identifier)*" }
 
 }
