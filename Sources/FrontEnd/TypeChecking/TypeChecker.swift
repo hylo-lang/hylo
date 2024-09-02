@@ -1228,7 +1228,6 @@ struct TypeChecker {
       break
     case ConditionalCompilationStmt.self:
       check(ConditionalCompilationStmt.ID(s)!)
-    // case ConditionalBindingStmt.self:
     case ConditionalStmt.self:
       check(ConditionalStmt.ID(s)!)
     case ContinueStmt.self:
