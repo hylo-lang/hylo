@@ -1,0 +1,11 @@
+//- compileAndRun expecting: .success
+
+public fun main() {
+  var x: Union<Int, Bool> = true as _
+
+  let y: Bool = x else { fatal_error() }
+  precondition(y)
+
+  let _: Int = x else { return }
+  fatal_error()
+}
