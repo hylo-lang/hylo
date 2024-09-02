@@ -1,0 +1,13 @@
+//- typeCheck expecting: .failure
+
+public fun main() {
+  //! @+1 diagnostic fallback branch of conditional binding cannot fall through
+  let x? = Optional<Int>.none() else {}
+  print(x)
+
+  let y? = Optional<Int>.none() else {
+    let z = 0
+    //! @+1 diagnostic fallback branch of conditional binding cannot fall through
+    print(z)
+  }
+}

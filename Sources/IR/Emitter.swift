@@ -1021,6 +1021,8 @@ struct Emitter {
       return emit(braceStmt: .init(s)!)
     case BreakStmt.self:
       return emit(breakStmt: .init(s)!)
+    case ConditionalBindingStmt.self:
+      return emit(conditionalBindingStmt: .init(s)!)
     case ConditionalCompilationStmt.self:
       return emit(condCompilationStmt: .init(s)!)
     case ConditionalStmt.self:
@@ -1096,6 +1098,25 @@ struct Emitter {
 
   private mutating func emit(condCompilationStmt s: ConditionalCompilationStmt.ID) -> ControlFlow {
     emit(stmtList: ast[s].expansion(for: ast.compilationConditions))
+  }
+
+  private mutating func emit(conditionalBindingStmt s: ConditionalBindingStmt.ID) -> ControlFlow {
+    let storage = emitAllocation(binding: ast[s].binding)
+
+    let fail = appendBlock()
+    let next = emitConditionalNarrowing(
+      ast[s].binding, movingConsumedValuesTo: storage,
+      branchingOnFailureTo: fail, in: insertionScope!)
+
+    insertionPoint = .end(of: fail)
+    let flow = emit(braceStmt: ast[s].fallback)
+    emitControlFlow(flow) { (me) in
+      // Control-flow can never jump here.
+      me.insert(me.module.makeUnreachable(at: me.ast[me.ast[s].fallback].site))
+    }
+
+    insertionPoint = .end(of: next)
+    return .next
   }
 
   private mutating func emit(conditionalStmt s: ConditionalStmt.ID) -> ControlFlow {
@@ -2310,11 +2331,7 @@ struct Emitter {
     // `dealloc_stack` are dominated by their corresponding `alloc_stack`.
     var allocations: [Operand?] = []
     for case .decl(let d) in condition {
-      if program[d].pattern.introducer.value.isConsuming {
-        allocations.append(insert(module.makeAllocStack(program[d].type, at: ast[d].site)))
-      } else {
-        allocations.append(nil)
-      }
+      allocations.append(emitAllocation(binding: d))
     }
 
     let failure = module.appendBlock(in: scope, to: insertionFunction!)
@@ -2335,6 +2352,16 @@ struct Emitter {
     }
 
     return (success: insertionBlock!, failure: failure)
+  }
+
+  /// If `d` declares stored bindings, inserts the IR for allocating their storage and returns a
+  /// a rreference to that storage. Otherwise, returns `nil`.
+  private mutating func emitAllocation(binding d: BindingDecl.ID) -> Operand? {
+    if program[d].pattern.introducer.value.isConsuming {
+      return insert(module.makeAllocStack(program[d].type, at: ast[d].site))
+    } else {
+      return nil
+    }
   }
 
   /// Returns a basic block in which the names in `d` have been declared and initialized.

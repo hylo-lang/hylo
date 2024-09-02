@@ -1226,6 +1226,8 @@ struct TypeChecker {
       check(BraceStmt.ID(s)!)
     case BreakStmt.self:
       break
+    case ConditionalBindingStmt.self:
+      check(ConditionalBindingStmt.ID(s)!)
     case ConditionalCompilationStmt.self:
       check(ConditionalCompilationStmt.ID(s)!)
     case ConditionalStmt.self:
@@ -1274,6 +1276,19 @@ struct TypeChecker {
     obligations.insert(EqualityConstraint(rhs, lhs, origin: o))
 
     discharge(obligations, relatedTo: s)
+  }
+
+  /// Type checks `s`.
+  private mutating func check(_ s: ConditionalBindingStmt.ID) {
+    checkedType(of: program[s].binding, usedAs: .condition, ignoringSharedCache: true)
+
+    let f = program.ast[s].fallback
+    check(f)
+
+    if canFallThrough(f) {
+      let site = program[f].stmts.last.map({ (l) in program[l].site }) ?? program[f].site
+      report(.error(fallbackBranchCannotFallThroughAt: site))
+    }
   }
 
   /// Type checks `s`.
@@ -6514,6 +6529,37 @@ struct TypeChecker {
   /// Returns the trait whose `g` is the receiver, if any.
   private func traitIntroducing(_ g: GenericParameterDecl.ID) -> TraitType? {
     TraitDecl.ID(program[g].scope).map({ (d) in TraitType(d, ast: program.ast) })
+  }
+
+  /// Returns `true` iff control flow may jump to the statement after `s`.
+  private mutating func canFallThrough<T: StmtID>(_ s: T) -> Bool {
+    switch s.kind {
+    case BreakStmt.kind, ContinueStmt.kind, ReturnStmt.kind:
+      return false
+    case BraceStmt.kind:
+      return canFallThrough(BraceStmt.ID(s)!)
+    case ExprStmt.kind:
+      return canFallThrough(ExprStmt.ID(s)!)
+    default:
+      return true
+    }
+  }
+
+  /// Returns `true` iff control flow may jump to the statement after `s`.
+  private mutating func canFallThrough(_ s: BraceStmt.ID) -> Bool {
+    if let last = program[s].stmts.last {
+      return canFallThrough(last)
+    } else {
+      return true
+    }
+  }
+
+  /// Returns `false` iff executing `s` always terminates the program.
+  private mutating func canFallThrough(_ s: ExprStmt.ID) -> Bool {
+    let e = program.ast[s].expr
+    let t = checkedType(of: e)
+    let u = canonical(t, in: program[e].scope)
+    return !u.isNever
   }
 
   /// Returns how `a` and `b` are ordered.

@@ -369,6 +369,10 @@ extension Diagnostic {
     }
   }
 
+  static func error(fallbackBranchCannotFallThroughAt site: SourceRange) -> Diagnostic {
+    .error("fallback branch of conditional binding cannot fall through", at: site)
+  }
+
   static func error(
     referenceTo d: SourceRepresentable<Name>, requires t: AnyType, conformsTo u: TraitType,
     dueToConstraintAt constraintSite: SourceRange

@@ -1644,39 +1644,11 @@ final class ParserTests: XCTestCase {
   }
 
   func testConditionalBinding() throws {
-    let input: SourceFile = "var x = foo() else return"
-    let (s, ast) = try apply(Parser.bindingStmt, on: input, context: .functionBody)
-    let stmt = try XCTUnwrap(ast[s.flatMap(CondBindingStmt.ID.init)])
-    if case .exit = stmt.fallback {
-    } else {
-      XCTFail()
-    }
-  }
-
-  func testConditionalBindingBlock() throws {
-    let input: SourceFile = "var x = foo() else { bar(); return }"
-    let (s, ast) = try apply(Parser.bindingStmt, on: input, context: .functionBody)
-    let stmt = try XCTUnwrap(ast[s.flatMap(CondBindingStmt.ID.init)])
-    if case .exit = stmt.fallback {
-    } else {
-      XCTFail()
-    }
-  }
-
-  func testConditionalBindingExpr() throws {
-    let input: SourceFile = "var x = foo() else fatal_error()"
-    let (s, ast) = try apply(Parser.bindingStmt, on: input, context: .functionBody)
-    let stmt = try XCTUnwrap(ast[s.flatMap(CondBindingStmt.ID.init)])
-    if case .expr = stmt.fallback {
-    } else {
-      XCTFail()
-    }
-  }
-
-  func testConditionalBindingFallback() throws {
-    let input: SourceFile = "return"
-    XCTAssertNotNil(
-      try apply(Parser.conditionalBindingFallbackStmt, on: input, context: .functionBody))
+    let input: SourceFile = "var x = foo() else { return }"
+    let (s, a) = try apply(Parser.bindingStmt, on: input, context: .functionBody)
+    let n = try XCTUnwrap(a[s.flatMap(ConditionalBindingStmt.ID.init(_:))])
+    let m = try XCTUnwrap(a[n.fallback].stmts.first)
+    XCTAssert(m.kind == ReturnStmt.self)
   }
 
   func testDeclStmt() throws {
