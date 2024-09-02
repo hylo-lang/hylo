@@ -2510,7 +2510,7 @@ struct TypeChecker {
 
   /// Computes and returns the type of `d`.
   private mutating func _uncheckedType(of d: GenericParameterDecl.ID) -> AnyType {
-    if isTypeKinded(d) {
+    if program[d].isTypeKinded {
       return ^MetatypeType(of: GenericTypeParameterType(d, ast: program.ast))
     } else {
       let bound = program[d].conformances.uniqueElement!
@@ -4665,7 +4665,7 @@ struct TypeChecker {
       result[p] = a
     }
     for p in parameters.dropFirst(arguments.count) {
-      if isTypeKinded(p) {
+      if program[p].isTypeKinded {
         result[p] = .type(^GenericTypeParameterType(p, ast: program.ast))
       } else {
         result[p] = .term(^GenericTermParameter(p, ast: program.ast))
@@ -5069,44 +5069,6 @@ struct TypeChecker {
     } else {
       return false
     }
-  }
-
-  /// Returns `true` iff `d` represents a variable ranging over types.
-  private mutating func isTypeKinded(_ d: GenericParameterDecl.ID) -> Bool {
-    // Only parameters with exactly one bound may be value-kinded.
-    guard let bound = program[d].conformances.uniqueElement else {
-      return true
-    }
-
-    // Traits can only be qualified by name expressions.
-    var (unresolved, domain) = program.ast.splitNominalComponents(of: bound)
-    if domain != .none {
-      return false
-    }
-
-    var p: AnyType? = nil
-    while let u = unresolved.popLast() {
-      // Traits have no arguments.
-      if !program[u].arguments.isEmpty {
-        return false
-      }
-
-      let candidates = lookup(program[u].name, memberOf: p, exposedTo: program[d].scope)
-      guard let pick = candidates.uniqueElement else {
-        return false
-      }
-
-      switch pick.kind {
-      case ModuleDecl.self, NamespaceDecl.self:
-        p = uncheckedType(of: pick)
-      case TraitDecl.self:
-        return unresolved.isEmpty
-      default:
-        return false
-      }
-    }
-
-    return false
   }
 
   // MARK: Type inference
