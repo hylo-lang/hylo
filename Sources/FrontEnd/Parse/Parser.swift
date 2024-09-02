@@ -2960,7 +2960,7 @@ public enum Parser {
 
     let fallback = try state.expect("fallback", using: conditionalBindingFallback)
     let s = state.insert(
-      CondBindingStmt(
+      ConditionalBindingStmt(
         binding: d,
         fallback: fallback,
         site: state.ast[d].site.extended(upTo: state.currentIndex)))
@@ -2971,7 +2971,7 @@ public enum Parser {
     (conditionalBindingFallbackStmt.or(conditionalBindingFallbackExpr))
 
   static let conditionalBindingFallbackExpr =
-    (expr.map({ (_, id) -> CondBindingStmt.Fallback in .expr(id) }))
+    (expr.map({ (_, id) -> ConditionalBindingStmt.Fallback in .expr(id) }))
 
   static let conditionalBindingFallbackStmt =
     (oneOf([
@@ -2980,7 +2980,7 @@ public enum Parser {
       anyStmt(returnStmt),
       anyStmt(braceStmt),
     ])
-    .map({ (_, id) -> CondBindingStmt.Fallback in .exit(id) }))
+    .map({ (_, id) -> ConditionalBindingStmt.Fallback in .exit(id) }))
 
   static let declStmt =
     (Apply(parseDecl)

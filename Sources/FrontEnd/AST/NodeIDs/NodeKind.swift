@@ -139,7 +139,7 @@ extension NodeKind {
     AssignStmt.self,
     BraceStmt.self,
     BreakStmt.self,
-    CondBindingStmt.self,
+    ConditionalBindingStmt.self,
     ConditionalCompilationStmt.self,
     ConditionalStmt.self,
     ContinueStmt.self,

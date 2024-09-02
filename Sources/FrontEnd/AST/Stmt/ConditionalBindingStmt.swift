@@ -1,5 +1,5 @@
-/// A break statement.
-public struct CondBindingStmt: Stmt {
+/// A binding to a pattern that breaks control flow if the scrutinee doesn't match.
+public struct ConditionalBindingStmt: Stmt {
 
   public enum Fallback: Codable {
 

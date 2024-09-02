@@ -173,8 +173,8 @@ extension AST {
       traverse(self[n] as! BraceStmt, notifying: &o)
     case BreakStmt.self:
       traverse(self[n] as! BreakStmt, notifying: &o)
-    case CondBindingStmt.self:
-      traverse(self[n] as! CondBindingStmt, notifying: &o)
+    case ConditionalBindingStmt.self:
+      traverse(self[n] as! ConditionalBindingStmt, notifying: &o)
     case ConditionalCompilationStmt.self:
       traverse(self[n] as! ConditionalCompilationStmt, notifying: &o)
     case ConditionalStmt.self:
@@ -682,7 +682,7 @@ extension AST {
 
   /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
-    _ n: CondBindingStmt, notifying o: inout O
+    _ n: ConditionalBindingStmt, notifying o: inout O
   ) {
     walk(n.binding, notifying: &o)
   }
