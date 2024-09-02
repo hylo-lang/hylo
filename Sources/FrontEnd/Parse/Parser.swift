@@ -1365,16 +1365,6 @@ public enum Parser {
     }
   }
 
-  private static func parseGenericParameterAscription(
-    in state: inout ParserState
-  ) throws -> [NameExpr.ID]? {
-    if state.take(.colon) != nil {
-      return try state.expect("type expression", using: boundComposition)
-    } else {
-      return nil
-    }
-  }
-
   static let conformanceList =
     (take(.colon).and(nameTypeExpr).and(zeroOrMany(take(.comma).and(nameTypeExpr).second))
       .map({ (state, tree) -> [NameExpr.ID] in [tree.0.1] + tree.1 }))
