@@ -1,23 +1,16 @@
 /// A binding to a pattern that breaks control flow if the scrutinee doesn't match.
 public struct ConditionalBindingStmt: Stmt {
 
-  public enum Fallback: Codable {
-
-    case expr(AnyExprID)
-
-    case exit(AnyStmtID)
-
-  }
-
   public let site: SourceRange
 
   /// The conditional binding.
   public let binding: BindingDecl.ID
 
-  /// The fallback expression or statement.
-  public let fallback: Fallback
+  /// The branch that to which control flow jumps if the binding fails.
+  public let fallback: BraceStmt.ID
 
-  public init(binding: BindingDecl.ID, fallback: Fallback, site: SourceRange) {
+  /// Creates an instance with the given properties.
+  public init(binding: BindingDecl.ID, fallback: BraceStmt.ID, site: SourceRange) {
     self.site = site
     self.binding = binding
     self.fallback = fallback

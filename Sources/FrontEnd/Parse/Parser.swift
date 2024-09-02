@@ -2958,7 +2958,7 @@ public enum Parser {
       try fail(.error("conditional binding requires an initializer", at: state.ast[d].site))
     }
 
-    let fallback = try state.expect("fallback", using: conditionalBindingFallback)
+    let fallback = try state.expect("fallback", using: braceStmt.parse)
     let s = state.insert(
       ConditionalBindingStmt(
         binding: d,
@@ -2966,21 +2966,6 @@ public enum Parser {
         site: state.ast[d].site.extended(upTo: state.currentIndex)))
     return AnyStmtID(s)
   }
-
-  static let conditionalBindingFallback =
-    (conditionalBindingFallbackStmt.or(conditionalBindingFallbackExpr))
-
-  static let conditionalBindingFallbackExpr =
-    (expr.map({ (_, id) -> ConditionalBindingStmt.Fallback in .expr(id) }))
-
-  static let conditionalBindingFallbackStmt =
-    (oneOf([
-      anyStmt(breakStmt),
-      anyStmt(continueStmt),
-      anyStmt(returnStmt),
-      anyStmt(braceStmt),
-    ])
-    .map({ (_, id) -> ConditionalBindingStmt.Fallback in .exit(id) }))
 
   static let declStmt =
     (Apply(parseDecl)
