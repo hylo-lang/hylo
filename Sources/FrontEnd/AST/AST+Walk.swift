@@ -685,6 +685,7 @@ extension AST {
     _ n: ConditionalBindingStmt, notifying o: inout O
   ) {
     walk(n.binding, notifying: &o)
+    walk(n.fallback, notifying: &o)
   }
 
   /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
