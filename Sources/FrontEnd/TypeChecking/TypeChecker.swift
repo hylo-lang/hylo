@@ -1592,9 +1592,10 @@ struct TypeChecker {
     /// Checks whether the constraints on the requirements of `trait` are satisfied by `model` in
     /// `scopeOfuse`, reporting diagnostics in `conformanceDiagnostics`.
     func checkRequirementConstraints() -> Bool {
-      var obligations = ProofObligations(scope: scopeOfDefinition)
-
       let e = environment(of: trait.decl)
+      var obligations = ProofObligations(
+        scope: AnyScopeID(origin.source) ?? program[origin.source].scope)
+
       for g in e.constraints {
         let c = specialize(
           g, for: traitReceiverToModel, in: scopeOfDefinition,
