@@ -2406,7 +2406,7 @@ struct Emitter {
   /// a rreference to that storage. Otherwise, returns `nil`.
   private mutating func emitAllocation(binding d: BindingDecl.ID) -> Operand? {
     if program[d].pattern.introducer.value.isConsuming {
-      return insert(module.makeAllocStack(program[d].type, at: ast[d].site))
+      return emitAllocStack(for: program[d].type, at: ast[d].site)
     } else {
       return nil
     }
