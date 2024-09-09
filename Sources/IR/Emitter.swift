@@ -1208,16 +1208,63 @@ struct Emitter {
   /// Inserts the IR for loop `s`, returning its effect on control flow.
   private mutating func emit(forStmt s: ForStmt.ID) -> ControlFlow {
     if program.ast.isConsuming(s) {
-      UNIMPLEMENTED("consuming for loops")
+      return emit(consumingForStmt: s)
     } else {
       return emit(nonConsumingForStmt: s)
     }
   }
 
+  /// Inserts the IR for consuming loop `s`, returning its effect on control flow.
+  private mutating func emit(consumingForStmt s: ForStmt.ID) -> ControlFlow {
+    let d = program[program[s].domain.value].type
+    let c = program.conformance(
+      of: d, to: ast.core.iterator.type, exposedTo: program[s].scope)!
+    let witness = IteratorWitness(c, in: &module)
+    let introducer = program[s].introducerSite
+
+    // The collection on which the loop iterates.
+    let domain = emitLValue(program[s].domain.value)
+    // The element extracted before each iteration.
+    let element = emitAllocStack(for: ^ast.optional(witness.element), at: introducer)
+    // The storage containing the result of binding each element.
+    let storage = emitAllocation(binding: ast[s].binding)
+
+    // The "head" of the loop; extracts the next element.
+    let head = appendBlock(in: s)
+    // The remainder of the program, after the loop.
+    let exit = appendBlock()
+
+    loops.append(LoopID(depth: frames.depth, exit: exit))
+    defer { loops.removeLast() }
+
+    insert(module.makeBranch(to: head, at: introducer))
+    insertionPoint = .end(of: head)
+
+    let x0 = insert(module.makeAccess(.inout, from: domain, at: introducer))!
+    emitApply(witness.next, to: [x0], writingResultTo: element, at: introducer)
+    insert(module.makeEndAccess(x0, at: introducer))
+
+    let next = emitUnionNarrowing(
+      from: element, to: ast[ast[s].binding].pattern, typed: witness.element,
+      movingConsumedValuesTo: storage, branchingOnFailureTo: exit,
+      in: insertionScope!)
+
+    // TODO: Filter
+    precondition(ast[s].filter == nil, "loop filters are not implemented")
+
+    insertionPoint = .end(of: next)
+    let flow = emit(braceStmt: ast[s].body)
+    emitControlFlow(flow) { (me) in
+      me.insert(me.module.makeBranch(to: head, at: .empty(at: me.program[s].body.site.end)))
+    }
+
+    insertionPoint = .end(of: exit)
+    return .next
+  }
+
   /// Inserts the IR for non-consuming loop `s`, returning its effect on control flow.
   private mutating func emit(nonConsumingForStmt s: ForStmt.ID) -> ControlFlow {
     let domainType = program[program[s].domain.value].type
-
     let collection = ast.core.collection
     let collectionConformance = program.conformance(
       of: domainType, to: collection.type, exposedTo: program[s].scope)!
@@ -1277,6 +1324,7 @@ struct Emitter {
       introducedBy: program[s].binding.pattern, referringTo: [], relativeTo: x8)
 
     // TODO: Filter
+    precondition(ast[s].filter == nil, "loop filters are not implemented")
 
     let flow = emit(braceStmt: ast[s].body)
     emitControlFlow(flow) { (me) in
@@ -2358,7 +2406,7 @@ struct Emitter {
   /// a rreference to that storage. Otherwise, returns `nil`.
   private mutating func emitAllocation(binding d: BindingDecl.ID) -> Operand? {
     if program[d].pattern.introducer.value.isConsuming {
-      return insert(module.makeAllocStack(program[d].type, at: ast[d].site))
+      return emitAllocStack(for: program[d].type, at: ast[d].site)
     } else {
       return nil
     }
@@ -2391,38 +2439,57 @@ struct Emitter {
 
     assert(program[lhs].introducer.value.isConsuming || (storage == nil))
 
-    if let rhsType = UnionType(module.type(of: rhs).ast) {
-      guard rhsType.elements.contains(lhsType) else { UNIMPLEMENTED("recursive narrowing") }
-
-      let next = appendBlock(in: scope)
-      let site = program[lhs].site
-
-      var targets = UnionSwitch.Targets(
-        rhsType.elements.map({ (e) in (key: e, value: failure) }),
-        uniquingKeysWith: { (a, _) in a })
-      targets[lhsType] = next
-      emitUnionSwitch(on: rhs, toOneOf: targets, at: site)
-
-      insertionPoint = .end(of: next)
-
-      if let target = storage {
-        let x0 = insert(module.makeAccess(.sink, from: rhs, at: site))!
-        let x1 = insert(module.makeOpenUnion(x0, as: lhsType, at: site))!
-        emitMove([.set], x1, to: target, at: site)
-        emitLocalDeclarations(introducedBy: lhs, referringTo: [], relativeTo: target)
-        insert(module.makeCloseUnion(x1, at: site))
-        insert(module.makeEndAccess(x0, at: site))
-      } else {
-        let k = AccessEffect(program[lhs].introducer.value)
-        let x0 = insert(module.makeAccess(k, from: rhs, at: site))!
-        let x1 = insert(module.makeOpenUnion(x0, as: lhsType, at: site))!
-        assignProjections(of: x1, to: program[d].pattern)
-      }
-
-      return next
+    if module.type(of: rhs).ast.base is UnionType {
+      return emitUnionNarrowing(
+        from: rhs, to: lhs, typed: lhsType,
+        movingConsumedValuesTo: storage, branchingOnFailureTo: failure,
+        in: scope)
     } else {
       UNIMPLEMENTED()
     }
+  }
+
+  /// Returns a basic block in which the names in `lhs` have been declared and initialized.
+  ///
+  /// - Parameters:
+  ///   - rhs: A union container of a type that includes `lhsType`.
+  ///   - storage: For a consuming narrowing, the storage of the bindings declared in `lhs`.
+  ///   - failure: The basic block to which control flow jumps if the narrowing fails.
+  ///   - scope: The scope in which the new basic block is introducked.
+  private mutating func emitUnionNarrowing(
+    from rhs: Operand, to lhs: BindingPattern.ID, typed lhsType: AnyType,
+    movingConsumedValuesTo storage: Operand?,
+    branchingOnFailureTo failure: Block.ID,
+    in scope: AnyScopeID
+  ) -> Block.ID {
+    let rhsType = UnionType(module.type(of: rhs).ast)!
+    precondition(rhsType.elements.contains(lhsType), "recursive narrowing is unimplemented")
+
+    let next = appendBlock(in: scope)
+    let site = program[lhs].site
+    var targets = UnionSwitch.Targets(
+      rhsType.elements.map({ (e) in (key: e, value: failure) }),
+      uniquingKeysWith: { (a, _) in a })
+    targets[lhsType] = next
+    emitUnionSwitch(on: rhs, toOneOf: targets, at: site)
+
+    insertionPoint = .end(of: next)
+
+    if let target = storage {
+      let x0 = insert(module.makeAccess(.sink, from: rhs, at: site))!
+      let x1 = insert(module.makeOpenUnion(x0, as: lhsType, at: site))!
+      emitMove([.set], x1, to: target, at: site)
+      emitLocalDeclarations(introducedBy: lhs, referringTo: [], relativeTo: target)
+      insert(module.makeCloseUnion(x1, at: site))
+      insert(module.makeEndAccess(x0, at: site))
+    } else {
+      let k = AccessEffect(program[lhs].introducer.value)
+      let x0 = insert(module.makeAccess(k, from: rhs, at: site))!
+      let x1 = insert(module.makeOpenUnion(x0, as: lhsType, at: site))!
+      assignProjections(of: x1, to: lhs)
+    }
+
+    return next
   }
 
   /// Inserts the IR for branch condition `e`.

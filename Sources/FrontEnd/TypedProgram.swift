@@ -492,7 +492,8 @@ public struct TypedProgram {
   /// - Requires: `n` is declared by the trait for which `c` has been established.
   public func associatedType(_ n: AssociatedTypeDecl.ID, for c: Conformance) -> AnyType {
     let d = c.implementations[n]!.decl!
-    let t = specialize(MetatypeType(declType[d]!)!.instance, for: c.arguments, in: c.scope)
+    let s: AnyScopeID = c.origin.flatMap({ (o) in AnyScopeID(o.source) }) ?? c.scope
+    let t = specialize(MetatypeType(declType[d]!)!.instance, for: c.arguments, in: s)
     return canonical(t, in: c.scope)
   }
 
