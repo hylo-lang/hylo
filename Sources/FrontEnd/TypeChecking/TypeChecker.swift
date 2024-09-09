@@ -20,9 +20,13 @@ struct TypeChecker {
   /// The representation under construction.
   private var cache: Cache
 
-  /// A closure that takes a node and its containing program, and returns `true` if a trace of type
-  /// inference should be logged on the console for that node.
+  /// A closure that accepts a node with its containing program and returns `true` if a trace of
+  /// type inference should be logged on the console for that node.
   private let shouldTraceInference: ((AnyNodeID, TypedProgram) -> Bool)?
+
+  /// A closure that accepts a generic declaration with its containing program and returns `true`
+  /// if the requirement system of its environment should be logged on the console.
+  private let shouldLogRequirementSystem: ((AnyDeclID, TypedProgram) -> Bool)?
 
   /// The local copy of the program being type checked.
   var program: TypedProgram {
@@ -34,16 +38,19 @@ struct TypeChecker {
     self.identifier = 0
     self.cache = Cache(local: p)
     self.shouldTraceInference = nil
+    self.shouldLogRequirementSystem = nil
   }
 
   /// Creates an instance for constructing `instanceUnderConstruction`.
   init(
     constructing instanceUnderConstruction: TypedProgram,
-    tracingInferenceIf shouldTraceInference: ((AnyNodeID, TypedProgram) -> Bool)?
+    tracingInferenceIf shouldTraceInference: ((AnyNodeID, TypedProgram) -> Bool)?,
+    loggingRequirementSystemIf shouldLogRequirements: ((AnyDeclID, TypedProgram) -> Bool)?
   ) {
     self.identifier = 0
     self.cache = Cache(local: instanceUnderConstruction)
     self.shouldTraceInference = shouldTraceInference
+    self.shouldLogRequirementSystem = shouldLogRequirements
   }
 
   /// Creates an instance with given `identifier` for constructing `instanceUnderConstruction`
@@ -53,13 +60,15 @@ struct TypeChecker {
   init(
     _ identifier: UInt8,
     collaborativelyConstructing instanceUnderConstruction: SharedMutable<TypedProgram>,
-    tracingInferenceIf shouldTraceInference: ((AnyNodeID, TypedProgram) -> Bool)?
+    tracingInferenceIf shouldTraceInference: ((AnyNodeID, TypedProgram) -> Bool)?,
+    loggingRequirementSystemIf shouldLogRequirements: ((AnyDeclID, TypedProgram) -> Bool)?
   ) {
     self.identifier = identifier
     self.nextFreshVariableIdentifier = UInt64(identifier) << 56
     self.cache = instanceUnderConstruction.read(
       applying: { Cache(local: $0, shared: instanceUnderConstruction) })
     self.shouldTraceInference = shouldTraceInference
+    self.shouldLogRequirementSystem = shouldLogRequirements
   }
 
   /// Reports the given diagnostic.
@@ -1429,21 +1438,30 @@ struct TypeChecker {
   /// Builds and type checks the generic environment of `d`.
   private mutating func checkEnvironment<T: GenericDecl & LexicalScope>(of d: T.ID) {
     // TODO: Type check default values
-    _ = environment(of: d)
+    let e = environment(of: d)
     check(program[d].genericParameters)
+    if let f = shouldLogRequirementSystem, f(AnyDeclID(d), program) {
+      print(program.describe(e.requirements))
+    }
   }
 
   /// Builds and type checks the generic environment of `d`.
   private mutating func checkEnvironment(of d: TraitDecl.ID) {
     // TODO: Type check default values
-    _ = environment(of: d)
+    let e = environment(of: d)
     check(program[d].genericParameters)
+    if let f = shouldLogRequirementSystem, f(AnyDeclID(d), program) {
+      print(program.describe(e.requirements))
+    }
   }
 
   /// Builds and type checks the generic environment of `d`.
   private mutating func checkEnvironment<T: TypeExtendingDecl>(of d: T.ID) {
     // TODO: Type check default values
-    _ = environment(of: d)
+    let e = environment(of: d)
+    if let f = shouldLogRequirementSystem, f(AnyDeclID(d), program) {
+      print(program.describe(e.requirements))
+    }
   }
 
   /// Type checks the conformances declared by `d`.
