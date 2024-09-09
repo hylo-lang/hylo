@@ -103,6 +103,13 @@ public struct Driver: ParsableCommand {
   private var inferenceTracingSite: SourceLine?
 
   @Option(
+    name: [.customLong("show-requirements")],
+    help: ArgumentHelp(
+      "Log the requirement system of the generic declaration at the given line.",
+      valueName: "file:line"))
+  private var showRequirementsSite: SourceLine?
+
+  @Option(
     name: [.customLong("emit")],
     help: ArgumentHelp(
       "Emit the specified type output files. From: raw-ast, raw-ir, ir, llvm, intel-asm, binary",
@@ -258,11 +265,14 @@ public struct Driver: ParsableCommand {
       dependencies = try TypedProgram(
         annotating: ScopedProgram(a), inParallel: experimentalParallelTypeChecking,
         reportingDiagnosticsTo: &log,
-        tracingInferenceIf: shouldTraceInference)
+        tracingInferenceIf: shouldTraceInference,
+        loggingRequirementSystemIf: shouldLogRequirements)
     }
 
     let (program, sourceModule) = try dependencies.loadModule(
-      reportingDiagnosticsTo: &log, tracingInferenceIf: shouldTraceInference
+      reportingDiagnosticsTo: &log,
+      tracingInferenceIf: shouldTraceInference,
+      loggingRequirementSystemIf: shouldLogRequirements
     ) { (ast, log, space) in
       try ast.loadModule(
         productName, parsing: sourceFiles(in: inputs), inNodeSpace: space,
@@ -350,6 +360,15 @@ public struct Driver: ParsableCommand {
   private func shouldTraceInference(_ n: AnyNodeID, _ p: TypedProgram) -> Bool {
     if let s = inferenceTracingSite {
       return s.bounds.contains(p[n].site.start)
+    } else {
+      return false
+    }
+  }
+
+  /// Returns `true` if the requirement system of `n`, which is in `p`, should be logged.
+  private func shouldLogRequirements(_ n: AnyDeclID, _ p: TypedProgram) -> Bool {
+    if let s = showRequirementsSite {
+      return (n.kind.value is GenericDecl.Type) && s.bounds.contains(p[n].site.start)
     } else {
       return false
     }
