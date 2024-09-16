@@ -55,7 +55,7 @@ public struct TypedProgram {
   /// - Parameters:
   ///   - typeCheckingIsParallel: if `true`, the program is partitioned into chucks that are type
   ///     checked separately. Otherwise, type checking is performed sequentially. Either way, the
-  ///     order in which declarations are being checked is undeterministic.
+  ///     order in which declarations are being checked is nondeterministic.
   ///   - shouldTraceInference: A closure accepting a node and its containing program, returning
   ///     `true` if a trace of type inference should be logged on the console for that node. The
   ///     closure is not called if `typeCheckingIsParallel` is `true`.
