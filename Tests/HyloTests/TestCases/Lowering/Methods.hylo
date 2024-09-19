@@ -1,4 +1,4 @@
-//- lowerToFinishedIR expecting: success
+//- lowerToFinishedIR expecting: .success
 
 extension Int {
   public fun foo() let -> Int { copy() }

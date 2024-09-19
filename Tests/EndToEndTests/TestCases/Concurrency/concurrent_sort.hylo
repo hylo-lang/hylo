@@ -1,4 +1,4 @@
-//- compileAndRun expecting: success
+//- compileAndRun expecting: .success
 
 let size_threshold = 16
 
@@ -15,7 +15,7 @@ fun my_concurrent_sort<Element: Regular & Comparable>(_ a: inout ArraySlice<Elem
 
     // Spawn work to sort the right-hand side.
     let future = spawn_inplace(fun[sink let q=mutable_pointer[to: &rhs].copy()]() -> Int {
-      inout rhs = &(q.copy().unsafe[])
+      inout rhs = &(q.copy()).unsafe[]
       return my_concurrent_sort(&rhs)
     })
 
@@ -112,6 +112,7 @@ type ArraySlice<Element: Regular & Comparable> : Deinitializable, Movable {
     &self.start_index = full_array.start_position()
     &self.end_index = full_array.end_position()
   }
+
   /// Initializes `self` to represent elements [`start`, `end`) of `full_array`.
   public init(source: Self, from start: Int, to end: Int) {
     precondition(start >= 0 && start <= end && end <= source.count())
@@ -126,9 +127,9 @@ type ArraySlice<Element: Regular & Comparable> : Deinitializable, Movable {
   }
 
   /// Sorts the elements in `self`.
-  public fun sort() {
+  public fun sort() inout {
     // Use bubble sort for simplicity.
-    inout elements = origin.unsafe[]
+    inout elements = &origin.unsafe[]
     do {
       var swapped = false
       var i = start_index.copy()
@@ -137,7 +138,7 @@ type ArraySlice<Element: Regular & Comparable> : Deinitializable, Movable {
           &elements.swap_at(i, i + 1)
           &swapped = true
         }
-        i += 1
+        &i += 1
       }
     } while swapped
   }
@@ -149,8 +150,8 @@ type ArraySlice<Element: Regular & Comparable> : Deinitializable, Movable {
   }
 
   /// Partitions the slice in 3 parts: one with elements lower than `mid_value`, one with elements equal to `mid_value` and one with elements greater than `mid_value`, returning the indices that separates these parts.
-  public fun partition(on mid_value: Element) -> {Int, Int} {
-    inout elements = origin.unsafe[]
+  public fun partition(on mid_value: Element) inout -> {Int, Int} {
+    inout elements = &origin.unsafe[]
     // First pass to move elements smaller than mid_value to the left.
     var i = start_index.copy()
     var j = end_index.copy()
@@ -182,7 +183,7 @@ type ArraySlice<Element: Regular & Comparable> : Deinitializable, Movable {
   /// Returns a slice of `self` from `start` to `end` (relative indices).
   public fun slice(from start: Int, to end: Int) -> Self {
     precondition(0 <= start && start <= end && end <= count())
-    let r: Self = .new(full_array: &origin.unsafe[])
+    let r: Self = .new(full_array: &(origin.copy()).unsafe[])
     &r.start_index = start_index + start
     &r.end_index = start_index + end
     return r

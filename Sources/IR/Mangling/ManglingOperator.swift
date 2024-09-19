@@ -6,6 +6,8 @@ public enum ManglingOperator: String {
 
   case productTypeDecl = "A"
 
+  case bindingDecl = "bD"
+
   case traitDecl = "C"
 
   case conformanceDecl = "cD"
@@ -43,6 +45,8 @@ public enum ManglingOperator: String {
   case memberwiseInitializerDecl = "I"
 
   case lookup = "K"
+
+  case lookupRelative = "rK"
 
   case moduleDecl = "M"
 

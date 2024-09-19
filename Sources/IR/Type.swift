@@ -16,7 +16,7 @@ public struct Type: Hashable {
   ///
   /// - Requires: `ast` must be canonical.
   public init<T: TypeProtocol>(ast: T, isAddress: Bool) {
-    precondition(ast[.isCanonical], "source type is not canonical")
+    precondition(ast.isCanonical, "source type is not canonical")
     self.ast = ^ast
     self.isAddress = isAddress
   }

@@ -15,15 +15,15 @@ public struct UnionType: TypeProtocol {
   /// The elements of the union.
   public let elements: Elements
 
-  public let flags: TypeFlags
+  public let flags: ValueFlags
 
   /// Creates an instance type with the specified elements.
   public init<S: Sequence>(_ elements: S) where S.Element == AnyType {
     self.elements = Array(elements)
 
-    var fs = TypeFlags(merging: self.elements.map(\.flags))
+    var fs = ValueFlags(self.elements.map(\.flags))
     if self.elements.count == 1 {
-      fs.remove(.isCanonical)
+      fs.insert(.hasNonCanonical)
     }
     self.flags = fs
   }

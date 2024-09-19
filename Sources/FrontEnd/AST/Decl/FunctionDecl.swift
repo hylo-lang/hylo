@@ -104,6 +104,9 @@ public struct FunctionDecl: CapturingDecl, ExposableDecl, GenericDecl {
   /// `true` iff `self` denotes a `sink` member function.
   public var isSink: Bool { receiverEffect?.value == .sink }
 
+  /// `true` iff `self` denotes a deinitializer.
+  public var isDeinit: Bool { (identifier?.value == "deinit") && isSink && parameters.isEmpty }
+
   /// `true` iff `self` is a foreign function interface.
   public var isForeignInterface: Bool {
     api.contains(.isForeignInterface)

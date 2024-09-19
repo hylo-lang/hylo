@@ -66,7 +66,8 @@ public struct AccessEffectSet: OptionSet, Hashable {
   }
 
   public mutating func update(with newMember: AccessEffect) -> AccessEffect? {
-    insert(newMember).memberAfterInsert
+    let (i, k) = insert(newMember)
+    return i ? nil : k
   }
 
   /// A set with `set` and `inout`.
@@ -103,8 +104,12 @@ extension AccessEffectSet {
       self.base = s
     }
 
+    public var isEmpty: Bool {
+      base.rawValue == 0
+    }
+
     public var startIndex: UInt8 {
-      base.rawValue & (~base.rawValue + 1)
+      isEmpty ? endIndex : (base.rawValue & (~base.rawValue + 1))
     }
 
     public var endIndex: UInt8 {

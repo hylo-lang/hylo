@@ -1,11 +1,30 @@
-//- compileAndRun expecting: success
+//- compileAndRun expecting: .success
 
 public fun main() {
+  precondition(None<Int>() == None<Int>())
+
   var x = 42 as Optional<Int>
+  precondition(x == x)
+
   let y = if let i: Int = x { i.copy() } else { 0 }
   precondition(y == 42)
 
   &x = .none()
   let z = if let i: Int = x { i.copy() } else { 0 }
   precondition(z == 0)
+
+  &x = 42 as _
+  precondition(x! == 42)
+
+  &x = 42 as _
+  precondition(!x.is_empty())
+
+  &x = 42 as _
+  precondition(x.release() == 42)
+  precondition(x.is_empty())
+
+  &x = 42 as _
+  &x = x.map(fun(_ n) { n + 1 })
+  precondition(x.release() == 43)
+  precondition((x.map(fun(_ n) { n + 1 })).is_empty())
 }

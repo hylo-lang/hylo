@@ -1,4 +1,4 @@
-//- compileAndRun expecting: success
+//- compileAndRun expecting: .success
 
 fun use<T>(_ x: T) {}
 
@@ -169,6 +169,30 @@ fun testNot() {
   use(b)
 }
 
+fun testMultipleOperandConditions() {
+  var n = 0
+
+  #if compiler_version(>= 0.0)
+    &n += 1
+  #else if true
+    <something that would not be parsed>
+  #endif
+
+  #if os(macOS)
+    &n += 1
+  #elseif os(macOS) && !true
+    &n += 1
+  #elseif os(macOS) && false || !true || false
+    &n += 1
+  #elseif os(macOS) || compiler_version(< 1.0)
+    &n += 1
+  #else
+    &n += 1
+  #endif
+
+  use(n)
+}
+
 public fun main() {
   testTrue()
   testFalse()
@@ -180,4 +204,5 @@ public fun main() {
   testHyloVersion()
   testSkipParsingNested()
   testNot()
+  testMultipleOperandConditions()
 }

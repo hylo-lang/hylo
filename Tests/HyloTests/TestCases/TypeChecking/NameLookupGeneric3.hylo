@@ -1,4 +1,4 @@
-//- typeCheck expecting: success
+//- typeCheck expecting: .success
 
 // This test ensures that the type checker is able to determine the kind of a generic parameter
 // introduced in a member of a trait extension. Name lookup is a little tricky in this situation
@@ -11,5 +11,5 @@ trait Q {
 }
 
 extension P {
-  public fun f<T: Q, v: Int>(x: T.B) {}
+  public fun f<T: Q, value v: Int>(x: T.B) {}
 }

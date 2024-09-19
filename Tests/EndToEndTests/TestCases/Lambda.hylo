@@ -1,4 +1,4 @@
-//- compileAndRun expecting: success
+//- compileAndRun expecting: .success
 
 fun apply<E>(_ f: inout ([E]() inout -> Int)) -> Int {
   &f()
@@ -35,7 +35,7 @@ public fun main() {
   var z = 0
   let p = mutable_pointer[to: &z]
   var f = fun() -> Int {
-    &(p.copy().unsafe[]) = 42
+    &(p.copy()).unsafe[] = 42
     return p.unsafe[].copy()
   }
   precondition(f() == 42)

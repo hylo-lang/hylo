@@ -11,6 +11,22 @@ public type Array<Element: SemiRegular>: SemiRegular {
     &storage = .new()
   }
 
+  /// Creates an array with the given `elements`.
+  public init<value n: Int>(_ elements: sink Element[n]) {
+    &storage = .new()
+    &reserve_capacity(n)
+
+    // Note: lifetime of `p` is guaranteed by the use of `elements` after the loop.
+    let p = PointerToMutable<Element>(type_punning: mutable_pointer[to: &elements])
+    var i = 0
+    while i < n {
+      &append(p.advance(by: i).unsafe_pointee())
+      &i += 1
+    }
+
+    Builtin.mark_uninitialized(elements)
+  }
+
   /// Creates an array whose contents are the results, of calling `initialize` with the values
   /// `0 ..< count`, in order.
   ///
@@ -86,7 +102,7 @@ public type Array<Element: SemiRegular>: SemiRegular {
   /// The projected pointer is valid only for the duration of the projection and can be advanced up
   /// to `count()`. It may be null if `self` is empty.
   public property contiguous_storage: Pointer<Element> {
-    yield if capacity() == 0 { .null() } else { .new(pointer_to_element[at: 0]) }
+    yield if capacity() == 0 { .null() } else { .new(pointer_to_element(at: 0)) }
   }
 
   /// Calls `action` with a pointer to the start of the array's mutable contiguous storage.
@@ -96,13 +112,13 @@ public type Array<Element: SemiRegular>: SemiRegular {
   public fun with_mutable_contiguous_storage<E, T: Movable>(
     _ action: inout [E](PointerToMutable<Element>) inout -> T
   ) inout -> T {
-    if capacity() == 0 { &action(.null()) } else { &action(pointer_to_element[at: 0]) }
+    if capacity() == 0 { &action(.null()) } else { &action(pointer_to_element(at: 0)) }
   }
 
   /// Adds a new element at the end of the array.
   public fun append(_ source: sink Element) inout {
     &reserve_capacity(count() + 1)
-    pointer_to_element[at: count()].unsafe_initialize_pointee(source)
+    pointer_to_element(at: count()).unsafe_initialize_pointee(source)
     &storage.header += 1
   }
 
@@ -117,11 +133,11 @@ public type Array<Element: SemiRegular>: SemiRegular {
     var c = count()
     &reserve_capacity(c + 1)
     while c > index {
-      pointer_to_element[at: c].unsafe_initialize_pointee(
-        pointer_to_element[at: c - 1].unsafe_pointee())
+      pointer_to_element(at: c).unsafe_initialize_pointee(
+        pointer_to_element(at: c - 1).unsafe_pointee())
       &c -= 1
     }
-    pointer_to_element[at: c].unsafe_initialize_pointee(source)
+    pointer_to_element(at: c).unsafe_initialize_pointee(source)
     &storage.header += 1
   }
 
@@ -130,11 +146,11 @@ public type Array<Element: SemiRegular>: SemiRegular {
   /// - Requires: `index` is in the range `0 ..< count()`.
   /// - Complexity: O(n), where n is the number of elements in `self`.
   public fun remove(at index: Int) inout -> Element {
-    let result = pointer_to_element[at: index].unsafe_pointee()
+    let result = pointer_to_element(at: index).unsafe_pointee()
     var i = index + 1
     while i < count() {
-      pointer_to_element[at: i - 1].unsafe_initialize_pointee(
-        pointer_to_element[at: i].unsafe_pointee())
+      pointer_to_element(at: i - 1).unsafe_initialize_pointee(
+        pointer_to_element(at: i).unsafe_pointee())
       &i += 1
     }
     &storage.header -= 1
@@ -148,7 +164,7 @@ public type Array<Element: SemiRegular>: SemiRegular {
     let c = count()
     var i = 0
     while i < c {
-      &pointer_to_element[at: i].unsafe_pointee().deinit()
+      &pointer_to_element(at: i).unsafe_pointee().deinit()
       &i += 1
     }
     &storage.header = 0
@@ -161,7 +177,7 @@ public type Array<Element: SemiRegular>: SemiRegular {
   public fun pop_last() inout -> Optional<Element> {
     let c = count()
     if c > 0 {
-      let result = pointer_to_element[at: c - 1].unsafe_pointee()
+      let result = pointer_to_element(at: c - 1).unsafe_pointee()
       &storage.header -= 1
       return result as _
     } else {
@@ -182,10 +198,10 @@ public type Array<Element: SemiRegular>: SemiRegular {
     }
   }
 
-  /// Projects the address of the element at `position`.
+  /// Returns the address of the element at `position`.
   ///
   /// - Requires: `position` is in the range `0 ..< capacity()`.
-  subscript pointer_to_element(at position: Int): PointerToMutable<Element> {
+  fun pointer_to_element(at position: Int) -> PointerToMutable<Element> {
     storage.first_element_address().advance(by: position)
   }
 
@@ -245,11 +261,11 @@ public conformance Array: Collection {
   public subscript(_ position: Int): Element {
     let {
       precondition((position >= 0) && (position < count()), "position is out of bounds")
-      yield pointer_to_element[at: position].unsafe[]
+      yield pointer_to_element(at: position).unsafe[]
     }
     inout {
       precondition((position >= 0) && (position < count()), "position is out of bounds")
-      yield &pointer_to_element[at: position].unsafe[]
+      yield &(pointer_to_element(at: position).unsafe[])
     }
   }
 
@@ -261,7 +277,10 @@ public conformance Array: MutableCollection {
     precondition((i >= 0) && (i < count()), "position is out of bounds")
     precondition((j >= 0) && (j < count()), "position is out of bounds")
     if i == j { return }
-    &pointer_to_element[at: i].unsafe[].exchange(with: &pointer_to_element[at: j].unsafe[])
+
+    var p = pointer_to_element(at: i)
+    var q = pointer_to_element(at: j)
+    &p.unsafe[].exchange(with: &q.unsafe[])
   }
 
 }

@@ -19,12 +19,20 @@ extension Diagnostic {
     .error("declaration of \(a) binding requires an initializer", at: site)
   }
 
+  static func error(invalidOptionPattern p: OptionPattern.ID, in ast: AST) -> Diagnostic {
+    .error("optional pattern may only be used as a condition", at: ast[p].site)
+  }
+
   static func error(circularRefinementAt site: SourceRange) -> Diagnostic {
     .error("circular trait refinement", at: site)
   }
 
   static func error(circularDependencyAt site: SourceRange) -> Diagnostic {
     .error("circular dependency", at: site)
+  }
+
+  static func error(cannotConstructRequirementSystem d: AnyDeclID, in ast: AST) -> Diagnostic {
+    .error("requirement system too complex to build", at: ast.siteForDiagnostics(about: d))
   }
 
   static func error(cannotConstructTrait t: TraitType, at site: SourceRange) -> Diagnostic {
@@ -92,6 +100,12 @@ extension Diagnostic {
     type l: AnyType, incompatibleWith r: AnyType, at site: SourceRange
   ) -> Diagnostic {
     .error("incompatible types '\(l)' and '\(r)'", at: site)
+  }
+
+  static func error(
+    expected: AnyType, found: AnyType, at site: SourceRange
+  ) -> Diagnostic {
+    .error("expected type '\(expected)' but found '\(found)'", at: site)
   }
 
   static func error(invalidDestructuringOfType type: AnyType, at site: SourceRange) -> Diagnostic {
@@ -234,10 +248,6 @@ extension Diagnostic {
     .error("non-generic type '\(type)' has no generic parameters", at: site)
   }
 
-  static func error(tooManyAnnotationsOnGenericValueParametersAt site: SourceRange) -> Diagnostic {
-    .error("only one annotation is allowed on generic value parameter declarations", at: site)
-  }
-
   static func error(
     invalidBufferTypeExprArgumentCount e: SubscriptCallExpr.ID, in ast: AST
   ) -> Diagnostic {
@@ -357,6 +367,10 @@ extension Diagnostic {
       return .error(
         "non-consuming for loop requires '\(m)' to conform to 'Collection' or 'Iterator'", at: site)
     }
+  }
+
+  static func error(fallbackBranchCannotFallThroughAt site: SourceRange) -> Diagnostic {
+    .error("fallback branch of conditional binding cannot fall through", at: site)
   }
 
   static func error(

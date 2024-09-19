@@ -15,7 +15,7 @@ public struct ArrowType: TypeProtocol {
   /// The output type of the arrow.
   public let output: AnyType
 
-  public let flags: TypeFlags
+  public let flags: ValueFlags
 
   /// Creates an instance with the given properties.
   public init(
@@ -28,11 +28,7 @@ public struct ArrowType: TypeProtocol {
     self.environment = environment
     self.inputs = inputs
     self.output = output
-
-    var fs = environment.flags
-    for i in inputs { fs.merge(i.type.flags) }
-    fs.merge(output.flags)
-    flags = fs
+    self.flags = inputs.reduce(output.flags | environment.flags, { (fs, p) in fs | p.type.flags })
   }
 
   /// Creates the type of a function accepting `inputs` as `let` parameters and returning `output`.

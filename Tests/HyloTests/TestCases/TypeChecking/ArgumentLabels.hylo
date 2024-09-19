@@ -1,4 +1,4 @@
-//- typeCheck expecting: failure
+//- typeCheck expecting: .failure
 
 // This test case ensures that arguments labels are used to disambiguate overloaded symbols in call
 // expressions, in order to get more precise diagnostics.

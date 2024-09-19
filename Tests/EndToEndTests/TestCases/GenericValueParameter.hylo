@@ -1,6 +1,6 @@
-//- compileAndRun expecting: success
+//- compileAndRun expecting: .success
 
-public fun foo<n: Int>() -> Int {
+public fun foo<value n: Int>() -> Int {
   n.copy()
 }
 

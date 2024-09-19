@@ -1,0 +1,8 @@
+//- typeCheck expecting: .success
+
+type Box<T> {
+  public let contents: T
+  public memberwise init
+}
+
+conformance Box: Equatable where T: Equatable {}

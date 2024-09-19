@@ -14,7 +14,7 @@ public struct MetatypeType: TypeProtocol {
     self.instance = instance
   }
 
-  public var flags: TypeFlags { instance.flags }
+  public var flags: ValueFlags { instance.flags }
 
   public func transformParts<M>(
     mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction

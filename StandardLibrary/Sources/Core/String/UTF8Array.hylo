@@ -168,7 +168,9 @@ public type UTF8Array: Regular {
     &self = with_extended_lifetime(
       nullterminated,
       do: fun[sink let c = count(), sink let k = new_capacity.copy()] (_ source) {
-        UTF8Array(unsafely_copying: PointerToBuffer(start: source.copy(), count: c), reserving: k)
+        UTF8Array(
+          unsafely_copying: PointerToBuffer(start: source.copy(), count: c.copy()),
+          reserving: k)
       })
   }
 

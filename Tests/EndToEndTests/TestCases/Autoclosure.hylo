@@ -1,48 +1,32 @@
-//- compileAndRun expecting: success
+//- compileAndRun expecting: .success
 
-let counter: Int = 0
+let log: PointerToMutable<Int> = .allocate(count: 1)
 
 fun prime() -> Int {
-  &counter += 1
+  &(log.copy()).unsafe[] += 1
   return 17
 }
 
-fun logic(
-  with_delayed value: @autoclosure []() -> Int,
-  counter_starting_at s: Int,
+fun run<E>(
+  lazily_evaluating value: @autoclosure [E]() -> Int,
+  starting_at s: Int,
   ending_at e: Int
 ) {
-  precondition(counter == s)
+  precondition(log.unsafe[] == s)
   let x = value()
-  precondition(counter == e)
-  precondition(x == 17)
-}
-
-fun logic2<E>(with_delayed value: @autoclosure [E]() -> Int) {
-  precondition(counter == 0)
-  let x = value()
-  precondition(counter == 1)
+  precondition(log.unsafe[] == e)
   precondition(x == 17)
 }
 
 public fun main() {
-  &counter = 0
+  _ = log.unsafe_initialize_pointee(fun (_ a: set Int) -> Void { &a = 0 })
 
-  // Test with function call.
-  logic(with_delayed: prime(), counter_starting_at: 0, ending_at: 1)
-
-  // Test with constant.
-  logic(with_delayed: 17, counter_starting_at: 1, ending_at: 1)
-
-  &counter = 0
-  // Test with generics.
-  logic2(with_delayed: prime())
+  // Lazy parameter without captures.
+  run(lazily_evaluating: prime(), starting_at: 0, ending_at: 1)
+  run(lazily_evaluating: 17, starting_at: 1, ending_at: 1)
+  run(lazily_evaluating: prime(), starting_at: 1, ending_at: 2)
 
   // TODO: Test with generics and non-void environments.
-  // &counter = 0
-  // let r = 17
-  // logic2(with_delayed: fun() -> Int {
-  //   &counter += 1
-  //   return r
-  // })
+
+  log.copy().deallocate()
 }

@@ -29,7 +29,7 @@ public struct AssociatedValueType: TypeProtocol {
     self.name = Incidental(ast[decl].baseName)
   }
 
-  public var flags: TypeFlags { .isCanonical }
+  public var flags: ValueFlags { .init() }
 
 }
 

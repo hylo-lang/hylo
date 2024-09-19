@@ -1,4 +1,4 @@
-//- compileToLLVM expecting: success
+//- compileToLLVM expecting: .success
 
 
 fun test_mutating_spawn() -> Int {
@@ -6,7 +6,7 @@ fun test_mutating_spawn() -> Int {
   let p = mutable_pointer[to: &local_variable]
 
   var future = spawn_(fun[sink let q=p.copy()] () -> Int {
-    &(q.copy().unsafe[]) = 19
+    &(q.copy()).unsafe[] = 19
     return 1
   })
   let y = future.await()

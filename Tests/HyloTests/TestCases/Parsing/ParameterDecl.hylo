@@ -1,4 +1,4 @@
-//- parse expecting: failure
+//- parse expecting: .failure
 
 fun f1(x) -> U {}       //! diagnostic missing type annotation
 

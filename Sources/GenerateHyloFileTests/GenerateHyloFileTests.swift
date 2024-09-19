@@ -2,8 +2,8 @@ import ArgumentParser
 import Foundation
 import Utils
 
-/// A command-line tool that generates XCTest cases for a list of annotated ".hylo"
-/// files as part of our build process.
+/// A command-line tool that generates XCTest cases for a list of annotated ".hylo" files as part
+/// of our build process.
 @main
 struct GenerateHyloFileTests: ParsableCommand {
 
@@ -23,19 +23,21 @@ struct GenerateHyloFileTests: ParsableCommand {
     transform: URL.init(fileURLWithPath:))
   var hyloSourceFiles: [URL]
 
-  /// Returns the Swift source of the test function for the Hylo file at `source`.
-  func swiftFunctionTesting(valAt source: URL) throws -> String {
+  /// Returns the Swift source of the test function for the Hylo program at `source`, which is the
+  /// URL of a single source file or the root directory of a module.
+  func swiftFunctionTesting(hyloProgramAt source: URL) throws -> String {
     let firstLine = try String(contentsOf: source).prefix { !$0.isNewline }
     let parsed = try firstLine.parsedAsFirstLineOfAnnotatedHyloFileTest()
     let testID = source.deletingPathExtension().lastPathComponent.asSwiftIdentifier
 
-    return parsed.reduce(into: "") { (o, p) in
-      o += """
+    return parsed.reduce(into: "") { (swiftCode, test) in
+      let trailing = test.arguments.reduce(into: "", { (s, a) in s.write(", \(a)") })
+      swiftCode += """
 
-        func test_\(p.methodName)_\(testID)() throws {
-          try \(p.methodName)(
+        func test_\(test.methodName)_\(testID)() throws {
+          try \(test.methodName)(
             \(String(reflecting: source.fileSystemPath)),
-            expectSuccess: \(p.expectSuccess))
+            extending: programToExtend!\(trailing))
         }
 
       """
@@ -45,16 +47,16 @@ struct GenerateHyloFileTests: ParsableCommand {
   func run() throws {
     var output =
       """
-      import XCTest
       import TestUtils
+      import XCTest
 
-      final class \(testCaseName.asSwiftIdentifier): XCTestCase {
+      final class \(testCaseName.asSwiftIdentifier): HyloTestCase {
 
       """
 
     for f in hyloSourceFiles {
       do {
-        output += try swiftFunctionTesting(valAt: f)
+        output += try swiftFunctionTesting(hyloProgramAt: f)
       } catch let e as FirstLineError {
         try! FileHandle.standardError.write(
           contentsOf: Data("\(f.fileSystemPath):1: error: \(e.details)\n".utf8))
@@ -87,50 +89,116 @@ extension StringProtocol where Self.SubSequence == Substring {
   fileprivate func parsedAsFirstLineOfAnnotatedHyloFileTest() throws -> [TestDescription] {
     var text = self[...]
     if !text.removeLeading("//- ") {
-      throw FirstLineError("first line of annotated test file must begin with “//-”.")
+      throw FirstLineError("first line of annotated test file must begin with '//-'")
     }
 
-    let methodName = text.removeFirstUntil(it: \.isWhitespace)
-    if methodName.isEmpty {
-      throw FirstLineError("missing test method name.")
-    }
-    text.removeFirstWhile(it: \.isWhitespace)
-
-    if !text.removeLeading("expecting:") {
-      throw FirstLineError("missing “expecting:” after test method name.")
-    }
-    text.removeFirstWhile(it: \.isWhitespace)
-
-    let expectation = text.removeFirstUntil(it: \.isWhitespace)
-    if expectation != "success" && expectation != "failure" {
-      throw FirstLineError(
-        "illegal expectation “\(expectation)” must be “success” or “failure”."
-      )
-    }
-    let expectSuccess = expectation == "success"
-
-    if !text.drop(while: \.isWhitespace).isEmpty {
-      throw FirstLineError("illegal trailing text “\(text)”.")
+    let m = text.removeFirstUntil(it: \.isWhitespace)
+    guard let methodName = TestMethod(rawValue: String(m)) else {
+      let s = m.isEmpty ? "missing test method name" : "unknown test method '\(m)'"
+      throw FirstLineError(s)
     }
 
-    var tests = [TestDescription(methodName: methodName, expectSuccess: expectSuccess)]
-    if methodName == "compileAndRun" {
-      tests.append(
-        .init(methodName: "compileAndRunWithOptimizations", expectSuccess: expectSuccess))
+    var arguments: [TestArgument] = []
+    while !text.isEmpty {
+      // Parse a label.
+      text.removeFirstWhile(it: \.isWhitespace)
+      let l = text.removeFirstUntil(it: { $0 == ":" })
+      if l.isEmpty {
+        break
+      } else if !text.removeLeading(":") {
+        throw FirstLineError("missing colon after argument label")
+      }
+
+      // Parse a value.
+      text.removeFirstWhile(it: \.isWhitespace)
+      let v = text.removeFirstUntil(it: \.isWhitespace)
+      if v.isEmpty { throw FirstLineError("missing value after '\(l):'") }
+
+      if let a = TestArgument(l, v) {
+        arguments.append(a)
+      } else {
+        throw FirstLineError("invalid argument '\(l): \(v)'")
+      }
+    }
+
+    var tests = [TestDescription(methodName: methodName, arguments: arguments)]
+    if methodName == .compileAndRun {
+      tests.append(TestDescription(methodName: .compileAndRunOptimized, arguments: arguments))
     }
     return tests
   }
 
 }
 
+/// The name of a method implementing the logic of a test runner.
+fileprivate enum TestMethod: String {
+
+  /// Compiles and runs the program.
+  case compileAndRun
+
+  /// Compiles and runs the program with optimizations.
+  case compileAndRunOptimized
+
+  /// Compiles the program down to LLVM IR.
+  case compileToLLVM
+
+  /// Compiles the program down to Hylo IR.
+  case lowerToFinishedIR
+
+  /// Parses the program.
+  case parse
+
+  /// Type checks the program.
+  case typeCheck
+
+}
+
+/// An argument of a test runner.
+fileprivate struct TestArgument: CustomStringConvertible {
+
+  /// The label of an argument.
+  enum Label: String {
+
+    /// The label of an argument specifying the expected outcome of the test.
+    case expecting
+
+  }
+
+  /// The label of the argument.
+  let label: Label
+
+  /// The value of the argument.
+  let value: String
+
+  /// Creates an instance with the given properties or returns `nil` if the argument is invalid.
+  init?(_ label: Substring, _ value: Substring) {
+    // Validate the label.
+    guard let l = Label(rawValue: String(label)) else {
+      return nil
+    }
+
+    // Validate the value.
+    switch l {
+    case .expecting:
+      if (value != ".success") && (value != ".failure") { return nil }
+    }
+
+    self.label = l
+    self.value = String(value)
+  }
+
+  var description: String { "\(label): \(value)" }
+
+}
+
 /// Information necessary to generate a test case.
-fileprivate struct TestDescription {
+private struct TestDescription {
 
   /// The name of the method implementing the logic of the test runner.
-  let methodName: Substring
+  let methodName: TestMethod
 
-  /// `true` iff the invoked compilation is expected to succeed.
-  let expectSuccess: Bool
+  /// The arguments of the method.
+  let arguments: [TestArgument]
 
 }
 

@@ -11,7 +11,7 @@ public struct TypedProgram {
   public typealias ConformanceTable = [TraitType: Set<Conformance>]
 
   /// The program annotated by the properties of `self`.
-  private let base: ScopedProgram
+  private var base: ScopedProgram
 
   /// A map from translation unit to its imports.
   public internal(set) var imports: [TranslationUnit.ID: Set<ModuleDecl.ID>] = [:]
@@ -55,7 +55,7 @@ public struct TypedProgram {
   /// - Parameters:
   ///   - typeCheckingIsParallel: if `true`, the program is partitioned into chucks that are type
   ///     checked separately. Otherwise, type checking is performed sequentially. Either way, the
-  ///     order in which declarations are being checked is undeterministic.
+  ///     order in which declarations are being checked is nondeterministic.
   ///   - shouldTraceInference: A closure accepting a node and its containing program, returning
   ///     `true` if a trace of type inference should be logged on the console for that node. The
   ///     closure is not called if `typeCheckingIsParallel` is `true`.
@@ -63,7 +63,8 @@ public struct TypedProgram {
     annotating base: ScopedProgram,
     inParallel typeCheckingIsParallel: Bool = false,
     reportingDiagnosticsTo log: inout DiagnosticSet,
-    tracingInferenceIf shouldTraceInference: ((AnyNodeID, TypedProgram) -> Bool)? = nil
+    tracingInferenceIf shouldTraceInference: ((AnyNodeID, TypedProgram) -> Bool)? = nil,
+    loggingRequirementSystemIf shouldLogRequirements: ((AnyDeclID, TypedProgram) -> Bool)? = nil
   ) throws {
     let instanceUnderConstruction = SharedMutable(TypedProgram(partiallyFormedFrom: base))
 
@@ -75,7 +76,8 @@ public struct TypedProgram {
         let t = TypeCheckTask(
           Array(chunk), withCheckerIdentifiedBy: UInt8(i),
           collaborativelyConstructing: instanceUnderConstruction,
-          tracingInferenceIf: nil)
+          tracingInferenceIf: nil,
+          loggingRequirementSystemIf: nil)
         tasks.append(t)
       }
 
@@ -89,13 +91,41 @@ public struct TypedProgram {
     self = try instanceUnderConstruction.read {
       var checker = TypeChecker(
         constructing: $0,
-        tracingInferenceIf: typeCheckingIsParallel ? nil : shouldTraceInference)
+        tracingInferenceIf: typeCheckingIsParallel ? nil : shouldTraceInference,
+        loggingRequirementSystemIf: typeCheckingIsParallel ? nil : shouldLogRequirements)
       checker.checkAllDeclarations()
 
       log.formUnion(checker.diagnostics)
       try log.throwOnError()
       return checker.program
     }
+  }
+
+  /// Returns a copy of `self` in which a new module has been loaded, calling `make` to form its
+  /// contents and reporting diagnostics to `log`.
+  ///
+  /// - Parameters:
+  ///   - shouldTraceInference: A closure accepting a node and its containing program, returning
+  ///     `true` if a trace of type inference should be logged on the console for that node.
+  public func loadModule(
+    reportingDiagnosticsTo log: inout DiagnosticSet,
+    tracingInferenceIf shouldTraceInference: ((AnyNodeID, TypedProgram) -> Bool)? = nil,
+    loggingRequirementSystemIf shouldLogRequirements: ((AnyDeclID, TypedProgram) -> Bool)? = nil,
+    creatingContentsWith make: AST.ModuleLoader
+  ) throws -> (Self, ModuleDecl.ID) {
+    let (p, m) = try base.loadModule(reportingDiagnosticsTo: &log, creatingContentsWith: make)
+    var extended = self
+    extended.base = consume p
+
+    var checker = TypeChecker(
+      constructing: extended,
+      tracingInferenceIf: shouldTraceInference,
+      loggingRequirementSystemIf: shouldLogRequirements)
+    checker.checkModule(m)
+
+    log.formUnion(checker.diagnostics)
+    try log.throwOnError()
+    return (checker.program, m)
   }
 
   /// The type checking of a collection of source files.
@@ -113,12 +143,15 @@ public struct TypedProgram {
       _ sources: [TranslationUnit.ID],
       withCheckerIdentifiedBy checkerIdentifier: UInt8,
       collaborativelyConstructing instanceUnderConstruction: SharedMutable<TypedProgram>,
-      tracingInferenceIf shouldTraceInference: ((AnyNodeID, TypedProgram) -> Bool)?
+      tracingInferenceIf shouldTraceInference: ((AnyNodeID, TypedProgram) -> Bool)?,
+      loggingRequirementSystemIf shouldLogRequirements: ((AnyDeclID, TypedProgram) -> Bool)?
     ) {
       self.sources = sources
       self.checker = TypeChecker(
-        checkerIdentifier, collaborativelyConstructing: instanceUnderConstruction,
-        tracingInferenceIf: shouldTraceInference)
+        checkerIdentifier,
+        collaborativelyConstructing: instanceUnderConstruction,
+        tracingInferenceIf: shouldTraceInference,
+        loggingRequirementSystemIf: shouldLogRequirements)
     }
 
     /// Executes the operation.
@@ -139,9 +172,19 @@ public struct TypedProgram {
     self.base = base
   }
 
+  /// Returns the canonical form of `d`'s type.
+  public func canonical<T: DeclID>(typeOf d: T) -> AnyType {
+    canonical(declType[d]!, in: nodeToScope[d]!)
+  }
+
+  /// Returns the canonical form of `e`'s type.
+  public func canonical<T: ExprID>(typeOf e: T) -> AnyType {
+    canonical(exprType[e]!, in: nodeToScope[e]!)
+  }
+
   /// Returns the canonical form of `t` in `scopeOfUse`.
   public func canonical(_ t: AnyType, in scopeOfUse: AnyScopeID) -> AnyType {
-    if t[.isCanonical] { return t }
+    if t.isCanonical { return t }
     var checker = TypeChecker(asContextFor: self)
     return checker.canonical(t, in: scopeOfUse)
   }
@@ -293,15 +336,18 @@ public struct TypedProgram {
   /// Returns the names and types of `t`'s stored properties.
   public func storage(of t: BoundGenericType) -> [TupleType.Element] {
     storage(of: t.base).map { (p) in
+      // FIXME: Probably wrong to specialize/canonicalize in any random scope.
+      let arbitraryScope = AnyScopeID(base.ast.coreLibrary!)
       let z = GenericArguments(t)
-      let t = specialize(p.type, for: z, in: AnyScopeID(base.ast.coreLibrary!))
-      return .init(label: p.label, type: t)
+      let u = specialize(p.type, for: z, in: arbitraryScope)
+      let v = canonical(u, in: arbitraryScope)
+      return .init(label: p.label, type: v)
     }
   }
 
   /// Returns the names and types of `t`'s stored properties.
   public func storage(of t: BufferType) -> [TupleType.Element] {
-    if let w = t.count.asCompilerKnown(Int.self) {
+    if let w = ConcreteTerm(t.count)?.value as? Int {
       return Array(repeating: .init(label: nil, type: t.element), count: w)
     } else {
       return []
@@ -319,23 +365,6 @@ public struct TypedProgram {
       }
     }
     return result
-  }
-
-  /// Returns the generic parameters captured in the scope of `d` if `d` is callable; returns an
-  /// empty collection otherwise.
-  public func liftedGenericParameters(of d: AnyDeclID) -> [GenericParameterDecl.ID] {
-    switch d.kind {
-    case FunctionDecl.self:
-      return Array(accumulatedGenericParameters(in: FunctionDecl.ID(d)!))
-    case InitializerDecl.self:
-      return Array(accumulatedGenericParameters(in: InitializerDecl.ID(d)!))
-    case SubscriptImpl.self:
-      return Array(accumulatedGenericParameters(in: SubscriptImpl.ID(d)!))
-    case MethodImpl.self:
-      return Array(accumulatedGenericParameters(in: MethodImpl.ID(d)!))
-    default:
-      return []
-    }
   }
 
   /// Returns generic parameters captured by `s` and the scopes semantically containing `s`.
@@ -427,8 +456,7 @@ public struct TypedProgram {
     if !model.isSkolem { return nil }
 
     var checker = TypeChecker(asContextFor: self)
-    let bounds = checker.conformedTraits(of: model, in: scopeOfUse)
-    if !bounds.contains(concept) { return nil }
+    if !checker.conforms(model, to: concept, in: scopeOfUse) { return nil }
 
     // An abstract conformance maps each requirement to itself.
     var implementations = Conformance.ImplementationMap()
@@ -446,7 +474,7 @@ public struct TypedProgram {
   private func structuralConformance(
     of model: AnyType, to concept: TraitType, exposedTo scopeOfUse: AnyScopeID
   ) -> Conformance? {
-    assert(model[.isCanonical])
+    assert(model.isCanonical)
 
     switch model.base {
     case let m as BufferType:
@@ -494,7 +522,8 @@ public struct TypedProgram {
   /// - Requires: `n` is declared by the trait for which `c` has been established.
   public func associatedType(_ n: AssociatedTypeDecl.ID, for c: Conformance) -> AnyType {
     let d = c.implementations[n]!.decl!
-    let t = specialize(MetatypeType(declType[d]!)!.instance, for: c.arguments, in: c.scope)
+    let s: AnyScopeID = c.origin.flatMap({ (o) in AnyScopeID(o.source) }) ?? c.scope
+    let t = specialize(MetatypeType(declType[d]!)!.instance, for: c.arguments, in: s)
     return canonical(t, in: c.scope)
   }
 

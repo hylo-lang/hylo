@@ -1,4 +1,4 @@
-//- lowerToFinishedIR expecting: failure
+//- lowerToFinishedIR expecting: .failure
 
 // Note that some missing conformances to `Movable` can't be caught before we've emitted refined IR
 // because must determine whether values can be constructed in place, which typically can't be done

@@ -21,702 +21,762 @@ struct Mangler {
   /// The program defining the symbols being defined.
   private let program: TypedProgram
 
-  /// The scope in which names are mangled.
-  private let scopeOfUse: AnyScopeID
+  /// A table mapping mangled strings to their position in the string lookup table.
+  private var stringPosition: [String: Int] = [:]
 
   /// A table mapping mangled symbols to their position in the symbol lookup table.
-  private var symbolID: [Symbol: Int] = [:]
+  private var symbolPosition: [Symbol: Int] = [:]
 
-  /// The ID of the next symbol inserted in the symbol lookup table.
-  private var nextSymbolID = 0
+  /// The innermost scope being mangled, if any.
+  private var qualification: AnyScopeID?
 
   /// A table mapping known symbols to their reserved mangled identifier.
-  private var reserved: [Symbol: ReservedSymbol] = [
-    .type(.any): .any,
-    .type(.void): .void,
-    .type(.never): .never,
-  ]
+  private var reserved: [Symbol: ReservedSymbol] = [:]
 
-  /// Creates an instance mangling symbols defined in `programs` in `scopeOfUse`.
-  init(_ program: TypedProgram, in scopeOfUse: AnyScopeID) {
+  /// Creates an instance mangling symbols defined in `programs`.
+  init(_ program: TypedProgram) {
     self.program = program
-    self.scopeOfUse = scopeOfUse
+    initializeReservedSymbols()
+  }
 
+  /// Initializes the table of reserved symbols.
+  private mutating func initializeReservedSymbols() {
+    reserved[.type(.any)] = .any
+    reserved[.type(.never)] = .never
+    reserved[.type(.void)] = .void
     if program.ast.coreModuleIsLoaded {
-      self.reserved[.node(AnyNodeID(program.ast.coreLibrary!))] = .hylo
-      register(coreType: "Bool", as: .bool)
-      register(coreType: "Int", as: .int)
-      register(coreType: "Float64", as: .float64)
-      register(coreType: "String", as: .string)
+      reserved[.node(AnyNodeID(program.ast.coreLibrary!))] = .hylo
+      registerReservedCoreType("Bool", as: .bool)
+      registerReservedCoreType("Int", as: .int)
+      registerReservedCoreType("Float64", as: .float64)
+      registerReservedCoreType("String", as: .string)
     }
   }
 
-  /// Associates `coreType` to `r`.
-  private mutating func register(coreType: String, as r: ReservedSymbol) {
-    let d = AnyNodeID(program.ast.coreType(coreType)!.decl)
-    reserved[.node(d)] = r
+  /// Extends `self.reserved` to associate the core type named `n` to the reserved symbol `s`.
+  private mutating func registerReservedCoreType(_ n: String, as s: ReservedSymbol) {
+    reserved[.node(AnyNodeID(program.ast.coreType(n)!.decl))] = s
+  }
+
+  /// Returns the mangled representation of `s`.
+  mutating func mangled(type s: AnyType) -> Output {
+    mangled(s, manglingWith: { (me, s, o) in me.append(type: s, to: &o) })
+  }
+
+  /// Returns the mangled representation of `s`.
+  mutating func mangled<T: DeclID>(decl s: T) -> Output {
+    mangled(s, manglingWith: { (me, s, o) in me.append(decl: s, to: &o) })
+  }
+
+  /// Returns the mangled representation of `s`
+  mutating func mangled(function s: Function.ID) -> Output {
+    mangled(s, manglingWith: { (me, s, o) in me.append(function: s, to: &o) })
+  }
+
+  /// Returns the mangled representation of `s`
+  mutating func mangled(table s: WitnessTable) -> Output {
+    mangled(s, manglingWith: { (me, s, o) in me.append(table: s, to: &o) })
+  }
+
+  /// Returns the mangled representation of `s`, calling `mangle` to compute it.
+  private mutating func mangled<T>(
+    _ s: T, manglingWith mangle: (inout Self, T, inout Output) -> Void
+  ) -> Output {
+    var c = stringPosition
+    var p = symbolPosition
+    var q = qualification
+    defer {
+      swap(&c, &stringPosition)
+      swap(&p, &symbolPosition)
+      swap(&q, &qualification)
+    }
+
+    var output = ""
+    mangle(&self, s, &output)
+    return output
   }
 
   /// Writes the mangled representation of `d` to `output`.
-  mutating func mangle<T: DeclID>(decl d: T, to output: inout Output) {
-    if let m = ModuleDecl.ID(d) {
-      write(scope: AnyScopeID(m), to: &output)
-      return
-    }
+  private mutating func append<T: DeclID>(decl d: T, to output: inout Output) {
+    let s = Symbol.node(.init(d))
+    if appendIf(reservedOrRecorded: s, to: &output) { return }
 
-    if writeLookup(.node(AnyNodeID(d)), to: &output) {
-      return
-    }
-
-    writeQualification(of: d, to: &output)
-
+    appendQualification(of: d, to: &output)
     if let s = AnyScopeID(d) {
-      write(scope: s, to: &output)
+      append(scope: s, to: &output)
       return
     }
 
     switch d.kind {
     case AssociatedTypeDecl.self:
-      write(entity: AssociatedTypeDecl.ID(d)!, to: &output)
+      append(entity: AssociatedTypeDecl.ID(d)!, to: &output)
     case AssociatedValueDecl.self:
-      write(entity: AssociatedValueDecl.ID(d)!, to: &output)
+      append(entity: AssociatedValueDecl.ID(d)!, to: &output)
     case BindingDecl.self:
-      write(entity: BindingDecl.ID(d)!, to: &output)
+      append(entity: BindingDecl.ID(d)!, to: &output)
     case ImportDecl.self:
-      write(entity: ImportDecl.ID(d)!, to: &output)
+      append(entity: ImportDecl.ID(d)!, to: &output)
     case GenericParameterDecl.self:
-      write(entity: GenericParameterDecl.ID(d)!, to: &output)
+      append(entity: GenericParameterDecl.ID(d)!, to: &output)
     case ParameterDecl.self:
-      write(entity: ParameterDecl.ID(d)!, to: &output)
+      append(entity: ParameterDecl.ID(d)!, to: &output)
     case VarDecl.self:
-      write(entity: VarDecl.ID(d)!, to: &output)
+      append(entity: VarDecl.ID(d)!, to: &output)
     default:
       unexpected(d, in: program.ast)
     }
 
-    symbolID[.node(AnyNodeID(d))] = nextSymbolID
-    nextSymbolID += 1
+    symbolPosition[.node(AnyNodeID(d))] = symbolPosition.count
   }
 
   /// Writes the mangled representation of `d` to `output`.
-  private mutating func write(entity d: BindingDecl.ID, to output: inout Output) {
-    let n = program.ast.names(in: program[d].pattern).first!
-    let v = program.ast[n.pattern].decl
-    mangle(decl: v, to: &output)
+  private mutating func append<T: SingleEntityDecl>(entity d: T.ID, to output: inout Output) {
+    append(operator: .init(for: T.self), to: &output)
+    append(string: program.ast[d].baseName, to: &output)
+  }
+
+  /// Writes the mangled representation of `d` to `output`.
+  private mutating func append(entity d: BindingDecl.ID, to output: inout Output) {
+    append(operator: .bindingDecl, to: &output)
+    append(items: program.ast.names(in: program[d].pattern), to: &output) { (me, n, o) in
+      me.append(decl: me.program.ast[n.pattern].decl, to: &o)
+    }
   }
 
   /// Writes the mangled qualification of `n` to `output`.
-  private mutating func writeQualification<T: NodeIDProtocol>(of n: T, to output: inout Output) {
-    var qualification: [AnyScopeID] = []
+  private mutating func appendQualification<T: NodeIDProtocol>(of n: T, to output: inout Output) {
+    // Modules have no qualification.
+    if n.kind == ModuleDecl.self { return }
+
+    // Find the prefix of the qualification that should be mangled as a reference.
+    var qs: [AnyScopeID] = []
     for s in program.scopes(from: program[n].scope) {
-      if writeLookup(.node(AnyNodeID(s)), to: &output) {
+      // Anonymous scopes corresponding to the body of a function aren't mangled.
+      if let d = BraceStmt.ID(s), program.isCallableBody(d) {
+        continue
+      } else if appendIf(reservedOrRecorded: .node(.init(s)), to: &output) {
+        break
+      } else if s == qualification {
+        append(operator: .lookupRelative, to: &output)
         break
       } else {
-        qualification.append(s)
+        qs.append(s)
       }
     }
 
-    for s in qualification.reversed() {
-      // Anonymous scopes corresponding to the body of a function aren't mangled.
-      if let p = BraceStmt.ID(s), program.isCallableBody(p) {
-        continue
-      }
-      write(scope: s, to: &output)
+    // Write the mangled representation of the qualification's suffix.
+    for s in qs.reversed() {
+      append(scope: s, to: &output)
     }
   }
 
-  /// Writes the mangled representation of `symbol` to `output`.
-  private mutating func write(scope symbol: AnyScopeID, to output: inout Output) {
-    if writeLookup(.node(AnyNodeID(symbol)), to: &output) {
-      return
-    }
+  /// Writes the mangled representation of `s` to `output`.
+  private mutating func append(scope s: AnyScopeID, to output: inout Output) {
+    let n = Symbol.node(.init(s))
+    if appendIf(reservedOrRecorded: n, to: &output) { return }
 
-    symbolID[.node(AnyNodeID(symbol))] = nextSymbolID
-    nextSymbolID += 1
-
-    switch symbol.kind {
+    let q = qualification
+    qualification = s
+    switch s.kind {
     case BraceStmt.self:
-      write(anonymousScope: symbol, to: &output)
+      append(anonymous: s, to: &output)
     case ConditionalExpr.self:
-      write(anonymousScope: symbol, to: &output)
+      append(anonymous: s, to: &output)
     case ConditionalStmt.self:
-      write(anonymousScope: symbol, to: &output)
+      append(anonymous: s, to: &output)
     case ConformanceDecl.self:
-      write(conformance: ConformanceDecl.ID(symbol)!, to: &output)
+      append(conformance: ConformanceDecl.ID(s)!, to: &output)
     case ExtensionDecl.self:
-      write(extension: ExtensionDecl.ID(symbol)!, to: &output)
+      append(extension: ExtensionDecl.ID(s)!, to: &output)
     case ForStmt.self:
-      write(anonymousScope: symbol, to: &output)
+      append(anonymous: s, to: &output)
     case FunctionDecl.self:
-      write(function: FunctionDecl.ID(symbol)!, to: &output)
+      append(function: FunctionDecl.ID(s)!, to: &output)
     case InitializerDecl.self:
-      write(initializer: InitializerDecl.ID(symbol)!, to: &output)
+      append(initializer: InitializerDecl.ID(s)!, to: &output)
     case MatchCase.self:
-      write(anonymousScope: symbol, to: &output)
+      append(anonymous: s, to: &output)
     case MethodDecl.self:
-      write(methodDecl: MethodDecl.ID(symbol)!, to: &output)
+      append(methodDecl: MethodDecl.ID(s)!, to: &output)
     case MethodImpl.self:
-      write(methodImpl: MethodImpl.ID(symbol)!, to: &output)
+      append(methodImpl: MethodImpl.ID(s)!, to: &output)
     case ModuleDecl.self:
-      write(entity: ModuleDecl.ID(symbol)!, to: &output)
+      append(entity: ModuleDecl.ID(s)!, to: &output)
     case NamespaceDecl.self:
-      write(entity: NamespaceDecl.ID(symbol)!, to: &output)
+      append(entity: NamespaceDecl.ID(s)!, to: &output)
     case ProductTypeDecl.self:
-      write(entity: ProductTypeDecl.ID(symbol)!, to: &output)
+      append(entity: ProductTypeDecl.ID(s)!, to: &output)
     case SubscriptDecl.self:
-      write(subscriptDecl: SubscriptDecl.ID(symbol)!, to: &output)
+      append(subscriptDecl: SubscriptDecl.ID(s)!, to: &output)
     case SubscriptImpl.self:
-      write(subscriptImpl: SubscriptImpl.ID(symbol)!, to: &output)
+      append(subscriptImpl: SubscriptImpl.ID(s)!, to: &output)
     case TraitDecl.self:
-      write(entity: TraitDecl.ID(symbol)!, to: &output)
+      append(entity: TraitDecl.ID(s)!, to: &output)
     case TranslationUnit.self:
-      write(translationUnit: TranslationUnit.ID(symbol)!, to: &output)
+      append(translationUnit: TranslationUnit.ID(s)!, to: &output)
     case TypeAliasDecl.self:
-      write(entity: TypeAliasDecl.ID(symbol)!, to: &output)
+      append(entity: TypeAliasDecl.ID(s)!, to: &output)
     case WhileStmt.self:
-      write(anonymousScope: symbol, to: &output)
+      append(anonymous: s, to: &output)
     default:
-      unexpected(symbol, in: program.ast)
+      unexpected(s, in: program.ast)
     }
+    qualification = q
+    symbolPosition[n] = symbolPosition.count
   }
 
   /// Writes the mangled representation of `d` to `output`.
-  private mutating func write<T: SingleEntityDecl>(entity d: T.ID, to output: inout Output) {
-    write(operator: .init(for: T.self), to: &output)
-    write(string: program.ast[d].baseName, to: &output)
+  private mutating func append(anonymous d: AnyScopeID, to output: inout Output) {
+    append(operator: .anonymousScope, to: &output)
+    append(integer: Int(d.rawValue.bits), to: &output)
   }
 
   /// Writes the mangled representation of `d` to `output`.
-  private mutating func write(anonymousScope d: AnyScopeID, to output: inout Output) {
-    write(operator: .anonymousScope, to: &output)
-    write(integer: d.rawValue, to: &output)
-  }
-
-  /// Writes the mangled representation of `d` to `output`.
-  private mutating func write(conformance d: ConformanceDecl.ID, to output: inout Output) {
-    write(operator: .conformanceDecl, to: &output)
-    mangle(type: program[d].type, to: &output)
+  private mutating func append(conformance d: ConformanceDecl.ID, to output: inout Output) {
+    append(operator: .conformanceDecl, to: &output)
+    append(typeOf: d, to: &output)
 
     if let c = program.ast[d].whereClause {
-      write(whereClause: c.value, to: &output)
+      append(whereClause: c.value, to: &output)
     } else {
-      write(operator: .endOfSequence, to: &output)
+      append(operator: .endOfSequence, to: &output)
     }
   }
 
   /// Writes the mangled representation of `d` to `output`.
-  private mutating func write(extension d: ExtensionDecl.ID, to output: inout Output) {
-    write(operator: .extensionDecl, to: &output)
-    mangle(type: program[d].type, to: &output)
+  private mutating func append(extension d: ExtensionDecl.ID, to output: inout Output) {
+    append(operator: .extensionDecl, to: &output)
+    append(typeOf: d, to: &output)
 
     if let c = program.ast[d].whereClause {
-      write(whereClause: c.value, to: &output)
+      append(whereClause: c.value, to: &output)
     } else {
-      write(operator: .endOfSequence, to: &output)
+      append(operator: .endOfSequence, to: &output)
     }
   }
 
   /// Writes the mangled representation of `d` to `output`.
-  private mutating func write(function d: FunctionDecl.ID, to output: inout Output) {
+  private mutating func append(function d: FunctionDecl.ID, to output: inout Output) {
     // If the function is anonymous, just encode a unique ID.
     guard let n = program.ast.name(of: d) else {
-      write(anonymousScope: AnyScopeID(d), to: &output)
+      append(anonymous: AnyScopeID(d), to: &output)
       return
     }
 
     if program.ast[d].isStatic {
-      write(operator: .staticFunctionDecl, to: &output)
+      append(operator: .staticFunctionDecl, to: &output)
     } else {
-      write(operator: .functionDecl, to: &output)
+      append(operator: .functionDecl, to: &output)
     }
 
-    write(name: n, to: &output)
-    write(integer: program.ast[d].genericParameters.count, to: &output)
-    mangle(type: program[d].type, to: &output)
+    append(name: n, to: &output)
+    append(integer: program.ast[d].genericParameters.count, to: &output)
+    append(typeOf: d, to: &output)
   }
 
   /// Writes the mangled representation of `d` to `output`.
-  private mutating func write(initializer d: InitializerDecl.ID, to output: inout Output) {
+  private mutating func append(initializer d: InitializerDecl.ID, to output: inout Output) {
     // There's at most one memberwise initializer per product type declaration.
     if program.ast[d].isMemberwise {
-      write(operator: .memberwiseInitializerDecl, to: &output)
+      append(operator: .memberwiseInitializerDecl, to: &output)
       return
     }
 
     // Other initializers are mangled like static member functions.
-    write(operator: .staticFunctionDecl, to: &output)
-    write(name: Name(stem: "init"), to: &output)
-    write(integer: program.ast[d].genericParameters.count, to: &output)
-    mangle(type: program[d].type, to: &output)
+    append(operator: .staticFunctionDecl, to: &output)
+    append(name: Name(stem: "init"), to: &output)
+    append(integer: program.ast[d].genericParameters.count, to: &output)
+    append(typeOf: d, to: &output)
   }
 
   /// Writes the mangled representation of `d` to `output`.
-  private mutating func write(methodDecl d: MethodDecl.ID, to output: inout Output) {
-    write(operator: .methodDecl, to: &output)
-    write(string: program.ast[d].identifier.value, to: &output)
-    mangle(type: program[d].type, to: &output)
+  private mutating func append(methodDecl d: MethodDecl.ID, to output: inout Output) {
+    append(operator: .methodDecl, to: &output)
+    append(string: program.ast[d].identifier.value, to: &output)
+    append(typeOf: d, to: &output)
   }
 
   /// Writes the mangled representation of `d` to `output`.
-  private mutating func write(methodImpl d: MethodImpl.ID, to output: inout Output) {
-    write(operator: .methodImpl, to: &output)
-    write(base64Digit: program.ast[d].introducer.value, to: &output)
+  private mutating func append(methodImpl d: MethodImpl.ID, to output: inout Output) {
+    append(operator: .methodImpl, to: &output)
+    append(base64Digit: program.ast[d].introducer.value, to: &output)
   }
 
   /// Writes the mangled representation of `d` to `output`.
-  private mutating func write(subscriptDecl d: SubscriptDecl.ID, to output: inout Output) {
+  private mutating func append(subscriptDecl d: SubscriptDecl.ID, to output: inout Output) {
     if program.ast[d].isProperty {
-      write(operator: .propertyDecl, to: &output)
-      write(string: program.ast[d].identifier?.value ?? "", to: &output)
+      append(operator: .propertyDecl, to: &output)
+      append(string: program.ast[d].identifier?.value ?? "", to: &output)
     } else {
-      write(operator: .subscriptDecl, to: &output)
-      write(string: program.ast[d].identifier?.value ?? "", to: &output)
-      write(integer: program.ast[d].genericParameters.count, to: &output)
+      append(operator: .subscriptDecl, to: &output)
+      append(string: program.ast[d].identifier?.value ?? "", to: &output)
+      append(integer: program.ast[d].genericParameters.count, to: &output)
     }
-
-    mangle(type: program[d].type, to: &output)
+    append(typeOf: d, to: &output)
   }
 
   /// Writes the mangled representation of `u` to `output`.
-  private mutating func write(subscriptImpl d: SubscriptImpl.ID, to output: inout Output) {
-    write(operator: .subscriptImpl, to: &output)
-    write(base64Digit: program.ast[d].introducer.value, to: &output)
+  private mutating func append(subscriptImpl d: SubscriptImpl.ID, to output: inout Output) {
+    append(operator: .subscriptImpl, to: &output)
+    append(base64Digit: program.ast[d].introducer.value, to: &output)
   }
 
   /// Writes the mangled representation of `u` to `output`.
-  private mutating func write(translationUnit u: TranslationUnit.ID, to output: inout Output) {
+  private mutating func append(translationUnit u: TranslationUnit.ID, to output: inout Output) {
     // Note: assumes all files in a module have a different base name.
-    write(operator: .translatonUnit, to: &output)
-    write(string: program.ast[u].site.file.baseName, to: &output)
+    append(operator: .translatonUnit, to: &output)
+    append(string: program.ast[u].site.file.baseName, to: &output)
   }
 
   /// Writes the mangled representation of `clause` to `output`.
-  private mutating func write(whereClause clause: WhereClause, to output: inout Output) {
-    write(operator: .whereClause, to: &output)
-    write(set: clause.constraints, to: &output) { (m, c) -> String in
-      var s = ""
-      m.write(constraint: c.value, to: &s)
-      return s
+  private mutating func append(whereClause clause: WhereClause, to output: inout Output) {
+    append(operator: .whereClause, to: &output)
+    append(unordered: clause.constraints, to: &output) { (me, c, o) in
+      me.append(constraint: c.value, to: &o)
     }
   }
 
   /// Writes the mangled representation of `c` to `output`.
-  private mutating func write(constraint c: WhereClause.ConstraintExpr, to output: inout Output) {
+  private mutating func append(constraint c: WhereClause.ConstraintExpr, to output: inout Output) {
     switch c {
     case .value:
       UNIMPLEMENTED()
 
     case .bound(let lhs, let rhs):
-      write(operator: .conformanceConstraint, to: &output)
-      mangle(type: program[lhs].type, to: &output)
-      write(integer: rhs.count, to: &output)
-      for t in rhs {
-        mangle(type: program[t].type, to: &output)
-      }
+      append(operator: .conformanceConstraint, to: &output)
+      append(typeOf: lhs, to: &output)
+      append(items: rhs, to: &output) { (me, r, o) in me.append(typeOf: r, to: &o) }
 
     case .equality(let lhs, let rhs):
-      write(operator: .equalityConstraint, to: &output)
-      mangle(type: program[lhs].type, to: &output)
-      mangle(type: program[rhs].type, to: &output)
+      append(operator: .equalityConstraint, to: &output)
+      append(typeOf: lhs, to: &output)
+      append(typeOf: rhs, to: &output)
     }
   }
 
-  /// Writes the mangled representation of `symbol` to `output`.
-  mutating func mangle(function symbol: Function.ID, to output: inout Output) {
-    switch symbol.value {
+  /// Writes the mangled representation of `s` to `output`.
+  private mutating func append(function s: Function.ID, to output: inout Output) {
+    switch s.value {
     case .lowered(let d):
-      mangle(decl: d, to: &output)
+      append(decl: d, to: &output)
     case .monomorphized(let f, let a):
-      write(monomorphized: f, for: a, to: &output)
+      append(monomorphized: f, for: a, to: &output)
     case .synthesized(let d):
-      write(synthesized: d, to: &output)
+      append(synthesized: d, to: &output)
     case .existentialized:
       UNIMPLEMENTED()
     }
   }
 
-  /// Writes the mangled representation of `symbol` monomorphized for `arguments` to `output`.
-  private mutating func write(
-    monomorphized symbol: Function.ID, for arguments: GenericArguments, to output: inout Output
+  /// Writes the mangled representation of `s` monomorphized for `arguments` to `output`.
+  private mutating func append(
+    monomorphized s: Function.ID, for arguments: GenericArguments, to output: inout Output
   ) {
-    write(operator: .monomorphizedFunctionDecl, to: &output)
-    mangle(function: symbol, to: &output)
-    write(specialization: arguments, to: &output)
+    append(operator: .monomorphizedFunctionDecl, to: &output)
+    append(function: s, to: &output)
+    append(specialization: arguments, to: &output)
   }
 
-  /// Writes the mangled representation of `specialization` to `output`.
-  private mutating func write(specialization: GenericArguments, to output: inout Output) {
-    write(integer: specialization.count, to: &output)
-    for (_, v) in specialization.sorted(by: \.key.rawValue) {
-      mangle(value: v, to: &output)
+  /// Writes the mangled representation of `z` to `output`.
+  private mutating func append(specialization z: GenericArguments, to output: inout Output) {
+    append(items: z.sorted(by: \.key.rawValue), to: &output) { (me, a, o) in
+      me.append(value: a.value, to: &o)
     }
   }
 
-  /// Writes the mangled representation of `symbol` to `output`.
-  private mutating func write(
-    synthesized symbol: SynthesizedFunctionDecl, to output: inout Output
-  ) {
-    write(operator: .synthesizedFunctionDecl, to: &output)
-    write(synthesizedKind: symbol.kind, to: &output)
-
-    if symbol.scope.kind != ModuleDecl.self {
-      writeQualification(of: symbol.scope, to: &output)
-    }
-    write(scope: symbol.scope, to: &output)
-    mangle(type: ^symbol.type, to: &output)
+  /// Writes the mangled representation of `s` to `output`.
+  private mutating func append(synthesized s: SynthesizedFunctionDecl, to output: inout Output) {
+    append(operator: .synthesizedFunctionDecl, to: &output)
+    append(synthesizedKind: s.kind, to: &output)
+    appendQualification(of: s.scope, to: &output)
+    append(scope: s.scope, to: &output)
+    append(operator: .endOfSequence, to: &output)
+    append(type: ^s.type, to: &output)
   }
 
   /// Writes the mangled representation of `k` to `output`.
-  private mutating func write(
+  private mutating func append(
     synthesizedKind k: SynthesizedFunctionDecl.Kind, to output: inout Output
   ) {
     switch k {
     case .deinitialize:
-      write(base64Didit: 0, to: &output)
+      append(base64Didit: 0, to: &output)
     case .moveInitialization:
-      write(base64Didit: 1, to: &output)
+      append(base64Didit: 1, to: &output)
     case .moveAssignment:
-      write(base64Didit: 2, to: &output)
+      append(base64Didit: 2, to: &output)
     case .copy:
-      write(base64Didit: 3, to: &output)
+      append(base64Didit: 3, to: &output)
+    case .equal:
+      append(base64Didit: 4, to: &output)
     case .globalInitialization(let d):
-      write(base64Didit: 4, to: &output)
-      write(entity: d, to: &output)
+      append(base64Didit: 5, to: &output)
+      append(entity: d, to: &output)
     case .autoclosure(let e):
-      write(base64Didit: 5, to: &output)
+      append(base64Didit: 6, to: &output)
       // To allow using multiple autoclosures in the same scope, also write the expression ID.
-      write(integer: e.rawValue, to: &output)
+      append(integer: Int(e.rawValue.bits), to: &output)
     }
   }
 
-  /// Writes the mangled representation of `r` to `output`.
-  mutating func mangle(reference r: DeclReference, to output: inout Output) {
-    switch r {
-    case .direct(let d, let z):
-      write(operator: .directDeclReference, to: &output)
-      mangle(decl: d, to: &output)
-      write(specialization: z, to: &output)
-
-    default:
-      UNIMPLEMENTED()
-    }
+  /// Writes the mangled representation of `s` to `output`.
+  private mutating func append(table s: WitnessTable, to output: inout Output) {
+    append(operator: .witnessTable, to: &output)
+    append(scope: s.scope, to: &output)
+    append(type: program.canonical(s.witness, in: s.scope), to: &output)
   }
 
-  /// Writes the mangled representation of `symbol` to `output`.
-  mutating func mangle(table symbol: WitnessTable, to output: inout Output) {
-    write(operator: .witnessTable, to: &output)
-    write(scope: symbol.scope, to: &output)
-    mangle(type: symbol.witness, to: &output)
-  }
-
-  /// Writes the mangled representation of `symbol` to `output`.
-  mutating func mangle(value symbol: CompileTimeValue, to output: inout Output) {
-    switch symbol {
+  /// Writes the mangled representation of `s` to `output`.
+  private mutating func append(value s: CompileTimeValue, to output: inout Output) {
+    switch s {
     case .type(let t):
-      mangle(type: t, to: &output)
-    case .compilerKnown(let v) where v is Int:
-      write(integer: v as! Int, to: &output)
+      append(type: t, to: &output)
+    case .term(let t):
+      append(term: t, to: &output)
+    }
+  }
+
+  /// Writes the mangled representation of `symbol` to `output`.
+  mutating func append(term symbol: AnyTerm, to output: inout Output) {
+    switch symbol.base {
+    case let t as ConcreteTerm:
+      let v = (t.value as? Int) ?? UNIMPLEMENTED()
+      append(integer: v, to: &output)
+    case let t as GenericTermParameter:
+      append(entity: t.decl, to: &output)
     default:
       UNIMPLEMENTED()
     }
   }
 
-  /// Writes the mangled representation of `symbol` to `output`.
-  mutating func mangle(type symbol: AnyType, to output: inout Output) {
-    let s = program.canonical(symbol, in: scopeOfUse)
+  /// Writes the mangled representation of `d`'s type to `output`.
+  private mutating func append<T: DeclID>(typeOf d: T, to output: inout Output) {
+    append(type: program.canonical(typeOf: d), to: &output)
+  }
 
-    if writeLookup(.type(s), to: &output) {
-      return
-    }
+  /// Writes the mangled representation of `e`'s type to `output`.
+  private mutating func append<T: ExprID>(typeOf e: T, to output: inout Output) {
+    append(type: program.canonical(typeOf: e), to: &output)
+  }
 
+  /// Writes the mangled representation of `s` to `output`.
+  private mutating func append(type s: AnyType, to output: inout Output) {
+    let n = Symbol.type(s)
+    if appendIf(reservedOrRecorded: n, to: &output) { return }
+
+    assert(s.isCanonical)
     switch s.base {
-    case let t as AssociatedTypeType:
-      write(associatedType: t, to: &output)
-
-    case let t as BoundGenericType:
-      write(boundGenericType: t, to: &output)
-
-    case let t as BufferType:
-      write(bufferType: t, to: &output)
-
-    case let t as BuiltinType:
-      write(builtinType: t, to: &output)
-
-    case let t as ExistentialType:
-      write(existentialType: t, to: &output)
-
-    case let t as GenericTypeParameterType:
-      write(operator: .genericTypeParameterType, to: &output)
-      mangle(decl: AnyDeclID(t.decl), to: &output)
-
     case let t as ArrowType:
-      write(arrow: t, to: &output)
-
+      append(arrow: t, to: &output)
+    case let t as AssociatedTypeType:
+      append(associatedType: t, to: &output)
+    case let t as BoundGenericType:
+      append(boundGenericType: t, to: &output)
+    case let t as BufferType:
+      append(buffer: t, to: &output)
+    case let t as BuiltinType:
+      append(builtin: t, to: &output)
+    case let t as ExistentialType:
+      append(existential: t, to: &output)
+    case let t as GenericTypeParameterType:
+      append(genericTypeParameter: t, to: &output)
     case let t as MethodType:
-      write(method: t, to: &output)
-
+      append(method: t, to: &output)
     case let t as MetatypeType:
-      write(operator: .metatypeType, to: &output)
-      mangle(type: t.instance, to: &output)
-
+      append(metatype: t, to: &output)
     case let t as ParameterType:
-      write(operator: .parameterType, to: &output)
-      write(base64Digit: t.access, to: &output)
-      mangle(type: t.bareType, to: &output)
-
+      append(parameter: t, to: &output)
     case let t as ProductType:
-      write(operator: .productType, to: &output)
-      mangle(decl: AnyDeclID(t.decl), to: &output)
-
-      // End of sequence required because `t.decl` is a scope.
-      write(operator: .endOfSequence, to: &output)
-
+      append(product: t, to: &output)
     case let t as RemoteType:
-      write(operator: .remoteType, to: &output)
-      write(base64Digit: t.access, to: &output)
-      mangle(type: t.bareType, to: &output)
-
+      append(remote: t, to: &output)
     case let t as SubscriptType:
-      write(subscriptType: t, to: &output)
-
-    case let t as UnionType:
-      write(unionType: t, to: &output)
-
+      append(subscript: t, to: &output)
     case let t as TraitType:
-      write(operator: .traitType, to: &output)
-      mangle(decl: AnyDeclID(t.decl), to: &output)
-
-      // End of sequence required because `t.decl` is a scope.
-      write(operator: .endOfSequence, to: &output)
-
+      append(trait: t, to: &output)
     case let t as TupleType:
-      write(tupleType: t, to: &output)
-
+      append(tuple: t, to: &output)
+    case let t as UnionType:
+      append(union: t, to: &output)
     default:
       unreachable()
     }
-
-    symbolID[.type(s)] = nextSymbolID
-    nextSymbolID += 1
+    symbolPosition[n] = symbolPosition.count
   }
 
   /// Writes the mangled representation of `t` to `output`.
-  private mutating func write(associatedType t: AssociatedTypeType, to output: inout Output) {
-    write(operator: .associatedType, to: &output)
-    mangle(decl: t.decl, to: &output)
-    mangle(type: t.domain, to: &output)
+  private mutating func append(arrow t: ArrowType, to output: inout Output) {
+    append(operator: .arrowType, to: &output)
+    append(type: t.environment, to: &output)
+    append(items: t.inputs, to: &output) { (me, i, o) in
+      me.append(string: i.label ?? "", to: &o)
+      me.append(type: i.type, to: &o)
+    }
+    append(type: t.output, to: &output)
   }
 
-  /// Writes the mangled representation of `symbol` to `output`.
-  private mutating func write(boundGenericType t: BoundGenericType, to output: inout Output) {
-    write(operator: .boundGenericType, to: &output)
-    mangle(type: t.base, to: &output)
-    write(integer: t.arguments.count, to: &output)
-    for u in t.arguments.values {
-      mangle(value: u, to: &output)
+  /// Writes the mangled representation of `t` to `output`.
+  private mutating func append(associatedType t: AssociatedTypeType, to output: inout Output) {
+    append(operator: .associatedType, to: &output)
+    append(decl: t.decl, to: &output)
+    append(type: t.domain, to: &output)
+  }
+
+  /// Writes the mangled representation of `t` to `output`.
+  private mutating func append(boundGenericType t: BoundGenericType, to output: inout Output) {
+    append(operator: .boundGenericType, to: &output)
+    append(type: t.base, to: &output)
+    append(items: t.arguments.values, to: &output) { (me, v, o) in
+      me.append(value: v, to: &o)
     }
   }
 
   /// Writes the mangled representation of `t` to `output`.
-  private mutating func write(bufferType t: BufferType, to output: inout Output) {
-    write(operator: .bufferType, to: &output)
-    mangle(type: t.element, to: &output)
-    mangle(value: t.count, to: &output)
+  private mutating func append(buffer t: BufferType, to output: inout Output) {
+    append(operator: .bufferType, to: &output)
+    append(type: t.element, to: &output)
+    append(term: t.count, to: &output)
   }
 
-  /// Writes the mangled representation of `symbol` to `output`.
-  private mutating func write(builtinType t: BuiltinType, to output: inout Output) {
+  /// Writes the mangled representation of `z` to `output`.
+  private mutating func append(builtin t: BuiltinType, to output: inout Output) {
     switch t {
     case .i(let width):
-      write(operator: .builtinIntegerType, to: &output)
-      write(integer: width, to: &output)
+      append(operator: .builtinIntegerType, to: &output)
+      append(integer: width, to: &output)
     case .word:
-      write(operator: .builtinWordType, to: &output)
+      append(operator: .builtinWordType, to: &output)
     case .float16:
-      write(operator: .builtinFloatType, to: &output)
-      write(integer: 16, to: &output)
+      append(operator: .builtinFloatType, to: &output)
+      append(integer: 16, to: &output)
     case .float32:
-      write(operator: .builtinFloatType, to: &output)
-      write(integer: 32, to: &output)
+      append(operator: .builtinFloatType, to: &output)
+      append(integer: 32, to: &output)
     case .float64:
-      write(operator: .builtinFloatType, to: &output)
-      write(integer: 64, to: &output)
+      append(operator: .builtinFloatType, to: &output)
+      append(integer: 64, to: &output)
     case .float128:
-      write(operator: .builtinFloatType, to: &output)
-      write(integer: 128, to: &output)
+      append(operator: .builtinFloatType, to: &output)
+      append(integer: 128, to: &output)
     case .ptr:
-      write(operator: .builtinPointerType, to: &output)
+      append(operator: .builtinPointerType, to: &output)
     case .module:
-      write(operator: .builtinModuleType, to: &output)
+      append(operator: .builtinModuleType, to: &output)
     }
   }
 
-  /// Writes the mangled representation of `symbol` to `output`.
-  private mutating func write(existentialType t: ExistentialType, to output: inout Output) {
+  /// Writes the mangled representation of `t` to `output`.
+  private mutating func append(existential t: ExistentialType, to output: inout Output) {
     switch t.interface {
     case .metatype:
-      write(operator: .existentialMetatype, to: &output)
+      append(operator: .existentialMetatype, to: &output)
 
     case .generic(let interface):
-      write(operator: .existentialGenericType, to: &output)
-      mangle(type: interface, to: &output)
+      append(operator: .existentialGenericType, to: &output)
+      append(type: interface, to: &output)
 
     case .traits(let interface):
-      write(operator: .existentialTraitType, to: &output)
-      write(set: interface, to: &output) { (m, e) -> String in
-        var s = ""
-        m.mangle(type: ^e, to: &s)
-        return s
+      append(operator: .existentialTraitType, to: &output)
+      append(unordered: interface, to: &output) { (me, e, o) in
+        me.append(type: ^e, to: &o)
       }
     }
   }
 
-  /// Writes the mangled representation of `symbol` to `output`.
-  private mutating func write(arrow t: ArrowType, to output: inout Output) {
-    write(operator: .arrowType, to: &output)
-    mangle(type: t.environment, to: &output)
-
-    write(integer: t.inputs.count, to: &output)
-    for i in t.inputs {
-      write(string: i.label ?? "", to: &output)
-      mangle(type: i.type, to: &output)
-    }
-
-    mangle(type: t.output, to: &output)
+  /// Writes the mangled representation of `t` to `output`.
+  private mutating func append(
+    genericTypeParameter t: GenericTypeParameterType, to output: inout Output
+  ) {
+    append(operator: .genericTypeParameterType, to: &output)
+    append(decl: AnyDeclID(t.decl), to: &output)
   }
 
-  /// Writes the mangled representation of `symbol` to `output`.
-  private mutating func write(method t: MethodType, to output: inout Output) {
-    write(operator: .methodType, to: &output)
-    write(base64Digit: t.capabilities, to: &output)
-    mangle(type: t.receiver, to: &output)
-
-    write(integer: t.inputs.count, to: &output)
-    for i in t.inputs {
-      write(string: i.label ?? "", to: &output)
-      mangle(type: i.type, to: &output)
+  /// Writes the mangled representation of `t` to `output`.
+  private mutating func append(method t: MethodType, to output: inout Output) {
+    append(operator: .methodType, to: &output)
+    append(base64Digit: t.capabilities, to: &output)
+    append(type: t.receiver, to: &output)
+    append(items: t.inputs, to: &output) { (me, i, o) in
+      me.append(string: i.label ?? "", to: &o)
+      me.append(type: i.type, to: &o)
     }
-
-    mangle(type: t.output, to: &output)
+    append(type: t.output, to: &output)
   }
 
-  /// Writes the mangled representation of `symbol` to `output`.
-  private mutating func write(subscriptType t: SubscriptType, to output: inout Output) {
-    write(operator: .subscriptType, to: &output)
-    write(base64Digit: t.capabilities, to: &output)
-    mangle(type: t.environment, to: &output)
-
-    write(integer: t.inputs.count, to: &output)
-    for i in t.inputs {
-      write(string: i.label ?? "", to: &output)
-      mangle(type: i.type, to: &output)
-    }
-
-    mangle(type: t.output, to: &output)
+  /// Writes the mangled representation of `t` to `output`.
+  private mutating func append(metatype t: MetatypeType, to output: inout Output) {
+    append(operator: .metatypeType, to: &output)
+    append(type: t.instance, to: &output)
   }
 
-  /// Writes the mangled representation of `symbol` to `output`.
-  private mutating func write(tupleType t: TupleType, to output: inout Output) {
-    write(operator: .tupleType, to: &output)
+  /// Writes the mangled representation of `t` to `output`.
+  private mutating func append(parameter t: ParameterType, to output: inout Output) {
+    append(operator: .parameterType, to: &output)
+    append(base64Digit: t.access, to: &output)
+    append(type: t.bareType, to: &output)
+  }
 
-    write(integer: t.elements.count, to: &output)
-    for e in t.elements {
-      write(string: e.label ?? "", to: &output)
-      mangle(type: e.type, to: &output)
+  /// Writes the mangled representation of `t` to `output`.
+  private mutating func append(product t: ProductType, to output: inout Output) {
+    append(operator: .productType, to: &output)
+    append(decl: AnyDeclID(t.decl), to: &output)
+    append(operator: .endOfSequence, to: &output)
+  }
+
+  /// Writes the mangled representation of `t` to `output`.
+  private mutating func append(remote t: RemoteType, to output: inout Output) {
+    append(operator: .remoteType, to: &output)
+    append(base64Digit: t.access, to: &output)
+    append(type: t.bareType, to: &output)
+  }
+
+  /// Writes the mangled representation of `t` to `output`.
+  private mutating func append(subscript t: SubscriptType, to output: inout Output) {
+    append(operator: .subscriptType, to: &output)
+    append(base64Digit: t.capabilities, to: &output)
+    append(type: t.environment, to: &output)
+    append(items: t.inputs, to: &output) { (me, i, o) in
+      me.append(string: i.label ?? "", to: &o)
+      me.append(type: i.type, to: &o)
+    }
+    append(type: t.output, to: &output)
+  }
+
+  /// Writes the mangled representation of `t` to `output`.
+  private mutating func append(tuple t: TupleType, to output: inout Output) {
+    append(operator: .tupleType, to: &output)
+    append(items: t.elements, to: &output) { (me, e, o) in
+      me.append(string: e.label ?? "", to: &o)
+      me.append(type: e.type, to: &o)
     }
   }
 
-  /// Writes the mangled representation of `symbol` to `output`.
-  private mutating func write(unionType t: UnionType, to output: inout Output) {
-    write(operator: .unionType, to: &output)
-    write(set: t.elements, to: &output) { (m, e) -> String in
-      var s = ""
-      m.mangle(type: e, to: &s)
-      return s
-    }
+  /// Writes the mangled representation of `t` to `output`.
+  private mutating func append(trait t: TraitType, to output: inout Output) {
+    append(operator: .traitType, to: &output)
+    append(decl: AnyDeclID(t.decl), to: &output)
   }
 
-  /// If `symbol` is reserved or has already been inserted in the symbol lookup table, writes a
-  /// lookup reference to it and returns `true`; returns `false` otherwise.
-  private func writeLookup(_ symbol: Symbol, to output: inout Output) -> Bool {
-    if let r = reserved[symbol] {
-      write(operator: .reserved, to: &output)
-      r.write(to: &output)
-      return true
+  /// Writes the mangled representation of `t` to `output`.
+  private mutating func append(union t: UnionType, to output: inout Output) {
+    append(operator: .unionType, to: &output)
+    append(unordered: t.elements, to: &output) { (me, e, o) in
+      me.append(type: e, to: &o)
     }
-
-    if let i = symbolID[symbol] {
-      write(operator: .lookup, to: &output)
-      write(integer: i, to: &output)
-      return true
-    }
-
-    return false
   }
 
   /// Writes the mangled representation of `name` to `output`.
-  private func write(name: Name, to output: inout Output) {
+  private mutating func append(name: Name, to output: inout Output) {
     // Only encode notation and introducer; labels are encoded in types.
     var tag: UInt8 = 0
     if name.notation != nil { tag = 1 }
     if name.introducer != nil { tag = tag | 2 }
 
-    write(base64Didit: tag, to: &output)
+    append(base64Didit: tag, to: &output)
     if let n = name.notation {
-      write(base64Digit: n, to: &output)
+      append(base64Digit: n, to: &output)
     }
     if let i = name.introducer {
-      write(base64Digit: i, to: &output)
+      append(base64Digit: i, to: &output)
     }
-    write(string: name.stem, to: &output)
+    append(string: name.stem, to: &output)
   }
 
   /// Writes `string` to `output`, prefixed by its length encoded as a variable-length integer.
-  private func write<T: StringProtocol>(string: T, to output: inout Output) {
-    write(integer: string.count, to: &output)
-    string.write(to: &output)
+  private mutating func append<T: StringProtocol>(string: T, to output: inout Output) {
+    let s = String(string)
+
+    if s.isEmpty {
+      append(integer: 0, to: &output)
+    } else if let n = stringPosition[s] {
+      append(integer: 1, to: &output)
+      append(integer: n, to: &output)
+    } else {
+      append(integer: s.count + 2, to: &output)
+      string.write(to: &output)
+      stringPosition[s] = stringPosition.count
+    }
   }
 
   /// Writes `v` encoded as a variable-length integer to `output`.
-  private func write(integer v: Int, to output: inout Output) {
+  private func append(integer v: Int, to output: inout Output) {
     Base64VarUInt(v).write(to: &output)
   }
 
   /// Writes the raw value of `v` encoded as a base 64 digit to `output`.
-  private func write<T: RawRepresentable>(
-    base64Digit v: T, to output: inout Output
-  ) where T.RawValue == UInt8 {
-    write(base64Didit: v.rawValue, to: &output)
+  private func append<T: RawRepresentable<UInt8>>(base64Digit v: T, to output: inout Output) {
+    append(base64Didit: v.rawValue, to: &output)
   }
 
   /// Writes `v` encoded as a base 64 digit to `output`.
-  private func write(base64Didit v: UInt8, to output: inout Output) {
+  private func append(base64Didit v: UInt8, to output: inout Output) {
     Base64Digit(rawValue: v)!.description.write(to: &output)
   }
 
   /// Writes `o` to `output`.
-  private func write(operator o: ManglingOperator, to output: inout Output) {
+  private func append(operator o: ManglingOperator, to output: inout Output) {
     o.write(to: &output)
   }
 
-  /// Writes the mangled representation of `elements`, which is an unordered set, calling
-  /// `mangleElement` to mangle individual elements.
-  private mutating func write<S: Collection>(
-    set elements: S, to output: inout Output,
-    manglingElementsWith mangleElement: (inout Self, S.Element) -> String
+  /// Writes the mangled representation of `items`, calling `appendItem` to mangle each individual
+  /// element to `output`.
+  private mutating func append<T: Collection>(
+    items: T, to output: inout Output,
+    appendingEachWith appendItem: (inout Self, T.Element, inout Output) -> Void
   ) {
-    write(integer: elements.count, to: &output)
+    append(integer: items.count, to: &output)
+    for i in items {
+      appendItem(&self, i, &output)
+    }
+  }
 
+  /// Writes the mangled representation of `items`, which is an unordered set, calling `mangleItem`
+  /// to mangle each individual element.
+  private func append<T: Collection>(
+    unordered items: T, to output: inout Output,
+    manglingElementsWith mangleItem: (inout Self, T.Element, inout Output) -> Void
+  ) {
+    append(integer: items.count, to: &output)
     var mangled: [String] = []
-    for e in elements {
+    for e in items {
       // Copy `self` to share the symbol looking table built so far.
       var m = self
-      let s = mangleElement(&m, e)
+      var s = ""
+      mangleItem(&m, e, &s)
       let i = mangled.partitioningIndex(where: { s < $0 })
       mangled.insert(s, at: i)
     }
-
     mangled.joined().write(to: &output)
+  }
+
+  /// If `s` is reserved or has already been inserted in the symbol lookup table, writes a lookup
+  /// reference to it and returns `true`. Otherwise, returns `false`.
+  private func appendIf(reservedOrRecorded s: Symbol, to output: inout Output) -> Bool {
+    appendIf(reserved: s, to: &output) || appendIf(recorded: s, to: &output)
+  }
+
+  /// Writes a lookup reference to `s` and returns `true` iff `s` is a reserved symbol. Otherwise,
+  /// returns `false` without modifying `output`.
+  private func appendIf(reserved s: Symbol, to output: inout Output) -> Bool {
+    if let r = reserved[s] {
+      append(operator: .reserved, to: &output)
+      r.write(to: &output)
+      return true
+    } else {
+      return false
+    }
+  }
+
+  /// Writes a lookup reference to `s` and returns `true` iff `s` in the lookup table. Otherwise,
+  /// returns `false` without modifying `output`.
+  private func appendIf(recorded s: Symbol, to output: inout Output) -> Bool {
+    if let p = symbolPosition[s] {
+      append(operator: .lookup, to: &output)
+      append(integer: p, to: &output)
+      return true
+    } else {
+      return false
+    }
   }
 
 }

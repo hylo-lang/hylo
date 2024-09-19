@@ -65,10 +65,10 @@ final class ManglingTests: XCTestCase {
       }
       """
 
-    let input = SourceFile(synthesizedText: text, named: "main")
+    let input = SourceFile(synthesizedText: text)
     let (p, m) = try checkNoDiagnostic { (d) in
       var ast = try Utils.Host.hostedLibraryAST.get()
-      let main = try ast.makeModule("Main", sourceCode: [input], diagnostics: &d)
+      let main = try ast.loadModule("Main", parsing: [input], reportingDiagnosticsTo: &d)
       let base = ScopedProgram(ast)
       return (try TypedProgram(annotating: base, reportingDiagnosticsTo: &d), main)
     }
@@ -81,7 +81,7 @@ final class ManglingTests: XCTestCase {
       "Main.Stash",
       "Main.Stash.A",
       "Main.Angle.init",
-      "Main.Angle.degrees().inout",
+      "Main.Angle.degrees[].inout",
       "Main.français(_:label:).bar",
     ]
 
@@ -116,6 +116,10 @@ final class ManglingTests: XCTestCase {
     try assertDemangledOfMangled(
       ExistentialType(traits: [p.ast.core.movable.type], constraints: []),
       is: "any Hylo.Movable")
+  }
+
+  func testMonomorphized() {
+    XCTAssertNotNil(DemangledSymbol(Self.inputCase))
   }
 
 }

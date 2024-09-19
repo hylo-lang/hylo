@@ -1,4 +1,4 @@
-//- compileAndRun expecting: success
+//- compileAndRun expecting: .success
 
 // This program tests the dispatch behavior of calls to trait members. `P` declares a single
 // requirement `f` that is given a default implementation. Two conformances to `P` are defined:

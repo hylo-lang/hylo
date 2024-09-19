@@ -1,4 +1,4 @@
-//- typeCheck expecting: failure
+//- typeCheck expecting: .failure
 
 type A {
 
@@ -14,5 +14,5 @@ public fun main() {
   let a = A()
   let b: Int = a[0]
   let c: Float64 = a[0]
-  let d: Bool = a[0] //! diagnostic incompatible types 'Bool' and 'Int'
+  let d: Bool = a[0] //! diagnostic incompatible types 'Int' and 'Bool'
 }

@@ -1,4 +1,4 @@
-//- typeCheck expecting: failure
+//- typeCheck expecting: .failure
 
 fun check<T>(_ x: T) {}
 
@@ -9,7 +9,7 @@ public fun main() {
   let x1 = if true { 1 } else { 2 as Float64 }
   check<Float64>(x1)
 
-  //! @+1 diagnostic type 'Bool' does not conform to trait 'ExpressibleByIntegerLiteral'
+  //! @+1 diagnostic incompatible types 'Int' and 'Bool'
   let x2 = if true { 1 } else { false }
 
   //! @+1 diagnostic conditional expression has mismatching types 'Int' and 'Float64'

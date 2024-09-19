@@ -19,17 +19,19 @@ import Utils
 /// A namespace for the routines of Hylo's parser.
 public enum Parser {
 
-  /// Adds a parse of `input` to `ast` and returns its identity, reporting errors and warnings to
-  /// `diagnostics`.
+  /// Parses the contents of `input` as a translation unit, registering the identities of newly
+  /// formed ASTs in space `k` and reporting errors to `diagnostics`.
   ///
   /// - Throws: Diagnostics if syntax errors were encountered.
   public static func parse(
     _ input: SourceFile,
+    inNodeSpace k: Int,
     in ast: inout AST,
     diagnostics: inout DiagnosticSet
   ) throws -> TranslationUnit.ID {
     // Temporarily stash the AST and diagnostics in the parser state, avoiding CoW costs
-    var state = ParserState(ast: ast, lexer: Lexer(tokenizing: input), diagnostics: diagnostics)
+    var state = ParserState(
+      ast: ast, space: k, lexer: Lexer(tokenizing: input), reportingDiagnosticsTo: diagnostics)
     defer { diagnostics = state.diagnostics }
     diagnostics = DiagnosticSet()
 
@@ -971,6 +973,7 @@ public enum Parser {
     // Synthesize the `Self` parameter of the trait.
     let selfParameterDecl = state.insert(
       GenericParameterDecl(
+        introducer: SourceRepresentable(value: .type, range: introducer.site),
         identifier: SourceRepresentable(value: "Self", range: name.site),
         site: name.site))
     members.append(AnyDeclID(selfParameterDecl))
@@ -1221,13 +1224,7 @@ public enum Parser {
   static func parseParameterDecl(in state: inout ParserState) throws -> ParameterDecl.ID? {
     guard let interface = try parseParameterInterface(in: &state) else { return nil }
 
-    let annotation: ParameterTypeExpr.ID?
-    if state.take(.colon) != nil {
-      annotation = try state.expect("type expression", using: parseParameterTypeExpr(in:))
-    } else {
-      annotation = nil
-    }
-
+    let annotation = try parseAscription(in: &state, parseParameterTypeExpr(in:))
     let defaultValue = try parseDefaultValue(in: &state)
 
     let isImplicit = interface.implicitMarker != nil
@@ -1329,19 +1326,44 @@ public enum Parser {
     (genericParameter.and(zeroOrMany(take(.comma).and(genericParameter).second))
       .map({ (_, tree) -> [GenericParameterDecl.ID] in [tree.0] + tree.1 }))
 
-  static let genericParameter =
-    (maybe(typeAttribute).andCollapsingSoftFailures(take(.name))
-      .and(maybe(take(.colon).and(traitComposition)))
-      .and(maybe(take(.assign).and(expr)))
-      .map({ (state, tree) -> GenericParameterDecl.ID in
-        state.insert(
-          GenericParameterDecl(
-            identifier: state.token(tree.0.0.1),
-            conformances: tree.0.1?.1 ?? [],
-            defaultValue: tree.1?.1,
-            site: state.range(
-              from: tree.0.0.0?.site.startIndex ?? tree.0.0.1.site.startIndex)))
-      }))
+  static let genericParameter = Apply(parseGenericParameterDecl(in:))
+
+  private static func parseGenericParameterDecl(
+    in state: inout ParserState
+  ) throws -> GenericParameterDecl.ID? {
+    let i = parseGenericParameterIntroducer(in: &state)
+
+    guard let n = state.take(.name) else {
+      if i == nil {
+        return nil
+      } else {
+        try fail(.error(expected: "identifier", at: state.currentLocation))
+      }
+    }
+
+    let a = try parseAscription(in: &state, boundComposition.parse(_:))
+    let v = try parseDefaultValue(in: &state)
+
+    return state.insert(
+      GenericParameterDecl(
+        introducer: i,
+        identifier: state.token(n),
+        conformances: a ?? [],
+        defaultValue: v,
+        site: (i?.site ?? n.site).extended(upTo: state.currentIndex)))
+  }
+
+  private static func parseGenericParameterIntroducer(
+    in state: inout ParserState
+  ) -> SourceRepresentable<GenericParameterDecl.Introducer>? {
+    (state.take(.type) ?? state.take(nameTokenWithValue: "value")).map { (t) in
+      if t.kind == .type {
+        return .init(value: .type, range: t.site)
+      } else {
+        return .init(value: .value, range: t.site)
+      }
+    }
+  }
 
   static let conformanceList =
     (take(.colon).and(nameTypeExpr).and(zeroOrMany(take(.comma).and(nameTypeExpr).second))
@@ -1351,6 +1373,17 @@ public enum Parser {
   private static func parseDefaultValue(in state: inout ParserState) throws -> AnyExprID? {
     if state.take(.assign) != nil {
       return try state.expect("expression", using: parseExpr(in:))
+    } else {
+      return nil
+    }
+  }
+
+  /// Parses a colon and returns the result of `ascription` applied on `state`.
+  private static func parseAscription<T>(
+    in state: inout ParserState, _ ascription: (inout ParserState) throws -> T?
+  ) throws -> T? {
+    if state.take(.colon) != nil {
+      return try state.expect("type expression", using: ascription)
     } else {
       return nil
     }
@@ -1762,7 +1795,7 @@ public enum Parser {
     guard let introducer = state.take(.any) else { return nil }
 
     // Parse the parts of the expression.
-    let traits = try state.expect("trait composition", using: traitComposition)
+    let traits = try state.expect("trait composition", using: boundComposition)
     let clause = try whereClause.parse(&state)
 
     return state.insert(
@@ -2577,10 +2610,16 @@ public enum Parser {
       return AnyPatternID(p)
     }
 
-    // Attempt to parse a name pattern if we're in the context of a binding pattern.
+    // Attempt to parse a name or option pattern if we're in the context of a binding pattern.
     if state.contexts.last == .bindingPattern {
       if let p = try namePattern.parse(&state) {
-        return AnyPatternID(p)
+        if let mark = state.takePostfixQuestionMark() {
+          let s = state.ast[p].site.extended(toCover: mark.site)
+          let o = state.insert(OptionPattern(name: p, site: s))
+          return AnyPatternID(o)
+        } else {
+          return AnyPatternID(p)
+        }
       }
     }
 
@@ -2601,16 +2640,9 @@ public enum Parser {
     state.contexts.append(.bindingPattern)
     defer { state.contexts.removeLast() }
 
-    // Parse the subpattern.
+    // Parse the subpattern and its optional ascription.
     let subpattern = try state.expect("pattern", using: parsePattern(in:))
-
-    // Parse the type annotation, if any.
-    let annotation: AnyExprID?
-    if state.take(.colon) != nil {
-      annotation = try state.expect("type expression", using: parseExpr(in:))
-    } else {
-      annotation = nil
-    }
+    let annotation = try parseAscription(in: &state, parseExpr(in:))
 
     return state.insert(
       BindingPattern(
@@ -2926,29 +2958,14 @@ public enum Parser {
       try fail(.error("conditional binding requires an initializer", at: state.ast[d].site))
     }
 
-    let fallback = try state.expect("fallback", using: conditionalBindingFallback)
+    let fallback = try state.expect("fallback", using: braceStmt.parse)
     let s = state.insert(
-      CondBindingStmt(
+      ConditionalBindingStmt(
         binding: d,
         fallback: fallback,
         site: state.ast[d].site.extended(upTo: state.currentIndex)))
     return AnyStmtID(s)
   }
-
-  static let conditionalBindingFallback =
-    (conditionalBindingFallbackStmt.or(conditionalBindingFallbackExpr))
-
-  static let conditionalBindingFallbackExpr =
-    (expr.map({ (_, id) -> CondBindingStmt.Fallback in .expr(id) }))
-
-  static let conditionalBindingFallbackStmt =
-    (oneOf([
-      anyStmt(breakStmt),
-      anyStmt(continueStmt),
-      anyStmt(returnStmt),
-      anyStmt(braceStmt),
-    ])
-    .map({ (_, id) -> CondBindingStmt.Fallback in .exit(id) }))
 
   static let declStmt =
     (Apply(parseDecl)
@@ -2984,9 +3001,74 @@ public enum Parser {
 
   static let compilerConditionStmt = Apply(parseCompilerConditionStmt(in:))
 
-  private static func parseCompilerConditionStmt(in state: inout ParserState) throws -> AnyStmtID? {
-    let head = state.take(.poundIf)
-    return head != nil ? try parseCompilerConditionTail(head: head!, in: &state) : nil
+  private static func parseCompilerConditionStmt(
+    in state: inout ParserState
+  ) throws -> AnyStmtID? {
+    try state.take(.poundIf).map { (head) in
+      try parseCompilerConditionTail(head: head, in: &state)
+    }
+  }
+
+  /// Parses a logical connective from `state`.
+  private static func parseConnective(in state: inout ParserState) -> Connective? {
+    // Next token must be an operator.
+    guard let t = state.peek(), t.kind == .oper else { return nil }
+
+    // The value of the token must be either `||` or `&&`.
+    var r: Connective
+    switch t.site.text {
+    case "||":
+      r = .disjunction
+    case "&&":
+      r = .conjunction
+    default:
+      return nil
+    }
+
+    // Consume the token and "succeed".
+    _ = state.take()
+    return r
+  }
+
+  /// Parses a `Condition` for a `ConditionalCompilationStmt`.
+  private static func parseCondition(
+    in state: inout ParserState
+  ) throws -> ConditionalCompilationStmt.Condition {
+    return try condition(withInfixConnectiveStrongerOrEqualTo: .disjunction, in: &state)
+
+    /// Parses a condition as a proposition, a negation, or an infix sentence whose operator has
+    /// a precedence at least as strong as `p`.
+    func condition(
+      withInfixConnectiveStrongerOrEqualTo p: Connective,
+      in state: inout ParserState
+    ) throws -> ConditionalCompilationStmt.Condition {
+      var lhs = try parseCompilerCondition(in: &state)
+
+      while true {
+        // Tentatively parse a connective.
+        let backup = state.backup()
+        guard let c = parseConnective(in: &state) else { return lhs }
+
+        // Backtrack if the connective we got hasn't strong enough precedence.
+        if (c.rawValue < p.rawValue) {
+          state.restore(from: backup)
+          return lhs
+        }
+
+        // If we parsed `||` the RHS must be a conjunction. Otherwise it must be a proposition or
+        // negation. In either case we'll come back here to parse the remainder of the expression.
+        switch c {
+        case .disjunction:
+          let rhs = try condition(withInfixConnectiveStrongerOrEqualTo: .conjunction, in: &state)
+          lhs = .or(lhs, rhs)
+        case .conjunction:
+          let rhs = try parseCompilerCondition(in: &state)
+          lhs = .and(lhs, rhs)
+        }
+      }
+
+      return lhs
+    }
   }
 
   /// Parses a compiler condition structure, after the initial token (#if or #elseif).
@@ -2994,7 +3076,7 @@ public enum Parser {
     head: Token, in state: inout ParserState
   ) throws -> AnyStmtID {
     // Parse the condition.
-    let condition = try parseCompilerCondition(in: &state)
+    let condition = try parseCondition(in: &state)
 
     // Parse the body of the compiler condition.
     let stmts: [AnyStmtID]
@@ -3005,28 +3087,28 @@ public enum Parser {
       stmts = try parseConditionalCompilationBranch(in: &state)
     }
 
-    // The next token may be #endif, #else or #elseif.
+    // Parse the other branch(es) of the condition.
     let fallback: [AnyStmtID]
-    if state.take(.poundEndif) != nil {
+
+    switch state.peek()?.kind {
+    case .poundEndif:
       fallback = []
-    } else if state.take(.poundElse) != nil {
-      if condition.mayNotNeedParsing && condition.holds(for: state.ast.compilationConditions) {
-        try skipConditionalCompilationBranch(in: &state, stoppingAtElse: false)
-        fallback = []
-      } else {
-        fallback = try parseConditionalCompilationBranch(in: &state)
-      }
-      // Expect #endif.
       _ = try state.expect("'#endif'", using: { $0.take(.poundEndif) })
-    } else if let head2 = state.take(.poundElseif) {
+
+    case .poundElse, .poundElseif:
+      let h = state.take()!
       if condition.mayNotNeedParsing && condition.holds(for: state.ast.compilationConditions) {
         try skipConditionalCompilationBranch(in: &state, stoppingAtElse: false)
         fallback = []
-      } else {
-        // We continue with another conditional compilation statement.
-        fallback = [try parseCompilerConditionTail(head: head2, in: &state)]
+        _ = try state.expect("'#endif'", using: { $0.take(.poundEndif) })
+      } else if h.kind == .poundElse {
+        fallback = try parseConditionalCompilationBranch(in: &state)
+        _ = try state.expect("'#endif'", using: { $0.take(.poundEndif) })
+      } else{
+        fallback = [try parseCompilerConditionTail(head: h, in: &state)]
       }
-    } else {
+
+    default:
       try fail(.error(expected: "statement, #endif, #else or #elseif", at: state.currentLocation))
     }
 
@@ -3289,7 +3371,7 @@ public enum Parser {
 
       // bound-constraint
       if state.take(.colon) != nil {
-        let rhs = try state.expect("type expression", using: boundList)
+        let rhs = try state.expect("type expression", using: boundComposition)
         return SourceRepresentable(
           value: .bound(l: lhs, r: rhs),
           range: state.ast[lhs].site.extended(upTo: state.currentIndex))
@@ -3306,13 +3388,9 @@ public enum Parser {
           range: tree.0.site.extended(upTo: state.currentIndex))
       }))
 
-  static let traitComposition =
+  static let boundComposition =
     (nameTypeExpr.and(zeroOrMany(take(.ampersand).and(nameTypeExpr).second))
-      .map({ (state, tree) -> TraitComposition in [tree.0] + tree.1 }))
-
-  private static let boundList =
-    (expr.and(zeroOrMany(take(.ampersand).and(expr).second))
-      .map({ (state, tree) -> [AnyExprID] in [tree.0] + tree.1 }))
+      .map({ (state, tree) -> [NameExpr.ID] in [tree.0] + tree.1 }))
 
   // MARK: Attributes
 
@@ -3348,8 +3426,6 @@ public enum Parser {
 
     return nil
   }
-
-  static let typeAttribute = attribute("@type")
 
   static let valueAttribute = attribute("@value")
 
@@ -3487,6 +3563,17 @@ struct ParameterInterface {
 
   /// The implicit marker of the parameter, if any.
   let implicitMarker: Token?
+
+}
+
+/// A conjunction (`&&`) or disjunction (`||`) operator.
+enum Connective: Int {
+
+  /// The logical disjunction.
+  case disjunction
+
+  /// The logical conjunction.
+  case conjunction
 
 }
 
@@ -3723,35 +3810,6 @@ extension ParserState {
 
   fileprivate func token(_ t: Token) -> SourceRepresentable<Identifier> {
     .init(value: String(lexer.sourceCode[t.site]), range: t.site)
-  }
-
-}
-
-extension AST {
-
-  /// Imports and returns a new module with the given `name` from `sourceCode`, writing diagnostics
-  /// to `diagnostics`.
-  ///
-  /// - Parameter builtinModuleAccess: whether the module is allowed to access the builtin module.
-  public mutating func makeModule<S: Sequence>(
-    _ name: String, sourceCode: S,
-    builtinModuleAccess: Bool = false,
-    diagnostics: inout DiagnosticSet
-  ) throws -> ModuleDecl.ID where S.Element == SourceFile {
-    var translations: [TranslationUnit.ID] = []
-    for f in sourceCode {
-      do {
-        try translations.append(Parser.parse(f, in: &self, diagnostics: &diagnostics))
-      } catch _ as DiagnosticSet {
-        // Suppress the error until all files are parsed.
-      }
-    }
-
-    let m = insert(
-      ModuleDecl(name, sources: translations, builtinModuleAccess: builtinModuleAccess),
-      diagnostics: &diagnostics)
-    try diagnostics.throwOnError()
-    return m
   }
 
 }

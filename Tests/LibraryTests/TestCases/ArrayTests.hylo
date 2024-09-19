@@ -1,8 +1,15 @@
-//- compileAndRun expecting: success
+//- compileAndRun expecting: .success
 
 fun test_init_empty() {
   var d = Array<Int>()
   precondition(d.count() == 0)
+}
+
+fun test_init_with_buffer() {
+  let d = Array([21, 42])
+  precondition(d.count() == 2)
+  precondition(d[0] == 21)
+  precondition(d[1] == 42)
 }
 
 fun test_init_with_lambda() {
@@ -144,6 +151,7 @@ fun test_array_is_copyable() {
 
 public fun main() {
   test_init_empty()
+  test_init_with_buffer()
   test_init_with_lambda()
   test_append()
   test_insert_at()

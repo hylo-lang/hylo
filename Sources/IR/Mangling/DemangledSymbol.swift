@@ -1,7 +1,7 @@
 import Utils
 
 /// The demangled description of a or entity.
-public enum DemangledSymbol: Hashable {
+public indirect enum DemangledSymbol: Hashable {
 
   /// Creates an instance decoding the symbol mangled in `s`, returning `nil` if decoding failed.
   public init?(_ s: String) {
@@ -41,6 +41,15 @@ public enum DemangledSymbol: Hashable {
   /// The declaration of an entity or bundle.
   case entity(DemangledEntity)
 
+  /// A binding declaration.
+  case binding(names: [DemangledEntity])
+
+  /// A synthesized declaration.
+  case synthesized(DemangledSynthesizedFunction)
+
+  /// A monomorphized symbols.
+  case monomorphized(DemangledSymbol, arguments: [DemangledSymbol])
+
   /// A type.
   case type(DemangledType)
 
@@ -61,6 +70,12 @@ extension DemangledSymbol: CustomStringConvertible {
     switch self {
     case .entity(let e):
       return e.description
+    case .binding(let n):
+      return n.description
+    case .synthesized(let d):
+      return d.description
+    case .monomorphized(let e, let z):
+      return "\(e) for \(z)"
     case .type(let t):
       return t.description
     }

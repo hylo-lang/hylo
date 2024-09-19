@@ -39,19 +39,21 @@ extension Function {
 
     /// Creates the identity of the lowered form of `s`.
     init(_ s: SynthesizedFunctionDecl) {
+      precondition(s.type.isCanonical)
       self.value = .synthesized(s)
     }
 
     /// Creates the identity of the existentialized form of `base`.
-    public init(existentialized base: Function.ID) {
+    init(existentialized base: Function.ID) {
       self.value = .existentialized(base: base)
     }
 
     /// Creates the identity of the monomorphized form of `base` for `arguments`.
     ///
     /// - Requires: `arguments` is not empty.
-    public init(monomorphized base: Function.ID, for arguments: GenericArguments) {
+    init(monomorphized base: Function.ID, for arguments: GenericArguments) {
       precondition(!arguments.isEmpty)
+      precondition(arguments.allSatisfy(\.value.isCanonical))
       self.value = .monomorphized(base: base, arguments: arguments)
     }
 

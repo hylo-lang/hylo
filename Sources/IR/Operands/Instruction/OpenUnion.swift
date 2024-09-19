@@ -75,7 +75,7 @@ extension Module {
     at site: SourceRange
   ) -> OpenUnion {
     precondition(type(of: container).isAddress)
-    precondition(payload[.isCanonical])
+    precondition(payload.isCanonical)
     return .init(
       container: container,
       payloadType: payload,

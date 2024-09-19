@@ -15,7 +15,7 @@ public struct TraitType: TypeProtocol {
     self.name = Incidental(ast[decl].baseName)
   }
 
-  public var flags: TypeFlags { .isCanonical }
+  public var flags: ValueFlags { .init() }
 
 }
 

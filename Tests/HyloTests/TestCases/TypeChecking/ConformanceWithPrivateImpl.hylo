@@ -1,4 +1,4 @@
-//- typeCheck expecting: failure
+//- typeCheck expecting: .failure
 
 // Implementations of the requirements of a trait `P` in a type `A` must be exposed to the same
 // scopes as the conformance `A : P`.

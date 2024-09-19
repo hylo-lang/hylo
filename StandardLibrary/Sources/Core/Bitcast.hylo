@@ -14,5 +14,6 @@ public subscript unsafe_bitcast<T, U>(_ value: T): U {
 /// Returns `value` with its memory representation reinterpreted as a value of type `U`.
 public fun unsafe_bitcast<T, U: Movable>(consuming value: sink T) -> U {
   sink let p: PointerToMutable<U> = PointerToMutable(type_punning: mutable_pointer[to: &value])
+  Builtin.mark_uninitialized(value)
   return p.unsafe_pointee()
 }

@@ -99,17 +99,59 @@ public struct Module {
     }
   }
 
-  /// If `p` is a parameter, returns its passing convention. Otherwise, returns `nil`.
+  /// Returns `true` iff cannot be used to modify or update a value.
+  public func isBoundImmutably(_ p: Operand) -> Bool {
+    switch p {
+    case .parameter(let e, let i):
+      let f = e.function
+      return (entry(of: f) == e) && (passingConvention(parameter: i, of: f) == .let)
+    case .constant:
+      return false
+    case .register(let i):
+      return isBoundImmutably(register: i)
+    }
+  }
+
+  /// Returns `true` iff the result of `i` cannot be used to modify or update a value.
+  public func isBoundImmutably(register i: InstructionID) -> Bool {
+    switch self[i] {
+    case is AllocStack:
+      return false
+    case let s as AdvancedByBytes:
+      return isBoundImmutably(s.base)
+    case let s as Access:
+      return isBoundImmutably(s.source)
+    case let s as OpenCapture:
+      return s.isAccess(.let)
+    case is OpenUnion:
+      return false
+    case let s as PointerToAddress:
+      return s.isAccess(.let)
+    case let s as Project:
+      return s.projection.access == .let
+    case let s as SubfieldView:
+      return isBoundImmutably(s.recordAddress)
+    case let s as WrapExistentialAddr:
+      return isBoundImmutably(s.witness)
+    default:
+      return true
+    }
+  }
+
+  /// If `p` is a function parameter, returns its passing convention. Otherwise, returns `nil`.
   public func passingConvention(of p: Operand) -> AccessEffect? {
-    if case .parameter(let e, let i) = p {
-      assert(entry(of: e.function) == e)
-      return read(self[e.function].inputs) { (ps) in
-        // The last parameter of a function denotes its return value.
-        (i == ps.count) ? .set : ps[i].type.access
-      }
+    if case .parameter(let e, let i) = p, (entry(of: e.function) == e) {
+      return passingConvention(parameter: i, of: e.function)
     } else {
       return nil
     }
+  }
+
+  /// Returns the passing convention of the `i`-th parameter of `f`.
+  public func passingConvention(parameter i: Int, of f: Function.ID) -> AccessEffect {
+    // The last parameter of a function denotes its return value.
+    let ps = self[f].inputs
+    return (i == ps.count) ? .set : ps[i].type.access
   }
 
   /// Returns the scope in which `i` is used.
@@ -177,6 +219,20 @@ public struct Module {
     // Slow path: use the dominator tree.
     let d = DominatorTree(function: lhs.function, cfg: self[lhs.function].cfg(), in: self)
     return d.dominates(lhs.block, rhs.block)
+  }
+
+  /// Returns `true` if `i` is a deinitializer.
+  public func isDeinit(_ i: Function.ID) -> Bool {
+    switch i.value {
+    case .lowered(let d):
+      return FunctionDecl.ID(d).map({ (n) in program.ast[n].isDeinit }) ?? false
+    case .existentialized(let j):
+      return isDeinit(j)
+    case .monomorphized(let j, arguments: _):
+      return isDeinit(j)
+    case .synthesized(let d):
+      return d.kind == .deinitialize
+    }
   }
 
   /// Returns whether the IR in `self` is well-formed.
@@ -462,6 +518,16 @@ public struct Module {
     return demandDeclaration(lowering: conformanceToCopyable.implementations[d]!)
   }
 
+  /// Returns the IR function implementing the operator defined in `conformanceToEquatable`.
+  ///
+  /// - Parameter conformanceToEquatable: A conformance to `Equatable`.
+  mutating func demandEqualDeclaration(
+    definedBy conformanceToEquatable: FrontEnd.Conformance
+  ) -> Function.ID {
+    let d = program.ast.core.equatable.equal
+    return demandDeclaration(lowering: conformanceToEquatable.implementations[d]!)
+  }
+
   /// Returns a function reference to the implementation of the requirement `r` in `witness`.
   ///
   /// - Requires: `r` identifies a function or subscript requirement in the trait for which
@@ -507,12 +573,19 @@ public struct Module {
 
   /// Returns the lowered declarations of `d`'s parameters.
   private func loweredParameters(of d: FunctionDecl.ID) -> [Parameter] {
-    let captures = ArrowType(program[d].type)!.captures.lazy.map { (e) in
+    let declType = ArrowType(program[d].type)!
+    let captures = declType.captures.lazy.map { (e) in
       program.canonical(e.type, in: program[d].scope)
     }
+
     var result: [Parameter] = zip(program.captures(of: d), captures).map({ (c, e) in
-      .init(c, capturedAs: e)
+      if let t = RemoteType(e) {
+        return Parameter(decl: c, type: ParameterType(t))
+      } else {
+        return Parameter(decl: c, type: ParameterType(declType.receiverEffect, e))
+      }
     })
+
     result.append(contentsOf: program.ast[d].parameters.map(pairedWithLoweredType(parameter:)))
     return result
   }
@@ -537,11 +610,17 @@ public struct Module {
 
   /// Returns the lowered declarations of `d`'s parameters.
   private func loweredParameters(of d: SubscriptImpl.ID) -> [Parameter] {
-    let captures = SubscriptImplType(program[d].type)!.captures.lazy.map { (e) in
+    let declType = SubscriptImplType(program[d].type)!
+    let captures = declType.captures.lazy.map { (e) in
       program.canonical(e.type, in: program[d].scope)
     }
+
     var result: [Parameter] = zip(program.captures(of: d), captures).map({ (c, e) in
-      .init(c, capturedAs: e)
+      if let t = RemoteType(e) {
+        return Parameter(decl: c, type: ParameterType(t))
+      } else {
+        return Parameter(decl: c, type: ParameterType(declType.receiverEffect, e))
+      }
     })
 
     let bundle = SubscriptDecl.ID(program[d].scope)!
@@ -878,11 +957,9 @@ public struct Module {
     case let s as Access:
       return provenances(s.source)
     case let s as Project:
-      return s.operands.reduce(
-        into: [],
-        { (p, o) in
-          if type(of: o).isAddress { p.formUnion(provenances(o)) }
-        })
+      return s.operands.reduce(into: []) { (p, o) in
+        if type(of: o).isAddress { p.formUnion(provenances(o)) }
+      }
     case let s as SubfieldView:
       return provenances(s.recordAddress)
     case let s as WrapExistentialAddr:

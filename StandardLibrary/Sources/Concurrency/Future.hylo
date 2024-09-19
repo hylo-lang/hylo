@@ -1,5 +1,5 @@
 /// A future that cannot escape the local scope.
-public type Future<E: Movable & Deinitializable> {
+public type Future<E: Movable & Deinitializable>: Deinitializable {
 
   // TODO
   public typealias Result = Int

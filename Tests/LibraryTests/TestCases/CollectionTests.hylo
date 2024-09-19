@@ -1,4 +1,28 @@
-//- compileAndRun expecting: success
+//- compileAndRun expecting: .success
+
+conformance Int: Collection {
+
+  public typealias Element = Bool
+  public typealias Position = Int
+
+  public fun start_position() -> Int { 0 }
+  public fun end_position() -> Int { Int.bit_width() }
+  public fun position(after p: Int) -> Int { p + 1 }
+
+  public subscript(_ p: Int): Bool { (self & (1 << p)) != 0 }
+
+}
+
+fun test_count() {
+  let a = 0
+  precondition(a.count() == 64)
+}
+
+fun test_first_position() {
+  let a = 4
+  precondition(a.first_position(where: fun (_ x) { x.copy() }) == 2)
+  precondition(a.first_position(of: true) == 2)
+}
 
 fun test_reduce() {
   var a = Array<Int>()
@@ -31,6 +55,8 @@ fun test_all_satisfy() {
 }
 
 public fun main() {
+  test_count()
+  test_first_position()
   test_reduce()
   test_contains_where()
   test_all_satisfy()

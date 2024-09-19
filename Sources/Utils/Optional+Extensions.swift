@@ -7,9 +7,11 @@ extension Optional {
   }
 
   /// If `self` is `nil`, wraps and returns `newValue`; returns the wrapped value otherwise.
-  public mutating func setIfNil(_ newValue: @autoclosure () -> Wrapped) -> Wrapped {
+  public mutating func setIfNil(
+    _ newValue: @autoclosure () throws -> Wrapped
+  ) rethrows -> Wrapped {
     if let v = self { return v }
-    let v = newValue()
+    let v = try newValue()
     self = v
     return v
   }

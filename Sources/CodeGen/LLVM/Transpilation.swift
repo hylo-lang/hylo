@@ -4,42 +4,67 @@ import IR
 import SwiftyLLVM
 import Utils
 
+/// The state of a compilation from Hylo IR to LLVM IR.
+struct CodeGenerationContext {
+
+  /// The program containing the `module`.
+  let ir: IR.Program
+
+  /// The Hylo module being compiled.
+  let module: ModuleDecl.ID
+
+  /// A table from string constant to its representation in LLVM.
+  var strings = Trie<Data, SwiftyLLVM.GlobalVariable>()
+
+  /// Creates an instance for compiling `m`, which is a module of `p`.
+  init(forCompiling m: ModuleDecl.ID, of p: IR.Program) {
+    self.ir = p
+    self.module = m
+  }
+
+  /// Projects the contents of the Hylo module being compiled.
+  var source: IR.Module {
+    _read { yield ir.modules[module]! }
+  }
+
+}
+
 extension SwiftyLLVM.Module {
 
   /// Creates the LLVM transpilation of the Hylo IR module `m` in `ir`.
-  init(transpiling m: ModuleDecl.ID, from ir: IR.Program) {
-    let source = ir.modules[m]!
+  init(transpiling m: ModuleDecl.ID, in context: inout CodeGenerationContext) {
+    let source = context.ir.modules[m]!
     self.init(source.name)
 
     for t in source.productTypes {
-      _ = demandMetatype(of: ^t, usedIn: source, from: ir)
+      _ = demandMetatype(of: ^t, in: &context)
     }
     for t in source.traits {
-      _ = demandTrait(t, usedIn: source, from: ir)
+      _ = demandTrait(t, in: &context)
     }
     for a in source.allocations {
-      incorporate(a, of: source, from: ir)
+      incorporate(a, in: &context)
     }
     for f in source.functions.keys {
-      incorporate(f, of: source, from: ir)
+      incorporate(f, in: &context)
     }
   }
 
   /// Transpiles and incorporates `f`, which is a function or subscript of `m` in `ir`.
-  mutating func incorporate(_ f: IR.Function.ID, of m: IR.Module, from ir: IR.Program) {
+  mutating func incorporate(_ f: IR.Function.ID, in context: inout CodeGenerationContext) {
     // Don't transpile generic functions.
-    if m[f].isGeneric {
+    if context.source[f].isGeneric {
       return
     }
 
-    if m[f].isSubscript {
-      let d = declareSubscript(transpiledFrom: f, of: m, from: ir)
-      transpile(contentsOf: f, of: m, from: ir, into: d)
+    if context.source[f].isSubscript {
+      let d = declareSubscript(transpiledFrom: f, in: &context)
+      transpile(contentsOf: f, into: d, inContext: &context)
     } else {
-      let d = declareFunction(transpiledFrom: f, of: m, from: ir)
-      transpile(contentsOf: f, of: m, from: ir, into: d)
-      if f == m.entryFunction {
-        defineMain(calling: f, of: m, from: ir)
+      let d = declareFunction(transpiledFrom: f, in: &context)
+      transpile(contentsOf: f, into: d, inContext: &context)
+      if f == context.source.entryFunction {
+        defineMain(calling: f, in: &context)
       }
     }
   }
@@ -49,19 +74,19 @@ extension SwiftyLLVM.Module {
   /// The storage is allocated along with a flag keeping track of its initialization state. Access
   /// is provided by an addressor that initializes the storage the first time it is called using
   /// `s.initializer`.
-  private mutating func incorporate(_ s: StaticStorage, of m: IR.Module, from ir: IR.Program) {
-    let prefix = ir.base.mangled(s.id)
+  private mutating func incorporate(_ s: StaticStorage, in context: inout CodeGenerationContext) {
+    let prefix = context.ir.base.mangled(s.id)
 
     // Define the static allocation.
-    let t = ir.llvm(s.pointee, in: &self)
+    let t = context.ir.llvm(s.pointee, in: &self)
     let u = SwiftyLLVM.StructType(named: prefix + ".T", [t, self.i1], in: &self)
     let storage = addGlobalVariable(prefix + ".S", u)
     setInitializer(u.null, for: storage)
     setLinkage(.private, for: storage)
 
     // Define the addressor projecting the allocated access.
-    incorporate(s.initializer, of: m, from: ir)
-    let initializer = function(named: ir.llvmName(of: s.initializer))!
+    incorporate(s.initializer, in: &context)
+    let initializer = function(named: context.ir.llvmName(of: s.initializer))!
     let addressor = declareFunction(prefix, .init(from: [], to: ptr, in: &self))
 
     let entry = appendBlock(to: addressor)
@@ -86,7 +111,7 @@ extension SwiftyLLVM.Module {
     // store true, %1
     // br b0
     insertionPoint = endOf(b1)
-    let x3 = insertAlloca(ir.llvm(AnyType.void, in: &self), at: insertionPoint)
+    let x3 = insertAlloca(context.ir.llvm(AnyType.void, in: &self), at: insertionPoint)
     _ = insertCall(initializer, on: [x0, x3], at: insertionPoint)
     _ = insertStore(i1.constant(1), to: x1, at: insertionPoint)
     insertBr(to: b0, at: insertionPoint)
@@ -103,22 +128,20 @@ extension SwiftyLLVM.Module {
   /// function named "main", taking no parameter and returning either `Void` or `Int32`. `f` will
   /// be linked privately in `m`.
   private mutating func defineMain(
-    calling f: IR.Function.ID,
-    of m: IR.Module,
-    from ir: IR.Program
+    calling f: IR.Function.ID, in context: inout CodeGenerationContext
   ) {
     let main = declareFunction("main", FunctionType(from: [], to: i32, in: &self))
 
     let b = appendBlock(to: main)
     let p = endOf(b)
 
-    let transpilation = function(named: ir.llvmName(of: f))!
+    let transpilation = function(named: context.ir.llvmName(of: f))!
     setLinkage(.private, for: transpilation)
 
-    let int32 = ir.ast.coreType("Int32")!
-    switch m[f].output {
+    let int32 = context.ir.ast.coreType("Int32")!
+    switch context.source[f].output {
     case int32:
-      let t = StructType(ir.llvm(int32, in: &self))!
+      let t = StructType(context.ir.llvm(int32, in: &self))!
       let s = insertAlloca(t, at: p)
       _ = insertCall(transpilation, on: [s], at: p)
 
@@ -127,7 +150,7 @@ extension SwiftyLLVM.Module {
       insertReturn(status, at: p)
 
     default:
-      let t = ir.llvm(AnyType.void, in: &self)
+      let t = context.ir.llvm(AnyType.void, in: &self)
       let s = insertAlloca(t, at: p)
       _ = insertCall(transpilation, on: [s], at: p)
       insertReturn(i32.zero, at: p)
@@ -218,23 +241,21 @@ extension SwiftyLLVM.Module {
 
   /// Returns the LLVM IR value corresponding to the Hylo IR constant `c` when used in `m` in `ir`.
   private mutating func transpiledConstant(
-    _ c: any IR.Constant,
-    usedIn m: IR.Module,
-    from ir: IR.Program
+    _ c: any IR.Constant, in context: inout CodeGenerationContext
   ) -> SwiftyLLVM.IRValue {
     switch c {
     case let v as IR.WordConstant:
-      return transpiledConstant(v, usedIn: m, from: ir)
+      return transpiledConstant(v, in: &context)
     case let v as IR.IntegerConstant:
-      return transpiledConstant(v, usedIn: m, from: ir)
+      return transpiledConstant(v, in: &context)
     case let v as IR.FloatingPointConstant:
-      return transpiledConstant(v, usedIn: m, from: ir)
+      return transpiledConstant(v, in: &context)
     case let v as IR.WitnessTable:
-      return transpiledWitnessTable(v, usedIn: m, from: ir)
+      return transpiledWitnessTable(v, in: &context)
     case let v as IR.FunctionReference:
-      return declare(v, from: ir)
+      return declare(v, from: context.ir)
     case let v as MetatypeType:
-      return demandMetatype(of: v.instance, usedIn: m, from: ir)
+      return demandMetatype(of: v.instance, in: &context)
     case is IR.VoidConstant:
       return SwiftyLLVM.StructConstant(aggregating: [], in: &self)
     default:
@@ -244,14 +265,14 @@ extension SwiftyLLVM.Module {
 
   /// Returns the LLVM IR value corresponding to the Hylo IR constant `c` when used in `m` in `ir`.
   private mutating func transpiledConstant(
-    _ c: IR.WordConstant, usedIn m: IR.Module, from ir: IR.Program
+    _ c: IR.WordConstant, in context: inout CodeGenerationContext
   ) -> SwiftyLLVM.IRValue {
     word().constant(c.value)
   }
 
   /// Returns the LLVM IR value corresponding to the Hylo IR constant `c` when used in `m` in `ir`.
   private mutating func transpiledConstant(
-    _ c: IR.IntegerConstant, usedIn m: IR.Module, from ir: IR.Program
+    _ c: IR.IntegerConstant, in context: inout CodeGenerationContext
   ) -> SwiftyLLVM.IRValue {
     guard c.value.bitWidth <= 64 else { UNIMPLEMENTED() }
     let t = SwiftyLLVM.IntegerType(c.value.bitWidth, in: &self)
@@ -260,17 +281,15 @@ extension SwiftyLLVM.Module {
 
   /// Returns the LLVM IR value corresponding to the Hylo IR constant `c` when used in `m` in `ir`.
   private mutating func transpiledConstant(
-    _ c: IR.FloatingPointConstant, usedIn m: IR.Module, from ir: IR.Program
+    _ c: IR.FloatingPointConstant, in context: inout CodeGenerationContext
   ) -> SwiftyLLVM.IRValue {
-    let t = SwiftyLLVM.FloatingPointType(ir.llvm(c.type.ast, in: &self))!
+    let t = SwiftyLLVM.FloatingPointType(context.ir.llvm(c.type.ast, in: &self))!
     return t.constant(parsing: c.value)
   }
 
   /// Returns the LLVM IR value of the witness table `t` used in `m` in `ir`.
   private mutating func transpiledWitnessTable(
-    _ t: WitnessTable,
-    usedIn m: IR.Module,
-    from ir: IR.Program
+    _ t: WitnessTable, in context: inout CodeGenerationContext
   ) -> SwiftyLLVM.IRValue {
     // A witness table is composed of a header, a trait map, and a (possibly empty) sequence of
     // implementation maps. All parts are laid out inline without any padding.
@@ -286,7 +305,7 @@ extension SwiftyLLVM.Module {
 
     // Encode the table's header.
     var tableContents: [SwiftyLLVM.IRValue] = [
-      demandMetatype(of: t.witness, usedIn: m, from: ir),
+      demandMetatype(of: t.witness, in: &context),
       word().constant(t.conformances.count),
     ]
 
@@ -295,15 +314,15 @@ extension SwiftyLLVM.Module {
     var implementations: [SwiftyLLVM.IRValue] = []
     for c in t.conformances {
       let entry: [SwiftyLLVM.IRValue] = [
-        demandTrait(c.concept, usedIn: m, from: ir),
+        demandTrait(c.concept, in: &context),
         word().constant(implementations.count),
       ]
       entries.append(SwiftyLLVM.StructConstant(aggregating: entry, in: &self))
 
       for (r, d) in c.implementations {
         let requirement: [SwiftyLLVM.IRValue] = [
-          word().constant(r.rawValue),
-          transpiledRequirementImplementation(d, from: ir),
+          word().constant(r.rawValue.bits),
+          transpiledRequirementImplementation(d, from: context.ir),
         ]
         implementations.append(SwiftyLLVM.StructConstant(aggregating: requirement, in: &self))
       }
@@ -322,12 +341,13 @@ extension SwiftyLLVM.Module {
     if !implementations.isEmpty {
       tableContents.append(
         SwiftyLLVM.ArrayConstant(
-          of: SwiftyLLVM.StructType([word(), ptr], in: &self), containing: implementations, in: &self))
+          of: SwiftyLLVM.StructType([word(), ptr], in: &self), containing: implementations,
+          in: &self))
     }
 
     let table = SwiftyLLVM.StructConstant(aggregating: tableContents, in: &self)
 
-    let g = declareGlobalVariable(ir.base.mangled(t), table.type)
+    let g = declareGlobalVariable(context.ir.base.mangled(t), table.type)
     setInitializer(table, for: g)
     setLinkage(.linkOnce, for: g)
     setGlobalConstant(true, for: g)
@@ -348,13 +368,13 @@ extension SwiftyLLVM.Module {
 
   /// Returns the LLVM IR value of the metatype `t` used in `m` in `ir`.
   private mutating func demandMetatype(
-    of t: AnyType, usedIn m: IR.Module, from ir: IR.Program
+    of t: AnyType, in context: inout CodeGenerationContext
   ) -> SwiftyLLVM.GlobalVariable {
-    demandMetatype(of: t, usedIn: m, from: ir) { (me, v) in
+    demandMetatype(of: t, in: &context) { (me, c, v) in
       if let u = ProductType(t) {
-        me.initializeTranspiledProductTypeMetatype(v, of: u, usedIn: m, from: ir)
+        me.initializeTranspiledProductTypeMetatype(v, of: u, in: &c)
       } else {
-        me.initializeTranspiledMetatype(v, of: t, usedIn: m, from: ir)
+        me.initializeTranspiledMetatype(v, of: t, in: &c)
       }
     }
   }
@@ -362,11 +382,11 @@ extension SwiftyLLVM.Module {
   /// Initializes `instance` with the value of the metatype of `t` used in `m` in `ir`.
   private mutating func initializeTranspiledMetatype<T: TypeProtocol>(
     _ instance: SwiftyLLVM.GlobalVariable,
-    of t: T, usedIn m: IR.Module, from ir: IR.Program
+    of t: T, in context: inout CodeGenerationContext
   ) {
     setLinkage(.linkOnce, for: instance)
 
-    let layout = ConcreteTypeLayout(of: ^t, definedIn: ir, forUseIn: &self)
+    let layout = ConcreteTypeLayout(of: ^t, definedIn: context.ir, forUseIn: &self)
     let v = SwiftyLLVM.StructType(instance.valueType)!.constant(
       aggregating: [
         word().constant(layout.size),
@@ -383,18 +403,18 @@ extension SwiftyLLVM.Module {
   /// Initializes `instance` with the value of the metatype of `t` used in `m` in `ir`.
   private mutating func initializeTranspiledProductTypeMetatype(
     _ instance: SwiftyLLVM.GlobalVariable,
-    of t: ProductType, usedIn m: IR.Module, from ir: IR.Program
+    of t: ProductType, in context: inout CodeGenerationContext
   ) {
     // Initialize the instance if it's being used in the module defining `t`. Otherwise, simply let
     // the symbol be linked to its definition later.
-    if m.id != ir.base.module(containing: t.decl) { return }
+    if context.module != context.ir.base.module(containing: t.decl) { return }
 
     // If `t` is generic, its metatype is only a stub.
     let layout: ConcreteTypeLayout
-    if !ir.base[t.decl].genericParameters.isEmpty {
+    if !context.ir.base[t.decl].genericParameters.isEmpty {
       layout = ConcreteTypeLayout(size: 0, alignment: 0)
     } else {
-      layout = ConcreteTypeLayout(of: ^t, definedIn: ir, forUseIn: &self)
+      layout = ConcreteTypeLayout(of: ^t, definedIn: context.ir, forUseIn: &self)
     }
 
     let v = SwiftyLLVM.StructType(instance.valueType)!.constant(
@@ -413,24 +433,26 @@ extension SwiftyLLVM.Module {
   /// Returns the LLVM IR value of `t` used in `m` in `ir`, calling `initializeInstance` to
   /// initialize it.
   private mutating func demandMetatype<T: TypeProtocol>(
-    of t: T, usedIn m: IR.Module, from ir: IR.Program,
-    initializedWith initializeInstance: (inout Self, SwiftyLLVM.GlobalVariable) -> Void
+    of t: T, in context: inout CodeGenerationContext,
+    initializedWith initializeInstance: (
+      inout Self, inout CodeGenerationContext, SwiftyLLVM.GlobalVariable
+    ) -> Void
   ) -> SwiftyLLVM.GlobalVariable {
-    let globalName = ir.base.mangled(t)
+    let globalName = context.ir.base.mangled(t)
     if let g = global(named: globalName) { return g }
 
     let metatype = metatypeType()
     let instance = declareGlobalVariable(globalName, metatype)
-    initializeInstance(&self, instance)
+    initializeInstance(&self, &context, instance)
     return instance
   }
 
   /// Returns the LLVM IR value of `t` used in `m` in `ir`.
   private mutating func demandTrait(
-    _ t: TraitType, usedIn m: IR.Module, from ir: IR.Program
+    _ t: TraitType, in context: inout CodeGenerationContext
   ) -> SwiftyLLVM.GlobalVariable {
     // Check if we already created the trait's instance.
-    let globalName = ir.base.mangled(t)
+    let globalName = context.ir.base.mangled(t)
     if let g = global(named: globalName) {
       return g
     }
@@ -438,7 +460,7 @@ extension SwiftyLLVM.Module {
     // Initialize the instance if it's being used in the module defining `t`. Otherwise, simply
     // declare the symbol and let it be linked later.
     let instance = declareGlobalVariable(globalName, ptr)
-    if m.id != ir.base.module(containing: t.decl) {
+    if context.module != context.ir.base.module(containing: t.decl) {
       return instance
     }
 
@@ -463,36 +485,41 @@ extension SwiftyLLVM.Module {
 
   /// Inserts and returns the transpiled declaration of `f`, which is a function of `m` in `ir`.
   private mutating func declareFunction(
-    transpiledFrom f: IR.Function.ID, of m: IR.Module, from ir: IR.Program
+    transpiledFrom f: IR.Function.ID, in context: inout CodeGenerationContext
   ) -> SwiftyLLVM.Function {
-    precondition(!m[f].isSubscript)
+    precondition(!context.source[f].isSubscript)
 
     // Parameters and return values are passed by reference.
-    let parameters = Array(repeating: ptr as SwiftyLLVM.IRType, count: m[f].inputs.count + 1)
-    let transpilation = declareFunction(ir.llvmName(of: f), .init(from: parameters, in: &self))
+    let parameters = Array(
+      repeating: ptr as SwiftyLLVM.IRType, count: context.source[f].inputs.count + 1)
+    let transpilation = declareFunction(
+      context.ir.llvmName(of: f), .init(from: parameters, in: &self))
 
-    configureAttributes(transpilation, transpiledFrom: f, of: m)
-    configureInputAttributes(transpilation.parameters.dropLast(), transpiledFrom: f, in: m)
+    configureAttributes(transpilation, transpiledFrom: f, of: context.source)
+    configureInputAttributes(
+      transpilation.parameters.dropLast(), transpiledFrom: f, in: context.source)
 
     return transpilation
   }
 
   /// Inserts and returns the transpiled declaration of `f`, which is a subscript of `m` in `ir`.
   private mutating func declareSubscript(
-    transpiledFrom f: IR.Function.ID, of m: IR.Module, from ir: IR.Program
+    transpiledFrom f: IR.Function.ID, in context: inout CodeGenerationContext
   ) -> SwiftyLLVM.Function {
-    precondition(m[f].isSubscript)
+    precondition(context.source[f].isSubscript)
 
     // Parameters are a buffer for the subscript frame followed by its declared parameters. Return
     // type is a pair `(c, p)` where `c` points to a subscript slide and `p` is the address of the
     // projected value.
     let r = SwiftyLLVM.StructType([ptr, ptr], in: &self)
-    let parameters = Array(repeating: ptr as SwiftyLLVM.IRType, count: m[f].inputs.count + 1)
+    let parameters = Array(
+      repeating: ptr as SwiftyLLVM.IRType, count: context.source[f].inputs.count + 1)
     let transpilation = declareFunction(
-      ir.llvmName(of: f), .init(from: parameters, to: r, in: &self))
+      context.ir.llvmName(of: f), .init(from: parameters, to: r, in: &self))
 
-    configureAttributes(transpilation, transpiledFrom: f, of: m)
-    configureInputAttributes(transpilation.parameters.dropFirst(), transpiledFrom: f, in: m)
+    configureAttributes(transpilation, transpiledFrom: f, of: context.source)
+    configureInputAttributes(
+      transpilation.parameters.dropFirst(), transpiledFrom: f, in: context.source)
 
     return transpilation
   }
@@ -550,12 +577,11 @@ extension SwiftyLLVM.Module {
   /// of `m` in `ir`.
   private mutating func transpile(
     contentsOf f: IR.Function.ID,
-    of m: IR.Module,
-    from ir: IR.Program,
-    into transpilation: SwiftyLLVM.Function
+    into transpilation: SwiftyLLVM.Function,
+    inContext context: inout CodeGenerationContext
   ) {
     /// The function's entry.
-    guard let entry = m[f].entry else { return }
+    guard let entry = context.source[f].entry else { return }
 
     /// Where new LLVM IR instruction are inserted.
     var insertionPoint: SwiftyLLVM.InsertionPoint!
@@ -581,7 +607,7 @@ extension SwiftyLLVM.Module {
 
     // In subscripts, parameters are laid out after the frame buffer.
     let parameterOffset: Int
-    if m[f].isSubscript {
+    if context.source[f].isSubscript {
       parameterOffset = 1
       frame = insertSubscriptPrologue(into: transpilation)
     } else {
@@ -589,19 +615,19 @@ extension SwiftyLLVM.Module {
       frame = nil
     }
 
-    for i in m[m.entry(of: f)!].inputs.indices {
+    for i in context.source[context.source.entry(of: f)!].inputs.indices {
       let o = Operand.parameter(.init(f, entry), i)
       let s = transpilation.parameters[parameterOffset + i]
       register[o] = s
     }
 
-    for b in m.blocks(in: f) {
+    for b in context.source.blocks(in: f) {
       block[b] = appendBlock(named: b.description, to: transpilation)
     }
 
-    for b in m.blocks(in: f) {
+    for b in context.source.blocks(in: f) {
       insertionPoint = endOf(block[b]!)
-      for i in m.instructions(in: b) {
+      for i in context.source.instructions(in: b) {
         insert(i)
       }
     }
@@ -610,7 +636,7 @@ extension SwiftyLLVM.Module {
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(_ i: IR.InstructionID) {
-      switch m[i] {
+      switch context.source[i] {
       case is IR.AddressToPointer:
         insert(addressToPointer: i)
       case is IR.AdvancedByBytes:
@@ -673,6 +699,8 @@ extension SwiftyLLVM.Module {
         insert(switch: i)
       case is IR.UnionDiscriminator:
         insert(unionDiscriminator: i)
+      case is IR.UnionSwitch:
+        insert(unionSwitch: i)
       case is IR.Unreachable:
         insert(unreachable: i)
       case is IR.WrapExistentialAddr:
@@ -686,13 +714,13 @@ extension SwiftyLLVM.Module {
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(addressToPointer i: IR.InstructionID) {
-      let s = m[i] as! AddressToPointer
+      let s = context.source[i] as! AddressToPointer
       register[.register(i)] = llvm(s.source)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(advancedByBytes i: IR.InstructionID) {
-      let s = m[i] as! AdvancedByBytes
+      let s = context.source[i] as! AdvancedByBytes
 
       let base = llvm(s.base)
       let v = insertGetElementPointerInBounds(
@@ -702,10 +730,10 @@ extension SwiftyLLVM.Module {
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(advancedByStrides i: IR.InstructionID) {
-      let s = m[i] as! AdvancedByStrides
+      let s = context.source[i] as! AdvancedByStrides
 
       let base = llvm(s.base)
-      let baseType = ir.llvm(m.type(of: s.base).ast, in: &self)
+      let baseType = context.ir.llvm(context.source.type(of: s.base).ast, in: &self)
       let indices = [i32.constant(0), i32.constant(s.offset)]
       let v = insertGetElementPointerInBounds(
         of: base, typed: baseType, indices: indices, at: insertionPoint)
@@ -714,8 +742,8 @@ extension SwiftyLLVM.Module {
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(allocStack i: IR.InstructionID) {
-      let s = m[i] as! AllocStack
-      let t = ir.llvm(s.allocatedType, in: &self)
+      let s = context.source[i] as! AllocStack
+      let t = context.ir.llvm(s.allocatedType, in: &self)
       if layout.storageSize(of: t) == 0 {
         register[.register(i)] = ptr.null
       } else {
@@ -725,19 +753,19 @@ extension SwiftyLLVM.Module {
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(access i: IR.InstructionID) {
-      let s = m[i] as! Access
+      let s = context.source[i] as! Access
       register[.register(i)] = llvm(s.source)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(branch i: IR.InstructionID) {
-      let s = m[i] as! Branch
+      let s = context.source[i] as! Branch
       insertBr(to: block[s.target]!, at: insertionPoint)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(call i: IR.InstructionID) {
-      let s = m[i] as! Call
+      let s = context.source[i] as! Call
       var arguments: [SwiftyLLVM.IRValue] = []
 
       // Callee is evaluated first; environment is passed before explicit arguments.
@@ -752,14 +780,16 @@ extension SwiftyLLVM.Module {
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(callFFI i: IR.InstructionID) {
-      let s = m[i] as! CallFFI
-      let parameters = s.operands.map({ ir.llvm(m.type(of: $0).ast, in: &self) })
+      let s = context.source[i] as! CallFFI
+      let parameters = s.operands.map { (o) in
+        context.ir.llvm(context.source.type(of: o).ast, in: &self)
+      }
 
       let returnType: SwiftyLLVM.IRType
       if s.returnType.ast.isVoidOrNever {
         returnType = void
       } else {
-        returnType = ir.llvm(s.returnType.ast, in: &self)
+        returnType = context.ir.llvm(s.returnType.ast, in: &self)
       }
 
       let callee = declareFunction(s.callee, .init(from: parameters, to: returnType, in: &self))
@@ -769,21 +799,21 @@ extension SwiftyLLVM.Module {
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(captureIn i: IR.InstructionID) {
-      let s = m[i] as! CaptureIn
+      let s = context.source[i] as! CaptureIn
       insertStore(llvm(s.source), to: llvm(s.target), at: insertionPoint)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(closeUnion i: IR.InstructionID) {
-      let s = m[i] as! CloseUnion
-      let open = m[s.start.instruction!] as! OpenUnion
+      let s = context.source[i] as! CloseUnion
+      let open = context.source[s.start.instruction!] as! OpenUnion
 
       // TODO: Memoize somehow
-      let t = UnionType(m.type(of: open.container).ast)!
-      let e = m.program.discriminatorToElement(in: t)
+      let t = UnionType(context.source.type(of: open.container).ast)!
+      let e = context.ir.base.discriminatorToElement(in: t)
       let n = e.firstIndex(of: open.payloadType)!
 
-      let baseType = ir.llvm(unionType: t, in: &self)
+      let baseType = context.ir.llvm(unionType: t, in: &self)
       let container = llvm(open.container)
       let indices = [i32.constant(0), i32.constant(1)]
       let discriminator = insertGetElementPointerInBounds(
@@ -793,7 +823,7 @@ extension SwiftyLLVM.Module {
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(constantString i: IR.InstructionID) {
-      let s = m[i] as! ConstantString
+      let s = context.source[i] as! ConstantString
       let count = s.value.count
 
       // Contents fit inline storage.
@@ -807,7 +837,14 @@ extension SwiftyLLVM.Module {
         register[.register(i)] = i64.constant(units)
       }
 
-      // Contents require out-of-line storage.
+      // Contents has already been incorporated in the module.
+      else if let storage = context.strings[s.value] {
+        let x0 = insertPtrToInt(storage, to: i64, at: insertionPoint)
+        let x1 = insertBitwiseOr(x0, i64(0b11), at: insertionPoint)
+        register[.register(i)] = x1
+      }
+
+      // Contents require new out-of-line storage.
       else {
         let w = word()
 
@@ -817,10 +854,11 @@ extension SwiftyLLVM.Module {
           aggregating: [w(count), w(count), payload] as [IRValue],
           in: &self)
 
-        let storage = declareGlobalVariable(UUID().uuidString, storageType)
+        let storage = declareGlobalVariable("_" + UUID().uuidString, storageType)
         setInitializer(storageValue, for: storage)
         setLinkage(.private, for: storage)
         setGlobalConstant(true, for: storage)
+        context.strings[s.value] = storage
 
         let x0 = insertPtrToInt(storage, to: i64, at: insertionPoint)
         let x1 = insertBitwiseOr(x0, i64(0b11), at: insertionPoint)
@@ -830,7 +868,7 @@ extension SwiftyLLVM.Module {
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(condBranch i: IR.InstructionID) {
-      let s = m[i] as! CondBranch
+      let s = context.source[i] as! CondBranch
       let c = llvm(s.condition)
       insertCondBr(
         if: c, then: block[s.targetIfTrue]!, else: block[s.targetIfFalse]!,
@@ -839,9 +877,9 @@ extension SwiftyLLVM.Module {
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(endProjection i: IR.InstructionID) {
-      let s = m[i] as! EndProject
+      let s = context.source[i] as! EndProject
       let start = s.start.instruction!
-      assert(m[start] is Project)
+      assert(context.source[start] is Project)
 
       let t = SwiftyLLVM.FunctionType(from: [ptr, i1], to: void, in: &self)
       let p = byproduct[start]!
@@ -850,18 +888,18 @@ extension SwiftyLLVM.Module {
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(globalAddr i: IR.InstructionID) {
-      let s = m[i] as! IR.GlobalAddr
-      let n = ir.base.mangled(s.binding)
+      let s = context.source[i] as! IR.GlobalAddr
+      let n = context.ir.base.mangled(s.binding)
       let a = declareFunction(n, .init(from: [], to: ptr, in: &self))
       register[.register(i)] = insertCall(a, on: [], at: insertionPoint)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(subfieldView i: IR.InstructionID) {
-      let s = m[i] as! SubfieldView
+      let s = context.source[i] as! SubfieldView
 
       let base = llvm(s.recordAddress)
-      let baseType = ir.llvm(m.type(of: s.recordAddress).ast, in: &self)
+      let baseType = context.ir.llvm(context.source.type(of: s.recordAddress).ast, in: &self)
       let indices = [i32.constant(0)] + s.subfield.map({ i32.constant(UInt64($0)) })
       let v = insertGetElementPointerInBounds(
         of: base, typed: baseType, indices: indices, at: insertionPoint)
@@ -870,7 +908,7 @@ extension SwiftyLLVM.Module {
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(llvm i: IR.InstructionID) {
-      let s = m[i] as! IR.LLVMInstruction
+      let s = context.source[i] as! IR.LLVMInstruction
       switch s.instruction {
       case .add(let p, _):
         let l = llvm(s.operands[0])
@@ -926,43 +964,55 @@ extension SwiftyLLVM.Module {
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
         let f = intrinsic(
-          named: Intrinsic.llvm.sadd.with.overflow, for: [ir.llvm(builtinType: t, in: &self)])!
-        register[.register(i)] = insertCall(SwiftyLLVM.Function(f)!, on: [l, r], at: insertionPoint)
+          named: Intrinsic.llvm.sadd.with.overflow,
+          for: [context.ir.llvm(builtinType: t, in: &self)])!
+        register[.register(i)] = insertCall(
+          SwiftyLLVM.Function(f)!, on: [l, r], at: insertionPoint)
 
       case .unsignedAdditionWithOverflow(let t):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
         let f = intrinsic(
-          named: Intrinsic.llvm.uadd.with.overflow, for: [ir.llvm(builtinType: t, in: &self)])!
-        register[.register(i)] = insertCall(SwiftyLLVM.Function(f)!, on: [l, r], at: insertionPoint)
+          named: Intrinsic.llvm.uadd.with.overflow,
+          for: [context.ir.llvm(builtinType: t, in: &self)])!
+        register[.register(i)] = insertCall(
+          SwiftyLLVM.Function(f)!, on: [l, r], at: insertionPoint)
 
       case .signedSubtractionWithOverflow(let t):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
         let f = intrinsic(
-          named: Intrinsic.llvm.ssub.with.overflow, for: [ir.llvm(builtinType: t, in: &self)])!
-        register[.register(i)] = insertCall(SwiftyLLVM.Function(f)!, on: [l, r], at: insertionPoint)
+          named: Intrinsic.llvm.ssub.with.overflow,
+          for: [context.ir.llvm(builtinType: t, in: &self)])!
+        register[.register(i)] = insertCall(
+          SwiftyLLVM.Function(f)!, on: [l, r], at: insertionPoint)
 
       case .unsignedSubtractionWithOverflow(let t):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
         let f = intrinsic(
-          named: Intrinsic.llvm.usub.with.overflow, for: [ir.llvm(builtinType: t, in: &self)])!
-        register[.register(i)] = insertCall(SwiftyLLVM.Function(f)!, on: [l, r], at: insertionPoint)
+          named: Intrinsic.llvm.usub.with.overflow,
+          for: [context.ir.llvm(builtinType: t, in: &self)])!
+        register[.register(i)] = insertCall(
+          SwiftyLLVM.Function(f)!, on: [l, r], at: insertionPoint)
 
       case .signedMultiplicationWithOverflow(let t):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
         let f = intrinsic(
-          named: Intrinsic.llvm.smul.with.overflow, for: [ir.llvm(builtinType: t, in: &self)])!
-        register[.register(i)] = insertCall(SwiftyLLVM.Function(f)!, on: [l, r], at: insertionPoint)
+          named: Intrinsic.llvm.smul.with.overflow,
+          for: [context.ir.llvm(builtinType: t, in: &self)])!
+        register[.register(i)] = insertCall(
+          SwiftyLLVM.Function(f)!, on: [l, r], at: insertionPoint)
 
       case .unsignedMultiplicationWithOverflow(let t):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
         let f = intrinsic(
-          named: Intrinsic.llvm.umul.with.overflow, for: [ir.llvm(builtinType: t, in: &self)])!
-        register[.register(i)] = insertCall(SwiftyLLVM.Function(f)!, on: [l, r], at: insertionPoint)
+          named: Intrinsic.llvm.umul.with.overflow,
+          for: [context.ir.llvm(builtinType: t, in: &self)])!
+        register[.register(i)] = insertCall(
+          SwiftyLLVM.Function(f)!, on: [l, r], at: insertionPoint)
 
       case .icmp(let p, _):
         let l = llvm(s.operands[0])
@@ -985,17 +1035,17 @@ extension SwiftyLLVM.Module {
         register[.register(i)] = insertBitwiseXor(l, r, at: insertionPoint)
 
       case .trunc(_, let t):
-        let target = ir.llvm(builtinType: t, in: &self)
+        let target = context.ir.llvm(builtinType: t, in: &self)
         let source = llvm(s.operands[0])
         register[.register(i)] = insertTrunc(source, to: target, at: insertionPoint)
 
       case .zext(_, let t):
-        let target = ir.llvm(builtinType: t, in: &self)
+        let target = context.ir.llvm(builtinType: t, in: &self)
         let source = llvm(s.operands[0])
         register[.register(i)] = insertZeroExtend(source, to: target, at: insertionPoint)
 
       case .sext(_, let t):
-        let target = ir.llvm(builtinType: t, in: &self)
+        let target = context.ir.llvm(builtinType: t, in: &self)
         let source = llvm(s.operands[0])
         register[.register(i)] = insertSignExtend(source, to: target, at: insertionPoint)
 
@@ -1004,7 +1054,7 @@ extension SwiftyLLVM.Module {
         register[.register(i)] = insertIntToPtr(source, at: insertionPoint)
 
       case .ptrtoint(let t):
-        let target = ir.llvm(builtinType: t, in: &self)
+        let target = context.ir.llvm(builtinType: t, in: &self)
         let source = llvm(s.operands[0])
         register[.register(i)] = insertPtrToInt(source, to: target, at: insertionPoint)
 
@@ -1039,29 +1089,36 @@ extension SwiftyLLVM.Module {
         register[.register(i)] = insertFloatingPointComparison(p, l, r, at: insertionPoint)
 
       case .fptrunc(_, let t):
-        let target = ir.llvm(builtinType: t, in: &self)
+        let target = context.ir.llvm(builtinType: t, in: &self)
         let source = llvm(s.operands[0])
         register[.register(i)] = insertFPTrunc(source, to: target, at: insertionPoint)
 
       case .ctpop(let t):
         let source = llvm(s.operands[0])
-        let f = intrinsic(named: Intrinsic.llvm.ctpop, for: [ir.llvm(builtinType: t, in: &self)])!
-        register[.register(i)] = insertCall(SwiftyLLVM.Function(f)!, on: [source], at: insertionPoint)
+        let f = intrinsic(
+          named: Intrinsic.llvm.ctpop,
+          for: [context.ir.llvm(builtinType: t, in: &self)])!
+        register[.register(i)] = insertCall(
+          SwiftyLLVM.Function(f)!, on: [source], at: insertionPoint)
 
       case .ctlz(let t):
         let source = llvm(s.operands[0])
-        let f = intrinsic(named: Intrinsic.llvm.ctlz, for: [ir.llvm(builtinType: t, in: &self)])!
+        let f = intrinsic(
+          named: Intrinsic.llvm.ctlz,
+          for: [context.ir.llvm(builtinType: t, in: &self)])!
         register[.register(i)] = insertCall(
           SwiftyLLVM.Function(f)!, on: [source, i1.zero], at: insertionPoint)
 
       case .cttz(let t):
         let source = llvm(s.operands[0])
-        let f = intrinsic(named: Intrinsic.llvm.cttz, for: [ir.llvm(builtinType: t, in: &self)])!
+        let f = intrinsic(
+          named: Intrinsic.llvm.cttz,
+          for: [context.ir.llvm(builtinType: t, in: &self)])!
         register[.register(i)] = insertCall(
           SwiftyLLVM.Function(f)!, on: [source, i1.zero], at: insertionPoint)
 
       case .zeroinitializer(let t):
-        register[.register(i)] = ir.llvm(builtinType: t, in: &self).null
+        register[.register(i)] = context.ir.llvm(builtinType: t, in: &self).null
 
       case .advancedByBytes:
         let base = llvm(s.operands[0])
@@ -1076,38 +1133,39 @@ extension SwiftyLLVM.Module {
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(load i: IR.InstructionID) {
-      let s = m[i] as! Load
-      let t = ir.llvm(s.objectType.ast, in: &self)
+      let s = context.source[i] as! Load
+      let t = context.ir.llvm(s.objectType.ast, in: &self)
       let source = llvm(s.source)
       register[.register(i)] = insertLoad(t, from: source, at: insertionPoint)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(memoryCopy i: IR.InstructionID) {
-      let s = m[i] as! MemoryCopy
+      let s = context.source[i] as! MemoryCopy
 
       let memcpy = SwiftyLLVM.Function(
         intrinsic(named: Intrinsic.llvm.memcpy, for: [ptr, ptr, i32])!)!
       let source = llvm(s.source)
       let target = llvm(s.target)
 
-      let l = ConcreteTypeLayout(of: m.type(of: s.source).ast, definedIn: ir, forUseIn: &self)
+      let l = ConcreteTypeLayout(
+        of: context.source.type(of: s.source).ast, definedIn: context.ir, forUseIn: &self)
       let byteCount = i32.constant(l.size)
       _ = insertCall(memcpy, on: [target, source, byteCount, i1.zero], at: insertionPoint)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(openCapture i: IR.InstructionID) {
-      let s = m[i] as! OpenCapture
+      let s = context.source[i] as! OpenCapture
       register[.register(i)] = insertLoad(ptr, from: llvm(s.source), at: insertionPoint)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(openUnion i: IR.InstructionID) {
-      let s = m[i] as! OpenUnion
-      let t = UnionType(m.type(of: s.container).ast)!
+      let s = context.source[i] as! OpenUnion
+      let t = UnionType(context.source.type(of: s.container).ast)!
 
-      let baseType = ir.llvm(unionType: t, in: &self)
+      let baseType = context.ir.llvm(unionType: t, in: &self)
       let container = llvm(s.container)
       let indices = [i32.constant(0), i32.constant(0)]
       register[.register(i)] = insertGetElementPointerInBounds(
@@ -1116,13 +1174,13 @@ extension SwiftyLLVM.Module {
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(pointerToAddress i: IR.InstructionID) {
-      let s = m[i] as! IR.PointerToAddress
+      let s = context.source[i] as! IR.PointerToAddress
       register[.register(i)] = llvm(s.source)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(project i: IR.InstructionID) {
-      let s = m[i] as! IR.Project
+      let s = context.source[i] as! IR.Project
 
       // %0 = alloca [8 x i8], align 8
       let buffer = SwiftyLLVM.ArrayType(8, i8, in: &self)
@@ -1132,8 +1190,8 @@ extension SwiftyLLVM.Module {
       // All arguments are passed by reference.
       var arguments: [SwiftyLLVM.IRValue] = [x0]
       for a in s.operands {
-        if m.type(of: a).isObject {
-          let t = ir.llvm(s.result!.ast, in: &self)
+        if context.source.type(of: a).isObject {
+          let t = context.ir.llvm(s.result!.ast, in: &self)
           let l = insertAlloca(t, atEntryOf: transpilation)
           insertStore(llvm(a), to: l, at: insertionPoint)
           arguments.append(l)
@@ -1143,7 +1201,7 @@ extension SwiftyLLVM.Module {
       }
 
       // %1 = call ptr @llvm.coro.prepare.retcon(ptr @s)
-      let f = declareSubscript(transpiledFrom: s.callee, of: m, from: ir)
+      let f = declareSubscript(transpiledFrom: s.callee, in: &context)
       let prepare = intrinsic(named: Intrinsic.llvm.coro.prepare.retcon)!
       let x1 = insertCall(SwiftyLLVM.Function(prepare)!, on: [f], at: insertionPoint)
 
@@ -1156,7 +1214,7 @@ extension SwiftyLLVM.Module {
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(return i: IR.InstructionID) {
-      if m[f].isSubscript {
+      if context.source[f].isSubscript {
         _ = insertCall(
           SwiftyLLVM.Function(intrinsic(named: Intrinsic.llvm.coro.end)!)!,
           on: [frame!, i1.zero],
@@ -1169,13 +1227,16 @@ extension SwiftyLLVM.Module {
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(store i: IR.InstructionID) {
-      let s = m[i] as! IR.Store
-      insertStore(llvm(s.object), to: llvm(s.target), at: insertionPoint)
+      let s = context.source[i] as! IR.Store
+      let v = llvm(s.object)
+      if layout.storageSize(of: v.type) > 0 {
+        insertStore(llvm(s.object), to: llvm(s.target), at: insertionPoint)
+      }
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(switch i: IR.InstructionID) {
-      let s = m[i] as! Switch
+      let s = context.source[i] as! Switch
 
       let branches = s.successors.enumerated().map { (value, destination) in
         (word().constant(UInt64(value)), block[destination]!)
@@ -1190,15 +1251,28 @@ extension SwiftyLLVM.Module {
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(unionDiscriminator i: IR.InstructionID) {
-      let s = m[i] as! UnionDiscriminator
-      let t = UnionType(m.type(of: s.container).ast)!
+      let s = context.source[i] as! UnionDiscriminator
+      register[.register(i)] = discriminator(s.container)
+    }
 
-      let baseType = ir.llvm(unionType: t, in: &self)
-      let container = llvm(s.container)
-      let indices = [i32.constant(0), i32.constant(1)]
-      let discriminator = insertGetElementPointerInBounds(
-        of: container, typed: baseType, indices: indices, at: insertionPoint)
-      register[.register(i)] = insertLoad(word(), from: discriminator, at: insertionPoint)
+    /// Inserts the transpilation of `i` at `insertionPoint`.
+    func insert(unionSwitch i: IR.InstructionID) {
+      let s = context.source[i] as! UnionSwitch
+
+      if let (_, b) = s.targets.elements.uniqueElement {
+        insertBr(to: block[b]!, at: insertionPoint)
+      } else {
+        let e = context.ir.base.discriminatorToElement(in: s.union)
+        let branches = s.targets.map { (t, b) in
+          (word().constant(e.firstIndex(of: t)!), block[b]!)
+        }
+
+        // The last branch is the "default".
+        let d = llvm(s.discriminator)
+        insertSwitch(
+          on: d, cases: branches.dropLast(), default: branches.last!.1,
+          at: insertionPoint)
+      }
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
@@ -1208,7 +1282,7 @@ extension SwiftyLLVM.Module {
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(wrapAddr i: IR.InstructionID) {
-      let s = m[i] as! IR.WrapExistentialAddr
+      let s = context.source[i] as! IR.WrapExistentialAddr
       let t = containerType()
       let a = insertAlloca(t, atEntryOf: transpilation)
       insertStore(container(witness: s.witness, table: s.table), to: a, at: insertionPoint)
@@ -1217,7 +1291,7 @@ extension SwiftyLLVM.Module {
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(yield i: IR.InstructionID) {
-      let s = m[i] as! IR.Yield
+      let s = context.source[i] as! IR.Yield
       let p = llvm(s.projection)
 
       // The intrinsic will return a non-zero result if the subscript should resume abnormally.
@@ -1230,7 +1304,7 @@ extension SwiftyLLVM.Module {
     /// Returns the LLVM IR value corresponding to the Hylo IR operand `o`.
     func llvm(_ o: IR.Operand) -> SwiftyLLVM.IRValue {
       if case .constant(let c) = o {
-        return transpiledConstant(c, usedIn: m, from: ir)
+        return transpiledConstant(c, in: &context)
       } else {
         return register[o]!
       }
@@ -1239,14 +1313,14 @@ extension SwiftyLLVM.Module {
     /// Returns the callee of `s`.
     func unpackCallee(of s: Operand) -> ArrowContents {
       if case .constant(let f) = s {
-        let f = transpiledConstant(f, usedIn: m, from: ir)
+        let f = transpiledConstant(f, in: &context)
         let t = SwiftyLLVM.Function(f)!.valueType
         return .init(function: f, type: t, environment: [])
       }
 
       // `s` is an arrow.
-      let hyloType = ArrowType(m.type(of: s).ast)!
-      let llvmType = StructType(ir.llvm(hyloType, in: &self))!
+      let hyloType = ArrowType(context.source.type(of: s).ast)!
+      let llvmType = StructType(context.ir.llvm(hyloType, in: &self))!
       let lambda = llvm(s)
 
       // The first element of the representation is the function pointer.
@@ -1256,7 +1330,7 @@ extension SwiftyLLVM.Module {
 
       let e = insertGetStructElementPointer(
         of: lambda, typed: llvmType, index: 1, at: insertionPoint)
-      let captures = StructType(ir.llvm(hyloType.environment, in: &self))!
+      let captures = StructType(context.ir.llvm(hyloType.environment, in: &self))!
 
       // Following elements constitute the environment.
       var environment: [SwiftyLLVM.IRValue] = []
@@ -1283,6 +1357,17 @@ extension SwiftyLLVM.Module {
       v = insertInsertValue(llvm(witness), at: 0, into: v, at: insertionPoint)
       v = insertInsertValue(llvm(table), at: 1, into: v, at: insertionPoint)
       return v
+    }
+
+    /// Returns the value of `container`'s discriminator.
+    func discriminator(_ container: IR.Operand) -> SwiftyLLVM.Instruction {
+      let union = UnionType(context.source.type(of: container).ast)!
+      let baseType = context.ir.llvm(unionType: union, in: &self)
+      let container = llvm(container)
+      let indices = [i32.constant(0), i32.constant(1)]
+      let discriminator = insertGetElementPointerInBounds(
+        of: container, typed: baseType, indices: indices, at: insertionPoint)
+      return insertLoad(word(), from: discriminator, at: insertionPoint)
     }
   }
 

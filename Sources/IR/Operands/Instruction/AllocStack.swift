@@ -39,7 +39,7 @@ extension Module {
   ///
   /// - Requires: `t` is canonical.
   func makeAllocStack(_ t: AnyType, at site: SourceRange) -> AllocStack {
-    precondition(t[.isCanonical])
+    precondition(t.isCanonical)
     return .init(allocatedType: t, site: site)
   }
 

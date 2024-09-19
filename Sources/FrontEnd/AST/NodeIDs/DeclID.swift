@@ -64,7 +64,7 @@ public struct AnyDeclID: DeclID {
     }
   }
 
-  public var rawValue: Int { base.rawValue }
+  public var rawValue: NodeRawIdentity { base.rawValue }
 
   public var kind: NodeKind { base.kind }
 

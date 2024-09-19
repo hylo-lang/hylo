@@ -57,18 +57,20 @@ extension Module {
     while let i = work.popFirst() {
       let s = self[i] as! ReifiableAccess
       let available = s.capabilities
-      var requested: AccessEffectSet = [available.weakest!]
+      assert(!available.isSingleton, "access already reified")
+
+      var lower = AccessEffect.let
+      var upper = AccessEffect.let
 
       forEachClient(of: i) { (u) in
-        let r = requests(u).intersection(available)
-        if let k = r.uniqueElement {
-          requested = [requested.strongest(including: k)]
-        } else {
-          requested.formUnion(r)
-        }
+        let rs = requests(u)
+        if let w = rs.weakest { lower = max(w, lower) }
+        upper = rs.strongest(including: upper)
       }
 
-      if let k = requested.uniqueElement {
+      if lower == upper {
+        // We have to "promote" a request if it can be satisfied by a stronger capability.
+        let k = available.elements.first(where: { (a) in a >= lower }) ?? available.weakest!
         reify(i, as: k)
       } else {
         work.append(i)

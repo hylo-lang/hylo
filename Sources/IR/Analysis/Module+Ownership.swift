@@ -33,8 +33,6 @@ extension Module {
           interpret(endBorrow: user, in: &context)
         case is EndProject:
           interpret(endProject: user, in: &context)
-        case is EndProject:
-          interpret(endProjectWitness: user, in: &context)
         case is GenericParameter:
           interpret(genericParameter: user, in: &context)
         case is GlobalAddr:
@@ -47,8 +45,6 @@ extension Module {
           interpret(pointerToAddress: user, in: &context)
         case is Project:
           interpret(project: user, in: &context)
-        case is ProjectWitness:
-          interpret(projectWitness: user, in: &context)
         case is SubfieldView:
           interpret(subfieldView: user, in: &context)
         case is WrapExistentialAddr:
@@ -74,9 +70,14 @@ extension Module {
       }
 
       // The access must be immutable if the source of the access is a let-parameter.
-      if let c = passingConvention(of: s.source), (c == .let) && (request != .let) {
-        diagnostics.insert(.error(illegalMutableAccessAt: s.site))
-        return
+      if (request != .let) && isBoundImmutably(s.source) {
+        // Built-in values are never consumed.
+        if self.type(of: s.source).ast.isBuiltin {
+          assert(request != .inout, "unexpected inout access on built-in value")
+        } else {
+          diagnostics.insert(.error(illegalMutableAccessAt: s.site))
+          return
+        }
       }
 
       let former = reborrowedSource(s)
@@ -215,13 +216,6 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(endProject i: InstructionID, in context: inout Context) {
       let s = self[i] as! EndProject
-      let r = self[s.start.instruction!] as! Project
-      finalize(region: s.start, projecting: r.projection.access, exitedWith: i, in: &context)
-    }
-
-    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(endProjectWitness i: InstructionID, in context: inout Context) {
-      let s = self[i] as! EndProjectWitness
       let r = self[s.start.instruction!] as! Project
       finalize(region: s.start, projecting: r.projection.access, exitedWith: i, in: &context)
     }

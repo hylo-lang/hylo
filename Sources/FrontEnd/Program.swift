@@ -450,8 +450,8 @@ extension Program {
     scopes(from: scope).first(TranslationUnit.self)!
   }
 
-  /// Returns the name of `d` if it introduces a single entity.
-  public func name(of d: AnyDeclID) -> Name? {
+  /// Returns the name of `d`.
+  public func name<T: DeclID>(of d: T) -> Name? {
     if let e = self.ast[d] as? SingleEntityDecl { return Name(stem: e.baseName) }
 
     switch d.kind {

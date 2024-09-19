@@ -160,6 +160,8 @@ extension AST {
       traverse(self[n] as! ExprPattern, notifying: &o)
     case NamePattern.self:
       traverse(self[n] as! NamePattern, notifying: &o)
+    case OptionPattern.self:
+      traverse(self[n] as! OptionPattern, notifying: &o)
     case TuplePattern.self:
       traverse(self[n] as! TuplePattern, notifying: &o)
     case WildcardPattern.self:
@@ -171,8 +173,8 @@ extension AST {
       traverse(self[n] as! BraceStmt, notifying: &o)
     case BreakStmt.self:
       traverse(self[n] as! BreakStmt, notifying: &o)
-    case CondBindingStmt.self:
-      traverse(self[n] as! CondBindingStmt, notifying: &o)
+    case ConditionalBindingStmt.self:
+      traverse(self[n] as! ConditionalBindingStmt, notifying: &o)
     case ConditionalCompilationStmt.self:
       traverse(self[n] as! ConditionalCompilationStmt, notifying: &o)
     case ConditionalStmt.self:
@@ -639,6 +641,13 @@ extension AST {
 
   /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
+    _ n: OptionPattern, notifying o: inout O
+  ) {
+    walk(n.name, notifying: &o)
+  }
+
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
+  public func traverse<O: ASTWalkObserver>(
     _ n: TuplePattern, notifying o: inout O
   ) {
     walk(roots: n.elements.map(\.pattern), notifying: &o)
@@ -673,9 +682,10 @@ extension AST {
 
   /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
   public func traverse<O: ASTWalkObserver>(
-    _ n: CondBindingStmt, notifying o: inout O
+    _ n: ConditionalBindingStmt, notifying o: inout O
   ) {
     walk(n.binding, notifying: &o)
+    walk(n.fallback, notifying: &o)
   }
 
   /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.

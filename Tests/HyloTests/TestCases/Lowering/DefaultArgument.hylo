@@ -1,4 +1,4 @@
-//- lowerToFinishedIR expecting: success
+//- lowerToFinishedIR expecting: .success
 
 fun f0(x: Int, y: Bool = true) {}
 

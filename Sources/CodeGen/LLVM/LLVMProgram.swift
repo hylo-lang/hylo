@@ -24,7 +24,8 @@ public struct LLVMProgram {
   ) throws {
     self.target = try target ?? SwiftyLLVM.TargetMachine(for: .host())
     for m in ir.modules.keys {
-      let transpilation = SwiftyLLVM.Module(transpiling: m, from: ir)
+      var context = CodeGenerationContext(forCompiling: m, of: ir)
+      let transpilation = SwiftyLLVM.Module(transpiling: m, in: &context)
       do {
         try transpilation.verify()
       } catch {
@@ -55,7 +56,9 @@ public struct LLVMProgram {
   /// to `directory`, returning the URL of each written file.
   ///
   /// - Returns: The URL of each written product, one for each module in `self`.
-  public func write(_ type: SwiftyLLVM.CodeGenerationResultType, to directory: URL) throws -> [URL] {
+  public func write(
+    _ type: SwiftyLLVM.CodeGenerationResultType, to directory: URL
+  ) throws -> [URL] {
     precondition(directory.hasDirectoryPath)
     var result: [URL] = []
     for m in llvmModules.values {

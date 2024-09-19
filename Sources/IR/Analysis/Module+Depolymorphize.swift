@@ -79,7 +79,8 @@ extension IR.Program {
 
     // TODO: Use existentialization unless the subscript is inlinable
 
-    let g = monomorphize(s.callee, for: s.specialization, usedIn: modules[m]!.scope(containing: i))
+    let z = base.canonical(s.specialization, in: modules[m]!.scope(containing: i))
+    let g = monomorphize(s.callee, for: z, usedIn: modules[m]!.scope(containing: i))
     let new = modules[m]!.makeProject(
       s.projection, applying: g, specializedBy: .empty, to: s.operands, at: s.site)
     modules[m]!.replace(i, with: new)
@@ -112,13 +113,13 @@ extension IR.Program {
     monomorphize(r.function, for: r.specialization, usedIn: scopeOfUse)
   }
 
-  /// Returns a reference to the monomorphized form of `f` for `specialization` in `scopeOfUse`,
+  /// Returns a reference to the monomorphized form of `f` for specialization `z` in `scopeOfUse`,
   /// reading definitions from `ir`.
   fileprivate mutating func monomorphize(
-    _ f: Function.ID,
-    for specialization: GenericArguments, usedIn scopeOfUse: AnyScopeID
+    _ f: Function.ID, for z: GenericArguments, usedIn scopeOfUse: AnyScopeID
   ) -> Function.ID {
-    let result = demandMonomorphizedDeclaration(of: f, for: specialization, usedIn: scopeOfUse)
+    precondition(z.allSatisfy(\.value.isCanonical))
+    let result = demandMonomorphizedDeclaration(of: f, for: z, usedIn: scopeOfUse)
 
     let target = base.module(containing: scopeOfUse)
     if modules[target]![result].entry != nil {
@@ -130,16 +131,15 @@ extension IR.Program {
     for b in modules[source]![f].blocks.addresses {
       let s = Block.ID(f, b)
       let inputs = modules[source]![s].inputs.map { (t) in
-        monomorphize(t, for: specialization, usedIn: scopeOfUse)
+        monomorphize(t, for: z, usedIn: scopeOfUse)
       }
       let t = modules[target]![result].appendBlock(in: modules[source]![s].scope, taking: inputs)
       rewrittenBlock[s] = Block.ID(result, t)
     }
 
-    let rewrittenGenericValue = modules[target]!.defineGenericValueArguments(
-      specialization, in: result)
+    let rewrittenGenericValue = modules[target]!.defineGenericValueArguments(z, in: result)
     var monomorphizer = Monomorphizer(
-      specialization: specialization, scopeOfUse: scopeOfUse,
+      specialization: z, scopeOfUse: scopeOfUse,
       rewrittenGenericValue: rewrittenGenericValue, rewrittenBlock: rewrittenBlock)
 
     // Iterate over the basic blocks of the source function in a way that guarantees we always
@@ -243,28 +243,28 @@ extension IR.Program {
     return .init(ast: u, isAddress: t.isAddress)
   }
 
-  /// Returns the IR function monomorphizing `f` for `specialization` in `scopeOfUse`.
+  /// Returns the IR function monomorphizing `f` for specialization `z` in `scopeOfUse`.
   private mutating func demandMonomorphizedDeclaration(
-    of f: Function.ID, for specialization: GenericArguments, usedIn scopeOfUse: AnyScopeID
+    of f: Function.ID, for z: GenericArguments, usedIn scopeOfUse: AnyScopeID
   ) -> Function.ID {
     let source = modules[module(defining: f)]![f]
     let target = base.module(containing: scopeOfUse)
 
     precondition(!source.genericParameters.isEmpty, "function is not generic")
     precondition(
-      source.genericParameters.allSatisfy({ specialization[$0] != nil }),
+      source.genericParameters.allSatisfy({ z[$0] != nil }),
       "incomplete monomorphization arguments")
 
-    let result = Function.ID(monomorphized: f, for: specialization)
+    let result = Function.ID(monomorphized: f, for: z)
     if modules[target]!.functions[result] != nil {
       return result
     }
 
     let inputs = source.inputs.map { (p) in
-      let t = monomorphize(p.type.bareType, for: specialization, usedIn: scopeOfUse)
+      let t = monomorphize(p.type.bareType, for: z, usedIn: scopeOfUse)
       return Parameter(decl: p.decl, type: ParameterType(p.type.access, t))
     }
-    let output = monomorphize(source.output, for: specialization, usedIn: scopeOfUse)
+    let output = monomorphize(source.output, for: z, usedIn: scopeOfUse)
     let entity = Function(
       isSubscript: source.isSubscript,
       site: source.site,
@@ -395,10 +395,11 @@ private struct Monomorphizer: InstructionTransformer {
     _ f: Function.ID, specializedBy z: GenericArguments, in ir: inout IR.Program
   ) -> Function.ID {
     let p = ir.base.specialize(z, for: specialization, in: scopeOfUse)
+    let q = ir.base.canonical(p, in: scopeOfUse)
     if let m = ir.base.requirementDeclaring(memberReferredBy: f) {
-      return ir.monomorphize(m.decl, requiredBy: m.trait, for: p, usedIn: scopeOfUse)
+      return ir.monomorphize(m.decl, requiredBy: m.trait, for: q, usedIn: scopeOfUse)
     } else {
-      return ir.monomorphize(f, for: p, usedIn: scopeOfUse)
+      return ir.monomorphize(f, for: q, usedIn: scopeOfUse)
     }
   }
 

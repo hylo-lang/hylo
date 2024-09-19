@@ -3,8 +3,8 @@ import Utils
 /// A protocol describing the API of a Hylo type.
 public protocol TypeProtocol: Hashable {
 
-  /// A set of flags describing recursive properties.
-  var flags: TypeFlags { get }
+  /// Properties about the representation of `self`.
+  var flags: ValueFlags { get }
 
   /// Apply `transform(_:_:)` on `m` and the types that are part of `self`.
   func transformParts<M>(
@@ -36,7 +36,12 @@ extension TypeProtocol {
   }
 
   /// Returns whether the specified flags are raised on this type.
-  public subscript(fs: TypeFlags) -> Bool { flags.contains(fs) }
+  public subscript(fs: ValueFlags) -> Bool { flags.contains(fs) }
+
+  /// Indicates whether `self` is canonical.
+  public var isCanonical: Bool {
+    !self[.hasNonCanonical]
+  }
 
   /// Returns this type transformed with `transformer` applied to `m`.
   ///

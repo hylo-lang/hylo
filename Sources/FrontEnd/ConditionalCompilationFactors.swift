@@ -4,19 +4,19 @@ import Utils
 public struct ConditionalCompilationFactors: Codable, Equatable, Hashable {
 
   /// The target operating system.
-  let operatingSystem: Platform.OperatingSystem
+  public let operatingSystem: Platform.OperatingSystem
 
   /// The target architecture.
-  let architecture: Platform.Architecture
+  public let architecture: Platform.Architecture
 
   /// The version of the compiler.
-  let compilerVersion: SemanticVersion
+  public let compilerVersion: SemanticVersion
 
   /// The version of the Hylo language recognized by the compiler.
-  let hyloVersion: SemanticVersion
+  public let hyloVersion: SemanticVersion
 
   /// `true` if the standard library exposes only non-OS-dependent parts.
-  let freestanding: Bool
+  public let freestanding: Bool
 
   public init(
     operatingSystem os: Platform.OperatingSystem = Platform.hostOperatingSystem,

@@ -15,7 +15,7 @@ public struct AssociatedTypeType: TypeProtocol {
   public let name: Incidental<String>
 
   /// A set of flags describing recursive properties.
-  public let flags: TypeFlags
+  public let flags: ValueFlags
 
   /// Creates an instance denoting the associated type declared by `decl` as a member of `domain`.
   public init(_ decl: AssociatedTypeDecl.ID, domain: AnyType, ast: AST) {
@@ -25,14 +25,21 @@ public struct AssociatedTypeType: TypeProtocol {
   /// Creates an instance with the given properties.
   init(decl: AssociatedTypeDecl.ID, domain: AnyType, name: String) {
     var fs = domain.flags
-    if !domain.isSkolem && !(domain.base is TypeVariable) {
-      fs.remove(.isCanonical)
+
+    let d = AssociatedTypeType(domain)?.root ?? domain
+    if !(d.isSkolem || d.base is TypeVariable) {
+      fs.insert(.hasNonCanonical)
     }
 
     self.decl = decl
     self.domain = domain
     self.name = Incidental(name)
     self.flags = fs
+  }
+
+  /// Returns the root of `self`'s qualification.
+  public var root: AnyType {
+    AssociatedTypeType(domain)?.root ?? domain
   }
 
   public func transformParts<M>(

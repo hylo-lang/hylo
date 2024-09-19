@@ -14,4 +14,11 @@ extension FileManager {
     temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: false)
   }
 
+  /// Writes `s` to a temporary file and returns its URL.
+  public func temporaryFile(containing s: String) throws -> URL {
+    let f = self.makeTemporaryFileURL()
+    try s.write(to: f, atomically: true, encoding: .utf8)
+    return f
+  }
+
 }

@@ -1,4 +1,4 @@
-//- compileAndRun expecting: success
+//- compileAndRun expecting: .success
 
 type A: Deinitializable {
 
@@ -13,8 +13,27 @@ type A: Deinitializable {
 
 }
 
+public type B: Deinitializable {
+
+  public let x: Int
+
+  public memberwise init
+
+  public fun foo(_ n: sink Int) {
+    let   { B(x: n) }
+    inout { &self.x = n }
+  }
+
+}
+
 public fun main() {
   var a = A(x: 42)
   precondition(a.foo().1 == 42)
   precondition(a.foo().1 == 42)
+
+  var b0 = B(x: 1)
+  let b1 = b0.foo(2)
+  precondition(b1.x == 2)
+  &b0.foo(3)
+  precondition(b0.x == 3)
 }

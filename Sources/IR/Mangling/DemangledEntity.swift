@@ -5,7 +5,7 @@ import Utils
 public struct DemangledEntity: Hashable {
 
   /// The qualification of the symbol, if any.
-  public let qualification: Indirect<DemangledEntity>?
+  public let qualification: DemangledQualification?
 
   /// The kind of the symbol, if known.
   public let kind: NodeKind?
@@ -24,13 +24,13 @@ public struct DemangledEntity: Hashable {
 
   /// Creates an instance with the given properties.
   public init(
-    qualification: DemangledEntity?,
+    qualification: DemangledQualification?,
     kind: NodeKind,
     name: Name,
     genericArgumentLabels: [String?] = [],
     type: DemangledType? = nil
   ) {
-    self.qualification = qualification.map(Indirect.init(_:))
+    self.qualification = qualification
     self.kind = kind
     self.name = name
     self.genericArgumentLabels = genericArgumentLabels
@@ -39,8 +39,8 @@ public struct DemangledEntity: Hashable {
   }
 
   /// Creates an instance identifying an anonymous scope.
-  public init(anonymousScope id: Int, qualifiedBy q: DemangledEntity) {
-    self.qualification = Indirect(q)
+  public init(anonymousScope id: Int, qualifiedBy q: DemangledQualification) {
+    self.qualification = q
     self.kind = nil
     self.name = Name(stem: id.description)
     self.genericArgumentLabels = []
@@ -51,7 +51,9 @@ public struct DemangledEntity: Hashable {
   /// Creates an instance representing a core type declaration.
   public init(coreType: String) {
     self.init(
-      qualification: .hylo, kind: NodeKind(ProductTypeDecl.self), name: Name(stem: coreType))
+      qualification: .entity(.hylo),
+      kind: NodeKind(ProductTypeDecl.self),
+      name: Name(stem: coreType))
   }
 
   /// The `Hylo` module.
@@ -121,20 +123,26 @@ extension DemangledEntity: CustomStringConvertible {
     }
 
     let i = inputs.reduce(into: "", { (s, p) in s += (p.label ?? "_") + ":" })
-    return "\(name)(\(i))"
+    return "\(name)[\(i)]"
   }
 
   /// Returns the textual description of a qualification.
-  private static func describe(qualification: Indirect<DemangledEntity>?) -> String {
-    guard let q = qualification else {
+  private static func describe(qualification: DemangledQualification?) -> String {
+    switch qualification {
+    case .some(.entity(let q)):
+      if q.kind?.value == TranslationUnit.self {
+        return describe(qualification: q.qualification)
+      } else {
+        return q.description + "."
+      }
+
+    case .some(let q):
+      return q.description
+
+    case nil:
       return ""
     }
 
-    if q.value.kind?.value == TranslationUnit.self {
-      return describe(qualification: q.value.qualification)
-    } else {
-      return q.description + "."
-    }
   }
 
 }

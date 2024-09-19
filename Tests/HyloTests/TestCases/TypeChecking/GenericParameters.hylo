@@ -1,9 +1,10 @@
-//- typeCheck expecting: failure
+//- typeCheck expecting: .failure
 
 //! @+1 diagnostic expected type but 'v' denotes a value
-fun f0<X, v: Int>(_ x: X, _ y: v) {}
+fun f0<X, value v: Int>(_ x: X, _ y: v) {}
 
-//! @+1 diagnostic only one annotation is allowed on generic value parameter declarations
+//! @+2 diagnostic conformance to non-trait type 'Float64'
+//! @+1 diagnostic conformance to non-trait type 'Int'
 fun f1<X, v: Int & Float64>(_ x: X) {}
 
 //! @+1 diagnostic conformance to non-trait type 'Float64'

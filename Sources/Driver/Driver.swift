@@ -3,14 +3,15 @@ import CodeGenLLVM
 import Foundation
 import FrontEnd
 import IR
-import SwiftyLLVM
 import StandardLibrary
+import SwiftyLLVM
 import Utils
 
 public struct Driver: ParsableCommand {
 
   /// A validation error that includes the command's full help message.
-  struct ValidationErrorWithHelp: Error, CustomStringConvertible {
+  private struct ValidationErrorWithHelp: Error, CustomStringConvertible {
+
     var message: String
 
     init(_ message: String) {
@@ -24,6 +25,7 @@ public struct Driver: ParsableCommand {
       \(Driver.helpMessage())
       """
     }
+
   }
 
   /// The type of the output files to generate.
@@ -48,6 +50,20 @@ public struct Driver: ParsableCommand {
     case binary = "binary"
   }
 
+  /// The result of a compiler invocation.
+  public struct CompilationResult {
+
+    /// The exit status of the compiler.
+    public let status: ExitCode
+
+    /// The URL of the output file.
+    public let output: URL
+
+    /// The generated diagnostics.
+    public let diagnostics: DiagnosticSet
+
+  }
+
   public static let configuration = CommandConfiguration(commandName: "hc")
 
   @Flag(
@@ -63,8 +79,10 @@ public struct Driver: ParsableCommand {
   @Flag(
     name: [.customLong("freestanding")],
     help:
-      "Import only the freestanding core of the standard library, omitting any definitions that depend on having an operating system."
-  )
+      """
+      Import only the freestanding core of the standard library, omitting any definitions that \
+      depend on having an operating system.
+      """)
   private var freestanding: Bool = false
 
   @Flag(
@@ -83,6 +101,13 @@ public struct Driver: ParsableCommand {
       "Enable tracing of type inference requests at the given line.",
       valueName: "file:line"))
   private var inferenceTracingSite: SourceLine?
+
+  @Option(
+    name: [.customLong("show-requirements")],
+    help: ArgumentHelp(
+      "Log the requirement system of the generic declaration at the given line.",
+      valueName: "file:line"))
+  private var showRequirementsSite: SourceLine?
 
   @Option(
     name: [.customLong("emit")],
@@ -137,6 +162,7 @@ public struct Driver: ParsableCommand {
     transform: URL.init(fileURLWithPath:))
   private var inputs: [URL] = []
 
+  /// Creates a new instance with default options.
   public init() {}
 
   /// The URL of the current working directory.
@@ -144,36 +170,62 @@ public struct Driver: ParsableCommand {
     URL(fileURLWithPath: FileManager.default.currentDirectoryPath, isDirectory: true)
   }
 
+  /// Compiles `input` with the given command line arguments and returns the compiler's exit
+  /// status, the URL of the output file, and any diagnostics.
+  ///
+  /// - Parameters:
+  ///   - input: The URL of a single Hylo source file or the root directory of a Hylo module.
+  ///   - options: The compiler's options sans input and output arguments.
+  ///   - baseProgram: A program with some or all of the dependencies of the compiler's input,
+  ///     which have been compiled with options compatible with `options`. All dependencies are
+  ///     loaded from disk if this argument is `nil`
+  public static func compileToTemporary(
+    _ input: URL, withOptions options: [String], extending baseProgram: TypedProgram? = nil
+  ) throws -> CompilationResult {
+    // Prepare the driver.
+    let output = FileManager.default.makeTemporaryFileURL()
+    let cli = try Driver.parse(options + ["-o", output.relativePath, input.relativePath])
+
+    // Execute the command.
+    var log = DiagnosticSet()
+    try log.capturingErrors { (ds) in
+      try cli.executeCommand(extending: baseProgram, reportingDiagnosticsTo: &ds)
+    }
+    let status = log.containsError ? ExitCode.failure : ExitCode.success
+    return .init(status: status, output: output, diagnostics: log)
+  }
+
+  /// Executes the command.
   public func run() throws {
+    var log = DiagnosticSet()
+    let status: ExitCode
+
     do {
-      let (exitCode, diagnostics) = try execute()
-      diagnostics.render(
-        into: &standardError, style: ProcessInfo.ansiTerminalIsConnected ? .styled : .unstyled)
-      Driver.exit(withError: exitCode)
+      try log.capturingErrors { (ds) in
+        try executeCommand(reportingDiagnosticsTo: &ds)
+      }
+      status = log.containsError ? ExitCode.failure : ExitCode.success
     } catch let e {
       print("Unexpected error\n")
       Driver.exit(withError: e)
     }
+
+    log.render(
+      into: &standardError, style: ProcessInfo.ansiTerminalIsConnected ? .styled : .unstyled)
+    Driver.exit(withError: status)
   }
 
-  /// Executes the command, returning its exit status and any generated diagnostics.
+  /// Executes the command, loading modules into `baseProgram` and reporting diagnostics to `log`.
   ///
-  /// Propagates any thrown errors that are not Hylo diagnostics,
-  public func execute() throws -> (ExitCode, DiagnosticSet) {
-    var diagnostics = DiagnosticSet()
-    do {
-      try executeCommand(diagnostics: &diagnostics)
-    } catch let d as DiagnosticSet {
-      assert(d.containsError, "Diagnostics containing no errors were thrown")
-      diagnostics.formUnion(d)
-      return (ExitCode.failure, diagnostics)
-    }
-    return (ExitCode.success, diagnostics)
-  }
-
-  /// Executes the command, accumulating diagnostics in `diagnostics`.
-  private func executeCommand(diagnostics: inout DiagnosticSet) throws {
-
+  /// - Parameters:
+  ///   - baseProgram: A program with some or all of the dependencies of the compiler's input,
+  ///     which have been compiled with options compatible with the driver's current configuration.
+  ///     All dependencies are loaded from disk if this argument is `nil`
+  ///   - log: A set of diagnostics that doesn't contain any error.
+  public func executeCommand(
+    extending baseProgram: TypedProgram? = nil,
+    reportingDiagnosticsTo log: inout DiagnosticSet
+  ) throws {
     if version {
       standardError.write("\(hcVersion)\n")
       return
@@ -189,28 +241,50 @@ public struct Driver: ParsableCommand {
 
     let productName = makeProductName(inputs)
 
-    /// An instance that includes just the standard library.
-    var ast = try (freestanding ? Host.freestandingLibraryAST : Host.hostedLibraryAST).get()
-
-    // The module whose Hylo files were given on the command-line
-    let sourceModule = try ast.makeModule(
-      productName, sourceCode: sourceFiles(in: inputs),
-      builtinModuleAccess: importBuiltinModule, diagnostics: &diagnostics)
-
+    // There's no need to load the standard library under `--emit raw-ast`.
     if outputType == .rawAST {
-      try write(ast, to: astFile(productName))
+      var a = AST()
+      _ = try a.loadModule(
+        productName, parsing: sourceFiles(in: inputs),
+        withBuiltinModuleAccess: importBuiltinModule,
+        reportingDiagnosticsTo: &log)
+      try write(a, to: astFile(productName))
       return
     }
 
-    let program = try TypedProgram(
-      annotating: ScopedProgram(ast), inParallel: experimentalParallelTypeChecking,
-      reportingDiagnosticsTo: &diagnostics,
-      tracingInferenceIf: shouldTraceInference)
+    // Type checking
+
+    let dependencies: TypedProgram
+    if let p = baseProgram {
+      precondition(
+        p.ast.compilationConditions.freestanding == freestanding,
+        "program to extend has incompatible compilation factors")
+      dependencies = p
+    } else {
+      let a = try (freestanding ? Host.freestandingLibraryAST : Host.hostedLibraryAST).get()
+      dependencies = try TypedProgram(
+        annotating: ScopedProgram(a), inParallel: experimentalParallelTypeChecking,
+        reportingDiagnosticsTo: &log,
+        tracingInferenceIf: shouldTraceInference,
+        loggingRequirementSystemIf: shouldLogRequirements)
+    }
+
+    let (program, sourceModule) = try dependencies.loadModule(
+      reportingDiagnosticsTo: &log,
+      tracingInferenceIf: shouldTraceInference,
+      loggingRequirementSystemIf: shouldLogRequirements
+    ) { (ast, log, space) in
+      try ast.loadModule(
+        productName, parsing: sourceFiles(in: inputs), inNodeSpace: space,
+        withBuiltinModuleAccess: importBuiltinModule,
+        reportingDiagnosticsTo: &log)
+    }
+
     if typeCheckOnly { return }
 
     // IR
 
-    var ir = try lower(program: program, reportingDiagnosticsTo: &diagnostics)
+    var ir = try lower(program: program, reportingDiagnosticsTo: &log)
 
     if outputType == .ir || outputType == .rawIR {
       let m = ir.modules[sourceModule]!
@@ -266,15 +340,13 @@ public struct Driver: ParsableCommand {
     let binaryPath = executableOutputPath(default: productName)
 
     #if os(macOS)
-      try makeMacOSExecutable(at: binaryPath, linking: objectFiles, diagnostics: &diagnostics)
+      try makeMacOSExecutable(at: binaryPath, linking: objectFiles, diagnostics: &log)
     #elseif os(Linux)
-      try makeLinuxExecutable(at: binaryPath, linking: objectFiles, diagnostics: &diagnostics)
+      try makeLinuxExecutable(at: binaryPath, linking: objectFiles, diagnostics: &log)
     #elseif os(Windows)
-      try makeWindowsExecutable(at: binaryPath, linking: objectFiles, diagnostics: &diagnostics)
-
+      try makeWindowsExecutable(at: binaryPath, linking: objectFiles, diagnostics: &log)
     #else
-      _ = objectFiles
-      _ = binaryPath
+      _ = (objectFiles, binaryPath)
       UNIMPLEMENTED()
     #endif
   }
@@ -288,6 +360,15 @@ public struct Driver: ParsableCommand {
   private func shouldTraceInference(_ n: AnyNodeID, _ p: TypedProgram) -> Bool {
     if let s = inferenceTracingSite {
       return s.bounds.contains(p[n].site.start)
+    } else {
+      return false
+    }
+  }
+
+  /// Returns `true` if the requirement system of `n`, which is in `p`, should be logged.
+  private func shouldLogRequirements(_ n: AnyDeclID, _ p: TypedProgram) -> Bool {
+    if let s = showRequirementsSite {
+      return (n.kind.value is GenericDecl.Type) && s.bounds.contains(p[n].site.start)
     } else {
       return false
     }
@@ -437,8 +518,8 @@ public struct Driver: ParsableCommand {
     throw EnvironmentError("not found: executable invoked as \(invocationName)")
   }
 
-  /// Runs the executable at `path`, passing `arguments` on the command line, and returns
-  /// its standard output sans any leading or trailing whitespace.
+  /// Runs the executable at `path`, passing `arguments` on the command line, and returns its
+  /// standard output sans any leading or trailing whitespace.
   @discardableResult
   private func runCommandLine(
     _ programPath: String,
@@ -477,8 +558,8 @@ public struct Driver: ParsableCommand {
     outputURL ?? URL(fileURLWithPath: productName + ".ll")
   }
 
-  /// Given the desired name of the compiler's product, returns the file to write when "intel-asm" is
-  /// selected as the output type.
+  /// Given the desired name of the compiler's product, returns the file to write when "intel-asm"
+  /// is selected as the output type.
   private func intelASMFile(_ productName: String) -> URL {
     outputURL ?? URL(fileURLWithPath: productName + ".s")
   }

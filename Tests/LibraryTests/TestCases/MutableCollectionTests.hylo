@@ -1,11 +1,11 @@
-//- compileAndRun expecting: success
+//- compileAndRun expecting: .success
 
 /// Appends `0 ..< limit` to `a`
 fun append_count(up_to limit: Int, to a: inout Array<Int>) {
   var i = 0
   while i < limit {
     &a.append(i.copy())
-    i += 1
+    &i += 1
   }
 }
 
@@ -30,10 +30,10 @@ fun test_rotate(length N: Int) {
       if a[j] != (pivot + j) % N {
         &failed = true
       }
-      j += 1
+      &j += 1
     }
 
-    pivot += 1
+    &pivot += 1
   }
   precondition(!failed)
 }
@@ -44,7 +44,7 @@ fun test_rotate() {
   var n = 0
   while n < 17 {
     test_rotate(length: n)
-    n += 1
+    &n += 1
   }
 }
 

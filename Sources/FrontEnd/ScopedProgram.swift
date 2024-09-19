@@ -11,6 +11,19 @@ public struct ScopedProgram: Program {
 
   public let varToBinding: [VarDecl.ID: BindingDecl.ID]
 
+  /// Creates an instance with the given properties.
+  private init(
+    ast: AST,
+    nodeToScope: ASTProperty<AnyScopeID>,
+    scopeToDecls: ASTProperty<DeclIDs>,
+    varToBinding: [VarDecl.ID: BindingDecl.ID]
+  ) {
+    self.ast = ast
+    self.nodeToScope = nodeToScope
+    self.scopeToDecls = scopeToDecls
+    self.varToBinding = varToBinding
+  }
+
   /// Creates a scoped program from an AST.
   public init(_ ast: AST) {
     // Establish the scope relationships.
@@ -25,25 +38,64 @@ public struct ScopedProgram: Program {
     self.varToBinding = s.varToBinding
   }
 
+  /// Returns a copy of `self` in which a new module has been loaded, calling `make` to form its
+  /// contents and reporting diagnostics to `log`.
+  public func loadModule(
+    reportingDiagnosticsTo log: inout DiagnosticSet,
+    creatingContentsWith make: AST.ModuleLoader
+  ) throws -> (ScopedProgram, ModuleDecl.ID) {
+    var extended = ast
+    let m = try extended.loadModule(reportingDiagnosticsTo: &log, creatingContentsWith: make)
+
+    var s = ScopeVisitor(extending: self)
+    extended.walk(m, notifying: &s)
+    let p = ScopedProgram(
+      ast: extended,
+      nodeToScope: s.nodeToScope,
+      scopeToDecls: s.scopeToDecls,
+      varToBinding: s.varToBinding)
+
+    try log.throwOnError()
+    return (p, m)
+  }
+
 }
 
 /// The state of the visitor building scope relationships.
 private struct ScopeVisitor: ASTWalkObserver {
 
   /// A map from node to the innermost scope that contains it.
-  var nodeToScope = ASTProperty<AnyScopeID>()
+  var nodeToScope: ASTProperty<AnyScopeID>
 
   /// A map from scope to the declarations that it contains.
-  var scopeToDecls = ASTProperty<DeclIDs>()
+  var scopeToDecls: ASTProperty<DeclIDs>
 
   /// A map from variable declaration its containing binding declaration.
-  var varToBinding: [VarDecl.ID: BindingDecl.ID] = [:]
+  var varToBinding: [VarDecl.ID: BindingDecl.ID]
 
   /// A stack containing the bindind declarations currently visited.
-  var bindingDecls: [BindingDecl.ID] = []
+  var bindingDecls: [BindingDecl.ID]
 
   /// The innermost lexical scope currently visited.
   var innermost: AnyScopeID?
+
+  /// Creates a new instance.
+  init() {
+    self.nodeToScope = [:]
+    self.scopeToDecls = [:]
+    self.varToBinding = [:]
+    self.bindingDecls = []
+    self.innermost = nil
+  }
+
+  /// Creates an instance storing its result in a copy of `p`'s properties.
+  init(extending p: ScopedProgram) {
+    self.nodeToScope = p.nodeToScope
+    self.scopeToDecls = p.scopeToDecls
+    self.varToBinding = p.varToBinding
+    self.bindingDecls = []
+    self.innermost = nil
+  }
 
   /// Inserts `child` into `scope`.
   private mutating func insert(child: AnyNodeID, into scope: AnyScopeID) {

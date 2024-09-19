@@ -1,10 +1,10 @@
-//- lowerToFinishedIR expecting: failure
+//- lowerToFinishedIR expecting: .failure
 
 fun read<T>(_ x: T) {}
 
 fun modify<T>(_ x: inout T) {}
 
-fun consume<T>(_ x: sink T) {}
+fun consume<T: Deinitializable>(_ x: sink T) {}
 
 // fun assign<T>(_ x: set T, to y: sink T) { &x = y }
 

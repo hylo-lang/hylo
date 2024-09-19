@@ -1,4 +1,4 @@
-//- compileAndRun expecting: success
+//- compileAndRun expecting: .success
 
 type A: Regular {
   public var x: Optional<Int>
@@ -12,11 +12,9 @@ public fun main() {
   var b = a.copy()
   &a.y = 1337
 
-  let ax = if let x: Int = a.x { x } else { 0 }
-  precondition(ax == 42)
+  precondition(a.x == (42 as _))
   precondition(a.y == 1337)
 
-  let bx = if let x: Int = b.x { x } else { 0 }
-  precondition(bx == 42)
+  precondition(b.x == (42 as _))
   precondition(b.y == 1)
 }

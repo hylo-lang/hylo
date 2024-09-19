@@ -21,11 +21,11 @@ struct Solution {
 
   }
 
-  /// The type assumptions made by the solver.
-  private(set) var typeAssumptions: SubstitutionMap
+  /// The type and term substitutions made by the solver.
+  private(set) var substitutions: SubstitutionMap
 
   /// The name binding assumptions made by the solver.
-  private(set) var bindingAssumptions: BindingMap
+  private(set) var bindings: BindingMap
 
   /// A map from call expression to its operands after desugaring and implicit resolution.
   private(set) var callOperands: [CallID: [ArgumentResolutionResult]]
@@ -42,21 +42,21 @@ struct Solution {
   /// Creates an empty solution.
   init() {
     self.init(
-      substitutions: [:], bindings: [:], callOperands: [:],
+      substitutions: .init(), bindings: [:], callOperands: [:],
       penalties: 0, diagnostics: [], stale: [])
   }
 
   /// Creates an instance with the given properties.
   init(
-    substitutions typeAssumptions: SubstitutionMap,
-    bindings bindingAssumptions: [NameExpr.ID: DeclReference],
+    substitutions: SubstitutionMap,
+    bindings: [NameExpr.ID: DeclReference],
     callOperands: [CallID: [ArgumentResolutionResult]],
     penalties: Int,
     diagnostics: DiagnosticSet,
     stale: [Constraint]
   ) {
-    self.typeAssumptions = typeAssumptions
-    self.bindingAssumptions = bindingAssumptions
+    self.substitutions = substitutions
+    self.bindings = bindings
     self.callOperands = callOperands
     self.penalties = penalties
     self.diagnostics = diagnostics
@@ -81,8 +81,9 @@ struct Solution {
   /// Removes the type and binding assumptions that aren't in `other` and incorporate the
   /// penalties and diagnostics of `other` into `self`.
   mutating func formIntersection(_ other: Self) {
-    typeAssumptions.formIntersection(other.typeAssumptions)
-    bindingAssumptions.formIntersection(other.bindingAssumptions)
+    substitutions.formIntersection(other.substitutions)
+    bindings.formIntersection(other.bindings)
+    diagnostics.formIntersection(other.diagnostics)
     penalties = max(penalties, other.penalties)
   }
 
@@ -93,13 +94,13 @@ extension Solution: CustomStringConvertible {
   public var description: String {
     var result = ""
 
-    result.append("typeAssumptions:\n")
-    for (k, v) in typeAssumptions.storage {
+    result.append("substitutions:\n")
+    for (k, v) in substitutions.types {
       result.append("  \(k) : \(v)\n")
     }
 
-    result.append("bindingAssumptions:\n")
-    for (k, v) in bindingAssumptions {
+    result.append("bindings:\n")
+    for (k, v) in bindings {
       result.append("  \(k) : \(v)\n")
     }
 

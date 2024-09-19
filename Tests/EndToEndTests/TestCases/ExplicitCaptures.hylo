@@ -1,4 +1,4 @@
-//- compileAndRun expecting: success
+//- compileAndRun expecting: .success
 
 fun apply<E>(_ f: [E]() -> Int) -> Int {
   f()
@@ -8,7 +8,7 @@ public fun main() {
   var local_variable = 0
   let p = mutable_pointer[to: &local_variable]
   let n = apply(fun[sink let q = p.copy()]() -> Int {
-    &(q.unsafe[]) = 19
+    &(q.copy()).unsafe[] = 19
     return 19
   })
   precondition(n == local_variable)

@@ -18,7 +18,7 @@ name: Build and test
 #    branch.
 # 2) Use https://github.com/nektos/act to run your CI steps locally. Note this will only work with
 #    steps run on Linux platforms, as `act` is implemented with Docker containers.
-
+#
 on:
   push:
     branches: [main]
@@ -151,7 +151,7 @@ jobs:
 
       - name: Upload coverage reports to Codecov
         if: ${{ contains(matrix.more-spm-test-options, '--enable-code-coverage') }}
-        uses: codecov/codecov-action@v4.4.1
+        uses: codecov/codecov-action@v4.5.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: true
@@ -238,6 +238,7 @@ jobs:
         uses: SwiftyLab/setup-swift@latest
         with:
           swift-version: ${{ env.swift-version }}
+          cache-snapshot: false # Workaround for https://github.com/SwiftyLab/setup-swift/issues/315
 
       - uses: compnerd/gha-setup-vsdevenv@main
       - name: Set up swift (Windows)

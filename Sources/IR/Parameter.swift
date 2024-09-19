@@ -25,7 +25,7 @@ public struct Parameter {
     case let u as RemoteType:
       self.init(decl: d, type: ParameterType(u))
     default:
-      self.init(decl: d, type: ParameterType(.sink, t))
+      self.init(decl: d, type: ParameterType(.inout, t))
     }
   }
 

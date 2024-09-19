@@ -28,28 +28,12 @@ extension TypedProgram {
     }
   }
 
-  /// Returns a subscript bundle reference to `d`, which occurs specialized by `z` and is marked
-  /// for mutation iff `isMutating` is `true`.
+  /// Returns a subscript bundle reference to `d`, which occurs specialized by `z`.
   func subscriptBundleReference(
-    to d: SubscriptDecl.ID, specializedBy z: GenericArguments, markedForMutation isMutating: Bool
+    to d: SubscriptDecl.ID, specializedBy z: GenericArguments
   ) -> BundleReference<SubscriptDecl> {
-    let t = SubscriptType(canonical(self[d].type, in: self[d].scope))!
-    let r = requestedCapabilities(
-      onBundleProviding: t.capabilities, forInPlaceMutation: isMutating)
-    return BundleReference(to: d, specializedBy: z, requesting: r)
-  }
-
-  /// Returns the capabilities potentially requested by an access on a subscript or method bundle
-  /// defining `available`, used for mutation iff `m` is `true`.
-  func requestedCapabilities(
-    onBundleProviding available: AccessEffectSet, forInPlaceMutation m: Bool
-  ) -> AccessEffectSet {
-    let requested = available.intersection(
-      AccessEffectSet.forUseOfBundle(performingInPlaceMutation: m))
-
-    // TODO: requested is empty iff the program is ill-typed w.r.t. mutation markers
-    // assert(!requested.isEmpty)
-    return requested.isEmpty ? available : requested
+    let available = SubscriptType(canonical(self[d].type, in: self[d].scope))!.capabilities
+    return BundleReference(to: d, specializedBy: z, requesting: available)
   }
 
 }

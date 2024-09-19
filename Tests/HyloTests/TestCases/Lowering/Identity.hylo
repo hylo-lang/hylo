@@ -1,4 +1,4 @@
-//- lowerToFinishedIR expecting: success
+//- lowerToFinishedIR expecting: .success
 
 fun identity<T: Movable>(_ x: sink T) -> T {
   x

@@ -1,4 +1,8 @@
-//- compileAndRun expecting: success
+//- compileAndRun expecting: .success
+
+fun f<T: Regular, U: Regular>(_ u: sink Union<T, U>) -> Bool {
+  if let _: T = u { true } else { false }
+}
 
 public fun main() {
   var x: Union<{a: Bool}, {b: Int}> = (b: 42)
@@ -7,4 +11,8 @@ public fun main() {
   } else {
     fatal_error()
   }
+
+  precondition(f<Int, Bool>(42 as _))
+  precondition(f<Int, Int>(42 as _))
+  precondition(!f<Int, Bool>(true as _))
 }

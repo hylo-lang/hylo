@@ -1,0 +1,37 @@
+//- typeCheck expecting: .failure
+
+fun use<T>(_ x: T) {}
+
+trait Z3 {
+  type A where A : Z3, A.A.A == Self
+}
+
+fun f<T: Z3>(_ v: T) {
+  use<T.A.A.A>(v)
+}
+
+trait S {
+  type A
+  type B
+  type C: S where C.A == B, C.C == Self
+}
+
+fun g<T: S>(_ v: T.C.B) {
+  use<T.A>(v)
+}
+
+//! @+1 diagnostic requirement system too complex to build
+trait I {
+  type A: I
+  type B: I
+  type C: I
+  type D: I
+  type E: I where
+    A.C == C.A,
+    A.D == D.A,
+    B.C == C.B,
+    B.D == D.B,
+    C.E == E.C.A,
+    D.E == E.D.B,
+    C.C.A == C.C.A.E
+}

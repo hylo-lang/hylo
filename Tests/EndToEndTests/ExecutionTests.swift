@@ -1,3 +1,4 @@
+import Driver
 import TestUtils
 import XCTest
 
@@ -6,18 +7,19 @@ final class ExecutionTests: XCTestCase {
   func testHelloWorld() throws {
     if swiftyLLVMMandatoryPassesCrash { return }
 
-    let f = FileManager.default.makeTemporaryFileURL()
-    let s = #"public fun main() { print("Hello, World!") }"#
-    try s.write(to: f, atomically: true, encoding: .utf8)
+    let source = try FileManager.default.temporaryFile(
+      containing: #"public fun main() { print("Hello, World!") }"#)
 
-    let executable = try compile(f, with: ["--emit", "binary", "-o", "hello"])
+    let compilation = try Driver.compileToTemporary(
+      source, withOptions: ["--emit", "binary", "-o", "hello"])
+    try compilation.diagnostics.throwOnError()
 
     func runAndCheckOutput() throws {
-      let outputText = try Process.run(executable).standardOutput[]
+      let output = try Process.run(compilation.output).standardOutput[]
 
       // Remember, Windows has a different newline character
-      XCTAssert(outputText.last?.isNewline ?? false, "Expected a final newline")
-      XCTAssertEqual(outputText.dropLast(), "Hello, World!")
+      XCTAssert(output.last?.isNewline ?? false, "Expected a final newline")
+      XCTAssertEqual(output.dropLast(), "Hello, World!")
     }
 
     XCTAssertNoThrow(try runAndCheckOutput())

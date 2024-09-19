@@ -1,4 +1,4 @@
-//- typeCheck expecting: success
+//- typeCheck expecting: .success
 
 fun check<T>(_ x: T) {}
 
@@ -7,7 +7,7 @@ type A {
   memberwise init
 
   // Functional variants of a method bundle return instances of `{self: Self, Output}`, unless the
-  // declared return type of the bundle is `Void`, in which case they return instances of `Output`.
+  // declared return type of the bundle is `Void`, in which case they return instances of `Self`.
   // In-place variants always return instances of `Output`.
 
   fun foo(_ x: Self) {

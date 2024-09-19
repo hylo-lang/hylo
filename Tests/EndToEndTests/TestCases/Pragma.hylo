@@ -1,11 +1,11 @@
-//- compileAndRun expecting: success
+//- compileAndRun expecting: .success
 
 fun f(_ f: sink Int = #line) -> Int { f }
 
 fun g() {
   var i = true
   while i {
-    f()
+    _ = f()
     &i = false
   }
 }

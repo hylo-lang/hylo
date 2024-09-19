@@ -54,8 +54,6 @@ extension Module {
           pc = successor(of: user)
         case is EndProject:
           pc = interpret(endProject: user, in: &context)
-        case is EndProjectWitness:
-          pc = interpret(endProjectWitness: user, in: &context)
         case is GenericParameter:
           pc = interpret(genericParameter: user, in: &context)
         case is GlobalAddr:
@@ -78,8 +76,6 @@ extension Module {
           pc = interpret(pointerToAddress: user, in: &context)
         case is Project:
           pc = interpret(project: user, in: &context)
-        case is ProjectWitness:
-          pc = interpret(projectWitness: user, in: &context)
         case is ReleaseCaptures:
           pc = successor(of: user)
         case is Return:
@@ -90,6 +86,8 @@ extension Module {
           pc = interpret(subfieldView: user, in: &context)
         case is UnionDiscriminator:
           pc = interpret(unionDiscriminator: user, in: &context)
+        case is UnionSwitch:
+          pc = successor(of: user)
         case is Unreachable:
           pc = successor(of: user)
         case is WrapExistentialAddr:
@@ -129,7 +127,8 @@ extension Module {
         if p.isEmpty { break }
 
         insertDeinit(
-          s.source, at: p, anchoredTo: s.site, before: i, reportingDiagnosticsTo: &diagnostics)
+          s.source, at: p, before: i,
+          anchoringInstructionsTo: s.site, reportingDiagnosticsTo: &diagnostics)
         o.value = .full(.uninitialized)
         context.forEachObject(at: s.source, { $0 = o })
 
@@ -251,8 +250,8 @@ extension Module {
 
       case .sink:
         insertDeinit(
-          s.start, at: projection.value.initializedSubfields, anchoredTo: s.site, before: i,
-          reportingDiagnosticsTo: &diagnostics)
+          s.start, at: projection.value.initializedSubfields, before: i,
+          anchoringInstructionsTo: s.site, reportingDiagnosticsTo: &diagnostics)
         context.withObject(at: l, { $0.value = .full(.uninitialized) })
 
       case .yielded:
@@ -305,8 +304,8 @@ extension Module {
       // erasing the deallocated memory from the context.
       let p = context.withObject(at: l, \.value.initializedSubfields)
       insertDeinit(
-        s.location, at: p, anchoredTo: s.site, before: i,
-        reportingDiagnosticsTo: &diagnostics)
+        s.location, at: p, before: i,
+        anchoringInstructionsTo: s.site, reportingDiagnosticsTo: &diagnostics)
       context.memory[l] = nil
       return successor(of: i)
     }
@@ -319,18 +318,6 @@ extension Module {
       // TODO: Process projection arguments
       finalize(
         region: s.start, projecting: r.projection.access, from: [],
-        exitedWith: i, in: &context)
-      return successor(of: i)
-    }
-
-    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(endProjectWitness i: InstructionID, in context: inout Context) -> PC? {
-      let s = self[i] as! EndProjectWitness
-      let r = self[s.start.instruction!] as! ProjectWitness
-
-      let sources = context.locals[r.container]!.unwrapLocations()!
-      finalize(
-        region: s.start, projecting: r.projection.access, from: sources,
         exitedWith: i, in: &context)
       return successor(of: i)
     }
@@ -443,20 +430,20 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(projectWitness i: InstructionID, in context: inout Context) -> PC? {
-      let s = self[i] as! ProjectWitness
-      initializeRegister(createdBy: i, projecting: s.projection, in: &context)
-      return successor(of: i)
-    }
-
-    /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(return i: InstructionID, in context: inout Context) -> PC? {
       // Make sure that all non-sink parameters are initialized on exit.
       let entry = entry(of: f)!
-      for (i, p) in self[f].inputs.enumerated() where p.type.access != .sink {
-        ensureInitializedOnExit(
-          .parameter(entry, i), passed: p.type.access, in: &context,
-          reportingDiagnosticsAt: diagnosticSite(for: p, in: f))
+      for (k, p) in self[f].inputs.enumerated() {
+        let source = Operand.parameter(entry, k)
+        if p.type.access == .sink {
+          ensureUninitializedOnExit(
+            source, in: &context, insertingDeinitializationBefore: i,
+            reportingDiagnosticsAt: self[i].site)
+        } else {
+          ensureInitializedOnExit(
+            source, passed: p.type.access, in: &context,
+            reportingDiagnosticsAt: diagnosticSite(for: p, in: f))
+        }
       }
 
       // Make sure that the return value is initialized on exit.
@@ -581,6 +568,30 @@ extension Module {
       }
     }
 
+    /// Checks that entry parameter `p` is deinitialized in `context`, inserting definitialization
+    /// before instruction `i` if it isn't, reporting diagnostics at `site`.
+    func ensureUninitializedOnExit(
+      _ p: Operand, in context: inout Context,
+      insertingDeinitializationBefore i: InstructionID,
+      reportingDiagnosticsAt site: SourceRange
+    ) {
+      context.withObject(at: .root(p), { (o) in
+        let s = o.value.initializedSubfields
+        if s == [[]] && isDeinit(i.function) {
+          // We cannot call `deinit` in `deinit` itself.
+          insertDeinitParts(
+            of: p, before: i,
+            anchoringInstructionsTo: site, reportingDiagnosticsTo: &diagnostics)
+        } else {
+          insertDeinit(
+            p, at: s, before: i,
+            anchoringInstructionsTo: site, reportingDiagnosticsTo: &diagnostics)
+        }
+
+        o.value = .full(.uninitialized)
+      })
+    }
+
     /// Checks that the return value is initialized in `context`.
     func ensureReturnValueIsInitialized(
       in context: inout Context, at site: SourceRange
@@ -637,8 +648,8 @@ extension Module {
 
       case .sink:
         insertDeinit(
-          start, at: projection.value.initializedSubfields, anchoredTo: self[exit].site,
-          before: exit, reportingDiagnosticsTo: &diagnostics)
+          start, at: projection.value.initializedSubfields, before: exit,
+          anchoringInstructionsTo: self[exit].site, reportingDiagnosticsTo: &diagnostics)
         context.withObject(at: l, { $0.value = .full(.uninitialized) })
 
       case .yielded:
@@ -720,8 +731,9 @@ extension Module {
   /// Inserts IR for the deinitialization of `root` at given `initializedSubfields` before
   /// instruction `i`, anchoring instructions to `site`.
   private mutating func insertDeinit(
-    _ root: Operand, at initializedSubfields: [RecordPath], anchoredTo site: SourceRange,
-    before i: InstructionID, reportingDiagnosticsTo log: inout DiagnosticSet
+    _ root: Operand, at initializedSubfields: [RecordPath], before i: InstructionID,
+    anchoringInstructionsTo site: SourceRange,
+    reportingDiagnosticsTo log: inout DiagnosticSet
   ) {
     for path in initializedSubfields {
       Emitter.withInstance(insertingIn: &self, reportingDiagnosticsTo: &log) { (e) in
@@ -729,6 +741,19 @@ extension Module {
         let s = e.emitSubfieldView(root, at: path, at: site)
         e.emitDeinit(s, at: site)
       }
+    }
+  }
+
+  /// Inserts ID for the deinitialization of `whole`'s parts before instruction `i`, anchoring
+  /// new instructions to `site`.
+  private mutating func insertDeinitParts(
+    of whole: Operand, before i: InstructionID,
+    anchoringInstructionsTo site: SourceRange,
+    reportingDiagnosticsTo log: inout DiagnosticSet
+  ) {
+    Emitter.withInstance(insertingIn: &self, reportingDiagnosticsTo: &log) { (e) in
+      e.insertionPoint = .before(i)
+      e.emitDeinitParts(of: whole, at: site)
     }
   }
 

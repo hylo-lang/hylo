@@ -28,6 +28,9 @@ public enum BuiltinType: TypeProtocol {
   /// The type of the built-in module.
   case module
 
+  /// The type of a union discriminator.
+  public static let discriminator = word
+
   /// `true` iff `self` is `.i` or `.word`.
   public var isInteger: Bool {
     switch self {
@@ -38,7 +41,7 @@ public enum BuiltinType: TypeProtocol {
     }
   }
 
-  public var flags: TypeFlags { .isCanonical }
+  public var flags: ValueFlags { .init() }
 
 }
 

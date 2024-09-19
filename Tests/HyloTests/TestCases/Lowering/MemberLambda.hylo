@@ -1,4 +1,4 @@
-//- lowerToFinishedIR expecting: success
+//- lowerToFinishedIR expecting: .success
 
 // This test ensures that the emitter is capable of dstinguishing a call to a member method from a
 // call to a member property with a lambda type.

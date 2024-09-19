@@ -20,7 +20,7 @@ public struct GenericTypeParameterType: TypeProtocol {
     self.init(ast[trait].receiver, ast: ast)
   }
 
-  public var flags: TypeFlags { [.isCanonical, .hasGenericTypeParameter] }
+  public var flags: ValueFlags { .hasSkolem }
 
 }
 

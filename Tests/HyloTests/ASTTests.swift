@@ -8,12 +8,15 @@ final class ASTTests: XCTestCase {
 
   func testAppendModule() throws {
     var ast = AST()
-    let i = checkNoDiagnostic { (d) in
-      ast.insert(ModuleDecl("Hylo", sources: []), diagnostics: &d)
+    var log = DiagnosticSet()
+    let i = ast.loadModule(reportingDiagnosticsTo: &log) { (tree, _, k) in
+      tree.insert(synthesized: ModuleDecl("A", sources: []), inNodeSpace: k)
     }
     XCTAssert(ast.modules.contains(i))
 
-    let j = ast.insert(synthesized: ModuleDecl("Hylo1", sources: []))
+    let j = ast.loadModule(reportingDiagnosticsTo: &log) { (tree, _, k) in
+      tree.insert(synthesized: ModuleDecl("B", sources: []), inNodeSpace: k)
+    }
     XCTAssert(ast.modules.contains(j))
   }
 
@@ -22,7 +25,7 @@ final class ASTTests: XCTestCase {
 
     var a = AST()
     let m = try checkNoDiagnostic { (d) in
-      try a.makeModule("Main", sourceCode: [input], diagnostics: &d)
+      try a.loadModule("Main", parsing: [input], reportingDiagnosticsTo: &d)
     }
 
     // Note: we use `XCTUnwrap` when we're expecting a non-nil value produced by a subscript under
@@ -60,7 +63,7 @@ final class ASTTests: XCTestCase {
 
     var a = AST()
     let m = try checkNoDiagnostic { (d) in
-      try a.makeModule("Main", sourceCode: [input], diagnostics: &d)
+      try a.loadModule("Main", parsing: [input], reportingDiagnosticsTo: &d)
     }
 
     struct V: ASTWalkObserver {

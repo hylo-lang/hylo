@@ -1,0 +1,12 @@
+//- typeCheck expecting: .failure
+
+fun use<T>(_ x: T) {}
+
+public fun main() {
+  let x: Optional<Int> = 42 as _
+
+  if let y? = x { use<Int>(y) }
+
+  //! @+1 diagnostic optional pattern may only be used as a condition
+  let z? : Int = 0
+}

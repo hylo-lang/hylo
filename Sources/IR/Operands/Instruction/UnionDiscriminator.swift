@@ -16,7 +16,7 @@ public struct UnionDiscriminator: Instruction {
   }
 
   public var result: IR.`Type`? {
-    .object(BuiltinType.word)
+    .object(BuiltinType.discriminator)
   }
 
   public var operands: [Operand] {

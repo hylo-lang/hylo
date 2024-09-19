@@ -1,0 +1,7 @@
+//- compileAndRun expecting: .success
+
+public fun main() {
+  var x = 0
+  for sink let i in 0 ..< 3 { &x = i }
+  precondition(x == 2)
+}

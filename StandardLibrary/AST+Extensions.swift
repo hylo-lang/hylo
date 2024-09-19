@@ -8,11 +8,11 @@ extension AST {
   init(libraryRoot: URL, _ compilationConditions: ConditionalCompilationFactors) throws {
     self.init(compilationConditions)
     var diagnostics = DiagnosticSet()
-    coreLibrary = try makeModule(
+    coreLibrary = try loadModule(
       "Hylo",
-      sourceCode: sourceFiles(in: [libraryRoot]),
-      builtinModuleAccess: true,
-      diagnostics: &diagnostics)
+      parsing: sourceFiles(in: [libraryRoot]),
+      withBuiltinModuleAccess: true,
+      reportingDiagnosticsTo: &diagnostics)
     assert(coreModuleIsLoaded)
     self.coreTraits = .init(self)
   }
