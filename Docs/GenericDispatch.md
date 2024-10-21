@@ -10,14 +10,44 @@ parameters.
 
 These assumptions cannot hold for Hylo because they conflict with our
 commitment that generics can be separately type checked and
-(optionally) compiled to binary code.  The goal of this discussion is
-ultimately to choose a semantics for Hylo generics.  We'll present a
-few alternatives and would like to discuss the implications of those
-choices for the programming model and the language implementation.
+(optionally) compiled to binary code with opaque module boundaries.
+When we say module boundaries are opaque, we mean that a module's
+private implementation details (including the implementations and
+layouts of its publicly-exposed generic types and functions) can be
+changed without causing recompilation of modules that import it.
 
-We are interested in the insights of experienced generic programmers
-regarding the extent to which these choices support the needs of
-generic programming and are explained by a workable mental model.
+## Rationale for separate compilation and type checking of generics
+
+In ordinary programming, the a function's signature tells us which
+operations on its arguments the compiler will accept, and once it has
+ingested the function's implementation, there can be no further errors
+in its body.  But without separate type checking, type errors in a
+generic function's body will only be reported when it is *used in a
+particular way*. It's very easy to ship an ill-typed generic function
+to users, who will be forced to confront type errors in
+implementations of which they have no knowledge.  In terms of
+programming experience, witing generic code means entering a whole
+new—and much more difficult—world.
+
+When generics cannot be separately *compiled*, they become
+second-class citizens.  For example, in C++, the API of a
+separately-compiled library, or of an application that supports
+plugins, is always implemented in terms of concrete types.  Any
+generic APIs presented have been constructed on top of these concrete
+foundations using a form of manual type erasure, and their
+implementations usually cannot be changed without breaking clients.
+
+In general, separate compilation limits the compiler's ability to make
+optimizations, because it cannot see across the separate compilation
+boundary.  Maintaining performance depends on doing enough computation
+*within* a compilation boundary that the cost paid to cross the
+boundary becomes insignificant.  Unfortunately, that's not always
+possible with generic code: because a heavily-used concept requirement
+(whose implementation is often as lightweight as an integer increment)
+may lie across such a boundary from the algorithm that calls it.
+Whether to pay these costs in exchange for the benefits of separate
+compilation—where it is useful—is a choice for programmers to make,
+not language designers.
 
 ## Basics of the Hylo Design for Generics
 
@@ -91,37 +121,41 @@ conformance Y: Equatable where T: Equatable { // conditional (bounded) conforman
 
 ## Separate Compilation and Dispatch
 
-When generics are separately type checked, the operations
-on generic parameters are restricted to those implied by the bounds on
-those parameters.
+When generics are separately type checked, the operations on generic
+parameters are restricted to those implied by the bounds on those
+parameters.
 
 ```hylo
 conformance X: Hashable {
-  fun hash(into: inout Hasher)
+  public fun hash(into: inout Hasher)
 }
-
-f(X())
 
 fun f<T: Equatable>(_ x: T) {
   x.equals(x) // OK
   var h = Hasher()
   x.hash(into: &h) // Error: no 'hash' method on 'x'.
 }
+
+f(X())
 ```
 
 It doesn't matter that `f` will called on a `Hashable` object; its
 bound that `T` is `Equatable` doesn't allow `f` to use a `Hashable`
-requirement.  That may seem obvious, but it has important implications
-for separate compilation.
+requirement.  That may seem obvious, but separate *type checking* has
+important implications for modular *separate compilation*, because the
+implementation of a generic function can only depend on its declared
+requirements and the specific types being passed to it.
 
-Despite the fact that the semantics of generics is thought of as
+### Compilation Model
+
+Despite the fact that the *semantics* of generics is thought of as
 “static dispatch,” different types will have different implementations
 of any trait requirement, and therefore a separately-compiled generic
-function must access these implementations via a dynamic mechanism.
-(Hylo supports automatic monomorphization as an optimization step that
-eliminates the costs of implementation dynamism without changing
-semantics, but that can be explicitly disabled for module resilience
-purposes and to improve compile times)
+function must access these implementations via a dynamic *mechanism*.
+(Hylo supports an optimization step that eliminates the costs of
+implementation dynamism without changing semantics, but that step can
+be explicitly disabled to improve compile times and to allow for
+binary-compatible evolution of library implementations)
 
 Most typically a generic function desugars into a function
 that, for each trait bound, additionally accepts a “witness table”
@@ -133,26 +167,39 @@ fun f<T: Equatable>(_ x: T) -> Bool {
 }
 ```
 
-becomes
+desugars to
 
 ```hylo
-fun f'<T: Equatable>(_ x: T, _ w: EquatableWitness) -> Bool {
+fun f<T: Equatable>(_ x: T, _ w: EquatableWitness) -> Bool {
   return w.equals(x, x) // dispatch through w
 }
 ```
 
-Other dynamic mechanisms are possible, but witness tables provide the
-most predictable performance, and the choice doesn't ultimately affect
-the semantic decisions that we are discussing here.  Therefore,
-without loss of generality, the rest of this discussion is framed in
-terms of witness tables.  The question is, for each call site, how are
-witness tables chosen and filled, and how does our choice affect the
-ability to provide specialized implementations of requirements?
+Other mechanisms are possible, but witness tables provide  predictable
+performance, and the choice doesn't ultimately affect the semantic
+decisions that we are discussing here.  Therefore, without loss of
+generality, the rest of this discussion is framed in terms of witness
+tables.
 
-## Static Invisibility of Concrete Types
+### Static Invisibility of Concrete Types
+
+The process by which languages like C++ and Rust take generic
+(type-polymorphic) components and produce concrete implementations for
+the specific types passed is called *monomorphization*.  It involves
+following concrete types passed into a tree of generic component uses
+until they bottom out in concrete code again at the leaves.  Rust
+generics  are separately type checked, so that process happens before
+monomorphization, while in C++, it happens afterwards.
+
+When generics are separately *compiled*, by contrast, the implementation
+details of a generic component are unavailable to the compiler at its
+use-sites.  Only the declaration of that component is available, so
+the compiler cannot follow a type through the tree its leaves;
+although some monomorphization may be possible, that process must stop
+at a separate compilation boundary.
 
 In a system that doesn't monomorphize all generics, the compiler never
-sees all the concrete types used. For example,
+sees all the concrete types used. For example, here
 
 ```hylo
 fun f1<U: Equatable>(_ w: U) -> Bool {
@@ -171,9 +218,10 @@ fun g() {
 ```
 
 The compiler encounters `Y<Bool>` directly, but not `Y<Int>`, which
-occurs only because `f` is called with `Int` (in case you need a
+occurs only because `f` is called with `Int`. In case you need a
 starker example, you can imagine there's a module boundary between `f`
-and `g`, so not even whole module analysis can discover `Y<Int>`).
+and `g`, which are built separately, so not even whole module analysis
+can discover `Y<Int>`.
 
 This invisibility interacts deeply with requirement
 specialization. Imagine that we are able to supply a
@@ -187,23 +235,29 @@ conformance Y<Int>: Equatable {
 }
 ```
 
-For `f1` to use this specialized implementation, it would need to be
-passed a specialized witness table for `Y<Int>`'s conformance to
-`Equatable`, different from the one for `Y<Bool>` or `Y<String>`. That
-in turn would imply that `f`'s separately-compiled implementation
-needs to look up the witness table for `Y<T>` dynamically based on
-the type of `x`. It can be done, but because the lookup key is
-a pair (*trait*, *type*), and both types and traits can be added
-arbitrarily, this lookup is much more expensive than looking up a
-requirement implementation in a witness table.
+For `f1` to use this specialized implementation, there are two possibilities:
+
+1. `f1` would need to be passed a specialized witness table for
+   `Y<Int>: Equatable` that is different from the one for `Y<Bool>` or
+   `Y<String>`. That, in turn, would imply that `f`'s
+   separately-compiled implementation needs to look up the witness
+   table for `Y<T>: Equatable` dynamically based on the type of `x`.
+
+2. The `equals` entry in the generic `Y<T>: Equatable` witness
+   table—the one that applies for all `T`s—would need to perform some
+   kind of dynamic dispatch based on the type of `x`.
 
 ## Overlapping Conformances
 
 The above is just one simple example of a cluster of issues that can
 arise when conformance declarations overlap.  Two conformance
 declarations overlap when, *taken separately*, each one could imply
-the conformance of a particular type to a given trait.  These issues
-can include ambiguities that are only discovered at runtime:
+the conformance of a particular type to a given trait. Because of
+visibility boundaries,
+%%
+The hardest
+problems to deal with are ambiguities that are only discovered at
+runtime:
 
 ```hylo
 trait P {}
@@ -224,6 +278,16 @@ conformance X: Q {}
 
 callf(X())
 ```
+
+We could resolve this ambiguity by arbitrarily (deterministically)
+picking one conformance or another, but even then, the cost of
+maintaining data structures for the kind of dynamism discussed here
+
+.
+Unfortunately, in the general case, the information that would allow
+this kind of dynamism, and the need for it,  may lie beyond an opaque
+module boundary.  Ultimately building the
+
 
 --------------------------
 
