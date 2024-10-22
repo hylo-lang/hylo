@@ -11,10 +11,13 @@ parameters.
 These assumptions cannot hold for Hylo because they conflict with our
 commitment that generics can be separately type checked and
 (optionally) compiled to binary code with opaque module boundaries.
+
 When we say module boundaries are opaque, we mean that a module's
-private implementation details (including the implementations and
-layouts of its publicly-exposed generic types and functions) can be
-changed without causing recompilation of modules that import it.
+private implementation details—including the layouts of its public
+types and implementations of its public functions, generic or not—can
+be changed without recompiling its clients.  (Hylo's implementation
+techniques for efficient binary-compatible type evolution are largely
+taken from Swift.)
 
 ## Rationale for separate compilation and type checking of generics
 
@@ -49,10 +52,13 @@ Whether to pay these costs in exchange for the benefits of separate
 compilation—where it is useful—is a choice for programmers to make,
 not language designers.
 
-## Basics of the Hylo Design for Generics
+Hylo supports an optimization step that eliminates the costs of
+separate compilation without changing semantics, but that optimization
+can be selectively disabled:
 
-The basic model for Hylo generics is very much like that of Swift and
-Rust:
+- globally, to improve compile times; typically for a debug build.
+- at select module boundaries to allow for binary-compatible library
+  evolution.
 
 - A concept applies to a single type, not some tuple of types.
 - The concept's requirements are specified in `trait`s.
@@ -151,11 +157,9 @@ requirements and the specific types being passed to it.
 Despite the fact that the *semantics* of generics is thought of as
 “static dispatch,” different types will have different implementations
 of any trait requirement, and therefore a separately-compiled generic
-function must access these implementations via a dynamic *mechanism*.
-(Hylo supports an optimization step that eliminates the costs of
-implementation dynamism without changing semantics, but that step can
-be explicitly disabled to improve compile times and to allow for
-binary-compatible evolution of library implementations)
+function—a single implementation in object code that can be used
+regardless of the function's generic parameters—must access these
+implementations via a dynamic *mechanism*.
 
 Most typically a generic function desugars into a function
 that, for each trait bound, additionally accepts a “witness table”
@@ -235,18 +239,18 @@ conformance Y<Int>: Equatable {
 }
 ```
 
-For `f1` to use this specialized implementation, there are two possibilities:
-
-1. `f1` would need to be passed a specialized witness table for
-   `Y<Int>: Equatable` that is different from the one for `Y<Bool>` or
-   `Y<String>`. That, in turn, would imply that `f`'s
-   separately-compiled implementation needs to *dynamically* look up
-   that witness table for `Y<T>: Equatable` based on the type of `x`.
+For `f1` to use this specialized implementation, `f` would need to
+pass it a specialized witness table for `Y<Int>: Equatable`, different
+from the more general one used for `Y<Bool>` or `Y<String>`.
+Therefore, the implementation of `f` would have to *dynamically* look
+up the `Equatable` witness table for `Y<T>` based on what `T` turns
+out to be.
 
 2. The `equals` entry in the generic `Y<T>: Equatable` witness
    table—the one that applies for all `T`s—would need to perform some
    kind of dynamic dispatch based on the type of `x`.
 
+The first option is more efficient than the
 Note that in either case, there's an additional level of dynamism
 implied beyond what is provided by dispatching through a
 statically-selected witness table.
@@ -271,39 +275,35 @@ ambiguity between equally-specific conformances that can only be
 discovered at runtime.  Here's an example:
 
 ```hylo
+// Int conforms to both P and Q
 trait P {}
 trait Q {}
-
-// Int conforms to both P and Q
 conformance Int: P {}
 conformance Int: Q {}
 
-trait R { static fun id() -> String }
 type X<T> {}
+trait R { static fun id() -> String }
 
-// X conforms to R differently depending on its conformance to P or Q.
+// X conforms to R differently depending on T's conformance to P or Q.
 conformance<T> X<T>: R where T: P { static fun id() { return "P" } }
 conformance<T> X<T>: R where T: Q { static fun id() { return "Q" } }
 
+// Prints `id´ from R conformance
 fun print_id0<SomeR: R>() { print(SomeR.id()) }
 
+// Looks up conformance `X<U>: R`
 fun print_id<U>() {
-  // ambiguous conformance when U == Int
-  print_id0<X<U>>()
+  print_id0<X<U>>()  // ambiguous lookup when `U` is `Int`
 }
 
 
 print_id<Int>()
 ```
 
-We could resolve this ambiguity by arbitrarily (deterministically)
-picking one conformance or another, but even then, the cost of
-maintaining data structures for the kind of dynamism discussed here
+We *could* resolve this ambiguity by arbitrarily (deterministically)
+picking one conformance or another, but making the deterministic is
+difficult and the unpredictable behavior is hard to justify.
 
-.
-Unfortunately, in the general case, the information that would allow
-this kind of dynamism, and the need for it,  may lie beyond an opaque
-module boundary.  Ultimately building the
 
 
 --------------------------
