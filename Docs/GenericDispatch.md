@@ -240,43 +240,60 @@ For `f1` to use this specialized implementation, there are two possibilities:
 1. `f1` would need to be passed a specialized witness table for
    `Y<Int>: Equatable` that is different from the one for `Y<Bool>` or
    `Y<String>`. That, in turn, would imply that `f`'s
-   separately-compiled implementation needs to look up the witness
-   table for `Y<T>: Equatable` dynamically based on the type of `x`.
+   separately-compiled implementation needs to *dynamically* look up
+   that witness table for `Y<T>: Equatable` based on the type of `x`.
 
 2. The `equals` entry in the generic `Y<T>: Equatable` witness
    table—the one that applies for all `T`s—would need to perform some
    kind of dynamic dispatch based on the type of `x`.
 
+Note that in either case, there's an additional level of dynamism
+implied beyond what is provided by dispatching through a
+statically-selected witness table.
+
 ## Overlapping Conformances
 
-The above is just one simple example of a cluster of issues that can
-arise when conformance declarations overlap.  Two conformance
-declarations overlap when, *taken separately*, each one could imply
-the conformance of a particular type to a given trait. Because of
-visibility boundaries,
-%%
-The hardest
-problems to deal with are ambiguities that are only discovered at
-runtime:
+The above is one simple example of overlapping conformances.  In
+general, two conformance declarations overlap when, *taken
+separately*, each one could imply the conformance of a particular type
+to a given trait. In this case, `Y<T>: Equatable` (for all `T`)
+overlaps with the more-specific conformance `Y<Int>: Equatable`,
+because when `T` is `Int`, either one, taken alone could apply.
+
+Ideally, the language would always select the most specific
+conformance applicable for any given type, but as we saw above, that
+implies additional dynamism.  The algorithm implementing that
+selection is approximately as expensive as doing overload resolution
+at runtime.  That cost can be mitigated by adding a global cache,
+which would require dynamic allocation and synchronization for thread
+safety. In the worst case, the algorithm would need to resolve an
+ambiguity between equally-specific conformances that can only be
+discovered at runtime.  Here's an example:
 
 ```hylo
 trait P {}
 trait Q {}
-trait R {
-  fun f()
+
+// Int conforms to both P and Q
+conformance Int: P {}
+conformance Int: Q {}
+
+trait R { static fun id() -> String }
+type X<T> {}
+
+// X conforms to R differently depending on its conformance to P or Q.
+conformance<T> X<T>: R where T: P { static fun id() { return "P" } }
+conformance<T> X<T>: R where T: Q { static fun id() { return "Q" } }
+
+fun print_id0<SomeR: R>() { print(SomeR.id()) }
+
+fun print_id<U>() {
+  // ambiguous conformance when U == Int
+  print_id0<X<U>>()
 }
-conformance Y: R where T: P { fun f() { print "A"} }
-conformance Y: R where T: Q { fun f() { print "B"} }
 
-fun callf1<T: R>(_ c: T) { c.f() }
-fun callf<U>(_ d: U) {
-  callf1(Y<U>(d)) // conformance of Y<U> to R is ambiguous when U == X
-}
 
-conformance X: P {}
-conformance X: Q {}
-
-callf(X())
+print_id<Int>()
 ```
 
 We could resolve this ambiguity by arbitrarily (deterministically)
