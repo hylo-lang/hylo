@@ -377,7 +377,7 @@ extension<T> T: SomeAlgorithm where T: P, T: Equatable {
 The ability to write a conformance at function scope that uses local
 values in its implementation, along with [implicit function
 parameters](https://docs.scala-lang.org/tour/implicit-parameters.html)—a
-feature Hylo takes from Scala, would solve a convenience problem
+feature Hylo takes from Scala—would solve a convenience problem
 created by strict mutable value semantics: sometimes operations on a
 part of a structure require access to the whole structure.  In a
 reference-semantic languages, one might simply store a reference to
