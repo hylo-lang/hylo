@@ -390,7 +390,17 @@ this use case is important.
 
 ## What Hylo Does Instead: Committed Choice
 
-Given Hylo's commitment to separate compilation, there were three options available:
+The remaining alternative, generally, is to give up the idea that a
+generic function will always dispatch to the most specific conformance
+that matching the concrete value of the function's type parameter.
+The specific way Hylo does it is called “committed choice.”  The rule
+is simple: when a new witness table is required, the conformance used
+is the most-specific one *statically visible* at the point of use, and
+if there is no unique most-specific conformance, it is an ambiguity
+error.
+
+The rest of this document discusses the implications of that simple rule.
+
 
 --------------------------
 
