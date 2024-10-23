@@ -285,9 +285,9 @@ conformance Int: Q {}
 type X<T> {}
 trait R { static fun id() -> String }
 
-// X conforms to R differently depending on T's conformance to P or Q.
-conformance<T> X<T>: R where T: P { static fun id() { return "P" } }
-conformance<T> X<T>: R where T: Q { static fun id() { return "Q" } }
+// X<T> conforms to R differently depending on T's conformance to P or Q.
+conformance<T: P> X<T>: R { static fun id() { return "P" } }
+conformance<T: Q> X<T>: R { static fun id() { return "Q" } }
 
 // Prints `id´ from R conformance
 fun print_id0<SomeR: R>() { print(SomeR.id()) }
@@ -340,35 +340,44 @@ trait or generic parameter constraints would be disallowed:
 ```hylo
 trait P {
   type Q
-  fun f() {}                                  // Default implementation
+  // Requirement with empty default implementation
+  fun f() {}
 }
-type X<T> { type Q = T }
+type X<T> { }
+
+// X conforms to P for all Ts.
 conformance<T> X<T>: P {
-  fun f() { print("hi") }                     // type-specific implementation
+  type Q = T
+  fun f() { print("hi") }
 }
 
-conformance<T> X<T>: P where T: Equatable {   // Disallowed
+// X<T> conforms to P differently when T is Equatable
+conformance<T> X<T>: P where T: Equatable {  // Disallowed
   fun f() { print("bye") }
 }
 
-extension P where Q: Equatable {              // Disallowed
+// Specialized implementation of f for P when P.Q is Equatable
+specialization P where Q: Equatable {        // Disallowed
   fun f() { print("why?") }
 }
 ```
 
 Notably, the first disallowed example is almost implied by the syntax
 of something we want to support: the post-hoc definition of a
-specializable algorithm given a set of trait requirements:
+specializable algorithm given a set of trait requirements. Below,
+`some_algorithm` has a default implementation that depends only on the
+requirements of `P`, but has a specialized implementation when the
+conforming type also conforms to `Equatable`.
 
 ```hylo
 trait SomeAlgorithm {
   fun some_algorithm()
 }
 conformance<T> T: SomeAlgorithm where T: P {
-  fun some_algorithm() {} // default implementation
+  fun some_algorithm() { ... } // default implementation
 }
-extension<T> T: SomeAlgorithm where T: P, T: Equatable {
-  fun some_algorithm() {} // specialized implementation
+specialization<T: P & Equatable> T: SomeAlgorithm {
+  fun some_algorithm() { ... } // specialized implementation
 }
 ```
 
