@@ -383,7 +383,7 @@ part of a structure require access to the whole structure.  In a
 reference-semantic languages, one might simply store a reference to
 the whole inside the part, but in a simple language with no
 first-class references, one must explicitly pass the whole structure
-around and access it with cumbersome repetive syntax.  Examples
+around and access it with cumbersome repetitive syntax.  Examples
 require too much background to explain here, but suffice it to say
 that locally declared conformances will tend to overlap, and we think
 this use case is important.
