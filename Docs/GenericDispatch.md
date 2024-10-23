@@ -374,7 +374,19 @@ extension<T> T: SomeAlgorithm where T: P, T: Equatable {
 
 ### No Local Conformances
 
-The ability to write a conformance at function scope that uses local
+The most significant effect of an overlapping conformance ban is that
+two modules each defining a local conformance `X: P` can't
+coexist. The “orphan rule” described
+[above](#no-generalized-post-hoc-conformances) is probably the most
+effective way to prevent that from happening.  Any other approach we
+know of allows situations where an update to module X can't be used
+because of a conformance conflict with some unrelated module.  These
+conformances might not even be visible in the module's public API, but
+they would have to appear in diagnostics, which is never a good
+look. Avoiding that dynamic is a primary motivator for separate
+type-checking of generics, after all.
+
+The ability to write a conformance at *function scope* using local
 values in its implementation, along with [implicit function
 parameters](https://docs.scala-lang.org/tour/implicit-parameters.html)—a
 feature Hylo takes from Scala—would solve a convenience problem
@@ -387,6 +399,19 @@ around and access it with cumbersome repetitive syntax.  Examples
 require too much background to explain here, but suffice it to say
 that locally declared conformances will tend to overlap, and we think
 this use case is important.
+
+## Overlapping Conformances and Type Layout
+
+Consider the following:
+
+```
+trait P { type Q }
+
+type X<T: P> {
+  var stored: T.Q
+}
+```
+
 
 ## What Hylo Does Instead: Committed Choice
 
