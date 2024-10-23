@@ -411,16 +411,44 @@ this use case is important.
 
 ## Overlapping Conformances and Type Layout
 
-Consider the following:
+Ultimately, allowing overlapping conformances means a given type can
+conform to a trait in two different ways.  If not handled carefully,
+that can make a program unsound.
 
-```
+```hylo
 trait P { type Q }
 
 type X<T: P> {
   var stored: T.Q
+  ...
 }
+
+type Y {}
 ```
 
+In the example above, the existence of two conformances `Y: P` with
+different choices of the associated type `Q` would imply two different
+layouts for `X<Y>`, which stores an instance of `Y.Q`.  There are
+three ways we know of to handle this problem:
+
+1. Eliminate the possibility of distinct layouts. We could, for
+   example, disallow a generic type from storing anything whose type
+   depends on an associated type.  Instead they'd make the stored type
+   (or something from which it can be derived without relying on
+   associated types) a generic parameter directly.  In the case above,
+   the type of the `stored` could be added as a generic parameter to `X`.
+
+   ```hylo
+   type X<T: P, Q> {
+     var stored: Q
+     ...
+   }
+   ```
+
+   The constraint that `Q == T.Q` can even be added if necessary
+possibility either needs to be eliminated, or we need to somehow
+ensure that two `X<Y>`s with distinct `Y: P` conformances are treated
+as distinct types.
 
 ## What Hylo Does Instead: Committed Choice
 
