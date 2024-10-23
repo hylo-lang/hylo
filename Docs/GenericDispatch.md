@@ -57,7 +57,7 @@ separate compilation without changing semantics, but that optimization
 can be selectively disabled:
 
 - globally, to improve compile times; typically for a debug build.
-- at select module boundaries to allow for binary-compatible library
+- at select module boundaries, to allow binary-compatible library
   evolution.
 
 - A concept applies to a single type, not some tuple of types.
@@ -111,7 +111,8 @@ trait Sequence {
 
 type X { var a: Int }
 conformance X: Equatable {
-  fun equals(_ other: X)-> Bool { return self.a == other.a } // requirement implementation
+  // requirement implementation
+  fun equals(_ other: X)-> Bool { return self.a == other.a }
 }
 
 type Y<T> {
@@ -296,46 +297,102 @@ fun print_id<U>() {
   print_id0<X<U>>()  // ambiguous lookup when `U` is `Int`
 }
 
-
 print_id<Int>()
 ```
 
-We *could* resolve this ambiguity by arbitrarily (deterministically)
-picking one conformance or another, but making the deterministic is
-difficult and the unpredictable behavior is hard to justify.
+We *could* resolve this ambiguity one of two ways:
+- **Signal an error dynamically.**  This answer undermines the value of
+  separate type-checking.  In some sense it's worse than C++—which
+  produces a usually-inscrutable compiler error in cases like
+  these—because the error is “shifted right” to runtime.
+- **Arbitrarily pick one** conformance or another at runtime. Making
+  the choice deterministic is difficult and the unpredictable behavior
+  is hard to justify.
 
+## What if we Ban Overlapping Conformances?
 
+Rather than paying the performance and predictability costs of always
+choosing the best-matching overlapping conformance, we *could* ban
+them. Rust does that by:
+- Disallowing specialized conformances.
+- An “orphan rule” requiring `T: P` to be defined in either the module
+  of `T` or that of `P`, and making it an error to import a module if
+  the imported and importing modules both declare `T: P`.
+
+### No Generalized Post-Hoc Conformance
+
+The “orphan rule” prevents generalized post-hoc conformances: if the
+standard library provides `Int` and `Monoid`, but no conformance `Int:
+Monoid`, the programmer can't declare it themselves.  Also, no matter
+where they are defined, the two standard conformances ((operation:
+`+`, identity: `0`) and (operation: `*`, identity: `1`)) cannot
+coexist.
+
+### No Specialization
+
+Those limitations can be waved away as insignificant in practice, but
+the inability to express specialization is a more serious problem for
+generic programming. For any trait requirement, one could declare a
+default implementation and optionally another for any given generic or
+non-generic type. More specific implementations that depend on further
+trait or generic parameter constraints would be disallowed:
+
+```hylo
+trait P {
+  type Q
+  fun f() {}                                  // Default implementation
+}
+type X<T> { type Q = T }
+conformance<T> X<T>: P {
+  fun f() { print("hi") }                     // type-specific implementation
+}
+
+conformance<T> X<T>: P where T: Equatable {   // Disallowed
+  fun f() { print("bye") }
+}
+
+extension P where Q: Equatable {              // Disallowed
+  fun f() { print("why?") }
+}
+```
+
+Notably, the first disallowed example is almost implied by the syntax
+of something we want to support: the post-hoc definition of a
+specializable algorithm given a set of trait requirements:
+
+```hylo
+trait SomeAlgorithm {
+  fun some_algorithm()
+}
+conformance<T> T: SomeAlgorithm where T: P {
+  fun some_algorithm() {} // default implementation
+}
+extension<T> T: SomeAlgorithm where T: P, T: Equatable {
+  fun some_algorithm() {} // specialized implementation
+}
+```
+
+### No Local Conformances
+
+The ability to write a conformance at function scope that uses local
+values in its implementation, along with [implicit function
+parameters](https://docs.scala-lang.org/tour/implicit-parameters.html)—a
+feature Hylo takes from Scala, would solve a convenience problem
+created by strict mutable value semantics: sometimes operations on a
+part of a structure require access to the whole structure.  In a
+reference-semantic languages, one might simply store a reference to
+the whole inside the part, but in a simple language with no
+first-class references, one must explicitly pass the whole structure
+around and access it with cumbersome repetive syntax.  Examples
+require too much background to explain here, but suffice it to say
+that locally declared conformances will tend to overlap, and we think
+this use case is important.
+
+## What Hylo Does Instead: Committed Choice
+
+Given Hylo's commitment to separate compilation, there were three options available:
 
 --------------------------
-
-## Possible Solutions
-
-### Ban Overlapping Conformances
-
-Banning overlapping conformances means
-
-## Generic Type Specialization
-
-In C++ one expects to be able to completely redefine a generic type
-based on its type parameters.  A specialization might have nothing in
-common with its unspecialized definition (which might not even
-exist!).  That capability is clearly incompatible with separate
-typechecking.
-
-We can, however, consider allowing the conformance of a (generic) type
-to a given trait to be specialized:
-
-```
-conformance Y: Trait1 {
-  fun requirement1() { ... }
-}
-
-conformance Y: Trait1 where T: Trait2 {
-  fun requirement1() { ... } // specialized implementation of requirement1
-}
-```
-
-A number of problems can arise from this sort of specialization.
 
 ### Associated Type Requirements
 
@@ -344,10 +401,3 @@ If this kind of specialization can change how associated type requirements are s
 a system to distinguish the same spelling of a generic type in
 two different contexts, allowing associated types of type parameters
 to be stored conflicts with soundness
-
-## Post-hoc Algorithm Specialization
-
-So far in the examples we've seen, all customization points have been
-specified by trait requirements.  That means, after a trait has been
-established, an algorithm written in terms of that trait is *not* a
-customization point.
