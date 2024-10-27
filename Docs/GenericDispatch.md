@@ -392,19 +392,37 @@ require too much background to explain here, but suffice it to say
 that locally declared conformances will tend to overlap, and we think
 this use case is important.
 
-## What Hylo Does Instead: Committed Choice
+## What Hylo Does Instead: Static Choice
 
 The remaining alternative, generally, is to give up the idea that a
 generic function will always dispatch to the most specific conformance
-that matching the concrete value of the function's type parameter.
-The specific way Hylo does it is called “committed choice.”  The rule
-is simple: when a new witness table is required, the conformance used
-is the most-specific one *statically visible* at the point of use, and
-if there is no unique most-specific conformance, it is an ambiguity
-error.
+that can match the concrete type to which a function's type parameter
+is bound.
+
+The particular way Hylo chooses witness tables is called “static
+choice.”  The rule is simple: when a new witness table is required,
+the conformance used is the most-specific one *statically visible* at
+the point of use, and if there is no unique most-specific conformance,
+it is an ambiguity error.
 
 The rest of this document discusses the implications of that simple rule.
 
+Note the use of the term *new* above. If one constrained generic
+function calls another, passing along its parameter, no new witness
+table is needed; the one for that parameter is passed along:
+
+```hylo
+fun is_really_equal<T: Equatable>(_ x: T, _ y: T) -> Bool {
+  return x == y
+}
+
+fun is_equal<T: Equatable>(_ x: T, _ y: T) -> Bool {
+  // implicit witness parameter for `T: Equatable` passed along
+  return is_really_equal(x, y)
+}
+
+let yes = is_equal(1, 1) // New witness table for `Int: Equatable` needed.
+```
 
 --------------------------
 
