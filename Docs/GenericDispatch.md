@@ -180,11 +180,15 @@ fun f<T: Equatable>(_ x: T, _ w: EquatableWitness) -> Bool {
 }
 ```
 
+Every conformance declaration desugars into the declaration of a
+constant witness table, so you can think of the witness table as the
+reification of the conformance.
+
 Other mechanisms are possible, but witness tables provide  predictable
-performance, and the choice doesn't ultimately affect the semantic
-decisions that we are discussing here.  Therefore, without loss of
-generality, the rest of this discussion is framed in terms of witness
-tables.
+performance, and the choice of mechanism doesn't ultimately affect the
+semantic decisions that we are discussing here.  Therefore, without
+loss of generality, the rest of this discussion is framed in terms of
+witness tables.
 
 ### Static Invisibility of Concrete Types
 
