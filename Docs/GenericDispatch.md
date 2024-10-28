@@ -275,7 +275,11 @@ implies additional dynamism.  The algorithm implementing that
 selection is approximately as expensive as doing overload resolution
 at runtime.  That cost can be mitigated by adding a global cache,
 which would require dynamic allocation and synchronization for thread
-safety. In the worst case, the algorithm would need to resolve an
+safety. 
+
+### Ambiguities
+
+In the worst case, the algorithm would need to resolve an
 ambiguity between equally-specific conformances that can only be
 discovered at runtime.  Here's an example:
 
@@ -312,6 +316,67 @@ We *could* resolve this ambiguity one of two ways:
 - **Arbitrarily pick one** conformance or another at runtime. Making
   the choice deterministic is difficult and the unpredictable behavior
   is hard to justify.
+
+### Soundness Problem #1: Layout Conflicts
+
+The next problem with overlapping conformances is that it's possible
+to define a generic type whose layout depends on the way a generic
+parameter conforms to some trait.  For example,
+
+```hylo
+type X<T: P> {
+  var stored: T.Q
+  fun f(x: T) { ... }
+}
+```
+
+If a given `T` can conform to P in multiple ways, `T.Q` could be
+different in each conformance. In the example below, what is the value
+of `q`?  It depends which of the two conformances `Int: P` is in effect.
+
+```hylo
+// module A
+conformance Int: P { type Q = String }
+// module B
+conformance Int: P { type Q = Bool }
+// module C
+import A
+import B
+let q = MemoryLayout<X<Int>>.size
+```
+
+Fortunately there's an answer to this problem: ban generic types from
+storing an instance of an associated type (or any type that depends on
+an associated type).  That would make our definition of X above
+ill-formed.
+
+This ban does not limit expressivity as much as one might think;
+there's a simple rewrite a user can apply that forces the associated
+type into the generic parameter list.
+
+```hylo
+type X<T: P, Q> where Q == T.Q {
+  var stored: Q
+  fun f(x: T) { ... }
+}
+```
+
+To keep most use sites the same, one could supply a default for the
+new generic parameter:
+
+```hylo
+type X<T: P, Q = T.Q> where Q == T.Q {
+  var stored: Q
+  fun f(x: T) { ... }
+}
+```
+
+These changes can even be suggested by the compiler when it sees a
+stored associated type.  Unfortunately, adding a generic parameter to
+a type is an ABI-breaking change, which, in this scheme, means storing
+an associated type is, too.  That's different from most changes to a
+type's private stored properties, so solving the problem this way does
+involve a compromise.
 
 ## What if we Ban Overlapping Conformances?
 
@@ -408,8 +473,8 @@ it is an ambiguity error.
 The rest of this document discusses the implications of that simple rule.
 
 Note the use of the term *new* above. If one constrained generic
-function calls another, passing along its parameter, no new witness
-table is needed; the one for that parameter is passed along:
+function calls another, passing along its generic parameter, no new
+witness table is needed; the one for that parameter is passed along:
 
 ```hylo
 fun is_really_equal<T: Equatable>(_ x: T, _ y: T) -> Bool {
