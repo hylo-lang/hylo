@@ -345,40 +345,16 @@ import B
 let q = MemoryLayout<X<Int>>.size
 ```
 
-Fortunately there's an answer to this problem: ban generic types from
-storing an instance of an associated type (or any type that depends on
-an associated type).  That would make our definition of X above
-ill-formed.
+### Soundness Problem #2: Invariant Conflicts
 
-This ban does not limit expressivity as much as one might think;
-there's a simple rewrite a user can apply that forces the associated
-type into the generic parameter list.
+Imagine a type `SortedArray<T: Comparable>` that maintains the
+invariant that its elements of type `T` are stored in increasing
+order.  It's easy to see how different `Comparable` conformances,
+which supply an ordering for `T`, could lead to a `SortedArray<T>`
+with an ordering that breaks the invariants of the same type in a
+different context.
 
-```hylo
-type X<T: P, Q> where Q == T.Q {
-  var stored: Q
-  fun f(x: T) { ... }
-}
-```
-
-To keep most use sites the same, one could supply a default for the
-new generic parameter:
-
-```hylo
-type X<T: P, Q = T.Q> where Q == T.Q {
-  var stored: Q
-  fun f(x: T) { ... }
-}
-```
-
-These changes can even be suggested by the compiler when it sees a
-stored associated type.  Unfortunately, adding a generic parameter to
-a type is an ABI-breaking change, which, in this scheme, means storing
-an associated type is, too.  That's different from most changes to a
-type's private stored properties, so solving the problem this way does
-involve a compromise.
-
-## What if we Ban Overlapping Conformances?
+## What if we just Ban Overlapping Conformances?
 
 Rather than paying the performance and predictability costs of always
 choosing the best-matching overlapping conformance, we *could* ban
@@ -488,6 +464,25 @@ fun is_equal<T: Equatable>(_ x: T, _ y: T) -> Bool {
 
 let yes = is_equal(1, 1) // New witness table for `Int: Equatable` needed.
 ```
+
+### Solving the Ambiguity Problem
+
+Static choice solves the ambiguity problem by making
+statically-detectable ambiguities compile-time errors.  In the cases
+that would be dynamically-detectable ambiguities, it ignores any
+conformances that can only be seen dynamically and chooses the best
+statically-visible one.
+
+### Solving Soundness Problems
+
+Both soundness problems we've discussed boil down to one issue: the
+meaning of a generic type changes based on how the conformance
+constraints on its parameters are satisfied, so we can't disregard
+those conformances when considering type equality.
+
+### What It Means for Generic Programming
+
+In general, this means a generic component implementation
 
 --------------------------
 
