@@ -180,11 +180,15 @@ fun f<T: Equatable>(_ x: T, _ w: EquatableWitness) -> Bool {
 }
 ```
 
+Every conformance declaration desugars into the declaration of a
+constant witness table, so you can think of the witness table as the
+reification of the conformance.
+
 Other mechanisms are possible, but witness tables provide  predictable
-performance, and the choice doesn't ultimately affect the semantic
-decisions that we are discussing here.  Therefore, without loss of
-generality, the rest of this discussion is framed in terms of witness
-tables.
+performance, and the choice of mechanism doesn't ultimately affect the
+semantic decisions that we are discussing here.  Therefore, without
+loss of generality, the rest of this discussion is framed in terms of
+witness tables.
 
 ### Static Invisibility of Concrete Types
 
@@ -271,7 +275,11 @@ implies additional dynamism.  The algorithm implementing that
 selection is approximately as expensive as doing overload resolution
 at runtime.  That cost can be mitigated by adding a global cache,
 which would require dynamic allocation and synchronization for thread
-safety. In the worst case, the algorithm would need to resolve an
+safety.
+
+### Ambiguities
+
+In the worst case, the algorithm would need to resolve an
 ambiguity between equally-specific conformances that can only be
 discovered at runtime.  Here's an example:
 
@@ -285,9 +293,9 @@ conformance Int: Q {}
 type X<T> {}
 trait R { static fun id() -> String }
 
-// X<T> conforms to R differently depending on T's conformance to P or Q.
-conformance<T: P> X<T>: R { static fun id() { return "P" } }
-conformance<T: Q> X<T>: R { static fun id() { return "Q" } }
+// X conforms to R differently depending on T's conformance to P or Q.
+conformance<T> X<T>: R where T: P { static fun id() { return "P" } }
+conformance<T> X<T>: R where T: Q { static fun id() { return "Q" } }
 
 // Prints `id´ from R conformance
 fun print_id0<SomeR: R>() { print(SomeR.id()) }
@@ -309,7 +317,43 @@ We *could* resolve this ambiguity one of two ways:
   the choice deterministic is difficult and the unpredictable behavior
   is hard to justify.
 
-## What if we Ban Overlapping Conformances?
+### Soundness Problem #1: Layout Conflicts
+
+The next problem with overlapping conformances is that it's possible
+to define a generic type whose layout depends on the way a generic
+parameter conforms to some trait.  For example,
+
+```hylo
+type X<T: P> {
+  var stored: T.Q
+  fun f(x: T) { ... }
+}
+```
+
+If a given `T` can conform to P in multiple ways, `T.Q` could be
+different in each conformance. In the example below, what is the size
+of the result of `f<Int>()`?  It depends which of the two conformances
+`Int: P` is in effect.
+
+```hylo
+// module A
+conformance Int: P { type Q = String }
+// module B
+conformance Int: P { type Q = Bool }
+// module C
+fun f<T: P>() -> X<T> { return X<T>() }
+```
+
+### Soundness Problem #2: Invariant Conflicts
+
+Imagine a type `SortedArray<T: Comparable>` that maintains the
+invariant that its elements of type `T` are stored in increasing
+order.  It's easy to see how different `Comparable` conformances,
+which supply an ordering for `T`, could lead to a `SortedArray<T>`
+with an ordering that breaks the invariants of the same type in a
+different context.
+
+## What if we just Ban Overlapping Conformances?
 
 Rather than paying the performance and predictability costs of always
 choosing the best-matching overlapping conformance, we *could* ban
@@ -348,6 +392,7 @@ type X<T> { }
 // X conforms to P for all Ts.
 conformance<T> X<T>: P {
   type Q = T
+  // Specific implementation for X<T> for any T
   fun f() { print("hi") }
 }
 
@@ -409,67 +454,121 @@ require too much background to explain here, but suffice it to say
 that locally declared conformances will tend to overlap, and we think
 this use case is important.
 
-## Overlapping Conformances and Type Layout
-
-Ultimately, allowing overlapping conformances means a given type can
-conform to a trait in two different ways.  If not handled carefully,
-that can make a program unsound.
-
-```hylo
-trait P { type Q }
-
-type X<T: P> {
-  var stored: T.Q
-  ...
-}
-
-type Y {}
-```
-
-In the example above, the existence of two conformances `Y: P` with
-different choices of the associated type `Q` would imply two different
-layouts for `X<Y>`, which stores an instance of `Y.Q`.  There are
-three ways we know of to handle this problem:
-
-1. Eliminate the possibility of distinct layouts. We could, for
-   example, disallow a generic type from storing anything whose type
-   depends on an associated type.  Instead they'd make the stored type
-   (or something from which it can be derived without relying on
-   associated types) a generic parameter directly.  In the case above,
-   the type of the `stored` could be added as a generic parameter to `X`.
-
-   ```hylo
-   type X<T: P, Q> {
-     var stored: Q
-     ...
-   }
-   ```
-
-   The constraint that `Q == T.Q` can even be added if necessary
-possibility either needs to be eliminated, or we need to somehow
-ensure that two `X<Y>`s with distinct `Y: P` conformances are treated
-as distinct types.
-
-## What Hylo Does Instead: Committed Choice
+## What Hylo Does Instead: Static Choice
 
 The remaining alternative, generally, is to give up the idea that a
 generic function will always dispatch to the most specific conformance
-that matching the concrete value of the function's type parameter.
-The specific way Hylo does it is called “committed choice.”  The rule
-is simple: when a new witness table is required, the conformance used
-is the most-specific one *statically visible* at the point of use, and
-if there is no unique most-specific conformance, it is an ambiguity
-error.
+that can match the concrete type to which a function's type parameter
+is bound.
+
+The particular way Hylo chooses witness tables is called “static
+choice.”  The rule is simple: when a new witness table is required,
+the conformance used is the most-specific one *statically visible* at
+the point of use, and if there is no unique most-specific conformance,
+it is an ambiguity error.
 
 The rest of this document discusses the implications of that simple rule.
 
+Note the use of the term *new* above. If one constrained generic
+function calls another, passing along its generic parameter, no new
+witness table is needed; the one for that parameter is passed along:
 
---------------------------
+```hylo
+fun is_really_equal<T: Equatable>(_ x: T, _ y: T) -> Bool {
+  return x == y
+}
 
-### Associated Type Requirements
+fun is_equal<T: Equatable>(_ x: T, _ y: T) -> Bool {
+  // implicit witness parameter for `T: Equatable` passed along
+  return is_really_equal(x, y)
+}
 
-If this kind of specialization can change how associated type requirements are satisfied,
+let yes = is_equal(1, 1) // New witness table for `Int: Equatable` needed.
+```
 
-a system to distinguish the same spelling of a generic type in
-two different contexts, allowing associated types of type parameters
-to be stored conflicts with soundness
+### How the Ambiguity Problem Is Solved
+
+Static choice makes statically-detectable ambiguities into
+compile-time errors, and because it wilfully ignores conformances that
+can only be seen dynamically and chooses the best statically-visible
+one, there's nothing to detect dynamically.  Of course at this point
+it remains to be seen how well this behavior—which doesn't match the
+one we earlier called “ideal”—supports generic programming.
+
+### Solving Soundness Problems
+
+Both soundness problems we've discussed boil down to one issue: the
+meaning of a generic type changes based on how the conformance
+constraints on its parameters are satisfied, so disregarding
+conformance differences of generic parameters in the type system is
+fatal to soundness.  The general solution is fairly straightforward:
+treat generic types as different if their arguments satisfy the
+type's constraints using different conformances.
+
+In Hylo, that also means a generic type with a concrete argument
+cannot “escape” into a context where it would depend on different
+conformances for that argument, or where the conformances that
+arguments depends on are not satisfied:
+
+```hylo
+// module A
+public trait P { fun boo() -> Int }
+public type X<T: P> { public memberwise init }
+
+// module B
+import A
+private conformance Int: P {
+  public fun boo() -> Int { return 3 }
+}
+let x = X<Int>()
+
+// module C
+import B
+private conformance Int: P {
+  public fun boo() -> Int { return 4 }
+}
+let x = X<Int>() // OK
+let bx = B.x     // Error: X<Int> depends on a different conformance Int: P
+
+// module C
+import B
+
+// Error: X<Int> depends on conformance Int: P, which is not in scope
+let bx = X<Int>()
+```
+
+- Note: the phrasing of the restriction is carefully chosen to handle
+  cases like this, where some of the generic arguments are concrete:
+
+    ```hylo
+    // module A
+    public trait P { fun boo() -> Int }
+    public type X<T: P, U> { public memberwise init }
+
+    // module B
+    import A
+    private conformance Int: P {
+      public fun boo() -> Int { return 3 }
+    }
+    fun g<U>() -> T<Int, U>
+
+    // module C
+    import B
+    fun h<V>() {
+      // Error: result T<Int, V> depends on a conformance `Int: P`
+      // that is not in scope.
+      let x = g<V>()
+    }
+    let x = B.g<Bool>()
+    ```
+
+It is an interesting question whether we should allow types to escape
+into contexts where the top-level type has differing conformances.  It
+isn't required for soundness, but we're not sure it's meaningful.
+Following our usual philosophy, we are going to start conservatively
+by banning such escapes and see to what degree that restriction hurts
+expressiveness.  It can always be lifted later if warranted.
+
+### What It Means for Generic Programming
+
+In general, this means a generic component implementation
