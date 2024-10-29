@@ -467,18 +467,86 @@ let yes = is_equal(1, 1) // New witness table for `Int: Equatable` needed.
 
 ### Solving the Ambiguity Problem
 
-Static choice solves the ambiguity problem by making
-statically-detectable ambiguities compile-time errors.  In the cases
-that would be dynamically-detectable ambiguities, it ignores any
-conformances that can only be seen dynamically and chooses the best
-statically-visible one.
+Static choice makes statically-detectable ambiguities into
+compile-time errors, and because it wilfully ignores conformances that
+can only be seen dynamically and chooses the best statically-visible
+one, there's nothing to detect dynamically.  Of course at this point
+it remains to be seen how well this behavior—which doesn't match the
+one we earlier called “ideal”—supports generic programming.
 
 ### Solving Soundness Problems
 
 Both soundness problems we've discussed boil down to one issue: the
 meaning of a generic type changes based on how the conformance
-constraints on its parameters are satisfied, so we can't disregard
-those conformances when considering type equality.
+constraints on its parameters are satisfied, so disregarding
+conformance differences of generic parameters in the type system is
+fatal to soundness.  The general solution is fairly straightforward:
+treat generic types as different if their arguments satisfy the
+type's constraints using different conformances.
+
+In Hylo, that also means a generic type with a concrete argument
+cannot “escape” into a context where it would depend on different
+conformances for that argument, or where the conformances that
+arguments depends on are not satisfied:
+
+```hylo
+// module A
+public trait P { fun boo() -> Int }
+public type X<T: P> { public memberwise init }
+
+// module B
+import A
+private conformance Int: P {
+  public fun boo() -> Int { return 3 }
+}
+let x = X<Int>()
+
+// module C
+import B
+private conformance Int: P {
+  public fun boo() -> Int { return 4 }
+}
+let x = X<Int>() // OK
+let bx = B.x     // Error: X<Int> depends on a different conformance Int: P
+
+// module C
+import B
+
+// Error: X<Int> depends on conformance Int: P, which is not in scope
+let bx = X<Int>()
+```
+
+- Note: the phrasing of the restriction is carefully chosen to handle
+  cases like this, where some of the generic arguments are concrete:
+
+    ```hylo
+    // module A
+    public trait P { fun boo() -> Int }
+    public type X<T: P, U> { public memberwise init }
+
+    // module B
+    import A
+    private conformance Int: P {
+      public fun boo() -> Int { return 3 }
+    }
+    fun g<U>() -> T<Int, U>
+
+    // module C
+    import B
+    fun h<V>() {
+      // Error: result T<Int, V> depends on a conformance `Int: P`
+      // that is not in scope.
+      let x = g<V>()
+    }
+    let x = B.g<Bool>()
+    ```
+
+It is an interesting question whether we should allow types to escape
+into contexts where the top-level type has differing conformances.  It
+isn't required for soundness, but we're not sure it's meaningful.
+Following our usual philosophy, we are going to start conservatively
+by banning such escapes and see to what degree that restriction hurts
+expressiveness.  It can always be lifted later if warranted.
 
 ### What It Means for Generic Programming
 
