@@ -553,11 +553,3 @@ expressiveness.  It can always be lifted later if warranted.
 In general, this means a generic component implementation
 
 --------------------------
-
-### Associated Type Requirements
-
-If this kind of specialization can change how associated type requirements are satisfied,
-
-a system to distinguish the same spelling of a generic type in
-two different contexts, allowing associated types of type parameters
-to be stored conflicts with soundness
