@@ -99,7 +99,8 @@ trait Sequence {
   fun iterator() -> Iter
 
   fun equals<Other: Sequence>(_: Other) -> Bool
-    where Self.Element == Other.Element // type equality bound
+    where Self.Element == Other.Element, // type equality bound
+          Self.Element: Equatable
 
   // requirement with default implementation
   fun nth(_ n_: Int) -> Optional<Iter.Element> {
@@ -119,7 +120,7 @@ type Y<T> {
   var a: T
 }
 
-conformance Y: Equatable where T: Equatable { // conditional (bounded) conformance
+conformance<T> Y<T>: Equatable where T: Equatable { // conditional (bounded) conformance
   fun equals(_ other: Y)-> Bool {
     return self.a.equals(other.a) // use of trait requirement available via to bound
   }
@@ -251,6 +252,7 @@ Therefore, the implementation of `f` would have to *dynamically* look
 up the `Equatable` witness table for `Y<T>` based on what `T` turns
 out to be.
 
+#### FIX this section
 2. The `equals` entry in the generic `Y<T>: Equatable` witness
    table—the one that applies for all `T`s—would need to perform some
    kind of dynamic dispatch based on the type of `x`.
@@ -534,7 +536,7 @@ let bx = B.x     // Error: X<Int> depends on a different conformance Int: P
 import B
 
 // Error: X<Int> depends on conformance Int: P, which is not in scope
-let bx = X<Int>()
+let bx = B.x
 ```
 
 - Note: the phrasing of the restriction is carefully chosen to handle
@@ -561,13 +563,6 @@ let bx = X<Int>()
     }
     let x = B.g<Bool>()
     ```
-
-It is an interesting question whether we should allow types to escape
-into contexts where the top-level type has differing conformances.  It
-isn't required for soundness, but we're not sure it's meaningful.
-Following our usual philosophy, we are going to start conservatively
-by banning such escapes and see to what degree that restriction hurts
-expressiveness.  It can always be lifted later if warranted.
 
 ### What It Means for Generic Programming
 
