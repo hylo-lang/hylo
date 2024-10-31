@@ -509,8 +509,8 @@ type's constraints using different conformances.
 
 In Hylo, that also means a generic type with a concrete argument
 cannot “escape” into a context where it would depend on different
-conformances for that argument, or where the conformances that
-arguments depends on are not satisfied:
+conformances for that argument, or where the conformances the
+argument depends on are not satisfied:
 
 ```hylo
 // module A
