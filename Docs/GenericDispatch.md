@@ -252,16 +252,6 @@ Therefore, the implementation of `f` would have to *dynamically* look
 up the `Equatable` witness table for `Y<T>` based on what `T` turns
 out to be.
 
-#### FIX this section
-2. The `equals` entry in the generic `Y<T>: Equatable` witness
-   table—the one that applies for all `T`s—would need to perform some
-   kind of dynamic dispatch based on the type of `x`.
-
-The first option is more efficient than the
-Note that in either case, there's an additional level of dynamism
-implied beyond what is provided by dispatching through a
-statically-selected witness table.
-
 ## Overlapping Conformances
 
 The above is one simple example of overlapping conformances.  In
@@ -271,13 +261,15 @@ to a given trait. In this case, `Y<T>: Equatable` (for all `T`)
 overlaps with the more-specific conformance `Y<Int>: Equatable`,
 because when `T` is `Int`, either one, taken alone could apply.
 
+### Runtime Costs
+
 Ideally, the language would always select the most specific
 conformance applicable for any given type, but as we saw above, that
-implies additional dynamism.  The algorithm implementing that
-selection is approximately as expensive as doing overload resolution
-at runtime.  That cost can be mitigated by adding a global cache,
-which would require dynamic allocation and synchronization for thread
-safety.
+implies additional dynamism.  In general, the algorithm implementing
+that selection is approximately as expensive as overload resolution, a
+cost we do not want to pay at runtime.  That cost can be mitigated by
+adding a global cache, which would require dynamic allocation and
+synchronization for thread safety.
 
 ### Ambiguities
 
@@ -353,7 +345,10 @@ invariant that its elements of type `T` are stored in increasing
 order.  It's easy to see how different `Comparable` conformances,
 which supply an ordering for `T`, could lead to a `SortedArray<T>`
 with an ordering that breaks the invariants of the same type in a
-different context.
+different context.  This example is important because unlike type
+layout information, whose conflicts could in theory be detected,
+information about invariants is completely beyond the reach of the
+compiler.
 
 ## What if we just Ban Overlapping Conformances?
 
@@ -564,6 +559,58 @@ let bx = B.x
     let x = B.g<Bool>()
     ```
 
-### What It Means for Generic Programming
+## What It Means for Generic Programming
 
-In general, this means a generic component implementation
+In Hylo, the only pattern where a more-specific implementation will
+*always* be chosen over a more general one is when the specific
+implementation is defined by a conformance that does not overlap any
+others.  Any more-general implementations must be default
+implementations of trait requirements (which are defined in trait
+bodies).
+
+In this world, the generic programmer must think of specializations as
+optimizations, with the expectation that they will only sometimes take
+effect.  Program correctness, therefore, depends on specialized
+implementations being *semantically substitutable* for
+less-specialized implementations: they must uphold all the same
+contracts (while it is *technically possible* to reason about the
+meaning of programs that don't uphold this discipline, we don't
+believe it is practical).
+
+### What about “without loss of efficiency?”
+
+According to Stepanov and McJones' *Elements Of Programming*,
+
+> Generic Programming is an approach to programming that focuses on
+> designing algorithms and data structures so that they work in the
+> most general setting without loss of efficiency.
+
+If a generic programmer cannot count on a specialized conformance
+being chosen in all cases, abstraction comes with a performance
+penalty.  Certainly, compared to C++, the language where Generic
+Programming became a mature discipline, what we've described so far
+fails to support a key element of the discipline.
+
+We have considered ways to ensure the selection of more specialized
+implementations in unoptimized code, but they all require programmers
+to expose information about notional implementation details in the
+signatures of generic functions so that more-specific witness tables
+can be selected by the compiler.  This exposure of implementation
+details would be viral, with the extra dispatch information from
+callee signatures propagating into the signatures of their callers.
+
+Fortunately, by enshrining the discipline of semantic
+substitutability, we can offer ideal specialization selection as an
+optimization. Uses of generics can be maximally monomorphized, and as
+part of this process, the most-specific conformances possible can be
+substituted.  That step makes Hylo competitive with C++.
+
+Of course, monomorphization must stop at the edges of a resilience
+domain, where there is an expectation that implementations can be
+replaced without recompiling clients. Because C++ doesn't support that
+kind of resilience for generics, that doesn't affect our comparison.
+
+This optimization _does_ have implications for testing and debugging:
+it becomes more important to test code with the optimization enabled,
+and some people may prefer to enable it for regular development in
+debug builds as well.
