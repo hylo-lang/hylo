@@ -428,7 +428,7 @@ specialization<T: P & Equatable> T: SomeAlgorithm {
 The most significant effect of an overlapping conformance ban is that
 two modules each defining a local conformance `X: P` can't
 coexist. The “orphan rule” described
-[above](#no-generalized-post-hoc-conformances) is probably the most
+[above](#no-generalized-post-hoc-conformance) is probably the most
 effective way to prevent that from happening.  Any other approach we
 know of allows situations where an update to module X can't be used
 because of a conformance conflict with some unrelated module.  These
