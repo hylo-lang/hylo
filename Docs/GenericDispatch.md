@@ -573,6 +573,8 @@ others.  Any more-general implementations must be default
 implementations of trait requirements (which are defined in trait
 bodies).
 
+### Programming Model
+
 In this world, the generic programmer must think of specializations as
 optimizations, with the expectation that they will only sometimes take
 effect.  Program correctness, therefore, depends on specialized
