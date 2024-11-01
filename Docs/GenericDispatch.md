@@ -434,9 +434,8 @@ know of allows situations where an update to module X can't be used
 because of a conformance conflict with some unrelated module.  These
 conformances might not even be visible in the module's public API, but
 they would have to appear in diagnostics, which is never a good
-look. Avoiding diagnostics that point to implemetnation details
-is a primary motivator for separate
-type-checking of generics, after all.
+look. Avoiding diagnostics that point to implementation details
+is a primary motivator for separate type-checking of generics, after all.
 
 The ability to write a conformance at *function scope* using local
 values in its implementation, along with [implicit function
