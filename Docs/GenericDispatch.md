@@ -188,8 +188,24 @@ fun f<T>(_ x: T, _ w: EquatableWitness) -> Bool {
 ```
 
 Every conformance declaration desugars into the declaration of a
-constant witness table, so you can think of the witness table as the
-reification of the conformance.
+constant witness table, so
+
+```hylo
+conformance X: Equatable {
+  fun equals(_ y: Self) -> Bool { return self.a == y.a }
+}
+```
+
+becomes:
+
+```hylo
+let _x_equatable_witness = EquatableWitness(
+  fun (_ y: Self) -> Bool { return self.a == y.a }
+)
+```
+
+You can think of the witness table as the reification of the
+conformance.
 
 Other mechanisms are possible, but witness tables provide  predictable
 performance, and the choice of mechanism doesn't ultimately affect the
