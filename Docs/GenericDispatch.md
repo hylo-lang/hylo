@@ -21,7 +21,7 @@ taken from Swift.)
 
 ## Rationale for separate compilation and type checking of generics
 
-In ordinary programming, the a function's signature tells us which
+In ordinary programming, a function's signature tells us which
 operations on its arguments the compiler will accept, and once it has
 ingested the function's implementation, there can be no further errors
 in its body.  But without separate type checking, type errors in a
@@ -63,7 +63,7 @@ can be selectively disabled:
 - A concept applies to a single type, not some tuple of types.
 - The concept's requirements are specified in `trait`s.
   - Method requirements are specified in a `trait` by ordinary
-    signatures that must be matched exactly by implementations in a
+    signatures that must be matched by implementations in a
     `conformance`.
   - Associated type requirements can be specified, optionally with
     conformance and type equality bounds.
@@ -176,7 +176,7 @@ fun f<T: Equatable>(_ x: T) -> Bool {
 desugars to
 
 ```hylo
-fun f<T: Equatable>(_ x: T, _ w: EquatableWitness) -> Bool {
+fun f<T>(_ x: T, _ w: EquatableWitness) -> Bool {
   return w.equals(x, x) // dispatch through w
 }
 ```
@@ -204,7 +204,7 @@ monomorphization, while in C++, it happens afterwards.
 When generics are separately *compiled*, by contrast, the implementation
 details of a generic component are unavailable to the compiler at its
 use-sites.  Only the declaration of that component is available, so
-the compiler cannot follow a type through the tree its leaves;
+the compiler cannot follow a type through the tree to its leaves;
 although some monomorphization may be possible, that process must stop
 at a separate compilation boundary.
 
@@ -434,7 +434,8 @@ know of allows situations where an update to module X can't be used
 because of a conformance conflict with some unrelated module.  These
 conformances might not even be visible in the module's public API, but
 they would have to appear in diagnostics, which is never a good
-look. Avoiding that dynamic is a primary motivator for separate
+look. Avoiding diagnostics that point to implemetnation details
+is a primary motivator for separate
 type-checking of generics, after all.
 
 The ability to write a conformance at *function scope* using local
