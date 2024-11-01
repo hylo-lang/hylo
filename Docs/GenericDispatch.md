@@ -56,6 +56,11 @@ Hylo supports an optimization step that eliminates the costs of
 separate compilation without changing semantics, but that optimization
 can be selectively disabled:
 
+## Basics of the Hylo Design for Generics
+
+The basic model for Hylo generics is very much like that of Swift and
+Rust:
+
 - globally, to improve compile times; typically for a debug build.
 - at select module boundaries, to allow binary-compatible library
   evolution.
