@@ -161,16 +161,17 @@ requirements and the specific types being passed to it.
 
 ### Compilation Model
 
-Despite the fact that the *semantics* of generics is thought of as
-“static dispatch,” different types will have different implementations
-of any trait requirement, and therefore a separately-compiled generic
-function—a single implementation in object code that can be used
-regardless of the function's generic parameters—must access these
-implementations via a dynamic *mechanism*.
+A separately-compiled generic function has a single implementation in
+object code that can be used regardless of the function's generic
+parameters.  Therefore, despite the fact that the *semantics* of
+generics is thought of as “static dispatch,” the compiled code must
+access the implementations of trait requirements, which depend on
+generic parameters, via a dynamic *mechanism*.
 
-Most typically a generic function desugars into a function
-that, for each trait bound, additionally accepts a “witness table”
-containing implementations of that trait's requirements, so
+In most languages supporting separate compilation, a generic function
+desugars into a function that, for each trait bound, additionally
+accepts a “witness table” containing implementations of that trait's
+requirements, so
 
 ```hylo
 fun f<T: Equatable>(_ x: T) -> Bool {
