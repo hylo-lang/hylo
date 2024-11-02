@@ -111,7 +111,7 @@ trait Sequence {
   fun nth(_ n_: Int) -> Optional<Iter.Element> {
     var i = iterator()
     for n in 0..<n_ { _ = i.next() }
-    return i.next()
+    return &i.next()
   }
 }
 
@@ -569,16 +569,9 @@ let bx = B.x
     private conformance Int: P {
       public fun boo() -> Int { return 3 }
     }
-    fun g<U>() -> T<Int, U>
-
-    // module C
-    import B
-    fun h<V>() {
-      // Error: result T<Int, V> depends on a conformance `Int: P`
-      // that is not in scope.
-      let x = g<V>()
-    }
-    let x = B.g<Bool>()
+    // Error: result T<Int, V> depends on a non-public 
+    // conformance `Int: P`.
+    public fun g<U>() -> X<Int, U>
     ```
 
 ## What It Means for Generic Programming
