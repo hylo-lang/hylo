@@ -107,12 +107,13 @@ public struct AST {
   public mutating func loadModule<S: Sequence>(
     _ name: String, parsing sourceCode: S, inNodeSpace space: Int? = nil,
     withBuiltinModuleAccess builtinModuleAccess: Bool = false,
-    reportingDiagnosticsTo log: inout DiagnosticSet
+    reportingDiagnosticsTo log: inout DiagnosticSet,
+    profileWith profiler: ProfilingMeasurements? = nil
   ) throws -> ModuleDecl.ID where S.Element == SourceFile {
     try loadModule(reportingDiagnosticsTo: &log) { (me, log, k) in
       // Suppress thrown diagnostics until all files are parsed.
       let translations = sourceCode.compactMap { (f) in
-        try? Parser.parse(f, inNodeSpace: k, in: &me, diagnostics: &log)
+        try? Parser.parse(f, inNodeSpace: k, in: &me, diagnostics: &log, profileWith: profiler)
       }
 
       let m = me.insert(

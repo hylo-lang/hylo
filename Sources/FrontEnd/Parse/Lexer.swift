@@ -1,3 +1,5 @@
+import Utils
+
 /// A type that tokenize a source file.
 public struct Lexer: IteratorProtocol, Sequence {
 
@@ -7,10 +9,13 @@ public struct Lexer: IteratorProtocol, Sequence {
   /// The current position in the source file.
   private(set) var index: String.Index
 
+  private let profiler : ProfilingMeasurements?
+
   /// Creates a lexer generating tokens from the contents of `source`.
-  public init(tokenizing source: SourceFile) {
+  public init(tokenizing source: SourceFile, profileWith profiler: ProfilingMeasurements? = nil) {
     self.sourceCode = source
     self.index = source.text.startIndex
+    self.profiler = profiler
   }
 
   /// The current location of the lexer in `sourceCode`.
@@ -21,6 +26,9 @@ public struct Lexer: IteratorProtocol, Sequence {
 
   /// Advances to the next token and returns it, or returns `nil` if no next token exists.
   public mutating func next() -> Token? {
+    // Start measuring Lexer time
+     let _probe = profiler?.createTimeMeasurementProbe(MeasurementType.Lexer)
+
     // Skip whitespaces and comments.
     while true {
       if index == sourceCode.text.endIndex { return nil }

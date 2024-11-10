@@ -27,16 +27,21 @@ public enum Parser {
     _ input: SourceFile,
     inNodeSpace k: Int,
     in ast: inout AST,
-    diagnostics: inout DiagnosticSet
+    diagnostics: inout DiagnosticSet,
+    profileWith profiler: ProfilingMeasurements?  
   ) throws -> TranslationUnit.ID {
     // Temporarily stash the AST and diagnostics in the parser state, avoiding CoW costs
     var state = ParserState(
-      ast: ast, space: k, lexer: Lexer(tokenizing: input), reportingDiagnosticsTo: diagnostics)
+      ast: ast, space: k, lexer: Lexer(tokenizing: input, profileWith: profiler), reportingDiagnosticsTo: diagnostics)
     defer { diagnostics = state.diagnostics }
     diagnostics = DiagnosticSet()
 
     // Parse the input.
     var members: [AnyDeclID] = []
+
+
+    // start time measurement if needed
+    let _probe = profiler?.createTimeMeasurementProbe(MeasurementType.Parser)
 
     while let head = state.peek() {
       // Ignore semicolons.
