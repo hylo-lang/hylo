@@ -473,7 +473,7 @@ require too much background to explain here, but suffice it to say
 that locally declared conformances will tend to overlap, and we think
 this use case is important.
 
-## What Hylo Does Instead: Static Choice
+## What Hylo Does Instead: Static Selection
 
 The remaining alternative, generally, is to give up the idea that a
 generic function will always dispatch to the most specific conformance
@@ -481,12 +481,10 @@ that can match the concrete type to which a function's type parameter
 is bound.
 
 The particular way Hylo chooses witness tables is called “static
-choice.”  The rule is simple: when a new witness table is required,
+selection.”  The rule is simple: when a new witness table is required,
 the conformance used is the most-specific one *statically visible* at
 the point of use, and if there is no unique most-specific conformance,
 it is an ambiguity error.
-
-The rest of this document discusses the implications of that simple rule.
 
 Note the use of the term *new* above. If one constrained generic
 function calls another, passing along its generic parameter, no new
@@ -505,9 +503,11 @@ fun is_equal<T: Equatable>(_ x: T, _ y: T) -> Bool {
 let yes = is_equal(1, 1) // New witness table for `Int: Equatable` needed.
 ```
 
+The rest of this document discusses the implications of that simple rule.
+
 ### How the Ambiguity Problem Is Solved
 
-Static choice makes statically-detectable ambiguities into
+Static selection makes statically-detectable ambiguities into
 compile-time errors, and because it wilfully ignores conformances that
 can only be seen dynamically and chooses the best statically-visible
 one, there's nothing to detect dynamically.  Of course at this point
