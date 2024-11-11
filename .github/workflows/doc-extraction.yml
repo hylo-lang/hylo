@@ -41,6 +41,7 @@ jobs:
     - name: Install Jazzy
       run: |
         sudo gem install jazzy
+        sudo gem update
 
     - name: Setup swift
       uses: SwiftyLab/setup-swift@latest
