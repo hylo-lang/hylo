@@ -6,7 +6,7 @@
 Hylo is a programming language that leverages [mutable value semantics](Docs/ImplementationStrategiesForMutableValueSemantics.pdf) and [generic programming](https://fm2gp.com) for high-level systems programming.
 
 This repository contains the sources of the reference implementation of Hylo.
-Please visit our [website](https://hylo-lang.org) to get more information about the language itself.
+Please visit our **[website](https://hylo-lang.org)** to get more information about the language itself.
 
 ## Developement/Use Requirements
 
@@ -205,33 +205,6 @@ You can select how deep the compiler should go through the pipeline with the fol
 For example, `hc --emit raw-ast -o main.json main.hylo` will parse `main.hylo`, write the untyped AST in `main.json`, and exit the pipeline.
 
 A more detailed description of the current implementation status is available on our [roadmap page](https://www.hylo-lang.org/pages/implementation-status.html).
-
-## Related video and audio
-
-### Scientific Talks
-
-| Venue | Year    | Speaker                       | Title                                                                    |
-| :---: | :-----: | :---------------------------: | :------------------------------------------------------------------------|
-| IWACO | 2023-05 | Dimi Racordon                 | [Borrow checking Hylo](https://youtu.be/oFupPFniD9s) |
-
-### Conference Talks
-
-| Conference |  Year   |            Speaker            |                                                           Title                                                           |
-| :--------: | :-----: | :---------------------------: | :-----------------------------------------------------------------------------------------------------------------------: |
-|   C++Now   | 2022-05 |         Dave Abrahams         |    [Keynote: A Future of Value Semantics and Generic Programming Part 1](https://www.youtube.com/watch?v=4Ri8bly-dJs)     |
-|   C++Now   | 2022-05 | Dave Abrahams & Dimi Racordon |    [Keynote: A Future of Value Semantics and Generic Programming Part 2](https://www.youtube.com/watch?v=GsxYnEAZoNI)     |
-|  CppNorth  | 2022-07 |         Dave Abrahams         |  [Lightning Talk: An Object Model for Safety and Efficiency by Definition](https://www.youtube.com/watch?v=KGL02mSaplE)   |
-|   CppCon   | 2022-09 |         Dave Abrahams         | [Value Semantics: Safety, Independence, Projection, & Future of Programming](https://www.youtube.com/watch?v=QthAU-t3PQ4) |
-|   CppCon   | 2022-09 |         Dimi Racordon         |               [Val: A Safe Language to Interoperate with C++](https://www.youtube.com/watch?v=ws-Z8xKbP4w)                |
-|   ACCU     | 2023-03 |     Lucian Radu Teodorescu    |             [Concurrency Approaches: Past, Present, and Future](https://www.youtube.com/watch?v=uSG240pJGPM)              |
-
-### Podcasts
-
-| Podcast | Episode |    Date    |     Guest     |                                          Title                                          |
-| :-----: | :-----: | :--------: | :-----------: | :-------------------------------------------------------------------------------------: |
-| CppCast |   352   | 2023-01-20 | Dimi Racordon | [Val and Mutable Value Semantics](https://cppcast.com/val-and-mutable-value-semantics)  |
-|  ADSP   |   137   | 2023-07-07 |  Sean Parent  | [Sean Parent on Hylo (vs Rust)!](https://adspthepodcast.com/2023/07/07/Episode-137.html) |
-|  ADSP   |   138   | 2023-07-14 |  Sean Parent  | [Sean Parent on Hylo! (Part 2)](https://adspthepodcast.com/2023/07/14/Episode-138.html) |
 
 ## Contributing
 
