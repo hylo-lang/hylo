@@ -90,7 +90,7 @@ jobs:
         )
         HYLO_ENABLE_DOC_GENERATION=1
         " >> "${GITHUB_ENV}"
-
+        
     - uses: actions/cache@v4
       with:
         path: .build
@@ -98,6 +98,16 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-debug-spm-
 
+    - name: Generate Index Page
+      run: |
+        mkdir -p _site
+        Tools/gyb.py \
+        --line-directive '<!-- file: %(file)s line: %(line)s -->' \
+        -DROOT_URL="https://hylo-lang.org/${REPO_SANS_OWNER}" \
+        -DEXTRACTION_TARGETS="${EXTRACTION_TARGETS}" \
+        -DGITHUB_REPOSITORY="${GITHUB_REPOSITORY}" \
+        Tools/doc-index.html.gyb -o _site/index.html
+        
     - name: Extract with DocC
       run: |
         export PKG_CONFIG_PATH
@@ -130,15 +140,6 @@ jobs:
           --output _site/jazzy/"$TARGET" \
           --min-acl private
         done
-
-    - name: Generate Index Page
-      run: |
-        Tools/gyb.py \
-        --line-directive '<!-- file: %(file)s line: %(line)s -->' \
-        -DROOT_URL="https://hylo-lang.org/${REPO_SANS_OWNER}" \
-        -DEXTRACTION_TARGETS="${EXTRACTION_TARGETS}" \
-        -DGITHUB_REPOSITORY="${GITHUB_REPOSITORY}" \
-        Tools/doc-index.html.gyb -o _site/index.html
 
     - name: Setup Pages
       uses: actions/configure-pages@v5
