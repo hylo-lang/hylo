@@ -26,7 +26,7 @@ concurrency:
 jobs:
   build:
     if: github.repository == 'hylo-lang/hylo'
-    runs-on: macos-14
+    runs-on: macos-15
     env:
       llvm_url_prefix: https://github.com/hylo-lang/llvm-build/releases/download/20240303-215025
       llvm_package_basename: llvm-17.0.6-arm64-apple-darwin23.3.0-MinSizeRel
@@ -48,7 +48,7 @@ jobs:
         swift-version: ${{ env.swift-version }}
         cache-snapshot: false # Workaround for https://github.com/SwiftyLab/setup-swift/issues/315
 
-    - name: Install LLVM
+    - name: Install LLVM and create its pkgconfig file
       # 7z doesn't support decompressing from a stream or we'd do this all as one statement. Maybe
       # we should find a way to use zstd on windows.
       run: >-
@@ -58,16 +58,25 @@ jobs:
 
         tar -x --zstd -f ${{ env.llvm_package_basename }}.tar.zst
 
-    - name: Create LLVM pkgconfig file and make it findable
-      run: >-
-        set -ex -o pipefail
-
         PATH="${{ github.workspace }}/${{ env.llvm_package_basename }}/bin:$PATH"
         ./Tools/make-pkgconfig.sh llvm.pc
 
-        echo 'PKG_CONFIG_PATH=${{ github.workspace }}' >> $GITHUB_ENV
+    - name: Prepare shell environment
+      run: |
+        echo "PKG_CONFIG_PATH=${{ github.workspace }}
+        REPO_SANS_OWNER=${GITHUB_REPOSITORY##*/}
+        REF_URL_COMPONENT=${GITHUB_REF##*/}
+        HYLO_ENABLE_DOC_GENERATION=1
+        " >> "${GITHUB_ENV}"
 
-    - name: Prepare Shell Environment
+    - uses: actions/cache@v4
+      with:
+        path: .build
+        key: ${{ runner.os }}-debug-spm-${{ hashFiles('./**/Package.resolved') }}
+        restore-keys: |
+          ${{ runner.os }}-debug-spm-
+
+    - name: Compute the Extraction Targets
       # The format of the ${GITHUB_ENV} file is extremely restrictive; it apparently only supports
       # lines of the form:
       #
@@ -80,24 +89,23 @@ jobs:
 
       # FIXME: REF_URL_COMPONENT computation is probably wrong for some refs.
       run: |
-        echo "PKG_CONFIG_PATH=$PWD
-        REPO_SANS_OWNER=${GITHUB_REPOSITORY##*/}
-        REF_URL_COMPONENT=${GITHUB_REF##*/}
-        EXTRACTION_TARGETS=$(
+        echo "EXTRACTION_TARGETS=$(
           swift package dump-package |
           jq '.targets | map(select(.type | test("^(regular|executable)$"))) | .[].name' |
           xargs
         )
-        HYLO_ENABLE_DOC_GENERATION=1
         " >> "${GITHUB_ENV}"
-
-    - uses: actions/cache@v4
-      with:
-        path: .build
-        key: ${{ runner.os }}-debug-spm-${{ hashFiles('./**/Package.resolved') }}
-        restore-keys: |
-          ${{ runner.os }}-debug-spm-
-
+        
+    - name: Generate Index Page
+      run: |
+        mkdir -p _site
+        Tools/gyb.py \
+        --line-directive '<!-- file: %(file)s line: %(line)s -->' \
+        -DROOT_URL="https://hylo-lang.org/${REPO_SANS_OWNER}" \
+        -DEXTRACTION_TARGETS="${EXTRACTION_TARGETS}" \
+        -DGITHUB_REPOSITORY="${GITHUB_REPOSITORY}" \
+        Tools/doc-index.html.gyb -o _site/index.html
+        
     - name: Extract with DocC
       run: |
         export PKG_CONFIG_PATH
@@ -130,15 +138,6 @@ jobs:
           --output _site/jazzy/"$TARGET" \
           --min-acl private
         done
-
-    - name: Generate Index Page
-      run: |
-        Tools/gyb.py \
-        --line-directive '<!-- file: %(file)s line: %(line)s -->' \
-        -DROOT_URL="https://hylo-lang.org/${REPO_SANS_OWNER}" \
-        -DEXTRACTION_TARGETS="${EXTRACTION_TARGETS}" \
-        -DGITHUB_REPOSITORY="${GITHUB_REPOSITORY}" \
-        Tools/doc-index.html.gyb -o _site/index.html
 
     - name: Setup Pages
       uses: actions/configure-pages@v5
