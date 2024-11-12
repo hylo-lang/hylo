@@ -1254,7 +1254,7 @@ def main():
         sys.stdout.write(result_text)
     else:
         os.chdir(saved_cwd)
-        with io.open(args.target, 'w+', encoding='utf-8', newline='\n') as f:
+        with io.open(args.target, 'w', encoding='utf-8', newline='\n') as f:
             f.write(result_text)
 
 
