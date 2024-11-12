@@ -9,7 +9,7 @@ public struct Lexer: IteratorProtocol, Sequence {
   /// The current position in the source file.
   private(set) var index: String.Index
 
-  private let profiler : ProfilingMeasurements?
+  private let profiler: ProfilingMeasurements?
 
   /// Creates a lexer generating tokens from the contents of `source`.
   public init(tokenizing source: SourceFile, profileWith profiler: ProfilingMeasurements? = nil) {
@@ -27,7 +27,7 @@ public struct Lexer: IteratorProtocol, Sequence {
   /// Advances to the next token and returns it, or returns `nil` if no next token exists.
   public mutating func next() -> Token? {
     // Start measuring Lexer time
-     let _probe = profiler?.createTimeMeasurementProbe(MeasurementType.Lexer)
+    let _probe = profiler?.createTimeMeasurementProbe(MeasurementType.Lexer)
 
     // Skip whitespaces and comments.
     while true {
@@ -62,7 +62,7 @@ public struct Lexer: IteratorProtocol, Sequence {
           } else {
             return Token(
               kind: .unterminatedBlockComment,
-              site: sourceCode.range(start ..< index))
+              site: sourceCode.range(start..<index))
           }
         }
 
@@ -76,12 +76,12 @@ public struct Lexer: IteratorProtocol, Sequence {
 
     // Scan a new token.
     let head = sourceCode.text[index]
-    var token = Token(kind: .invalid, site: location ..< location)
+    var token = Token(kind: .invalid, site: location..<location)
 
     // Try scan for exponent if previous token was .int
     if previousTokenWasInt, let next = peek(), next == "e" || next == "E" {
       discard()
-      if let _ = scanIntegralLiteral(allowingPlus: true) {
+      if scanIntegralLiteral(allowingPlus: true) != nil {
         token.kind = .exponent
       }
       token.site.extend(upTo: index)
@@ -168,7 +168,7 @@ public struct Lexer: IteratorProtocol, Sequence {
         if peek() == "`" {
           let start = sourceCode.position(sourceCode.text.index(after: token.site.startIndex))
           token.kind = .name
-          token.site = start ..< location
+          token.site = start..<location
           discard()
           return token
         } else {
@@ -250,7 +250,7 @@ public struct Lexer: IteratorProtocol, Sequence {
       case "<", ">":
         // Leading angle brackets are tokenized individually, to parse generic clauses.
         discard()
-        oper = sourceCode.text[token.site.startIndex ..< index]
+        oper = sourceCode.text[token.site.startIndex..<index]
 
       default:
         oper = take(while: { $0.isOperator })
@@ -356,7 +356,7 @@ public struct Lexer: IteratorProtocol, Sequence {
       index = sourceCode.text.index(after: index)
     }
 
-    return sourceCode.text[start ..< index]
+    return sourceCode.text[start..<index]
   }
 
   /// Consumes an integral literal and returns its kind, or returns `nil` if it fails to scan a valid integer.
@@ -413,23 +413,23 @@ extension Character {
   /// Indicates whether `self` character represents a decimal digit.
   fileprivate var isDecDigit: Bool {
     guard let ascii = asciiValue else { return false }
-    return (0x30 ... 0x39) ~= ascii  // 0 ... 9
+    return (0x30...0x39) ~= ascii  // 0 ... 9
       || 0x5f == ascii  // _
   }
 
   /// Indicates whether `self` represents an hexadecimal digit.
   fileprivate var isHexDigit: Bool {
     guard let ascii = asciiValue else { return false }
-    return (0x30 ... 0x39) ~= ascii  // 0 ... 9
-      || (0x41 ... 0x46) ~= ascii  // A ... F
-      || (0x61 ... 0x66) ~= ascii  // a ... f
+    return (0x30...0x39) ~= ascii  // 0 ... 9
+      || (0x41...0x46) ~= ascii  // A ... F
+      || (0x61...0x66) ~= ascii  // a ... f
       || 0x5f == ascii  // _
   }
 
   /// /// Indicates whether `self` represents an octal digit.
   fileprivate var isOctDigit: Bool {
     guard let ascii = asciiValue else { return false }
-    return (0x30 ... 0x37) ~= ascii  // 0 ... 7
+    return (0x30...0x37) ~= ascii  // 0 ... 7
       || 0x5f == ascii  // _
   }
 

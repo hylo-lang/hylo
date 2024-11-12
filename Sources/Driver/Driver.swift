@@ -7,7 +7,6 @@ import StandardLibrary
 import SwiftyLLVM
 import Utils
 
-
 public struct Driver: ParsableCommand {
 
   /// A validation error that includes the command's full help message.
@@ -99,7 +98,7 @@ public struct Driver: ParsableCommand {
   @Flag(
     name: [.customLong("profile-compiler")],
     help: "Profile the compilation time")
-  private var profileCompiler: Bool = false  
+  private var profileCompiler: Bool = false
 
   @Option(
     name: [.customLong("trace-inference")],
@@ -248,7 +247,7 @@ public struct Driver: ParsableCommand {
     let productName = makeProductName(inputs)
 
     // Pool of measurements for time profiling
-    var profiler : ProfilingMeasurements? =  profileCompiler ? ProfilingMeasurements() : nil
+    var profiler: ProfilingMeasurements? = profileCompiler ? ProfilingMeasurements() : nil
     defer { profiler?.printProfilingReport() }
 
     // There's no need to load the standard library under `--emit raw-ast`.
@@ -304,7 +303,6 @@ public struct Driver: ParsableCommand {
       return
     }
 
-
     // LLVM
 
     logVerbose("begin depolymorphization pass.\n")
@@ -318,7 +316,8 @@ public struct Driver: ParsableCommand {
     #endif
 
     logVerbose("create LLVM program.\n")
-    var llvmProgram = try LLVMProgram(ir, mainModule: sourceModule, for: target, profileWith: profiler)
+    var llvmProgram = try LLVMProgram(
+      ir, mainModule: sourceModule, for: target, profileWith: profiler)
 
     logVerbose("LLVM mandatory passes.\n")
     llvmProgram.applyMandatoryPasses()
@@ -353,11 +352,14 @@ public struct Driver: ParsableCommand {
     let binaryPath = executableOutputPath(default: productName)
 
     #if os(macOS)
-      try makeMacOSExecutable(at: binaryPath, linking: objectFiles, diagnostics: &log, profileWith: profiler)
+      try makeMacOSExecutable(
+        at: binaryPath, linking: objectFiles, diagnostics: &log, profileWith: profiler)
     #elseif os(Linux)
-      try makeLinuxExecutable(at: binaryPath, linking: objectFiles, diagnostics: &log, profileWith: profiler)
+      try makeLinuxExecutable(
+        at: binaryPath, linking: objectFiles, diagnostics: &log, profileWith: profiler)
     #elseif os(Windows)
-      try makeWindowsExecutable(at: binaryPath, linking: objectFiles, diagnostics: &log, profileWith: profiler)
+      try makeWindowsExecutable(
+        at: binaryPath, linking: objectFiles, diagnostics: &log, profileWith: profiler)
     #else
       _ = (objectFiles, binaryPath)
       UNIMPLEMENTED()
@@ -393,9 +395,9 @@ public struct Driver: ParsableCommand {
   /// Mandatory IR passes are applied unless `self.outputType` is `.rawIR`.
   private func lower(
     program: TypedProgram, reportingDiagnosticsTo log: inout DiagnosticSet,
-    profileWith profiler : ProfilingMeasurements?    
+    profileWith profiler: ProfilingMeasurements?
   ) throws -> IR.Program {
-    let _irProbe = profiler?.createTimeMeasurementProbe(MeasurementType.IRLowering)    
+    let _irProbe = profiler?.createTimeMeasurementProbe(MeasurementType.IRLowering)
     var loweredModules: [ModuleDecl.ID: IR.Module] = [:]
     for d in program.ast.modules {
       loweredModules[d] = try lower(d, in: program, reportingDiagnosticsTo: &log)
@@ -426,7 +428,7 @@ public struct Driver: ParsableCommand {
   /// logging diagnostics to `log`.
   private func makeMacOSExecutable(
     at binaryPath: String, linking objects: [URL], diagnostics: inout DiagnosticSet,
-    profileWith profiler: ProfilingMeasurements? 
+    profileWith profiler: ProfilingMeasurements?
   ) throws {
     let xcrun = try findExecutable(invokedAs: "xcrun").fileSystemPath
 
@@ -455,7 +457,7 @@ public struct Driver: ParsableCommand {
     at binaryPath: String,
     linking objects: [URL],
     diagnostics: inout DiagnosticSet,
-    profileWith profiler: ProfilingMeasurements?     
+    profileWith profiler: ProfilingMeasurements?
   ) throws {
     var arguments = [
       "-o", binaryPath,
@@ -479,7 +481,7 @@ public struct Driver: ParsableCommand {
     at binaryPath: String,
     linking objects: [URL],
     diagnostics: inout DiagnosticSet,
-    profileWith profiler: ProfilingMeasurements?     
+    profileWith profiler: ProfilingMeasurements?
   ) throws {
     // linking profiling probe
     let _probe = profiler?.createTimeMeasurementProbe(MeasurementType.LinkPhase)

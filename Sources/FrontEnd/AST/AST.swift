@@ -447,7 +447,7 @@ public struct AST {
 
       case TuplePattern.self:
         let x = TuplePattern.ID(pattern)!
-        for i in 0 ..< self[x].elements.count {
+        for i in 0..<self[x].elements.count {
           visit(pattern: self[x].elements[i].pattern, subfield: subfield + [i], result: &result)
         }
 

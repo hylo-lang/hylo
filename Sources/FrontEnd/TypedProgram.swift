@@ -95,7 +95,7 @@ public struct TypedProgram {
         constructing: $0,
         tracingInferenceIf: typeCheckingIsParallel ? nil : shouldTraceInference,
         loggingRequirementSystemIf: typeCheckingIsParallel ? nil : shouldLogRequirements)
-      let _probe = profiler?.createTimeMeasurementProbe(MeasurementType.TypeChecker)        
+      let _probe = profiler?.createTimeMeasurementProbe(MeasurementType.TypeChecker)
       checker.checkAllDeclarations()
 
       log.formUnion(checker.diagnostics)
@@ -126,7 +126,7 @@ public struct TypedProgram {
       tracingInferenceIf: shouldTraceInference,
       loggingRequirementSystemIf: shouldLogRequirements)
 
-    let _probe = profiler?.createTimeMeasurementProbe(MeasurementType.TypeChecker)   
+    let _probe = profiler?.createTimeMeasurementProbe(MeasurementType.TypeChecker)
     checker.checkModule(m)
 
     log.formUnion(checker.diagnostics)

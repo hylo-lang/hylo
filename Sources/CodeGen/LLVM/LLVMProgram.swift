@@ -13,7 +13,7 @@ public struct LLVMProgram {
   /// The LLVM modules in the program.
   public private(set) var llvmModules: [ModuleDecl.ID: SwiftyLLVM.Module] = [:]
 
-  let profiler : ProfilingMeasurements?
+  let profiler: ProfilingMeasurements?
 
   /// Creates a transpiling `ir`, whose main module is `mainModule`, for `target`.
   ///
@@ -29,7 +29,7 @@ public struct LLVMProgram {
     self.target = try target ?? SwiftyLLVM.TargetMachine(for: .host())
     for m in ir.modules.keys {
       var context = CodeGenerationContext(forCompiling: m, of: ir)
-      let _convertProbe = profiler?.createTimeMeasurementProbe(MeasurementType.IRConversion)          
+      let _convertProbe = profiler?.createTimeMeasurementProbe(MeasurementType.IRConversion)
       let transpilation = SwiftyLLVM.Module(transpiling: m, in: &context)
       do {
         try transpilation.verify()
@@ -43,7 +43,7 @@ public struct LLVMProgram {
 
   /// Applies the mandatory IR simplification passes on each module in `self`.
   public mutating func applyMandatoryPasses() {
-    let _optimizeProbe = profiler?.createTimeMeasurementProbe(MeasurementType.MandatoryPass)    
+    let _optimizeProbe = profiler?.createTimeMeasurementProbe(MeasurementType.MandatoryPass)
     for k in llvmModules.keys {
       llvmModules[k]!.runDefaultModulePasses(optimization: .none, for: target)
     }
