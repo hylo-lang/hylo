@@ -397,7 +397,8 @@ public struct Driver: ParsableCommand {
     program: TypedProgram, reportingDiagnosticsTo log: inout DiagnosticSet,
     profileWith profiler: ProfilingMeasurements?
   ) throws -> IR.Program {
-    let _irProbe = profiler?.createTimeMeasurementProbe(MeasurementType.IRLowering)
+    let probe = profiler?.createAndStartProfilingProbe(MeasurementType.IRLowering)
+    defer { probe?.stop() }
     var loweredModules: [ModuleDecl.ID: IR.Module] = [:]
     for d in program.ast.modules {
       loweredModules[d] = try lower(d, in: program, reportingDiagnosticsTo: &log)
@@ -433,7 +434,8 @@ public struct Driver: ParsableCommand {
     let xcrun = try findExecutable(invokedAs: "xcrun").fileSystemPath
 
     // linking profiling probe
-    let _probe = profiler?.createTimeMeasurementProbe(MeasurementType.LinkPhase)
+    let probe = profiler?.createAndStartProfilingProbe(MeasurementType.LinkPhase)
+    defer { probe?.stop() }
 
     let sdk =
       try runCommandLine(xcrun, ["--sdk", "macosx", "--show-sdk-path"], diagnostics: &diagnostics)
@@ -467,7 +469,8 @@ public struct Driver: ParsableCommand {
     arguments.append(contentsOf: libraries.map({ "-l\($0)" }))
 
     // linking profiling probe
-    let _probe = profiler?.createTimeMeasurementProbe(MeasurementType.LinkPhase)
+    let probe = profiler?.createAndStartProfilingProbe(MeasurementType.LinkPhase)
+    defer { probe?.stop() }
 
     // Note: We use "clang" rather than "ld" so that to deal with the entry point of the program.
     // See https://stackoverflow.com/questions/51677440
@@ -484,7 +487,8 @@ public struct Driver: ParsableCommand {
     profileWith profiler: ProfilingMeasurements?
   ) throws {
     // linking profiling probe
-    let _probe = profiler?.createTimeMeasurementProbe(MeasurementType.LinkPhase)
+    let probe = profiler?.createAndStartProfilingProbe(MeasurementType.LinkPhase)
+    defer { probe?.stop() }
 
     try runCommandLine(
       findExecutable(invokedAs: "lld-link").fileSystemPath,

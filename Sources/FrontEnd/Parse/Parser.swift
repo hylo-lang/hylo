@@ -41,7 +41,8 @@ public enum Parser {
     var members: [AnyDeclID] = []
 
     // start time measurement if needed
-    let _probe = profiler?.createTimeMeasurementProbe(MeasurementType.Parser)
+    let probe = profiler?.createAndStartProfilingProbe(MeasurementType.Parser)
+    defer { probe?.stop() }
 
     while let head = state.peek() {
       // Ignore semicolons.

@@ -82,7 +82,8 @@ public struct TypedProgram {
         tasks.append(t)
       }
 
-      let _probe = profiler?.createTimeMeasurementProbe(MeasurementType.TypeChecker)
+      let probe = profiler?.createAndStartProfilingProbe(MeasurementType.TypeChecker)
+      defer { probe?.stop() }
       let queue = OperationQueue()
       queue.addOperations(tasks, waitUntilFinished: true)
       for t in tasks {
@@ -95,7 +96,8 @@ public struct TypedProgram {
         constructing: $0,
         tracingInferenceIf: typeCheckingIsParallel ? nil : shouldTraceInference,
         loggingRequirementSystemIf: typeCheckingIsParallel ? nil : shouldLogRequirements)
-      let _probe = profiler?.createTimeMeasurementProbe(MeasurementType.TypeChecker)
+      let probe = profiler?.createAndStartProfilingProbe(MeasurementType.TypeChecker)
+      defer { probe?.stop() }
       checker.checkAllDeclarations()
 
       log.formUnion(checker.diagnostics)
@@ -126,7 +128,8 @@ public struct TypedProgram {
       tracingInferenceIf: shouldTraceInference,
       loggingRequirementSystemIf: shouldLogRequirements)
 
-    let _probe = profiler?.createTimeMeasurementProbe(MeasurementType.TypeChecker)
+    let probe = profiler?.createAndStartProfilingProbe(MeasurementType.TypeChecker)
+    defer { probe?.stop() }
     checker.checkModule(m)
 
     log.formUnion(checker.diagnostics)

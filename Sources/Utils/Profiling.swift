@@ -16,6 +16,8 @@ public enum MeasurementType: Int, CaseIterable {
   }
 }
 
+/// Time measurement probe. Will report time between init() and stop()
+/// to the associate ProfilingMeasurements object
 public struct TimeMeasurementProbe: ~Copyable {
 
   var beginning: ContinuousClock.Instant
@@ -28,14 +30,14 @@ public struct TimeMeasurementProbe: ~Copyable {
     self.measure_type = measure_type
   }
 
-  deinit {
+  public func stop() {
     let time: Duration = ContinuousClock.Instant.now - beginning
     pool.addProfiledDuration(self.measure_type, time)
   }
 
 }
 
-/// A container for profiling measurement
+/// A container for profiling measurements
 public class ProfilingMeasurements {
 
   public init() {}
@@ -43,14 +45,18 @@ public class ProfilingMeasurements {
   var cumulatedDurations: [Duration] = [Duration](
     repeating: Duration.seconds(0), count: MeasurementType.count)
 
-  public func createTimeMeasurementProbe(_ measure_type: MeasurementType) -> TimeMeasurementProbe {
+  /// Create a new TimeMeasurementProbe for a given measure type
+  public func createAndStartProfilingProbe(_ measure_type: MeasurementType) -> TimeMeasurementProbe
+  {
     return TimeMeasurementProbe(measure_type, self)
   }
 
-  public func addProfiledDuration(_ measure_type: MeasurementType, _ duration: Duration) {
+  /// Internal. Reserved for TimeMeasurementProbe
+  internal func addProfiledDuration(_ measure_type: MeasurementType, _ duration: Duration) {
     self.cumulatedDurations[measure_type.rawValue] += duration
   }
 
+  /// Print the current profiling report
   public func printProfilingReport() {
     let profilingReport = """
       **Compile time profiling summary**
@@ -71,7 +77,7 @@ public class ProfilingMeasurements {
     print(profilingReport)
   }
 
-  public func measurement(_ measure_type: MeasurementType) -> Duration {
+  public func durationFor(_ measure_type: MeasurementType) -> Duration {
     switch measure_type {
     case .Parser:
       return cumulatedDurations[MeasurementType.Parser.rawValue]
@@ -82,13 +88,13 @@ public class ProfilingMeasurements {
   }
 
   public func formattedMeasurement(_ measure_type: MeasurementType) -> String {
-    let measure = measurement(measure_type)
-    let measurementDouble =
+    let measure = durationFor(measure_type)
+    let measureDouble =
       Double(measure.components.seconds) + Double(measure.components.attoseconds) / 1e18
     let unitArrays = ["s", "ms", "us", "ns", "ps"]
     var factor = 1
     for i in 0...unitArrays.count {
-      let scaledMeasurement = measurementDouble * Double(factor)
+      let scaledMeasurement = measureDouble * Double(factor)
       if scaledMeasurement > 1.0 {
         return "\(String(format: "%.03f", scaledMeasurement)) \(unitArrays[i])"
       }

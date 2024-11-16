@@ -27,7 +27,8 @@ public struct Lexer: IteratorProtocol, Sequence {
   /// Advances to the next token and returns it, or returns `nil` if no next token exists.
   public mutating func next() -> Token? {
     // Start measuring Lexer time
-    let _probe = profiler?.createTimeMeasurementProbe(MeasurementType.Lexer)
+    let probe = profiler?.createAndStartProfilingProbe(MeasurementType.Lexer)
+    defer { probe?.stop() }
 
     // Skip whitespaces and comments.
     while true {
