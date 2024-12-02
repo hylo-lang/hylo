@@ -72,6 +72,8 @@ public enum ManglingOperator: String {
 
   case builtinPointerType = "bpT"
 
+  case builtinVoidType = "bvT"
+
   case builtinModuleType = "bmT"
 
   case builtinWordType = "bwT"

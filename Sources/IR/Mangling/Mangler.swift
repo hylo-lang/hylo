@@ -560,6 +560,8 @@ struct Mangler {
       append(integer: 128, to: &output)
     case .ptr:
       append(operator: .builtinPointerType, to: &output)
+    case .void:
+      append(operator: .builtinVoidType, to: &output)
     case .module:
       append(operator: .builtinModuleType, to: &output)
     }

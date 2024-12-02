@@ -25,6 +25,9 @@ public enum BuiltinType: TypeProtocol {
   /// A built-in opaque pointer.
   case ptr
 
+  /// A built-in void type.
+  case void
+
   /// The type of the built-in module.
   case module
 
@@ -63,6 +66,8 @@ extension BuiltinType: CustomStringConvertible {
       return "float128"
     case .ptr:
       return "ptr"
+    case .void:
+      return "void"
     case .module:
       return "Builtin"
     }
@@ -86,6 +91,8 @@ extension BuiltinType: LosslessStringConvertible {
       self = .float128
     case "ptr":
       self = .ptr
+    case "void":
+      self = .void
     case "Builtin":
       self = .module
 

@@ -118,6 +118,18 @@ public enum NativeInstruction: Hashable {
   // Corresponding LLVM instruction: get_elementptr_inbounds.
   case advancedByBytes(byteOffset: BuiltinType)
 
+  case atomic_store_relaxed(BuiltinType)
+
+  case atomic_store_release(BuiltinType)
+
+  case atomic_store_seqcst(BuiltinType)
+
+  case atomic_load_relaxed(BuiltinType)
+
+  case atomic_load_acquire(BuiltinType)
+
+  case atomic_load_seqcst(BuiltinType)
+
   /// The parameters of a floating-point LLVM instruction.
   public struct MathFlags: OptionSet, Hashable {
 
@@ -238,6 +250,18 @@ extension NativeInstruction {
       return .init(to: ^t)
     case .advancedByBytes(let byteOffset):
       return .init(.builtin(.ptr), ^byteOffset, to: .builtin(.ptr))
+    case .atomic_store_relaxed(let t):
+      return .init(.builtin(.ptr), ^t, to: .builtin(.void))
+    case .atomic_store_release(let t):
+      return .init(.builtin(.ptr), ^t, to: .builtin(.void))
+    case .atomic_store_seqcst(let t):
+      return .init(.builtin(.ptr), ^t, to: .builtin(.void))
+    case .atomic_load_relaxed(let t):
+      return .init(.builtin(.ptr), to: ^t)
+    case .atomic_load_acquire(let t):
+      return .init(.builtin(.ptr), to: ^t)
+    case .atomic_load_seqcst(let t):
+      return .init(.builtin(.ptr), to: ^t)
     }
   }
 
@@ -331,6 +355,18 @@ extension NativeInstruction: CustomStringConvertible {
       return "zeroinitializer_\(t)"
     case .advancedByBytes(let t):
       return "advanced_by_bytes_\(t)"
+    case .atomic_store_relaxed(let t):
+      return "atomic_store_relaxed_\(t)"
+    case .atomic_store_release(let t):
+      return "atomic_store_release_\(t)"
+    case .atomic_store_seqcst(let t):
+      return "atomic_store_seqcst_\(t)"
+    case .atomic_load_relaxed(let t):
+      return "atomic_load_relaxed_\(t)"
+    case .atomic_load_acquire(let t):
+      return "atomic_load_acquire_\(t)"
+    case .atomic_load_seqcst(let t):
+      return "atomic_load_seqcst_\(t)"
     }
   }
 

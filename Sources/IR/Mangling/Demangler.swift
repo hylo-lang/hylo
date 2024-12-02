@@ -42,6 +42,8 @@ struct Demangler {
         demangled = takeBuiltinFloatType(from: &stream)
       case .builtinPointerType:
         demangled = .type(.builtin(.ptr))
+      case .builtinVoidType:
+        demangled = .type(.builtin(.void))
       case .builtinModuleType:
         demangled = .type(.builtin(.module))
       case .builtinWordType:

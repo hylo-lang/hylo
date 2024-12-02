@@ -71,6 +71,8 @@ struct ConcreteTypeLayout {
       self.init(size: 8, alignment: 8)
     case .float128:
       self.init(size: 16, alignment: 8)
+    case .void:
+      notLLVMRepresentable(^t) // Cannot be used in a type layout.
     case .module:
       notLLVMRepresentable(^t)
     }
