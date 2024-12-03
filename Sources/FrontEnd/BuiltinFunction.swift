@@ -258,6 +258,31 @@ extension BuiltinFunction {
       guard let t = builtinType(&tokens) else { return nil }
       self = .init(name: .llvm(.zeroinitializer(t)))
 
+    case "atomic":
+      self.init(atomic: n)
+
+    default:
+      return nil
+    }
+  }
+
+  /// Creates an atomic built-in function named `n` or returns `nil` if `n` isn't a valid atomic builtin name.
+  private init?(atomic n: String) {
+    guard let (fs, ts) = splitLastUnderscore(n) else { return nil }
+    guard let t = BuiltinType.init(ts) else { return nil }
+    switch fs {
+    case "atomic_store_relaxed":
+      self = .init(name: .llvm(.atomic_store_relaxed(t)))
+    case "atomic_store_release":
+      self = .init(name: .llvm(.atomic_store_release(t)))
+    case "atomic_store_seqcst":
+      self = .init(name: .llvm(.atomic_store_seqcst(t)))
+    case "atomic_load_relaxed":
+      self = .init(name: .llvm(.atomic_load_relaxed(t)))
+    case "atomic_load_acquire":
+      self = .init(name: .llvm(.atomic_load_acquire(t)))
+    case "atomic_load_seqcst":
+      self = .init(name: .llvm(.atomic_load_seqcst(t)))
     default:
       return nil
     }
@@ -333,6 +358,12 @@ private func take<T: RawRepresentable>(
   { (stream: inout ArraySlice<Substring>) -> T? in
     stream.popFirst().flatMap({ T(rawValue: .init($0)) })
   }
+}
+
+/// Splits `s` into a pair `(prefix, suffix)` at the last underscore character, or returns `nil`.
+private func splitLastUnderscore(_ s: String) -> (String, String)? {
+  guard let i = s.lastIndex(of: "_") else { return nil }
+  return (String(s[..<i]), String(s[s.index(after: i)...]))
 }
 
 /// Returns a built-in type parsed from `stream`.
