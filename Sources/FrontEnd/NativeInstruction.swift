@@ -251,11 +251,11 @@ extension NativeInstruction {
     case .advancedByBytes(let byteOffset):
       return .init(.builtin(.ptr), ^byteOffset, to: .builtin(.ptr))
     case .atomic_store_relaxed(let t):
-      return .init(.builtin(.ptr), ^t, to: .builtin(.void))
+      return .init(.builtin(.ptr), ^t, to: .builtin(.ptr))
     case .atomic_store_release(let t):
-      return .init(.builtin(.ptr), ^t, to: .builtin(.void))
+      return .init(.builtin(.ptr), ^t, to: .builtin(.ptr))
     case .atomic_store_seqcst(let t):
-      return .init(.builtin(.ptr), ^t, to: .builtin(.void))
+      return .init(.builtin(.ptr), ^t, to: .builtin(.ptr))
     case .atomic_load_relaxed(let t):
       return .init(.builtin(.ptr), to: ^t)
     case .atomic_load_acquire(let t):

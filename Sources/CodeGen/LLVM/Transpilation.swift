@@ -1126,6 +1126,45 @@ extension SwiftyLLVM.Module {
         register[.register(i)] = insertGetElementPointerInBounds(
           of: base, typed: i8, indices: [byteOffset], at: insertionPoint)
 
+      case .atomic_load_relaxed:
+        let source = llvm(s.operands[0])
+        let l = insertLoad(ptr, from: source, at: insertionPoint)
+        setOrdering(.monotonic, for: l)
+        register[.register(i)] = l
+
+      case .atomic_load_acquire:
+        let source = llvm(s.operands[0])
+        let l = insertLoad(ptr, from: source, at: insertionPoint)
+        setOrdering(.acquire, for: l)
+        register[.register(i)] = l
+
+      case .atomic_load_seqcst:
+        let source = llvm(s.operands[0])
+        let l = insertLoad(ptr, from: source, at: insertionPoint)
+        setOrdering(.sequentiallyConsistent, for: l)
+        register[.register(i)] = l
+
+      case .atomic_store_relaxed:
+        let target = llvm(s.operands[0])
+        let value = llvm(s.operands[1])
+        let s = insertStore(value, to: target, at: insertionPoint)
+        setOrdering(.monotonic, for: s)
+        register[.register(i)] = target
+
+      case .atomic_store_release:
+        let target = llvm(s.operands[0])
+        let value = llvm(s.operands[1])
+        let s = insertStore(value, to: target, at: insertionPoint)
+        setOrdering(.release, for: s)
+        register[.register(i)] = target
+
+      case .atomic_store_seqcst:
+        let target = llvm(s.operands[0])
+        let value = llvm(s.operands[1])
+        let s = insertStore(value, to: target, at: insertionPoint)
+        setOrdering(.sequentiallyConsistent, for: s)
+        register[.register(i)] = target
+
       default:
         unreachable("unexpected LLVM instruction '\(s.instruction)'")
       }
