@@ -206,6 +206,30 @@ final class BuiltinFunctionTests: XCTestCase {
       createInstanceWithType: expectedType)
   }
 
+  func testAtomicLoad() throws {
+    let expectedType = ArrowType(.builtin(.ptr), to: .builtin(.i(64)))
+    try assertParse(
+      instructions: ["atomic_load"],
+      parameterizedBy: [
+        ["relaxed", "i64"],
+        ["acquire", "i64"],
+        ["seqcst", "i64"]
+      ],
+      createInstanceWithType: expectedType)
+  }
+
+  func testAtomicStore() throws {
+    let expectedType = ArrowType(.builtin(.ptr), .builtin(.i(64)), to: .builtin(.ptr))
+    try assertParse(
+      instructions: ["atomic_store"],
+      parameterizedBy: [
+        ["relaxed", "i64"],
+        ["release", "i64"],
+        ["seqcst", "i64"]
+      ],
+      createInstanceWithType: expectedType)
+  }
+
   /// For each element in `instructions` and `parameters`, assert that parsing a built-in functions
   /// named after their concatenation creates an instance with the same stem and parameters, and
   /// whose type is `expectedType`.
