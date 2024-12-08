@@ -219,7 +219,7 @@ final class BuiltinFunctionTests: XCTestCase {
   }
 
   func testAtomicStore() throws {
-    let expectedType = ArrowType(.builtin(.ptr), .builtin(.i(64)), to: .builtin(.ptr))
+    let expectedType = ArrowType(.builtin(.ptr), .builtin(.i(64)), to: .void)
     try assertParse(
       instructions: ["atomic_store"],
       parameterizedBy: [

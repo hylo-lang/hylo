@@ -480,7 +480,7 @@ extension NativeInstruction {
     case .atomic_store_relaxed(let t),
         .atomic_store_release(let t),
         .atomic_store_seqcst(let t):
-      return .init(.builtin(.ptr), ^t, to: .builtin(.ptr))
+      return .init(.builtin(.ptr), ^t, to: .void)
     case .atomic_load_relaxed(let t),
         .atomic_load_acquire(let t),
         .atomic_load_seqcst(let t):
