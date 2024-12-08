@@ -230,6 +230,110 @@ final class BuiltinFunctionTests: XCTestCase {
       createInstanceWithType: expectedType)
   }
 
+  func testAtomicRMWForSignedIntegers() throws {
+    let expectedType = ArrowType(.builtin(.ptr), .builtin(.i(64)), to: .builtin(.i(64)))
+    try assertParse(
+      instructions: [
+        "atomic_swap",
+        "atomic_add",
+        "atomic_sub",
+        "atomic_max",
+        "atomic_min",
+        "atomic_and",
+        "atomic_nand",
+        "atomic_or",
+        "atomic_xor"
+      ],
+      parameterizedBy: [
+        ["relaxed", "i64"],
+        ["acquire", "i64"],
+        ["release", "i64"],
+        ["acqrel", "i64"],
+        ["seqcst", "i64"]
+      ],
+      createInstanceWithType: expectedType)
+  }
+
+  func testAtomicRMWForUnsignedIntegers() throws {
+    let expectedType = ArrowType(.builtin(.ptr), .builtin(.i(64)), to: .builtin(.i(64)))
+    try assertParse(
+      instructions: [
+        "atomic_umax",
+        "atomic_umin"
+      ],
+      parameterizedBy: [
+        ["relaxed", "i64"],
+        ["acquire", "i64"],
+        ["release", "i64"],
+        ["acqrel", "i64"],
+        ["seqcst", "i64"]
+      ],
+      createInstanceWithType: expectedType)
+  }
+
+  func testAtomicRMWForFloatingNumbers() throws {
+    let expectedType = ArrowType(.builtin(.ptr), .builtin(.float64), to: .builtin(.float64))
+    try assertParse(
+      instructions: [
+        "atomic_swap",
+        "atomic_fadd",
+        "atomic_fsub",
+        "atomic_fmax",
+        "atomic_fmin"
+      ],
+      parameterizedBy: [
+        ["relaxed", "float64"],
+        ["acquire", "float64"],
+        ["release", "float64"],
+        ["acqrel", "float64"],
+        ["seqcst", "float64"]
+      ],
+      createInstanceWithType: expectedType)
+  }
+
+  func testAtomicCompareExchange() throws {
+    let expectedType = ArrowType(.builtin(.ptr), .builtin(.i(64)), .builtin(.i(64)), to: ^TupleType(types: [.builtin(.i(64)), .builtin(.i(1))]))
+    try assertParse(
+      instructions: [
+        "atomic_cmpxchg",
+        "atomic_cmpxchgweak"
+      ],
+      parameterizedBy: [
+        ["relaxed", "relaxed", "i64"],
+        ["relaxed", "acquire", "i64"],
+        ["relaxed", "seqcst", "i64"],
+        ["acquire", "relaxed", "i64"],
+        ["acquire", "acquire", "i64"],
+        ["acquire", "seqcst", "i64"],
+        ["release", "relaxed", "i64"],
+        ["release", "acquire", "i64"],
+        ["release", "seqcst", "i64"],
+        ["acqrel", "relaxed", "i64"],
+        ["acqrel", "acquire", "i64"],
+        ["acqrel", "seqcst", "i64"],
+        ["seqcst", "relaxed", "i64"],
+        ["seqcst", "acquire", "i64"],
+        ["seqcst", "seqcst", "i64"]
+      ],
+      createInstanceWithType: expectedType)
+  }
+
+  func testAtomicFence() throws {
+    let expectedType = ArrowType(to: .void)
+    try assertParse(
+      instructions: [
+        "atomic_fence",
+        "atomic_singlethreadfence"
+      ],
+      parameterizedBy: [
+        ["acquire"],
+        ["release"],
+        ["acqrel"],
+        ["seqcst"]
+      ],
+      createInstanceWithType: expectedType)
+  }
+
   /// For each element in `instructions` and `parameters`, assert that parsing a built-in functions
   /// named after their concatenation creates an instance with the same stem and parameters, and
   /// whose type is `expectedType`.
