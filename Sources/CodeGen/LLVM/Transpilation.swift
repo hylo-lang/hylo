@@ -1149,21 +1149,18 @@ extension SwiftyLLVM.Module {
         let value = llvm(s.operands[1])
         let s = insertStore(value, to: target, at: insertionPoint)
         setOrdering(.monotonic, for: s)
-        register[.register(i)] = ptr.null
 
       case .atomic_store_release:
         let target = llvm(s.operands[0])
         let value = llvm(s.operands[1])
         let s = insertStore(value, to: target, at: insertionPoint)
         setOrdering(.release, for: s)
-        register[.register(i)] = ptr.null
 
       case .atomic_store_seqcst:
         let target = llvm(s.operands[0])
         let value = llvm(s.operands[1])
         let s = insertStore(value, to: target, at: insertionPoint)
         setOrdering(.sequentiallyConsistent, for: s)
-        register[.register(i)] = ptr.null
 
       case .atomic_swap_relaxed:
         insert(atomicRMW: .xchg, ordering: .monotonic, for: i)
@@ -1716,7 +1713,7 @@ extension SwiftyLLVM.Module {
       if case .constant(let c) = o {
         return transpiledConstant(c, in: &context)
       } else {
-        return register[o]!
+        return register[o] ?? transpiledConstant(VoidConstant(), in: &context)
       }
     }
 
