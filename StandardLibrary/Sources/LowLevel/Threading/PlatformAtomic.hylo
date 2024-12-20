@@ -1,0 +1,55 @@
+/// A platform-specific atomic type.
+trait PlatformAtomic: Regular {
+
+  /// The value type of the atomic.
+  type Value: Regular
+
+  /// Initializes the atomic with the "zero" value.
+  init()
+
+  /// Atomically load the value from the atomic, using `ordering`.
+  fun load(ordering: AtomicLoadOrdering) -> Value
+
+  /// Atomically store `value` into the atomic, using `ordering`.
+  fun store(_ value: sink Value, ordering: AtomicStoreOrdering) inout
+
+  /// Atomically exchanges the value in the atomic with `desired`, using `ordering`.
+  fun exchange(desired: sink Value, ordering: AtomicUpdateOrdering) inout -> Value
+
+  /// Atomically exchanges the atomic with `desired`, if the original value is equal to `expected`, using `success_ordering` for the update, and `failure_ordering` for loading the new value in case of failure.
+  /// Returns a tuple containing the original value and a boolean indicating whether the exchange was successful.
+  fun compare_and_exchange(expected: sink Value, desired: sink Value, success_ordering: AtomicUpdateOrdering, failure_ordering: AtomicLoadOrdering) inout -> {exchanged: Bool, original: Value}
+
+  /// Same as `compare_and_exchange`, but may fail spuriously.
+  fun weak_compare_and_exchange(expected: sink Value, desired: sink Value, success_ordering: AtomicUpdateOrdering, failure_ordering: AtomicLoadOrdering) inout -> {exchanged: Bool, original: Value}
+
+}
+
+/// A platform-specific atomic integer type.
+trait IntegerPlatformAtomic: PlatformAtomic {
+
+  /// Atomically updates `this` by adding `value` to it, using `ordering`, and return the original value.
+  fun fetch_add(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value
+
+  /// Atomically updates `this` by subtracting `value` from it, using `ordering`, and return the original value.
+  fun fetch_sub(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value
+
+  /// Atomically updates `this` by using the maximum of `value` and itself, using `ordering`, and return the original value.
+  fun fetch_max(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value
+
+  /// Atomically updates `this` by using the minimum of `value` and itself, using `ordering`, and return the original value.
+  fun fetch_min(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value
+
+  /// Atomically updates `this` by performing a bitwise AND of `value` and itself, using `ordering`, and return the original value.
+  fun fetch_and(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value
+
+  /// Atomically updates `this` by performing a bitwise NAND of `value` and itself, using `ordering`, and return the original value.
+  fun fetch_nand(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value
+
+  /// Atomically updates `this` by performing a bitwise OR of `value` and itself, using `ordering`, and return the original value.
+  fun fetch_or(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value
+
+  /// Atomically updates `this` by performing a bitwise XOR of `value` and itself, using `ordering`, and return the original value.
+  fun fetch_xor(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value
+
+}
