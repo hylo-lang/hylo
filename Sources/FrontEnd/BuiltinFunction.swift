@@ -81,7 +81,7 @@ extension BuiltinFunction {
     }
   }
 
-  /// Creates a built-in function representing the native instruction nameed `n` or returns `nil`
+  /// Creates a built-in function representing the native instruction named `n` or returns `nil`
   /// if `n` isn't a valid native instruction name.
   private init?(native n: String) {
     var tokens = n.split(separator: "_")[...]
