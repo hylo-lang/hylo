@@ -144,7 +144,7 @@ public struct Token {
   /// Indicates whether `self` is a declaration modifier.
   public var isDeclModifier: Bool {
     switch kind {
-    case .public, .static:
+    case .public, .static, .private, .internal:
       return true
     default:
       return false

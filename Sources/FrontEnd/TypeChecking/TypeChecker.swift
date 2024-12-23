@@ -4201,7 +4201,7 @@ struct TypeChecker {
 
       if !tentative.isEmpty {
         return tentative
-      } else if isQualified && ds.contains(where: { $0.kind == GenericParameterDecl.self }) {
+      } else if ds.contains(where: { $0.kind == GenericParameterDecl.self }) {
         let membersOfConformedTraits = conformedTraits(of: context!.type, in: scopeOfUse)
           .map({ lookup(name, memberOf: AnyType($0), exposedTo: scopeOfUse) })
         return filterAccessible(Array(Set(membersOfConformedTraits.joined())))
