@@ -259,268 +259,274 @@ extension BuiltinFunction {
       self = .init(name: .llvm(.zeroinitializer(t)))
 
     case "atomic":
-      self.init(atomic: n)
+      if let t = tokens.first, t.contains("fence") {
+        self.init(fence: n)
+      } else {
+        self.init(atomic: n)
+      }
 
     default:
       return nil
     }
   }
 
-  /// Creates an atomic built-in function named `n` or returns `nil` if `n` isn't a valid atomic builtin name.
-  private init?(atomic n: String) {
-    // Special case for fence instructions; we don't have a type for them.
-    if n.contains("fence") {
-      switch n {
-      case "atomic_fence_acquire":
-        self = .init(name: .llvm(.atomic_fence_acquire))
-      case "atomic_fence_release":
-        self = .init(name: .llvm(.atomic_fence_release))
-      case "atomic_fence_acqrel":
-        self = .init(name: .llvm(.atomic_fence_acqrel))
-      case "atomic_fence_seqcst":
-        self = .init(name: .llvm(.atomic_fence_seqcst))
-      case "atomic_singlethreadfence_acquire":
-        self = .init(name: .llvm(.atomic_singlethreadfence_acquire))
-      case "atomic_singlethreadfence_release":
-        self = .init(name: .llvm(.atomic_singlethreadfence_release))
-      case "atomic_singlethreadfence_acqrel":
-        self = .init(name: .llvm(.atomic_singlethreadfence_acqrel))
-      case "atomic_singlethreadfence_seqcst":
-        self = .init(name: .llvm(.atomic_singlethreadfence_seqcst))
-      default:
-        return nil
-      }
+  /// Creates a built-in function representing the native fence instruction named `n` or returns
+  /// `nil` if `n` isn't a valid native fence instruction name.
+  private init?(fence n: String) {
+    switch n {
+    case "atomic_fence_acquire":
+      self = .init(name: .llvm(.atomic_fence_acquire))
+    case "atomic_fence_release":
+      self = .init(name: .llvm(.atomic_fence_release))
+    case "atomic_fence_acqrel":
+      self = .init(name: .llvm(.atomic_fence_acqrel))
+    case "atomic_fence_seqcst":
+      self = .init(name: .llvm(.atomic_fence_seqcst))
+    case "atomic_singlethreadfence_acquire":
+      self = .init(name: .llvm(.atomic_singlethreadfence_acquire))
+    case "atomic_singlethreadfence_release":
+      self = .init(name: .llvm(.atomic_singlethreadfence_release))
+    case "atomic_singlethreadfence_acqrel":
+      self = .init(name: .llvm(.atomic_singlethreadfence_acqrel))
+    case "atomic_singlethreadfence_seqcst":
+      self = .init(name: .llvm(.atomic_singlethreadfence_seqcst))
+    default:
+      return nil
     }
-    else {
-      // For the rest of the atomics we have a type at the end.
-      guard let (fs, ts) = splitLastUnderscore(n) else { return nil }
-      guard let t = BuiltinType.init(ts) else { return nil }
-      switch fs {
-      case "atomic_store_relaxed":
-        self = .init(name: .llvm(.atomic_store_relaxed(t)))
-      case "atomic_store_release":
-        self = .init(name: .llvm(.atomic_store_release(t)))
-      case "atomic_store_seqcst":
-        self = .init(name: .llvm(.atomic_store_seqcst(t)))
-      case "atomic_load_relaxed":
-        self = .init(name: .llvm(.atomic_load_relaxed(t)))
-      case "atomic_load_acquire":
-        self = .init(name: .llvm(.atomic_load_acquire(t)))
-      case "atomic_load_seqcst":
-        self = .init(name: .llvm(.atomic_load_seqcst(t)))
-      case "atomic_swap_relaxed":
-        self = .init(name: .llvm(.atomic_swap_relaxed(t)))
-      case "atomic_swap_acquire":
-        self = .init(name: .llvm(.atomic_swap_acquire(t)))
-      case "atomic_swap_release":
-        self = .init(name: .llvm(.atomic_swap_release(t)))
-      case "atomic_swap_acqrel":
-        self = .init(name: .llvm(.atomic_swap_acqrel(t)))
-      case "atomic_swap_seqcst":
-        self = .init(name: .llvm(.atomic_swap_seqcst(t)))
-      case "atomic_add_relaxed":
-        self = .init(name: .llvm(.atomic_add_relaxed(t)))
-      case "atomic_add_acquire":
-        self = .init(name: .llvm(.atomic_add_acquire(t)))
-      case "atomic_add_release":
-        self = .init(name: .llvm(.atomic_add_release(t)))
-      case "atomic_add_acqrel":
-        self = .init(name: .llvm(.atomic_add_acqrel(t)))
-      case "atomic_add_seqcst":
-        self = .init(name: .llvm(.atomic_add_seqcst(t)))
-      case "atomic_fadd_relaxed":
-        self = .init(name: .llvm(.atomic_fadd_relaxed(t)))
-      case "atomic_fadd_acquire":
-        self = .init(name: .llvm(.atomic_fadd_acquire(t)))
-      case "atomic_fadd_release":
-        self = .init(name: .llvm(.atomic_fadd_release(t)))
-      case "atomic_fadd_acqrel":
-        self = .init(name: .llvm(.atomic_fadd_acqrel(t)))
-      case "atomic_fadd_seqcst":
-        self = .init(name: .llvm(.atomic_fadd_seqcst(t)))
-      case "atomic_sub_relaxed":
-        self = .init(name: .llvm(.atomic_sub_relaxed(t)))
-      case "atomic_sub_acquire":
-        self = .init(name: .llvm(.atomic_sub_acquire(t)))
-      case "atomic_sub_release":
-        self = .init(name: .llvm(.atomic_sub_release(t)))
-      case "atomic_sub_acqrel":
-        self = .init(name: .llvm(.atomic_sub_acqrel(t)))
-      case "atomic_sub_seqcst":
-        self = .init(name: .llvm(.atomic_sub_seqcst(t)))
-      case "atomic_fsub_relaxed":
-        self = .init(name: .llvm(.atomic_fsub_relaxed(t)))
-      case "atomic_fsub_acquire":
-        self = .init(name: .llvm(.atomic_fsub_acquire(t)))
-      case "atomic_fsub_release":
-        self = .init(name: .llvm(.atomic_fsub_release(t)))
-      case "atomic_fsub_acqrel":
-        self = .init(name: .llvm(.atomic_fsub_acqrel(t)))
-      case "atomic_fsub_seqcst":
-        self = .init(name: .llvm(.atomic_fsub_seqcst(t)))
-      case "atomic_max_relaxed":
-        self = .init(name: .llvm(.atomic_max_relaxed(t)))
-      case "atomic_max_acquire":
-        self = .init(name: .llvm(.atomic_max_acquire(t)))
-      case "atomic_max_release":
-        self = .init(name: .llvm(.atomic_max_release(t)))
-      case "atomic_max_acqrel":
-        self = .init(name: .llvm(.atomic_max_acqrel(t)))
-      case "atomic_max_seqcst":
-        self = .init(name: .llvm(.atomic_max_seqcst(t)))
-      case "atomic_umax_relaxed":
-        self = .init(name: .llvm(.atomic_umax_relaxed(t)))
-      case "atomic_umax_acquire":
-        self = .init(name: .llvm(.atomic_umax_acquire(t)))
-      case "atomic_umax_release":
-        self = .init(name: .llvm(.atomic_umax_release(t)))
-      case "atomic_umax_acqrel":
-        self = .init(name: .llvm(.atomic_umax_acqrel(t)))
-      case "atomic_umax_seqcst":
-        self = .init(name: .llvm(.atomic_umax_seqcst(t)))
-      case "atomic_fmax_relaxed":
-        self = .init(name: .llvm(.atomic_fmax_relaxed(t)))
-      case "atomic_fmax_acquire":
-        self = .init(name: .llvm(.atomic_fmax_acquire(t)))
-      case "atomic_fmax_release":
-        self = .init(name: .llvm(.atomic_fmax_release(t)))
-      case "atomic_fmax_acqrel":
-        self = .init(name: .llvm(.atomic_fmax_acqrel(t)))
-      case "atomic_fmax_seqcst":
-        self = .init(name: .llvm(.atomic_fmax_seqcst(t)))
-      case "atomic_min_relaxed":
-        self = .init(name: .llvm(.atomic_min_relaxed(t)))
-      case "atomic_min_acquire":
-        self = .init(name: .llvm(.atomic_min_acquire(t)))
-      case "atomic_min_release":
-        self = .init(name: .llvm(.atomic_min_release(t)))
-      case "atomic_min_acqrel":
-        self = .init(name: .llvm(.atomic_min_acqrel(t)))
-      case "atomic_min_seqcst":
-        self = .init(name: .llvm(.atomic_min_seqcst(t)))
-      case "atomic_umin_relaxed":
-        self = .init(name: .llvm(.atomic_umin_relaxed(t)))
-      case "atomic_umin_acquire":
-        self = .init(name: .llvm(.atomic_umin_acquire(t)))
-      case "atomic_umin_release":
-        self = .init(name: .llvm(.atomic_umin_release(t)))
-      case "atomic_umin_acqrel":
-        self = .init(name: .llvm(.atomic_umin_acqrel(t)))
-      case "atomic_umin_seqcst":
-        self = .init(name: .llvm(.atomic_umin_seqcst(t)))
-      case "atomic_fmin_relaxed":
-        self = .init(name: .llvm(.atomic_fmin_relaxed(t)))
-      case "atomic_fmin_acquire":
-        self = .init(name: .llvm(.atomic_fmin_acquire(t)))
-      case "atomic_fmin_release":
-        self = .init(name: .llvm(.atomic_fmin_release(t)))
-      case "atomic_fmin_acqrel":
-        self = .init(name: .llvm(.atomic_fmin_acqrel(t)))
-      case "atomic_fmin_seqcst":
-        self = .init(name: .llvm(.atomic_fmin_seqcst(t)))
-      case "atomic_and_relaxed":
-        self = .init(name: .llvm(.atomic_and_relaxed(t)))
-      case "atomic_and_acquire":
-        self = .init(name: .llvm(.atomic_and_acquire(t)))
-      case "atomic_and_release":
-        self = .init(name: .llvm(.atomic_and_release(t)))
-      case "atomic_and_acqrel":
-        self = .init(name: .llvm(.atomic_and_acqrel(t)))
-      case "atomic_and_seqcst":
-        self = .init(name: .llvm(.atomic_and_seqcst(t)))
-      case "atomic_nand_relaxed":
-        self = .init(name: .llvm(.atomic_nand_relaxed(t)))
-      case "atomic_nand_acquire":
-        self = .init(name: .llvm(.atomic_nand_acquire(t)))
-      case "atomic_nand_release":
-        self = .init(name: .llvm(.atomic_nand_release(t)))
-      case "atomic_nand_acqrel":
-        self = .init(name: .llvm(.atomic_nand_acqrel(t)))
-      case "atomic_nand_seqcst":
-        self = .init(name: .llvm(.atomic_nand_seqcst(t)))
-      case "atomic_or_relaxed":
-        self = .init(name: .llvm(.atomic_or_relaxed(t)))
-      case "atomic_or_acquire":
-        self = .init(name: .llvm(.atomic_or_acquire(t)))
-      case "atomic_or_release":
-        self = .init(name: .llvm(.atomic_or_release(t)))
-      case "atomic_or_acqrel":
-        self = .init(name: .llvm(.atomic_or_acqrel(t)))
-      case "atomic_or_seqcst":
-        self = .init(name: .llvm(.atomic_or_seqcst(t)))
-      case "atomic_xor_relaxed":
-        self = .init(name: .llvm(.atomic_xor_relaxed(t)))
-      case "atomic_xor_acquire":
-        self = .init(name: .llvm(.atomic_xor_acquire(t)))
-      case "atomic_xor_release":
-        self = .init(name: .llvm(.atomic_xor_release(t)))
-      case "atomic_xor_acqrel":
-        self = .init(name: .llvm(.atomic_xor_acqrel(t)))
-      case "atomic_xor_seqcst":
-        self = .init(name: .llvm(.atomic_xor_seqcst(t)))
-      case "atomic_cmpxchg_relaxed_relaxed":
-        self = .init(name: .llvm(.atomic_cmpxchg_relaxed_relaxed(t)))
-      case "atomic_cmpxchg_relaxed_acquire":
-        self = .init(name: .llvm(.atomic_cmpxchg_relaxed_acquire(t)))
-      case "atomic_cmpxchg_relaxed_seqcst":
-        self = .init(name: .llvm(.atomic_cmpxchg_relaxed_seqcst(t)))
-      case "atomic_cmpxchg_acquire_relaxed":
-        self = .init(name: .llvm(.atomic_cmpxchg_acquire_relaxed(t)))
-      case "atomic_cmpxchg_acquire_acquire":
-        self = .init(name: .llvm(.atomic_cmpxchg_acquire_acquire(t)))
-      case "atomic_cmpxchg_acquire_seqcst":
-        self = .init(name: .llvm(.atomic_cmpxchg_acquire_seqcst(t)))
-      case "atomic_cmpxchg_release_relaxed":
-        self = .init(name: .llvm(.atomic_cmpxchg_release_relaxed(t)))
-      case "atomic_cmpxchg_release_acquire":
-        self = .init(name: .llvm(.atomic_cmpxchg_release_acquire(t)))
-      case "atomic_cmpxchg_release_seqcst":
-        self = .init(name: .llvm(.atomic_cmpxchg_release_seqcst(t)))
-      case "atomic_cmpxchg_acqrel_relaxed":
-        self = .init(name: .llvm(.atomic_cmpxchg_acqrel_relaxed(t)))
-      case "atomic_cmpxchg_acqrel_acquire":
-        self = .init(name: .llvm(.atomic_cmpxchg_acqrel_acquire(t)))
-      case "atomic_cmpxchg_acqrel_seqcst":
-        self = .init(name: .llvm(.atomic_cmpxchg_acqrel_seqcst(t)))
-      case "atomic_cmpxchg_seqcst_relaxed":
-        self = .init(name: .llvm(.atomic_cmpxchg_seqcst_relaxed(t)))
-      case "atomic_cmpxchg_seqcst_acquire":
-        self = .init(name: .llvm(.atomic_cmpxchg_seqcst_acquire(t)))
-      case "atomic_cmpxchg_seqcst_seqcst":
-        self = .init(name: .llvm(.atomic_cmpxchg_seqcst_seqcst(t)))
-      case "atomic_cmpxchgweak_relaxed_relaxed":
-        self = .init(name: .llvm(.atomic_cmpxchgweak_relaxed_relaxed(t)))
-      case "atomic_cmpxchgweak_relaxed_acquire":
-        self = .init(name: .llvm(.atomic_cmpxchgweak_relaxed_acquire(t)))
-      case "atomic_cmpxchgweak_relaxed_seqcst":
-        self = .init(name: .llvm(.atomic_cmpxchgweak_relaxed_seqcst(t)))
-      case "atomic_cmpxchgweak_acquire_relaxed":
-        self = .init(name: .llvm(.atomic_cmpxchgweak_acquire_relaxed(t)))
-      case "atomic_cmpxchgweak_acquire_acquire":
-        self = .init(name: .llvm(.atomic_cmpxchgweak_acquire_acquire(t)))
-      case "atomic_cmpxchgweak_acquire_seqcst":
-        self = .init(name: .llvm(.atomic_cmpxchgweak_acquire_seqcst(t)))
-      case "atomic_cmpxchgweak_release_relaxed":
-        self = .init(name: .llvm(.atomic_cmpxchgweak_release_relaxed(t)))
-      case "atomic_cmpxchgweak_release_acquire":
-        self = .init(name: .llvm(.atomic_cmpxchgweak_release_acquire(t)))
-      case "atomic_cmpxchgweak_release_seqcst":
-        self = .init(name: .llvm(.atomic_cmpxchgweak_release_seqcst(t)))
-      case "atomic_cmpxchgweak_acqrel_relaxed":
-        self = .init(name: .llvm(.atomic_cmpxchgweak_acqrel_relaxed(t)))
-      case "atomic_cmpxchgweak_acqrel_acquire":
-        self = .init(name: .llvm(.atomic_cmpxchgweak_acqrel_acquire(t)))
-      case "atomic_cmpxchgweak_acqrel_seqcst":
-        self = .init(name: .llvm(.atomic_cmpxchgweak_acqrel_seqcst(t)))
-      case "atomic_cmpxchgweak_seqcst_relaxed":
-        self = .init(name: .llvm(.atomic_cmpxchgweak_seqcst_relaxed(t)))
-      case "atomic_cmpxchgweak_seqcst_acquire":
-        self = .init(name: .llvm(.atomic_cmpxchgweak_seqcst_acquire(t)))
-      case "atomic_cmpxchgweak_seqcst_seqcst":
-        self = .init(name: .llvm(.atomic_cmpxchgweak_seqcst_seqcst(t)))
-      default:
-        return nil
-      }
+  }
+
+  /// Creates a built-in function representing the native atomic instruction named `n` or returns
+  /// `nil` if `n` isn't a valid native atomic instruction name.
+  private init?(atomic n: String) {
+    // The type of all atomics (except fences) is mentioned at the end.
+    let m = n.split(atLastIndexOf: "_")
+    guard let t = BuiltinType(m.tail.dropFirst()) else { return nil }
+
+    switch m.head {
+    case "atomic_store_relaxed":
+      self = .init(name: .llvm(.atomic_store_relaxed(t)))
+    case "atomic_store_release":
+      self = .init(name: .llvm(.atomic_store_release(t)))
+    case "atomic_store_seqcst":
+      self = .init(name: .llvm(.atomic_store_seqcst(t)))
+    case "atomic_load_relaxed":
+      self = .init(name: .llvm(.atomic_load_relaxed(t)))
+    case "atomic_load_acquire":
+      self = .init(name: .llvm(.atomic_load_acquire(t)))
+    case "atomic_load_seqcst":
+      self = .init(name: .llvm(.atomic_load_seqcst(t)))
+    case "atomic_swap_relaxed":
+      self = .init(name: .llvm(.atomic_swap_relaxed(t)))
+    case "atomic_swap_acquire":
+      self = .init(name: .llvm(.atomic_swap_acquire(t)))
+    case "atomic_swap_release":
+      self = .init(name: .llvm(.atomic_swap_release(t)))
+    case "atomic_swap_acqrel":
+      self = .init(name: .llvm(.atomic_swap_acqrel(t)))
+    case "atomic_swap_seqcst":
+      self = .init(name: .llvm(.atomic_swap_seqcst(t)))
+    case "atomic_add_relaxed":
+      self = .init(name: .llvm(.atomic_add_relaxed(t)))
+    case "atomic_add_acquire":
+      self = .init(name: .llvm(.atomic_add_acquire(t)))
+    case "atomic_add_release":
+      self = .init(name: .llvm(.atomic_add_release(t)))
+    case "atomic_add_acqrel":
+      self = .init(name: .llvm(.atomic_add_acqrel(t)))
+    case "atomic_add_seqcst":
+      self = .init(name: .llvm(.atomic_add_seqcst(t)))
+    case "atomic_fadd_relaxed":
+      self = .init(name: .llvm(.atomic_fadd_relaxed(t)))
+    case "atomic_fadd_acquire":
+      self = .init(name: .llvm(.atomic_fadd_acquire(t)))
+    case "atomic_fadd_release":
+      self = .init(name: .llvm(.atomic_fadd_release(t)))
+    case "atomic_fadd_acqrel":
+      self = .init(name: .llvm(.atomic_fadd_acqrel(t)))
+    case "atomic_fadd_seqcst":
+      self = .init(name: .llvm(.atomic_fadd_seqcst(t)))
+    case "atomic_sub_relaxed":
+      self = .init(name: .llvm(.atomic_sub_relaxed(t)))
+    case "atomic_sub_acquire":
+      self = .init(name: .llvm(.atomic_sub_acquire(t)))
+    case "atomic_sub_release":
+      self = .init(name: .llvm(.atomic_sub_release(t)))
+    case "atomic_sub_acqrel":
+      self = .init(name: .llvm(.atomic_sub_acqrel(t)))
+    case "atomic_sub_seqcst":
+      self = .init(name: .llvm(.atomic_sub_seqcst(t)))
+    case "atomic_fsub_relaxed":
+      self = .init(name: .llvm(.atomic_fsub_relaxed(t)))
+    case "atomic_fsub_acquire":
+      self = .init(name: .llvm(.atomic_fsub_acquire(t)))
+    case "atomic_fsub_release":
+      self = .init(name: .llvm(.atomic_fsub_release(t)))
+    case "atomic_fsub_acqrel":
+      self = .init(name: .llvm(.atomic_fsub_acqrel(t)))
+    case "atomic_fsub_seqcst":
+      self = .init(name: .llvm(.atomic_fsub_seqcst(t)))
+    case "atomic_max_relaxed":
+      self = .init(name: .llvm(.atomic_max_relaxed(t)))
+    case "atomic_max_acquire":
+      self = .init(name: .llvm(.atomic_max_acquire(t)))
+    case "atomic_max_release":
+      self = .init(name: .llvm(.atomic_max_release(t)))
+    case "atomic_max_acqrel":
+      self = .init(name: .llvm(.atomic_max_acqrel(t)))
+    case "atomic_max_seqcst":
+      self = .init(name: .llvm(.atomic_max_seqcst(t)))
+    case "atomic_umax_relaxed":
+      self = .init(name: .llvm(.atomic_umax_relaxed(t)))
+    case "atomic_umax_acquire":
+      self = .init(name: .llvm(.atomic_umax_acquire(t)))
+    case "atomic_umax_release":
+      self = .init(name: .llvm(.atomic_umax_release(t)))
+    case "atomic_umax_acqrel":
+      self = .init(name: .llvm(.atomic_umax_acqrel(t)))
+    case "atomic_umax_seqcst":
+      self = .init(name: .llvm(.atomic_umax_seqcst(t)))
+    case "atomic_fmax_relaxed":
+      self = .init(name: .llvm(.atomic_fmax_relaxed(t)))
+    case "atomic_fmax_acquire":
+      self = .init(name: .llvm(.atomic_fmax_acquire(t)))
+    case "atomic_fmax_release":
+      self = .init(name: .llvm(.atomic_fmax_release(t)))
+    case "atomic_fmax_acqrel":
+      self = .init(name: .llvm(.atomic_fmax_acqrel(t)))
+    case "atomic_fmax_seqcst":
+      self = .init(name: .llvm(.atomic_fmax_seqcst(t)))
+    case "atomic_min_relaxed":
+      self = .init(name: .llvm(.atomic_min_relaxed(t)))
+    case "atomic_min_acquire":
+      self = .init(name: .llvm(.atomic_min_acquire(t)))
+    case "atomic_min_release":
+      self = .init(name: .llvm(.atomic_min_release(t)))
+    case "atomic_min_acqrel":
+      self = .init(name: .llvm(.atomic_min_acqrel(t)))
+    case "atomic_min_seqcst":
+      self = .init(name: .llvm(.atomic_min_seqcst(t)))
+    case "atomic_umin_relaxed":
+      self = .init(name: .llvm(.atomic_umin_relaxed(t)))
+    case "atomic_umin_acquire":
+      self = .init(name: .llvm(.atomic_umin_acquire(t)))
+    case "atomic_umin_release":
+      self = .init(name: .llvm(.atomic_umin_release(t)))
+    case "atomic_umin_acqrel":
+      self = .init(name: .llvm(.atomic_umin_acqrel(t)))
+    case "atomic_umin_seqcst":
+      self = .init(name: .llvm(.atomic_umin_seqcst(t)))
+    case "atomic_fmin_relaxed":
+      self = .init(name: .llvm(.atomic_fmin_relaxed(t)))
+    case "atomic_fmin_acquire":
+      self = .init(name: .llvm(.atomic_fmin_acquire(t)))
+    case "atomic_fmin_release":
+      self = .init(name: .llvm(.atomic_fmin_release(t)))
+    case "atomic_fmin_acqrel":
+      self = .init(name: .llvm(.atomic_fmin_acqrel(t)))
+    case "atomic_fmin_seqcst":
+      self = .init(name: .llvm(.atomic_fmin_seqcst(t)))
+    case "atomic_and_relaxed":
+      self = .init(name: .llvm(.atomic_and_relaxed(t)))
+    case "atomic_and_acquire":
+      self = .init(name: .llvm(.atomic_and_acquire(t)))
+    case "atomic_and_release":
+      self = .init(name: .llvm(.atomic_and_release(t)))
+    case "atomic_and_acqrel":
+      self = .init(name: .llvm(.atomic_and_acqrel(t)))
+    case "atomic_and_seqcst":
+      self = .init(name: .llvm(.atomic_and_seqcst(t)))
+    case "atomic_nand_relaxed":
+      self = .init(name: .llvm(.atomic_nand_relaxed(t)))
+    case "atomic_nand_acquire":
+      self = .init(name: .llvm(.atomic_nand_acquire(t)))
+    case "atomic_nand_release":
+      self = .init(name: .llvm(.atomic_nand_release(t)))
+    case "atomic_nand_acqrel":
+      self = .init(name: .llvm(.atomic_nand_acqrel(t)))
+    case "atomic_nand_seqcst":
+      self = .init(name: .llvm(.atomic_nand_seqcst(t)))
+    case "atomic_or_relaxed":
+      self = .init(name: .llvm(.atomic_or_relaxed(t)))
+    case "atomic_or_acquire":
+      self = .init(name: .llvm(.atomic_or_acquire(t)))
+    case "atomic_or_release":
+      self = .init(name: .llvm(.atomic_or_release(t)))
+    case "atomic_or_acqrel":
+      self = .init(name: .llvm(.atomic_or_acqrel(t)))
+    case "atomic_or_seqcst":
+      self = .init(name: .llvm(.atomic_or_seqcst(t)))
+    case "atomic_xor_relaxed":
+      self = .init(name: .llvm(.atomic_xor_relaxed(t)))
+    case "atomic_xor_acquire":
+      self = .init(name: .llvm(.atomic_xor_acquire(t)))
+    case "atomic_xor_release":
+      self = .init(name: .llvm(.atomic_xor_release(t)))
+    case "atomic_xor_acqrel":
+      self = .init(name: .llvm(.atomic_xor_acqrel(t)))
+    case "atomic_xor_seqcst":
+      self = .init(name: .llvm(.atomic_xor_seqcst(t)))
+    case "atomic_cmpxchg_relaxed_relaxed":
+      self = .init(name: .llvm(.atomic_cmpxchg_relaxed_relaxed(t)))
+    case "atomic_cmpxchg_relaxed_acquire":
+      self = .init(name: .llvm(.atomic_cmpxchg_relaxed_acquire(t)))
+    case "atomic_cmpxchg_relaxed_seqcst":
+      self = .init(name: .llvm(.atomic_cmpxchg_relaxed_seqcst(t)))
+    case "atomic_cmpxchg_acquire_relaxed":
+      self = .init(name: .llvm(.atomic_cmpxchg_acquire_relaxed(t)))
+    case "atomic_cmpxchg_acquire_acquire":
+      self = .init(name: .llvm(.atomic_cmpxchg_acquire_acquire(t)))
+    case "atomic_cmpxchg_acquire_seqcst":
+      self = .init(name: .llvm(.atomic_cmpxchg_acquire_seqcst(t)))
+    case "atomic_cmpxchg_release_relaxed":
+      self = .init(name: .llvm(.atomic_cmpxchg_release_relaxed(t)))
+    case "atomic_cmpxchg_release_acquire":
+      self = .init(name: .llvm(.atomic_cmpxchg_release_acquire(t)))
+    case "atomic_cmpxchg_release_seqcst":
+      self = .init(name: .llvm(.atomic_cmpxchg_release_seqcst(t)))
+    case "atomic_cmpxchg_acqrel_relaxed":
+      self = .init(name: .llvm(.atomic_cmpxchg_acqrel_relaxed(t)))
+    case "atomic_cmpxchg_acqrel_acquire":
+      self = .init(name: .llvm(.atomic_cmpxchg_acqrel_acquire(t)))
+    case "atomic_cmpxchg_acqrel_seqcst":
+      self = .init(name: .llvm(.atomic_cmpxchg_acqrel_seqcst(t)))
+    case "atomic_cmpxchg_seqcst_relaxed":
+      self = .init(name: .llvm(.atomic_cmpxchg_seqcst_relaxed(t)))
+    case "atomic_cmpxchg_seqcst_acquire":
+      self = .init(name: .llvm(.atomic_cmpxchg_seqcst_acquire(t)))
+    case "atomic_cmpxchg_seqcst_seqcst":
+      self = .init(name: .llvm(.atomic_cmpxchg_seqcst_seqcst(t)))
+    case "atomic_cmpxchgweak_relaxed_relaxed":
+      self = .init(name: .llvm(.atomic_cmpxchgweak_relaxed_relaxed(t)))
+    case "atomic_cmpxchgweak_relaxed_acquire":
+      self = .init(name: .llvm(.atomic_cmpxchgweak_relaxed_acquire(t)))
+    case "atomic_cmpxchgweak_relaxed_seqcst":
+      self = .init(name: .llvm(.atomic_cmpxchgweak_relaxed_seqcst(t)))
+    case "atomic_cmpxchgweak_acquire_relaxed":
+      self = .init(name: .llvm(.atomic_cmpxchgweak_acquire_relaxed(t)))
+    case "atomic_cmpxchgweak_acquire_acquire":
+      self = .init(name: .llvm(.atomic_cmpxchgweak_acquire_acquire(t)))
+    case "atomic_cmpxchgweak_acquire_seqcst":
+      self = .init(name: .llvm(.atomic_cmpxchgweak_acquire_seqcst(t)))
+    case "atomic_cmpxchgweak_release_relaxed":
+      self = .init(name: .llvm(.atomic_cmpxchgweak_release_relaxed(t)))
+    case "atomic_cmpxchgweak_release_acquire":
+      self = .init(name: .llvm(.atomic_cmpxchgweak_release_acquire(t)))
+    case "atomic_cmpxchgweak_release_seqcst":
+      self = .init(name: .llvm(.atomic_cmpxchgweak_release_seqcst(t)))
+    case "atomic_cmpxchgweak_acqrel_relaxed":
+      self = .init(name: .llvm(.atomic_cmpxchgweak_acqrel_relaxed(t)))
+    case "atomic_cmpxchgweak_acqrel_acquire":
+      self = .init(name: .llvm(.atomic_cmpxchgweak_acqrel_acquire(t)))
+    case "atomic_cmpxchgweak_acqrel_seqcst":
+      self = .init(name: .llvm(.atomic_cmpxchgweak_acqrel_seqcst(t)))
+    case "atomic_cmpxchgweak_seqcst_relaxed":
+      self = .init(name: .llvm(.atomic_cmpxchgweak_seqcst_relaxed(t)))
+    case "atomic_cmpxchgweak_seqcst_acquire":
+      self = .init(name: .llvm(.atomic_cmpxchgweak_seqcst_acquire(t)))
+    case "atomic_cmpxchgweak_seqcst_seqcst":
+      self = .init(name: .llvm(.atomic_cmpxchgweak_seqcst_seqcst(t)))
+    default:
+      return nil
     }
   }
 
@@ -594,12 +600,6 @@ private func take<T: RawRepresentable>(
   { (stream: inout ArraySlice<Substring>) -> T? in
     stream.popFirst().flatMap({ T(rawValue: .init($0)) })
   }
-}
-
-/// Splits `s` into a pair `(prefix, suffix)` at the last underscore character, or returns `nil`.
-private func splitLastUnderscore(_ s: String) -> (String, String)? {
-  guard let i = s.lastIndex(of: "_") else { return nil }
-  return (String(s[..<i]), String(s[s.index(after: i)...]))
 }
 
 /// Returns a built-in type parsed from `stream`.
