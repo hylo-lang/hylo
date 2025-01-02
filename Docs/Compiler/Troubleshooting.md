@@ -8,8 +8,8 @@ Investigate if just one of them fails, and take it from there.
 ## Updating an external library
 
 Let's take the example of Swifty-LLVM, which is a Hylo repository for which we always get the latest version from `main`.
-For this example, making a change to Swifty-LLVM should be picked up automatically, after the change is submitted to `main`.
-But this doesn't always happen.
+For this example, making a change to Swifty-LLVM should be picked up automatically by the CMake build, after the change is submitted to `main`.
+But this doesn't happen with the native swift build system.
 
 To properly update the external library, do the following:
 - quit any IDEs (yes, please do that)
