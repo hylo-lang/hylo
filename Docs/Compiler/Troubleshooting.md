@@ -15,7 +15,6 @@ To properly update the external library, do the following:
 - quit any IDEs (yes, please do that)
 - delete the build folder (e.g., `.build`)
 - delete `Package.resolved`
-- run `swift package resolve`
 - build with Swift build system (e.g., `swift build -c release`), and ensure everything builds
 - build with the CMake system and ensure that everything builds
 - upload the changes to `Package.resolved`; this should contain the commit sha for the latest version of the library.
@@ -25,5 +24,5 @@ To properly update the external library, do the following:
 > This is why we recommend closing the IDE first.
 
 > **_NOTE:_**
-> This will most probably update other packages that swift will use.
+> This will most probably update other packages that swift will use (unrelated content in `Package.resolved` is changed).
 > This is expected.
