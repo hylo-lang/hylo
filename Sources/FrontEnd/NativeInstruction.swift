@@ -477,138 +477,243 @@ extension NativeInstruction {
       return .init(to: ^t)
     case .advancedByBytes(let byteOffset):
       return .init(.builtin(.ptr), ^byteOffset, to: .builtin(.ptr))
-    case .atomic_store_relaxed(let t),
-        .atomic_store_release(let t),
-        .atomic_store_seqcst(let t):
+    case .atomic_store_relaxed(let t):
       return .init(.builtin(.ptr), ^t, to: .void)
-    case .atomic_load_relaxed(let t),
-        .atomic_load_acquire(let t),
-        .atomic_load_seqcst(let t):
+    case .atomic_store_release(let t):
+      return .init(.builtin(.ptr), ^t, to: .void)
+    case .atomic_store_seqcst(let t):
+      return .init(.builtin(.ptr), ^t, to: .void)
+    case .atomic_load_relaxed(let t):
       return .init(.builtin(.ptr), to: ^t)
-    case .atomic_swap_relaxed(let t),
-        .atomic_swap_acquire(let t),
-        .atomic_swap_release(let t),
-        .atomic_swap_acqrel(let t),
-        .atomic_swap_seqcst(let t):
+    case .atomic_load_acquire(let t):
+      return .init(.builtin(.ptr), to: ^t)
+    case .atomic_load_seqcst(let t):
+      return .init(.builtin(.ptr), to: ^t)
+    case .atomic_swap_relaxed(let t):
       return .init(.builtin(.ptr), ^t, to: ^t)
-    case .atomic_add_relaxed(let t),
-        .atomic_add_acquire(let t),
-        .atomic_add_release(let t),
-        .atomic_add_acqrel(let t),
-        .atomic_add_seqcst(let t),
-        .atomic_fadd_relaxed(let t),
-        .atomic_fadd_acquire(let t),
-        .atomic_fadd_release(let t),
-        .atomic_fadd_acqrel(let t),
-        .atomic_fadd_seqcst(let t):
+    case .atomic_swap_acquire(let t):
       return .init(.builtin(.ptr), ^t, to: ^t)
-    case .atomic_sub_relaxed(let t),
-        .atomic_sub_acquire(let t),
-        .atomic_sub_release(let t),
-        .atomic_sub_acqrel(let t),
-        .atomic_sub_seqcst(let t),
-        .atomic_fsub_relaxed(let t),
-        .atomic_fsub_acquire(let t),
-        .atomic_fsub_release(let t),
-        .atomic_fsub_acqrel(let t),
-        .atomic_fsub_seqcst(let t):
+    case .atomic_swap_release(let t):
       return .init(.builtin(.ptr), ^t, to: ^t)
-    case .atomic_max_relaxed(let t),
-        .atomic_max_acquire(let t),
-        .atomic_max_release(let t),
-        .atomic_max_acqrel(let t),
-        .atomic_max_seqcst(let t),
-        .atomic_umax_relaxed(let t),
-        .atomic_umax_acquire(let t),
-        .atomic_umax_release(let t),
-        .atomic_umax_acqrel(let t),
-        .atomic_umax_seqcst(let t),
-        .atomic_fmax_relaxed(let t),
-        .atomic_fmax_acquire(let t),
-        .atomic_fmax_release(let t),
-        .atomic_fmax_acqrel(let t),
-        .atomic_fmax_seqcst(let t):
+    case .atomic_swap_acqrel(let t):
       return .init(.builtin(.ptr), ^t, to: ^t)
-    case .atomic_min_relaxed(let t),
-        .atomic_min_acquire(let t),
-        .atomic_min_release(let t),
-        .atomic_min_acqrel(let t),
-        .atomic_min_seqcst(let t),
-        .atomic_umin_relaxed(let t),
-        .atomic_umin_acquire(let t),
-        .atomic_umin_release(let t),
-        .atomic_umin_acqrel(let t),
-        .atomic_umin_seqcst(let t),
-        .atomic_fmin_relaxed(let t),
-        .atomic_fmin_acquire(let t),
-        .atomic_fmin_release(let t),
-        .atomic_fmin_acqrel(let t),
-        .atomic_fmin_seqcst(let t):
+    case .atomic_swap_seqcst(let t):
       return .init(.builtin(.ptr), ^t, to: ^t)
-    case .atomic_and_relaxed(let t),
-        .atomic_and_acquire(let t),
-        .atomic_and_release(let t),
-        .atomic_and_acqrel(let t),
-        .atomic_and_seqcst(let t):
+    case .atomic_add_relaxed(let t):
       return .init(.builtin(.ptr), ^t, to: ^t)
-    case .atomic_nand_relaxed(let t),
-        .atomic_nand_acquire(let t),
-        .atomic_nand_release(let t),
-        .atomic_nand_acqrel(let t),
-        .atomic_nand_seqcst(let t):
+    case .atomic_add_acquire(let t):
       return .init(.builtin(.ptr), ^t, to: ^t)
-    case .atomic_or_relaxed(let t),
-        .atomic_or_acquire(let t),
-        .atomic_or_release(let t),
-        .atomic_or_acqrel(let t),
-        .atomic_or_seqcst(let t):
+    case .atomic_add_release(let t):
       return .init(.builtin(.ptr), ^t, to: ^t)
-    case .atomic_xor_relaxed(let t),
-        .atomic_xor_acquire(let t),
-        .atomic_xor_release(let t),
-        .atomic_xor_acqrel(let t),
-        .atomic_xor_seqcst(let t):
+    case .atomic_add_acqrel(let t):
       return .init(.builtin(.ptr), ^t, to: ^t)
-    case .atomic_cmpxchg_relaxed_relaxed(let t),
-        .atomic_cmpxchg_relaxed_acquire(let t),
-        .atomic_cmpxchg_relaxed_seqcst(let t),
-        .atomic_cmpxchg_acquire_relaxed(let t),
-        .atomic_cmpxchg_acquire_acquire(let t),
-        .atomic_cmpxchg_acquire_seqcst(let t),
-        .atomic_cmpxchg_release_relaxed(let t),
-        .atomic_cmpxchg_release_acquire(let t),
-        .atomic_cmpxchg_release_seqcst(let t),
-        .atomic_cmpxchg_acqrel_relaxed(let t),
-        .atomic_cmpxchg_acqrel_acquire(let t),
-        .atomic_cmpxchg_acqrel_seqcst(let t),
-        .atomic_cmpxchg_seqcst_relaxed(let t),
-        .atomic_cmpxchg_seqcst_acquire(let t),
-        .atomic_cmpxchg_seqcst_seqcst(let t):
+    case .atomic_add_seqcst(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_fadd_relaxed(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_fadd_acquire(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_fadd_release(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_fadd_acqrel(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_fadd_seqcst(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_sub_relaxed(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_sub_acquire(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_sub_release(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_sub_acqrel(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_sub_seqcst(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_fsub_relaxed(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_fsub_acquire(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_fsub_release(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_fsub_acqrel(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_fsub_seqcst(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_max_relaxed(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_max_acquire(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_max_release(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_max_acqrel(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_max_seqcst(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_umax_relaxed(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_umax_acquire(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_umax_release(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_umax_acqrel(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_umax_seqcst(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_fmax_relaxed(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_fmax_acquire(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_fmax_release(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_fmax_acqrel(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_fmax_seqcst(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_min_relaxed(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_min_acquire(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_min_release(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_min_acqrel(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_min_seqcst(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_umin_relaxed(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_umin_acquire(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_umin_release(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_umin_acqrel(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_umin_seqcst(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_fmin_relaxed(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_fmin_acquire(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_fmin_release(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_fmin_acqrel(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_fmin_seqcst(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_and_relaxed(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_and_acquire(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_and_release(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_and_acqrel(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_and_seqcst(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_nand_relaxed(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_nand_acquire(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_nand_release(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_nand_acqrel(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_nand_seqcst(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_or_relaxed(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_or_acquire(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_or_release(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_or_acqrel(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_or_seqcst(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_xor_relaxed(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_xor_acquire(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_xor_release(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_xor_acqrel(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_xor_seqcst(let t):
+      return .init(.builtin(.ptr), ^t, to: ^t)
+    case .atomic_cmpxchg_relaxed_relaxed(let t):
       return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
-    case .atomic_cmpxchgweak_relaxed_relaxed(let t),
-        .atomic_cmpxchgweak_relaxed_acquire(let t),
-        .atomic_cmpxchgweak_relaxed_seqcst(let t),
-        .atomic_cmpxchgweak_acquire_relaxed(let t),
-        .atomic_cmpxchgweak_acquire_acquire(let t),
-        .atomic_cmpxchgweak_acquire_seqcst(let t),
-        .atomic_cmpxchgweak_release_relaxed(let t),
-        .atomic_cmpxchgweak_release_acquire(let t),
-        .atomic_cmpxchgweak_release_seqcst(let t),
-        .atomic_cmpxchgweak_acqrel_relaxed(let t),
-        .atomic_cmpxchgweak_acqrel_acquire(let t),
-        .atomic_cmpxchgweak_acqrel_seqcst(let t),
-        .atomic_cmpxchgweak_seqcst_relaxed(let t),
-        .atomic_cmpxchgweak_seqcst_acquire(let t),
-        .atomic_cmpxchgweak_seqcst_seqcst(let t):
+    case .atomic_cmpxchg_relaxed_acquire(let t):
       return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
-    case .atomic_fence_acquire,
-        .atomic_fence_release,
-        .atomic_fence_acqrel,
-        .atomic_fence_seqcst,
-        .atomic_singlethreadfence_acquire,
-        .atomic_singlethreadfence_release,
-        .atomic_singlethreadfence_acqrel,
-        .atomic_singlethreadfence_seqcst:
+    case .atomic_cmpxchg_relaxed_seqcst(let t):
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+    case .atomic_cmpxchg_acquire_relaxed(let t):
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+    case .atomic_cmpxchg_acquire_acquire(let t):
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+    case .atomic_cmpxchg_acquire_seqcst(let t):
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+    case .atomic_cmpxchg_release_relaxed(let t):
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+    case .atomic_cmpxchg_release_acquire(let t):
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+    case .atomic_cmpxchg_release_seqcst(let t):
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+    case .atomic_cmpxchg_acqrel_relaxed(let t):
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+    case .atomic_cmpxchg_acqrel_acquire(let t):
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+    case .atomic_cmpxchg_acqrel_seqcst(let t):
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+    case .atomic_cmpxchg_seqcst_relaxed(let t):
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+    case .atomic_cmpxchg_seqcst_acquire(let t):
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+    case .atomic_cmpxchg_seqcst_seqcst(let t):
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+    case .atomic_cmpxchgweak_relaxed_relaxed(let t):
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+    case .atomic_cmpxchgweak_relaxed_acquire(let t):
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+    case .atomic_cmpxchgweak_relaxed_seqcst(let t):
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+    case .atomic_cmpxchgweak_acquire_relaxed(let t):
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+    case .atomic_cmpxchgweak_acquire_acquire(let t):
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+    case .atomic_cmpxchgweak_acquire_seqcst(let t):
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+    case .atomic_cmpxchgweak_release_relaxed(let t):
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+    case .atomic_cmpxchgweak_release_acquire(let t):
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+    case .atomic_cmpxchgweak_release_seqcst(let t):
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+    case .atomic_cmpxchgweak_acqrel_relaxed(let t):
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+    case .atomic_cmpxchgweak_acqrel_acquire(let t):
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+    case .atomic_cmpxchgweak_acqrel_seqcst(let t):
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+    case .atomic_cmpxchgweak_seqcst_relaxed(let t):
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+    case .atomic_cmpxchgweak_seqcst_acquire(let t):
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+    case .atomic_cmpxchgweak_seqcst_seqcst(let t):
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+    case .atomic_fence_acquire:
+      return .init(to: .void)
+    case .atomic_fence_release:
+      return .init(to: .void)
+    case .atomic_fence_acqrel:
+      return .init(to: .void)
+    case .atomic_fence_seqcst:
+      return .init(to: .void)
+    case .atomic_singlethreadfence_acquire:
+      return .init(to: .void)
+    case .atomic_singlethreadfence_release:
+      return .init(to: .void)
+    case .atomic_singlethreadfence_acqrel:
+      return .init(to: .void)
+    case .atomic_singlethreadfence_seqcst:
       return .init(to: .void)
     }
   }
