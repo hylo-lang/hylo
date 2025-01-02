@@ -11,7 +11,7 @@
 /// An atomic representation of ${type}.
 public type ${type}AtomicRepresentation: Regular {
 
-  /// The undelying value, for which we expose atomic operations.
+  /// The underlying value, for which we expose atomic operations.
   internal let value: ${type}
 
   public memberwise init

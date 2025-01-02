@@ -6,7 +6,7 @@
 /// An atomic representation of Int.
 public type IntAtomicRepresentation: Regular {
 
-  /// The undelying value, for which we expose atomic operations.
+  /// The underlying value, for which we expose atomic operations.
   internal let value: Int
 
   public memberwise init
@@ -371,7 +371,7 @@ public conformance IntAtomicRepresentation: IntegerPlatformAtomic {
 /// An atomic representation of Int8.
 public type Int8AtomicRepresentation: Regular {
 
-  /// The undelying value, for which we expose atomic operations.
+  /// The underlying value, for which we expose atomic operations.
   internal let value: Int8
 
   public memberwise init
@@ -736,7 +736,7 @@ public conformance Int8AtomicRepresentation: IntegerPlatformAtomic {
 /// An atomic representation of Int32.
 public type Int32AtomicRepresentation: Regular {
 
-  /// The undelying value, for which we expose atomic operations.
+  /// The underlying value, for which we expose atomic operations.
   internal let value: Int32
 
   public memberwise init
@@ -1101,7 +1101,7 @@ public conformance Int32AtomicRepresentation: IntegerPlatformAtomic {
 /// An atomic representation of Int64.
 public type Int64AtomicRepresentation: Regular {
 
-  /// The undelying value, for which we expose atomic operations.
+  /// The underlying value, for which we expose atomic operations.
   internal let value: Int64
 
   public memberwise init
@@ -1466,7 +1466,7 @@ public conformance Int64AtomicRepresentation: IntegerPlatformAtomic {
 /// An atomic representation of UInt.
 public type UIntAtomicRepresentation: Regular {
 
-  /// The undelying value, for which we expose atomic operations.
+  /// The underlying value, for which we expose atomic operations.
   internal let value: UInt
 
   public memberwise init
@@ -1831,7 +1831,7 @@ public conformance UIntAtomicRepresentation: IntegerPlatformAtomic {
 /// An atomic representation of UInt8.
 public type UInt8AtomicRepresentation: Regular {
 
-  /// The undelying value, for which we expose atomic operations.
+  /// The underlying value, for which we expose atomic operations.
   internal let value: UInt8
 
   public memberwise init
@@ -2196,7 +2196,7 @@ public conformance UInt8AtomicRepresentation: IntegerPlatformAtomic {
 /// An atomic representation of UInt32.
 public type UInt32AtomicRepresentation: Regular {
 
-  /// The undelying value, for which we expose atomic operations.
+  /// The underlying value, for which we expose atomic operations.
   internal let value: UInt32
 
   public memberwise init
@@ -2561,7 +2561,7 @@ public conformance UInt32AtomicRepresentation: IntegerPlatformAtomic {
 /// An atomic representation of UInt64.
 public type UInt64AtomicRepresentation: Regular {
 
-  /// The undelying value, for which we expose atomic operations.
+  /// The underlying value, for which we expose atomic operations.
   internal let value: UInt64
 
   public memberwise init

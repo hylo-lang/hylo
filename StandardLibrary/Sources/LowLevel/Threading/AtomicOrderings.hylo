@@ -1,4 +1,4 @@
-/// Specifies the memory ordering sematics for an atomic load operation.
+/// Specifies the memory ordering semantics for an atomic load operation.
 public type AtomicLoadOrdering: Regular {
 
   public memberwise init
@@ -38,7 +38,7 @@ public extension AtomicLoadOrdering {
 
 }
 
-/// Specifies the memory ordering sematics for an atomic store operation.
+/// Specifies the memory ordering semantics for an atomic store operation.
 public type AtomicStoreOrdering: Regular {
 
   public memberwise init
@@ -78,7 +78,7 @@ public extension AtomicStoreOrdering {
 
 }
 
-/// Specifies the memory ordering sematics for an atomic read-modify-write (update) operation.
+/// Specifies the memory ordering semantics for an atomic read-modify-write (update) operation.
 public type AtomicUpdateOrdering: Regular {
 
   public memberwise init
