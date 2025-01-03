@@ -1,0 +1,122 @@
+
+/// Defines atomic operations for `T`. 
+public type Atomic<T: AtomicRepresentable>: SemiRegular {
+
+  /// The storage for the atomic operations.
+  var storage: T.AtomicRepresentation
+
+  /// Initializes `self` with the zero value.
+  public init() {
+    &storage = .new()
+  }
+
+  /// Initializes `self` with `value`.
+  public init(value: sink T) {
+    &storage = .new()
+    store(value, ordering: /*AtomicStoreOrdering.relaxed*/ .new(value: 0))
+    // TODO: using atomic ordering constants produce linker errors
+  }
+
+  /// Atomically load the value from the atomic, using `ordering`.
+  public fun load(ordering: AtomicLoadOrdering) -> T {
+    return T.decodeAtomicRepresentation(storage.load(ordering: ordering))
+  }
+
+  /// Atomically store `value` into the atomic, using `ordering`.
+  public fun store(_ value: sink T, ordering: AtomicStoreOrdering) inout {
+    storage.store(T.encodeAtomicRepresentation(value), ordering: ordering)
+  }
+
+  /// Atomically exchanges the value in the atomic with `desired`, using `ordering`.
+  public fun exchange(desired: sink T, ordering: AtomicUpdateOrdering) inout -> T {
+    return T.decodeAtomicRepresentation(storage.exchange(desired: T.encodeAtomicRepresentation(desired), ordering: ordering))
+  }
+
+  /// Atomically exchanges the atomic with `desired`, if the original value is equal to `expected`, using `ordering`.
+  /// Returns a tuple containing the original value and a boolean indicating whether the exchange was successful.
+  public fun compare_and_exchange(expected: sink T, desired: sink T, ordering: AtomicUpdateOrdering) inout -> {exchanged: Bool, original: T} {
+    let r = storage.compare_and_exchange(
+      expected: T.encodeAtomicRepresentation(expected),
+      desired: T.encodeAtomicRepresentation(desired),
+      success_ordering: ordering,
+      failure_ordering: failure_ordering(for: ordering))
+    return (exchanged: r.0, original: T.decodeAtomicRepresentation(r.1))
+  }
+
+  /// Atomically exchanges the atomic with `desired`, if the original value is equal to `expected`, using `success_ordering` for the update, and `failure_ordering` for loading the new value in case of failure.
+  /// Returns a tuple containing the original value and a boolean indicating whether the exchange was successful.
+  public fun compare_and_exchange(expected: sink T, desired: sink T, success_ordering: AtomicUpdateOrdering, failure_ordering: AtomicLoadOrdering) inout -> {exchanged: Bool, original: T} {
+    let r = storage.compare_and_exchange(
+      expected: T.encodeAtomicRepresentation(expected),
+      desired: T.encodeAtomicRepresentation(desired),
+      success_ordering: success_ordering,
+      failure_ordering: failure_ordering)
+    return (exchanged: r.0, original: T.decodeAtomicRepresentation(r.1))
+  }
+
+  /// Same as `compare_and_exchange`, but may fail spuriously.
+  public fun weak_compare_and_exchange(expected: sink T, desired: sink T, ordering: AtomicUpdateOrdering) inout -> {exchanged: Bool, original: T} {
+    let r = storage.weak_compare_and_exchange(
+      expected: T.encodeAtomicRepresentation(expected),
+      desired: T.encodeAtomicRepresentation(desired),
+      success_ordering: ordering,
+      failure_ordering: failure_ordering(for: ordering))
+    return (exchanged: r.0, original: T.decodeAtomicRepresentation(r.1))
+  }
+
+  /// Same as `compare_and_exchange`, but may fail spuriously.
+  public fun weak_compare_and_exchange(expected: sink T, desired: sink T, success_ordering: AtomicUpdateOrdering, failure_ordering: AtomicLoadOrdering) inout -> {exchanged: Bool, original: T} {
+    let r = storage.weak_compare_and_exchange(
+      expected: T.encodeAtomicRepresentation(expected),
+      desired: T.encodeAtomicRepresentation(desired),
+      success_ordering: success_ordering,
+      failure_ordering: failure_ordering)
+    return (exchanged: r.0, original: T.decodeAtomicRepresentation(r.1))
+  }
+
+}
+
+/// Atomic operations for integer types
+public extension Atomic where T.AtomicRepresentation: IntegerPlatformAtomic, T: Numeric {
+
+  /// Atomically updates `this` by adding `value` to it, using `ordering`, and return the original value.
+  public fun fetch_add(_ value: sink T, ordering: AtomicUpdateOrdering) inout -> T {
+    return T.decodeAtomicRepresentation(storage.fetch_add(T.encodeAtomicRepresentation(value), ordering: ordering))
+  }
+
+  /// Atomically updates `this` by subtracting `value` from it, using `ordering`, and return the original value.
+  public fun fetch_sub(_ value: sink T, ordering: AtomicUpdateOrdering) inout -> T {
+    return T.decodeAtomicRepresentation(storage.fetch_sub(T.encodeAtomicRepresentation(value), ordering: ordering))
+  }
+
+  /// Atomically updates `this` by using the maximum of `value` and itself, using `ordering`, and return the original value.
+  public fun fetch_max(_ value: sink T, ordering: AtomicUpdateOrdering) inout -> T {
+    return T.decodeAtomicRepresentation(storage.fetch_max(T.encodeAtomicRepresentation(value), ordering: ordering))
+  }
+
+  /// Atomically updates `this` by using the minimum of `value` and itself, using `ordering`, and return the original value.
+  public fun fetch_min(_ value: sink T, ordering: AtomicUpdateOrdering) inout -> T {
+    return T.decodeAtomicRepresentation(storage.fetch_min(T.encodeAtomicRepresentation(value), ordering: ordering))
+  }
+
+  /// Atomically updates `this` by performing a bitwise AND of `value` and itself, using `ordering`, and return the original value.
+  public fun fetch_and(_ value: sink T, ordering: AtomicUpdateOrdering) inout -> T {
+    return T.decodeAtomicRepresentation(storage.fetch_and(T.encodeAtomicRepresentation(value), ordering: ordering))
+  }
+
+  /// Atomically updates `this` by performing a bitwise NAND of `value` and itself, using `ordering`, and return the original value.
+  public fun fetch_nand(_ value: sink T, ordering: AtomicUpdateOrdering) inout -> T {
+    return T.decodeAtomicRepresentation(storage.fetch_nand(T.encodeAtomicRepresentation(value), ordering: ordering))
+  }
+
+  /// Atomically updates `this` by performing a bitwise OR of `value` and itself, using `ordering`, and return the original value.
+  public fun fetch_or(_ value: sink T, ordering: AtomicUpdateOrdering) inout -> T {
+    return T.decodeAtomicRepresentation(storage.fetch_or(T.encodeAtomicRepresentation(value), ordering: ordering))
+  }
+
+  /// Atomically updates `this` by performing a bitwise XOR of `value` and itself, using `ordering`, and return the original value.
+  public fun fetch_xor(_ value: sink T, ordering: AtomicUpdateOrdering) inout -> T {
+    return T.decodeAtomicRepresentation(storage.fetch_xor(T.encodeAtomicRepresentation(value), ordering: ordering))
+  }
+
+}
