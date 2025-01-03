@@ -94,7 +94,7 @@ necessary depending on the target.
 | -- | -- |
 | [hc] | The actual compiler executable. Just calls [Driver].
 | [Driver/] | Defines and executes the stages of the compiler. Takes care of compiler arguments. |
-| [Frontend] | The frontend of the compiler. Handles lexing, parsing and type checking. Also stores the AST representation of the program. |
+| [FrontEnd] | The frontend of the compiler. Handles lexing, parsing and type checking. Also stores the AST representation of the program. |
 | [AST/] | The structures used to describe the abstract syntax tree of the input program. |
 | [Parse] | The lexer and the parser for the Hylo source files. |
 | [TypeChecking] | Implements the type checking of the Hylo programs. |
@@ -139,10 +139,10 @@ necessary depending on the target.
 [Swifty-LLVM]: https://github.com/hylo-lang/Swifty-LLVM
 [hc]: ../../Sources/hc
 [Driver/]: ../../Sources/Driver
-[Frontend]: ../../Sources/Frontend
-[AST/]: ../../Sources/Frontend/AST
-[Parse]: ../../Sources/Frontend/Parse
-[Types]: ../../Sources/Frontend/Types
+[FrontEnd]: ../../Sources/FrontEnd
+[AST/]: ../../Sources/FrontEnd/AST
+[Parse]: ../../Sources/FrontEnd/Parse
+[Types]: ../../Sources/FrontEnd/Types
 [Analysis]: ../../Sources/IR/Analysis
 [Mangling]: ../../Sources/IR/Mangling
 [CodeGen]: ../../Sources/CodeGen
