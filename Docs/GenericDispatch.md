@@ -8,8 +8,114 @@ assume that almost any element of a program can be made available for
 customization *post-hoc* based on particular (categories of) type
 parameters.
 
-These assumptions cannot hold for Hylo because they conflict with our
-commitment that generics can be separately type checked and
+I'm not going to show you the code because the C++ mechanics make it
+ugly, but here are some examples of the kinds of things you might do:
+
+- Type: vector (dynamic array)
+  - Uncustomized: stores an instance of each element
+  - Customized: when the element is bool, it is stored bitwise.
+  - Customized by user: when the element is my type with three values, each
+    element takes two bits
+
+- Algorithm: in-place reverse
+  - Uncustomized: works on any mutable sequence in O(N log N)
+  - Customized: works in O(N) if the sequence is bidirectional
+
+- Algorithm: is_sorted
+  - Uncustomized: works on any sequence, compares all pairs of adjacent elements.
+  - Customized by user: returns true in O(1) for any sequence of my type whose
+    instances are always equal.
+
+- Algorithm: Matrix multiplication
+  - Uncustomized: works on any pair of matrix shapes, with any element type
+  - Customized: dispatches to BLAS for a dense matrix of known floating point type.
+
+```hylo
+trait SetElement: Hashable {
+  type Storage: SetStorage
+}
+
+conformance<T: Hashable> T: SetElement {
+  typealias Storage = StandardSetStorage<Self>
+}
+
+conformance Bool: SetElement {
+  typealias Storage = Array<Optional<Bool>>
+}
+```
+
+```hylo
+trait MutableCollection {
+  // ...
+  fun reverse() inout { /* O(N log N) implementation */ }
+}
+
+conformance<T: MutableCollection & BidirectionalCollection> T: MutableCollection {
+  fun reverse() inout { /* O(N) implementation */ }
+}
+```
+
+```hylo
+trait Reversible: MutableCollection {
+  fun reverse() inout { /* O(N log N) implementation */ }
+}
+
+conformance<T: MutableCollection> T: Reversible {
+  fun reverse() inout { /* O(N log N) implementation */ }
+}
+
+conformance<T: BidirectionalCollection & MutableCollection> T: Reversible {
+  fun reverse() inout { /* O(N) implementation */ }
+}
+```
+
+```hylo
+trait CollectionOfComparable: Collection where Element: Comparable {
+  fun is_sorted() -> Bool
+}
+
+conformance<T: Collection where Element: Comparable> T: CollectionOfComparable {
+  fun is_sorted() -> Bool { /* implementation */ }
+}
+
+conformance<T: Collection where Element == Unit> T: CollectionOfComparable {
+  fun is_sorted() -> Bool { true }
+}
+```
+
+```hylo
+conformance<T: Hashable> T: SetElement {
+  typealias Storage = StandardSetStorage<Self>
+}
+
+conformance Bool: SetElement {
+  typealias Storage = Array<Optional<Bool>>
+}
+```
+
+```hylo
+trait Matrix {
+  type Element
+
+  fun infix*<M: Matrix>(rhs: M) -> DenseMatrix<Element> where Element == M.Element
+  // ...
+}
+
+conformance DenseMatrix: Matrix {
+  fun infix*<M: Matrix>(rhs: M) -> Self where Element == M.Element {
+    /* general implementation */
+  }
+}
+
+conformance DenseMatrix: Matrix where Element == Float {
+  fun infix*<M: Matrix>(rhs: M) -> Self where Element == M.Element, Element == Float {
+    /* dispatch to BLAS */
+  }
+}
+```
+
+The ability to customize any part of a generic component is in tension
+with our commitment that generics can be separately type checked and
 (optionally) compiled to binary code with opaque module boundaries.
 
 When we say module boundaries are opaque, we mean that a module's
@@ -84,6 +190,72 @@ discussion are omitted).
 
 Examples:
 
+
+```hylo
+trait Equatable {
+  fun infix== (_ other: Self) -> Bool
+}
+
+trait Hashable: Equatable {
+  fun hash(into: inout Hasher)
+}
+
+trait Iterator: Deinitializable {
+  type Element: Movable
+  fun next() inout -> Optional<Element>
+
+  fun is_homogenous() inout -> Bool
+    where Element: Equatable
+  {
+    if let first = &self.next() {
+      while let x = &self.next() {
+        if x != first { return }
+      }
+    }
+    return true
+  }
+}
+
+type Repeat<T: Copyable>: Iterator {
+  var count: Int
+  let element_value: T
+
+  type Element = T
+  fun next() inout -> Optional<Element> {
+    return if count == 0 { nil } else {
+      count -= 1
+      return .some(element_value)
+    }
+  }
+
+  fun is_homogenous() inout -> Bool where Element: Equatable { true }
+}
+
+type Repeat<T: Copyable> {
+  var count: Int
+  let element_value: T
+}
+
+conformance<T> Repeat<T>: Iterator {
+  type Element = T
+  fun next() inout -> Optional<Element>
+  fun is_homogenous() inout -> Bool where Element: Equatable { true }
+}
+
+extension Iterator {
+
+  fun next_two() inout -> Optional<(Element, Element)> {
+    if let first = &self.next(),
+       let second = &self.next() {
+      return Optional((first, second))
+    }
+    else return nil
+  }
+
+}
+
+```
+
 ```hylo
 trait Equatable {
   fun equals(_: Self) -> Bool // method requirement
@@ -93,9 +265,21 @@ trait Hashable: Equatable { // trait refinement
   fun hash(into: inout Hasher)
 }
 
-trait Iter {
+trait Iterator {
   type Element // associated type requirement
   fun next() inout -> Optional<Element>
+}
+
+trait Sequence {
+  type Traversal: Iterator
+
+  fun traversal() -> Traversal
+
+  fun nth(_ n_: Int) -> Optional<Iter.Element> {
+    var i = iterator()
+    for n in 0..<n_ { _ = i.next() }
+    return &i.next()
+  }
 }
 
 trait Sequence {
