@@ -1,12 +1,14 @@
 # Specialization and Dispatching in Generics
 
-Generic Programming in C++, where the discipline was established,
-relies in practice on the semantics of the template instantiation
-model.  Using overload resolution at instantiation time and class
-template specialization, it is natural for a C++ generic programmer to
-assume that almost any element of a program can be made available for
-customization *post-hoc* based on particular (categories of) type
-parameters.
+The Generic Programming promise of algorithm abstraction without loss
+of efficiency depends on the ability to customize parts of an
+algorithm based on the properties of the data structures on which
+it operates.  These parts have come to be known as customization points.
+
+Because of the template instantiation model, it is natural (and
+correct, if they haven't violated ODR) for a C++ generic programmer to
+assume the optimal customization will always be used for any given
+combination of generic type parameters and customization point
 
 I'm not going to show you the code because the C++ mechanics make it
 ugly, but here are some examples of the kinds of things you might do:
@@ -404,18 +406,18 @@ The process by which languages like C++ and Rust take generic
 the specific types passed is called *monomorphization*.  It involves
 following concrete types passed into a tree of generic component uses
 until they bottom out in concrete code again at the leaves.  Rust
-generics  are separately type checked, so that process happens before
+generics are separately type checked, so that process happens before
 monomorphization, while in C++, it happens afterwards.
 
-When generics are separately *compiled*, by contrast, the implementation
-details of a generic component are unavailable to the compiler at its
-use-sites.  Only the declaration of that component is available, so
-the compiler cannot follow a type through the tree to its leaves;
-although some monomorphization may be possible, that process must stop
-at a separate compilation boundary.
+When generics are separately *compiled*, by contrast, the
+implementation details of a generic component are unavailable to the
+compiler at its use-sites.  Only the declaration of that component is
+available, so the compiler cannot follow a type through the tree to
+its leaves; although some monomorphization may be possible, that
+process must stop at a separate compilation boundary.
 
-In a system that doesn't monomorphize all generics, the compiler never
-sees all the concrete types used. For example, here
+In a system that doesn't monomorphize all generics, the compiler
+never sees all the concrete types used. For example, here
 
 ```hylo
 fun f1<U: Equatable>(_ w: U) -> Bool {
@@ -440,8 +442,8 @@ and `g`, which are built separately, so not even whole module analysis
 can discover `Y<Int>`.
 
 This invisibility interacts deeply with requirement
-specialization. Imagine that we are able to supply a
-specialized implementation of `equals` just for `Y<Int>`:
+specialization. Imagine that we are able to supply a specialized
+implementation of `equals` just for `Y<Int>`:
 
 ```hylo
 conformance Y<Int>: Equatable {
@@ -453,10 +455,10 @@ conformance Y<Int>: Equatable {
 
 For `f1` to use this specialized implementation, `f` would need to
 pass it a specialized witness table for `Y<Int>: Equatable`, different
-from the more general one used for `Y<Bool>` or `Y<String>`.
-Therefore, the implementation of `f` would have to *dynamically* look
-up the `Equatable` witness table for `Y<T>` based on what `T` turns
-out to be.
+from the more general one used for `Y<Bool>` or
+`Y<String>`. Therefore, the implementation of `f` would have to
+*dynamically* look up the `Equatable` witness table for `Y<T>` based
+on what `T` turns out to be.
 
 ## Overlapping Conformances
 
@@ -479,9 +481,9 @@ synchronization for thread safety.
 
 ### Ambiguities
 
-In the worst case, the algorithm would need to resolve an
-ambiguity between equally-specific conformances that can only be
-discovered at runtime.  Here's an example:
+In the worst case, the algorithm would need to resolve an ambiguity
+between equally-specific conformances that can only be discovered at
+runtime.  Here's an example:
 
 ```hylo
 // Int conforms to both P and Q
@@ -561,6 +563,7 @@ compiler.
 Rather than paying the performance and predictability costs of always
 choosing the best-matching overlapping conformance, we *could* ban
 them. Rust does that by:
+
 - Disallowing specialized conformances.
 - An “orphan rule” requiring `T: P` to be defined in either the module
   of `T` or that of `P`, and making it an error to import a module if
@@ -640,8 +643,8 @@ know of allows situations where an update to module X can't be used
 because of a conformance conflict with some unrelated module.  These
 conformances might not even be visible in the module's public API, but
 they would have to appear in diagnostics, which is never a good
-look. Avoiding diagnostics that point to implementation details
-is a primary motivator for separate type-checking of generics, after all.
+look. Avoiding diagnostics that point to implementation details is a
+primary motivator for separate type-checking of generics, after all.
 
 The ability to write a conformance at *function scope* using local
 values in its implementation, along with [implicit function
@@ -705,13 +708,13 @@ meaning of a generic type changes based on how the conformance
 constraints on its parameters are satisfied, so disregarding
 conformance differences of generic parameters in the type system is
 fatal to soundness.  The general solution is fairly straightforward:
-treat generic types as different if their arguments satisfy the
-type's constraints using different conformances.
+treat generic types as different if their arguments satisfy the type's
+constraints using different conformances.
 
 In Hylo, that also means a generic type with a concrete argument
 cannot “escape” into a context where it would depend on different
-conformances for that argument, or where the conformances the
-argument depends on are not satisfied:
+conformances for that argument, or where the conformances the argument
+depends on are not satisfied:
 
 ```hylo
 // module A
@@ -733,7 +736,7 @@ private conformance Int: P {
 let x = X<Int>() // OK
 let bx = B.x     // Error: X<Int> depends on a different conformance Int: P
 
-// module C
+// module D
 import B
 
 // Error: X<Int> depends on conformance Int: P, which is not in scope
