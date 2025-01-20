@@ -1,9 +1,0 @@
-//- typeCheck expecting: .failure
-
-type A<T> {}
-
-//! @+1 diagnostic not enough contextual information to infer generic arguments
-let x0: A
-
-//! @+1 diagnostic expected type but expression denotes a value
-let x1: true

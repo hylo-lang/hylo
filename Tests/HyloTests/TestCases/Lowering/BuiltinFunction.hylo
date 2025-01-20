@@ -1,5 +1,0 @@
-//- lowerToFinishedIR expecting: .success
-
-public fun main() {
-  _ = Builtin.zeroinitializer_i64()
-}

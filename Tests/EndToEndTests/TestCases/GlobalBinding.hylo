@@ -1,7 +1,0 @@
-//- compileAndRun expecting: .success
-
-public fun main() {
-  precondition((x + y) == 42)
-}
-
-public let (x, y) = (40, 2)

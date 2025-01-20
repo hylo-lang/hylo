@@ -1,9 +1,0 @@
-//- typeCheck expecting: .failure
-
-public fun main() {
-  sink let x: Int
-  &x = 0
-
-  let   y: Int  //! diagnostic declaration of let binding requires an initializer
-  inout z: Int  //! diagnostic declaration of inout binding requires an initializer
-}

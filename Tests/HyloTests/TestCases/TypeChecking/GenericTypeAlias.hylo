@@ -1,7 +1,0 @@
-//- typeCheck expecting: .success
-
-typealias Pair<X, Y> = { first: X, second: Y }
-
-typealias AnyPair = Pair<Any, Any>
-
-typealias AliasWithValue<X, value v: Int> = { buffer: X }

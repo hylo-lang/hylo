@@ -1,8 +1,0 @@
-//- lowerToFinishedIR expecting: .success
-
-public fun main() {
-  var x: Optional<Int> = None()
-  &x = 42 as Optional<Int>
-  &x = 42 as Optional<_>
-  &x = 42 as _
-}

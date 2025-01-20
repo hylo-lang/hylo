@@ -1,8 +1,0 @@
-//- lowerToFinishedIR expecting: .success
-
-fun use<T>(_ x: T) {}
-
-public fun main() {
-  let a = (1, true)
-  use(a)
-}

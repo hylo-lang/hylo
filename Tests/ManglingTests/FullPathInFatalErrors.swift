@@ -1,1 +1,0 @@
-../../Sources/Shared/FullPathInFatalErrors.swift

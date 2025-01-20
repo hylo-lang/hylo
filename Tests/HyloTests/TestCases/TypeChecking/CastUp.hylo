@@ -1,8 +1,0 @@
-//- typeCheck expecting: .success
-
-fun check<T>(_ x: T) {}
-
-public fun main() {
-  let x = () as Any
-  check<Any>(x)
-}

@@ -1,7 +1,0 @@
-//- compileAndRun expecting: .success
-
-public fun main() {
-  let x = 42
-  let y: UInt = unsafe_bitcast[x]
-  precondition(Int(bit_pattern: y) == 42)
-}

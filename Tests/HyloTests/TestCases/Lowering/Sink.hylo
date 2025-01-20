@@ -1,9 +1,0 @@
-//- lowerToFinishedIR expecting: .success
-
-fun eat<T: Movable & Deinitializable>(_ x: sink T) {
-  _ = x
-}
-
-public fun main() {
-  eat(42)
-}

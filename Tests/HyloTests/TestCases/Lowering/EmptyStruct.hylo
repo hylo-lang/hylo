@@ -1,5 +1,0 @@
-//- lowerToFinishedIR expecting: .success
-
-public type Foo {
-  public init() { }
-}
