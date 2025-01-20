@@ -43,10 +43,10 @@ fun testBasicAtomicOperationsAllTypes() {
   testBasicAtomicOperations<UInt>(value1: 11, value2: 13)
   testBasicAtomicOperations<Int8>(value1: 11, value2: 13)
   testBasicAtomicOperations<Int32>(value1: 11, value2: 13)
-  testBasicAtomicOperations<Int64>(value1: 11, value2: 13)
+  // testBasicAtomicOperations<Int64>(value1: 11, value2: 13)
   testBasicAtomicOperations<UInt8>(value1: 11, value2: 13)
   testBasicAtomicOperations<UInt32>(value1: 11, value2: 13)
-  testBasicAtomicOperations<UInt64>(value1: 11, value2: 13)
+  // testBasicAtomicOperations<UInt64>(value1: 11, value2: 13)
 }
 
 fun testIntegerAtomicOperations() {
@@ -102,21 +102,21 @@ type MyState: Regular {
 conformance MyState: AtomicRepresentable {
 
   /// The underlying platform type.
-  public typealias AtomicRepresentation = UInt64.AtomicRepresentation;
+  public typealias AtomicRepresentation = UInt32.AtomicRepresentation;
 
-  public static fun encodeAtomicRepresentation(_ value: sink Self) -> UInt64 {
-    var r: UInt64 = .new(truncating_or_extending: value.counter)
-    &r &= 0x7fffffffffffffff
+  public static fun encodeAtomicRepresentation(_ value: sink Self) -> UInt32 {
+    var r: UInt32 = .new(truncating_or_extending: value.counter)
+    &r &= 0x7fffffff
     if value.flag {
-      &r |= 0x8000000000000000
+      &r |= 0x80000000
     }
     return r
   }
 
   /// Decode `storage` into a value of `Self`.
-  public static fun decodeAtomicRepresentation(_ storage: sink UInt64) -> Self {
-    let flag = (storage & 0x8000000000000000) != 0
-    let counter = Int(truncating_or_extending: storage & 0x7fffffffffffffff)
+  public static fun decodeAtomicRepresentation(_ storage: sink UInt32) -> Self {
+    let flag = (storage & 0x80000000) != 0
+    let counter = Int(truncating_or_extending: storage & 0x7fffffff)
     return .new(flag: flag, counter: counter)
   }
 

@@ -71,7 +71,7 @@ jobs:
       matrix:
         # macos-latest is apparently not the latest.
         os: [ubuntu-latest]
-        spm_configuration: [debug]
+        spm_configuration: [debug, release]
         cmake_generator: [Ninja]
 
         include:
@@ -91,6 +91,9 @@ jobs:
 
           - spm_configuration: debug
             cmake_build_type: Debug
+
+          - spm_configuration: release
+            cmake_build_type: Release
 
     runs-on: ${{ matrix.os }}
     env:
