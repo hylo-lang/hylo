@@ -2,7 +2,7 @@
 
 set -ex
 
-printenv
+# printenv
 
 /usr/bin/gcc --version
 /usr/bin/clang++ --version

@@ -166,6 +166,12 @@ jobs:
       - name: Build (CMake)
         run: cmake --build hylo/.ninja-build ${{ matrix.cmake_generator == 'Xcode' && format('--config {0}', matrix.cmake_build_type) || '' }}
 
+      - name: LucTeo testing (2)
+        run: >-
+          pwd ;
+          ./ci-test/run_tests2.sh
+        working-directory: hylo
+
       - name: Test (CMake)
         run: ctest --parallel --output-on-failure --test-dir hylo/.ninja-build ${{ matrix.cmake_generator == 'Xcode' && format('-C {0}', matrix.cmake_build_type) || '' }}
 
