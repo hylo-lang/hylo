@@ -26,18 +26,18 @@ public conformance Bool: AtomicRepresentable {
   }
 }
 
-public conformance Int: AtomicRepresentable {
+// public conformance Int: AtomicRepresentable {
 
-  public typealias AtomicRepresentation = IntAtomicRepresentation
+//   public typealias AtomicRepresentation = IntAtomicRepresentation
 
-  public static fun encodeAtomicRepresentation(_ value: sink Self) -> Int {
-    value
-  }
+//   public static fun encodeAtomicRepresentation(_ value: sink Self) -> Int {
+//     value
+//   }
 
-  public static fun decodeAtomicRepresentation(_ storage: sink Int) -> Self {
-    storage
-  }
-}
+//   public static fun decodeAtomicRepresentation(_ storage: sink Int) -> Self {
+//     storage
+//   }
+// }
 
 public conformance Int8: AtomicRepresentable {
 
@@ -78,18 +78,18 @@ public conformance Int32: AtomicRepresentable {
 //   }
 // }
 
-public conformance UInt: AtomicRepresentable {
+// public conformance UInt: AtomicRepresentable {
 
-  public typealias AtomicRepresentation = UIntAtomicRepresentation
+//   public typealias AtomicRepresentation = UIntAtomicRepresentation
 
-  public static fun encodeAtomicRepresentation(_ value: sink Self) -> UInt {
-    value
-  }
+//   public static fun encodeAtomicRepresentation(_ value: sink Self) -> UInt {
+//     value
+//   }
 
-  public static fun decodeAtomicRepresentation(_ storage: sink UInt) -> Self {
-    storage
-  }
-}
+//   public static fun decodeAtomicRepresentation(_ storage: sink UInt) -> Self {
+//     storage
+//   }
+// }
 
 public conformance UInt8: AtomicRepresentable {
 

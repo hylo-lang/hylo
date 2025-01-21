@@ -1,10 +1,10 @@
 numeric_types = [
     # type, buliltin, rmw_ops
-    ("Int", "word", ["add", "sub", "max", "min", "and", "nand", "or", "xor"]),
+    # ("Int", "word", ["add", "sub", "max", "min", "and", "nand", "or", "xor"]),
     ("Int8", "i8", ["add", "sub", "max", "min", "and", "nand", "or", "xor"]),
     ("Int32", "i32", ["add", "sub", "max", "min", "and", "nand", "or", "xor"]),
     # ("Int64", "i64", ["add", "sub", "max", "min", "and", "nand", "or", "xor"]),
-    ("UInt", "word", ["add", "sub", "umax", "umin", "and", "nand", "or", "xor"]),
+    # ("UInt", "word", ["add", "sub", "umax", "umin", "and", "nand", "or", "xor"]),
     ("UInt8", "i8", ["add", "sub", "umax", "umin", "and", "nand", "or", "xor"]),
     ("UInt32", "i32", ["add", "sub", "umax", "umin", "and", "nand", "or", "xor"]),
     # ("UInt64", "i64", ["add", "sub", "umax", "umin", "and", "nand", "or", "xor"]),

@@ -39,8 +39,8 @@ fun testBasicAtomicOperations<T: AtomicRepresentable>(value1: T, value2: T)  {
 
 fun testBasicAtomicOperationsAllTypes() {
   testBasicAtomicOperations<Bool>(value1: true, value2: false)
-  testBasicAtomicOperations<Int>(value1: 11, value2: 13)
-  testBasicAtomicOperations<UInt>(value1: 11, value2: 13)
+  // testBasicAtomicOperations<Int>(value1: 11, value2: 13)
+  // testBasicAtomicOperations<UInt>(value1: 11, value2: 13)
   testBasicAtomicOperations<Int8>(value1: 11, value2: 13)
   testBasicAtomicOperations<Int32>(value1: 11, value2: 13)
   // testBasicAtomicOperations<Int64>(value1: 11, value2: 13)
@@ -50,7 +50,7 @@ fun testBasicAtomicOperationsAllTypes() {
 }
 
 fun testIntegerAtomicOperations() {
-  var atomic: Atomic<Int> = .new(value: 11)
+  var atomic: Atomic<Int32> = .new(value: 11)
 
   let old1 = atomic.fetch_add(1, ordering: .new(value: 0))
   precondition(old1 == 11)
