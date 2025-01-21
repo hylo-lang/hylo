@@ -147,6 +147,12 @@ jobs:
 
           ${{ matrix.unpackage_command }} ${{ env.llvm_package_basename }}${{ matrix.llvm_package_suffix }}
 
+      - name: LucTeo testing
+        run: >-
+          pwd ;
+          ./ci-test/run_tests.sh
+        working-directory: hylo
+
       - name: Configure (CMake)
         # We explicitly point to swiftc in the PATH because otherwise CMake picks up the one in XCode.
         run: >-
@@ -162,59 +168,6 @@ jobs:
 
       - name: Test (CMake)
         run: ctest --parallel --output-on-failure --test-dir hylo/.ninja-build ${{ matrix.cmake_generator == 'Xcode' && format('-C {0}', matrix.cmake_build_type) || '' }}
-
-      - if: ${{ matrix.use_spm }}
-        name: Create LLVM pkgconfig file and make it findable
-        run: >-
-          set -ex -o pipefail
-
-          mkdir pkg-config
-
-          PATH="${{ github.workspace }}/${{ env.llvm_package_basename }}/bin:$PATH"
-            hylo/Tools/make-pkgconfig.sh pkg-config/llvm.pc
-
-          echo 'PKG_CONFIG_PATH=${{ github.workspace }}/pkg-config' >> "$GITHUB_ENV"
-        shell: bash
-
-      - if: ${{ matrix.use_spm }}
-        uses: actions/cache@v4
-        name: SPM cache setup
-        with:
-          path: hylo/.build
-          key: ${{ runner.os }}-${{ matrix.spm_configuration }}-spm-${{ hashFiles('hylo/**/Package.resolved') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ matrix.spm_configuration }}-spm-
-
-      - if: ${{ matrix.on_windows_and_spm_works }}
-        name: Build support library
-        run: clang -c ./StandardLibrary/Sources/LibC.c -o HyloLibC.lib
-        working-directory: hylo
-
-      - if: ${{ matrix.on_windows_and_spm_works }}
-        name: Build the dependencies of build tools
-        run: |
-          echo 'SPM_BUILD_TOOL_SUPPORT_NO_REENTRANT_BUILD=1' >> $env:GITHUB_ENV
-          swift build ${{ env.spm-build-options }} --target BuildToolDependencies
-          # https://github.com/apple/swift/issues/72121
-          if (-not $?) {
-              swift build ${{ env.spm-build-options }} --target BuildToolDependencies
-          }
-        working-directory: hylo
-
-      - if: ${{ matrix.use_spm }}
-        name: Build
-        run: |
-          swift build -c ${{ matrix.spm_configuration }} ${{ env.spm-build-options }} --build-tests
-          ${{ matrix.windows_only }} if (-not $?) { swift build ${{ env.spm-build-options }} --target BuildToolDependencies }
-
-        working-directory: hylo
-
-      - if: ${{ matrix.use_spm }}
-        name: Test
-        run: |
-          swift test --skip-build -c ${{ matrix.spm_configuration }} ${{ env.spm-build-options }} ${{ env.spm-test-options }}
-          ${{ matrix.windows_only }} if (-not $?) { swift test -c ${{ matrix.spm_configuration }} ${{ env.spm-test-options }} }
-        working-directory: hylo
 
       - name: Output compiler version
         run: cmake --build hylo/.ninja-build --target output_compiler_version -- --quiet&
