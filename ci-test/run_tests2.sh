@@ -6,4 +6,4 @@ set -x
 .ninja-build/Sources/hc Tests/EndToEndTests/TestCases/Break.hylo --verbose
 
 .ninja-build/Sources/hc Tests/EndToEndTests/TestCases/Break.hylo --verbose --emit llvm
-cat StdLib.ll
+cat StdLib.ll | grep -C 10 "atomic"
