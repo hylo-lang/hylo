@@ -206,7 +206,7 @@ trait Iterator: Deinitializable {
   type Element: Movable
   fun next() inout -> Optional<Element>
 
-  fun is_homogenous() inout -> Bool
+  fun is_homogeneous() inout -> Bool
     where Element: Equatable
   {
     if let first = &self.next() {
@@ -230,7 +230,7 @@ type Repeat<T: Copyable>: Iterator {
     }
   }
 
-  fun is_homogenous() inout -> Bool where Element: Equatable { true }
+  fun is_homogeneous() inout -> Bool where Element: Equatable { true }
 }
 
 type Repeat<T: Copyable> {
@@ -241,7 +241,7 @@ type Repeat<T: Copyable> {
 conformance<T> Repeat<T>: Iterator {
   type Element = T
   fun next() inout -> Optional<Element>
-  fun is_homogenous() inout -> Bool where Element: Equatable { true }
+  fun is_homogeneous() inout -> Bool where Element: Equatable { true }
 }
 
 extension Iterator {
