@@ -1,15 +1,123 @@
 # Specialization and Dispatching in Generics
 
-Generic Programming in C++, where the discipline was established,
-relies in practice on the semantics of the template instantiation
-model.  Using overload resolution at instantiation time and class
-template specialization, it is natural for a C++ generic programmer to
-assume that almost any element of a program can be made available for
-customization *post-hoc* based on particular (categories of) type
-parameters.
+The Generic Programming promise of algorithm abstraction without loss
+of efficiency depends on the ability to customize parts of an
+algorithm based on the properties of the data structures on which
+it operates.  These parts have come to be known as customization points.
 
-These assumptions cannot hold for Hylo because they conflict with our
-commitment that generics can be separately type checked and
+Because of the template instantiation model, it is natural (and
+correct, if they haven't violated ODR) for a C++ generic programmer to
+assume the optimal customization will always be used for any given
+combination of generic type parameters and customization point
+
+I'm not going to show you the code because the C++ mechanics make it
+ugly, but here are some examples of the kinds of things you might do:
+
+- Type: vector (dynamic array)
+  - Uncustomized: stores an instance of each element
+  - Customized: when the element is bool, it is stored bitwise.
+  - Customized by user: when the element is my type with three values, each
+    element takes two bits
+
+- Algorithm: in-place reverse
+  - Uncustomized: works on any mutable sequence in O(N log N)
+  - Customized: works in O(N) if the sequence is bidirectional
+
+- Algorithm: is_sorted
+  - Uncustomized: works on any sequence, compares all pairs of adjacent elements.
+  - Customized by user: returns true in O(1) for any sequence of my type whose
+    instances are always equal.
+
+- Algorithm: Matrix multiplication
+  - Uncustomized: works on any pair of matrix shapes, with any element type
+  - Customized: dispatches to BLAS for a dense matrix of known floating point type.
+
+```hylo
+trait SetElement: Hashable {
+  type Storage: SetStorage
+}
+
+conformance<T: Hashable> T: SetElement {
+  typealias Storage = StandardSetStorage<Self>
+}
+
+conformance Bool: SetElement {
+  typealias Storage = Array<Optional<Bool>>
+}
+```
+
+```hylo
+trait MutableCollection {
+  // ...
+  fun reverse() inout { /* O(N log N) implementation */ }
+}
+
+conformance<T: MutableCollection & BidirectionalCollection> T: MutableCollection {
+  fun reverse() inout { /* O(N) implementation */ }
+}
+```
+
+```hylo
+trait Reversible: MutableCollection {
+  fun reverse() inout { /* O(N log N) implementation */ }
+}
+
+conformance<T: MutableCollection> T: Reversible {
+  fun reverse() inout { /* O(N log N) implementation */ }
+}
+
+conformance<T: BidirectionalCollection & MutableCollection> T: Reversible {
+  fun reverse() inout { /* O(N) implementation */ }
+}
+```
+
+```hylo
+trait CollectionOfComparable: Collection where Element: Comparable {
+  fun is_sorted() -> Bool
+}
+
+conformance<T: Collection where Element: Comparable> T: CollectionOfComparable {
+  fun is_sorted() -> Bool { /* implementation */ }
+}
+
+conformance<T: Collection where Element == Unit> T: CollectionOfComparable {
+  fun is_sorted() -> Bool { true }
+}
+```
+
+```hylo
+conformance<T: Hashable> T: SetElement {
+  typealias Storage = StandardSetStorage<Self>
+}
+
+conformance Bool: SetElement {
+  typealias Storage = Array<Optional<Bool>>
+}
+```
+
+```hylo
+trait Matrix {
+  type Element
+
+  fun infix*<M: Matrix>(rhs: M) -> DenseMatrix<Element> where Element == M.Element
+  // ...
+}
+
+conformance DenseMatrix: Matrix {
+  fun infix*<M: Matrix>(rhs: M) -> Self where Element == M.Element {
+    /* general implementation */
+  }
+}
+
+conformance DenseMatrix: Matrix where Element == Float {
+  fun infix*<M: Matrix>(rhs: M) -> Self where Element == M.Element, Element == Float {
+    /* dispatch to BLAS */
+  }
+}
+```
+
+The ability to customize any part of a generic component is in tension
+with our commitment that generics can be separately type checked and
 (optionally) compiled to binary code with opaque module boundaries.
 
 When we say module boundaries are opaque, we mean that a module's
@@ -84,6 +192,72 @@ discussion are omitted).
 
 Examples:
 
+
+```hylo
+trait Equatable {
+  fun infix== (_ other: Self) -> Bool
+}
+
+trait Hashable: Equatable {
+  fun hash(into: inout Hasher)
+}
+
+trait Iterator: Deinitializable {
+  type Element: Movable
+  fun next() inout -> Optional<Element>
+
+  fun is_homogeneous() inout -> Bool
+    where Element: Equatable
+  {
+    if let first = &self.next() {
+      while let x = &self.next() {
+        if x != first { return }
+      }
+    }
+    return true
+  }
+}
+
+type Repeat<T: Copyable>: Iterator {
+  var count: Int
+  let element_value: T
+
+  type Element = T
+  fun next() inout -> Optional<Element> {
+    return if count == 0 { nil } else {
+      count -= 1
+      return .some(element_value)
+    }
+  }
+
+  fun is_homogeneous() inout -> Bool where Element: Equatable { true }
+}
+
+type Repeat<T: Copyable> {
+  var count: Int
+  let element_value: T
+}
+
+conformance<T> Repeat<T>: Iterator {
+  type Element = T
+  fun next() inout -> Optional<Element>
+  fun is_homogeneous() inout -> Bool where Element: Equatable { true }
+}
+
+extension Iterator {
+
+  fun next_two() inout -> Optional<(Element, Element)> {
+    if let first = &self.next(),
+       let second = &self.next() {
+      return Optional((first, second))
+    }
+    else return nil
+  }
+
+}
+
+```
+
 ```hylo
 trait Equatable {
   fun equals(_: Self) -> Bool // method requirement
@@ -93,9 +267,21 @@ trait Hashable: Equatable { // trait refinement
   fun hash(into: inout Hasher)
 }
 
-trait Iter {
+trait Iterator {
   type Element // associated type requirement
   fun next() inout -> Optional<Element>
+}
+
+trait Sequence {
+  type Traversal: Iterator
+
+  fun traversal() -> Traversal
+
+  fun nth(_ n_: Int) -> Optional<Iter.Element> {
+    var i = iterator()
+    for n in 0..<n_ { _ = i.next() }
+    return &i.next()
+  }
 }
 
 trait Sequence {
@@ -220,18 +406,18 @@ The process by which languages like C++ and Rust take generic
 the specific types passed is called *monomorphization*.  It involves
 following concrete types passed into a tree of generic component uses
 until they bottom out in concrete code again at the leaves.  Rust
-generics  are separately type checked, so that process happens before
+generics are separately type checked, so that process happens before
 monomorphization, while in C++, it happens afterwards.
 
-When generics are separately *compiled*, by contrast, the implementation
-details of a generic component are unavailable to the compiler at its
-use-sites.  Only the declaration of that component is available, so
-the compiler cannot follow a type through the tree to its leaves;
-although some monomorphization may be possible, that process must stop
-at a separate compilation boundary.
+When generics are separately *compiled*, by contrast, the
+implementation details of a generic component are unavailable to the
+compiler at its use-sites.  Only the declaration of that component is
+available, so the compiler cannot follow a type through the tree to
+its leaves; although some monomorphization may be possible, that
+process must stop at a separate compilation boundary.
 
-In a system that doesn't monomorphize all generics, the compiler never
-sees all the concrete types used. For example, here
+In a system that doesn't monomorphize all generics, the compiler
+never sees all the concrete types used. For example, here
 
 ```hylo
 fun f1<U: Equatable>(_ w: U) -> Bool {
@@ -256,8 +442,8 @@ and `g`, which are built separately, so not even whole module analysis
 can discover `Y<Int>`.
 
 This invisibility interacts deeply with requirement
-specialization. Imagine that we are able to supply a
-specialized implementation of `equals` just for `Y<Int>`:
+specialization. Imagine that we are able to supply a specialized
+implementation of `equals` just for `Y<Int>`:
 
 ```hylo
 conformance Y<Int>: Equatable {
@@ -269,10 +455,10 @@ conformance Y<Int>: Equatable {
 
 For `f1` to use this specialized implementation, `f` would need to
 pass it a specialized witness table for `Y<Int>: Equatable`, different
-from the more general one used for `Y<Bool>` or `Y<String>`.
-Therefore, the implementation of `f` would have to *dynamically* look
-up the `Equatable` witness table for `Y<T>` based on what `T` turns
-out to be.
+from the more general one used for `Y<Bool>` or
+`Y<String>`. Therefore, the implementation of `f` would have to
+*dynamically* look up the `Equatable` witness table for `Y<T>` based
+on what `T` turns out to be.
 
 ## Overlapping Conformances
 
@@ -295,9 +481,9 @@ synchronization for thread safety.
 
 ### Ambiguities
 
-In the worst case, the algorithm would need to resolve an
-ambiguity between equally-specific conformances that can only be
-discovered at runtime.  Here's an example:
+In the worst case, the algorithm would need to resolve an ambiguity
+between equally-specific conformances that can only be discovered at
+runtime.  Here's an example:
 
 ```hylo
 // Int conforms to both P and Q
@@ -377,6 +563,7 @@ compiler.
 Rather than paying the performance and predictability costs of always
 choosing the best-matching overlapping conformance, we *could* ban
 them. Rust does that by:
+
 - Disallowing specialized conformances.
 - An “orphan rule” requiring `T: P` to be defined in either the module
   of `T` or that of `P`, and making it an error to import a module if
@@ -456,8 +643,8 @@ know of allows situations where an update to module X can't be used
 because of a conformance conflict with some unrelated module.  These
 conformances might not even be visible in the module's public API, but
 they would have to appear in diagnostics, which is never a good
-look. Avoiding diagnostics that point to implementation details
-is a primary motivator for separate type-checking of generics, after all.
+look. Avoiding diagnostics that point to implementation details is a
+primary motivator for separate type-checking of generics, after all.
 
 The ability to write a conformance at *function scope* using local
 values in its implementation, along with [implicit function
@@ -521,13 +708,13 @@ meaning of a generic type changes based on how the conformance
 constraints on its parameters are satisfied, so disregarding
 conformance differences of generic parameters in the type system is
 fatal to soundness.  The general solution is fairly straightforward:
-treat generic types as different if their arguments satisfy the
-type's constraints using different conformances.
+treat generic types as different if their arguments satisfy the type's
+constraints using different conformances.
 
 In Hylo, that also means a generic type with a concrete argument
 cannot “escape” into a context where it would depend on different
-conformances for that argument, or where the conformances the
-argument depends on are not satisfied:
+conformances for that argument, or where the conformances the argument
+depends on are not satisfied:
 
 ```hylo
 // module A
@@ -549,7 +736,7 @@ private conformance Int: P {
 let x = X<Int>() // OK
 let bx = B.x     // Error: X<Int> depends on a different conformance Int: P
 
-// module C
+// module D
 import B
 
 // Error: X<Int> depends on conformance Int: P, which is not in scope

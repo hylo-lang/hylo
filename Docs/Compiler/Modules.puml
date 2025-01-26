@@ -1,0 +1,39 @@
+@startuml
+package hc
+package Driver
+
+package Frontend {
+  package AST
+  package Parse
+  package TypeChecking
+  package Types
+
+  Parse --> AST
+  TypeChecking --> AST
+  TypeChecking --> Types
+  AST -> Types
+  Types -> AST
+}
+
+package IR {
+  package Analysis
+  package Mangling
+}
+
+package CodeGen {
+  package LLVM
+}
+
+hc -> Driver
+
+Driver ..> Parse: invokes
+Driver ..> TypeChecking: invokes
+Driver ..> IR: invokes
+Driver ..> Analysis: invokes
+Driver ..> LLVM: invokes
+
+LLVM --> IR
+
+Parse .right.> TypeChecking: runs before
+TypeChecking .right.> IR: runs before
+@enduml
