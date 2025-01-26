@@ -1,0 +1,131 @@
+
+/// A type that can be used used for atomic operations.
+public trait AtomicRepresentable: Regular {
+
+  /// The underlying platform type.
+  type AtomicRepresentation: PlatformAtomic;
+
+  /// Encode `value` into the atomic representation.
+  static fun encodeAtomicRepresentation(_ value: sink Self) -> AtomicRepresentation.Value
+
+  /// Decode `storage` into a value of `Self`.
+  static fun decodeAtomicRepresentation(_ storage: sink AtomicRepresentation.Value) -> Self
+
+}
+
+public conformance Bool: AtomicRepresentable {
+
+  public typealias AtomicRepresentation = Int8PlatformAtomic
+
+  public static fun encodeAtomicRepresentation(_ value: sink Self) -> Int8 {
+    if value { 1 } else { 0 }
+  }
+
+  public static fun decodeAtomicRepresentation(_ storage: sink Int8) -> Self {
+    storage != 0
+  }
+}
+
+public conformance Int: AtomicRepresentable {
+
+  public typealias AtomicRepresentation = IntPlatformAtomic
+
+  public static fun encodeAtomicRepresentation(_ value: sink Self) -> Int {
+    value
+  }
+
+  public static fun decodeAtomicRepresentation(_ storage: sink Int) -> Self {
+    storage
+  }
+}
+
+public conformance Int8: AtomicRepresentable {
+
+  public typealias AtomicRepresentation = Int8PlatformAtomic
+
+  public static fun encodeAtomicRepresentation(_ value: sink Self) -> Int8 {
+    value
+  }
+
+  public static fun decodeAtomicRepresentation(_ storage: sink Int8) -> Self {
+    storage
+  }
+}
+
+public conformance Int32: AtomicRepresentable {
+
+  public typealias AtomicRepresentation = Int32PlatformAtomic
+
+  public static fun encodeAtomicRepresentation(_ value: sink Self) -> Int32 {
+    value
+  }
+
+  public static fun decodeAtomicRepresentation(_ storage: sink Int32) -> Self {
+    storage
+  }
+}
+
+public conformance Int64: AtomicRepresentable {
+
+  public typealias AtomicRepresentation = Int64PlatformAtomic
+
+  public static fun encodeAtomicRepresentation(_ value: sink Self) -> Int64 {
+    value
+  }
+
+  public static fun decodeAtomicRepresentation(_ storage: sink Int64) -> Self {
+    storage
+  }
+}
+
+public conformance UInt: AtomicRepresentable {
+
+  public typealias AtomicRepresentation = UIntPlatformAtomic
+
+  public static fun encodeAtomicRepresentation(_ value: sink Self) -> UInt {
+    value
+  }
+
+  public static fun decodeAtomicRepresentation(_ storage: sink UInt) -> Self {
+    storage
+  }
+}
+
+public conformance UInt8: AtomicRepresentable {
+
+  public typealias AtomicRepresentation = UInt8PlatformAtomic
+
+  public static fun encodeAtomicRepresentation(_ value: sink Self) -> UInt8 {
+    value
+  }
+
+  public static fun decodeAtomicRepresentation(_ storage: sink UInt8) -> Self {
+    storage
+  }
+}
+
+public conformance UInt32: AtomicRepresentable {
+
+  public typealias AtomicRepresentation = UInt32PlatformAtomic
+
+  public static fun encodeAtomicRepresentation(_ value: sink Self) -> UInt32 {
+    value
+  }
+
+  public static fun decodeAtomicRepresentation(_ storage: sink UInt32) -> Self {
+    storage
+  }
+}
+
+public conformance UInt64: AtomicRepresentable {
+
+  public typealias AtomicRepresentation = UInt64PlatformAtomic
+
+  public static fun encodeAtomicRepresentation(_ value: sink Self) -> UInt64 {
+    value
+  }
+
+  public static fun decodeAtomicRepresentation(_ storage: sink UInt64) -> Self {
+    storage
+  }
+}

@@ -1,0 +1,146 @@
+//- compileAndRun expecting: .success
+
+fun testBasicAtomicOperations<T: AtomicRepresentable>(value1: T, value2: T)  {
+  precondition(value1 != value2)
+
+  // construction
+  var atomic: Atomic<T> = .new()
+  var a2: Atomic<T> = .new(value: value1.copy())
+  precondition(atomic != a2)
+
+  // store
+  atomic.store(value1.copy(), ordering: .new(value: 0))
+  precondition(atomic == a2)
+
+  // load
+  precondition(atomic.load(ordering: .new(value: 0)) == value1)
+
+  // exchange
+  let old1 = atomic.exchange(desired: value2.copy(), ordering: .new(value: 0))
+  precondition(old1 == value1)
+  precondition(atomic.load(ordering: .new(value: 0)) == value2)
+
+  // compare_and_exchange
+  let r1 = atomic.compare_and_exchange(expected: value1.copy(), desired: value2.copy(), ordering: .new(value: 0))
+  precondition(r1.0 == false)
+  precondition(r1.1 == value2)
+  let r2 = atomic.compare_and_exchange(expected: value2.copy(), desired: value1.copy(), ordering: .new(value: 0))
+  precondition(r2.0 == true)
+  precondition(r2.1 == value2)
+
+  // weak_compare_and_exchange
+  let r3 = atomic.weak_compare_and_exchange(expected: value2.copy(), desired: value1.copy(), ordering: .new(value: 0))
+  precondition(r3.0 == false)
+  precondition(r3.1 == value1)
+  let r4 = atomic.weak_compare_and_exchange(expected: value1.copy(), desired: value2.copy(), ordering: .new(value: 0))
+  precondition(r4.0 == true)
+  precondition(r4.1 == value1)
+}
+
+fun testBasicAtomicOperationsAllTypes() {
+  testBasicAtomicOperations<Bool>(value1: true, value2: false)
+  testBasicAtomicOperations<Int>(value1: 11, value2: 13)
+  testBasicAtomicOperations<UInt>(value1: 11, value2: 13)
+  testBasicAtomicOperations<Int8>(value1: 11, value2: 13)
+  testBasicAtomicOperations<Int32>(value1: 11, value2: 13)
+  testBasicAtomicOperations<Int64>(value1: 11, value2: 13)
+  testBasicAtomicOperations<UInt8>(value1: 11, value2: 13)
+  testBasicAtomicOperations<UInt32>(value1: 11, value2: 13)
+  testBasicAtomicOperations<UInt64>(value1: 11, value2: 13)
+}
+
+fun testIntegerAtomicOperations() {
+  var atomic: Atomic<Int> = .new(value: 11)
+
+  let old1 = atomic.fetch_add(1, ordering: .new(value: 0))
+  precondition(old1 == 11)
+  precondition(atomic.load(ordering: .new(value: 0)) == 12)
+
+  let old2 = atomic.fetch_sub(1, ordering: .new(value: 0))
+  precondition(old2 == 12)
+  precondition(atomic.load(ordering: .new(value: 0)) == 11)
+
+  let old3 = atomic.fetch_max(19, ordering: .new(value: 0))
+  precondition(old3 == 11)
+  precondition(atomic.load(ordering: .new(value: 0)) == 19)
+
+  let old4 = atomic.fetch_min(13, ordering: .new(value: 0))
+  precondition(old4 == 19)
+  precondition(atomic.load(ordering: .new(value: 0)) == 13)
+
+  let old5 = atomic.fetch_and(0xfc, ordering: .new(value: 0))
+  precondition(old5 == 13)
+  precondition(atomic.load(ordering: .new(value: 0)) == 0x0c)
+
+  let old6 = atomic.fetch_or(0xf0, ordering: .new(value: 0))
+  precondition(old6 == 0x0c)
+  precondition(atomic.load(ordering: .new(value: 0)) == 0xfc)
+
+  let old7 = atomic.fetch_xor(0xf0, ordering: .new(value: 0))
+  precondition(old7 == 0xfc)
+  precondition(atomic.load(ordering: .new(value: 0)) == 0x0c)
+
+  let old8 = atomic.fetch_xor(0xff, ordering: .new(value: 0))
+  precondition(old8 == 0x0c)
+  precondition(atomic.load(ordering: .new(value: 0)) == 0xf3)
+}
+
+type MyState: Regular {
+
+  internal let flag: Bool
+  internal let counter: Int
+
+  internal memberwise init
+
+  public init() {
+    &self.flag = false
+    &self.counter = 0
+  }
+
+}
+
+conformance MyState: AtomicRepresentable {
+
+  /// The underlying platform type.
+  public typealias AtomicRepresentation = UInt64.AtomicRepresentation;
+
+  public static fun encodeAtomicRepresentation(_ value: sink Self) -> UInt64 {
+    var r: UInt64 = .new(truncating_or_extending: value.counter)
+    &r &= 0x7fffffffffffffff
+    if value.flag {
+      &r |= 0x8000000000000000
+    }
+    return r
+  }
+
+  /// Decode `storage` into a value of `Self`.
+  public static fun decodeAtomicRepresentation(_ storage: sink UInt64) -> Self {
+    let flag = (storage & 0x8000000000000000) != 0
+    let counter = Int(truncating_or_extending: storage & 0x7fffffffffffffff)
+    return .new(flag: flag, counter: counter)
+  }
+
+}
+
+fun testCustomAtomicType() {
+  // TODO: IR -> LLVM transpilation fails when we instantiate an `Atomic<MyState>` type.
+  // var atomic: Atomic<MyState> = .new()
+
+  // atomic.store(.new(flag: true, counter: 11), ordering: .new(value: 0))
+
+  // let v = atomic.load(ordering: .new(value: 0))
+  // precondition(v.flag == true)
+  // precondition(v.counter == 11)
+
+  // // compare_and_exchange
+  // let r1 = atomic.compare_and_exchange(expected: .new(flag: false, counter: 19), desired: .new(flag: true, counter: 11), ordering: .new(value: 0))
+  // precondition(r1.0 == false)
+  // precondition(r1.1.flag == false)
+  // precondition(r1.1.counter == 19)
+}
+
+public fun main() {
+  testBasicAtomicOperationsAllTypes()
+  testIntegerAtomicOperations()
+  testCustomAtomicType()
+}
