@@ -15,7 +15,7 @@ public trait AtomicRepresentable: Regular {
 
 public conformance Bool: AtomicRepresentable {
 
-  public typealias AtomicRepresentation = Int8AtomicRepresentation
+  public typealias AtomicRepresentation = Int8PlatformAtomic
 
   public static fun encodeAtomicRepresentation(_ value: sink Self) -> Int8 {
     if value { 1 } else { 0 }
@@ -28,7 +28,7 @@ public conformance Bool: AtomicRepresentable {
 
 public conformance Int: AtomicRepresentable {
 
-  public typealias AtomicRepresentation = IntAtomicRepresentation
+  public typealias AtomicRepresentation = IntPlatformAtomic
 
   public static fun encodeAtomicRepresentation(_ value: sink Self) -> Int {
     value
@@ -41,7 +41,7 @@ public conformance Int: AtomicRepresentable {
 
 public conformance Int8: AtomicRepresentable {
 
-  public typealias AtomicRepresentation = Int8AtomicRepresentation
+  public typealias AtomicRepresentation = Int8PlatformAtomic
 
   public static fun encodeAtomicRepresentation(_ value: sink Self) -> Int8 {
     value
@@ -54,7 +54,7 @@ public conformance Int8: AtomicRepresentable {
 
 public conformance Int32: AtomicRepresentable {
 
-  public typealias AtomicRepresentation = Int32AtomicRepresentation
+  public typealias AtomicRepresentation = Int32PlatformAtomic
 
   public static fun encodeAtomicRepresentation(_ value: sink Self) -> Int32 {
     value
@@ -67,7 +67,7 @@ public conformance Int32: AtomicRepresentable {
 
 public conformance Int64: AtomicRepresentable {
 
-  public typealias AtomicRepresentation = Int64AtomicRepresentation
+  public typealias AtomicRepresentation = Int64PlatformAtomic
 
   public static fun encodeAtomicRepresentation(_ value: sink Self) -> Int64 {
     value
@@ -80,7 +80,7 @@ public conformance Int64: AtomicRepresentable {
 
 public conformance UInt: AtomicRepresentable {
 
-  public typealias AtomicRepresentation = UIntAtomicRepresentation
+  public typealias AtomicRepresentation = UIntPlatformAtomic
 
   public static fun encodeAtomicRepresentation(_ value: sink Self) -> UInt {
     value
@@ -93,7 +93,7 @@ public conformance UInt: AtomicRepresentable {
 
 public conformance UInt8: AtomicRepresentable {
 
-  public typealias AtomicRepresentation = UInt8AtomicRepresentation
+  public typealias AtomicRepresentation = UInt8PlatformAtomic
 
   public static fun encodeAtomicRepresentation(_ value: sink Self) -> UInt8 {
     value
@@ -106,7 +106,7 @@ public conformance UInt8: AtomicRepresentable {
 
 public conformance UInt32: AtomicRepresentable {
 
-  public typealias AtomicRepresentation = UInt32AtomicRepresentation
+  public typealias AtomicRepresentation = UInt32PlatformAtomic
 
   public static fun encodeAtomicRepresentation(_ value: sink Self) -> UInt32 {
     value
@@ -119,7 +119,7 @@ public conformance UInt32: AtomicRepresentable {
 
 public conformance UInt64: AtomicRepresentable {
 
-  public typealias AtomicRepresentation = UInt64AtomicRepresentation
+  public typealias AtomicRepresentation = UInt64PlatformAtomic
 
   public static fun encodeAtomicRepresentation(_ value: sink Self) -> UInt64 {
     value

@@ -6,10 +6,10 @@
 
 % for (type, builtin, rmw_ops) in numeric_types:
 ///////////////////////////////////////////////////////////////////////////////
-// MARK: ${type}AtomicRepresentation
+// MARK: ${type}PlatformAtomic
 
 /// An atomic representation of ${type}.
-public type ${type}AtomicRepresentation: Regular {
+public type ${type}PlatformAtomic: Regular {
 
   /// The underlying value, for which we expose atomic operations.
   internal let value: ${type}
@@ -25,7 +25,7 @@ public type ${type}AtomicRepresentation: Regular {
 
 }
 
-public conformance ${type}AtomicRepresentation: IntegerPlatformAtomic {
+public conformance ${type}PlatformAtomic: IntegerPlatformAtomic {
 
   public fun load(ordering: AtomicLoadOrdering) -> Value {
 % for (hylo_ordering, native_ordering, value) in load_orderings:

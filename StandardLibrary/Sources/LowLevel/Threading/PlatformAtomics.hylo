@@ -1,10 +1,10 @@
 
 
 ///////////////////////////////////////////////////////////////////////////////
-// MARK: IntAtomicRepresentation
+// MARK: IntPlatformAtomic
 
 /// An atomic representation of Int.
-public type IntAtomicRepresentation: Regular {
+public type IntPlatformAtomic: Regular {
 
   /// The underlying value, for which we expose atomic operations.
   internal let value: Int
@@ -20,7 +20,7 @@ public type IntAtomicRepresentation: Regular {
 
 }
 
-public conformance IntAtomicRepresentation: IntegerPlatformAtomic {
+public conformance IntPlatformAtomic: IntegerPlatformAtomic {
 
   public fun load(ordering: AtomicLoadOrdering) -> Value {
     if /*ordering == AtomicLoadOrdering.relaxed*/ ordering.value == 0 {
@@ -366,10 +366,10 @@ public conformance IntAtomicRepresentation: IntegerPlatformAtomic {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// MARK: Int8AtomicRepresentation
+// MARK: Int8PlatformAtomic
 
 /// An atomic representation of Int8.
-public type Int8AtomicRepresentation: Regular {
+public type Int8PlatformAtomic: Regular {
 
   /// The underlying value, for which we expose atomic operations.
   internal let value: Int8
@@ -385,7 +385,7 @@ public type Int8AtomicRepresentation: Regular {
 
 }
 
-public conformance Int8AtomicRepresentation: IntegerPlatformAtomic {
+public conformance Int8PlatformAtomic: IntegerPlatformAtomic {
 
   public fun load(ordering: AtomicLoadOrdering) -> Value {
     if /*ordering == AtomicLoadOrdering.relaxed*/ ordering.value == 0 {
@@ -731,10 +731,10 @@ public conformance Int8AtomicRepresentation: IntegerPlatformAtomic {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// MARK: Int32AtomicRepresentation
+// MARK: Int32PlatformAtomic
 
 /// An atomic representation of Int32.
-public type Int32AtomicRepresentation: Regular {
+public type Int32PlatformAtomic: Regular {
 
   /// The underlying value, for which we expose atomic operations.
   internal let value: Int32
@@ -750,7 +750,7 @@ public type Int32AtomicRepresentation: Regular {
 
 }
 
-public conformance Int32AtomicRepresentation: IntegerPlatformAtomic {
+public conformance Int32PlatformAtomic: IntegerPlatformAtomic {
 
   public fun load(ordering: AtomicLoadOrdering) -> Value {
     if /*ordering == AtomicLoadOrdering.relaxed*/ ordering.value == 0 {
@@ -1096,10 +1096,10 @@ public conformance Int32AtomicRepresentation: IntegerPlatformAtomic {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// MARK: Int64AtomicRepresentation
+// MARK: Int64PlatformAtomic
 
 /// An atomic representation of Int64.
-public type Int64AtomicRepresentation: Regular {
+public type Int64PlatformAtomic: Regular {
 
   /// The underlying value, for which we expose atomic operations.
   internal let value: Int64
@@ -1115,7 +1115,7 @@ public type Int64AtomicRepresentation: Regular {
 
 }
 
-public conformance Int64AtomicRepresentation: IntegerPlatformAtomic {
+public conformance Int64PlatformAtomic: IntegerPlatformAtomic {
 
   public fun load(ordering: AtomicLoadOrdering) -> Value {
     if /*ordering == AtomicLoadOrdering.relaxed*/ ordering.value == 0 {
@@ -1461,10 +1461,10 @@ public conformance Int64AtomicRepresentation: IntegerPlatformAtomic {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// MARK: UIntAtomicRepresentation
+// MARK: UIntPlatformAtomic
 
 /// An atomic representation of UInt.
-public type UIntAtomicRepresentation: Regular {
+public type UIntPlatformAtomic: Regular {
 
   /// The underlying value, for which we expose atomic operations.
   internal let value: UInt
@@ -1480,7 +1480,7 @@ public type UIntAtomicRepresentation: Regular {
 
 }
 
-public conformance UIntAtomicRepresentation: IntegerPlatformAtomic {
+public conformance UIntPlatformAtomic: IntegerPlatformAtomic {
 
   public fun load(ordering: AtomicLoadOrdering) -> Value {
     if /*ordering == AtomicLoadOrdering.relaxed*/ ordering.value == 0 {
@@ -1826,10 +1826,10 @@ public conformance UIntAtomicRepresentation: IntegerPlatformAtomic {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// MARK: UInt8AtomicRepresentation
+// MARK: UInt8PlatformAtomic
 
 /// An atomic representation of UInt8.
-public type UInt8AtomicRepresentation: Regular {
+public type UInt8PlatformAtomic: Regular {
 
   /// The underlying value, for which we expose atomic operations.
   internal let value: UInt8
@@ -1845,7 +1845,7 @@ public type UInt8AtomicRepresentation: Regular {
 
 }
 
-public conformance UInt8AtomicRepresentation: IntegerPlatformAtomic {
+public conformance UInt8PlatformAtomic: IntegerPlatformAtomic {
 
   public fun load(ordering: AtomicLoadOrdering) -> Value {
     if /*ordering == AtomicLoadOrdering.relaxed*/ ordering.value == 0 {
@@ -2191,10 +2191,10 @@ public conformance UInt8AtomicRepresentation: IntegerPlatformAtomic {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// MARK: UInt32AtomicRepresentation
+// MARK: UInt32PlatformAtomic
 
 /// An atomic representation of UInt32.
-public type UInt32AtomicRepresentation: Regular {
+public type UInt32PlatformAtomic: Regular {
 
   /// The underlying value, for which we expose atomic operations.
   internal let value: UInt32
@@ -2210,7 +2210,7 @@ public type UInt32AtomicRepresentation: Regular {
 
 }
 
-public conformance UInt32AtomicRepresentation: IntegerPlatformAtomic {
+public conformance UInt32PlatformAtomic: IntegerPlatformAtomic {
 
   public fun load(ordering: AtomicLoadOrdering) -> Value {
     if /*ordering == AtomicLoadOrdering.relaxed*/ ordering.value == 0 {
@@ -2556,10 +2556,10 @@ public conformance UInt32AtomicRepresentation: IntegerPlatformAtomic {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// MARK: UInt64AtomicRepresentation
+// MARK: UInt64PlatformAtomic
 
 /// An atomic representation of UInt64.
-public type UInt64AtomicRepresentation: Regular {
+public type UInt64PlatformAtomic: Regular {
 
   /// The underlying value, for which we expose atomic operations.
   internal let value: UInt64
@@ -2575,7 +2575,7 @@ public type UInt64AtomicRepresentation: Regular {
 
 }
 
-public conformance UInt64AtomicRepresentation: IntegerPlatformAtomic {
+public conformance UInt64PlatformAtomic: IntegerPlatformAtomic {
 
   public fun load(ordering: AtomicLoadOrdering) -> Value {
     if /*ordering == AtomicLoadOrdering.relaxed*/ ordering.value == 0 {
