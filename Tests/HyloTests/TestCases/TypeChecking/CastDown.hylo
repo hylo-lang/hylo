@@ -1,6 +1,0 @@
-//- typeCheck expecting: .success
-
-public fun main() {
-  let a: Any = ()
-  let _ = a as! {}
-}

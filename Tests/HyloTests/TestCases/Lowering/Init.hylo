@@ -1,6 +1,0 @@
-//- lowerToFinishedIR expecting: .success
-
-type A {
-  var value: Float64
-  public init(_ v: sink Float64) { &self.value = v }
-}

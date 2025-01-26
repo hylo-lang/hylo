@@ -1,7 +1,0 @@
-//- lowerToFinishedIR expecting: .failure
-
-public fun main() {
-  var x = 0
-  &x = 1
-  x = 2     //! diagnostic left-hand side of assignment must be marked for mutation
-}

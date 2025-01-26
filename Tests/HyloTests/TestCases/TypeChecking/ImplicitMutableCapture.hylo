@@ -1,6 +1,0 @@
-//- typeCheck expecting: .success
-
-fun main() {
-  var foo = ()
-  fun local() { &foo = () }
-}

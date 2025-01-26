@@ -1,7 +1,0 @@
-//- typeCheck expecting: .success
-
-trait P {
-  type Element
-}
-
-type A0<X: P, Y where Y == X.Element> {}

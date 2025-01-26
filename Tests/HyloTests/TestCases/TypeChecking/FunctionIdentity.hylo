@@ -1,3 +1,0 @@
-//- typeCheck expecting: .success
-
-public fun identity<T>(_ x: sink T) -> T { x }

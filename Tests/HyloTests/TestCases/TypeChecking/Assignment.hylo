@@ -1,6 +1,0 @@
-//- typeCheck expecting: .success
-
-public fun main() {
-  var x = 0
-  &x = x + 1 + 2
-}

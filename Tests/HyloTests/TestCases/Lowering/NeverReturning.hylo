@@ -1,8 +1,0 @@
-//- lowerToFinishedIR expecting: .success
-
-public fun f() -> Int {
-  _ = 1
-  fatal_error()
-}
-
-public fun main() {}

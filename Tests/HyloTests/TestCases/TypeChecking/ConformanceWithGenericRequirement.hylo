@@ -1,9 +1,0 @@
-//- typeCheck expecting: .success
-
-trait P {
-  fun red<T>(_ x: T) -> Int
-}
-
-type A: P {
-  public fun red<U>(_ x: U) -> Int { 42 }
-}

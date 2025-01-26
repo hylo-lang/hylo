@@ -1,0 +1,2192 @@
+
+
+///////////////////////////////////////////////////////////////////////////////
+// MARK: Int8AtomicRepresentation
+
+/// An atomic representation of Int8.
+public type Int8AtomicRepresentation: Regular {
+
+  /// The underlying value, for which we expose atomic operations.
+  internal let value: Int8
+
+  public memberwise init
+
+  /// Initializes `self` with the zero value.
+  public init() {
+    &self.value = Int8(value: Builtin.zeroinitializer_i8())
+  }
+
+  public typealias Value = Int8
+
+}
+
+public conformance Int8AtomicRepresentation: IntegerPlatformAtomic {
+
+  public fun load(ordering: AtomicLoadOrdering) -> Value {
+    if /*ordering == AtomicLoadOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_load_relaxed_i8(Builtin.address(of: self.value.value)))
+    }
+    if /*ordering == AtomicLoadOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_load_acquire_i8(Builtin.address(of: self.value.value)))
+    }
+    if /*ordering == AtomicLoadOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_load_seqcst_i8(Builtin.address(of: self.value.value)))
+    }
+    trap()
+  }
+
+  public fun store(_ value: sink Value, ordering: AtomicStoreOrdering) inout {
+    if /*ordering == AtomicStoreOrdering.relaxed*/ ordering.value == 0 {
+      Builtin.atomic_store_relaxed_i8(Builtin.address(of: self.value.value), value.value)
+      return
+    }
+    if /*ordering == AtomicStoreOrdering.releasing*/ ordering.value == 2 {
+      Builtin.atomic_store_release_i8(Builtin.address(of: self.value.value), value.value)
+      return
+    }
+    if /*ordering == AtomicStoreOrdering.sequentially_consistent*/ ordering.value == 4 {
+      Builtin.atomic_store_seqcst_i8(Builtin.address(of: self.value.value), value.value)
+      return
+    }
+    trap()
+  }
+
+  public fun compare_and_exchange(expected: sink Value, desired: sink Value, success_ordering: AtomicUpdateOrdering, failure_ordering: AtomicLoadOrdering) inout -> {exchanged: Bool, original: Value} {
+    if /*success_ordering == AtomicUpdateOrdering.relaxed*/ success_ordering.value == 0 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchg_relaxed_relaxed_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchg_relaxed_acquire_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchg_relaxed_seqcst_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    if /*success_ordering == AtomicUpdateOrdering.acquiring*/ success_ordering.value == 1 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchg_acquire_relaxed_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchg_acquire_acquire_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchg_acquire_seqcst_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    if /*success_ordering == AtomicUpdateOrdering.releasing*/ success_ordering.value == 2 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchg_release_relaxed_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchg_release_acquire_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchg_release_seqcst_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    if /*success_ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ success_ordering.value == 3 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchg_acqrel_relaxed_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchg_acqrel_acquire_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchg_acqrel_seqcst_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    if /*success_ordering == AtomicUpdateOrdering.sequentially_consistent*/ success_ordering.value == 4 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchg_seqcst_relaxed_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchg_seqcst_acquire_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchg_seqcst_seqcst_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    trap()
+  }
+
+  public fun weak_compare_and_exchange(expected: sink Value, desired: sink Value, success_ordering: AtomicUpdateOrdering, failure_ordering: AtomicLoadOrdering) inout -> {exchanged: Bool, original: Value} {
+    if /*success_ordering == AtomicUpdateOrdering.relaxed*/ success_ordering.value == 0 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchgweak_relaxed_relaxed_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchgweak_relaxed_acquire_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchgweak_relaxed_seqcst_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    if /*success_ordering == AtomicUpdateOrdering.acquiring*/ success_ordering.value == 1 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchgweak_acquire_relaxed_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchgweak_acquire_acquire_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchgweak_acquire_seqcst_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    if /*success_ordering == AtomicUpdateOrdering.releasing*/ success_ordering.value == 2 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchgweak_release_relaxed_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchgweak_release_acquire_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchgweak_release_seqcst_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    if /*success_ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ success_ordering.value == 3 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchgweak_acqrel_relaxed_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchgweak_acqrel_acquire_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchgweak_acqrel_seqcst_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    if /*success_ordering == AtomicUpdateOrdering.sequentially_consistent*/ success_ordering.value == 4 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchgweak_seqcst_relaxed_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchgweak_seqcst_acquire_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchgweak_seqcst_seqcst_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    trap()
+  }
+
+  public fun exchange(desired: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+    if /*ordering == AtomicUpdateOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_swap_relaxed_i8(Builtin.address(of: self.value.value), desired.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_swap_acquire_i8(Builtin.address(of: self.value.value), desired.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.releasing*/ ordering.value == 2 {
+      return Value(value: Builtin.atomic_swap_release_i8(Builtin.address(of: self.value.value), desired.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ ordering.value == 3 {
+      return Value(value: Builtin.atomic_swap_acqrel_i8(Builtin.address(of: self.value.value), desired.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_swap_seqcst_i8(Builtin.address(of: self.value.value), desired.value))
+    }
+    trap()
+  }
+
+  public fun fetch_add(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+    if /*ordering == AtomicUpdateOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_add_relaxed_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_add_acquire_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.releasing*/ ordering.value == 2 {
+      return Value(value: Builtin.atomic_add_release_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ ordering.value == 3 {
+      return Value(value: Builtin.atomic_add_acqrel_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_add_seqcst_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    trap()
+  }
+  public fun fetch_sub(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+    if /*ordering == AtomicUpdateOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_sub_relaxed_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_sub_acquire_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.releasing*/ ordering.value == 2 {
+      return Value(value: Builtin.atomic_sub_release_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ ordering.value == 3 {
+      return Value(value: Builtin.atomic_sub_acqrel_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_sub_seqcst_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    trap()
+  }
+  public fun fetch_max(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+    if /*ordering == AtomicUpdateOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_max_relaxed_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_max_acquire_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.releasing*/ ordering.value == 2 {
+      return Value(value: Builtin.atomic_max_release_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ ordering.value == 3 {
+      return Value(value: Builtin.atomic_max_acqrel_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_max_seqcst_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    trap()
+  }
+  public fun fetch_min(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+    if /*ordering == AtomicUpdateOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_min_relaxed_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_min_acquire_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.releasing*/ ordering.value == 2 {
+      return Value(value: Builtin.atomic_min_release_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ ordering.value == 3 {
+      return Value(value: Builtin.atomic_min_acqrel_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_min_seqcst_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    trap()
+  }
+  public fun fetch_and(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+    if /*ordering == AtomicUpdateOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_and_relaxed_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_and_acquire_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.releasing*/ ordering.value == 2 {
+      return Value(value: Builtin.atomic_and_release_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ ordering.value == 3 {
+      return Value(value: Builtin.atomic_and_acqrel_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_and_seqcst_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    trap()
+  }
+  public fun fetch_nand(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+    if /*ordering == AtomicUpdateOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_nand_relaxed_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_nand_acquire_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.releasing*/ ordering.value == 2 {
+      return Value(value: Builtin.atomic_nand_release_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ ordering.value == 3 {
+      return Value(value: Builtin.atomic_nand_acqrel_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_nand_seqcst_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    trap()
+  }
+  public fun fetch_or(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+    if /*ordering == AtomicUpdateOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_or_relaxed_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_or_acquire_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.releasing*/ ordering.value == 2 {
+      return Value(value: Builtin.atomic_or_release_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ ordering.value == 3 {
+      return Value(value: Builtin.atomic_or_acqrel_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_or_seqcst_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    trap()
+  }
+  public fun fetch_xor(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+    if /*ordering == AtomicUpdateOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_xor_relaxed_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_xor_acquire_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.releasing*/ ordering.value == 2 {
+      return Value(value: Builtin.atomic_xor_release_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ ordering.value == 3 {
+      return Value(value: Builtin.atomic_xor_acqrel_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_xor_seqcst_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    trap()
+  }
+
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// MARK: Int32AtomicRepresentation
+
+/// An atomic representation of Int32.
+public type Int32AtomicRepresentation: Regular {
+
+  /// The underlying value, for which we expose atomic operations.
+  internal let value: Int32
+
+  public memberwise init
+
+  /// Initializes `self` with the zero value.
+  public init() {
+    &self.value = Int32(value: Builtin.zeroinitializer_i32())
+  }
+
+  public typealias Value = Int32
+
+}
+
+public conformance Int32AtomicRepresentation: IntegerPlatformAtomic {
+
+  public fun load(ordering: AtomicLoadOrdering) -> Value {
+    if /*ordering == AtomicLoadOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_load_relaxed_i32(Builtin.address(of: self.value.value)))
+    }
+    if /*ordering == AtomicLoadOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_load_acquire_i32(Builtin.address(of: self.value.value)))
+    }
+    if /*ordering == AtomicLoadOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_load_seqcst_i32(Builtin.address(of: self.value.value)))
+    }
+    trap()
+  }
+
+  public fun store(_ value: sink Value, ordering: AtomicStoreOrdering) inout {
+    if /*ordering == AtomicStoreOrdering.relaxed*/ ordering.value == 0 {
+      Builtin.atomic_store_relaxed_i32(Builtin.address(of: self.value.value), value.value)
+      return
+    }
+    if /*ordering == AtomicStoreOrdering.releasing*/ ordering.value == 2 {
+      Builtin.atomic_store_release_i32(Builtin.address(of: self.value.value), value.value)
+      return
+    }
+    if /*ordering == AtomicStoreOrdering.sequentially_consistent*/ ordering.value == 4 {
+      Builtin.atomic_store_seqcst_i32(Builtin.address(of: self.value.value), value.value)
+      return
+    }
+    trap()
+  }
+
+  public fun compare_and_exchange(expected: sink Value, desired: sink Value, success_ordering: AtomicUpdateOrdering, failure_ordering: AtomicLoadOrdering) inout -> {exchanged: Bool, original: Value} {
+    if /*success_ordering == AtomicUpdateOrdering.relaxed*/ success_ordering.value == 0 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchg_relaxed_relaxed_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchg_relaxed_acquire_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchg_relaxed_seqcst_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    if /*success_ordering == AtomicUpdateOrdering.acquiring*/ success_ordering.value == 1 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchg_acquire_relaxed_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchg_acquire_acquire_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchg_acquire_seqcst_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    if /*success_ordering == AtomicUpdateOrdering.releasing*/ success_ordering.value == 2 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchg_release_relaxed_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchg_release_acquire_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchg_release_seqcst_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    if /*success_ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ success_ordering.value == 3 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchg_acqrel_relaxed_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchg_acqrel_acquire_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchg_acqrel_seqcst_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    if /*success_ordering == AtomicUpdateOrdering.sequentially_consistent*/ success_ordering.value == 4 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchg_seqcst_relaxed_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchg_seqcst_acquire_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchg_seqcst_seqcst_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    trap()
+  }
+
+  public fun weak_compare_and_exchange(expected: sink Value, desired: sink Value, success_ordering: AtomicUpdateOrdering, failure_ordering: AtomicLoadOrdering) inout -> {exchanged: Bool, original: Value} {
+    if /*success_ordering == AtomicUpdateOrdering.relaxed*/ success_ordering.value == 0 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchgweak_relaxed_relaxed_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchgweak_relaxed_acquire_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchgweak_relaxed_seqcst_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    if /*success_ordering == AtomicUpdateOrdering.acquiring*/ success_ordering.value == 1 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchgweak_acquire_relaxed_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchgweak_acquire_acquire_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchgweak_acquire_seqcst_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    if /*success_ordering == AtomicUpdateOrdering.releasing*/ success_ordering.value == 2 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchgweak_release_relaxed_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchgweak_release_acquire_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchgweak_release_seqcst_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    if /*success_ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ success_ordering.value == 3 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchgweak_acqrel_relaxed_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchgweak_acqrel_acquire_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchgweak_acqrel_seqcst_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    if /*success_ordering == AtomicUpdateOrdering.sequentially_consistent*/ success_ordering.value == 4 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchgweak_seqcst_relaxed_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchgweak_seqcst_acquire_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchgweak_seqcst_seqcst_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    trap()
+  }
+
+  public fun exchange(desired: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+    if /*ordering == AtomicUpdateOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_swap_relaxed_i32(Builtin.address(of: self.value.value), desired.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_swap_acquire_i32(Builtin.address(of: self.value.value), desired.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.releasing*/ ordering.value == 2 {
+      return Value(value: Builtin.atomic_swap_release_i32(Builtin.address(of: self.value.value), desired.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ ordering.value == 3 {
+      return Value(value: Builtin.atomic_swap_acqrel_i32(Builtin.address(of: self.value.value), desired.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_swap_seqcst_i32(Builtin.address(of: self.value.value), desired.value))
+    }
+    trap()
+  }
+
+  public fun fetch_add(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+    if /*ordering == AtomicUpdateOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_add_relaxed_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_add_acquire_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.releasing*/ ordering.value == 2 {
+      return Value(value: Builtin.atomic_add_release_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ ordering.value == 3 {
+      return Value(value: Builtin.atomic_add_acqrel_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_add_seqcst_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    trap()
+  }
+  public fun fetch_sub(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+    if /*ordering == AtomicUpdateOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_sub_relaxed_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_sub_acquire_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.releasing*/ ordering.value == 2 {
+      return Value(value: Builtin.atomic_sub_release_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ ordering.value == 3 {
+      return Value(value: Builtin.atomic_sub_acqrel_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_sub_seqcst_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    trap()
+  }
+  public fun fetch_max(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+    if /*ordering == AtomicUpdateOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_max_relaxed_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_max_acquire_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.releasing*/ ordering.value == 2 {
+      return Value(value: Builtin.atomic_max_release_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ ordering.value == 3 {
+      return Value(value: Builtin.atomic_max_acqrel_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_max_seqcst_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    trap()
+  }
+  public fun fetch_min(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+    if /*ordering == AtomicUpdateOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_min_relaxed_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_min_acquire_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.releasing*/ ordering.value == 2 {
+      return Value(value: Builtin.atomic_min_release_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ ordering.value == 3 {
+      return Value(value: Builtin.atomic_min_acqrel_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_min_seqcst_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    trap()
+  }
+  public fun fetch_and(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+    if /*ordering == AtomicUpdateOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_and_relaxed_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_and_acquire_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.releasing*/ ordering.value == 2 {
+      return Value(value: Builtin.atomic_and_release_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ ordering.value == 3 {
+      return Value(value: Builtin.atomic_and_acqrel_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_and_seqcst_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    trap()
+  }
+  public fun fetch_nand(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+    if /*ordering == AtomicUpdateOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_nand_relaxed_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_nand_acquire_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.releasing*/ ordering.value == 2 {
+      return Value(value: Builtin.atomic_nand_release_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ ordering.value == 3 {
+      return Value(value: Builtin.atomic_nand_acqrel_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_nand_seqcst_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    trap()
+  }
+  public fun fetch_or(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+    if /*ordering == AtomicUpdateOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_or_relaxed_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_or_acquire_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.releasing*/ ordering.value == 2 {
+      return Value(value: Builtin.atomic_or_release_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ ordering.value == 3 {
+      return Value(value: Builtin.atomic_or_acqrel_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_or_seqcst_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    trap()
+  }
+  public fun fetch_xor(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+    if /*ordering == AtomicUpdateOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_xor_relaxed_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_xor_acquire_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.releasing*/ ordering.value == 2 {
+      return Value(value: Builtin.atomic_xor_release_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ ordering.value == 3 {
+      return Value(value: Builtin.atomic_xor_acqrel_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_xor_seqcst_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    trap()
+  }
+
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// MARK: Int64AtomicRepresentation
+
+/// An atomic representation of Int64.
+public type Int64AtomicRepresentation: Regular {
+
+  /// The underlying value, for which we expose atomic operations.
+  internal let value: Int64
+
+  public memberwise init
+
+  /// Initializes `self` with the zero value.
+  public init() {
+    &self.value = Int64(value: Builtin.zeroinitializer_i64())
+  }
+
+  public typealias Value = Int64
+
+}
+
+public conformance Int64AtomicRepresentation: IntegerPlatformAtomic {
+
+  public fun load(ordering: AtomicLoadOrdering) -> Value {
+    if /*ordering == AtomicLoadOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_load_relaxed_i64(Builtin.address(of: self.value.value)))
+    }
+    if /*ordering == AtomicLoadOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_load_acquire_i64(Builtin.address(of: self.value.value)))
+    }
+    if /*ordering == AtomicLoadOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_load_seqcst_i64(Builtin.address(of: self.value.value)))
+    }
+    trap()
+  }
+
+  public fun store(_ value: sink Value, ordering: AtomicStoreOrdering) inout {
+    if /*ordering == AtomicStoreOrdering.relaxed*/ ordering.value == 0 {
+      Builtin.atomic_store_relaxed_i64(Builtin.address(of: self.value.value), value.value)
+      return
+    }
+    if /*ordering == AtomicStoreOrdering.releasing*/ ordering.value == 2 {
+      Builtin.atomic_store_release_i64(Builtin.address(of: self.value.value), value.value)
+      return
+    }
+    if /*ordering == AtomicStoreOrdering.sequentially_consistent*/ ordering.value == 4 {
+      Builtin.atomic_store_seqcst_i64(Builtin.address(of: self.value.value), value.value)
+      return
+    }
+    trap()
+  }
+
+  public fun compare_and_exchange(expected: sink Value, desired: sink Value, success_ordering: AtomicUpdateOrdering, failure_ordering: AtomicLoadOrdering) inout -> {exchanged: Bool, original: Value} {
+    if /*success_ordering == AtomicUpdateOrdering.relaxed*/ success_ordering.value == 0 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchg_relaxed_relaxed_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchg_relaxed_acquire_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchg_relaxed_seqcst_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    if /*success_ordering == AtomicUpdateOrdering.acquiring*/ success_ordering.value == 1 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchg_acquire_relaxed_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchg_acquire_acquire_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchg_acquire_seqcst_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    if /*success_ordering == AtomicUpdateOrdering.releasing*/ success_ordering.value == 2 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchg_release_relaxed_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchg_release_acquire_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchg_release_seqcst_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    if /*success_ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ success_ordering.value == 3 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchg_acqrel_relaxed_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchg_acqrel_acquire_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchg_acqrel_seqcst_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    if /*success_ordering == AtomicUpdateOrdering.sequentially_consistent*/ success_ordering.value == 4 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchg_seqcst_relaxed_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchg_seqcst_acquire_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchg_seqcst_seqcst_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    trap()
+  }
+
+  public fun weak_compare_and_exchange(expected: sink Value, desired: sink Value, success_ordering: AtomicUpdateOrdering, failure_ordering: AtomicLoadOrdering) inout -> {exchanged: Bool, original: Value} {
+    if /*success_ordering == AtomicUpdateOrdering.relaxed*/ success_ordering.value == 0 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchgweak_relaxed_relaxed_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchgweak_relaxed_acquire_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchgweak_relaxed_seqcst_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    if /*success_ordering == AtomicUpdateOrdering.acquiring*/ success_ordering.value == 1 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchgweak_acquire_relaxed_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchgweak_acquire_acquire_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchgweak_acquire_seqcst_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    if /*success_ordering == AtomicUpdateOrdering.releasing*/ success_ordering.value == 2 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchgweak_release_relaxed_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchgweak_release_acquire_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchgweak_release_seqcst_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    if /*success_ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ success_ordering.value == 3 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchgweak_acqrel_relaxed_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchgweak_acqrel_acquire_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchgweak_acqrel_seqcst_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    if /*success_ordering == AtomicUpdateOrdering.sequentially_consistent*/ success_ordering.value == 4 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchgweak_seqcst_relaxed_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchgweak_seqcst_acquire_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchgweak_seqcst_seqcst_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    trap()
+  }
+
+  public fun exchange(desired: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+    if /*ordering == AtomicUpdateOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_swap_relaxed_i64(Builtin.address(of: self.value.value), desired.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_swap_acquire_i64(Builtin.address(of: self.value.value), desired.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.releasing*/ ordering.value == 2 {
+      return Value(value: Builtin.atomic_swap_release_i64(Builtin.address(of: self.value.value), desired.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ ordering.value == 3 {
+      return Value(value: Builtin.atomic_swap_acqrel_i64(Builtin.address(of: self.value.value), desired.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_swap_seqcst_i64(Builtin.address(of: self.value.value), desired.value))
+    }
+    trap()
+  }
+
+  public fun fetch_add(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+    if /*ordering == AtomicUpdateOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_add_relaxed_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_add_acquire_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.releasing*/ ordering.value == 2 {
+      return Value(value: Builtin.atomic_add_release_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ ordering.value == 3 {
+      return Value(value: Builtin.atomic_add_acqrel_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_add_seqcst_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    trap()
+  }
+  public fun fetch_sub(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+    if /*ordering == AtomicUpdateOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_sub_relaxed_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_sub_acquire_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.releasing*/ ordering.value == 2 {
+      return Value(value: Builtin.atomic_sub_release_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ ordering.value == 3 {
+      return Value(value: Builtin.atomic_sub_acqrel_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_sub_seqcst_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    trap()
+  }
+  public fun fetch_max(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+    if /*ordering == AtomicUpdateOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_max_relaxed_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_max_acquire_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.releasing*/ ordering.value == 2 {
+      return Value(value: Builtin.atomic_max_release_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ ordering.value == 3 {
+      return Value(value: Builtin.atomic_max_acqrel_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_max_seqcst_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    trap()
+  }
+  public fun fetch_min(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+    if /*ordering == AtomicUpdateOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_min_relaxed_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_min_acquire_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.releasing*/ ordering.value == 2 {
+      return Value(value: Builtin.atomic_min_release_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ ordering.value == 3 {
+      return Value(value: Builtin.atomic_min_acqrel_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_min_seqcst_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    trap()
+  }
+  public fun fetch_and(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+    if /*ordering == AtomicUpdateOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_and_relaxed_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_and_acquire_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.releasing*/ ordering.value == 2 {
+      return Value(value: Builtin.atomic_and_release_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ ordering.value == 3 {
+      return Value(value: Builtin.atomic_and_acqrel_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_and_seqcst_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    trap()
+  }
+  public fun fetch_nand(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+    if /*ordering == AtomicUpdateOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_nand_relaxed_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_nand_acquire_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.releasing*/ ordering.value == 2 {
+      return Value(value: Builtin.atomic_nand_release_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ ordering.value == 3 {
+      return Value(value: Builtin.atomic_nand_acqrel_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_nand_seqcst_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    trap()
+  }
+  public fun fetch_or(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+    if /*ordering == AtomicUpdateOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_or_relaxed_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_or_acquire_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.releasing*/ ordering.value == 2 {
+      return Value(value: Builtin.atomic_or_release_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ ordering.value == 3 {
+      return Value(value: Builtin.atomic_or_acqrel_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_or_seqcst_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    trap()
+  }
+  public fun fetch_xor(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+    if /*ordering == AtomicUpdateOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_xor_relaxed_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_xor_acquire_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.releasing*/ ordering.value == 2 {
+      return Value(value: Builtin.atomic_xor_release_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ ordering.value == 3 {
+      return Value(value: Builtin.atomic_xor_acqrel_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_xor_seqcst_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    trap()
+  }
+
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// MARK: UInt8AtomicRepresentation
+
+/// An atomic representation of UInt8.
+public type UInt8AtomicRepresentation: Regular {
+
+  /// The underlying value, for which we expose atomic operations.
+  internal let value: UInt8
+
+  public memberwise init
+
+  /// Initializes `self` with the zero value.
+  public init() {
+    &self.value = UInt8(value: Builtin.zeroinitializer_i8())
+  }
+
+  public typealias Value = UInt8
+
+}
+
+public conformance UInt8AtomicRepresentation: IntegerPlatformAtomic {
+
+  public fun load(ordering: AtomicLoadOrdering) -> Value {
+    if /*ordering == AtomicLoadOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_load_relaxed_i8(Builtin.address(of: self.value.value)))
+    }
+    if /*ordering == AtomicLoadOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_load_acquire_i8(Builtin.address(of: self.value.value)))
+    }
+    if /*ordering == AtomicLoadOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_load_seqcst_i8(Builtin.address(of: self.value.value)))
+    }
+    trap()
+  }
+
+  public fun store(_ value: sink Value, ordering: AtomicStoreOrdering) inout {
+    if /*ordering == AtomicStoreOrdering.relaxed*/ ordering.value == 0 {
+      Builtin.atomic_store_relaxed_i8(Builtin.address(of: self.value.value), value.value)
+      return
+    }
+    if /*ordering == AtomicStoreOrdering.releasing*/ ordering.value == 2 {
+      Builtin.atomic_store_release_i8(Builtin.address(of: self.value.value), value.value)
+      return
+    }
+    if /*ordering == AtomicStoreOrdering.sequentially_consistent*/ ordering.value == 4 {
+      Builtin.atomic_store_seqcst_i8(Builtin.address(of: self.value.value), value.value)
+      return
+    }
+    trap()
+  }
+
+  public fun compare_and_exchange(expected: sink Value, desired: sink Value, success_ordering: AtomicUpdateOrdering, failure_ordering: AtomicLoadOrdering) inout -> {exchanged: Bool, original: Value} {
+    if /*success_ordering == AtomicUpdateOrdering.relaxed*/ success_ordering.value == 0 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchg_relaxed_relaxed_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchg_relaxed_acquire_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchg_relaxed_seqcst_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    if /*success_ordering == AtomicUpdateOrdering.acquiring*/ success_ordering.value == 1 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchg_acquire_relaxed_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchg_acquire_acquire_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchg_acquire_seqcst_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    if /*success_ordering == AtomicUpdateOrdering.releasing*/ success_ordering.value == 2 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchg_release_relaxed_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchg_release_acquire_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchg_release_seqcst_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    if /*success_ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ success_ordering.value == 3 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchg_acqrel_relaxed_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchg_acqrel_acquire_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchg_acqrel_seqcst_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    if /*success_ordering == AtomicUpdateOrdering.sequentially_consistent*/ success_ordering.value == 4 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchg_seqcst_relaxed_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchg_seqcst_acquire_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchg_seqcst_seqcst_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    trap()
+  }
+
+  public fun weak_compare_and_exchange(expected: sink Value, desired: sink Value, success_ordering: AtomicUpdateOrdering, failure_ordering: AtomicLoadOrdering) inout -> {exchanged: Bool, original: Value} {
+    if /*success_ordering == AtomicUpdateOrdering.relaxed*/ success_ordering.value == 0 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchgweak_relaxed_relaxed_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchgweak_relaxed_acquire_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchgweak_relaxed_seqcst_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    if /*success_ordering == AtomicUpdateOrdering.acquiring*/ success_ordering.value == 1 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchgweak_acquire_relaxed_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchgweak_acquire_acquire_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchgweak_acquire_seqcst_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    if /*success_ordering == AtomicUpdateOrdering.releasing*/ success_ordering.value == 2 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchgweak_release_relaxed_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchgweak_release_acquire_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchgweak_release_seqcst_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    if /*success_ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ success_ordering.value == 3 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchgweak_acqrel_relaxed_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchgweak_acqrel_acquire_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchgweak_acqrel_seqcst_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    if /*success_ordering == AtomicUpdateOrdering.sequentially_consistent*/ success_ordering.value == 4 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchgweak_seqcst_relaxed_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchgweak_seqcst_acquire_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchgweak_seqcst_seqcst_i8(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    trap()
+  }
+
+  public fun exchange(desired: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+    if /*ordering == AtomicUpdateOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_swap_relaxed_i8(Builtin.address(of: self.value.value), desired.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_swap_acquire_i8(Builtin.address(of: self.value.value), desired.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.releasing*/ ordering.value == 2 {
+      return Value(value: Builtin.atomic_swap_release_i8(Builtin.address(of: self.value.value), desired.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ ordering.value == 3 {
+      return Value(value: Builtin.atomic_swap_acqrel_i8(Builtin.address(of: self.value.value), desired.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_swap_seqcst_i8(Builtin.address(of: self.value.value), desired.value))
+    }
+    trap()
+  }
+
+  public fun fetch_add(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+    if /*ordering == AtomicUpdateOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_add_relaxed_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_add_acquire_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.releasing*/ ordering.value == 2 {
+      return Value(value: Builtin.atomic_add_release_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ ordering.value == 3 {
+      return Value(value: Builtin.atomic_add_acqrel_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_add_seqcst_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    trap()
+  }
+  public fun fetch_sub(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+    if /*ordering == AtomicUpdateOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_sub_relaxed_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_sub_acquire_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.releasing*/ ordering.value == 2 {
+      return Value(value: Builtin.atomic_sub_release_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ ordering.value == 3 {
+      return Value(value: Builtin.atomic_sub_acqrel_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_sub_seqcst_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    trap()
+  }
+  public fun fetch_max(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+    if /*ordering == AtomicUpdateOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_umax_relaxed_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_umax_acquire_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.releasing*/ ordering.value == 2 {
+      return Value(value: Builtin.atomic_umax_release_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ ordering.value == 3 {
+      return Value(value: Builtin.atomic_umax_acqrel_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_umax_seqcst_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    trap()
+  }
+  public fun fetch_min(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+    if /*ordering == AtomicUpdateOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_umin_relaxed_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_umin_acquire_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.releasing*/ ordering.value == 2 {
+      return Value(value: Builtin.atomic_umin_release_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ ordering.value == 3 {
+      return Value(value: Builtin.atomic_umin_acqrel_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_umin_seqcst_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    trap()
+  }
+  public fun fetch_and(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+    if /*ordering == AtomicUpdateOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_and_relaxed_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_and_acquire_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.releasing*/ ordering.value == 2 {
+      return Value(value: Builtin.atomic_and_release_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ ordering.value == 3 {
+      return Value(value: Builtin.atomic_and_acqrel_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_and_seqcst_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    trap()
+  }
+  public fun fetch_nand(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+    if /*ordering == AtomicUpdateOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_nand_relaxed_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_nand_acquire_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.releasing*/ ordering.value == 2 {
+      return Value(value: Builtin.atomic_nand_release_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ ordering.value == 3 {
+      return Value(value: Builtin.atomic_nand_acqrel_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_nand_seqcst_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    trap()
+  }
+  public fun fetch_or(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+    if /*ordering == AtomicUpdateOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_or_relaxed_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_or_acquire_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.releasing*/ ordering.value == 2 {
+      return Value(value: Builtin.atomic_or_release_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ ordering.value == 3 {
+      return Value(value: Builtin.atomic_or_acqrel_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_or_seqcst_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    trap()
+  }
+  public fun fetch_xor(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+    if /*ordering == AtomicUpdateOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_xor_relaxed_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_xor_acquire_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.releasing*/ ordering.value == 2 {
+      return Value(value: Builtin.atomic_xor_release_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ ordering.value == 3 {
+      return Value(value: Builtin.atomic_xor_acqrel_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_xor_seqcst_i8(Builtin.address(of: self.value.value), value.value))
+    }
+    trap()
+  }
+
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// MARK: UInt32AtomicRepresentation
+
+/// An atomic representation of UInt32.
+public type UInt32AtomicRepresentation: Regular {
+
+  /// The underlying value, for which we expose atomic operations.
+  internal let value: UInt32
+
+  public memberwise init
+
+  /// Initializes `self` with the zero value.
+  public init() {
+    &self.value = UInt32(value: Builtin.zeroinitializer_i32())
+  }
+
+  public typealias Value = UInt32
+
+}
+
+public conformance UInt32AtomicRepresentation: IntegerPlatformAtomic {
+
+  public fun load(ordering: AtomicLoadOrdering) -> Value {
+    if /*ordering == AtomicLoadOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_load_relaxed_i32(Builtin.address(of: self.value.value)))
+    }
+    if /*ordering == AtomicLoadOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_load_acquire_i32(Builtin.address(of: self.value.value)))
+    }
+    if /*ordering == AtomicLoadOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_load_seqcst_i32(Builtin.address(of: self.value.value)))
+    }
+    trap()
+  }
+
+  public fun store(_ value: sink Value, ordering: AtomicStoreOrdering) inout {
+    if /*ordering == AtomicStoreOrdering.relaxed*/ ordering.value == 0 {
+      Builtin.atomic_store_relaxed_i32(Builtin.address(of: self.value.value), value.value)
+      return
+    }
+    if /*ordering == AtomicStoreOrdering.releasing*/ ordering.value == 2 {
+      Builtin.atomic_store_release_i32(Builtin.address(of: self.value.value), value.value)
+      return
+    }
+    if /*ordering == AtomicStoreOrdering.sequentially_consistent*/ ordering.value == 4 {
+      Builtin.atomic_store_seqcst_i32(Builtin.address(of: self.value.value), value.value)
+      return
+    }
+    trap()
+  }
+
+  public fun compare_and_exchange(expected: sink Value, desired: sink Value, success_ordering: AtomicUpdateOrdering, failure_ordering: AtomicLoadOrdering) inout -> {exchanged: Bool, original: Value} {
+    if /*success_ordering == AtomicUpdateOrdering.relaxed*/ success_ordering.value == 0 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchg_relaxed_relaxed_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchg_relaxed_acquire_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchg_relaxed_seqcst_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    if /*success_ordering == AtomicUpdateOrdering.acquiring*/ success_ordering.value == 1 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchg_acquire_relaxed_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchg_acquire_acquire_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchg_acquire_seqcst_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    if /*success_ordering == AtomicUpdateOrdering.releasing*/ success_ordering.value == 2 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchg_release_relaxed_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchg_release_acquire_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchg_release_seqcst_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    if /*success_ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ success_ordering.value == 3 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchg_acqrel_relaxed_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchg_acqrel_acquire_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchg_acqrel_seqcst_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    if /*success_ordering == AtomicUpdateOrdering.sequentially_consistent*/ success_ordering.value == 4 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchg_seqcst_relaxed_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchg_seqcst_acquire_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchg_seqcst_seqcst_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    trap()
+  }
+
+  public fun weak_compare_and_exchange(expected: sink Value, desired: sink Value, success_ordering: AtomicUpdateOrdering, failure_ordering: AtomicLoadOrdering) inout -> {exchanged: Bool, original: Value} {
+    if /*success_ordering == AtomicUpdateOrdering.relaxed*/ success_ordering.value == 0 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchgweak_relaxed_relaxed_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchgweak_relaxed_acquire_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchgweak_relaxed_seqcst_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    if /*success_ordering == AtomicUpdateOrdering.acquiring*/ success_ordering.value == 1 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchgweak_acquire_relaxed_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchgweak_acquire_acquire_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchgweak_acquire_seqcst_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    if /*success_ordering == AtomicUpdateOrdering.releasing*/ success_ordering.value == 2 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchgweak_release_relaxed_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchgweak_release_acquire_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchgweak_release_seqcst_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    if /*success_ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ success_ordering.value == 3 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchgweak_acqrel_relaxed_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchgweak_acqrel_acquire_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchgweak_acqrel_seqcst_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    if /*success_ordering == AtomicUpdateOrdering.sequentially_consistent*/ success_ordering.value == 4 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchgweak_seqcst_relaxed_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchgweak_seqcst_acquire_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchgweak_seqcst_seqcst_i32(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    trap()
+  }
+
+  public fun exchange(desired: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+    if /*ordering == AtomicUpdateOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_swap_relaxed_i32(Builtin.address(of: self.value.value), desired.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_swap_acquire_i32(Builtin.address(of: self.value.value), desired.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.releasing*/ ordering.value == 2 {
+      return Value(value: Builtin.atomic_swap_release_i32(Builtin.address(of: self.value.value), desired.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ ordering.value == 3 {
+      return Value(value: Builtin.atomic_swap_acqrel_i32(Builtin.address(of: self.value.value), desired.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_swap_seqcst_i32(Builtin.address(of: self.value.value), desired.value))
+    }
+    trap()
+  }
+
+  public fun fetch_add(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+    if /*ordering == AtomicUpdateOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_add_relaxed_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_add_acquire_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.releasing*/ ordering.value == 2 {
+      return Value(value: Builtin.atomic_add_release_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ ordering.value == 3 {
+      return Value(value: Builtin.atomic_add_acqrel_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_add_seqcst_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    trap()
+  }
+  public fun fetch_sub(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+    if /*ordering == AtomicUpdateOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_sub_relaxed_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_sub_acquire_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.releasing*/ ordering.value == 2 {
+      return Value(value: Builtin.atomic_sub_release_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ ordering.value == 3 {
+      return Value(value: Builtin.atomic_sub_acqrel_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_sub_seqcst_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    trap()
+  }
+  public fun fetch_max(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+    if /*ordering == AtomicUpdateOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_umax_relaxed_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_umax_acquire_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.releasing*/ ordering.value == 2 {
+      return Value(value: Builtin.atomic_umax_release_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ ordering.value == 3 {
+      return Value(value: Builtin.atomic_umax_acqrel_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_umax_seqcst_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    trap()
+  }
+  public fun fetch_min(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+    if /*ordering == AtomicUpdateOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_umin_relaxed_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_umin_acquire_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.releasing*/ ordering.value == 2 {
+      return Value(value: Builtin.atomic_umin_release_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ ordering.value == 3 {
+      return Value(value: Builtin.atomic_umin_acqrel_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_umin_seqcst_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    trap()
+  }
+  public fun fetch_and(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+    if /*ordering == AtomicUpdateOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_and_relaxed_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_and_acquire_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.releasing*/ ordering.value == 2 {
+      return Value(value: Builtin.atomic_and_release_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ ordering.value == 3 {
+      return Value(value: Builtin.atomic_and_acqrel_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_and_seqcst_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    trap()
+  }
+  public fun fetch_nand(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+    if /*ordering == AtomicUpdateOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_nand_relaxed_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_nand_acquire_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.releasing*/ ordering.value == 2 {
+      return Value(value: Builtin.atomic_nand_release_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ ordering.value == 3 {
+      return Value(value: Builtin.atomic_nand_acqrel_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_nand_seqcst_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    trap()
+  }
+  public fun fetch_or(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+    if /*ordering == AtomicUpdateOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_or_relaxed_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_or_acquire_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.releasing*/ ordering.value == 2 {
+      return Value(value: Builtin.atomic_or_release_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ ordering.value == 3 {
+      return Value(value: Builtin.atomic_or_acqrel_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_or_seqcst_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    trap()
+  }
+  public fun fetch_xor(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+    if /*ordering == AtomicUpdateOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_xor_relaxed_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_xor_acquire_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.releasing*/ ordering.value == 2 {
+      return Value(value: Builtin.atomic_xor_release_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ ordering.value == 3 {
+      return Value(value: Builtin.atomic_xor_acqrel_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_xor_seqcst_i32(Builtin.address(of: self.value.value), value.value))
+    }
+    trap()
+  }
+
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// MARK: UInt64AtomicRepresentation
+
+/// An atomic representation of UInt64.
+public type UInt64AtomicRepresentation: Regular {
+
+  /// The underlying value, for which we expose atomic operations.
+  internal let value: UInt64
+
+  public memberwise init
+
+  /// Initializes `self` with the zero value.
+  public init() {
+    &self.value = UInt64(value: Builtin.zeroinitializer_i64())
+  }
+
+  public typealias Value = UInt64
+
+}
+
+public conformance UInt64AtomicRepresentation: IntegerPlatformAtomic {
+
+  public fun load(ordering: AtomicLoadOrdering) -> Value {
+    if /*ordering == AtomicLoadOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_load_relaxed_i64(Builtin.address(of: self.value.value)))
+    }
+    if /*ordering == AtomicLoadOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_load_acquire_i64(Builtin.address(of: self.value.value)))
+    }
+    if /*ordering == AtomicLoadOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_load_seqcst_i64(Builtin.address(of: self.value.value)))
+    }
+    trap()
+  }
+
+  public fun store(_ value: sink Value, ordering: AtomicStoreOrdering) inout {
+    if /*ordering == AtomicStoreOrdering.relaxed*/ ordering.value == 0 {
+      Builtin.atomic_store_relaxed_i64(Builtin.address(of: self.value.value), value.value)
+      return
+    }
+    if /*ordering == AtomicStoreOrdering.releasing*/ ordering.value == 2 {
+      Builtin.atomic_store_release_i64(Builtin.address(of: self.value.value), value.value)
+      return
+    }
+    if /*ordering == AtomicStoreOrdering.sequentially_consistent*/ ordering.value == 4 {
+      Builtin.atomic_store_seqcst_i64(Builtin.address(of: self.value.value), value.value)
+      return
+    }
+    trap()
+  }
+
+  public fun compare_and_exchange(expected: sink Value, desired: sink Value, success_ordering: AtomicUpdateOrdering, failure_ordering: AtomicLoadOrdering) inout -> {exchanged: Bool, original: Value} {
+    if /*success_ordering == AtomicUpdateOrdering.relaxed*/ success_ordering.value == 0 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchg_relaxed_relaxed_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchg_relaxed_acquire_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchg_relaxed_seqcst_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    if /*success_ordering == AtomicUpdateOrdering.acquiring*/ success_ordering.value == 1 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchg_acquire_relaxed_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchg_acquire_acquire_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchg_acquire_seqcst_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    if /*success_ordering == AtomicUpdateOrdering.releasing*/ success_ordering.value == 2 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchg_release_relaxed_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchg_release_acquire_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchg_release_seqcst_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    if /*success_ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ success_ordering.value == 3 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchg_acqrel_relaxed_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchg_acqrel_acquire_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchg_acqrel_seqcst_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    if /*success_ordering == AtomicUpdateOrdering.sequentially_consistent*/ success_ordering.value == 4 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchg_seqcst_relaxed_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchg_seqcst_acquire_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchg_seqcst_seqcst_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    trap()
+  }
+
+  public fun weak_compare_and_exchange(expected: sink Value, desired: sink Value, success_ordering: AtomicUpdateOrdering, failure_ordering: AtomicLoadOrdering) inout -> {exchanged: Bool, original: Value} {
+    if /*success_ordering == AtomicUpdateOrdering.relaxed*/ success_ordering.value == 0 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchgweak_relaxed_relaxed_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchgweak_relaxed_acquire_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchgweak_relaxed_seqcst_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    if /*success_ordering == AtomicUpdateOrdering.acquiring*/ success_ordering.value == 1 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchgweak_acquire_relaxed_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchgweak_acquire_acquire_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchgweak_acquire_seqcst_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    if /*success_ordering == AtomicUpdateOrdering.releasing*/ success_ordering.value == 2 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchgweak_release_relaxed_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchgweak_release_acquire_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchgweak_release_seqcst_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    if /*success_ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ success_ordering.value == 3 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchgweak_acqrel_relaxed_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchgweak_acqrel_acquire_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchgweak_acqrel_seqcst_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    if /*success_ordering == AtomicUpdateOrdering.sequentially_consistent*/ success_ordering.value == 4 {
+      if /*failure_ordering == AtomicLoadOrdering.relaxed*/ failure_ordering.value == 0 {
+        let r = Builtin.atomic_cmpxchgweak_seqcst_relaxed_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.acquiring*/ failure_ordering.value == 1 {
+        let r = Builtin.atomic_cmpxchgweak_seqcst_acquire_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+      if /*failure_ordering == AtomicLoadOrdering.sequentially_consistent*/ failure_ordering.value == 4 {
+        let r = Builtin.atomic_cmpxchgweak_seqcst_seqcst_i64(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+    }
+    trap()
+  }
+
+  public fun exchange(desired: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+    if /*ordering == AtomicUpdateOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_swap_relaxed_i64(Builtin.address(of: self.value.value), desired.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_swap_acquire_i64(Builtin.address(of: self.value.value), desired.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.releasing*/ ordering.value == 2 {
+      return Value(value: Builtin.atomic_swap_release_i64(Builtin.address(of: self.value.value), desired.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ ordering.value == 3 {
+      return Value(value: Builtin.atomic_swap_acqrel_i64(Builtin.address(of: self.value.value), desired.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_swap_seqcst_i64(Builtin.address(of: self.value.value), desired.value))
+    }
+    trap()
+  }
+
+  public fun fetch_add(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+    if /*ordering == AtomicUpdateOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_add_relaxed_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_add_acquire_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.releasing*/ ordering.value == 2 {
+      return Value(value: Builtin.atomic_add_release_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ ordering.value == 3 {
+      return Value(value: Builtin.atomic_add_acqrel_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_add_seqcst_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    trap()
+  }
+  public fun fetch_sub(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+    if /*ordering == AtomicUpdateOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_sub_relaxed_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_sub_acquire_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.releasing*/ ordering.value == 2 {
+      return Value(value: Builtin.atomic_sub_release_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ ordering.value == 3 {
+      return Value(value: Builtin.atomic_sub_acqrel_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_sub_seqcst_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    trap()
+  }
+  public fun fetch_max(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+    if /*ordering == AtomicUpdateOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_umax_relaxed_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_umax_acquire_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.releasing*/ ordering.value == 2 {
+      return Value(value: Builtin.atomic_umax_release_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ ordering.value == 3 {
+      return Value(value: Builtin.atomic_umax_acqrel_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_umax_seqcst_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    trap()
+  }
+  public fun fetch_min(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+    if /*ordering == AtomicUpdateOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_umin_relaxed_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_umin_acquire_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.releasing*/ ordering.value == 2 {
+      return Value(value: Builtin.atomic_umin_release_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ ordering.value == 3 {
+      return Value(value: Builtin.atomic_umin_acqrel_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_umin_seqcst_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    trap()
+  }
+  public fun fetch_and(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+    if /*ordering == AtomicUpdateOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_and_relaxed_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_and_acquire_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.releasing*/ ordering.value == 2 {
+      return Value(value: Builtin.atomic_and_release_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ ordering.value == 3 {
+      return Value(value: Builtin.atomic_and_acqrel_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_and_seqcst_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    trap()
+  }
+  public fun fetch_nand(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+    if /*ordering == AtomicUpdateOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_nand_relaxed_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_nand_acquire_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.releasing*/ ordering.value == 2 {
+      return Value(value: Builtin.atomic_nand_release_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ ordering.value == 3 {
+      return Value(value: Builtin.atomic_nand_acqrel_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_nand_seqcst_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    trap()
+  }
+  public fun fetch_or(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+    if /*ordering == AtomicUpdateOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_or_relaxed_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_or_acquire_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.releasing*/ ordering.value == 2 {
+      return Value(value: Builtin.atomic_or_release_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ ordering.value == 3 {
+      return Value(value: Builtin.atomic_or_acqrel_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_or_seqcst_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    trap()
+  }
+  public fun fetch_xor(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+    if /*ordering == AtomicUpdateOrdering.relaxed*/ ordering.value == 0 {
+      return Value(value: Builtin.atomic_xor_relaxed_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring*/ ordering.value == 1 {
+      return Value(value: Builtin.atomic_xor_acquire_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.releasing*/ ordering.value == 2 {
+      return Value(value: Builtin.atomic_xor_release_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.acquiring_and_releasing*/ ordering.value == 3 {
+      return Value(value: Builtin.atomic_xor_acqrel_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    if /*ordering == AtomicUpdateOrdering.sequentially_consistent*/ ordering.value == 4 {
+      return Value(value: Builtin.atomic_xor_seqcst_i64(Builtin.address(of: self.value.value), value.value))
+    }
+    trap()
+  }
+
+}
+

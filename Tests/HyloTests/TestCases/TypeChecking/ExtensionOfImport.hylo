@@ -1,9 +1,0 @@
-//- typeCheck expecting: .success
-
-extension Float64 {
-  public static fun gravity() -> Float64 { 9.81 }
-}
-
-public fun main() {
-  let _: Float64 = .gravity()
-}

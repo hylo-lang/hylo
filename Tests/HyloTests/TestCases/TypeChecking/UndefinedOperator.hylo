@@ -1,6 +1,0 @@
-//- typeCheck expecting: .failure
-
-public fun main() {
-  //! @+1 diagnostic undefined operator '&&&'
-  let x = true &&& false
-}

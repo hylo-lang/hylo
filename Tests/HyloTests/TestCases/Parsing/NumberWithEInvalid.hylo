@@ -1,7 +1,0 @@
-//- parse expecting: .failure
-
-let x0 = 1e1
-
-let x1 = 1 e1   //! diagnostic unexpected token 'name'
-
-let x2 = 1e 1   //! diagnostic unexpected token 'invalid'

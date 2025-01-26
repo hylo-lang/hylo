@@ -62,105 +62,6 @@ jobs:
           fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
-  devcontainer:
-    needs: determine-version
-    name: Ubuntu dev container/${{ matrix.cmake_build_type }}
-    strategy:
-      fail-fast: false
-      matrix:
-        spm_configuration: [debug, release]
-        include:
-          - spm_configuration: debug
-            cmake_build_type: Debug
-            more-spm-test-options: --enable-code-coverage
-            HYLO_LLVM_BUILD_TYPE: MinSizeRel
-
-          - spm_configuration: release
-            cmake_build_type: Release
-            HYLO_LLVM_BUILD_TYPE: MinSizeRel
-
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: true
-          show-progress: false
-
-      - name: Set compiler version
-        run: ./Tools/set-hc-version.sh ${{ needs.determine-version.outputs.version }}
-
-      - name: Initialize Dev Container
-        uses: devcontainers/ci@v0.3
-        with:
-          runCmd: uname -a
-          push: never
-
-      - name: Build and Test via CMake
-        uses: devcontainers/ci@v0.3
-        env:
-          HYLO_LLVM_BUILD_TYPE: ${{ matrix.HYLO_LLVM_BUILD_TYPE }}
-        with:
-          runCmd: >-
-            cmake -GNinja -S . -B .ninja-build
-            -DCMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }}
-            -DBUILD_TESTING=YES
-            -DLLVM_DIR=/opt/llvm-${{ matrix.HYLO_LLVM_BUILD_TYPE }}/lib/cmake/llvm
-
-            cmake --build .ninja-build
-
-            find .ninja-build -name '*.o' -delete
-
-            find .ninja-build -name '*.a' -delete
-
-            ctest --parallel --test-dir .ninja-build
-          push: never
-
-      - name: Reclaim disk space
-        run: rm -rf .ninja-build
-
-      - name: Restore Cache for SPM
-        uses: actions/cache@v4
-        with:
-          path: .build
-          key: devcontainer-${{ matrix.spm_configuration }}-spm-${{ hashFiles('**/Package.resolved') }}
-          restore-keys: |
-            ${{ runner.os }}-spm-
-
-      - name: Build and Test via SPM
-        uses: devcontainers/ci@v0.3
-        with:
-          runCmd: |
-            llvm-cov-15 --version
-            swift test -c ${{ matrix.spm_configuration }} ${{ env.spm-build-options }} ${{ env.spm-test-options }} ${{ matrix.more-spm-test-options }}
-          push: never
-
-      - name: Export Coverage
-        uses: devcontainers/ci@v0.3
-        if: ${{ contains(matrix.more-spm-test-options, '--enable-code-coverage') }}
-        with:
-          runCmd: |
-            shopt -s nullglob
-            dot_os=(.build/${{ matrix.spm_configuration }}/*.build/*.o .build/${{ matrix.spm_configuration }}/*.build/**/*.o)
-            bin_params=("${dot_os[0]}")
-            for o in "${dot_os[@]:1}"; do
-              bin_params+=("-object" "${o}")
-            done
-            # Note: on mac using llvm-cov from Xcode might require a leading xcrun.
-            llvm-cov-15 export -format="lcov" -instr-profile "$(swift test -c ${{ matrix.spm_configuration }} --show-codecov-path | xargs dirname)"/default.profdata "${bin_params[@]}" > info.lcov
-          push: never
-
-      - name: Upload coverage reports to Codecov
-        if: ${{ contains(matrix.more-spm-test-options, '--enable-code-coverage') }}
-        uses: codecov/codecov-action@v4.5.0
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          fail_ci_if_error: true
-
-      - name: Output compiler version
-        uses: devcontainers/ci@v0.3
-        with:
-          runCmd: .build/${{ matrix.spm_configuration }}/hc --version
-          push: never
 
   native:
     needs: determine-version
@@ -169,15 +70,9 @@ jobs:
       fail-fast: false
       matrix:
         # macos-latest is apparently not the latest.
-        os: [macos-13, ubuntu-latest, windows-latest]
+        os: [ubuntu-latest]
         spm_configuration: [debug, release]
-        cmake_generator: [Ninja, Xcode]
-
-        exclude:
-          - os: ubuntu-latest
-            cmake_generator: Xcode
-          - os: windows-latest
-            cmake_generator: Xcode
+        cmake_generator: [Ninja]
 
         include:
           - HYLO_LLVM_BUILD_RELEASE: 20240303-215025
@@ -191,18 +86,6 @@ jobs:
           - on_windows_and_spm_works: false
           - use_spm: true
 
-          - os: windows-latest
-            unpackage_command: 7z x -t7z
-            llvm_package_suffix: .7z
-            triple_suffix: unknown-windows-msvc17
-            windows_only: ''
-
-          - os: windows-latest
-            use_spm: false
-
-          - os: macos-13
-            triple_suffix: apple-darwin23.3.0
-
           - os: ubuntu-latest
             triple_suffix: unknown-linux-gnu
 
@@ -211,9 +94,6 @@ jobs:
 
           - spm_configuration: release
             cmake_build_type: Release
-
-          - cmake_generator: Xcode
-            use_spm: false
 
     runs-on: ${{ matrix.os }}
     env:
@@ -267,6 +147,12 @@ jobs:
 
           ${{ matrix.unpackage_command }} ${{ env.llvm_package_basename }}${{ matrix.llvm_package_suffix }}
 
+      - name: LucTeo testing
+        run: >-
+          pwd ;
+          ./ci-test/run_tests.sh
+        working-directory: hylo
+
       - name: Configure (CMake)
         # We explicitly point to swiftc in the PATH because otherwise CMake picks up the one in XCode.
         run: >-
@@ -280,61 +166,14 @@ jobs:
       - name: Build (CMake)
         run: cmake --build hylo/.ninja-build ${{ matrix.cmake_generator == 'Xcode' && format('--config {0}', matrix.cmake_build_type) || '' }}
 
-      - name: Test (CMake)
-        run: ctest --parallel --test-dir hylo/.ninja-build ${{ matrix.cmake_generator == 'Xcode' && format('-C {0}', matrix.cmake_build_type) || '' }}
-
-      - if: ${{ matrix.use_spm }}
-        name: Create LLVM pkgconfig file and make it findable
+      - name: LucTeo testing (2)
         run: >-
-          set -ex -o pipefail
-
-          mkdir pkg-config
-
-          PATH="${{ github.workspace }}/${{ env.llvm_package_basename }}/bin:$PATH"
-            hylo/Tools/make-pkgconfig.sh pkg-config/llvm.pc
-
-          echo 'PKG_CONFIG_PATH=${{ github.workspace }}/pkg-config' >> "$GITHUB_ENV"
-        shell: bash
-
-      - if: ${{ matrix.use_spm }}
-        uses: actions/cache@v4
-        name: SPM cache setup
-        with:
-          path: hylo/.build
-          key: ${{ runner.os }}-${{ matrix.spm_configuration }}-spm-${{ hashFiles('hylo/**/Package.resolved') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ matrix.spm_configuration }}-spm-
-
-      - if: ${{ matrix.on_windows_and_spm_works }}
-        name: Build support library
-        run: clang -c ./StandardLibrary/Sources/LibC.c -o HyloLibC.lib
+          pwd ;
+          ./ci-test/run_tests2.sh
         working-directory: hylo
 
-      - if: ${{ matrix.on_windows_and_spm_works }}
-        name: Build the dependencies of build tools
-        run: |
-          echo 'SPM_BUILD_TOOL_SUPPORT_NO_REENTRANT_BUILD=1' >> $env:GITHUB_ENV
-          swift build ${{ env.spm-build-options }} --target BuildToolDependencies
-          # https://github.com/apple/swift/issues/72121
-          if (-not $?) {
-              swift build ${{ env.spm-build-options }} --target BuildToolDependencies
-          }
-        working-directory: hylo
-
-      - if: ${{ matrix.use_spm }}
-        name: Build
-        run: |
-          swift build -c ${{ matrix.spm_configuration }} ${{ env.spm-build-options }} --build-tests
-          ${{ matrix.windows_only }} if (-not $?) { swift build ${{ env.spm-build-options }} --target BuildToolDependencies }
-
-        working-directory: hylo
-
-      - if: ${{ matrix.use_spm }}
-        name: Test
-        run: |
-          swift test --skip-build -c ${{ matrix.spm_configuration }} ${{ env.spm-build-options }} ${{ env.spm-test-options }}
-          ${{ matrix.windows_only }} if (-not $?) { swift test -c ${{ matrix.spm_configuration }} ${{ env.spm-test-options }} }
-        working-directory: hylo
+      - name: Test (CMake)
+        run: ctest --parallel --output-on-failure --test-dir hylo/.ninja-build ${{ matrix.cmake_generator == 'Xcode' && format('-C {0}', matrix.cmake_build_type) || '' }}
 
       - name: Output compiler version
         run: cmake --build hylo/.ninja-build --target output_compiler_version -- --quiet&

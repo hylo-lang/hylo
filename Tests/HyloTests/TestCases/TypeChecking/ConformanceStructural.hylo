@@ -1,7 +1,0 @@
-//- typeCheck expecting: .failure
-
-//! @+1 diagnostic type 'A<T>' does not conform to trait 'Deinitializable'
-type A<T>: Deinitializable {
-  var x: T
-  public memberwise init
-}

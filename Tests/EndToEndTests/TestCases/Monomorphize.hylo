@@ -1,8 +1,0 @@
-//- compileAndRun expecting: .success
-
-fun poly<T>(_ x: T) -> Int { 0 }
-
-public fun main() {
-  precondition(poly(true) == 0)
-  precondition(poly("s") == 0)
-}

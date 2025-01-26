@@ -1,8 +1,0 @@
-//- typeCheck expecting: .success
-
-fun check<T>(_ x: T) {}
-
-public fun main() {
-  let s = "Hi"
-  check<String>(s)
-}

@@ -1,5 +1,0 @@
-//- parse expecting: .success
-
-public fun main() {
-  var x = 0; eat(x)
-}

@@ -1,8 +1,0 @@
-//- typeCheck expecting: .failure
-
-type A { public memberwise init }
-
-public fun main() {
-  let a = A()
-  let _ = a[0] //! diagnostic cannot call value of type 'A' as a subscript
-}

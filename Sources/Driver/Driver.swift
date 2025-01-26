@@ -282,11 +282,15 @@ public struct Driver: ParsableCommand {
 
     if typeCheckOnly { return }
 
+    let stdLibMod = program.ast.modules.first!
+
     // IR
 
     var ir = try lower(program: program, reportingDiagnosticsTo: &log)
 
     if outputType == .ir || outputType == .rawIR {
+      let m1 = ir.modules[stdLibMod]!
+      try m1.description.write(to: irFile("StdLib"), atomically: true, encoding: .utf8)
       let m = ir.modules[sourceModule]!
       try m.description.write(to: irFile(productName), atomically: true, encoding: .utf8)
       return
@@ -317,6 +321,8 @@ public struct Driver: ParsableCommand {
 
     logVerbose("LLVM processing complete.\n")
     if outputType == .llvm {
+      let m1 = llvmProgram.llvmModules[stdLibMod]!
+      try m1.description.write(to: llvmFile("StdLib"), atomically: true, encoding: .utf8)
       let m = llvmProgram.llvmModules[sourceModule]!
       logVerbose("writing LLVM output.")
       try m.description.write(to: llvmFile(productName), atomically: true, encoding: .utf8)

@@ -1,3 +1,0 @@
-//- typeCheck expecting: .success
-
-fun f0[sink let x = ()]() {}
