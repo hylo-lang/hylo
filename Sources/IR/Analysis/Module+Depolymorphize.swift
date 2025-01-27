@@ -12,7 +12,7 @@ extension IR.Program {
   }
 
   /// Generates the non-parametric resilient API of `m`.
-  public mutating func depolymorphize(_ m: ModuleDecl.ID) {
+  public mutating func depolymorphize(_ m: Module.ID) {
     for k in modules[m]!.functions.keys {
       let f = modules[m]!.functions[k]!
 
@@ -34,7 +34,7 @@ extension IR.Program {
 
   /// Replaces uses of parametric types and functions in `f` with their monomorphic or existential
   /// counterparts.
-  private mutating func depolymorphize(_ f: Function.ID, definedIn m: ModuleDecl.ID) {
+  private mutating func depolymorphize(_ f: Function.ID, definedIn m: Module.ID) {
     for b in modules[m]!.blocks(in: f) {
       for i in modules[m]!.instructions(in: b) {
         switch modules[m]![i] {
@@ -53,7 +53,7 @@ extension IR.Program {
   /// depolymorphized version of its callee.
   ///
   /// - Requires: `i` identifies a `CallInstruction`
-  private mutating func depolymorphize(call i: InstructionID, definedIn m: ModuleDecl.ID) {
+  private mutating func depolymorphize(call i: InstructionID, definedIn m: Module.ID) {
     let s = modules[m]![i] as! Call
     guard
       let callee = s.callee.constant as? FunctionReference,
@@ -73,7 +73,7 @@ extension IR.Program {
   /// a depolymorphized version of its callee.
   ///
   /// - Requires: `i` identifies a `ProjectInstruction`
-  private mutating func depolymorphize(project i: InstructionID, definedIn m: ModuleDecl.ID) {
+  private mutating func depolymorphize(project i: InstructionID, definedIn m: Module.ID) {
     let s = modules[m]![i] as! Project
     guard !s.specialization.isEmpty else { return }
 

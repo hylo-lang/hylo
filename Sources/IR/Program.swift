@@ -15,17 +15,17 @@ public struct Program: FrontEnd.Program {
   public let base: TypedProgram
 
   /// A map from module ID to its lowered form.
-  public var modules: [ModuleDecl.ID: IR.Module]
+  public var modules: [Module.ID: IR.Module]
 
   /// Creates an instance with the given properties.
-  public init(syntax: TypedProgram, modules: [ModuleDecl.ID: IR.Module]) {
+  public init(syntax: TypedProgram, modules: [Module.ID: IR.Module]) {
     precondition(modules.values.elementCount(where: { $0.entryFunction != nil }) <= 1)
     self.base = syntax
     self.modules = modules
   }
 
   /// The identity of the entry module.
-  public var entry: ModuleDecl.ID? {
+  public var entry: Module.ID? {
     modules.first(where: { $0.value.entryFunction != nil })?.key
   }
 
@@ -40,7 +40,7 @@ public struct Program: FrontEnd.Program {
   }
 
   /// Returns the module containing the unique definition of `f`.
-  public func module(defining f: Function.ID) -> ModuleDecl.ID {
+  public func module(defining f: Function.ID) -> Module.ID {
     switch f.value {
     case .lowered(let d):
       return base.module(containing: base[d].scope)
