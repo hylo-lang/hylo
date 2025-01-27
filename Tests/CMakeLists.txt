@@ -28,6 +28,12 @@ add_hylo_test_of(IR NAMED ManglingTests
 add_hylo_test_of(FrontEnd NAMED HyloTests
   DEPENDENCIES IR TestUtils StandardLibrary Utils Algorithms)
 
+add_hylo_test_of(Interpreter NAMED InterpreterTests
+  DEPENDENCIES Interpreter IR
+  # TODO: why is this needed?
+  Collections
+)
+
 add_hylo_test_of(Driver NAMED EndToEndTests
   DEPENDENCIES TestUtils
   # TODO: why are these needed?

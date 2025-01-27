@@ -117,6 +117,16 @@ let package = Package(
       path: "Sources/CodeGen/LLVM",
       swiftSettings: allTargetsSwiftSettings),
 
+
+    .target(
+      name: "Interpreter",
+      dependencies: [
+        "FrontEnd",
+        "IR",
+        "Utils"
+      ],
+      swiftSettings: allTargetsSwiftSettings),
+
     .target(
       name: "Utils",
       dependencies: [
@@ -176,6 +186,13 @@ let package = Package(
       exclude: ["TestCases"],
       swiftSettings: allTargetsSwiftSettings,
       plugins: ["TestGeneratorPlugin"]),
+
+    .testTarget(
+      name: "InterpreterTests",
+      dependencies: [
+        "Interpreter", "IR"
+      ],
+      swiftSettings: allTargetsSwiftSettings),
 
     .testTarget(
       name: "EndToEndTests",
