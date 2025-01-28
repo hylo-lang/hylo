@@ -8,7 +8,7 @@ struct CodePointer {
 }
 
 struct Register {
-  let type: Type
+  let type: IR.Type
 }
 
 struct StackFrame {
