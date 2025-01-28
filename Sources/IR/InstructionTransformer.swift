@@ -34,8 +34,8 @@ extension IR.Program {
   /// Inserts a copy of `i`, which is in `m`, at `p`, which is in `n`, transforming its parts with
   /// `t` and returning its identifier.
   mutating func rewrite<T: InstructionTransformer>(
-    _ i: InstructionID, from m: ModuleDecl.ID, transformedBy t: inout T,
-    at p: InsertionPoint, in n: ModuleDecl.ID
+    _ i: InstructionID, from m: Module.ID, transformedBy t: inout T,
+    at p: InsertionPoint, in n: Module.ID
   ) -> InstructionID {
     switch modules[m]![i] {
     case let s as Access:
@@ -265,7 +265,7 @@ extension IR.Program {
 
   /// Inserts the result of `makeInstruction` at `p`, which is in `m`.
   private mutating func insert<T: Instruction>(
-    at p: InsertionPoint, in m: ModuleDecl.ID, _ makeInstruction: (inout Module) -> T
+    at p: InsertionPoint, in m: Module.ID, _ makeInstruction: (inout Module) -> T
   ) -> InstructionID {
     modify(&modules[m]!) { (x) in
       let s = makeInstruction(&x)

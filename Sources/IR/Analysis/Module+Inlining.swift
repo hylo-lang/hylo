@@ -11,7 +11,7 @@ extension IR.Program {
   }
 
   /// Inlines calls in `m` satisfying `shouldInline`.
-  public mutating func inlineCalls(in m: ModuleDecl.ID, where shouldInline: InliningPredicate) {
+  public mutating func inlineCalls(in m: Module.ID, where shouldInline: InliningPredicate) {
     for k in modules[m]!.functions.keys {
       inlineCalls(in: k, definedIn: m, where: shouldInline)
     }
@@ -19,7 +19,7 @@ extension IR.Program {
 
   /// Inlines calls in `f` satisfying `shouldInline`, reading the definition of `f` from `m`.
   public mutating func inlineCalls(
-    in f: Function.ID, definedIn m: ModuleDecl.ID, where shouldInline: InliningPredicate
+    in f: Function.ID, definedIn m: Module.ID, where shouldInline: InliningPredicate
   ) {
     var work: [InstructionID] = []
     for b in modules[m]!.blocks(in: f) {
@@ -45,7 +45,7 @@ extension IR.Program {
   /// of inlining. For example, if `i` is a call to F, the functions called by F are not inlined.
   /// Likewise, if F is recursive, only one level of recursion is inlined.
   private mutating func inline(
-    functionCall i: InstructionID, definedIn m: ModuleDecl.ID, if shouldInline: InliningPredicate
+    functionCall i: InstructionID, definedIn m: Module.ID, if shouldInline: InliningPredicate
   ) -> Bool {
     let s = modules[m]![i] as! Call
 
