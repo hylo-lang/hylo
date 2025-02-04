@@ -1,4 +1,4 @@
-internal typealias pthread_t = Int // UInt64
+internal let invalid_thread_id: pthread_t = 0xffffffffffffffff
 
 internal type OSThread {
 
@@ -7,7 +7,7 @@ internal type OSThread {
   internal memberwise init
 
   internal init() {
-    &id = -1
+    &id = invalid_thread_id.copy()
   }
 
   internal fun deinit() {
@@ -18,12 +18,12 @@ internal type OSThread {
     #if os(Linux) || os(macOS)
       // TODO: improve error handling
       let pf = deref(take_address(&f))
-      var thread_id: pthread_t = -1
+      var thread_id: pthread_t = invalid_thread_id.copy()
       var attr: pthread_attr_t = .new()
       let pattr = mutable_pointer[to: &attr]
       if pthread_attr_init(pattr) != 0 { return .new() }
       if stack > 0 {
-        if pthread_attr_setstacksize(pattr, Int(truncating_or_extending: stack)) != 0 { return .new() }
+        if pthread_attr_setstacksize(pattr, c_size_t(truncating_or_extending: stack)) != 0 { return .new() }
       }
       if pthread_create(mutable_pointer[to: &thread_id], pattr, pf) != 0 { return .new() }
 
@@ -47,7 +47,7 @@ internal type OSThread {
       var ret: MemoryAddress = .null()
       let _ = pthread_join(id, mutable_pointer[to: &ret])
       let _ = pthread_detach(id)
-      &id = -1
+      &id = invalid_thread_id.copy()
     #endif
   }
 
@@ -58,13 +58,13 @@ internal type OSThread {
   internal static fun available_parallelism() -> Int {
     #if os(Linux) || os(macOS)
       #if os(Linux)
-        let _SC_NPROCESSORS_ONLN = 84
+        let _SC_NPROCESSORS_ONLN: c_int = 84
       #elseif os(macOS)
-        let _SC_NPROCESSORS_ONLN = 58
+        let _SC_NPROCESSORS_ONLN: c_int = 58
       #endif
       let r = sysconf(name: _SC_NPROCESSORS_ONLN)
       if r >= 0 {
-        return r
+        return Int(truncating_or_extending: r)
       }
       #endif
     return 0
