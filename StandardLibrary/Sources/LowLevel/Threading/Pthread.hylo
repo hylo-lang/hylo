@@ -47,3 +47,5 @@ internal fun pthread_create(_ thread: PointerToMutable<pthread_t>, _ attr: Point
 internal fun pthread_join(_ thread: pthread_t, _ ret: PointerToMutable<MemoryAddress>) -> c_int
 @ffi("pthread_detach")
 internal fun pthread_detach(_ thread: pthread_t) -> c_int
+@ffi("pthread_self")
+internal fun pthread_self() -> pthread_t

@@ -57,6 +57,11 @@ public fun spawn_thread(stack_size: UInt, executing f: sink []() -> Void) -> Thr
   .new(thread: OSThread.spawn_thread(stack: stack_size, executing: f))
 }
 
+/// Returns the unique identifier for the current thread.
+public fun current_thread_id() -> ThreadId {
+  .new(os_value: pthread_self())
+}
+
 /// Yields the current execution time slice to the operating system.
 public fun yield_now() {
   OSThread.yield_now()

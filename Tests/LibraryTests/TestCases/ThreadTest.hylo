@@ -17,4 +17,5 @@ public fun main() {
 
   precondition(tid != 0)
   precondition(tid != UInt64(truncating_or_extending: -1))
+  precondition(tid != current_thread_id().numeric_value())
 }
