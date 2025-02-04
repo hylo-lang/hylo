@@ -2,7 +2,7 @@
 public struct DoublyLinkedList<Element> {
 
   // The raw storage grows automatically when inserting an element would exceed its capability, but
-  // it never shinks. A linked list keeps track of the free buckets in the buffer to reuse memory
+  // it never shrinks. A linked list keeps track of the free buckets in the buffer to reuse memory
   // after an element has been removed.
 
   /// The address of an element in a doubly linked list.

@@ -4,7 +4,7 @@
 /// including the "past-the-end" position that isn't valid for use as a subscript argument. Unlike
 import Utils
 
-/// an identity, an index is not *stable*: inserting or removing instructions from the containing
+/// Unlike an identity, an index is not *stable*: inserting or removing instructions from the containing
 /// block may invalidate existing indices.
 ///
 /// - SeeAlso: `InstructionID`

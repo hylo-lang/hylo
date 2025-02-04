@@ -10,11 +10,14 @@ import Utils
 /// a definition. When they don't, they denote a declaration known to be defined in another module.
 public struct Module {
 
+  /// Unique identifier of a module within a program.
+  public typealias ID = ModuleDecl.ID
+
   /// The program defining the functions in `self`.
   public let program: TypedProgram
 
   /// The module's identifier.
-  public let id: ModuleDecl.ID
+  public let id: ID
 
   /// The def-use chains of the values in this module.
   public private(set) var uses: [Operand: [Use]] = [:]
