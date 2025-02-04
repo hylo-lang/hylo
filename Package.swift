@@ -1,4 +1,4 @@
-// swift-tools-version:5.10
+// swift-tools-version: 6.0
 import Foundation
 import PackageDescription
 
@@ -37,10 +37,10 @@ let package = Package(
   dependencies: [
     .package(
       url: "https://github.com/apple/swift-argument-parser.git",
-      from: "1.1.4"),
+      from: "1.5.0"),
     .package(
       url: "https://github.com/apple/swift-collections.git",
-      from: "1.0.0"),
+      from: "1.1.4"),
     .package(
       url: "https://github.com/apple/swift-algorithms.git",
       from: "1.2.0"),
@@ -49,10 +49,10 @@ let package = Package(
       from: "1.2.0"),
     .package(
       url: "https://github.com/attaswift/BigInt.git",
-      from: "5.3.0"),
+      from: "5.5.1"),
     .package(
       url: "https://github.com/hylo-lang/Swifty-LLVM",
-      branch: "main"),
+      revision: "509567462dfff80f93244884876dba27858453ef"),
     .package(
       url: "https://github.com/apple/swift-format",
       from: "508.0.1"),

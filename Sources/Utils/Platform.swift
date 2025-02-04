@@ -2,7 +2,7 @@
 public enum Platform {
 
   /// An operating system on which the compiler/interpreter/target program can run.
-  public enum OperatingSystem: Codable, CustomStringConvertible {
+  public enum OperatingSystem: Codable, CustomStringConvertible, Sendable {
 
     case macOS, linux, windows
 
@@ -18,7 +18,7 @@ public enum Platform {
   }
 
   /// An architecture on which the the compiler/interpreter/target program can run.
-  public enum Architecture: String, Codable, CustomStringConvertible {
+  public enum Architecture: String, Codable, CustomStringConvertible, Sendable {
 
     case i386, x86_64, arm, arm64
 
