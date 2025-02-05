@@ -1,10 +1,10 @@
 import Utils
 
 /// An existential type, optionally bound by traits and constraints on associated types.
-public struct ExistentialType: TypeProtocol {
+public struct ExistentialType: TypeProtocol, Sendable {
 
   /// The interface of an existential type.
-  public enum Interface: Hashable {
+  public enum Interface: Hashable, Sendable {
 
     /// The traits to which the witness is known to conform.
     case traits(Set<TraitType>)

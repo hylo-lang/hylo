@@ -6,7 +6,7 @@ import Utils
 struct CallConstraint: Constraint, Hashable {
 
   /// The label, type, and site of an argument passed to a callable object.
-  struct Argument: Hashable {
+  struct Argument: Hashable, Sendable {
 
     /// The label of the argument.
     let label: SourceRepresentable<String>?

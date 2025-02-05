@@ -1,5 +1,5 @@
 /// The declaration and site from which an explicit conformance originates.
-public struct ConformanceOrigin {
+public struct ConformanceOrigin: Sendable {
 
   /// The declaration of the conformance.
   public let source: AnyDeclID
@@ -15,4 +15,4 @@ public struct ConformanceOrigin {
 
 }
 
-extension ConformanceOrigin: Hashable {}
+extension ConformanceOrigin: Hashable, Sendable {}

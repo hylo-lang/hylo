@@ -77,7 +77,7 @@ on the C++ side
 #+BEGIN_SRC
 template <class HyloType> struct InCpp {
   HyloType stored;
-  ~InCpp() { this->stored.deinit(); }
+  ~InCpp(): Sendable { this->stored.deinit(); }
 }
 #+END_SRC
 An alternative is to generate a C++ destructor for each Hylo =deinit= with the requirement that

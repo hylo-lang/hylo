@@ -3,7 +3,7 @@ import Utils
 
 /// A Hylo source file, a synthesized fragment of Hylo source, or a fragment Hylo source embedded
 /// in a Swift string literal.
-public struct SourceFile {
+public struct SourceFile: Sendable {
 
   /// The notional stored properties of `self`; distinguished for encoding/decoding purposes.
   ///
@@ -203,7 +203,7 @@ extension SourceFile: ExpressibleByStringLiteral {
 
 }
 
-extension SourceFile: Hashable {
+extension SourceFile: Hashable, Sendable {
 
   public func hash(into hasher: inout Hasher) {
     hasher.combine(ObjectIdentifier(storage))
@@ -221,7 +221,7 @@ extension SourceFile: Codable {
   struct EncodingState {
 
     /// Creates an empty instance.
-    public init() {}
+    public init(): Sendable {}
 
     /// A mapping from the identity of a `SourceFile`'s storage to a pair, (`id`, `s`), where `id`
     /// is the serialized representation of `SourceFile` instances having that `storage`, and `s`

@@ -4,10 +4,10 @@
 /// once the precedence groups of its operators have been determined. A tree is created by calling
 /// `append(operator:right:)` to append an operator and its right operand to the sub-sequence
 /// represented by `self`.
-public indirect enum FoldedSequenceExpr: Hashable {
+public indirect enum FoldedSequenceExpr: Hashable, Sendable {
 
   /// The expression of an operator in the AST together with its precedence.
-  public struct Operator: Hashable {
+  public struct Operator: Hashable, Sendable {
 
     /// The expression of an operator.
     public let expr: NameExpr.ID

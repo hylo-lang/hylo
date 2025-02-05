@@ -1,5 +1,5 @@
 /// How a binding declaration is being used.
-enum BindingDeclUse: Hashable {
+enum BindingDeclUse: Hashable, Sendable {
 
   /// The declaration is used to introduce new bindings unconditionally.
   ///

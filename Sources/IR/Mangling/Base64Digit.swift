@@ -12,7 +12,7 @@
 ///     └────────────────────────────────────────────────────────┘
 ///
 /// This character set is suitable for use in LLVM assembly identifiers.
-public struct Base64Digit: Hashable {
+public struct Base64Digit: Hashable, Sendable {
 
   /// The value of the digit, in the range `0 ..< 64`.
   public let rawValue: UInt8

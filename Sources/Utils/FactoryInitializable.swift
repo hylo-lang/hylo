@@ -4,7 +4,7 @@ public protocol FactoryInitializable {
   /// The type of the least-derived class declared to be FactoryInitializable.
   ///
   /// - Warning: Do not define this in your FactoryInitializable type!
-  associatedtype FactoryBase: AnyObject, FactoryInitializable = Self
+  associatedtype FactoryBase: Sendable,  AnyObject, FactoryInitializable = Self
 
   // This associatedtype is a trick that captures `Self` at the point where
   // `FactoryInitializable` enters a class hierarchy; in other contexts, `Self`

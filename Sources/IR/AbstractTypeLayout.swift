@@ -1,7 +1,7 @@
 import FrontEnd
 
 /// The abstract layout of a type, describing the relative offsets of its stored properties.
-public struct AbstractTypeLayout {
+public struct AbstractTypeLayout: Sendable {
 
   /// The name and type of a stored property.
   public typealias StoredProperty = (name: String?, type: AnyType)
@@ -46,7 +46,7 @@ public struct AbstractTypeLayout {
 
 }
 
-extension AbstractTypeLayout: Hashable {
+extension AbstractTypeLayout: Hashable, Sendable {
 
   public func hash(into hasher: inout Hasher) {
     type.hash(into: &hasher)

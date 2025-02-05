@@ -5,7 +5,7 @@ import Durian
 struct ParserState {
 
   /// A tag representing the context of the parser.
-  enum Context {
+  enum Context: Sendable {
 
     case bindingPattern
 

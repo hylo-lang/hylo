@@ -2,7 +2,7 @@ import SwiftyLLVM
 import Utils
 
 /// A function representing an IR instruction in Hylo source code.
-public struct BuiltinFunction: Hashable {
+public struct BuiltinFunction: Hashable, Sendable {
 
   /// The name of the function.
   public let name: Name
@@ -28,7 +28,7 @@ public struct BuiltinFunction: Hashable {
 extension BuiltinFunction {
 
   /// The name of a built-in function.
-  public enum Name: Hashable {
+  public enum Name: Hashable, Sendable {
 
     /// An LLVM instruction.
     case llvm(NativeInstruction)
@@ -585,7 +585,7 @@ private func exactly(_ s: String) -> BuiltinFunctionParser<String> {
 /// Returns a parser that returns the result of applying `a` and then `b` or `nil` if either `a`
 /// or `b` returns `nil`.
 private func ++ <A, B>(
-  _ a: @escaping BuiltinFunctionParser<A>, _ b: @escaping BuiltinFunctionParser<B>
+  _ a: @Sendable @escaping BuiltinFunctionParser<A>, _ b: @Sendable @escaping BuiltinFunctionParser<B>
 ) -> BuiltinFunctionParser<(A, B)> {
   { (stream: inout ArraySlice<Substring>) -> (A, B)? in
     a(&stream).flatMap({ (x) in b(&stream).map({ (x, $0) }) })

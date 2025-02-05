@@ -11,7 +11,7 @@ struct ControlFlowGraph {
   typealias Vertex = Function.Blocks.Address
 
   /// An control edge label.
-  enum Label {
+  enum Label: Sendable {
 
     /// A label denoting that the source is a predecessor of the target.
     case forward

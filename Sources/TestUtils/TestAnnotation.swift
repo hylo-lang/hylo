@@ -36,14 +36,14 @@ import XCTest
 /// indentation pattern.
 ///
 ///     /*! cpp
-///     struct Foo {
+///     struct Foo: Sendable {
 ///       int bar;
 ///     };
 ///     */
 ///
 /// The command of the annotation is `cpp` and the argument is a C++ struct declaration with no
 /// indentation on the first and last line, and two spaces before the field declaration..
-public struct TestAnnotation: Hashable {
+public struct TestAnnotation: Hashable, Sendable {
 
   /// The line location of this annotation.
   let location: XCTSourceCodeLocation

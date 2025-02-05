@@ -1,6 +1,6 @@
 /// A wrapper type signaling that the wrapped value is incidental for the purpose of hashing and
 /// equality comparison.
-public struct Incidental<T>: Hashable {
+public struct Incidental<T: Sendable>: Hashable, Sendable {
 
   /// The incidental, wrapped value.
   public var value: T

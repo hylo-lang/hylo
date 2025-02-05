@@ -1,5 +1,5 @@
 /// A type serving as a witness to another type's conformance to `Hashable`.
-public protocol HashableWitness<Element>: EquatableWitness {
+public protocol HashableWitness<Element>: EquatableWitness, Sendable {
 
   /// The element for which `Self` serves as a witness.
   associatedtype Element

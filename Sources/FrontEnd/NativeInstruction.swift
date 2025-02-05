@@ -25,7 +25,7 @@ import SwiftyLLVM
 ///
 /// Supported operations include all LLVM arithmetic and comparison instructions on built-in
 /// integral and floating-point numbers as well as conversions from and to these types.
-public enum NativeInstruction: Hashable {
+public enum NativeInstruction: Hashable, Sendable {
 
   case add(SwiftyLLVM.OverflowBehavior, BuiltinType)
 

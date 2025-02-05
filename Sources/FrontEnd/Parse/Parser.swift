@@ -17,7 +17,7 @@ import Utils
 ///     let p2 = attempt(foo.and(bar)).or(foo)
 
 /// A namespace for the routines of Hylo's parser.
-public enum Parser {
+public enum Parser: Sendable {
 
   /// Parses the contents of `input` as a translation unit, registering the identities of newly
   /// formed ASTs in space `k` and reporting errors to `diagnostics`.
@@ -3432,7 +3432,7 @@ public enum Parser {
 }
 
 /// The attributes and modifiers preceding a declaration.
-struct DeclPrologue {
+struct DeclPrologue: Sendable {
 
   /// Indicates whether the prologue is empty.
   let isEmpty: Bool
@@ -3457,7 +3457,7 @@ struct DeclPrologue {
 }
 
 /// The parsed head of a function declaration.
-struct FunctionDeclHead {
+struct FunctionDeclHead: Sendable {
 
   /// The site of the `fun` introducer.
   let introducerSite: SourceRange
@@ -3477,7 +3477,7 @@ struct FunctionDeclHead {
 }
 
 /// The parsed signature of a function declaration.
-struct FunctionDeclSignature {
+struct FunctionDeclSignature: Sendable {
 
   /// The parameters of the declaration.
   let parameters: [ParameterDecl.ID]
@@ -3500,7 +3500,7 @@ enum FunctionOrMethodDeclBody {
 }
 
 /// The parsed head of a subscript declaration.
-struct SubscriptDeclHead {
+struct SubscriptDeclHead: Sendable {
 
   /// The introducer of the declaration.
   let introducer: SourceRepresentable<SubscriptDecl.Introducer>
@@ -3517,7 +3517,7 @@ struct SubscriptDeclHead {
 }
 
 /// The parsed head of a property declaration.
-struct PropertyDeclHead {
+struct PropertyDeclHead: Sendable {
 
   /// The introducer of the declaration.
   let introducer: SourceRepresentable<SubscriptDecl.Introducer>
@@ -3528,7 +3528,7 @@ struct PropertyDeclHead {
 }
 
 /// The parsed signature of a subscript declaration.
-struct SubscriptDeclSignature {
+struct SubscriptDeclSignature: Sendable {
 
   /// The parameters of the declaration.
   let parameters: [ParameterDecl.ID]
@@ -3539,7 +3539,7 @@ struct SubscriptDeclSignature {
 }
 
 /// The parsed component of a name expression.
-struct NameExprComponent {
+struct NameExprComponent: Sendable {
 
   /// The site from which `self` was parsed.
   let site: SourceRange
@@ -3553,7 +3553,7 @@ struct NameExprComponent {
 }
 
 /// The name and argument label of a parameter declaration.
-struct ParameterInterface {
+struct ParameterInterface: Sendable {
 
   /// The argument label of the parameter, if any.
   let label: SourceRepresentable<Identifier>?
@@ -3639,7 +3639,7 @@ struct DelimitedCommaSeparatedList<E: Combinator>: Combinator where E.Context ==
   typealias Context = ParserState
 
   /// The result of a comma-separated list parser.
-  struct Element {
+  struct Element: Sendable {
 
     /// The left delimiter of the list.
     let opener: Token

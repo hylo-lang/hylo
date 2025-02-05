@@ -1,12 +1,12 @@
 /// A doubly linked list.
-public struct DoublyLinkedList<Element> {
+public struct DoublyLinkedList<Element: Sendable>: Sendable {
 
   // The raw storage grows automatically when inserting an element would exceed its capability, but
   // it never shrinks. A linked list keeps track of the free buckets in the buffer to reuse memory
   // after an element has been removed.
 
   /// The address of an element in a doubly linked list.
-  public struct Address: Hashable {
+  public struct Address: Hashable, Sendable {
 
     public fileprivate(set) var rawValue: Int
 
@@ -29,7 +29,7 @@ public struct DoublyLinkedList<Element> {
   }
 
   /// A collection with the addresses of a doubly-linked list.
-  public struct Addresses {
+  public struct Addresses: Sendable {
 
     private var base: DoublyLinkedList.Indices
 
@@ -42,7 +42,7 @@ public struct DoublyLinkedList<Element> {
   /// A bucket in the internal storage of a doubly linked list.
   ///
   /// - Note: A bucket is said to be used if its element is not `nil`.
-  fileprivate struct Bucket {
+  fileprivate struct Bucket: Sendable {
 
     /// If the bucket is used, represents the offset of the preceding bucket in the list, or `-1`
     /// if such a bucket is not defined; unspecified otherwise.
@@ -315,7 +315,7 @@ public struct DoublyLinkedList<Element> {
 
 extension DoublyLinkedList: BidirectionalCollection, MutableCollection {
 
-  public struct Index: Comparable, Hashable {
+  public struct Index: Comparable, Hashable, Sendable {
 
     /// The address corresponding to that index.
     public let address: Address

@@ -2,7 +2,7 @@ import Utils
 
 /// A collection of constraints over a set of open type variables and a set of unresolved name
 /// expressions.
-struct ConstraintSystem {
+struct ConstraintSystem: Sendable {
 
   /// The scope in which the goals are solved.
   private let scope: AnyScopeID
@@ -1109,7 +1109,7 @@ private typealias GoalIdentity = Int
 private typealias OutcomeMap = [Outcome?]
 
 /// The outcome of a goal.
-private enum Outcome {
+private enum Outcome: Sendable {
 
   /// The goal was solved.
   ///

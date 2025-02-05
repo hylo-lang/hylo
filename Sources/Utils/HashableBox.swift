@@ -1,5 +1,5 @@
 /// A wrapper implementing a value's conformance to `Hashable` with a custom witness.
-public struct HashableBox<Witness: HashableWitness>: Hashable {
+public struct HashableBox<Witness: HashableWitness>: Hashable, Sendable where Witness.Element: Sendable {
 
   /// The value wrapped by this instance.
   public let base: Witness.Element

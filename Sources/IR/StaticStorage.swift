@@ -1,7 +1,7 @@
 import FrontEnd
 
 /// The address of some statically allocated storage.
-public struct StaticStorage {
+public struct StaticStorage: Sendable {
 
   /// The identifier of the storage.
   public let id: AnyDeclID
@@ -33,7 +33,7 @@ extension StaticStorage: Equatable {
 
 }
 
-extension StaticStorage: Hashable {
+extension StaticStorage: Hashable, Sendable {
 
   public func hash(into hasher: inout Hasher) {
     hasher.combine(id)

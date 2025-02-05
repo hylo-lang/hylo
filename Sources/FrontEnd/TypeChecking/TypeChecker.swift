@@ -6,7 +6,7 @@ import Utils
 /// - Note: A method named with a leading underscore are meant be called only by the method with
 ///   the same name but without that leading underscore. The former typically implement the actual
 ///   computation of a value that is memoized by the latter.
-struct TypeChecker {
+struct TypeChecker: Sendable {
 
   /// The diagnostics of the type errors.
   private(set) var diagnostics = DiagnosticSet()
@@ -4869,7 +4869,7 @@ struct TypeChecker {
   // MARK: Quantifier elimination
 
   /// A context in which a generic parameter can be instantiated.
-  private struct InstantiationContext {
+  private struct InstantiationContext: Sendable {
 
     /// The scope in which the parameter is being used.
     let scopeOfUse: AnyScopeID
@@ -6654,7 +6654,7 @@ struct TypeChecker {
   // MARK: Caching
 
   /// A possibly shared instance of a typed program.
-  struct Cache {
+  struct Cache: Sendable {
 
     /// A lookup table.
     typealias LookupTable = [String: Set<AnyDeclID>]
@@ -6663,7 +6663,7 @@ struct TypeChecker {
     typealias TypeLookupKey = ScopedValue<AnyType>
 
     /// Cached information about the extensions of a scope.
-    struct ScopeExtensionCache {
+    struct ScopeExtensionCache: Sendable {
 
       /// A table mapping an extension in a given scope to `true` iff that extension is bound.
       var unbound: BitArray
@@ -6780,7 +6780,7 @@ struct TypeChecker {
     mutating func write<V>(
       _ value: V, at path: WritableKeyPath<TypedProgram, V>,
       ignoringSharedCache ignoreSharedCache: Bool = false,
-      mergingWith merge: @escaping (inout V, V) -> Void
+      mergingWith merge: @Sendable @escaping (inout V, V) -> Void
     ) {
       local.write(value, at: path, mergingWith: merge)
 
@@ -6837,7 +6837,7 @@ struct TypeChecker {
   }
 
   /// A synchronization update to perform on a shared instance.
-  private struct SynchronizationUpdate: Hashable {
+  private struct SynchronizationUpdate: Hashable, Sendable {
 
     /// A closure that accepts a `path` in `instance` and a `value` to write.
     typealias Apply = (
@@ -6863,7 +6863,7 @@ struct TypeChecker {
     }
 
     /// Creates an instance that writes `value` at `pathToUpdate` in a typed program.
-    init(_ pathToUpdate: PartialKeyPath<TypedProgram>, applying apply: @escaping Apply) {
+    init(_ pathToUpdate: PartialKeyPath<TypedProgram>, applying apply: @Sendable @escaping Apply) {
       self.pathToUpdate = pathToUpdate
       self.apply = apply
     }

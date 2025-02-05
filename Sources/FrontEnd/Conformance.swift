@@ -1,11 +1,11 @@
 /// Where, how, and under what conditions a type satisfies the requirements of a trait.
-public struct Conformance {
+public struct Conformance: Sendable {
 
   /// A map from requirement to their implementation.
   public typealias ImplementationMap = DeclProperty<Implementation>
 
   /// The implementation of a requirement.
-  public enum Implementation: Hashable {
+  public enum Implementation: Hashable, Sendable {
 
     /// Concrete or abstract implementation.
     case explicit(AnyDeclID)
@@ -92,7 +92,7 @@ extension Conformance: Equatable {
 
 }
 
-extension Conformance: Hashable {
+extension Conformance: Hashable, Sendable {
 
   public func hash(into hasher: inout Hasher) {
     model.hash(into: &hasher)

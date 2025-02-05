@@ -8,7 +8,7 @@ import Utils
 /// A lowered module is a collection of IR functions and a collection of constant IR values, which
 /// represent nominal types, traits, and global bindings. These entities may not necessarily have
 /// a definition. When they don't, they denote a declaration known to be defined in another module.
-public struct Module {
+public struct Module: Sendable {
 
   /// The program defining the functions in `self`.
   public let program: TypedProgram

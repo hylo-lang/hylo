@@ -2,7 +2,7 @@ import Foundation
 import Utils
 
 /// A data structure representing a typed Hylo program ready to be lowered.
-public struct TypedProgram {
+public struct TypedProgram: Sendable {
 
   /// A set of conformances represented to answer "does A conform to T in S" efficiently.
   public typealias ConformanceSet = [AnyType: ConformanceTable]

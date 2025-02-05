@@ -1,5 +1,5 @@
 /// The result of a name resolution request.
-enum NameResolutionResult {
+enum NameResolutionResult: Sendable {
 
   /// Name resolution applied on the nominal prefix that doesn't require any overload resolution.
   /// The payload contains the collections of resolved and unresolved components.
@@ -18,7 +18,7 @@ enum NameResolutionResult {
   case canceled(AnyType?, _ components: [NameExpr.ID])
 
   /// The result of name resolution for a single name component.
-  struct ResolvedComponent {
+  struct ResolvedComponent: Sendable {
 
     /// The resolved component.
     let component: NameExpr.ID
@@ -35,7 +35,7 @@ enum NameResolutionResult {
   }
 
   /// A candidate found by name resolution.
-  struct Candidate {
+  struct Candidate: Sendable {
 
     /// Declaration being referenced.
     let reference: DeclReference

@@ -3,7 +3,7 @@ import Utils
 extension Block {
 
   /// The ID of a basic block.
-  public struct ID: Hashable {
+  public struct ID: Hashable, Sendable {
 
     /// The ID of the function containing the block.
     public var function: Function.ID

@@ -13,7 +13,7 @@ public struct AnyNodeID: NodeIDProtocol {
 
 }
 
-extension AnyNodeID: Hashable {
+extension AnyNodeID: Hashable, Sendable {
 
   public func hash(into hasher: inout Hasher) {
     rawValue.hash(into: &hasher)

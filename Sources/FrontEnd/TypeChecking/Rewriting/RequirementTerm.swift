@@ -80,7 +80,7 @@ extension RequirementTerm: Collection {
 }
 
 /// A part of a term in a requirement rewriting system.
-enum RequirementSymbol: Hashable {
+enum RequirementSymbol: Hashable, Sendable {
 
   /// An associated type.
   case associatedType(AssociatedTypeDecl.ID)

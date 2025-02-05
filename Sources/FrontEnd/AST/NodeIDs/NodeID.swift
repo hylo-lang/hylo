@@ -26,7 +26,7 @@ extension NodeIDProtocol {
 
 public protocol ConcreteNodeID: NodeIDProtocol {
 
-  associatedtype Subject: Node
+  associatedtype Subject: Sendable,  Node
 
 }
 

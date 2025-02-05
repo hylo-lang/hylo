@@ -5,7 +5,7 @@ import SwiftyLLVM
 import Utils
 
 /// The state of a compilation from Hylo IR to LLVM IR.
-struct CodeGenerationContext {
+struct CodeGenerationContext: Sendable {
 
   /// The program containing the `module`.
   let ir: IR.Program
@@ -1806,7 +1806,7 @@ extension LLVMProgram: CustomStringConvertible {
 }
 
 /// The contents of an arrow.
-private struct ArrowContents {
+private struct ArrowContents: Sendable {
 
   /// A pointer to the underlying thin function.
   let function: SwiftyLLVM.IRValue

@@ -22,7 +22,7 @@ import Utils
 /// - Note: Unless documented otherwise, the methods of `Emitter` type insert IR in `self.module`
 ///   at `self.insertionPoint`, anchoring new instructions at the given source range, named `site`
 ///   in their parameter lists.
-struct Emitter {
+struct Emitter: Sendable {
 
   /// The diagnostics of lowering errors.
   private var diagnostics: DiagnosticSet = []
@@ -2335,7 +2335,7 @@ struct Emitter {
     switch program[callee].referredDecl {
     case .direct(let d, let a) where d.kind == SubscriptDecl.self:
       // Callee is a direct reference to a subscript declaration.
-      guard SubscriptType(canonical(program[d].type))!.environment.isVoid else {
+      guard SubscriptType(canonicalType(of: d, specializedBy: a))!.environment.isVoid else {
         UNIMPLEMENTED("subscript with non-empty environment")
       }
 
@@ -3429,7 +3429,7 @@ struct Emitter {
 extension Emitter {
 
   /// The local variables and allocations of a lexical scope.
-  fileprivate struct Frame {
+  fileprivate struct Frame: Sendable {
 
     /// A map from declaration of a local variable to its corresponding IR in the frame.
     var locals = DeclProperty<Operand>()
@@ -3447,7 +3447,7 @@ extension Emitter {
   }
 
   /// A stack of frames.
-  fileprivate struct Stack {
+  fileprivate struct Stack: Sendable {
 
     /// The frames in the stack, ordered from bottom to top.
     private(set) var elements: [Frame] = []
@@ -3498,7 +3498,7 @@ extension Emitter {
   }
 
   /// The identifier of a loop lexically enclosing newly generated IR.
-  fileprivate struct LoopID {
+  fileprivate struct LoopID: Sendable {
 
     /// The innermost frame enclosing the loop in the emitter context.
     let depth: Int

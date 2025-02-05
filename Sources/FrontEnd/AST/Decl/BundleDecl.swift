@@ -2,7 +2,7 @@
 public protocol BundleDecl: ExposableDecl {
 
   /// The type of a variant in the bundle.
-  associatedtype Variant: BundleImpl
+  associatedtype Variant: Sendable,  BundleImpl
 
   /// The variants of the bundle.
   var impls: [Variant.ID] { get }

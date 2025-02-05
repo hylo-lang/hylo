@@ -1,5 +1,5 @@
 /// A wrapper type allocating `T` out-of-line.
-public struct Indirect<T> {
+public struct Indirect<T: Sendable> {
 
   /// The out of line storage of an `Indirect` value.
   private class Storage {

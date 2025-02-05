@@ -1,5 +1,5 @@
 /// How a name expression is being used.
-enum NameUse: Hashable {
+enum NameUse: Hashable, Sendable {
 
   /// The name is used as the callee of an arbitrary function call.
   ///

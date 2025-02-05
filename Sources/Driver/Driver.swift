@@ -51,7 +51,7 @@ public struct Driver: ParsableCommand {
   }
 
   /// The result of a compiler invocation.
-  public struct CompilationResult {
+  public struct CompilationResult: Sendable {
 
     /// The exit status of the compiler.
     public let status: ExitCode

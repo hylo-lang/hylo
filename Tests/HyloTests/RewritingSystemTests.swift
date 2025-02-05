@@ -68,7 +68,7 @@ final class RewritingSystemTests: XCTestCase {
 }
 
 /// A term made of UTF8 code units.
-struct Term: Hashable {
+struct Term: Hashable, Sendable {
 
   /// The symbols in the term.
   let symbols: [UTF8.CodeUnit]

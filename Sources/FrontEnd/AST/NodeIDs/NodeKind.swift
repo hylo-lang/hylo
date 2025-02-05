@@ -25,7 +25,7 @@ public struct NodeKind: Codable {
 
 }
 
-extension NodeKind: Hashable {
+extension NodeKind: Hashable, Sendable {
 
   /// Incorporates the value of `self` into `h`.
   public func hash(into h: inout Hasher) {

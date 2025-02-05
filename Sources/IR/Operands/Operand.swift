@@ -1,5 +1,5 @@
 /// An instruction operand.
-public enum Operand {
+public enum Operand: Sendable {
 
   /// The result of `instruction`.
   case register(InstructionID)
@@ -84,7 +84,7 @@ extension Operand: Equatable {
 
 }
 
-extension Operand: Hashable {
+extension Operand: Hashable, Sendable {
 
   public func hash(into hasher: inout Hasher) {
     switch self {

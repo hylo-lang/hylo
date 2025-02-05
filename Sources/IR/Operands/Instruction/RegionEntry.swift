@@ -2,6 +2,6 @@
 public protocol RegionEntry: Instruction {
 
   /// The type of the instruction marking exits of this region.
-  associatedtype Exit: Instruction
+  associatedtype Exit: Sendable,  Instruction
 
 }

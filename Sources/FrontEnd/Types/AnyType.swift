@@ -56,7 +56,7 @@ private struct ConcreteTypeBox<Base: TypeProtocol>: TypeBox {
 }
 
 /// The (static) type of an entity.
-public struct AnyType {
+public struct AnyType: Sendable {
 
   /// Hylo's `Any` type.
   public static let any = ^ExistentialType(traits: [], constraints: [])
@@ -364,7 +364,7 @@ extension AnyType: Equatable {
 
 }
 
-extension AnyType: Hashable {
+extension AnyType: Hashable, Sendable {
 
   public func hash(into hasher: inout Hasher) {
     wrapped.hash(into: &hasher)

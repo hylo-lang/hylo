@@ -393,7 +393,7 @@ final class LexerTests: XCTestCase {
 
 }
 
-private struct TokenSpecification {
+private struct TokenSpecification: Sendable {
 
   let kind: Token.Kind
 

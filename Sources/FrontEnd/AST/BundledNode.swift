@@ -62,7 +62,7 @@ extension BundledNode where T == VarDecl.ID {
 
 }
 
-extension BundledNode: Hashable {
+extension BundledNode: Hashable, Sendable {
 
   /// Equality comparison; only check the node ID.
   public static func == (lhs: Self, rhs: Self) -> Bool {

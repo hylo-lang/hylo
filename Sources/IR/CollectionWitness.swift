@@ -1,7 +1,7 @@
 import FrontEnd
 
 /// The witness of a type's conformance to the `Collection` trait from the standard library.
-struct CollectionWitness {
+struct CollectionWitness: Sendable {
 
   /// The implementation of the `Collection.Position`.
   let position: AnyType

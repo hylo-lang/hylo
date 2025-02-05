@@ -10,7 +10,7 @@
 /// - If `a0 == 51`, then `n = 2` and `v = 50 + a1`.
 /// - If `a0 == 52`, then `n = 3` and `v = 114 + 64 * a1 + a2`.
 /// - Otherwise, `n = a0` and `v` is the sum of `ai * 64^(a0 - i)` for `1 <= i < a0`.
-public struct Base64VarUInt: Hashable {
+public struct Base64VarUInt: Hashable, Sendable {
 
   /// The value of the digit, in the range `0 ..< UInt64.max`.
   public let rawValue: UInt64

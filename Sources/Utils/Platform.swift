@@ -1,5 +1,5 @@
 /// The platform on which the compiler or interpreter is running/targeting.
-public enum Platform {
+public enum Platform: Sendable {
 
   /// An operating system on which the compiler/interpreter/target program can run.
   public enum OperatingSystem: Codable, CustomStringConvertible, Sendable {

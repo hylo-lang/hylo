@@ -66,7 +66,7 @@ extension Diagnostic {
 extension Diagnostic {
 
   /// Style transforms applied to the raw text of different parts of a diagnostic.
-  public struct TextOutputStyle {
+  public struct TextOutputStyle: Sendable {
 
     /// How the site is rendered in this style.
     fileprivate let sourceRange: String.ANSIStyle

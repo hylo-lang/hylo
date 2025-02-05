@@ -2,13 +2,13 @@ import FrontEnd
 import Utils
 
 /// Hylo's mangling algorithm.
-struct Mangler {
+struct Mangler: Sendable {
 
   /// The type of the stream to which data is written.
   typealias Output = String
 
   /// The identity of a mangled symbol.
-  private enum Symbol: Hashable {
+  private enum Symbol: Hashable, Sendable {
 
     /// A declaration or lexical scope.
     case node(AnyNodeID)

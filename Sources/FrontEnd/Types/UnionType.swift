@@ -41,7 +41,7 @@ public struct UnionType: TypeProtocol {
 
 }
 
-extension UnionType: Hashable {
+extension UnionType: Hashable, Sendable {
 
   public func hash(into hasher: inout Hasher) {
     // Generate a seed from a snapshot of the hasher.

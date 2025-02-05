@@ -1,7 +1,7 @@
 import DequeModule
 
 /// The absence of a label in a directed graph.
-public struct NoLabel: Hashable {
+public struct NoLabel: Hashable, Sendable {
 
   /// Creates an instance.
   public init() {}
@@ -13,13 +13,13 @@ public struct NoLabel: Hashable {
 /// - Note: Use `DirectedGraph<V, NoLabel>` rather than `DirectedGraph<V, Void>` to implement an
 ///   unlabeled graph. Unlike `Void`, `NoLabel` conforms to `Equatable`, allowing the graph itself
 ///   to be `Equatable`.
-public struct DirectedGraph<Vertex: Hashable, Label> {
+public struct DirectedGraph<Vertex: Hashable, Label: Sendable>: Sendable where Vertex: Sendable {
 
   /// A collection with the outgoing edges of a vertex.
   public typealias OutgoingEdges = [Vertex: Label]
 
   /// An edge between two vertices.
-  public struct Edge {
+  public struct Edge: Sendable {
 
     /// The vertex at the base of the edge.
     public let source: Vertex
@@ -201,7 +201,7 @@ extension DirectedGraph.Edge: Comparable where Vertex: Comparable, Label: Compar
 }
 
 /// The vertices of a graph collected in a breadth-first manner.
-public struct BreadthFirstSequence<Vertex: Hashable, Label>: IteratorProtocol, Sequence {
+public struct BreadthFirstSequence<Vertex: Hashable, Label: Sendable>: IteratorProtocol, Sequence where Vertex: Sendable {
 
   /// The graph whose the vertices are collected.
   public let graph: DirectedGraph<Vertex, Label>

@@ -7,12 +7,12 @@ import Utils
 /// immediately after the uses sequenced last in that region.
 ///
 /// - Note: The definition of an operand `o` isn't part of `o`'s lifetime.
-struct Lifetime {
+struct Lifetime: Sendable {
 
   fileprivate typealias Coverage = [Function.Blocks.Address: BlockCoverage]
 
   /// A data structure encoding how a block covers the lifetime.
-  enum BlockCoverage {
+  enum BlockCoverage: Sendable {
 
     /// The operand is live in and out of the block.
     case liveInAndOut

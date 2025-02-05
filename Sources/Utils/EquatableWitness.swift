@@ -2,7 +2,7 @@
 public protocol EquatableWitness<Element> {
 
   /// The element for which `Self` serves as a witness.
-  associatedtype Element
+  associatedtype Element: Sendable
 
   /// Returns whether `left` is equal to `right`.
   static func isEqual(_ left: Element, to right: Element) -> Bool

@@ -2,7 +2,7 @@
 protocol DisjunctiveConstraintProtocol: Constraint {
 
   /// The type of a specific choice in instances of this type.
-  associatedtype Predicate: DisjunctiveConstraintTerm
+  associatedtype Predicate: Sendable,  DisjunctiveConstraintTerm
 
   /// The predicates of this disjunctive constraints.
   var choices: [Predicate] { get }

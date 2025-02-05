@@ -132,7 +132,7 @@ extension CustomWitnessedSet: SetAlgebra {
 
 }
 
-extension CustomWitnessedSet: Hashable {}
+extension CustomWitnessedSet: Hashable, Sendable {}
 
 extension CustomWitnessedSet: ExpressibleByArrayLiteral {
 

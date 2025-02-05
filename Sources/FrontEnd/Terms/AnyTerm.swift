@@ -43,7 +43,7 @@ private struct ConcreteTermBox<Base: TermProtocol>: TermBox {
 }
 
 /// The compile-time representation of the value of an expression.
-public struct AnyTerm {
+public struct AnyTerm: Sendable {
 
   /// A shorthand for `^ErrorTerm()`.
   public static let error = ^ErrorTerm()
@@ -87,7 +87,7 @@ extension AnyTerm: Equatable {
 
 }
 
-extension AnyTerm: Hashable {
+extension AnyTerm: Hashable, Sendable {
 
   public func hash(into hasher: inout Hasher) {
     wrapped.hash(into: &hasher)

@@ -1,5 +1,5 @@
 /// A protocol describing the API of a Hylo term.
-public protocol TermProtocol: Hashable {
+public protocol TermProtocol: Hashable, Sendable {
 
   /// Properties about the representation of `self`.
   var flags: ValueFlags { get }

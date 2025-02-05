@@ -1,7 +1,7 @@
 import FrontEnd
 
 /// A memory location in an abstract interpreter.
-enum AbstractLocation: Hashable {
+enum AbstractLocation: Hashable, Sendable {
 
   /// A root location.
   case root(Operand)
