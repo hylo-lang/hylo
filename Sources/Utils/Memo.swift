@@ -1,6 +1,6 @@
 /// The state of memoization of a computation, including an "in progress" state that allows us to
 /// detect cycles.
-public enum Memo<T: Equatable>: Equatable {
+public enum Memo<T: Equatable&Sendable>: Equatable, Sendable {
 
   /// Computation is in progress.
   case inProgress

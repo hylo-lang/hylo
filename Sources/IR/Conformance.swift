@@ -39,7 +39,7 @@ extension IR.Conformance: Equatable {
 
 }
 
-extension IR.Conformance: Hashable, Sendable {
+extension IR.Conformance: Hashable {
 
   public func hash(into hasher: inout Hasher) {
     concept.hash(into: &hasher)

@@ -1,4 +1,4 @@
-import SwiftyLLVM
+@preconcurrency import SwiftyLLVM
 
 /// The name of an native instruction mapped to a built-in function.
 ///
@@ -358,7 +358,7 @@ public enum NativeInstruction: Hashable, Sendable {
 
 
   /// The parameters of a floating-point LLVM instruction.
-  public struct MathFlags: OptionSet, Hashable {
+  public struct MathFlags: OptionSet, Hashable, Sendable {
 
     public typealias RawValue = UInt8
 

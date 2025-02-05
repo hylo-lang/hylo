@@ -1,5 +1,5 @@
 /// A value bundled with a lexical scope.
-public struct ScopedValue<Value>: Sendable {
+public struct ScopedValue<Value: Sendable>: Sendable {
 
   /// The context in which `value` is used.
   public let scope: AnyScopeID

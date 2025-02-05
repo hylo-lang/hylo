@@ -1,5 +1,5 @@
 /// An unordered collection of unique elements using a custom hash witness.
-public struct CustomWitnessedSet<Witness: HashableWitness> {
+public struct CustomWitnessedSet<Witness: HashableWitness>: Sendable {
 
   /// The type of the elements in the set.
   public typealias Element = Witness.Element
@@ -132,7 +132,7 @@ extension CustomWitnessedSet: SetAlgebra {
 
 }
 
-extension CustomWitnessedSet: Hashable, Sendable {}
+extension CustomWitnessedSet: Hashable {}
 
 extension CustomWitnessedSet: ExpressibleByArrayLiteral {
 

@@ -33,7 +33,7 @@ extension StaticStorage: Equatable {
 
 }
 
-extension StaticStorage: Hashable, Sendable {
+extension StaticStorage: Hashable {
 
   public func hash(into hasher: inout Hasher) {
     hasher.combine(id)

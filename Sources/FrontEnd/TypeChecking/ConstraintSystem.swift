@@ -571,7 +571,7 @@ struct ConstraintSystem: Sendable {
       } else {
         reasons.insert(.error(noViableCandidateToResolve: n, notes: []))
       }
-      return .failure({ (d, _, _) in d.formUnion(reasons) })
+      return .failure({ [reasons](d, _, _) in d.formUnion(reasons) })
     }
 
     if let i = candidates.viable.uniqueElement {
@@ -648,7 +648,7 @@ struct ConstraintSystem: Sendable {
     }
 
     guard let argumentMatching = match(argumentsOf: goal, parametersOf: callee) else {
-      return .failure { (d, m, _) in
+      return .failure { [callee](d, m, _) in
         d.insert(
           .error(labels: goal.labels, incompatibleWith: callee.labels, at: goal.origin.site))
       }

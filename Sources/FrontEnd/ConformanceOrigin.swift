@@ -15,4 +15,4 @@ public struct ConformanceOrigin: Sendable {
 
 }
 
-extension ConformanceOrigin: Hashable, Sendable {}
+extension ConformanceOrigin: Hashable {}

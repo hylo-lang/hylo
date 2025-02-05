@@ -84,7 +84,7 @@ extension Operand: Equatable {
 
 }
 
-extension Operand: Hashable, Sendable {
+extension Operand: Hashable {
 
   public func hash(into hasher: inout Hasher) {
     switch self {

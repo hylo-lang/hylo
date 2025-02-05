@@ -45,7 +45,7 @@ extension Array: Monotonic where Element: Monotonic {
 
 }
 
-extension Set: Monotonic {
+extension Set: Monotonic where /* Element: Sendable, */ Element: Monotonic {
 
   mutating func updateMonotonically(_ other: Self) {
     formUnion(other)
@@ -53,7 +53,7 @@ extension Set: Monotonic {
 
 }
 
-extension Dictionary: Monotonic where Value: Monotonic {
+extension Dictionary: Monotonic where Key: Monotonic, Value: Monotonic {
 
   mutating func updateMonotonically(_ other: Self) {
     for (k, v) in other {

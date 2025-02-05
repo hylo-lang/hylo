@@ -203,7 +203,7 @@ extension SourceFile: ExpressibleByStringLiteral {
 
 }
 
-extension SourceFile: Hashable, Sendable {
+extension SourceFile: Hashable {
 
   public func hash(into hasher: inout Hasher) {
     hasher.combine(ObjectIdentifier(storage))
@@ -215,7 +215,7 @@ extension SourceFile: Hashable, Sendable {
 
 }
 
-extension SourceFile: Codable, Sendable {
+extension SourceFile: Codable {
 
   /// The state that must be maintained on behalf of `SourceFile`s while they are encoded.
   struct EncodingState {
@@ -325,7 +325,7 @@ extension SourceFile {
   ///
   /// `unowned Storage` can be used safely anywhere, because every `Storage` instance is owned by a
   /// threadsafe global dictionary, `Storage.allInstances,` and never deallocated.
-  public final class Storage: Codable, FactoryInitializable {
+  public final class Storage: Codable, FactoryInitializable, Sendable {
 
     /// The URL of the source file.
     fileprivate let url: URL

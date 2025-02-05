@@ -92,7 +92,7 @@ extension Conformance: Equatable {
 
 }
 
-extension Conformance: Hashable, Sendable {
+extension Conformance: Hashable {
 
   public func hash(into hasher: inout Hasher) {
     model.hash(into: &hasher)

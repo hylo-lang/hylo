@@ -49,7 +49,7 @@ public struct AnyTerm: Sendable {
   public static let error = ^ErrorTerm()
 
   /// The value wrapped by this instance.
-  private var wrapped: TermBox
+  private var wrapped: TermBox&Sendable
 
   /// Creates a type-erased container wrapping the given instance.
   ///
@@ -87,7 +87,7 @@ extension AnyTerm: Equatable {
 
 }
 
-extension AnyTerm: Hashable, Sendable {
+extension AnyTerm: Hashable {
 
   public func hash(into hasher: inout Hasher) {
     wrapped.hash(into: &hasher)

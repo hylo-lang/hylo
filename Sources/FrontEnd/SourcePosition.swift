@@ -49,7 +49,7 @@ extension SourcePosition: Comparable {
 
 }
 
-extension SourcePosition: Codable, Sendable {
+extension SourcePosition: Codable {
 
   fileprivate enum CodingKeys: String, CodingKey {
 

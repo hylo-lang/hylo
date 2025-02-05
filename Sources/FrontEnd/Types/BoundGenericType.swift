@@ -76,7 +76,7 @@ extension BoundGenericType: Equatable {
 
 }
 
-extension BoundGenericType: Hashable, Sendable {
+extension BoundGenericType: Hashable {
 
   public func hash(into hasher: inout Hasher) {
     hasher.combine(base)

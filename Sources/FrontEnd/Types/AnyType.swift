@@ -2,7 +2,7 @@ import OrderedCollections
 import Utils
 
 /// A box wrapping a type.
-private protocol TypeBox {
+private protocol TypeBox: Sendable {
 
   /// Hashes the salient parts of the wrapped value into `hasher`.
   func hash(into hasher: inout Hasher)
@@ -364,7 +364,7 @@ extension AnyType: Equatable {
 
 }
 
-extension AnyType: Hashable, Sendable {
+extension AnyType: Hashable {
 
   public func hash(into hasher: inout Hasher) {
     wrapped.hash(into: &hasher)

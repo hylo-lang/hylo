@@ -1,5 +1,5 @@
 /// A type whose instances are callable entities.
-public protocol CallableType {
+public protocol CallableType: Sendable {
 
   /// The parameters of the callable value.
   var inputs: [CallableTypeParameter] { get }

@@ -46,7 +46,7 @@ public struct AbstractTypeLayout: Sendable {
 
 }
 
-extension AbstractTypeLayout: Hashable, Sendable {
+extension AbstractTypeLayout: Hashable {
 
   public func hash(into hasher: inout Hasher) {
     type.hash(into: &hasher)
