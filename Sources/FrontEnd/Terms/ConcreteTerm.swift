@@ -1,5 +1,5 @@
 /// A box wrapping a concrete compile-time value.
-public struct ConcreteTerm: TermProtocol {
+public struct ConcreteTerm: TermProtocol, Sendable {
 
   /// The value of the term.
   public let value: AnyHashable

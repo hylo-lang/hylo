@@ -1,7 +1,7 @@
 import FrontEnd
 
 /// An instruction whose semantics is defined by LLVM.
-public struct LLVMInstruction: Instruction {
+public struct LLVMInstruction: Instruction, Sendable {
 
   /// The LLVM instruction corresponding to this instance.
   public let instruction: NativeInstruction

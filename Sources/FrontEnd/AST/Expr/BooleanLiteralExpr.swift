@@ -1,5 +1,5 @@
 /// A boolean literal expression.
-public struct BooleanLiteralExpr: Expr {
+public struct BooleanLiteralExpr: Expr, Sendable {
 
   public let site: SourceRange
 

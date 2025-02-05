@@ -1,7 +1,7 @@
 import FrontEnd
 
 /// Branches conditionally to the start of a basic block.
-public struct CondBranch: Terminator {
+public struct CondBranch: Terminator, Sendable {
 
   /// A Boolean condition.
   public private(set) var condition: Operand

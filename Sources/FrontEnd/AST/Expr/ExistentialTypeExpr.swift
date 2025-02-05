@@ -1,5 +1,5 @@
 /// The expression of an existential type (e.g., `any P & Q` or `any Array`).
-public struct ExistentialTypeExpr: Expr {
+public struct ExistentialTypeExpr: Expr, Sendable {
 
   public let site: SourceRange
 

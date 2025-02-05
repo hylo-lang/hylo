@@ -162,7 +162,7 @@ extension SubfieldView: LifetimeExtender {}
 extension WrapExistentialAddr: LifetimeExtender {}
 
 /// An instruction that ends the lifetime of a borrow.
-private protocol LifetimeCloser: Instruction {
+private protocol LifetimeCloser: Instruction, Sendable {
 
   /// The lifetime being closed.
   var start: Operand { get }

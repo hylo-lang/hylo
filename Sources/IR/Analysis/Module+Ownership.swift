@@ -419,7 +419,7 @@ private typealias Context = AbstractContext<State>
 /// Instances form a lattice whose supremum is `.unique` and infimum is `.shared(by: s)`
 /// where `s` is the set of all instructions. The meet of two elements denotes the conservative
 /// superposition of two ownership states.
-private enum State: AbstractDomain {
+private enum State: AbstractDomain, Sendable {
 
   /// Object is unique.
   case unique

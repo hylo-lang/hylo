@@ -2,7 +2,7 @@ import FrontEnd
 import Utils
 
 /// Invokes `callee`, which is a foreign function interface, with `operands`.
-public struct CallFFI: Instruction {
+public struct CallFFI: Instruction, Sendable {
 
   /// The type of the return value.
   public let returnType: IR.`Type`

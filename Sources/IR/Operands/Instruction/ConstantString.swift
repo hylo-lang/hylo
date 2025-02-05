@@ -4,7 +4,7 @@ import FrontEnd
 /// Creates the internal representation of constant string allocated statically.
 ///
 /// The result is a 64-bit integer corresponding to the byte representation of a string in Hylo.
-public struct ConstantString: Instruction {
+public struct ConstantString: Instruction, Sendable {
 
   /// The value of the string, encoded in UTF-8.
   public let value: Data

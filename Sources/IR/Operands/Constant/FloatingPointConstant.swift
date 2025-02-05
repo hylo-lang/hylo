@@ -1,7 +1,7 @@
 import FrontEnd
 
 /// A floating-point number Hylo IR constant.
-public struct FloatingPointConstant: Constant, Hashable {
+public struct FloatingPointConstant: Constant, Hashable, Sendable {
 
   /// The serialized value of this constant.
   public let value: String

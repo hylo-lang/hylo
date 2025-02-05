@@ -1,5 +1,5 @@
 /// The type of a type.
-public struct MetatypeType: TypeProtocol {
+public struct MetatypeType: TypeProtocol, Sendable {
 
   /// The type of which `self` is a type.
   public let instance: AnyType

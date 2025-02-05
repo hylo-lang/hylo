@@ -97,7 +97,7 @@ extension IR.Program {
 }
 
 /// How to translate the contents of a function being inlined.
-private struct InliningTranslation: InstructionTransformer {
+private struct InliningTranslation: InstructionTransformer, Sendable {
 
   /// A map from basic block to its rewritten form in the inlined function.
   let rewrittenBlock: [Block.ID: Block.ID]

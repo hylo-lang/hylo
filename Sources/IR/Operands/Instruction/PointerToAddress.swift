@@ -4,7 +4,7 @@ import FrontEnd
 ///
 /// This instruction doesn't extend the lifetime of its operand. The address unsafely refers to the
 /// memory referenced by the pointer.
-public struct PointerToAddress: Instruction {
+public struct PointerToAddress: Instruction, Sendable {
 
   /// The pointer to convert.
   public private(set) var source: Operand

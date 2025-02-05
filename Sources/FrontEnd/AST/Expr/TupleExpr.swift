@@ -1,8 +1,8 @@
 /// A tuple expression.
-public struct TupleExpr: Expr {
+public struct TupleExpr: Expr, Sendable {
 
   /// An element in a tuple expression.
-  public struct Element: Codable {
+  public struct Element: Codable, Sendable {
 
     /// The label of the element.
     public var label: SourceRepresentable<Identifier>?

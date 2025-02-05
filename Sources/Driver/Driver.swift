@@ -7,7 +7,7 @@ import StandardLibrary
 import SwiftyLLVM
 import Utils
 
-public struct Driver: ParsableCommand {
+public struct Driver: ParsableCommand, Sendable {
 
   /// A validation error that includes the command's full help message.
   private struct ValidationErrorWithHelp: Error, CustomStringConvertible {

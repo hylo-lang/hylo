@@ -1,2 +1,2 @@
 /// A statement.
-public protocol Stmt: Node {}
+public protocol Stmt: Node, Sendable {}

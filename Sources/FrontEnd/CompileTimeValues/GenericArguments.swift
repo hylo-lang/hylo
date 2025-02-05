@@ -93,7 +93,7 @@ public struct GenericArguments: Hashable, Sendable {
   }
 
   /// An empty instance.
-  public static var empty: Self = .init()
+  public static let empty: Self = .init()
 
 }
 

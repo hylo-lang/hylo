@@ -318,7 +318,7 @@ extension Module {
 }
 
 /// The monomorphization of a function.
-private struct Monomorphizer: InstructionTransformer {
+private struct Monomorphizer: InstructionTransformer, Sendable {
 
   /// The arguments for which instructions are monomorphized.
   let specialization: GenericArguments

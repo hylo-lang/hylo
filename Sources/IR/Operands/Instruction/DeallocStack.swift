@@ -1,7 +1,7 @@
 import FrontEnd
 
 /// Deallocates memory previously allocated by `alloc_stack`.
-public struct DeallocStack: Instruction {
+public struct DeallocStack: Instruction, Sendable {
 
   /// The location of the memory being deallocated.
   public private(set) var location: Operand

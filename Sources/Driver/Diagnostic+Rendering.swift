@@ -113,7 +113,7 @@ extension Diagnostic {
 
 /// An ANSI [Select Graphic Rendition](https://en.wikipedia.org/wiki/ANSI_escape_code#SGR) (SGR)
 /// escape code.
-private enum ANSISGR: Int {
+private enum ANSISGR: Int, Sendable {
 
   /// Reset all SGR attributes
   case reset = 0

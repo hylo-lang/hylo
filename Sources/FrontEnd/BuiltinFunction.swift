@@ -564,7 +564,7 @@ extension NativeInstruction.MathFlags {
 /// if such instance cannot be parsed.
 ///
 /// - Note: a prefix of `tokens` may have been consumed even if the function returns `nil`.
-private typealias BuiltinFunctionParser<T> = (_ tokens: inout ArraySlice<Substring>) -> T?
+private typealias BuiltinFunctionParser<T> = @Sendable (_ tokens: inout ArraySlice<Substring>) -> T?
 
 /// Returns a parser that consumes an element equal to `s` and returns `.some(s)`, or returns
 /// `.some(nil)` if such an element can't be consumed.
@@ -585,7 +585,7 @@ private func exactly(_ s: String) -> BuiltinFunctionParser<String> {
 /// Returns a parser that returns the result of applying `a` and then `b` or `nil` if either `a`
 /// or `b` returns `nil`.
 private func ++ <A, B>(
-  _ a: @Sendable @escaping BuiltinFunctionParser<A>, _ b: @Sendable @escaping BuiltinFunctionParser<B>
+  _ a: @escaping BuiltinFunctionParser<A>, _ b: @escaping BuiltinFunctionParser<B>
 ) -> BuiltinFunctionParser<(A, B)> {
   { (stream: inout ArraySlice<Substring>) -> (A, B)? in
     a(&stream).flatMap({ (x) in b(&stream).map({ (x, $0) }) })

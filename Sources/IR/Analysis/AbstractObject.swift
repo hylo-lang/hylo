@@ -56,7 +56,7 @@ struct AbstractObject<Domain: AbstractDomain>: Equatable {
   }
 
   /// The value of an abstract object.
-  enum Value: Equatable {
+  enum Value: Equatable, Sendable {
 
     /// An object whose parts all have the same value.
     case full(Domain)

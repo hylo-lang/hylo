@@ -5,7 +5,7 @@ import Utils
 /// A command-line tool that generates XCTest cases for a list of annotated ".hylo" files as part
 /// of our build process.
 @main
-struct GenerateHyloFileTests: ParsableCommand {
+struct GenerateHyloFileTests: ParsableCommand, Sendable {
 
   @Option(
     name: [.customShort("o")],
@@ -203,7 +203,7 @@ private struct TestDescription: Sendable {
 }
 
 /// A failure to parse the first line of an annotated Hylo file.
-struct FirstLineError: Error {
+struct FirstLineError: Error, Sendable {
   /// Creates an instance whose detailed description is `details`.
   init(_ details: String) { self.details = details }
 

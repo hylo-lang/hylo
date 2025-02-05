@@ -2,7 +2,7 @@
 struct Solution: Sendable {
 
   /// The score of a solution.
-  struct Score: Comparable {
+  struct Score: Comparable, Sendable {
 
     /// The number of errors encountered by the solver.
     var errorCount: Int

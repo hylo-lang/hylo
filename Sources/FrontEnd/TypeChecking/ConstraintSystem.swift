@@ -1096,7 +1096,7 @@ struct ConstraintSystem: Sendable {
 
 /// A closure reporting the diagnostics of a goal's failure into `d`, using `m` to reify types
 /// and reading the outcome of other goals from `o`.
-private typealias DiagnoseFailure = (
+private typealias DiagnoseFailure = @Sendable (
   _ d: inout DiagnosticSet,
   _ m: SubstitutionMap,
   _ o: OutcomeMap

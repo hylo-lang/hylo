@@ -1,5 +1,5 @@
 /// The type-erased ID of a node.
-public struct AnyNodeID: NodeIDProtocol {
+public struct AnyNodeID: NodeIDProtocol, Sendable {
 
   public let rawValue: NodeRawIdentity
 
@@ -13,7 +13,7 @@ public struct AnyNodeID: NodeIDProtocol {
 
 }
 
-extension AnyNodeID: Hashable, Sendable {
+extension AnyNodeID: Hashable {
 
   public func hash(into hasher: inout Hasher) {
     rawValue.hash(into: &hasher)

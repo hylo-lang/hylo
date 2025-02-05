@@ -1,7 +1,7 @@
 import Utils
 
 /// A data structure representing a scoped Hylo program ready to be type checked.
-public struct ScopedProgram: Program {
+public struct ScopedProgram: Program, Sendable {
 
   public let ast: AST
 

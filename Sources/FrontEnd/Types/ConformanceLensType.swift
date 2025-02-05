@@ -1,5 +1,5 @@
 /// A wrapper around a type that is seen through the lens of its conformance to a trait.
-public struct ConformanceLensType: TypeProtocol {
+public struct ConformanceLensType: TypeProtocol, Sendable {
 
   /// The subject type.
   public let subject: AnyType

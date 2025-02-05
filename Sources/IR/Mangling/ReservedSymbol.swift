@@ -1,5 +1,5 @@
 /// An unambiguous textual description of a type, scope, or declaration known to the compiler.
-enum ReservedSymbol: UInt8 {
+enum ReservedSymbol: UInt8, Sendable {
 
   /// The `Hylo` module.
   case hylo

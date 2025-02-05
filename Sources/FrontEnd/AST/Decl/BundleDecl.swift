@@ -1,5 +1,5 @@
 /// A declaration bundle.
-public protocol BundleDecl: ExposableDecl {
+public protocol BundleDecl: ExposableDecl, Sendable {
 
   /// The type of a variant in the bundle.
   associatedtype Variant: Sendable,  BundleImpl
@@ -10,7 +10,7 @@ public protocol BundleDecl: ExposableDecl {
 }
 
 /// A variant in a declaration bundle.
-public protocol BundleImpl: Decl {
+public protocol BundleImpl: Decl, Sendable {
 
   /// The introducer of the variant.
   var introducer: SourceRepresentable<AccessEffect> { get }

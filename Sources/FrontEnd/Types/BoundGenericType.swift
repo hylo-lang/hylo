@@ -2,7 +2,7 @@ import OrderedCollections
 import Utils
 
 /// A generic type bound to arguments.
-public struct BoundGenericType: TypeProtocol {
+public struct BoundGenericType: TypeProtocol, Sendable {
 
   public typealias Arguments = OrderedDictionary<GenericParameterDecl.ID, CompileTimeValue>
 

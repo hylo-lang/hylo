@@ -4,7 +4,7 @@ import Utils
 ///
 /// - Warning: should not be used directly for inference purposes or the type checker will get
 ///   stuck. Use `inferenceConstraint(_:isSubtypeOf:origin:)` instead.
-struct SubtypingConstraint: Constraint, Hashable {
+struct SubtypingConstraint: Constraint, Hashable, Sendable {
 
   /// The left operand.
   private(set) var left: AnyType

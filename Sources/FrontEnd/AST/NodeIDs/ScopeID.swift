@@ -1,7 +1,7 @@
 import Utils
 
 /// The ID of a node outlining a lexical scope.
-public protocol ScopeID: NodeIDProtocol {}
+public protocol ScopeID: NodeIDProtocol, Sendable {}
 
 extension NodeID: ScopeID where Subject: LexicalScope {}
 

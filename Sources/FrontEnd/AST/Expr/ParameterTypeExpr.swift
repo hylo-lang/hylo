@@ -1,5 +1,5 @@
 /// A parameter in an arrow type expression.
-public struct ParameterTypeExpr: Expr {
+public struct ParameterTypeExpr: Expr, Sendable {
 
   public let site: SourceRange
 

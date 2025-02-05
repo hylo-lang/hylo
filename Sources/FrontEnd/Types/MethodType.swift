@@ -1,7 +1,7 @@
 import Utils
 
 /// The overarching type of a method declaration.
-public struct MethodType: TypeProtocol {
+public struct MethodType: TypeProtocol, Sendable {
 
   /// The capabilities of the bundle.
   public let capabilities: AccessEffectSet

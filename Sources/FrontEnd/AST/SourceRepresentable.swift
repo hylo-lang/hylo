@@ -1,7 +1,7 @@
 /// A part of an AST node that may have a textual representation in source code.
 ///
 /// - Note: The site is a non-salient annotation. It does not contribute to a node's value.
-public struct SourceRepresentable<Part>: Sendable {
+public struct SourceRepresentable<Part: Sendable>: Sendable {
 
   /// The part.
   public let value: Part

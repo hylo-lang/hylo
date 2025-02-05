@@ -2,7 +2,7 @@ import FrontEnd
 import Utils
 
 /// Invokes one variant of `bundle` with `arguments` and writes its result to `output`.
-public struct CallBundle: Instruction {
+public struct CallBundle: Instruction, Sendable {
 
   /// The method bundle implementing the variant to call.
   public let bundle: BundleReference<MethodDecl>

@@ -1,5 +1,5 @@
 /// A wildcard expression.
-public struct WildcardExpr: Expr {
+public struct WildcardExpr: Expr, Sendable {
 
   public let site: SourceRange
 

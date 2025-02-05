@@ -1,7 +1,7 @@
 import FrontEnd
 
 /// Returns the address of a global binding.
-public struct GlobalAddr: Instruction {
+public struct GlobalAddr: Instruction, Sendable {
 
   /// The ID of the global global binding to access.
   public let binding: BindingDecl.ID

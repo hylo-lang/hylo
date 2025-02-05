@@ -4,37 +4,37 @@ import XCTest
 final class LazyTests: XCTestCase {
 
   func testComputedOnceNoCopy() {
-    var counter = 0
-    let l = Lazy { readAndIncrement(&counter) }
+    let counter = SharedMutable(0)
+    let l = Lazy { counter.modify { readAndIncrement(&$0) } }
 
     XCTAssertEqual(l[], 0)
-    XCTAssertEqual(counter, 1)
+    XCTAssertEqual(counter.read {$0}, 1)
     XCTAssertEqual(l[], 0)
-    XCTAssertEqual(counter, 1)
+    XCTAssertEqual(counter.read {$0}, 1)
   }
 
   func testComputedOnceWithCopy() {
-    var counter = 0
-    let l = Lazy { readAndIncrement(&counter) }
+    let counter = SharedMutable(0)
+    let l = Lazy { counter.modify { readAndIncrement(&$0) } }
     let l1 = l
     XCTAssertEqual(l[], 0)
-    XCTAssertEqual(counter, 1)
+    XCTAssertEqual(counter.read {$0}, 1)
     XCTAssertEqual(l1[], 0)
-    XCTAssertEqual(counter, 1)
+    XCTAssertEqual(counter.read {$0}, 1)
     XCTAssertEqual(l[], 0)
-    XCTAssertEqual(counter, 1)
+    XCTAssertEqual(counter.read {$0}, 1)
   }
 
   func testComputedOnceWithPostCallCopy() {
-    var counter = 0
-    let l = Lazy { readAndIncrement(&counter) }
+    let counter = SharedMutable(0)
+    let l = Lazy { counter.modify { readAndIncrement(&$0) } }
     XCTAssertEqual(l[], 0)
-    XCTAssertEqual(counter, 1)
+    XCTAssertEqual(counter.read {$0}, 1)
     let l1 = l
     XCTAssertEqual(l1[], 0)
-    XCTAssertEqual(counter, 1)
+    XCTAssertEqual(counter.read {$0}, 1)
     XCTAssertEqual(l[], 0)
-    XCTAssertEqual(counter, 1)
+    XCTAssertEqual(counter.read {$0}, 1)
   }
 
 }
@@ -42,45 +42,45 @@ final class LazyTests: XCTestCase {
 final class LazyThrowingTests: XCTestCase {
 
   func testComputedOnceNoCopyNoThrow() throws {
-    var counter = 0
-    let l = LazyThrowing { readAndIncrement(&counter) }
+    let counter = SharedMutable(0)
+    let l = LazyThrowing { counter.modify { readAndIncrement(&$0) } }
 
     XCTAssertEqual(try l[], 0)
-    XCTAssertEqual(counter, 1)
+    XCTAssertEqual(counter.read {$0}, 1)
     XCTAssertEqual(try l[], 0)
-    XCTAssertEqual(counter, 1)
+    XCTAssertEqual(counter.read {$0}, 1)
   }
 
   func testComputedOnceWithCopyNoThrow() throws {
-    var counter = 0
-    let l = LazyThrowing { readAndIncrement(&counter) }
+    let counter = SharedMutable(0)
+    let l = LazyThrowing { counter.modify { readAndIncrement(&$0) } }
     let l1 = l
     XCTAssertEqual(try l[], 0)
-    XCTAssertEqual(counter, 1)
+    XCTAssertEqual(counter.read {$0}, 1)
     XCTAssertEqual(try l1[], 0)
-    XCTAssertEqual(counter, 1)
+    XCTAssertEqual(counter.read {$0}, 1)
     XCTAssertEqual(try l[], 0)
-    XCTAssertEqual(counter, 1)
+    XCTAssertEqual(counter.read {$0}, 1)
   }
 
   func testComputedOnceWithPostCallCopyNoThrow() throws {
-    var counter = 0
-    let l = LazyThrowing { readAndIncrement(&counter) }
+    let counter = SharedMutable(0)
+    let l = LazyThrowing { counter.modify { readAndIncrement(&$0) } }
     XCTAssertEqual(try l[], 0)
-    XCTAssertEqual(counter, 1)
+    XCTAssertEqual(counter.read {$0}, 1)
     let l1 = l
     XCTAssertEqual(try l1[], 0)
-    XCTAssertEqual(counter, 1)
+    XCTAssertEqual(counter.read {$0}, 1)
     XCTAssertEqual(try l[], 0)
-    XCTAssertEqual(counter, 1)
+    XCTAssertEqual(counter.read {$0}, 1)
   }
 
-  struct X: Error {}
+  struct X: Error, Sendable {}
 
   func testComputedOnceNoCopyWithThrow() throws {
-    var counter = 0
+    let counter = SharedMutable(0)
     let l = LazyThrowing<Int> {
-      counter += 1
+      counter.modify{ $0 += 1 }
       throw X()
     }
 
@@ -89,18 +89,18 @@ final class LazyThrowingTests: XCTestCase {
       XCTFail()
     } catch is X {}
 
-    XCTAssertEqual(counter, 1)
+    XCTAssertEqual(counter.read {$0}, 1)
     do {
       _ = try l[]
       XCTFail()
     } catch is X {}
-    XCTAssertEqual(counter, 1)
+    XCTAssertEqual(counter.read {$0}, 1)
   }
 
   func testComputedOnceWithCopyWithThrow() throws {
-    var counter = 0
+    let counter = SharedMutable(0)
     let l = LazyThrowing<Int> {
-      counter += 1
+      counter.modify{ $0 += 1 }
       throw X()
     }
     let l1 = l
@@ -109,25 +109,25 @@ final class LazyThrowingTests: XCTestCase {
       _ = try l[]
       XCTFail()
     } catch is X {}
-    XCTAssertEqual(counter, 1)
+    XCTAssertEqual(counter.read {$0}, 1)
 
     do {
       _ = try l1[]
       XCTFail()
     } catch is X {}
-    XCTAssertEqual(counter, 1)
+    XCTAssertEqual(counter.read {$0}, 1)
 
     do {
       _ = try l[]
       XCTFail()
     } catch is X {}
-    XCTAssertEqual(counter, 1)
+    XCTAssertEqual(counter.read {$0}, 1)
   }
 
   func testComputedOnceWithPostCallCopyWithThrow() throws {
-    var counter = 0
+    let counter = SharedMutable(0)
     let l = LazyThrowing<Int> {
-      counter += 1
+      counter.modify{ $0 += 1 }
       throw X()
     }
 
@@ -135,20 +135,20 @@ final class LazyThrowingTests: XCTestCase {
       _ = try l[]
       XCTFail()
     } catch is X {}
-    XCTAssertEqual(counter, 1)
+    XCTAssertEqual(counter.read {$0}, 1)
 
     let l1 = l
     do {
       _ = try l1[]
       XCTFail()
     } catch is X {}
-    XCTAssertEqual(counter, 1)
+    XCTAssertEqual(counter.read {$0}, 1)
 
     do {
       _ = try l[]
       XCTFail()
     } catch is X {}
-    XCTAssertEqual(counter, 1)
+    XCTAssertEqual(counter.read {$0}, 1)
   }
 
 }

@@ -93,7 +93,7 @@ enum NameResolutionResult: Sendable {
   }
 
   /// A set of candidates found by name resolution.
-  struct CandidateSet: ExpressibleByArrayLiteral {
+  struct CandidateSet: ExpressibleByArrayLiteral, Sendable {
 
     /// The candidates in the set.
     internal private(set) var elements: [Candidate] = []

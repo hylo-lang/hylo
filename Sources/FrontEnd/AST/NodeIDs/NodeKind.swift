@@ -2,7 +2,7 @@ import Utils
 
 /// The type of an AST node; a nominal wrapper for `Node.Type` that adds conformances and
 /// convenience APIs.
-public struct NodeKind: Codable {
+public struct NodeKind: Codable, Sendable {
 
   /// The underlying value.
   public let value: Node.Type
@@ -25,7 +25,7 @@ public struct NodeKind: Codable {
 
 }
 
-extension NodeKind: Hashable, Sendable {
+extension NodeKind: Hashable {
 
   /// Incorporates the value of `self` into `h`.
   public func hash(into h: inout Hasher) {

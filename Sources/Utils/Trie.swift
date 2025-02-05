@@ -153,12 +153,12 @@ public struct Trie<Key: Collection, Value: Sendable>: Sendable where Key.Element
 extension Trie {
 
   /// A collection containing the elements of a `Trie` or `SubTrie`, in some arbitrary order.
-  public struct Elements: Collection {
+  public struct Elements: Collection, Sendable {
 
     /// A position in an instance of `Trie.Elements`.
-    public struct Index: Hashable, Comparable {
+    public struct Index: Hashable, Comparable, Sendable {
 
-      fileprivate struct Edge: Hashable, Comparable {
+      fileprivate struct Edge: Hashable, Comparable, Sendable {
 
         var source: Node.Identifier
 

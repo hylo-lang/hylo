@@ -69,7 +69,7 @@ public struct SourceRange: Hashable, Sendable {
 
 }
 
-extension SourceRange: Codable {
+extension SourceRange: Codable, Sendable {
 
   fileprivate enum CodingKeys: String, CodingKey {
 

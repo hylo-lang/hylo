@@ -1,7 +1,7 @@
 import FrontEnd
 
 /// The type and conformances of a value acting as the witness of an existential container.
-public struct WitnessTable: Constant, Hashable {
+public struct WitnessTable: Constant, Hashable, Sendable {
 
   /// The scope in which this table has been created.
   public let scope: AnyScopeID

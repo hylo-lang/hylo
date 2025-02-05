@@ -10,7 +10,7 @@ public struct AST: Sendable {
   ) throws -> ModuleDecl.ID
 
   /// The stored representation of an AST; distinguished for encoding/decoding purposes.
-  private struct Storage: Codable {
+  private struct Storage: Codable, Sendable {
 
     /// The nodes in `self`.
     public var nodes: [[AnyNode]] = []

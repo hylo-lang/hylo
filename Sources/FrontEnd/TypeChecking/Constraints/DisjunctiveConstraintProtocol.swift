@@ -1,5 +1,5 @@
 /// A set of predicates that is satisfied if at least one of them is satisfied.
-protocol DisjunctiveConstraintProtocol: Constraint {
+protocol DisjunctiveConstraintProtocol: Constraint, Sendable {
 
   /// The type of a specific choice in instances of this type.
   associatedtype Predicate: Sendable,  DisjunctiveConstraintTerm

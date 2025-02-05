@@ -1,7 +1,7 @@
 import Utils
 
 /// A generic type parameter.
-public struct GenericTypeParameterType: TypeProtocol {
+public struct GenericTypeParameterType: TypeProtocol, Sendable {
 
   /// The declaration that introduces the parameter.
   public let decl: GenericParameterDecl.ID

@@ -1,7 +1,7 @@
 import FrontEnd
 
 // An integer constant that has the size of a machine word.
-public struct WordConstant: Constant, Hashable {
+public struct WordConstant: Constant, Hashable, Sendable {
 
   /// The value of the constant.
   ///

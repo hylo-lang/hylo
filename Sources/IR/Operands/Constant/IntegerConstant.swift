@@ -10,7 +10,7 @@ import Utils
 #endif
 
 /// An unsigned integer Hylo IR constant.
-public struct IntegerConstant: Constant, Hashable {
+public struct IntegerConstant: Constant, Hashable, Sendable {
 
   public let value: WideUInt
 

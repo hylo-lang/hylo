@@ -31,7 +31,7 @@ public struct CustomWitnessedSet<Witness: HashableWitness> {
 
 extension CustomWitnessedSet: Collection {
 
-  public struct Index: Comparable {
+  public struct Index: Comparable, Sendable {
 
     fileprivate var base: Set<_Element>.Index
 

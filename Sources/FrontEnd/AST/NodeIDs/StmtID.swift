@@ -1,7 +1,7 @@
 import Utils
 
 /// The ID of a statement.
-public protocol StmtID: NodeIDProtocol {}
+public protocol StmtID: NodeIDProtocol, Sendable {}
 
 extension NodeID: StmtID where Subject: Stmt {}
 

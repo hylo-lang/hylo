@@ -1,5 +1,5 @@
 /// A pattern that matches the presence of a value in an optional.
-public struct OptionPattern: Pattern {
+public struct OptionPattern: Pattern, Sendable {
 
   public let site: SourceRange
 

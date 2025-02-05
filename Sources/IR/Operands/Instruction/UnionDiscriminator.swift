@@ -1,7 +1,7 @@
 import FrontEnd
 
 /// Copy the discriminator of a union container.
-public struct UnionDiscriminator: Instruction {
+public struct UnionDiscriminator: Instruction, Sendable {
 
   /// The union container whose discriminator is copied.
   public private(set) var container: Operand

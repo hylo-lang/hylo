@@ -1,5 +1,5 @@
 /// A term denoting a type checking error.
-public struct ErrorTerm: TermProtocol {
+public struct ErrorTerm: TermProtocol, Sendable {
 
   public var flags: ValueFlags { .hasError }
 

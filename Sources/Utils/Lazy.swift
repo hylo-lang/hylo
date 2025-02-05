@@ -2,7 +2,7 @@
 ///
 /// The value is not computed unless accessed and is computed no more than once no matter how many
 /// times it is copied or accessed.
-public struct Lazy<T: Sendable> {
+public struct Lazy<T: Sendable>: Sendable {
 
   /// The hidden state of an instance.
   enum State: Sendable {

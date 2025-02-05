@@ -1,2 +1,2 @@
 /// A pattern.
-public protocol Pattern: Node {}
+public protocol Pattern: Node, Sendable {}

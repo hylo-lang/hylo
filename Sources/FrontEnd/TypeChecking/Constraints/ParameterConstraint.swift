@@ -5,7 +5,7 @@ import Utils
 ///
 /// - Note: Solving a constraint `l ⤷ R` where `R` is a type variable requires that there be
 ///   another constraint on `R` fixing its parameter passing convention.
-struct ParameterConstraint: Constraint, Hashable {
+struct ParameterConstraint: Constraint, Hashable, Sendable {
 
   /// The left operand.
   private(set) var left: AnyType

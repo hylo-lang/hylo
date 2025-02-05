@@ -2,7 +2,7 @@ import Utils
 
 /// A constraint specifying that a name expression refers to one of several declarations,
 /// depending on its type.
-struct OverloadConstraint: DisjunctiveConstraintProtocol, Hashable {
+struct OverloadConstraint: DisjunctiveConstraintProtocol, Hashable, Sendable {
 
   /// The overloaded expression.
   let overloadedExpr: NameExpr.ID
@@ -56,7 +56,7 @@ struct OverloadConstraint: DisjunctiveConstraintProtocol, Hashable {
   }
 
   /// A candidate in an overload constraint.
-  struct Predicate: DisjunctiveConstraintTerm, Hashable {
+  struct Predicate: DisjunctiveConstraintTerm, Hashable, Sendable {
 
     /// The candidate reference.
     let reference: DeclReference

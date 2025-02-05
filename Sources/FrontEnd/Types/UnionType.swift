@@ -1,7 +1,7 @@
 import Utils
 
 /// A union of types.
-public struct UnionType: TypeProtocol {
+public struct UnionType: TypeProtocol, Sendable {
 
   // Note: The elements of the union are stored in an array rather than a set of that the internal
   // representation of a particular instance is deterministic across compiler runs, as the order in

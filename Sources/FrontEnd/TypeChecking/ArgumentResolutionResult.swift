@@ -1,5 +1,5 @@
 /// Information identifying a run-time argument of a function or subscript call.
-public enum ArgumentResolutionResult: Hashable, Monotonic {
+public enum ArgumentResolutionResult: Hashable, Monotonic, Sendable {
 
   /// The argument is the n-th expression in the syntax of the call.
   case explicit(Int)

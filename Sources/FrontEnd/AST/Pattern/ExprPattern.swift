@@ -1,5 +1,5 @@
 /// A pattern that matches the value of an equatable expression.
-public struct ExprPattern: Pattern {
+public struct ExprPattern: Pattern, Sendable {
 
   public let site: SourceRange
 

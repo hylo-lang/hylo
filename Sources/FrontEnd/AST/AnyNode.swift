@@ -1,7 +1,7 @@
 import Utils
 
 /// A type-erasing container for AST nodes.
-struct AnyNode: Codable {
+struct AnyNode: Codable, Sendable {
 
   fileprivate enum CodingKeys: String, CodingKey {
 

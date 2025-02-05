@@ -3567,7 +3567,7 @@ struct ParameterInterface: Sendable {
 }
 
 /// A conjunction (`&&`) or disjunction (`||`) operator.
-enum Connective: Int {
+enum Connective: Int, Sendable {
 
   /// The logical disjunction.
   case disjunction
@@ -3578,7 +3578,7 @@ enum Connective: Int {
 }
 
 /// A combinator that parses tokens with a specific kind.
-struct TakeKind: Combinator {
+struct TakeKind: Combinator, Sendable {
 
   typealias Context = ParserState
 

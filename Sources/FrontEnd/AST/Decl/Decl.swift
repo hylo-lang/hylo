@@ -1,5 +1,5 @@
 /// A declaration.
-public protocol Decl: Node {
+public protocol Decl: Node, Sendable {
 
   /// The description of the construct represented by `Self` in diagnostics.
   static var constructDescription: String { get }

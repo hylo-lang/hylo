@@ -2,7 +2,7 @@
 public struct BitArray: Sendable {
 
   /// A position in a `BitArray`.
-  public struct Position: Comparable {
+  public struct Position: Comparable, Sendable {
 
     /// The bucket containing `self`.
     fileprivate let bucket: Int

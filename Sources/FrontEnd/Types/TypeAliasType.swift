@@ -1,7 +1,7 @@
 import Utils
 
 /// A type alias.
-public struct TypeAliasType: TypeProtocol {
+public struct TypeAliasType: TypeProtocol, Sendable {
 
   /// The declaration that introduces the alias.
   public let decl: TypeAliasDecl.ID

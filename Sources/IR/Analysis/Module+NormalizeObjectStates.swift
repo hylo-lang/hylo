@@ -806,7 +806,7 @@ private typealias Contexts = [Function.Blocks.Address: (before: Context, after: 
 /// Instances form a lattice whose supremum is `.initialized` and infimum is `.consumed(by: s)`
 /// where `s` is the set of all instructions. The meet of two elements denotes the conservative
 /// superposition of two initialization states.
-private enum State: AbstractDomain {
+private enum State: AbstractDomain, Sendable {
 
   /// A set of consumers.
   typealias Consumers = Set<InstructionID>

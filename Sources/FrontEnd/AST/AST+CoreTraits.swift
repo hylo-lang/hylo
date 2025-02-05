@@ -1,5 +1,5 @@
 /// The description of a core trait that has been loaded in an AST.
-public protocol CoreTraitDescription: Codable {
+public protocol CoreTraitDescription: Codable, Sendable {
 
   /// The identifier of the trait declaration in the AST.
   var decl: TraitDecl.ID { get }
@@ -7,7 +7,7 @@ public protocol CoreTraitDescription: Codable {
 }
 
 /// A view of the traits in Hylo's standard library that are known by the compiler.
-public struct CoreTraits: Codable {
+public struct CoreTraits: Codable, Sendable {
 
   /// `Hylo.Collection`.
   public let collection: CollectionDescription
@@ -54,7 +54,7 @@ public struct CoreTraits: Codable {
 }
 
 /// A view of `Hylo.Collection`'s declaration from the standard library.
-public struct CollectionDescription: CoreTraitDescription {
+public struct CollectionDescription: CoreTraitDescription, Sendable {
 
   /// The identifier of the trait declaration.
   public let decl: TraitDecl.ID
@@ -100,7 +100,7 @@ public struct CollectionDescription: CoreTraitDescription {
 }
 
 /// A view of `Hylo.Copyable`'s declaration from the standard library.
-public struct CopyableDescription: CoreTraitDescription {
+public struct CopyableDescription: CoreTraitDescription, Sendable {
 
   /// The identifier of the trait declaration.
   public let decl: TraitDecl.ID
@@ -119,7 +119,7 @@ public struct CopyableDescription: CoreTraitDescription {
 }
 
 /// A view of `Hylo.Deinitializable`'s declaration from the standard library.
-public struct DeinitializableDescription: CoreTraitDescription {
+public struct DeinitializableDescription: CoreTraitDescription, Sendable {
 
   /// The identifier of the trait declaration.
   public let decl: TraitDecl.ID
@@ -139,7 +139,7 @@ public struct DeinitializableDescription: CoreTraitDescription {
 }
 
 /// A view of `Hylo.Equatable`'s declaration from the standard library.
-public struct EquatableDescription: CoreTraitDescription {
+public struct EquatableDescription: CoreTraitDescription, Sendable {
 
   /// The identifier of the trait declaration.
   public let decl: TraitDecl.ID
@@ -159,7 +159,7 @@ public struct EquatableDescription: CoreTraitDescription {
 }
 
 /// A view of `Hylo.ExpressibleByFloatLiteral`'s declaration from the standard library.
-public struct ExpressibleByFloatLiteralDescription: CoreTraitDescription {
+public struct ExpressibleByFloatLiteralDescription: CoreTraitDescription, Sendable {
 
   /// The identifier of the trait declaration.
   public let decl: TraitDecl.ID
@@ -174,7 +174,7 @@ public struct ExpressibleByFloatLiteralDescription: CoreTraitDescription {
 }
 
 /// A view of `Hylo.ExpressibleByIntegerLiteral`'s declaration from the standard library.
-public struct ExpressibleByIntegerLiteralDescription: CoreTraitDescription {
+public struct ExpressibleByIntegerLiteralDescription: CoreTraitDescription, Sendable {
 
   /// The identifier of the trait declaration.
   public let decl: TraitDecl.ID
@@ -189,7 +189,7 @@ public struct ExpressibleByIntegerLiteralDescription: CoreTraitDescription {
 }
 
 /// A view of `Hylo.ForeignConvertible`'s declaration from the standard library.
-public struct ForeignConvertibleDescription: CoreTraitDescription {
+public struct ForeignConvertibleDescription: CoreTraitDescription, Sendable {
 
   /// The identifier of the trait declaration.
   public let decl: TraitDecl.ID
@@ -220,7 +220,7 @@ public struct ForeignConvertibleDescription: CoreTraitDescription {
 }
 
 /// A view of `Hylo.Iterator`'s declaration from the standard library.
-public struct IteratorDescription: CoreTraitDescription {
+public struct IteratorDescription: CoreTraitDescription, Sendable {
 
   /// The identifier of the trait declaration.
   public let decl: TraitDecl.ID
@@ -246,7 +246,7 @@ public struct IteratorDescription: CoreTraitDescription {
 }
 
 /// A view of `Hylo.Movable`'s declaration from the standard library.
-public struct MovableDescription: CoreTraitDescription {
+public struct MovableDescription: CoreTraitDescription, Sendable {
 
   /// The identifier of the trait declaration.
   public let decl: TraitDecl.ID

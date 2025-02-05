@@ -215,13 +215,13 @@ extension SourceFile: Hashable, Sendable {
 
 }
 
-extension SourceFile: Codable {
+extension SourceFile: Codable, Sendable {
 
   /// The state that must be maintained on behalf of `SourceFile`s while they are encoded.
   struct EncodingState {
 
     /// Creates an empty instance.
-    public init(): Sendable {}
+    public init() {}
 
     /// A mapping from the identity of a `SourceFile`'s storage to a pair, (`id`, `s`), where `id`
     /// is the serialized representation of `SourceFile` instances having that `storage`, and `s`
@@ -237,7 +237,7 @@ extension SourceFile: Codable {
   }
 
   /// The state that must be maintained on behalf of `SourceFile`s while they are decoded.
-  struct DecodingState: Codable {
+  struct DecodingState: Codable, Sendable {
 
     /// Creates an empty instance.
     ///
@@ -363,7 +363,7 @@ extension SourceFile {
     }
 
     /// The data that is encoded/decoded for each instance of `self`.
-    private struct Encoding: Codable {
+    private struct Encoding: Codable, Sendable {
       let url: URL
       let text: String
     }

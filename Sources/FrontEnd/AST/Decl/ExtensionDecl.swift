@@ -1,5 +1,5 @@
 /// A declaration that extends a type with new members.
-public struct ExtensionDecl: TypeExtendingDecl {
+public struct ExtensionDecl: TypeExtendingDecl, Sendable {
 
   public static let constructDescription = "extension declaration"
 

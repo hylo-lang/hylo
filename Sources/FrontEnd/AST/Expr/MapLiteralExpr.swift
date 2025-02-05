@@ -1,8 +1,8 @@
 /// A map literal expression.
-public struct MapLiteralExpr: Expr {
+public struct MapLiteralExpr: Expr, Sendable {
 
   /// A key-value pair in a map literal.
-  public struct Element: Codable {
+  public struct Element: Codable, Sendable {
 
     /// Creates an instance having the given properties.
     public init(key: AnyExprID, value: AnyExprID) {

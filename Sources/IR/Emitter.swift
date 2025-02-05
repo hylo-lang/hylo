@@ -962,7 +962,7 @@ struct Emitter: Sendable {
   // MARK: Statements
 
   /// The description of the next action a program should execute.
-  private enum ControlFlow: Equatable {
+  private enum ControlFlow: Equatable, Sendable {
 
     /// Move to the next statement.
     case next

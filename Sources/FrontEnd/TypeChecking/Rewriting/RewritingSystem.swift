@@ -1,7 +1,7 @@
 import Utils
 
 /// A set of rewriting rules describing some equational equivalences.
-struct RewritingSystem<Term: RewritingTerm> {
+struct RewritingSystem<Term: RewritingTerm>: Sendable {
 
   /// The identifier of a rule in a rewriting system.
   typealias RuleID = Int
