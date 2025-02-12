@@ -144,10 +144,10 @@ extension IR.Program {
     case let s as GlobalAddr:
       return modules[n]!.insert(s, at: p)
 
-    case let s as LLVMInstruction:
+    case let s as CallBuiltinFunction:
       let x0 = t.transform(s.operands, in: &self)
       return insert(at: p, in: n) { (target) in
-        target.makeLLVM(applying: s.instruction, to: x0, at: s.site)
+        target.makeCallBuiltin(applying: s.callee, to: x0, at: s.site)
       }
 
     case let s as MarkState:

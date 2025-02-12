@@ -2,6 +2,9 @@
 public enum OverflowBehavior {
 
   /// Overflow is ignored.
+  ///
+  /// This value is the default, and is thus omitted from `Builtin` function names
+  /// (e.g. `Builtin.add_i32`).
   case ignore
 
   /// The result is a poison value should unsigned overflow occur.
