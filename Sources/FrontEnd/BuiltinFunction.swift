@@ -1,31 +1,31 @@
 import Utils
 
-/// The name of an native instruction mapped to a built-in function.
+/// A function in the `Builtin` module, accessible only to the standard library.
 ///
-/// Native instructions implement basis operations on built-in types, such as `Builtin.i64`, with
-/// the same semantics as their corresponding LLVM instruction.
+/// Built-in functions implement the basis operations on built-in types such as `Builtin.i64`, and
+/// are implemented by a single IR instruction.
 ///
-/// LLVM instructions are "generic" in the sense that they can be parameterized by types and flags.
-/// For example, `add i32` and `add i64` represent the integer addition parameterized for 32-bit
-/// and 64-bit integer values, respectively. In Hylo, this parameterization is encoded directly
-/// into the name of a built-in function. For example, `Builtin.add_i64` corresponds to LLVM's
-/// `add i64` instruction.
+/// Only a few built-in functions, such as `Builtin.address(of:)`, are truly generic. Others are
+/// parameterized by a bounded selection of types and flags, resulting in a family of related
+/// *non-generic* Hylo functions having the same base name. The full name of these functions is a
+/// concatenation of the base name with a representation of the value of each parameter, separated
+/// by underscores. For example, `Builtin.add_i32` and `Builtin.add_i64` represent integer addition
+/// for 32-bit and 64-bit integer values. Some flags have default values
+/// (e.g. `OverflowBehavior.ignored`), which are omitted from builtin function names.  For example:
 ///
-/// The name of a native instruction is given by the name of the corresponding LLVM instruction
-/// concatenated with all its generic parameters, separated by underscores. For example:
+/// | Hylo spelling               | Swift representation     |
+/// |:----------------------------|:-------------------------|
+/// | `Builtin.add_i64`           | `.add(.ignored, .i(64))` |
+/// | `Builtin.icmp_ne_i32`       | `.icmp(.ne, .i(32))`     |
+/// | `Builtin.fmul_fast_float64` | `.fmul(.fast, .float64)` |
 ///
-///     add i64 -> Builtin.add_i64
-///     icmp ne i32 -> Builtin.icmp_ne_i32
-///     fmul fast float64 -> Builtin.fmul_fast_float64
-///
-/// An exception is made for LLVM conversion instructions: we omit the keyword `to` that appears
-/// between the first argument and result type. For example:
-///
-///     trunc i64 ... to i32 -> Builtin.trunc_i64_i32
-///
-/// Supported operations include all LLVM arithmetic and comparison instructions on built-in
-/// integral and floating-point numbers as well as conversions from and to these types.
+/// Most built-in functions have the same semantics an the LLVM instruction with the same base name;
+/// the other cases have documentation describing their semantics and Hylo signature.  Supported
+/// LLVM operations include all arithmetic and comparison instructions on built-in integral and
+/// floating-point numbers as well as conversions from and to these types.
 public enum BuiltinFunction: Hashable {
+
+  // MARK: Functions unique to Hylo
 
   /// `Builtin.address<T>(of v: T) -> Builtin.ptr`
   ///
@@ -39,6 +39,8 @@ public enum BuiltinFunction: Hashable {
   ///
   /// Marks `v` as being uninitialized.
   case markUninitialized
+
+  // MARK: Functions with a counterpart LLVM instruction.
 
   case add(OverflowBehavior, BuiltinType)
 
@@ -370,7 +372,9 @@ public enum BuiltinFunction: Hashable {
   case atomic_singlethreadfence_seqcst
 
 
-  /// The parameters of a floating-point LLVM instruction.
+  /// A set of customizations to the behavior of floating point operations.
+  ///
+  /// The meaning of each customization is given by the LLVM option of the same name.
   public struct MathFlags: OptionSet, Hashable {
 
     public typealias RawValue = UInt8
@@ -752,12 +756,14 @@ extension BuiltinFunction {
 
 extension BuiltinFunction: CustomStringConvertible {
 
+  /// The part of the name of this function in the `Builtin` module that comes before the
+  /// parentheses.
   public var description: String {
     switch self {
     case .addressOf:
-      return "address(of:)"
+      return "address"
     case .markUninitialized:
-      return "mark_uninitialized(_:)"
+      return "mark_uninitialized"
     case .add(let p, let t):
       return (p != .ignore) ? "add_\(p)_\(t)" : "add_\(t)"
     case .sub(let p, let t):
@@ -1087,6 +1093,7 @@ extension BuiltinFunction: CustomStringConvertible {
 
 extension BuiltinFunction.MathFlags: CustomStringConvertible {
 
+  /// The contribution this set of flags makes to name of a function in the `Builtin` module.
   public var description: String {
     var result: [String] = []
     if self.contains(.afn) { result.append("afn") }
@@ -1107,7 +1114,8 @@ extension BuiltinFunction.MathFlags: CustomStringConvertible {
 
 extension BuiltinFunction {
 
-  /// Creates a built-in function named `n` or returns `nil` if `n` isn't a valid name.
+  /// An instance whose name—up to the open parenthesis—is `n`, or `nil` if no such
+  /// built-in function exists.
   public init?(_ n: String) {
     var tokens = n.split(separator: "_")[...]
 
@@ -1303,9 +1311,10 @@ extension BuiltinFunction {
     }
   }
 
-  /// Creates a built-in function representing the native fence instruction named `n` or returns
-  /// `nil` if `n` isn't a valid native fence instruction name.
+  /// An atomic fence function whose name—up to the open parenthesis—is `n`, or `nil` if no such
+  /// built-in function exists.
   private init?(fence n: String) {
+    precondition(n.starts(with: "atomic_"))
     switch n {
     case "atomic_fence_acquire":
       self = .atomic_fence_acquire
@@ -1328,8 +1337,8 @@ extension BuiltinFunction {
     }
   }
 
-  /// Creates a built-in function representing the native atomic instruction named `n` or returns
-  /// `nil` if `n` isn't a valid native atomic instruction name.
+  /// An atomic non-fence function whose name—up to the open parenthesis—is `n`, or `nil` if no such
+  /// built-in function exists.
   private init?(atomic n: String) {
     // The type of all atomics (except fences) is mentioned at the end.
     let m = n.split(atLastIndexOf: "_")
@@ -1567,9 +1576,9 @@ extension BuiltinFunction {
 
 extension BuiltinFunction.MathFlags {
 
-  /// Creates the math flag described by `description`.
-  fileprivate init?(description: Substring) {
-    switch description {
+  /// The instance whose only element is named n, or `nil` if no such flag exists.
+  fileprivate init?(description n: Substring) {
+    switch n {
     case "afn":
       self = .afn
     case "arcp":
