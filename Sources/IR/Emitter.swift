@@ -2157,18 +2157,7 @@ struct Emitter {
   private mutating func emit(
     apply f: BuiltinFunction, to arguments: [LabeledArgument], at site: SourceRange
   ) -> Operand {
-    switch f.name {
-    case .llvm(let n):
-      var a: [Operand] = []
-      for e in arguments {
-        let x0 = emitStore(value: e.value)
-        let x1 = insert(module.makeAccess(.sink, from: x0, at: site))!
-        let x2 = insert(module.makeLoad(x1, at: site))!
-        a.append(x2)
-        insert(module.makeEndAccess(x1, at: site))
-      }
-      return insert(module.makeLLVM(applying: n, to: a, at: site))!
-
+    switch f {
     case .addressOf:
       let source = emitLValue(arguments[0].value)
       return insert(module.makeAddressToPointer(source, at: site))!
@@ -2177,6 +2166,17 @@ struct Emitter {
       let source = emitLValue(arguments[0].value)
       insert(module.makeMarkState(source, initialized: false, at: site))
       return .void
+
+    default:
+      var a: [Operand] = []
+      for e in arguments {
+        let x0 = emitStore(value: e.value)
+        let x1 = insert(module.makeAccess(.sink, from: x0, at: site))!
+        let x2 = insert(module.makeLoad(x1, at: site))!
+        a.append(x2)
+        insert(module.makeEndAccess(x1, at: site))
+      }
+      return insert(module.makeLLVM(applying: f, to: a, at: site))!
     }
   }
 

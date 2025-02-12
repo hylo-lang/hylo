@@ -4,7 +4,7 @@ import FrontEnd
 public struct LLVMInstruction: Instruction {
 
   /// The LLVM instruction corresponding to this instance.
-  public let instruction: NativeInstruction
+  public let instruction: BuiltinFunction
 
   /// The operands of the instruction.
   public private(set) var operands: [Operand]
@@ -13,14 +13,14 @@ public struct LLVMInstruction: Instruction {
   public let site: SourceRange
 
   /// Creates an instance with the given properties.
-  fileprivate init(applying s: NativeInstruction, to operands: [Operand], site: SourceRange) {
+  fileprivate init(applying s: BuiltinFunction, to operands: [Operand], site: SourceRange) {
     self.instruction = s
     self.operands = operands
     self.site = site
   }
 
   public var result: IR.`Type`? {
-    .object(instruction.type.output)
+    .object(instruction.output)
   }
 
   public mutating func replaceOperand(at i: Int, with new: Operand) {
@@ -45,7 +45,7 @@ extension Module {
   ///   - f: A built-in function.
   ///   - operands: A collection of built-in objects.
   func makeLLVM(
-    applying s: NativeInstruction, to operands: [Operand], at site: SourceRange
+    applying s: BuiltinFunction, to operands: [Operand], at site: SourceRange
   ) -> LLVMInstruction {
     precondition(
       operands.allSatisfy { (o) in
