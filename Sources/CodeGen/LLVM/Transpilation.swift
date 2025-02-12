@@ -730,7 +730,7 @@ extension SwiftyLLVM.Module {
         insert(endProjection: i)
       case is IR.GlobalAddr:
         insert(globalAddr: i)
-      case is IR.LLVMInstruction:
+      case is IR.CallBuiltinFunction:
         insert(llvm: i)
       case is IR.Load:
         insert(load: i)
@@ -967,8 +967,8 @@ extension SwiftyLLVM.Module {
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(llvm i: IR.InstructionID) {
-      let s = context.source[i] as! IR.LLVMInstruction
-      switch s.instruction {
+      let s = context.source[i] as! IR.CallBuiltinFunction
+      switch s.callee {
       case .add(let p, _):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
@@ -1560,13 +1560,13 @@ extension SwiftyLLVM.Module {
         insertAtomicFence(.sequentiallyConsistent, singleThread: true, for: i)
 
       default:
-        unreachable("unexpected LLVM instruction '\(s.instruction)'")
+        unreachable("unexpected LLVM instruction '\(s.callee)'")
       }
     }
 
     /// Inserts the transpilation of `i`, which is an `oper`, using `ordering` at `insertionPoint`.
     func insert(atomicRMW oper: AtomicRMWBinOp, ordering: AtomicOrdering, for i: IR.InstructionID) {
-      let s = context.source[i] as! IR.LLVMInstruction
+      let s = context.source[i] as! IR.CallBuiltinFunction
       let target = llvm(s.operands[0])
       let value = llvm(s.operands[1])
       let o = insertAtomicRMW(target, operation: oper, value: value, ordering: ordering, singleThread: false, at: insertionPoint)
@@ -1575,7 +1575,7 @@ extension SwiftyLLVM.Module {
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insertAtomicCompareExchange(successOrdering: AtomicOrdering, failureOrdering: AtomicOrdering, weak: Bool, for i: IR.InstructionID) {
-      let s = context.source[i] as! IR.LLVMInstruction
+      let s = context.source[i] as! IR.CallBuiltinFunction
       let target = llvm(s.operands[0])
       let old = llvm(s.operands[1])
       let new = llvm(s.operands[2])

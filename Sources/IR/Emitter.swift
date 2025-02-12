@@ -2176,7 +2176,7 @@ struct Emitter {
         a.append(x2)
         insert(module.makeEndAccess(x1, at: site))
       }
-      return insert(module.makeLLVM(applying: f, to: a, at: site))!
+      return insert(module.makeCallBuiltin(applying: f, to: a, at: site))!
     }
   }
 
@@ -3265,7 +3265,7 @@ struct Emitter {
     // The success blocks compare discriminators and then payloads.
     let dl = emitUnionDiscriminator(lhs, at: site)
     let dr = emitUnionDiscriminator(rhs, at: site)
-    let x0 = insert(module.makeLLVM(applying: .icmp(.eq, .discriminator), to: [dl, dr], at: site))!
+    let x0 = insert(module.makeCallBuiltin(applying: .icmp(.eq, .discriminator), to: [dl, dr], at: site))!
     insert(module.makeCondBranch(if: x0, then: same, else: fail, at: site))
 
     insertionPoint = .end(of: same)

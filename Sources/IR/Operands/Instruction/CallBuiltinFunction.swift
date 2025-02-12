@@ -1,26 +1,26 @@
 import FrontEnd
 
-/// An instruction whose semantics is defined by LLVM.
-public struct LLVMInstruction: Instruction {
+/// Invokes the built-in function `callee`, passing `operands` as the argument list.
+public struct CallBuiltinFunction: Instruction {
 
-  /// The LLVM instruction corresponding to this instance.
-  public let instruction: BuiltinFunction
+  /// The function to be invoked.
+  public let callee: BuiltinFunction
 
-  /// The operands of the instruction.
+  /// The arguments to the invocation, in order.
   public private(set) var operands: [Operand]
 
   /// The site of the code corresponding to that instruction.
   public let site: SourceRange
 
-  /// Creates an instance with the given properties.
+  /// An instance with the given properties.
   fileprivate init(applying s: BuiltinFunction, to operands: [Operand], site: SourceRange) {
-    self.instruction = s
+    self.callee = s
     self.operands = operands
     self.site = site
   }
 
   public var result: IR.`Type`? {
-    .object(instruction.output)
+    .object(callee.output)
   }
 
   public mutating func replaceOperand(at i: Int, with new: Operand) {
@@ -29,24 +29,24 @@ public struct LLVMInstruction: Instruction {
 
 }
 
-extension LLVMInstruction: CustomStringConvertible {
+extension CallBuiltinFunction: CustomStringConvertible {
 
   public var description: String {
-    operands.isEmpty ? "\(instruction)" : "\(instruction) \(list: operands)"
+    operands.isEmpty ? "\(callee)" : "\(callee) \(list: operands)"
   }
 
 }
 
 extension Module {
 
-  /// Creates a llvm instruction anchored at `site` that applies `f` to `operands`.
+  /// Creates an instruction anchored at `site` that applies `f` to `operands`.
   ///
   /// - Parameters:
   ///   - f: A built-in function.
   ///   - operands: A collection of built-in objects.
-  func makeLLVM(
+  func makeCallBuiltin(
     applying s: BuiltinFunction, to operands: [Operand], at site: SourceRange
-  ) -> LLVMInstruction {
+  ) -> CallBuiltinFunction {
     precondition(
       operands.allSatisfy { (o) in
         let t = type(of: o)
