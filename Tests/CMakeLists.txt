@@ -6,6 +6,8 @@ find_package(SwiftXCTest)
 
 add_hylo_library(TestUtils
   DEPENDENCIES FrontEnd Driver Utils SwiftXCTest
+  # TODO: why is this needed?
+  SwiftyLLVM
   PATH ../Sources/TestUtils
 )
 

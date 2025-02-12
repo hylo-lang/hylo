@@ -4,6 +4,65 @@ import IR
 import SwiftyLLVM
 import Utils
 
+fileprivate extension SwiftyLLVM.OverflowBehavior {
+
+  /// An instance equivalent to `x`
+  init(_ x: FrontEnd.OverflowBehavior) {
+    switch x {
+    case .ignore: self = .ignore
+    case .nsw: self = .nsw
+    case .nuw: self = .nuw
+    }
+  }
+
+}
+
+fileprivate extension SwiftyLLVM.IntegerPredicate {
+
+  /// An instance equivalent to `x`
+  init(_ x: FrontEnd.IntegerPredicate) {
+    switch x {
+    case .eq: self = .eq
+    case .slt: self = .slt
+    case .sle: self = .sle
+    case .sgt: self = .sgt
+    case .sge: self = .sge
+    case .ugt: self = .ugt
+    case .uge: self = .uge
+    case .ne: self = .ne
+    case .ult: self = .ult
+    case .ule: self = .ule
+    }
+  }
+
+}
+
+fileprivate extension SwiftyLLVM.FloatingPointPredicate {
+
+  /// An instance equivalent to `x`
+  init(_ x: FrontEnd.FloatingPointPredicate) {
+    switch x {
+    case .alwaysFalse: self = .alwaysFalse
+    case .alwaysTrue: self = .alwaysTrue
+    case .oeq: self = .oeq
+    case .one: self = .one
+    case .ogt: self = .ogt
+    case .oge: self = .oge
+    case .olt: self = .olt
+    case .ole: self = .ole
+    case .ord: self = .ord
+    case .ueq: self = .ueq
+    case .une: self = .une
+    case .ugt: self = .ugt
+    case .uge: self = .uge
+    case .ult: self = .ult
+    case .ule: self = .ule
+    case .uno: self = .uno
+    }
+  }
+
+}
+
 /// The state of a compilation from Hylo IR to LLVM IR.
 struct CodeGenerationContext {
 
@@ -913,17 +972,17 @@ extension SwiftyLLVM.Module {
       case .add(let p, _):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
-        register[.register(i)] = insertAdd(overflow: p, l, r, at: insertionPoint)
+        register[.register(i)] = insertAdd(overflow: .init(p), l, r, at: insertionPoint)
 
       case .sub(let p, _):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
-        register[.register(i)] = insertSub(overflow: p, l, r, at: insertionPoint)
+        register[.register(i)] = insertSub(overflow: .init(p), l, r, at: insertionPoint)
 
       case .mul(let p, _):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
-        register[.register(i)] = insertMul(overflow: p, l, r, at: insertionPoint)
+        register[.register(i)] = insertMul(overflow: .init(p), l, r, at: insertionPoint)
 
       case .shl:
         let l = llvm(s.operands[0])
@@ -1017,7 +1076,7 @@ extension SwiftyLLVM.Module {
       case .icmp(let p, _):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
-        register[.register(i)] = insertIntegerComparison(p, l, r, at: insertionPoint)
+        register[.register(i)] = insertIntegerComparison(.init(p), l, r, at: insertionPoint)
 
       case .and(_):
         let l = llvm(s.operands[0])
@@ -1086,7 +1145,7 @@ extension SwiftyLLVM.Module {
       case .fcmp(_, let p, _):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
-        register[.register(i)] = insertFloatingPointComparison(p, l, r, at: insertionPoint)
+        register[.register(i)] = insertFloatingPointComparison(.init(p), l, r, at: insertionPoint)
 
       case .fptrunc(_, let t):
         let target = context.ir.llvm(builtinType: t, in: &self)

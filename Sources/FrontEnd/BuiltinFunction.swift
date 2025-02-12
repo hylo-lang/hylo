@@ -1,4 +1,3 @@
-import SwiftyLLVM
 import Utils
 
 /// A function representing an IR instruction in Hylo source code.
@@ -621,7 +620,7 @@ private func mathFlags(_ stream: inout ArraySlice<Substring>) -> NativeInstructi
 /// Returns an overflow behavior parsed from `stream` or `.ignore` if none can be parsed.
 private func overflowBehavior(
   _ stream: inout ArraySlice<Substring>
-) -> SwiftyLLVM.OverflowBehavior {
+) -> OverflowBehavior {
   switch stream.first {
   case "nuw":
     stream.removeFirst()
@@ -648,7 +647,7 @@ private let integerArithmeticTail =
 
 /// Parses the parameters and type of `icmp`.
 private let integerComparisonTail =
-  take(SwiftyLLVM.IntegerPredicate.self) ++ builtinType
+  take(IntegerPredicate.self) ++ builtinType
 
 /// Parses the parameters and type of a floating-point arithmetic instruction.
 private let floatingPointArithmeticTail =
@@ -656,4 +655,4 @@ private let floatingPointArithmeticTail =
 
 /// Parses the parameters and type of `fcmp`.
 private let floatingPointComparisonTail =
-  mathFlags ++ take(SwiftyLLVM.FloatingPointPredicate.self) ++ builtinType
+  mathFlags ++ take(FloatingPointPredicate.self) ++ builtinType
