@@ -1646,7 +1646,7 @@ struct Emitter {
       specializedBy: module.specialization(in: insertionFunction!), in: insertionScope!)
 
     let site = ast[e].site
-    let x0 = insert(module.makeAddressToPointer(.constant(r), at: site))!
+    let x0 = insert(AddressToPointer(.constant(r), at: site, in: module))!
     let x1 = emitSubfieldView(storage, at: [0], at: site)
     emitInitialize(storage: x1, to: x0, at: ast[e].site)
 
@@ -2108,7 +2108,7 @@ struct Emitter {
       specializedBy: module.specialization(in: insertionFunction!), in: insertionScope!)
 
     let anchor = program[e].site
-    let x0 = insert(module.makeAddressToPointer(.constant(r), at: anchor))!
+    let x0 = insert(AddressToPointer(.constant(r), at: anchor, in: module))!
     let x1 = emitAllocStack(for: p.bareType, at: anchor)
     emitInitialize(storage: x1, to: x0, at: anchor)
     return insert(Access(p.access, from: x1, at: anchor, in: module))!
@@ -2160,7 +2160,7 @@ struct Emitter {
     switch f {
     case .addressOf:
       let source = emitLValue(arguments[0].value)
-      return insert(module.makeAddressToPointer(source, at: site))!
+      return insert(AddressToPointer(source, at: site, in: module))!
 
     case .markUninitialized:
       let source = emitLValue(arguments[0].value)

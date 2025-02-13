@@ -33,12 +33,12 @@ public struct AddressToPointer: Instruction {
 
 }
 
-extension Module {
+extension AddressToPointer {
 
   /// Creates an `address_to_pointer` anchored at `site` that converts `source` to a built-in
   /// pointer value.
-  func makeAddressToPointer(_ source: Operand, at site: SourceRange) -> AddressToPointer {
-    .init(source: source, site: site)
+  init(_ source: Operand, at site: SourceRange, in module: Module) {
+    self.init(source: source, site: site)
   }
 
 }

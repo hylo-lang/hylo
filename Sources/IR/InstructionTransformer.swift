@@ -47,7 +47,7 @@ extension IR.Program {
     case let s as AddressToPointer:
       let x0 = t.transform(s.source, in: &self)
       return insert(at: p, in: n) { (target) in
-        target.makeAddressToPointer(x0, at: s.site)
+        AddressToPointer(x0, at: s.site, in: target)
       }
 
     case let s as AdvancedByBytes:
