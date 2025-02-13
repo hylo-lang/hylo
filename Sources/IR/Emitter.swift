@@ -1952,8 +1952,8 @@ struct Emitter {
     writingResultTo storage: Operand, at site: SourceRange
   ) {
     let o = insert(Access(.set, from: storage, at: site, in: module))!
-    let s = module.makeCallBundle(
-      applying: callee, to: arguments, writingResultTo: o, at: site,
+    let s = CallBundle(
+      applying: callee, to: arguments, writingResultTo: o, at: site, in: &module,
       canonicalizingTypesIn: insertionScope!)
     insert(s)
     insert(EndAccess(o, at: site, in: module))
@@ -2771,8 +2771,8 @@ struct Emitter {
   /// Inserts the IR for lvalue `e`.
   private mutating func emitLValue(_ e: SubscriptCallExpr.ID) -> Operand {
     let (b, a) = emitOperands(e)
-    let s = module.makeProjectBundle(
-      applying: b, to: a, at: ast[e].site, canonicalizingTypesIn: insertionScope!)
+    let s = ProjectBundle(
+      applying: b, to: a, at: ast[e].site, in: &module, canonicalizingTypesIn: insertionScope!)
     return insert(s)!
   }
 
@@ -2880,9 +2880,8 @@ struct Emitter {
     let t = SubscriptType(canonicalType(of: d, specializedBy: z))!
     let b = BundleReference(to: d, specializedBy: z, requesting: t.capabilities)
     let a = insert(Access(t.capabilities, from: r, at: site, in: module))!
-
-    let s = module.makeProjectBundle(
-      applying: b, to: [a], at: site, canonicalizingTypesIn: insertionScope!)
+    let s = ProjectBundle(
+      applying: b, to: [a], at: site, in: &module, canonicalizingTypesIn: insertionScope!)
     return insert(s)!
   }
 
