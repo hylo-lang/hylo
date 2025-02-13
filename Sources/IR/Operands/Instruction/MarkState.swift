@@ -13,7 +13,7 @@ public struct MarkState: Instruction {
   public let site: SourceRange
 
   /// Creates an instance with the given properties.
-  fileprivate init(storage: Operand, initialized: Bool, site: SourceRange) {
+  private init(storage: Operand, initialized: Bool, site: SourceRange) {
     self.storage = storage
     self.initialized = initialized
     self.site = site
@@ -39,13 +39,13 @@ extension MarkState: CustomStringConvertible {
 
 }
 
-extension Module {
+extension MarkState {
 
   /// Creates a `mark_state` instruction anchored at `site` that marks `storage` has being fully
   /// initialized if `initialized` is `true` or fully uninitialized otherwise.
-  func makeMarkState(_ storage: Operand, initialized: Bool, at site: SourceRange) -> MarkState {
-    precondition(type(of: storage).isAddress)
-    return .init(storage: storage, initialized: initialized, site: site)
+  init(_ storage: Operand, initialized: Bool, at site: SourceRange, in m: Module) {
+    precondition(m.type(of: storage).isAddress)
+    self.init(storage: storage, initialized: initialized, site: site)
   }
 
 }

@@ -49,20 +49,18 @@ extension Switch: CustomStringConvertible {
 
 }
 
-extension Module {
+extension Switch {
 
   /// Creates a `switch` anchored at `site` that jumps to `successors[i]`.
   ///
   /// - Requires: `i` is a valid index in `successors`, expressed as a built-in integer, and
   ///   `successors` is not empty.
-  func makeSwitch(
-    on index: Operand, toOneOf successors: [Block.ID], at site: SourceRange
-  ) -> Switch {
-    let t = type(of: index)
+  init(on index: Operand, toOneOf successors: [Block.ID], at site: SourceRange, in module: Module) {
+    let t = module.type(of: index)
     precondition(t.isObject && t.ast.isBuiltinInteger)
     precondition(!successors.isEmpty)
 
-    return .init(index: index, successors: successors, site: site)
+    self.init(index: index, successors: successors, site: site)
   }
 
 }

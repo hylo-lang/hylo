@@ -40,7 +40,7 @@ public struct Move: Instruction {
 
 }
 
-extension Module {
+extension Move {
 
   /// Creates a `move` anchored at `site` that moves `value` into `storage` using the move
   /// operations defined by `movable`.
@@ -51,13 +51,13 @@ extension Module {
   /// - Parameters:
   ///   - value: The object to move. Must have an address type.
   ///   - storage: The location to initialize or assign. Must have an address type.
-  func makeMove(
+  init(
     _ value: Operand, to storage: Operand, usingConformance movable: FrontEnd.Conformance,
-    at site: SourceRange
-  ) -> Move {
-    precondition(type(of: value).isAddress)
-    precondition(type(of: storage).isAddress)
-    return .init(object: value, target: storage, movable: movable, site: site)
+    at site: SourceRange, in m: Module
+  ) {
+    precondition(m.type(of: value).isAddress)
+    precondition(m.type(of: storage).isAddress)
+    self.init(object: value, target: storage, movable: movable, site: site)
   }
 
 }

@@ -25,13 +25,13 @@ public struct ReleaseCaptures: Instruction {
 
 }
 
-extension Module {
+extension ReleaseCaptures {
 
   /// Creates a `release_capture` anchored at `site` that releases the accesses previously captured
   /// in `container`.
-  func makeReleaseCapture(_ container: Operand, at site: SourceRange) -> ReleaseCaptures {
-    precondition(container.instruction.map({ self[$0] is AllocStack }) ?? false)
-    return .init(container: container, site: site)
+  init(_ container: Operand, at site: SourceRange, in module: Module) {
+    precondition(container.instruction.map({ module[$0] is AllocStack }) ?? false)
+    self.init(container: container, site: site)
   }
 
 }

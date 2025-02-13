@@ -24,8 +24,8 @@ extension Module {
     let f = FunctionReference(
       to: s.variants[k]!, in: self, specializedBy: s.bundle.arguments, in: self[b].scope)
 
-    let reified = makeCall(
-      applying: .constant(f), to: arguments, writingResultTo: s.output, at: s.site)
+    let reified = Call(
+      applying: .constant(f), to: arguments, writingResultTo: s.output, at: s.site, in: self)
     replace(i, with: reified)
   }
 

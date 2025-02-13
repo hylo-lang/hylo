@@ -147,8 +147,9 @@ extension Module {
     }
 
     let o = RemoteType(k, s.projection)
-    let reified = makeProject(
-      o, applying: s.variants[k]!, specializedBy: s.bundle.arguments, to: arguments, at: s.site)
+    let reified = Project(
+      o, applying: s.variants[k]!, specializedBy: s.bundle.arguments, to: arguments, at: s.site,
+      in: self)
     replace(i, with: reified)
   }
 

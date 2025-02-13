@@ -62,7 +62,7 @@ extension CondBranch: CustomStringConvertible {
 
 }
 
-extension Module {
+extension CondBranch {
 
   /// Creates a `cond_branch` anchored at `site` that jumps to `targetIfTrue` if `condition` is
   /// true or `targetIfFalse` otherwise.
@@ -72,15 +72,15 @@ extension Module {
   ///     object.
   ///   - targetIfTrue: The block in which control flow jumps if `condition` is true.
   ///   - targetIfFalse: The block in which control flow jumps if `condition` is false.
-  func makeCondBranch(
+  init(
     if condition: Operand,
     then targetIfTrue: Block.ID,
     else targetIfFalse: Block.ID,
-    at site: SourceRange
-  ) -> CondBranch {
-    precondition(type(of: condition) == .object(BuiltinType.i(1)))
+    at site: SourceRange, in m: Module
+  ) {
+    precondition(m.type(of: condition) == .object(BuiltinType.i(1)))
     precondition(targetIfTrue.function == targetIfFalse.function)
-    return .init(
+    self.init(
       condition: condition,
       targetIfTrue: targetIfTrue,
       targetIfFalse: targetIfFalse,

@@ -45,15 +45,15 @@ extension PointerToAddress: CustomStringConvertible {
 
 }
 
-extension Module {
+extension PointerToAddress {
 
   /// Creates a `pointer_to_address` anchored at `site` that converts `source`, which is a
   /// built-in pointer value, to an address of type `target`.
-  func makePointerToAddress(
-    _ source: Operand, to target: RemoteType, at site: SourceRange
-  ) -> PointerToAddress {
+  init(
+    _ source: Operand, to target: RemoteType, at site: SourceRange, in m: Module
+  ) {
     precondition(target.access != .yielded)
-    return .init(source: source, target: target, site: site)
+    self.init(source: source, target: target, site: site)
   }
 
 }

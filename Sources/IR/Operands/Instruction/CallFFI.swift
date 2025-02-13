@@ -48,7 +48,7 @@ extension CallFFI: CustomStringConvertible {
 
 }
 
-extension Module {
+extension CallFFI {
 
   /// Creates a `call_ffi` anchored at `site` that applies `callee` on `arguments` using to return
   /// and returns a value of `returnType`.
@@ -57,13 +57,13 @@ extension Module {
   ///   - returnType: The return type of the callee.
   ///   - callee: The name of the foreign function to call
   ///   - arguments: The arguments of the call.
-  func makeCallFFI(
+  init(
     returning returnType: IR.`Type`, applying callee: String, to arguments: [Operand],
-    at site: SourceRange
-  ) -> CallFFI {
+    at site: SourceRange, in m: Module
+  ) {
     precondition(returnType.isObject)
-    precondition(arguments.allSatisfy({ self[$0] is Load }))
-    return .init(returnType: returnType, callee: callee, arguments: arguments, site: site)
+    precondition(arguments.allSatisfy({ m[$0] is Load }))
+    self.init(returnType: returnType, callee: callee, arguments: arguments, site: site)
   }
 
 }

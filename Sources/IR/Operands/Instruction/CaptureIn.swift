@@ -41,14 +41,14 @@ extension CaptureIn: CustomStringConvertible {
 
 }
 
-extension Module {
+extension CaptureIn {
 
   /// Creates a `capture ... in` anchored at `site` that captures `source`, which is an access, and
   /// stores it in `target`.
-  func makeCapture(_ source: Operand, in target: Operand, at site: SourceRange) -> CaptureIn {
-    precondition(type(of: source).isAddress)
-    precondition(type(of: target).isAddress)
-    return .init(source: source, target: target, site: site)
+  init(_ source: Operand, in target: Operand, at site: SourceRange, in m: Module) {
+    precondition(m.type(of: source).isAddress)
+    precondition(m.type(of: target).isAddress)
+    self.init(source: source, target: target, site: site)
   }
 
 }

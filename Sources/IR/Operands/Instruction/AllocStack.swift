@@ -33,14 +33,14 @@ extension AllocStack: CustomStringConvertible {
 
 }
 
-extension Module {
+extension AllocStack {
 
   /// Creates an `alloc_stack` anchored at `site` that allocates storage of type `t`.
   ///
   /// - Requires: `t` is canonical.
-  func makeAllocStack(_ t: AnyType, at site: SourceRange) -> AllocStack {
+  init(_ t: AnyType, at site: SourceRange, in m: Module) {
     precondition(t.isCanonical)
-    return .init(allocatedType: t, site: site)
+    self.init(allocatedType: t, site: site)
   }
 
 }

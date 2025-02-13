@@ -56,7 +56,7 @@ extension Call: CustomStringConvertible {
 
 }
 
-extension Module {
+extension Call {
 
   /// Creates a `call` anchored at `site` that applies `callee` on `arguments` and writes its
   /// result to `output`.
@@ -65,16 +65,16 @@ extension Module {
   ///   - callee: The function to call.
   ///   - output: The location at which the result of `callee` is stored.
   ///   - arguments: The arguments of the call; one for each input of `callee`'s type.
-  func makeCall(
+  init(
     applying callee: Operand, to arguments: [Operand], writingResultTo output: Operand,
-    at site: SourceRange
-  ) -> Call {
-    let t = ArrowType(type(of: callee).ast)!.strippingEnvironment
+    at site: SourceRange, in m: Module
+  ) {
+    let t = ArrowType(m.type(of: callee).ast)!.strippingEnvironment
     precondition(t.inputs.count == arguments.count)
-    precondition(arguments.allSatisfy({ self[$0] is Access }))
-    precondition(isBorrowSet(output))
+    precondition(arguments.allSatisfy({ m[$0] is Access }))
+    precondition(m.isBorrowSet(output))
 
-    return .init(callee: callee, output: output, arguments: arguments, site: site)
+    self.init(callee: callee, output: output, arguments: arguments, site: site)
   }
 
 }
