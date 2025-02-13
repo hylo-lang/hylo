@@ -233,13 +233,13 @@ jobs:
         run: ./Tools/set-hc-version.sh ${{ needs.determine-version.outputs.version }}
         shell: bash
 
-      - name: Set up Visual Studio (Windows)
-        uses: compnerd/gha-setup-vsdevenv@main
-
       - name: Set up swift
         uses: SwiftyLab/setup-swift@latest
         with:
           swift-version: ${{ env.swift-version }}
+
+      - name: Set up Visual Studio (Windows)
+        uses: compnerd/gha-setup-vsdevenv@main
 
       - name: Verify swift version
         run: swift --version && swift --version | grep -q ${{ env.swift-version }}
