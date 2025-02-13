@@ -6,8 +6,8 @@ public struct Return: Terminator {
   /// The site of the code corresponding to that instruction.
   public let site: SourceRange
 
-  /// Creates an instance with the given properties.
-  fileprivate init(site: SourceRange) {
+  /// Creates a `return` anchored at `site`.
+  init(at site: SourceRange, in module: Module) {
     self.site = site
   }
 
@@ -19,15 +19,6 @@ public struct Return: Terminator {
 
   func replaceSuccessor(_ old: Block.ID, with new: Block.ID) -> Bool {
     false
-  }
-
-}
-
-extension Return {
-
-  /// Creates a `return` anchored at `site`.
-  init(at site: SourceRange, in module: Module) {
-    self.init(site: site)
   }
 
 }

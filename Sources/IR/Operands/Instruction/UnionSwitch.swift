@@ -19,8 +19,20 @@ public struct UnionSwitch: Terminator {
   /// The site of the code corresponding to that instruction.
   public let site: SourceRange
 
-  /// Creates an instance with the given properties.
-  fileprivate init(discriminator: Operand, union: UnionType, targets: Targets, site: SourceRange) {
+  /// Creates a `union_switch` anchored at `site` that switches over `discriminator`, which is the
+  /// discriminator of a container of type `union`, jumping to corresponding block in `target`.
+  ///
+  /// If `union` is generic, `discriminator` should be the result of `union_discriminator` rather
+  /// than a constant.
+  ///
+  /// - Requires: `targets` has a key defined for each of `union`.
+  init(
+    over discriminator: Operand, of union: UnionType, toOneOf targets: UnionSwitch.Targets,
+    at site: SourceRange, in m: Module
+  ) {
+    let t = m.type(of: discriminator)
+    precondition(t.isObject && t.ast.isBuiltinInteger)
+    precondition(union.elements.allSatisfy({ (e) in targets[e] != nil }))
     self.discriminator = discriminator
     self.union = union
     self.targets = targets
@@ -65,23 +77,3 @@ extension UnionSwitch: CustomStringConvertible {
 
 }
 
-extension UnionSwitch {
-
-  /// Creates a `union_switch` anchored at `site` that switches over `discriminator`, which is the
-  /// discriminator of a container of type `union`, jumping to corresponding block in `target`.
-  ///
-  /// If `union` is generic, `discriminator` should be the result of `union_discriminator` rather
-  /// than a constant.
-  ///
-  /// - Requires: `targets` has a key defined for each of `union`.
-  init(
-    over discriminator: Operand, of union: UnionType, toOneOf targets: UnionSwitch.Targets,
-    at site: SourceRange, in m: Module
-  ) {
-    let t = m.type(of: discriminator)
-    precondition(t.isObject && t.ast.isBuiltinInteger)
-    precondition(union.elements.allSatisfy({ (e) in targets[e] != nil }))
-    self.init(discriminator: discriminator, union: union, targets: targets, site: site)
-  }
-
-}
