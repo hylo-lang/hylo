@@ -41,7 +41,7 @@ extension IR.Program {
     case let s as Access:
       let x0 = t.transform(s.source, in: &self)
       return insert(at: p, in: n) { (target) in
-        target.makeAccess(s.capabilities, from: x0, at: s.site)
+        Access(s.capabilities, from: x0, at: s.site, in: target)
       }
 
     case let s as AddressToPointer:

@@ -430,7 +430,7 @@ struct Emitter {
       pushing(Frame(locals: locals)) { (this) in
         let x0 = this.emitLValue(e)
         let x1 = this.insert(
-          this.module.makeAccess(this.ast[d].introducer.value, from: x0, at: this.ast[e].site))!
+          Access(this.ast[d].introducer.value, from: x0, at: this.ast[e].site, in: this.module))!
         this.insert(this.module.makeYield(this.ast[d].introducer.value, x1, at: this.ast[e].site))
       }
       insert(module.makeReturn(at: ast[e].site))
@@ -630,8 +630,8 @@ struct Emitter {
       let bindingType = canonical(program[partDecl].type)
       part = emitCoerce(part, to: bindingType, at: ast[partDecl].site)
 
-      let b = module.makeAccess(
-        request, from: part, correspondingTo: partDecl, at: ast[partDecl].site)
+      let b = Access(
+        request, from: part, correspondingTo: partDecl, at: ast[partDecl].site, in: module)
       frames[partDecl] = insert(b)!
     }
   }
@@ -1240,7 +1240,7 @@ struct Emitter {
     insert(module.makeBranch(to: head, at: introducer))
     insertionPoint = .end(of: head)
 
-    let x0 = insert(module.makeAccess(.inout, from: domain, at: introducer))!
+    let x0 = insert(Access(.inout, from: domain, at: introducer, in: module))!
     emitApply(witness.next, to: [x0], writingResultTo: element, at: introducer)
     insert(module.makeEndAccess(x0, at: introducer))
 
@@ -1300,8 +1300,8 @@ struct Emitter {
     insert(module.makeBranch(to: head, at: introducer))
 
     insertionPoint = .end(of: head)
-    let x0 = insert(module.makeAccess(.let, from: currentPosition, at: introducer))!
-    let x1 = insert(module.makeAccess(.let, from: endPosition, at: introducer))!
+    let x0 = insert(Access(.let, from: currentPosition, at: introducer, in: module))!
+    let x1 = insert(Access(.let, from: endPosition, at: introducer, in: module))!
     emitApply(.constant(equal), to: [x0, x1], writingResultTo: quit, at: introducer)
     insert(module.makeEndAccess(x1, at: introducer))
     insert(module.makeEndAccess(x0, at: introducer))
@@ -1309,8 +1309,8 @@ struct Emitter {
     insert(module.makeCondBranch(if: x2, then: exit, else: enter, at: introducer))
 
     insertionPoint = .end(of: enter)
-    let x6 = insert(module.makeAccess(.let, from: domain, at: introducer))!
-    let x7 = insert(module.makeAccess(.let, from: currentPosition, at: introducer))!
+    let x6 = insert(Access(.let, from: domain, at: introducer, in: module))!
+    let x7 = insert(Access(.let, from: currentPosition, at: introducer, in: module))!
 
     let t = RemoteType(.let, collectionWitness.element)
     let x8 = insert(
@@ -1333,8 +1333,8 @@ struct Emitter {
 
     insertionPoint = .end(of: tail)
     let x3 = insert(module.makeAllocStack(collectionWitness.position, at: introducer))!
-    let x4 = insert(module.makeAccess(.let, from: domain, at: introducer))!
-    let x5 = insert(module.makeAccess(.let, from: currentPosition, at: introducer))!
+    let x4 = insert(Access(.let, from: domain, at: introducer, in: module))!
+    let x5 = insert(Access(.let, from: currentPosition, at: introducer, in: module))!
     emitApply(collectionWitness.positionAfter, to: [x4, x5], writingResultTo: x3, at: introducer)
     insert(module.makeEndAccess(x4, at: introducer))
     insert(module.makeEndAccess(x5, at: introducer))
@@ -1355,7 +1355,7 @@ struct Emitter {
     let start = emitAllocStack(for: witness.position, at: site)
     let end = emitAllocStack(for: witness.position, at: site)
 
-    let x0 = insert(module.makeAccess(.let, from: domain, at: site))!
+    let x0 = insert(Access(.let, from: domain, at: site, in: module))!
     emitApply(witness.startPosition, to: [x0], writingResultTo: start, at: site)
     emitApply(witness.endPosition, to: [x0], writingResultTo: end, at: site)
     insert(module.makeEndAccess(x0, at: site))
@@ -1409,7 +1409,7 @@ struct Emitter {
     // TODO: Read mutability of current subscript
 
     let x0 = emitLValue(ast[s].value)
-    let x1 = insert(module.makeAccess(.let, from: x0, at: ast[s].site))!
+    let x1 = insert(Access(.let, from: x0, at: ast[s].site, in: module))!
     insert(module.makeYield(.let, x1, at: ast[s].site))
     return .next
   }
@@ -1420,7 +1420,7 @@ struct Emitter {
   private mutating func emitInitialize(
     storage: Operand, to value: Operand, at site: SourceRange
   ) {
-    let x0 = insert(module.makeAccess(.set, from: storage, at: site))!
+    let x0 = insert(Access(.set, from: storage, at: site, in: module))!
     insert(module.makeStore(value, at: x0, at: site))
     insert(module.makeEndAccess(x0, at: site))
   }
@@ -1504,7 +1504,7 @@ struct Emitter {
     let s = program[e].site
 
     let x0 = emitLValue(program[e].source)
-    let x1 = insert(module.makeAccess(t.access, from: x0, at: s))!
+    let x1 = insert(Access(t.access, from: x0, at: s, in: module))!
     emitStore(access: x1, to: storage, at: s)
   }
 
@@ -1609,7 +1609,7 @@ struct Emitter {
       switch program[n].referredDecl {
       case .builtinFunction(let f):
         let x0 = emit(apply: f, to: ast[e].arguments, at: ast[e].site)
-        let x1 = insert(module.makeAccess(.set, from: storage, at: ast[e].site))!
+        let x1 = insert(Access(.set, from: storage, at: ast[e].site, in: module))!
         insert(module.makeStore(x0, at: x1, at: ast[e].site))
         return
 
@@ -1671,7 +1671,7 @@ struct Emitter {
 
     for c in program[e].decl.implicitCaptures {
       let y0 = emitLValue(directReferenceTo: c.decl, at: site)
-      let y1 = insert(module.makeAccess(c.type.access, from: y0, at: site))!
+      let y1 = insert(Access(c.type.access, from: y0, at: site, in: module))!
       let y2 = emitSubfieldView(x2, at: [i], at: site)
       emitStore(access: y1, to: y2, at: site)
       i += 1
@@ -1707,7 +1707,7 @@ struct Emitter {
     let s = program[e].site
 
     let x0 = emitLValue(program[e].operand)
-    let x1 = insert(module.makeAccess(t.access, from: x0, at: s))!
+    let x1 = insert(Access(t.access, from: x0, at: s, in: module))!
     emitStore(access: x1, to: storage, at: s)
   }
 
@@ -1846,7 +1846,7 @@ struct Emitter {
   ) {
     let syntax = ast[literal]
     let x0 = emitSubfieldView(storage, at: [0], at: syntax.site)
-    let x1 = insert(module.makeAccess(.set, from: x0, at: syntax.site))!
+    let x1 = insert(Access(.set, from: x0, at: syntax.site, in: module))!
     let x2 = Operand.constant(evaluate(syntax.value))
     insert(module.makeStore(x2, at: x1, at: syntax.site))
   }
@@ -1867,7 +1867,7 @@ struct Emitter {
     }
 
     let x0 = emitSubfieldView(storage, at: [0], at: syntax.site)
-    let x1 = insert(module.makeAccess(.set, from: x0, at: syntax.site))!
+    let x1 = insert(Access(.set, from: x0, at: syntax.site, in: module))!
     let x2 = Operand.constant(IntegerConstant(bits))
     insert(module.makeStore(x2, at: x1, at: syntax.site))
   }
@@ -1877,7 +1877,7 @@ struct Emitter {
   /// - Requires: `storage` is the address of uninitialized memory of type `Hylo.Int`.
   private mutating func emitStore(boolean v: Bool, to storage: Operand, at site: SourceRange) {
     let x0 = emitSubfieldView(storage, at: [0], at: site)
-    let x1 = insert(module.makeAccess(.set, from: x0, at: site))!
+    let x1 = insert(Access(.set, from: x0, at: site, in: module))!
     insert(module.makeStore(.i1(v), at: x1, at: site))
     insert(module.makeEndAccess(x1, at: site))
   }
@@ -1887,7 +1887,7 @@ struct Emitter {
   /// - Requires: `storage` is the address of uninitialized memory of type `Hylo.Int`.
   mutating func emitStore(int v: Int, to storage: Operand, at site: SourceRange) {
     let x0 = emitSubfieldView(storage, at: [0], at: site)
-    let x1 = insert(module.makeAccess(.set, from: x0, at: site))!
+    let x1 = insert(Access(.set, from: x0, at: site, in: module))!
     insert(module.makeStore(.word(v), at: x1, at: site))
     insert(module.makeEndAccess(x1, at: site))
   }
@@ -1898,7 +1898,7 @@ struct Emitter {
   private mutating func emitStore(string v: String, to storage: Operand, at site: SourceRange) {
     let x0 = insert(module.makeConstantString(utf8: v.unescaped.data(using: .utf8)!, at: site))!
     let x1 = emitSubfieldView(storage, at: [0, 0], at: site)
-    let x2 = insert(module.makeAccess(.set, from: x1, at: site))!
+    let x2 = insert(Access(.set, from: x1, at: site, in: module))!
     insert(module.makeStore(x0, at: x2, at: site))
     insert(module.makeEndAccess(x2, at: site))
   }
@@ -1915,7 +1915,7 @@ struct Emitter {
       return
     }
 
-    let x0 = insert(module.makeAccess(.set, from: storage, at: site))!
+    let x0 = insert(Access(.set, from: storage, at: site, in: module))!
     insert(module.makeCapture(a, in: x0, at: site))
     insert(module.makeEndAccess(x0, at: site))
     frames.top.setMayHoldCaptures(s)
@@ -1941,7 +1941,7 @@ struct Emitter {
     _ callee: Operand, to arguments: [Operand],
     writingResultTo storage: Operand, at site: SourceRange
   ) {
-    let o = insert(module.makeAccess(.set, from: storage, at: site))!
+    let o = insert(Access(.set, from: storage, at: site, in: module))!
     insert(module.makeCall(applying: callee, to: arguments, writingResultTo: o, at: site))
     insert(module.makeEndAccess(o, at: site))
   }
@@ -1951,7 +1951,7 @@ struct Emitter {
     _ callee: BundleReference<MethodDecl>, to arguments: [Operand],
     writingResultTo storage: Operand, at site: SourceRange
   ) {
-    let o = insert(module.makeAccess(.set, from: storage, at: site))!
+    let o = insert(Access(.set, from: storage, at: site, in: module))!
     let s = module.makeCallBundle(
       applying: callee, to: arguments, writingResultTo: o, at: site,
       canonicalizingTypesIn: insertionScope!)
@@ -1984,13 +1984,13 @@ struct Emitter {
       usingExplicit: ast[call].arguments, synthesizingDefaultAt: .empty(at: ast[call].site.end))
 
     // Receiver is captured next.
-    let receiver = insert(module.makeAccess(.set, from: s, at: ast[call].site))!
+    let receiver = insert(Access(.set, from: s, at: ast[call].site, in: module))!
 
     // Call is evaluated last.
     let f = Operand.constant(
       FunctionReference(to: AnyDeclID(d), in: &module, specializedBy: a, in: insertionScope!))
     let x0 = emitAllocStack(for: .void, at: ast[call].site)
-    let x1 = insert(module.makeAccess(.set, from: x0, at: ast[call].site))!
+    let x1 = insert(Access(.set, from: x0, at: ast[call].site, in: module))!
 
     let s = module.makeCall(
       applying: f, to: [receiver] + arguments, writingResultTo: x1, at: ast[call].site)
@@ -2059,7 +2059,7 @@ struct Emitter {
 
       case .implicit(let d):
         let s = emitLValue(directReferenceTo: d, at: syntheticSite)
-        result.append(insert(module.makeAccess(p.access, from: s, at: syntheticSite))!)
+        result.append(insert(Access(p.access, from: s, at: syntheticSite, in: module))!)
       }
     }
 
@@ -2090,7 +2090,7 @@ struct Emitter {
     let x0 = emitLValue(e)
     let x1 = unwrapCapture(x0, at: anchor)
     let x2 = emitCoerce(x1, to: p.bareType, at: anchor)
-    return insert(module.makeAccess(p.access, from: x2, at: anchor))!
+    return insert(Access(p.access, from: x2, at: anchor, in: module))!
   }
 
   /// Inserts the IR for argument `e` passed to an autoclosure parameter of type `p`.
@@ -2111,7 +2111,7 @@ struct Emitter {
     let x0 = insert(module.makeAddressToPointer(.constant(r), at: anchor))!
     let x1 = emitAllocStack(for: p.bareType, at: anchor)
     emitInitialize(storage: x1, to: x0, at: anchor)
-    return insert(module.makeAccess(p.access, from: x1, at: anchor))!
+    return insert(Access(p.access, from: x1, at: anchor, in: module))!
   }
 
   /// Inserts the IR for argument `e` passed to a parameter of type `p`, evaluating the literal's
@@ -2121,7 +2121,7 @@ struct Emitter {
   ) -> Operand {
     let x0 = emitAllocStack(for: program[e].type, at: site)
     emitStore(e, to: x0, at: site)
-    return insert(module.makeAccess(p.access, from: x0, at: site))!
+    return insert(Access(p.access, from: x0, at: site, in: module))!
   }
 
   /// Inserts the IR generating the operands of the subscript call `e`.
@@ -2146,7 +2146,7 @@ struct Emitter {
       let s = emitAllocStack(for: t.output, at: ast.site(of: e))
       emitStore(e, to: s)
       let u = emitCoerce(s, to: p.bareType, at: ast.site(of: e))
-      return insert(module.makeAccess(p.access, from: u, at: ast.site(of: e)))!
+      return insert(Access(p.access, from: u, at: ast.site(of: e), in: module))!
 
     case .leaf(let e):
       return emitArgument(e, to: p, at: program[e].site)
@@ -2171,7 +2171,7 @@ struct Emitter {
       var a: [Operand] = []
       for e in arguments {
         let x0 = emitStore(value: e.value)
-        let x1 = insert(module.makeAccess(.sink, from: x0, at: site))!
+        let x1 = insert(Access(.sink, from: x0, at: site, in: module))!
         let x2 = insert(module.makeLoad(x1, at: site))!
         a.append(x2)
         insert(module.makeEndAccess(x1, at: site))
@@ -2271,7 +2271,7 @@ struct Emitter {
     if case .bundle(let b) = entityToCall {
       return emitMethodBundleCallee(referringTo: b, on: r, at: site)
     } else {
-      let c = insert(module.makeAccess(requested, from: r, at: site))!
+      let c = insert(Access(requested, from: r, at: site, in: module))!
       return (callee: entityToCall, captures: [c])
     }
   }
@@ -2288,10 +2288,10 @@ struct Emitter {
     if let k = b.capabilities.uniqueElement {
       let d = module.demandDeclaration(lowering: program.ast.implementation(k, of: b.bundle)!)
       let f = FunctionReference(to: d, in: module, specializedBy: b.arguments, in: insertionScope!)
-      let c = insert(module.makeAccess(k, from: receiver, at: site))!
+      let c = insert(Access(k, from: receiver, at: site, in: module))!
       return (callee: .direct(f), captures: [c])
     } else {
-      let c = insert(module.makeAccess(b.capabilities.weakest!, from: receiver, at: site))!
+      let c = insert(Access(b.capabilities.weakest!, from: receiver, at: site, in: module))!
       return (callee: .bundle(b), captures: [c])
     }
   }
@@ -2308,7 +2308,7 @@ struct Emitter {
 
     case let k:
       let l = emitLValue(callee)
-      let b = module.makeAccess(k, from: l, at: ast[callee].site)
+      let b = Access(k, from: l, at: ast[callee].site, in: module)
       return insert(b)!
     }
   }
@@ -2364,7 +2364,7 @@ struct Emitter {
 
     let entityToCall = program.subscriptBundleReference(to: .init(d)!, specializedBy: a)
     let r = emitLValue(receiver: s, at: ast[callee].site)
-    let c = insert(module.makeAccess(entityToCall.capabilities, from: r, at: ast[callee].site))!
+    let c = insert(Access(entityToCall.capabilities, from: r, at: ast[callee].site, in: module))!
     return (entityToCall, [c])
   }
 
@@ -2476,7 +2476,7 @@ struct Emitter {
     insertionPoint = .end(of: next)
 
     if let target = storage {
-      let x0 = insert(module.makeAccess(.sink, from: rhs, at: site))!
+      let x0 = insert(Access(.sink, from: rhs, at: site, in: module))!
       let x1 = insert(module.makeOpenUnion(x0, as: lhsType, at: site))!
       emitMove([.set], x1, to: target, at: site)
       emitLocalDeclarations(introducedBy: lhs, referringTo: [], relativeTo: target)
@@ -2484,7 +2484,7 @@ struct Emitter {
       insert(module.makeEndAccess(x0, at: site))
     } else {
       let k = AccessEffect(program[lhs].introducer.value)
-      let x0 = insert(module.makeAccess(k, from: rhs, at: site))!
+      let x0 = insert(Access(k, from: rhs, at: site, in: module))!
       let x1 = insert(module.makeOpenUnion(x0, as: lhsType, at: site))!
       assignProjections(of: x1, to: lhs)
     }
@@ -2506,7 +2506,7 @@ struct Emitter {
   private mutating func emitLoadBuiltinBool(_ wrapper: Operand, at site: SourceRange) -> Operand {
     precondition(module.type(of: wrapper) == .address(ast.coreType("Bool")!))
     let x0 = emitSubfieldView(wrapper, at: [0], at: site)
-    let x1 = insert(module.makeAccess(.sink, from: x0, at: site))!
+    let x1 = insert(Access(.sink, from: x0, at: site, in: module))!
     let x2 = insert(module.makeLoad(x1, at: site))!
     insert(module.makeEndAccess(x1, at: site))
     return x2
@@ -2639,10 +2639,10 @@ struct Emitter {
       let f = module.reference(to: convert, implementedFor: foreignConvertibleConformance)
 
       let x0 = emitAllocStack(for: ir, at: site)
-      let x1 = insert(module.makeAccess(.set, from: x0, at: site))!
+      let x1 = insert(Access(.set, from: x0, at: site, in: module))!
       let x2 = emitAllocStack(for: ArrowType(f.type.ast)!.output, at: site)
-      let x3 = insert(module.makeAccess(.set, from: x2, at: site))!
-      let x4 = insert(module.makeAccess(.sink, from: source, at: site))!
+      let x3 = insert(Access(.set, from: x2, at: site, in: module))!
+      let x4 = insert(Access(.sink, from: source, at: site, in: module))!
 
       let s = module.makeCall(applying: .constant(f), to: [x1, x4], writingResultTo: x3, at: site)
       insert(s)
@@ -2676,14 +2676,14 @@ struct Emitter {
       let convert = module.demandDeclaration(lowering: m)!
       let f = module.reference(to: convert, implementedFor: foreignConvertibleConformance)
 
-      let x0 = insert(module.makeAccess(.let, from: o, at: site))!
+      let x0 = insert(Access(.let, from: o, at: site, in: module))!
       let x1 = emitAllocStack(for: ArrowType(f.type.ast)!.output, at: site)
-      let x2 = insert(module.makeAccess(.set, from: x1, at: site))!
+      let x2 = insert(Access(.set, from: x1, at: site, in: module))!
       insert(module.makeCall(applying: .constant(f), to: [x0], writingResultTo: x2, at: site))
       insert(module.makeEndAccess(x2, at: site))
       insert(module.makeEndAccess(x0, at: site))
 
-      let x3 = insert(module.makeAccess(.sink, from: x1, at: site))!
+      let x3 = insert(Access(.sink, from: x1, at: site, in: module))!
       let x4 = insert(module.makeLoad(x3, at: site))!
       insert(module.makeEndAccess(x3, at: site))
       return x4
@@ -2751,7 +2751,7 @@ struct Emitter {
   /// Inserts the IR for lvalue `e`.
   private mutating func emitLValue(pointerConversion e: CastExpr.ID) -> Operand {
     let x0 = emitLValue(ast[e].left)
-    let x1 = insert(module.makeAccess(.sink, from: x0, at: ast[e].site))!
+    let x1 = insert(Access(.sink, from: x0, at: ast[e].site, in: module))!
     let x2 = insert(module.makeLoad(x1, at: ast[e].site))!
     insert(module.makeEndAccess(x1, at: ast[e].site))
 
@@ -2880,7 +2880,7 @@ struct Emitter {
 
     let t = SubscriptType(canonicalType(of: d, specializedBy: z))!
     let b = BundleReference(to: d, specializedBy: z, requesting: t.capabilities)
-    let a = insert(module.makeAccess(t.capabilities, from: r, at: site))!
+    let a = insert(Access(t.capabilities, from: r, at: site, in: module))!
 
     let s = module.makeProjectBundle(
       applying: b, to: [a], at: site, canonicalizingTypesIn: insertionScope!)
@@ -2894,7 +2894,7 @@ struct Emitter {
   ) -> Operand {
     let t = SubscriptImplType(canonicalType(of: d, specializedBy: z))!
     let o = RemoteType(ast[d].introducer.value, t.output)
-    let a = insert(module.makeAccess(o.access, from: r, at: site))!
+    let a = insert(Access(o.access, from: r, at: site, in: module))!
     let f = module.demandDeclaration(lowering: d)
 
     let s = module.makeProject(o, applying: f, specializedBy: z, to: [a], at: site)
@@ -2954,8 +2954,8 @@ struct Emitter {
 
     // Use memcpy of `source` is trivially movable.
     if program.isTrivial(movable) {
-      let x0 = insert(module.makeAccess(.sink, from: value, at: site))!
-      let x1 = insert(module.makeAccess(.set, from: storage, at: site))!
+      let x0 = insert(Access(.sink, from: value, at: site, in: module))!
+      let x1 = insert(Access(.set, from: storage, at: site, in: module))!
       insert(module.makeMemoryCopy(x0, x1, at: site))
       insert(module.makeEndAccess(x1, at: site))
       insert(module.makeMarkState(x0, initialized: false, at: site))
@@ -2977,8 +2977,8 @@ struct Emitter {
     _ value: Operand, to storage: Operand, at site: SourceRange
   ) {
     // Built-in are always stored.
-    let x0 = insert(module.makeAccess(.set, from: storage, at: site))!
-    let x1 = insert(module.makeAccess(.sink, from: value, at: site))!
+    let x0 = insert(Access(.set, from: storage, at: site, in: module))!
+    let x1 = insert(Access(.sink, from: value, at: site, in: module))!
     let x2 = insert(module.makeLoad(x1, at: site))!
     insert(module.makeStore(x2, at: x0, at: site))
     insert(module.makeEndAccess(x1, at: site))
@@ -3001,9 +3001,9 @@ struct Emitter {
     let f = module.reference(to: d, implementedFor: movable)
 
     let x0 = insert(module.makeAllocStack(.void, at: site))!
-    let x1 = insert(module.makeAccess(.set, from: x0, at: site))!
-    let x2 = insert(module.makeAccess(semantics, from: storage, at: site))!
-    let x3 = insert(module.makeAccess(.sink, from: value, at: site))!
+    let x1 = insert(Access(.set, from: x0, at: site, in: module))!
+    let x2 = insert(Access(semantics, from: storage, at: site, in: module))!
+    let x3 = insert(Access(.sink, from: value, at: site, in: module))!
     insert(module.makeCall(applying: .constant(f), to: [x2, x3], writingResultTo: x1, at: site))
     insert(module.makeEndAccess(x3, at: site))
     insert(module.makeEndAccess(x2, at: site))
@@ -3043,8 +3043,8 @@ struct Emitter {
     let d = module.demandCopyDeclaration(definedBy: copyable)
     let f = module.reference(to: d, implementedFor: copyable)
 
-    let x0 = insert(module.makeAccess(.let, from: source, at: site))!
-    let x1 = insert(module.makeAccess(.set, from: target, at: site))!
+    let x0 = insert(Access(.let, from: source, at: site, in: module))!
+    let x1 = insert(Access(.set, from: target, at: site, in: module))!
     insert(module.makeCall(applying: .constant(f), to: [x0], writingResultTo: x1, at: site))
     insert(module.makeEndAccess(x1, at: site))
     insert(module.makeEndAccess(x0, at: site))
@@ -3086,8 +3086,8 @@ struct Emitter {
     let f = module.reference(to: d, implementedFor: deinitializable)
 
     let x0 = insert(module.makeAllocStack(.void, at: site))!
-    let x1 = insert(module.makeAccess(.set, from: x0, at: site))!
-    let x2 = insert(module.makeAccess(.sink, from: storage, at: site))!
+    let x1 = insert(Access(.set, from: x0, at: site, in: module))!
+    let x2 = insert(Access(.sink, from: storage, at: site, in: module))!
     insert(module.makeCall(applying: .constant(f), to: [x2], writingResultTo: x1, at: site))
     insert(module.makeEndAccess(x2, at: site))
     insert(module.makeEndAccess(x1, at: site))
@@ -3194,9 +3194,9 @@ struct Emitter {
       let d = module.demandEqualDeclaration(definedBy: equatable)
       let f = module.reference(to: d, implementedFor: equatable)
 
-      let x0 = insert(module.makeAccess(.set, from: target, at: site))!
-      let x1 = insert(module.makeAccess(.let, from: lhs, at: site))!
-      let x2 = insert(module.makeAccess(.let, from: rhs, at: site))!
+      let x0 = insert(Access(.set, from: target, at: site, in: module))!
+      let x1 = insert(Access(.let, from: lhs, at: site, in: module))!
+      let x2 = insert(Access(.let, from: rhs, at: site, in: module))!
       insert(module.makeCall(applying: .constant(f), to: [x1, x2], writingResultTo: x0, at: site))
       insert(module.makeEndAccess(x2, at: site))
       insert(module.makeEndAccess(x1, at: site))
@@ -3375,7 +3375,7 @@ struct Emitter {
   private mutating func emitUnionDiscriminator(
     _ container: Operand, at site: SourceRange
   ) -> Operand {
-    let x0 = insert(module.makeAccess(.let, from: container, at: site))!
+    let x0 = insert(Access(.let, from: container, at: site, in: module))!
     let x1 = insert(module.makeUnionDiscriminator(x0, at: site))!
     insert(module.makeEndAccess(x0, at: site))
     return x1
