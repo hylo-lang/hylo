@@ -243,6 +243,9 @@ struct Emitter {
       if canonical(returnType).isVoidOrNever {
         let anchor = SourceRange.empty(at: ast[b].site.end)
         insert(module.makeMarkState(returnValue!, initialized: true, at: anchor))
+
+        at(ast[b].site.end)
+        _mark_state(.initialized, returnValue!)
       }
       return ast[b].site
 
@@ -268,43 +271,35 @@ struct Emitter {
       assert(self.frames.isEmpty)
     }
 
-    let site = ast[d].site
+    at(ast[d].site)
 
     // Convert Hylo arguments to their foreign representation. Note that the last parameter of the
     // entry is the address of the FFI's return value.
-    var arguments: [Operand] = []
-    for i in 0 ..< module[entry].inputs.count - 1 {
-      let a = emitConvertToForeign(.parameter(entry, i), at: site)
-      arguments.append(a)
+    let arguments = module[entry].inputs.dropLast().enumerated().map { (entry, i) in
+      _convert_to_foreign(.parameter(entry, i))
     }
 
     // Return type must be foreign convertible unless it is `Void` or `Never`.
-    let returnType = read(module.functions[f]!.output) { (t) in
-      t.isVoidOrNever ? t : program.foreignRepresentation(of: t, exposedTo: insertionScope!)
-    }
+    let t = module.functions[f]!.output
+    let u = t.isVoidOrNever ? t
+      : program.foreignRepresentation(of: t, exposedTo: insertionScope!)
 
-    // Emit the call to the foreign function.
-    let foreignResult = insert(
-      module.makeCallFFI(
-        returning: .object(returnType), applying: program[d].attributes.foreignName!, to: arguments,
-        at: site))!
+    let x = _call_ffi(program[d].attributes.foreignName!, on: arguments, returning: u)
 
-    // Convert the result of the FFI to its Hylo representation and return it.
-    switch returnType {
+    switch u {
     case .never:
-      insert(module.makeUnreachable(at: site))
+      _unreachable()
+      return
 
     case .void:
-      insert(module.makeMarkState(returnValue!, initialized: true, at: site))
-      emitDeallocTopFrame(at: site)
-      insert(module.makeReturn(at: site))
+      _mark_state(.initialized, returnValue!)
 
     default:
-      let v = emitConvert(foreign: foreignResult, to: module.functions[f]!.output, at: site)
-      emitMove([.set], v, to: returnValue!, at: site)
-      emitDeallocTopFrame(at: site)
-      insert(module.makeReturn(at: site))
+      let v = _convert(x, to: module.functions[f]!.output)
+      _move([.set], v, to: returnValue!)
     }
+    _dealloc_top_frame()
+    _return()
   }
 
   /// Inserts the IR for `d`.
@@ -331,12 +326,13 @@ struct Emitter {
     // If the object is empty, simply mark it initialized.
     let r = module.type(of: .parameter(entry, 0)).ast
     let l = AbstractTypeLayout(of: r, definedIn: program)
-    if l.properties.isEmpty {
-      let receiver = entry.parameter(0)
-      insert(module.makeMarkState(receiver, initialized: true, at: ast[d].site))
-    }
 
-    insert(module.makeReturn(at: returnSite))
+    at(ast[d].site)
+    if l.properties.isEmpty {
+      _mark_state(.initialized, entry.parameter(0))
+    }
+    at(returnSite)
+    _return()
   }
 
   /// Inserts the IR for `d`.
@@ -355,27 +351,31 @@ struct Emitter {
     let entry = module.appendEntry(in: program.scopeContainingBody(of: d)!, to: f)
 
     // Configure the locals.
-    var locals = DeclProperty<Operand>()
-    locals[ast[d].receiver] = .parameter(entry, 0)
+    var parameters = DeclProperty<Operand>()
+    parameters[ast[d].receiver] = .parameter(entry, 0)
 
     let bundle = MethodDecl.ID(program[d].scope)!
     for (i, p) in ast[bundle].parameters.enumerated() {
-      locals[p] = .parameter(entry, i + 1)
+      parameters[p] = .parameter(entry, i + 1)
     }
-
-    let bodyFrame = Frame(locals: locals)
 
     // Emit the body.
     self.insertionPoint = .end(of: entry)
     switch b {
     case .block(let s):
-      let returnType = ArrowType(program[d].type)!.output
-      let returnSite = pushing(bodyFrame, { $0.lowerStatements(s, expecting: returnType) })
-      insert(module.makeReturn(at: returnSite))
+      let t = ArrowType(program[d].type)!.output
+      let p = _frame(locals: parameters) {
+        $0._lowered(statements: s, output: t)
+      }
+      at(p)
+      _return()
 
     case .expr(let e):
-      pushing(bodyFrame, { $0.emitStore(value: e, to: $0.returnValue!) })
-      insert(module.makeReturn(at: ast[e].site))
+      inFrame(locals: parameters) {
+        pushing(bodyFrame, { $0.emitStore(value: e, to: $0.returnValue!) })
+      }
+      at(ast[e].site)
+      _return()
     }
   }
 
@@ -3403,8 +3403,7 @@ struct Emitter {
     insert(module.makeUnionSwitch(over: i, of: u, toOneOf: targets, at: site))
   }
 
-  /// Returns the result of calling `action` on a copy of `self` in which a `newFrame` is the top
-  /// frame.
+  /// Returns the result of calling `action` on `self` whith `newFrame` at the top.
   ///
   /// `newFrame` is pushed on `self.frames` before `action` is called. When `action` returns,
   /// outstanding stack allocations are deallocated and `newFrame` is popped. References to stack
