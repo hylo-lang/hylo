@@ -471,7 +471,7 @@ extension SwiftyLLVM.Module {
     // If `t` is generic, its metatype is only a stub.
     let layout: ConcreteTypeLayout
     if !context.ir.base[t.decl].genericParameters.isEmpty {
-      layout = ConcreteTypeLayout(size: 0, alignment: 0)
+      layout = ConcreteTypeLayout(size: 0, alignment: 1)
     } else {
       layout = ConcreteTypeLayout(of: ^t, definedIn: context.ir, forUseIn: &self)
     }
