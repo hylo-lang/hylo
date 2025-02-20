@@ -472,10 +472,8 @@ extension SwiftyLLVM.Module {
     let layout: ConcreteTypeLayout
     if !context.ir.base[t.decl].genericParameters.isEmpty {
       layout = ConcreteTypeLayout(size: 0, alignment: 1)
-      assert(layout.alignment > 0)
     } else {
       layout = ConcreteTypeLayout(of: ^t, definedIn: context.ir, forUseIn: &self)
-      assert(layout.alignment > 0)
     }
 
     let v = SwiftyLLVM.StructType(instance.valueType)!.constant(
