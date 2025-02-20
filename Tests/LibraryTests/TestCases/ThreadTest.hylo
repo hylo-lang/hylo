@@ -1,11 +1,12 @@
 //- compileAndRun expecting: .success
 
-fun thread_function() {
-  print("Hello from thread!")
+fun thread_function(_ x: Int) {
+  print("Hello, from thread!")
+  print(x)
 }
 
 public fun main() {
-  var future = spawn_thread(executing: fun() { thread_function() })
+  var future = spawn_thread(executing: fun[sink let x = 13]() { thread_function(x) })
   precondition(future.thread_id().numeric_value() >= 0, "Thread creation failed.")
   let tid = future.thread_id().numeric_value()
   future.await()

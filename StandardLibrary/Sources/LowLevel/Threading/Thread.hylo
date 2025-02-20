@@ -8,7 +8,8 @@ public type ThreadId {
   var id: pthread_t
 
   /// Initializes `self` with the given operating system thread ID.
-  internal init(os_value: pthread_t) {
+  // TODO: usable from inline; needs to be internal
+  public init(os_value: pthread_t) {
     &id = .new(truncating_or_extending: os_value)
   }
 
@@ -27,13 +28,24 @@ conformance ThreadId: Regular {}
 /// thread joins before the handler is destroyed.
 ///
 /// TODO: return type should be generic
-public type ThreadCompletion {
+public type ThreadCompletion<E: Deinitializable & Movable> {
+
+  /// The closure that is being executed by the thread.
+  // var closure: [E]() -> Void
+  var closure_data: E
 
   /// The underlying thread object, as seen by the operating system.
   var thread: OSThread
 
   /// Initializes `self` with the given operating system thread object.
-  internal memberwise init
+  internal init(stack: UInt, executing f: sink [E]() -> Void) {
+    // Closure has the type: { ptr-to-fun, { closure-data...: E } }
+    let closure_address = take_address(&f)
+    let function_ptr = deref(closure_address)
+    let closure_data_ptr = closure_address.advance(by: MemoryLayout<MemoryAddress>.size())
+    &self.closure_data = PointerToMutable<E>(type_punning: closure_data_ptr).unsafe_pointee()
+    &self.thread = OSThread.spawn_thread(stack: stack.copy(), executing: function_ptr, with_argument: take_address(&self.closure_data))
+  }
 
   /// Returns the unique identifier for the thread.
   public fun thread_id() -> ThreadId {
@@ -45,16 +57,26 @@ public type ThreadCompletion {
     &thread.join()
   }
 
+  /// Returns the address of `x` as a `MemoryAddress`.
+  private static fun take_address<T>(_ x: inout T) -> MemoryAddress {
+    return MemoryAddress(type_punning: mutable_pointer[to: &x])
+  }
+
+  /// Dereferences `o` and returns the value as a pointer.
+  private static fun deref(_ p: MemoryAddress) -> MemoryAddress {
+    return PointerToMutable<MemoryAddress>(type_punning: p).unsafe_pointee()
+  }
+
 }
 
 /// Creates a new thread that will execute `f`.
-public fun spawn_thread(executing f: sink []() -> Void) -> ThreadCompletion {
-  .new(thread: OSThread.spawn_thread(stack: 0, executing: f))
+public fun spawn_thread<E: Deinitializable & Movable>(executing f: sink [E]() -> Void) -> ThreadCompletion<E> {
+  .new(stack: 0, executing: f)
 }
 
 /// Creates a new thread that will execute `f`, using a stack size of `stack_size`.
-public fun spawn_thread(stack_size: UInt, executing f: sink []() -> Void) -> ThreadCompletion {
-  .new(thread: OSThread.spawn_thread(stack: stack_size, executing: f))
+public fun spawn_thread<E: Deinitializable & Movable>(stack_size: UInt, executing f: sink [E]() -> Void) -> ThreadCompletion<E> {
+  .new(stack: stack_size, executing: f)
 }
 
 /// Returns the unique identifier for the current thread.

@@ -42,7 +42,7 @@ internal fun pthread_attr_setstacksize(_ attr: PointerToMutable<pthread_attr_t>,
 @ffi("pthread_attr_destroy")
 internal fun pthread_attr_destroy(_ attr: PointerToMutable<pthread_attr_t>) -> c_int
 @ffi("pthread_create")
-internal fun pthread_create(_ thread: PointerToMutable<pthread_t>, _ attr: PointerToMutable<pthread_attr_t>, _ f: MemoryAddress) -> c_int
+internal fun pthread_create(_ thread: PointerToMutable<pthread_t>, _ attr: PointerToMutable<pthread_attr_t>, _ f: MemoryAddress, _ arg: MemoryAddress) -> c_int
 @ffi("pthread_join")
 internal fun pthread_join(_ thread: pthread_t, _ ret: PointerToMutable<MemoryAddress>) -> c_int
 @ffi("pthread_detach")

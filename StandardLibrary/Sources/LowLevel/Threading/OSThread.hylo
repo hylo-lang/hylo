@@ -1,23 +1,26 @@
 internal let invalid_thread_id: pthread_t = 0xffffffffffffffff
 
-internal type OSThread {
+// TODO: usable from inline; needs to be internal
+public type OSThread: Regular {
 
   var id: pthread_t
 
   internal memberwise init
 
-  internal init() {
+  public init() {
     &id = invalid_thread_id.copy()
   }
 
-  internal fun deinit() {
+  public fun deinit() {
     precondition(id < 0, "Thread is not joined before destruction.")
   }
 
-  internal static fun spawn_thread(stack: UInt, executing f: sink []() -> Void) -> OSThread {
+  public static fun spawn_thread(
+      stack: UInt,
+      executing function_ptr: MemoryAddress,
+      with_argument a: MemoryAddress) -> OSThread {
     #if os(Linux) || os(macOS)
       // TODO: improve error handling
-      let pf = deref(take_address(&f))
       var thread_id: pthread_t = invalid_thread_id.copy()
       var attr: pthread_attr_t = .new()
       let pattr = mutable_pointer[to: &attr]
@@ -25,7 +28,7 @@ internal type OSThread {
       if stack > 0 {
         if pthread_attr_setstacksize(pattr, c_size_t(truncating_or_extending: stack)) != 0 { return .new() }
       }
-      if pthread_create(mutable_pointer[to: &thread_id], pattr, pf) != 0 { return .new() }
+      if pthread_create(mutable_pointer[to: &thread_id], pattr, function_ptr, a) != 0 { return .new() }
 
       return .new(id: thread_id)
     #else
@@ -33,13 +36,13 @@ internal type OSThread {
     #endif
   }
 
-  internal fun yield_now() {
+  public fun yield_now() {
     #if os(Linux) || os(macOS)
       let _ = sched_yield()
     #endif
   }
 
-  internal fun join() sink {
+  public fun join() sink {
     #if os(Linux) || os(macOS)
       precondition(id >= 0, "Thread is not running while attempting to join it.")
       // TODO: handle errors.
@@ -51,11 +54,11 @@ internal type OSThread {
     #endif
   }
 
-  internal fun id() -> pthread_t {
+  public fun id() -> pthread_t {
     self.id.copy()
   }
 
-  internal static fun available_parallelism() -> Int {
+  public static fun available_parallelism() -> Int {
     #if os(Linux) || os(macOS)
       #if os(Linux)
         let _SC_NPROCESSORS_ONLN: c_int = 84
@@ -70,14 +73,4 @@ internal type OSThread {
     return 0
   }
 
-  static fun take_address<T>(_ x: inout T) -> MemoryAddress {
-    return MemoryAddress(type_punning: mutable_pointer[to: &x])
-  }
-
-  static fun deref(_ p: MemoryAddress) -> MemoryAddress {
-    return PointerToMutable<MemoryAddress>(type_punning: p).unsafe_pointee()
-  }
-
 }
-
-conformance OSThread: Deinitializable {}
