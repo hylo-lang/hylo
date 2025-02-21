@@ -1,0 +1,62 @@
+/// Type wide enough to store 1 pointer.
+internal type PointersStorage1 : Regular {
+
+  var p0: MemoryAddress
+
+  internal init() {
+    &self.p0 = .null()
+  }
+
+}
+
+/// Type wide enough to store 2 pointers.
+internal type PointersStorage2 : Regular {
+
+  var p0: PointersStorage1
+  var p1: PointersStorage1
+
+  internal init() {
+    &self.p0 = .new()
+    &self.p1 = .new()
+  }
+
+}
+
+/// Type wide enough to store 4 pointers.
+internal type PointersStorage4 : Regular {
+
+  var p0: PointersStorage2
+  var p1: PointersStorage2
+
+  internal init() {
+    &self.p0 = .new()
+    &self.p1 = .new()
+  }
+
+}
+
+/// Type wide enough to store 8 pointers.
+internal type PointersStorage8 : Regular {
+
+  var p0: PointersStorage4
+  var p1: PointersStorage4
+
+  internal init() {
+    &self.p0 = .new()
+    &self.p1 = .new()
+  }
+
+}
+
+/// Type wide enough to store 16 pointers.
+internal type PointersStorage16 : Regular {
+
+  var p0: PointersStorage8
+  var p1: PointersStorage8
+
+  internal init() {
+    &self.p0 = .new()
+    &self.p1 = .new()
+  }
+
+}

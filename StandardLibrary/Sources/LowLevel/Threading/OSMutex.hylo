@@ -1,0 +1,38 @@
+// TODO: should be internal, but, currently that leads to a linker error when Mutex<T> tries to use this.
+
+/// A thin wrapper around an Operating System mutex.
+public type OSMutex {
+
+  /// The mutex object.
+  var mutex: pthread_mutex_t
+
+  /// Initializes `self` with a new mutex.
+  public init() {
+    &mutex = pthread_mutex_t.regular()
+    let _ = pthread_mutex_init(mutable_pointer[to: &mutex], .null())
+    // TODO: error handling
+  }
+
+  /// Deinitializes `self`.
+  public fun deinit() sink {
+    let _ = pthread_mutex_destroy(mutable_pointer[to: &mutex])
+  }
+
+  /// Locks the mutex.
+  public fun lock() inout {
+    let _ = pthread_mutex_lock(mutable_pointer[to: &mutex])
+  }
+
+  /// Unlocks the mutex.
+  public fun unlock() inout {
+    let _ = pthread_mutex_unlock(mutable_pointer[to: &mutex])
+  }
+
+  /// Attempts to lock the mutex. Returns `true` if the lock was acquired, `false` otherwise.
+  public fun try_lock() inout -> Bool {
+    pthread_mutex_trylock(mutable_pointer[to: &mutex]) == 0
+  }
+
+}
+
+conformance OSMutex: Deinitializable, Movable {}

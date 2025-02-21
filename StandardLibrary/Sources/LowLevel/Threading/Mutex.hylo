@@ -1,0 +1,68 @@
+
+/// A mutex is a mutual exclusion object that allows multiple threads to synchronize access to a shared resource.
+/// The shared resource is held inside the mutex, and can only be accessed through a lock.
+///
+/// A mutex is, by default, a bottleneck; it prevents more than one thread to make progress at the same time.
+public type Mutex<T: Regular>: Deinitializable {
+
+  /// The OS mutex.
+  internal var inner: OSMutex
+  /// The data that is being protected by the mutex.
+  internal var data: T
+
+  /// Constructs `self` to protect `data`.
+  public init(_ data: sink T) {
+    &self.inner = .new()
+    &self.data = data
+  }
+
+  /// Deinitializes `self`.
+  public fun deinit() sink {
+    &data.deinit()
+  }
+
+  /// Locks the mutex, and returns a guard that allows access to the protected data.
+  public subscript lock(): MutexGuard<T> {
+    inout {
+      &inner.lock()
+      yield .new(lock: mutable_pointer[to: &self].copy())
+    }
+  }
+
+  /// Attempts to lock the mutex, and returns a guard that allows access to the protected data.
+  /// If the mutex is already locked, returns an empty optional.
+  public subscript try_lock(): Optional<MutexGuard<T>> {
+    inout {
+      if inner.try_lock() {
+        var guard: MutexGuard<T> = .new(lock: mutable_pointer[to: &self].copy())
+        var r: Optional<MutexGuard<T>> = guard as _
+        yield r
+      } else {
+        yield .none()
+      }
+    }
+  }
+
+}
+
+/// A guard that allows access to the protected data of a mutex.
+public type MutexGuard<T: Regular>: Regular {
+
+  /// Pointer to the parent mutex.
+  var lock: PointerToMutable<Mutex<T>>
+
+  internal memberwise init
+
+  /// Deinitializes `self`, releasing the lock.
+  public fun deinit() sink {
+    lock.unsafe[].inner.unlock()
+  }
+
+  /// Accesses the protected data.
+  public subscript (): T {
+    let { yield lock.unsafe[].data }
+    inout { yield &lock.unsafe[].data }
+  }
+
+}
+
