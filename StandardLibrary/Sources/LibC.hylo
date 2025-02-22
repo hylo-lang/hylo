@@ -59,6 +59,12 @@ public fun memmove(
 @ffi("sysconf")
 internal fun sysconf(name: c_int) -> c_long
 
+/// OS, indirect system call, tailored for use with SYS_futex.
+///
+/// See https://www.man7.org/linux/man-pages/man2/futex.2.html.
+@ffi("syscall")
+internal fun syscall_for_futex(number: c_long, uaddr: MemoryAddress, futex_op: c_int, val: UInt32, timeout: MemoryAddress, uaddr2: MemoryAddress, val3: UInt32) -> c_long
+
 /// Give the current thread time slice back to the OS scheduler.
 ///
 /// The thread is moved to the end of the queue for its static priority and a new thread gets to run.
