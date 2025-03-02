@@ -1,12 +1,11 @@
 //- compileAndRun expecting: .success
 
-fun increment_100_times_under_lock(_ mutex: inout Mutex<Int>) {
+fun increment_100_times_under_lock(_ mutex: Mutex<Int>) {
   var i = 0
   while i < 100 {
-    {
-      inout proxy = &mutex.lock[]
-      &proxy[] += 1
-    }
+    mutex.access(within: fun(_ data: inout Int) {
+      &data += 1
+    })
     &i += 1
   }
 }
@@ -14,13 +13,13 @@ fun increment_100_times_under_lock(_ mutex: inout Mutex<Int>) {
 public fun main() {
   let mutex: Mutex<Int> = .new(0)
 
-  var t1 = spawn_thread(executing: fun[sink let p=mutable_pointer[to: &mutex].copy()]() {
+  var t1 = spawn_thread(executing: fun[sink let p=pointer[to: &mutex].copy()]() {
     increment_100_times_under_lock(&(p.copy()).unsafe[])
   })
-  var t2 = spawn_thread(executing: fun[sink let p=mutable_pointer[to: &mutex].copy()]() {
+  var t2 = spawn_thread(executing: fun[sink let p=pointer[to: &mutex].copy()]() {
     increment_100_times_under_lock(&(p.copy()).unsafe[])
   })
-  var t3 = spawn_thread(executing: fun[sink let p=mutable_pointer[to: &mutex].copy()]() {
+  var t3 = spawn_thread(executing: fun[sink let p=pointer[to: &mutex].copy()]() {
     increment_100_times_under_lock(&(p.copy()).unsafe[])
   })
 
@@ -28,15 +27,11 @@ public fun main() {
   t2.await()
   t3.await()
 
-  {
-    inout proxy = &mutex.lock[]
-    let r = proxy[]
-    precondition(r == 300)
-  }
-  {
-    if let proxy: MutexGuard<Int> = mutex.try_lock[] {
-      let r = proxy[]
-      precondition(r == 300)
-    }
-  }
+  mutex.access(within: fun(_ data: inout Int) {
+    precondition(data == 300)
+  })
+  let could_lock = mutex.try_access(within: fun(_ data: inout Int) {
+    precondition(data == 300)
+  })
+  precondition(could_lock)
 }

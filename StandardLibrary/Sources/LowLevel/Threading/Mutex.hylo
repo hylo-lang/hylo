@@ -22,48 +22,29 @@ public type Mutex<T: Regular>: Deinitializable {
     &data.deinit()
   }
 
-  /// Locks the mutex, and returns a guard that allows access to the protected data.
-  public subscript lock(): MutexGuard<T> {
-    inout {
-      &inner.lock()
-      yield .new(lock: mutable_pointer[to: &self].copy())
+  /// Accesses the protected data within the mutex, calling `f` with a mutable reference to the data.
+  public fun access<E>(within f: [E](inout T) -> Void) {
+    inner_as_mutable().unsafe[].lock()
+    f(&(data_as_mutable().unsafe[]))
+    inner_as_mutable().unsafe[].unlock()
+  }
+  /// Try accessing the protected data within the mutex, calling `f` with a mutable reference to the data.
+  /// Returns `true` if the lock was acquired and `f` executed, `false` otherwise.
+  public fun try_access<E>(within f: [E](inout T) -> Void) -> Bool {
+    if inner_as_mutable().unsafe[].try_lock() {
+      f(&(data_as_mutable().unsafe[]))
+      inner_as_mutable().unsafe[].unlock()
+      return true
     }
+    return false
   }
 
-  /// Attempts to lock the mutex, and returns a guard that allows access to the protected data.
-  /// If the mutex is already locked, returns an empty optional.
-  public subscript try_lock(): Optional<MutexGuard<T>> {
-    inout {
-      if inner.try_lock() {
-        var guard: MutexGuard<T> = .new(lock: mutable_pointer[to: &self].copy())
-        var r: Optional<MutexGuard<T>> = guard as _
-        yield r
-      } else {
-        yield .none()
-      }
-    }
+  fun inner_as_mutable() -> PointerToMutable<OSFutexMutex> {
+    return PointerToMutable(adding_mutation_to: pointer[to: &inner])
+  }
+
+  fun data_as_mutable() -> PointerToMutable<T> {
+    return PointerToMutable(adding_mutation_to: pointer[to: &data])
   }
 
 }
-
-/// A guard that allows access to the protected data of a mutex.
-public type MutexGuard<T: Regular>: Regular {
-
-  /// Pointer to the parent mutex.
-  var lock: PointerToMutable<Mutex<T>>
-
-  internal memberwise init
-
-  /// Deinitializes `self`, releasing the lock.
-  public fun deinit() sink {
-    lock.unsafe[].inner.unlock()
-  }
-
-  /// Accesses the protected data.
-  public subscript (): T {
-    let { yield lock.unsafe[].data }
-    inout { yield &lock.unsafe[].data }
-  }
-
-}
-
