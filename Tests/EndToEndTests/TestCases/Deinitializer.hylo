@@ -1,0 +1,21 @@
+//- compileAndRun expecting: .success
+
+let global = PointerToMutable<Int>.allocate(count: 1)
+
+type A : Regular {
+  public memberwise init
+  public fun deinit() sink {
+    var x = global.copy()
+    &x.unsafe[] += 1
+  }
+}
+
+public fun main() {
+  global.unsafe_initialize_pointee(0)
+
+  let p = PointerToMutable<A>.allocate(count: 1)
+  p.unsafe_initialize_pointee(A())
+  p.unsafe_pointee().deinit()
+
+  precondition(global.unsafe[] == 1, "deinitializer should run exactly once")
+}
