@@ -17,12 +17,12 @@ public type Atomic<T: AtomicRepresentable>: SemiRegular {
     // TODO: using atomic ordering constants produce linker errors
   }
 
-  /// Atomically load the value from the atomic, using `ordering`.
+  /// Atomically loads the value from the atomic, using `ordering`.
   public fun load(ordering: AtomicLoadOrdering) -> T {
     return T.decodeAtomicRepresentation(storage.load(ordering: ordering))
   }
 
-  /// Atomically store `value` into the atomic, using `ordering`.
+  /// Atomically stores `value` into the atomic, using `ordering`.
   public fun store(_ value: sink T, ordering: AtomicStoreOrdering) inout {
     storage.store(T.encodeAtomicRepresentation(value), ordering: ordering)
   }
@@ -79,7 +79,7 @@ public type Atomic<T: AtomicRepresentable>: SemiRegular {
 /// Atomic operations for integer types
 public extension Atomic where T.AtomicRepresentation: IntegerPlatformAtomic, T: Numeric {
 
-  /// Atomically updates `this` by adding `value` to it, using `ordering`, and return the original value.
+  /// Atomically updates `self` by adding `value` to it, using `ordering`, and return the original value.
   public fun fetch_add(_ value: sink T, ordering: AtomicUpdateOrdering) inout -> T {
     return T.decodeAtomicRepresentation(storage.fetch_add(T.encodeAtomicRepresentation(value), ordering: ordering))
   }

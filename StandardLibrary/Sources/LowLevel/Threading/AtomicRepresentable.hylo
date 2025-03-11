@@ -3,10 +3,10 @@
 public trait AtomicRepresentable: Regular {
 
   /// The underlying platform type.
-  type AtomicRepresentation: PlatformAtomic;
+  type AtomicRepresentation: PlatformAtomic
 
   /// Encode `value` into the atomic representation.
-  static fun encodeAtomicRepresentation(_ value: sink Self) -> AtomicRepresentation.Value
+  static fun encode_atomic_representation(_ value: sink Self) -> AtomicRepresentation.Value
 
   /// Decode `storage` into a value of `Self`.
   static fun decodeAtomicRepresentation(_ storage: sink AtomicRepresentation.Value) -> Self
