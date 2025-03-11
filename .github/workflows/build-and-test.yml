@@ -274,7 +274,7 @@ jobs:
           ${{ matrix.cmake_generator != 'Xcode' && format('-DCMAKE_BUILD_TYPE={0}', matrix.cmake_build_type) || '' }}
           -DBUILD_TESTING=YES
           -DLLVM_DIR=${{ github.workspace }}/${{ env.llvm_package_basename }}/lib/cmake/llvm
-          ${{ matrix.os == 'macos-13' && '-D CMAKE_Swift_COMPILER=swiftc' || '' }}
+          ${{ matrix.os == 'macos-13' && '-D CMAKE_Swift_COMPILER=swiftc -DCMAKE_OSX_SYSROOT=$(xcrun --show-sdk-path)' || '' }}
         working-directory: hylo
 
       - name: Build (CMake)
