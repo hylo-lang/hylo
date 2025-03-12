@@ -104,7 +104,7 @@ conformance MyState: AtomicRepresentable {
   /// The underlying platform type.
   public typealias AtomicRepresentation = UInt64.AtomicRepresentation;
 
-  public static fun encodeAtomicRepresentation(_ value: sink Self) -> UInt64 {
+  public static fun encode_atomic_representation(_ value: sink Self) -> UInt64 {
     var r: UInt64 = .new(truncating_or_extending: value.counter)
     &r &= 0x7fffffffffffffff
     if value.flag {
@@ -114,7 +114,7 @@ conformance MyState: AtomicRepresentable {
   }
 
   /// Decode `storage` into a value of `Self`.
-  public static fun decodeAtomicRepresentation(_ storage: sink UInt64) -> Self {
+  public static fun decode_atomic_representation(_ storage: sink UInt64) -> Self {
     let flag = (storage & 0x8000000000000000) != 0
     let counter = Int(truncating_or_extending: storage & 0x7fffffffffffffff)
     return .new(flag: flag, counter: counter)
