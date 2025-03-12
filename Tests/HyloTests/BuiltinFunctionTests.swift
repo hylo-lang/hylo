@@ -354,7 +354,7 @@ final class BuiltinFunctionTests: XCTestCase {
       for p in parameters {
         let n = "\(s)_\(list: p, joinedBy: "_")"
         let f = try XCTUnwrap(BuiltinFunction(n), file: file, line: line)
-        XCTAssertEqual(f.name.description, n, file: file, line: line)
+        XCTAssertEqual(f.description, n, file: file, line: line)
         XCTAssertEqual(
           f.type(makingFreshVariableWith: freshVariable), expectedType, file: file, line: line)
       }

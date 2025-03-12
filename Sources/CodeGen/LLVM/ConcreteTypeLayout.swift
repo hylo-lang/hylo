@@ -15,13 +15,19 @@ struct ConcreteTypeLayout {
   /// The number of bytes from the start of one instance to the start of the next when stored in
   /// contiguous memory.
   var stride: Int {
-    max(1, size.round(upToNearestMultipleOf: alignment))
+    max(1, size.rounded(upToNearestMultipleOf: alignment))
+  }
+
+  private func checkInvariant() {
+    precondition(size >= 0, "negative size")
+    precondition(alignment > 0, "alignment must be positive")
   }
 
   /// Creates an instance with the given properties.
   init(size: Int, alignment: Int) {
     self.size = size
     self.alignment = alignment
+    checkInvariant()
   }
 
   /// Creates the concrete form of the layout `l` of a type defined in `ir`, for use in `m`.
@@ -41,6 +47,7 @@ struct ConcreteTypeLayout {
       let u = ir.llvm(l.type, in: &m)
       self.init(size: m.layout.storageSize(of: u), alignment: m.layout.preferredAlignment(of: u))
     }
+    checkInvariant()
   }
 
   /// Creates the layout of `t`, which is defined in `ir`, for use in `m`.
@@ -48,6 +55,7 @@ struct ConcreteTypeLayout {
   /// - Requires: `t` is representable in LLVM.
   init(of t: AnyType, definedIn ir: IR.Program, forUseIn m: inout SwiftyLLVM.Module) {
     self.init(AbstractTypeLayout(of: t, definedIn: ir.base), definedIn: ir, forUseIn: &m)
+    checkInvariant()
   }
 
   /// Creates the layout of `t` for use in `m`.
@@ -74,6 +82,7 @@ struct ConcreteTypeLayout {
     case .module:
       notLLVMRepresentable(^t)
     }
+    checkInvariant()
   }
 
 }

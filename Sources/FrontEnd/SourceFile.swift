@@ -24,7 +24,7 @@ public struct SourceFile {
 
   /// Creates an instance representing the file at `filePath`.
   public init(contentsOf filePath: URL) throws {
-    let storage = try Storage(filePath) { try String(contentsOf: filePath)[...] }
+    let storage = try Storage(filePath) { try String(contentsOf: filePath, encoding: .utf8)[...] }
     self.storage = storage
   }
 
