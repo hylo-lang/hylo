@@ -671,37 +671,33 @@ struct Emitter {
 
   /// Inserts the IR for `d`, which is a synthetic deinitializer.
   private mutating func lower(syntheticDeinit d: SynthesizedFunctionDecl) {
-    withPrologue(of: d) { (me, site, entry) in
-      me._lowering(at: site)
-
+    withPrologue(of: d) { (me, entry) in
       // The receiver is a sink parameter representing the object to deinitialize.
       let receiver = Operand.parameter(entry, 0)
-      me.emitDeinitParts(of: receiver, at: site)
+      me.emitDeinitParts(of: receiver, at: me.source!)
 
-      me.insert(me.module.makeMarkState(me.returnValue!, initialized: true, at: site))
+      me.insert(me.module.makeMarkState(me.returnValue!, initialized: true, at: me.source!))
       me._dealloc_top_frame()
-      me.insert(me.module.makeReturn(at: site))
+      me.insert(me.module.makeReturn(at: me.source!))
     }
   }
 
   /// Inserts the IR for `d`, which is a synthetic move initialization method.
   private mutating func lower(syntheticMoveInit d: SynthesizedFunctionDecl) {
-    withPrologue(of: d) { (me, site, entry) in
-      me._lowering(at: site)
-
+    withPrologue(of: d) { (me, entry) in
       let receiver = Operand.parameter(entry, 0)
       let argument = Operand.parameter(entry, 1)
       let object = me.module.type(of: receiver).ast
 
       if object.hasRecordLayout {
-        me.emitMoveInitRecordParts(of: receiver, consuming: argument, at: site)
+        me.emitMoveInitRecordParts(of: receiver, consuming: argument, at: me.source!)
       } else if object.base is UnionType {
-        me.emitMoveInitUnionPayload(of: receiver, consuming: argument, at: site)
+        me.emitMoveInitUnionPayload(of: receiver, consuming: argument, at: me.source!)
       }
 
-      me.insert(me.module.makeMarkState(me.returnValue!, initialized: true, at: site))
+      me.insert(me.module.makeMarkState(me.returnValue!, initialized: true, at: me.source!))
       me._dealloc_top_frame()
-      me.insert(me.module.makeReturn(at: site))
+      me._return()
     }
   }
 
@@ -790,9 +786,7 @@ struct Emitter {
 
   /// Inserts the IR for `d`, which is a synthetic move initialization method.
   private mutating func lower(syntheticMoveAssign d: SynthesizedFunctionDecl) {
-    withPrologue(of: d) { (me, site, entry) in
-      me._lowering(at: site)
-
+    withPrologue(of: d) { (me, entry) in
       let receiver = Operand.parameter(entry, 0)
       let argument = Operand.parameter(entry, 1)
 
@@ -801,47 +795,47 @@ struct Emitter {
 
       // Apply the move-initializer.
       me._move([.set], argument, to: receiver)
-      me.insert(me.module.makeMarkState(me.returnValue!, initialized: true, at: site))
+      me._mark_state(.initialized, me.returnValue)
       me._dealloc_top_frame()
-      me.insert(me.module.makeReturn(at: site))
+      me._return()
     }
   }
 
   /// Inserts the IR for `d`, which is a synthetic copy method.
   private mutating func lower(syntheticCopy d: SynthesizedFunctionDecl) {
-    withPrologue(of: d) { (me, site, entry) in
+    withPrologue(of: d) { (me, entry) in
       let source = Operand.parameter(entry, 0)
       let target = Operand.parameter(entry, 1)
       let object = me.module.type(of: source).ast
 
       if object.hasRecordLayout {
-        me.emitCopyRecordParts(from: source, to: target, at: site)
+        me.emitCopyRecordParts(from: source, to: target, at: me.source!)
       } else if object.base is UnionType {
-        me.emitCopyUnionPayload(from: source, to: target, at: site)
+        me.emitCopyUnionPayload(from: source, to: target, at: me.source!)
       }
 
       me._dealloc_top_frame()
-      me.insert(me.module.makeReturn(at: site))
+      me._return()
     }
   }
 
   /// Inserts the ID for `d`, which is an equality operator.
   private mutating func lower(syntheticEqual d: SynthesizedFunctionDecl) {
-    withPrologue(of: d) { (me, site, entry) in
+    withPrologue(of: d) { (me, entry) in
       let lhs = Operand.parameter(entry, 0)
       let rhs = Operand.parameter(entry, 1)
       let t = me.module.type(of: lhs).ast
 
       if t.hasRecordLayout {
-        me.emitStorePartsEquality(lhs, rhs, to: me.returnValue!, at: site)
+        me.emitStorePartsEquality(lhs, rhs, to: me.returnValue!, at: me.source!)
       } else if t.base is UnionType {
-        me.emitStoreUnionPayloadEquality(lhs, rhs, to: me.returnValue!, at: site)
+        me.emitStoreUnionPayloadEquality(lhs, rhs, to: me.returnValue!, at: me.source!)
       } else {
         UNIMPLEMENTED("synthetic equality for type '\(t)'")
       }
 
       me._dealloc_top_frame()
-      me.insert(me.module.makeReturn(at: site))
+      me._return()
     }
   }
 
@@ -850,7 +844,7 @@ struct Emitter {
   @discardableResult
   private mutating func withPrologue(
     of d: SynthesizedFunctionDecl,
-    _ action: (inout Self, _ site: SourceRange, _ entry: Block.ID) -> Void
+    _ action: (inout Self, _ entry: Block.ID) -> Void
   ) -> Function.ID {
     withClearContext { (me) in
       let f = me.module.demandDeclaration(lowering: d)
@@ -858,9 +852,8 @@ struct Emitter {
         let entry = me.module.appendEntry(in: d.scope, to: f)
         me.insertionPoint = .end(of: entry)
         me.frames.push()
-
         me._lowering(me.module.id)
-        action(&me, me.source!, entry)
+        action(&me, entry)
 
         me.frames.pop()
         assert(me.frames.isEmpty)
@@ -940,7 +933,7 @@ struct Emitter {
   /// the lowered function.
   @discardableResult
   private mutating func lower(globalBindingInitializer d: SynthesizedFunctionDecl) -> Function.ID {
-    withPrologue(of: d) { (me, _, entry) in
+    withPrologue(of: d) { (me, entry) in
       let storage = Operand.parameter(entry, 0)
       guard case .globalInitialization(let binding) = d.kind else { unreachable() }
 
