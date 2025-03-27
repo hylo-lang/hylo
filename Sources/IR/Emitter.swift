@@ -1623,12 +1623,12 @@ struct Emitter {
 
     // Emit the success branch.
     insertionPoint = .end(of: success)
-    within(Frame(), { $0.emitStore(value: $0.ast[e].success, to: storage) })
+    within(Frame()) { $0.emitStore(value: $0.ast[e].success, to: storage) }
     emitBranch(to: tail, at: ast[e].site)
 
     // Emit the failure branch.
     insertionPoint = .end(of: failure)
-    within(Frame(), { $0.emitStore(value: $0.ast[e].failure.value, to: storage) })
+    within(Frame()) { $0.emitStore(value: $0.ast[e].failure.value, to: storage) }
     emitBranch(to: tail, at: ast[e].site)
 
     insertionPoint = .end(of: tail)
