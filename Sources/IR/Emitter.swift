@@ -435,7 +435,7 @@ struct Emitter {
 
     case .expr(let e):
       _lowering(e)
-      pushing(Frame(locals: locals)) { (this) in
+      _frame(locals: locals) { (this) in
         let x0 = this.emitLValue(e)
         let x1 = this.insert(
           this.module.makeAccess(this.ast[d].introducer.value, from: x0, at: this.source!))!
@@ -1621,12 +1621,12 @@ struct Emitter {
 
     // Emit the success branch.
     insertionPoint = .end(of: success)
-    pushing(Frame(), { $0._store($0.ast[e].success, in: storage) })
+    _frame { $0._store($0.ast[e].success, in: storage) }
     emitBranch(to: tail, at: ast[e].site)
 
     // Emit the failure branch.
     insertionPoint = .end(of: failure)
-    pushing(Frame(), { $0._store($0.ast[e].failure.value, in: storage) })
+    _frame { $0._store($0.ast[e].failure.value, in: storage) }
     emitBranch(to: tail, at: ast[e].site)
 
     insertionPoint = .end(of: tail)
@@ -2428,7 +2428,7 @@ struct Emitter {
     for item in condition {
       switch item {
       case .expr(let e):
-        let test = pushing(Frame(), { $0.emit(branchCondition: e) })
+        let test = _frame { $0.emit(branchCondition: e) }
         let next = appendBlock(in: scope)
         emitCondBranch(if: test, then: next, else: failure, at: ast[e].site)
         insertionPoint = .end(of: next)
@@ -3697,7 +3697,7 @@ extension Emitter {
   }
 
   @discardableResult
-  mutating func _frame<R>(locals: DeclProperty<Operand>, _ body: (inout Self)->R) -> R {
+  mutating func _frame<R>(locals: DeclProperty<Operand> = .init(), _ body: (inout Self)->R) -> R {
     pushing(Frame(locals: locals), body)
   }
 
