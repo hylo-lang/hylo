@@ -1139,8 +1139,9 @@ struct Emitter {
     insertionPoint = .end(of: fail)
     let flow = emit(braceStmt: ast[s].fallback)
     emitControlFlow(flow) { (me) in
+      me._lowering(me.ast[s].fallback)
       // Control-flow can never jump here.
-      me.insert(me.module.makeUnreachable(at: me.ast[me.ast[s].fallback].site))
+      me._unreachable()
     }
 
     insertionPoint = .end(of: next)
@@ -3414,7 +3415,8 @@ struct Emitter {
     emitCondBranch(if: predicate, then: success, else: failure, at: site)
 
     insertionPoint = .end(of: failure)
-    insert(module.makeUnreachable(at: site))
+    _lowering(at: site)
+    _unreachable()
     insertionPoint = .end(of: success)
   }
 
