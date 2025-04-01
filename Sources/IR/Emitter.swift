@@ -300,7 +300,7 @@ struct Emitter {
 
     default:
       let v = _convert(foreignResult, to: module.functions[f]!.output)
-      _emitMove([.set], v, to: returnValue!)
+      _emitMove(.set, v, to: returnValue!)
     }
     _emitDeallocTopFrame()
     _return()
@@ -371,7 +371,7 @@ struct Emitter {
       let returnSite = within(Frame(locals: parameters)) {
         $0._lowered(s, output: ArrowType($0.program[d].type)!.output)
       }
-      _lowering(at: returnSite)
+      assert(returnSite == source)
 
     case .expr(let e):
       within(Frame(locals: parameters)) {
@@ -566,6 +566,7 @@ struct Emitter {
 
       case WildcardPattern.self:
         let s = emitStore(value: rhs)
+        assert(source == ast[p].site)
         _lowering(p)
         _emitDeinit(s)
 
@@ -720,7 +721,7 @@ struct Emitter {
     for i in layout.properties.indices {
       let source = emitSubfieldView(argument, at: [i], at: site)
       let target = emitSubfieldView(receiver, at: [i], at: site)
-      _emitMove([.set], source, to: target)
+      _emitMove(.set, source, to: target)
     }
   }
 
@@ -775,7 +776,7 @@ struct Emitter {
     let x0 = insert(
       module.makeOpenUnion(receiver, as: payload, forInitialization: true, at: site))!
     let x1 = insert(module.makeOpenUnion(argument, as: payload, at: site))!
-    _emitMove([.set], x1, to: x0)
+    _emitMove(.set, x1, to: x0)
 
     // Close the unions.
     insert(module.makeCloseUnion(x0, at: site))
@@ -792,7 +793,7 @@ struct Emitter {
       me._emitDeinit(receiver)
 
       // Apply the move-initializer.
-      me._emitMove([.set], argument, to: receiver)
+      me._emitMove(.set, argument, to: receiver)
       me._mark_state(.initialized, me.returnValue)
       me._emitDeallocTopFrame()
       me._return()
@@ -941,8 +942,7 @@ struct Emitter {
       guard case .globalInitialization(let binding) = d.kind else { unreachable() }
 
       let initializer = me.program[binding].initializer!
-      let site = me.program[initializer].site
-      me._lowering(at: site)
+      me._lowering(initializer)
 
       me.emitInitStoredLocalBindings(
         in: me.program[binding].pattern.subpattern, referringTo: [], relativeTo: storage,
@@ -1273,7 +1273,7 @@ struct Emitter {
     insertionPoint = .end(of: head)
 
     _lowering(at: introducer)
-    let x0 = _access([.inout], from: domain)
+    let x0 = _access(.inout, from: domain)
     emitApply(witness.next, to: [x0], writingResultTo: element, at: introducer)
     insert(module.makeEndAccess(x0, at: introducer))
 
@@ -1335,8 +1335,8 @@ struct Emitter {
 
     _lowering(at: introducer)
     insertionPoint = .end(of: head)
-    let x0 = _access([.let], from: currentPosition)
-    let x1 = _access([.let], from: endPosition)
+    let x0 = _access(.let, from: currentPosition)
+    let x1 = _access(.let, from: endPosition)
     emitApply(.constant(equal), to: [x0, x1], writingResultTo: quit, at: introducer)
     insert(module.makeEndAccess(x1, at: introducer))
     insert(module.makeEndAccess(x0, at: introducer))
@@ -1344,8 +1344,8 @@ struct Emitter {
     emitCondBranch(if: x2, then: exit, else: enter, at: introducer)
 
     insertionPoint = .end(of: enter)
-    let x6 = _access([.let], from: domain)
-    let x7 = _access([.let], from: currentPosition)
+    let x6 = _access(.let, from: domain)
+    let x7 = _access(.let, from: currentPosition)
 
     let t = RemoteType(.let, collectionWitness.element)
     let x8 = insert(
@@ -1369,12 +1369,12 @@ struct Emitter {
     _lowering(at: introducer)
     insertionPoint = .end(of: tail)
     let x3 = insert(module.makeAllocStack(collectionWitness.position, at: introducer))!
-    let x4 = _access([.let], from: domain)
-    let x5 = _access([.let], from: currentPosition)
+    let x4 = _access(.let, from: domain)
+    let x5 = _access(.let, from: currentPosition)
     emitApply(collectionWitness.positionAfter, to: [x4, x5], writingResultTo: x3, at: introducer)
     insert(module.makeEndAccess(x4, at: introducer))
     insert(module.makeEndAccess(x5, at: introducer))
-    _emitMove([.inout], x3, to: currentPosition)
+    _emitMove(.inout, x3, to: currentPosition)
     insert(module.makeDeallocStack(for: x3, at: introducer))
     emitBranch(to: head, at: introducer)
 
@@ -1392,7 +1392,7 @@ struct Emitter {
     let start = emitAllocStack(for: witness.position, at: site)
     let end = emitAllocStack(for: witness.position, at: site)
 
-    let x0 = _access([.let], from: domain)
+    let x0 = _access(.let, from: domain)
     emitApply(witness.startPosition, to: [x0], writingResultTo: start, at: site)
     emitApply(witness.endPosition, to: [x0], writingResultTo: end, at: site)
     insert(module.makeEndAccess(x0, at: site))
@@ -1448,7 +1448,7 @@ struct Emitter {
 
     let x0 = emitLValue(ast[s].value)
     _lowering(s)
-    let x1 = _access([.let], from: x0)
+    let x1 = _access(.let, from: x0)
     _yield(.let, x1)
     return .next
   }
@@ -1459,7 +1459,7 @@ struct Emitter {
   private mutating func emitInitialize(
     storage: Operand, to value: Operand, at site: SourceRange
   ) {
-    let x0 = _access([.set], from: storage)
+    let x0 = _access(.set, from: storage)
     insert(module.makeStore(value, at: x0, at: site))
     insert(module.makeEndAccess(x0, at: site))
   }
@@ -1652,7 +1652,7 @@ struct Emitter {
       switch program[n].referredDecl {
       case .builtinFunction(let f):
         let x0 = emit(apply: f, to: ast[e].arguments, at: ast[e].site)
-        let x1 = _access([.set], from: storage)
+        let x1 = _access(.set, from: storage)
         insert(module.makeStore(x0, at: x1, at: ast[e].site))
         return
 
@@ -1894,7 +1894,7 @@ struct Emitter {
     _lowering(literal)
     let syntax = ast[literal]
     let x0 = emitSubfieldView(storage, at: [0], at: source!)
-    let x1 = _access([.set], from: x0)
+    let x1 = _access(.set, from: x0)
     let x2 = Operand.constant(evaluate(syntax.value))
     insert(module.makeStore(x2, at: x1, at: syntax.site))
   }
@@ -1916,7 +1916,7 @@ struct Emitter {
     }
 
     let x0 = emitSubfieldView(storage, at: [0], at: source!)
-    let x1 = _access([.set], from: x0)
+    let x1 = _access(.set, from: x0)
     let x2 = Operand.constant(IntegerConstant(bits))
     insert(module.makeStore(x2, at: x1, at: syntax.site))
   }
@@ -1927,7 +1927,7 @@ struct Emitter {
   private mutating func emitStore(boolean v: Bool, to storage: Operand, at site: SourceRange) {
     _lowering(at: site)
     let x0 = emitSubfieldView(storage, at: [0], at: site)
-    let x1 = _access([.set], from: x0)
+    let x1 = _access(.set, from: x0)
     insert(module.makeStore(.i1(v), at: x1, at: site))
     insert(module.makeEndAccess(x1, at: site))
   }
@@ -1938,7 +1938,7 @@ struct Emitter {
   mutating func emitStore(int v: Int, to storage: Operand, at site: SourceRange) {
     _lowering(at: site)
     let x0 = emitSubfieldView(storage, at: [0], at: site)
-    let x1 = _access([.set], from: x0)
+    let x1 = _access(.set, from: x0)
     insert(module.makeStore(.word(v), at: x1, at: site))
     insert(module.makeEndAccess(x1, at: site))
   }
@@ -1950,7 +1950,7 @@ struct Emitter {
     _lowering(at: site)
     let x0 = insert(module.makeConstantString(utf8: v.unescaped.data(using: .utf8)!, at: site))!
     let x1 = emitSubfieldView(storage, at: [0, 0], at: site)
-    let x2 = _access([.set], from: x1)
+    let x2 = _access(.set, from: x1)
     insert(module.makeStore(x0, at: x2, at: site))
     insert(module.makeEndAccess(x2, at: site))
   }
@@ -1968,7 +1968,7 @@ struct Emitter {
       return
     }
 
-    let x0 = _access([.set], from: storage)
+    let x0 = _access(.set, from: storage)
     insert(module.makeCapture(a, in: x0, at: site))
     insert(module.makeEndAccess(x0, at: site))
     frames.top.setMayHoldCaptures(s)
@@ -1996,7 +1996,7 @@ struct Emitter {
     writingResultTo storage: Operand, at site: SourceRange
   ) {
     assert(site == source!)
-    let o = _access([.set], from: storage)
+    let o = _access(.set, from: storage)
     insert(module.makeCall(applying: callee, to: arguments, writingResultTo: o, at: site))
     insert(module.makeEndAccess(o, at: site))
   }
@@ -2007,7 +2007,7 @@ struct Emitter {
     writingResultTo storage: Operand, at site: SourceRange
   ) {
     assert(site == source!)
-    let o = _access([.set], from: storage)
+    let o = _access(.set, from: storage)
     let s = module.makeCallBundle(
       applying: callee, to: arguments, writingResultTo: o, at: site,
       canonicalizingTypesIn: insertionScope!)
@@ -2233,7 +2233,7 @@ struct Emitter {
       var a: [Operand] = []
       for e in arguments {
         let x0 = emitStore(value: e.value)
-        let x1 = _access([.sink], from: x0)
+        let x1 = _access(.sink, from: x0)
         let x2 = insert(module.makeLoad(x1, at: site))!
         a.append(x2)
         insert(module.makeEndAccess(x1, at: site))
@@ -2543,9 +2543,9 @@ struct Emitter {
     insertionPoint = .end(of: next)
 
     if let target = storage {
-      let x0 = _access([.sink], from: rhs)
+      let x0 = _access(.sink, from: rhs)
       let x1 = insert(module.makeOpenUnion(x0, as: lhsType, at: source!))!
-      _emitMove([.set], x1, to: target)
+      _emitMove(.set, x1, to: target)
       emitLocalDeclarations(introducedBy: lhs, referringTo: [], relativeTo: target)
       insert(module.makeCloseUnion(x1, at: source!))
       insert(module.makeEndAccess(x0, at: source!))
@@ -2574,7 +2574,7 @@ struct Emitter {
     _lowering(at: site)
     precondition(module.type(of: wrapper) == .address(ast.coreType("Bool")!))
     let x0 = emitSubfieldView(wrapper, at: [0], at: source!)
-    let x1 = _access([.sink], from: x0)
+    let x1 = _access(.sink, from: x0)
     let x2 = insert(module.makeLoad(x1, at: site))!
     insert(module.makeEndAccess(x1, at: site))
     return x2
@@ -2672,7 +2672,7 @@ struct Emitter {
 
     let x0 = emitAllocStack(for: ^target, at: site)
     let x1 = insert(module.makeOpenUnion(x0, as: lhs, forInitialization: true, at: site))!
-    _emitMove([.set], source, to: x1)
+    _emitMove(.set, source, to: x1)
     insert(module.makeCloseUnion(x1, at: site))
     return x0
   }
@@ -3492,14 +3492,17 @@ struct Emitter {
     var p: InsertionPoint? = nil
     var f = Stack()
     var l = LoopIDs()
+    var s: SourceRange?
 
     swap(&p, &insertionPoint)
     swap(&f, &frames)
     swap(&l, &loops)
+    swap(&s, &source)
     defer {
       swap(&p, &insertionPoint)
       swap(&f, &frames)
       swap(&l, &loops)
+      swap(&s, &source)
     }
     return try action(&self)
   }
