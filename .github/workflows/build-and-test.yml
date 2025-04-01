@@ -241,6 +241,10 @@ jobs:
           cache-snapshot: false # Workaround for https://github.com/SwiftyLab/setup-swift/issues/315
 
       - uses: compnerd/gha-setup-vsdevenv@main
+        with:
+          winsdk: "10.0.22621.0" # Workaround for this: https://forums.swift.org/t/swiftpm-plugin-doesnt-work-with-the-latest-visual-studio-version/78183/14
+          # TL;DR: The Windows SDK had a change in 10.0.26100.0 that the Swift compiler didn't account for.
+          # The Swift compiler team is aware of the issue and they are going to release a fix some time.
       - name: Set up swift (Windows)
         if: ${{ runner.os == 'Windows' }}
         uses: compnerd/gha-setup-swift@v0.2.2
