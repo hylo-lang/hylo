@@ -1271,6 +1271,7 @@ struct Emitter {
     emitBranch(to: head, at: introducer)
     insertionPoint = .end(of: head)
 
+    _lowering(at: introducer)
     let x0 = _access([.inout], from: domain)
     emitApply(witness.next, to: [x0], writingResultTo: element, at: introducer)
     insert(module.makeEndAccess(x0, at: introducer))
@@ -1331,6 +1332,7 @@ struct Emitter {
 
     emitBranch(to: head, at: introducer)
 
+    _lowering(at: introducer)
     insertionPoint = .end(of: head)
     let x0 = _access([.let], from: currentPosition)
     let x1 = _access([.let], from: endPosition)
