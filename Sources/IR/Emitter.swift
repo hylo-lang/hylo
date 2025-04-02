@@ -1478,6 +1478,9 @@ struct Emitter {
   /// - Requires: `storage` is the address of some uninitialized memory block capable of storing
   ///   the value of `e`.
   private mutating func emitStore<T: ExprID>(value e: T, to storage: Operand) {
+    let savedSource = source
+    defer { source = savedSource }
+
     switch e.kind {
     case BooleanLiteralExpr.self:
       emitStore(BooleanLiteralExpr.ID(e)!, to: storage)
@@ -3477,9 +3480,12 @@ struct Emitter {
   private mutating func within<T>(_ newFrame: Frame, _ action: (inout Self) -> T) -> T {
     frames.push(newFrame)
     defer {
+      let savedSource = source
+
       _lowering(after: insertionScope!)
       _emitDeallocTopFrame()
       frames.pop()
+      source = savedSource
     }
     return action(&self)
   }
