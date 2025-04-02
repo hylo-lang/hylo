@@ -2952,7 +2952,8 @@ struct Emitter {
 
     let t = SubscriptType(canonicalType(of: d, specializedBy: z))!
     let b = BundleReference(to: d, specializedBy: z, requesting: t.capabilities)
-    let a = insert(module.makeAccess(t.capabilities, from: r, at: site))!
+    _lowering(at: site)
+    let a = _access(t.capabilities, from: r)
 
     let s = module.makeProjectBundle(
       applying: b, to: [a], at: site, canonicalizingTypesIn: insertionScope!)
@@ -2966,7 +2967,8 @@ struct Emitter {
   ) -> Operand {
     let t = SubscriptImplType(canonicalType(of: d, specializedBy: z))!
     let o = RemoteType(ast[d].introducer.value, t.output)
-    let a = insert(module.makeAccess([o.access], from: r, at: site))!
+    _lowering(at: site)
+    let a = _access([o.access], from: r)
     let f = module.demandDeclaration(lowering: d)
 
     let s = module.makeProject(o, applying: f, specializedBy: z, to: [a], at: site)
