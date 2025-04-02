@@ -3746,7 +3746,7 @@ extension Emitter {
   fileprivate mutating func _access(
     _ capabilities: AccessEffectSet, from s: Operand, correspondingTo binding: VarDecl.ID? = nil
   ) -> Operand {
-    insert(module.makeAccess(capabilities, from: s, at: source!))!
+    insert(module.makeAccess(capabilities, from: s, correspondingTo: binding, at: source!))!
   }
 
   fileprivate mutating func _yield(_ c: AccessEffect, _ a: Operand) {
