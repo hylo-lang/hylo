@@ -76,7 +76,6 @@ extension Module {
     correspondingTo binding: VarDecl.ID? = nil,
     at site: SourceRange
   ) -> Access {
-    assert(binding == nil)
     precondition(!capabilities.isEmpty)
     precondition(type(of: source).isAddress)
     return .init(
