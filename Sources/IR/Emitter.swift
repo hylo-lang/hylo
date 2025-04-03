@@ -760,7 +760,7 @@ struct Emitter {
     for (u, b) in targets {
       insertionPoint = .end(of: b)
       _emitMoveInitUnionPayload(of: receiver, consuming: argument, containing: u)
-      emitBranch(to: tail, at: source!)
+      _branch(to: tail)
     }
 
     insertionPoint = .end(of: tail)
@@ -913,7 +913,7 @@ struct Emitter {
     for (u, b) in targets {
       insertionPoint = .end(of: b)
       emitCopyUnionPayload(from: source, containing: u, to: target, at: site)
-      emitBranch(to: tail, at: site)
+      _branch(to: tail)
     }
 
     insertionPoint = .end(of: tail)
@@ -1024,7 +1024,7 @@ struct Emitter {
 
   /// Inserts IR for breaking from innermost loop, anchoring instructions at `s`.
   private mutating func emitControlFlow(break s: BreakStmt.ID) {
-    let site = ast[s].site
+    _lowering(s)
     let innermost = loops.last!
     // Restore frames upon exit so that closing the surrounding block works.
     let savedFrames = frames
@@ -1033,7 +1033,7 @@ struct Emitter {
       _dealloc_top_frame()
       frames.pop()
     }
-    emitBranch(to: innermost.exit, at: site)
+    _branch(to: innermost.exit)
   }
 
   /// Inserts the IR for `s`, returning its effect on control flow.
@@ -1147,25 +1147,26 @@ struct Emitter {
   }
 
   private mutating func emit(conditionalStmt s: ConditionalStmt.ID) -> ControlFlow {
+    _lowering(s)
     let (firstBranch, secondBranch) = emitTest(condition: ast[s].condition, in: AnyScopeID(s))
     let tail = appendBlock()
 
     insertionPoint = .end(of: firstBranch)
     let f1 = emit(braceStmt: ast[s].success)
     emitControlFlow(f1) { (me) in
-      me.emitBranch(to: tail, at: me.ast[s].site)
+      me._branch(to: tail)
     }
 
     insertionPoint = .end(of: secondBranch)
     guard let failure = ast[s].failure else {
-      emitBranch(to: tail, at: ast[s].site)
+      _branch(to: tail)
       insertionPoint = .end(of: tail)
       return .next
     }
 
     let f2 = emit(stmt: failure.value)
     emitControlFlow(f2) { (me) in
-      me.emitBranch(to: tail, at: me.ast[s].site)
+      me._branch(to: tail)
     }
 
     insertionPoint = .end(of: tail)
@@ -1195,7 +1196,8 @@ struct Emitter {
     loops.append(LoopID(depth: frames.depth, exit: exit))
     defer { loops.removeLast() }
 
-    emitBranch(to: body, at: .empty(at: ast[s].site.start))
+    _lowering(before: s)
+    _branch(to: body)
     insertionPoint = .end(of: body)
 
     // We're not using `emit(braceStmt:into:)` because we need to evaluate the loop condition
@@ -1268,7 +1270,7 @@ struct Emitter {
     loops.append(LoopID(depth: frames.depth, exit: exit))
     defer { loops.removeLast() }
 
-    emitBranch(to: head, at: introducer)
+    _branch(to: head)
     insertionPoint = .end(of: head)
 
     _lowering(at: introducer)
@@ -1287,7 +1289,8 @@ struct Emitter {
     insertionPoint = .end(of: next)
     let flow = emit(braceStmt: ast[s].body)
     emitControlFlow(flow) { (me) in
-      me.emitBranch(to: head, at: .empty(at: me.program[s].body.site.end))
+      me._lowering(after: me.program[s].body)
+      me._branch(to: head)
     }
 
     insertionPoint = .end(of: exit)
@@ -1330,7 +1333,7 @@ struct Emitter {
     loops.append(LoopID(depth: frames.depth, exit: exit))
     defer { loops.removeLast() }
 
-    emitBranch(to: head, at: introducer)
+    _branch(to: head)
 
     _lowering(at: introducer)
     insertionPoint = .end(of: head)
@@ -1362,7 +1365,8 @@ struct Emitter {
 
     let flow = emit(braceStmt: ast[s].body)
     emitControlFlow(flow) { (me) in
-      me.emitBranch(to: tail, at: .empty(at: me.program[s].body.site.end))
+      me._lowering(after: me.program[s].body)
+      me._branch(to: tail)
     }
 
     _lowering(at: introducer)
@@ -1375,7 +1379,7 @@ struct Emitter {
     insert(module.makeEndAccess(x5, at: introducer))
     _move(.inout, x3, to: currentPosition)
     insert(module.makeDeallocStack(for: x3, at: introducer))
-    emitBranch(to: head, at: introducer)
+    _branch(to: head)
 
     insertionPoint = .end(of: exit)
     return .next
@@ -1420,7 +1424,8 @@ struct Emitter {
   private mutating func emit(whileStmt s: WhileStmt.ID) -> ControlFlow {
     // Enter the loop.
     let head = appendBlock(in: s)
-    emitBranch(to: head, at: .empty(at: ast[s].site.start))
+    _lowering(before: s)
+    _branch(to: head)
 
     // Test the conditions.
     insertionPoint = .end(of: head)
@@ -1433,8 +1438,9 @@ struct Emitter {
     // Execute the body.
     insertionPoint = .end(of: body)
     let flow = emit(braceStmt: ast[s].body)
+    _lowering(after: program[s].body)
     emitControlFlow(flow) { (me) in
-      me.emitBranch(to: head, at: .empty(at: me.program[s].body.site.end))
+      me._branch(to: head)
     }
 
     // Exit.
@@ -1631,12 +1637,13 @@ struct Emitter {
     // Emit the success branch.
     insertionPoint = .end(of: success)
     _frame { $0._store($0.ast[e].success, in: storage) }
-    emitBranch(to: tail, at: ast[e].site)
+    _lowering(e)
+    _branch(to: tail)
 
     // Emit the failure branch.
     insertionPoint = .end(of: failure)
     _frame { $0._store($0.ast[e].failure.value, in: storage) }
-    emitBranch(to: tail, at: ast[e].site)
+    _branch(to: tail)
 
     insertionPoint = .end(of: tail)
   }
@@ -3249,7 +3256,7 @@ struct Emitter {
     for (u, b) in targets {
       insertionPoint = .end(of: b)
       emitDeinitUnionPayload(of: storage, containing: u, at: site)
-      emitBranch(to: tail, at: site)
+      _branch(to: tail)
     }
 
     insertionPoint = .end(of: tail)
@@ -3317,7 +3324,7 @@ struct Emitter {
 
       parts = parts.dropFirst()
       if parts.isEmpty {
-        emitBranch(to: tail, at: site)
+        _branch(to: tail)
         insertionPoint = .end(of: tail)
       } else {
         let x2 = emitLoadBuiltinBool(target, at: site)
@@ -3333,6 +3340,7 @@ struct Emitter {
     _ lhs: Operand, _ rhs: Operand,
     to target: Operand, at site: SourceRange
   ) {
+    _lowering(at: site)
     let union = UnionType(module.type(of: lhs).ast)!
 
     // If the union is empty, return true.
@@ -3364,13 +3372,13 @@ struct Emitter {
       emitStoreEquality(y0, y1, to: target, at: site)
       insert(module.makeCloseUnion(y1, at: site))
       insert(module.makeCloseUnion(y0, at: site))
-      emitBranch(to: tail, at: site)
+      _branch(to: tail)
     }
 
     // The failure block writes `false` to the return storage.
     insertionPoint = .end(of: fail)
     emitStore(boolean: false, to: target, at: site)
-    emitBranch(to: tail, at: site)
+    _branch(to: tail)
 
     // The tail block represents the continuation.
     insertionPoint = .end(of: tail)
@@ -3645,11 +3653,6 @@ extension Emitter {
     insert(module.makeCondBranch(if: condition, then: targetIfTrue, else: targetIfFalse, at: site))
   }
 
-  /// Inserts a `branch` to `next` anchored at `site`.
-  fileprivate mutating func emitBranch(to next: Block.ID, at site: SourceRange) {
-    checkEntryStack(next)
-    insert(module.makeBranch(to: next, at: site))
-  }
 }
 
 extension Diagnostic {
@@ -3709,6 +3712,10 @@ extension Emitter {
   }
    */
 
+  mutating func _lowering<ID: NodeIDProtocol>(before x: ID) {
+    _lowering(at: .empty(at: ast[x].site.start))
+  }
+
   mutating func _lowering<ID: NodeIDProtocol>(after x: ID) {
     _lowering(at: .empty(at: ast[x].site.end))
   }
@@ -3761,5 +3768,10 @@ extension Emitter {
 
   fileprivate mutating func _yield(_ c: AccessEffect, _ a: Operand) {
     _ = insert(module.makeYield(c, a, at: source!))
+  }
+
+  fileprivate mutating func _branch(to x: Block.ID) {
+    checkEntryStack(x)
+    _ = insert(module.makeBranch(to: x, at: source!))
   }
 }
