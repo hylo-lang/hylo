@@ -697,7 +697,7 @@ struct Emitter {
       if object.hasRecordLayout {
         me._emitMoveInitRecordParts(of: receiver, consuming: argument)
       } else if object.base is UnionType {
-        me.emitMoveInitUnionPayload(of: receiver, consuming: argument, at: me.source!)
+        me._emitMoveInitUnionPayload(of: receiver, consuming: argument)
       }
 
       me._mark_state(.initialized, me.returnValue)
@@ -732,12 +732,10 @@ struct Emitter {
 
   /// Inserts the IR for initializing the payload of `receiver`, which stores a union container,
   /// consuming `argument` at `site`.
-  private mutating func emitMoveInitUnionPayload(
-    of receiver: Operand, consuming argument: Operand, at site: SourceRange
+  private mutating func _emitMoveInitUnionPayload(
+    of receiver: Operand, consuming argument: Operand
   ) {
     let t = UnionType(module.type(of: receiver).ast)!
-
-    _lowering(at: site)
 
     // If union is empty, simply mark it initialized.
     if t.elements.isEmpty {
@@ -748,7 +746,7 @@ struct Emitter {
 
     // Trivial if the union has a single member.
     if let e = t.elements.uniqueElement {
-      emitMoveInitUnionPayload(of: receiver, consuming: argument, containing: e, at: site)
+      _emitMoveInitUnionPayload(of: receiver, consuming: argument, containing: e)
       return
     }
 
@@ -756,13 +754,13 @@ struct Emitter {
     let targets = UnionSwitch.Targets(
       t.elements.map({ (e) in (key: e, value: appendBlock()) }),
       uniquingKeysWith: { (a, _) in a })
-    emitUnionSwitch(on: argument, toOneOf: targets, at: site)
+    emitUnionSwitch(on: argument, toOneOf: targets, at: source!)
 
     let tail = appendBlock()
     for (u, b) in targets {
       insertionPoint = .end(of: b)
-      emitMoveInitUnionPayload(of: receiver, consuming: argument, containing: u, at: site)
-      emitBranch(to: tail, at: site)
+      _emitMoveInitUnionPayload(of: receiver, consuming: argument, containing: u)
+      emitBranch(to: tail, at: source!)
     }
 
     insertionPoint = .end(of: tail)
@@ -772,20 +770,18 @@ struct Emitter {
   /// a `payload`, consuming `argument` at `site`.
   ///
   /// - Requires: the type of `storage` is a union containing a `payload`.
-  private mutating func emitMoveInitUnionPayload(
-    of receiver: Operand, consuming argument: Operand, containing payload: AnyType,
-    at site: SourceRange
+  private mutating func _emitMoveInitUnionPayload(
+    of receiver: Operand, consuming argument: Operand, containing payload: AnyType
   ) {
-    _lowering(at: site)
     // Move the argument.
     let x0 = insert(
-      module.makeOpenUnion(receiver, as: payload, forInitialization: true, at: site))!
-    let x1 = insert(module.makeOpenUnion(argument, as: payload, at: site))!
+      module.makeOpenUnion(receiver, as: payload, forInitialization: true, at: source!))!
+    let x1 = insert(module.makeOpenUnion(argument, as: payload, at: source!))!
     _move(.set, x1, to: x0)
 
     // Close the unions.
-    insert(module.makeCloseUnion(x0, at: site))
-    insert(module.makeCloseUnion(x1, at: site))
+    insert(module.makeCloseUnion(x0, at: source!))
+    insert(module.makeCloseUnion(x1, at: source!))
   }
 
   /// Inserts the IR for `d`, which is a synthetic move initialization method.
