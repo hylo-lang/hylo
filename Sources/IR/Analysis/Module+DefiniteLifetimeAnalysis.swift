@@ -793,8 +793,14 @@ extension Module {
     for path in initializedSubfields {
       Emitter.withInstance(insertingIn: &self, reportingDiagnosticsTo: &log) { (e) in
         e._lowering(at: site)
+<<<<<<<< HEAD:Sources/IR/Analysis/Module+DefiniteLifetimeAnalysis.swift
         e.insertionPoint = .before(i)
         let s = e._subfield_view(root, at: path)
+|||||||| parent of bbb8e1ac5 (_subfield_view):Sources/IR/Analysis/Module+NormalizeObjectStates.swift
+        let s = e.emitSubfieldView(root, at: path, at: site)
+========
+        let s = e._subfield_view(root, at: path)
+>>>>>>>> bbb8e1ac5 (_subfield_view):Sources/IR/Analysis/Module+NormalizeObjectStates.swift
         e._deinit(s)
       }
     }
