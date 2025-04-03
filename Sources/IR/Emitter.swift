@@ -774,9 +774,8 @@ struct Emitter {
     of receiver: Operand, consuming argument: Operand, containing payload: AnyType
   ) {
     // Move the argument.
-    let x0 = insert(
-      module.makeOpenUnion(receiver, as: payload, forInitialization: true, at: source!))!
-    let x1 = insert(module.makeOpenUnion(argument, as: payload, at: source!))!
+    let x0 = _open_union(receiver, as: payload, .forInitialization)
+    let x1 = _open_union(argument, as: payload)
     _move(.set, x1, to: x0)
 
     // Close the unions.
@@ -924,8 +923,9 @@ struct Emitter {
   private mutating func emitCopyUnionPayload(
     from source: Operand, containing payload: AnyType, to target: Operand, at site: SourceRange
   ) {
-    let x0 = insert(module.makeOpenUnion(source, as: payload, at: site))!
-    let x1 = insert(module.makeOpenUnion(target, as: payload, forInitialization: true, at: site))!
+    _lowering(at: site)
+    let x0 = _open_union(source, as: payload)
+    let x1 = _open_union(target, as: payload, .forInitialization)
     emitCopy(x0, to: x1, at: site)
     insert(module.makeCloseUnion(x0, at: site))
     insert(module.makeCloseUnion(x1, at: site))
@@ -2554,7 +2554,7 @@ struct Emitter {
 
     if let target = storage {
       let x0 = _access(.sink, from: rhs)
-      let x1 = insert(module.makeOpenUnion(x0, as: lhsType, at: source!))!
+      let x1 = _open_union(x0, as: lhsType)
       _move(.set, x1, to: target)
       emitLocalDeclarations(introducedBy: lhs, referringTo: [], relativeTo: target)
       insert(module.makeCloseUnion(x1, at: source!))
@@ -2562,7 +2562,7 @@ struct Emitter {
     } else {
       let k = AccessEffect(program[lhs].introducer.value)
       let x0 = _access([k], from: rhs)
-      let x1 = insert(module.makeOpenUnion(x0, as: lhsType, at: source!))!
+      let x1 = _open_union(x0, as: lhsType)
       assignProjections(of: x1, to: lhs)
     }
 
@@ -2681,7 +2681,7 @@ struct Emitter {
     let lhs = module.type(of: source).ast
 
     let x0 = emitAllocStack(for: ^target, at: site)
-    let x1 = insert(module.makeOpenUnion(x0, as: lhs, forInitialization: true, at: site))!
+    let x1 = _open_union(x0, as: lhs, .forInitialization)
     _move(.set, source, to: x1)
     insert(module.makeCloseUnion(x1, at: site))
     return x0
@@ -3269,7 +3269,7 @@ struct Emitter {
     of storage: Operand, containing payload: AnyType, at site: SourceRange
   ) {
     _lowering(at: site)
-    let x0 = insert(module.makeOpenUnion(storage, as: payload, at: site))!
+    let x0 = _open_union(storage, as: payload)
     _deinit(x0)
     insert(module.makeCloseUnion(x0, at: site))
   }
@@ -3367,8 +3367,8 @@ struct Emitter {
     emitUnionSwitch(on: lhs, toOneOf: targets, at: site)
     for (u, b) in targets {
       insertionPoint = .end(of: b)
-      let y0 = insert(module.makeOpenUnion(lhs, as: u, at: site))!
-      let y1 = insert(module.makeOpenUnion(rhs, as: u, at: site))!
+      let y0 = _open_union(lhs, as: u)
+      let y1 = _open_union(rhs, as: u)
       emitStoreEquality(y0, y1, to: target, at: site)
       insert(module.makeCloseUnion(y1, at: site))
       insert(module.makeCloseUnion(y0, at: site))
@@ -3728,6 +3728,10 @@ extension Emitter {
     case uninitialized, initialized
   }
 
+  enum OpenUnionOption {
+    case notForInitialization, forInitialization
+  }
+
   mutating func _mark_state(_ x: InitializationState, _ op: Operand?) {
     insert(module.makeMarkState(op!, initialized: x == .initialized, at: source!))
   }
@@ -3774,4 +3778,14 @@ extension Emitter {
     checkEntryStack(x)
     _ = insert(module.makeBranch(to: x, at: source!))
   }
+
+  fileprivate mutating func _open_union(
+    _ container: Operand, as payload: AnyType,
+    _ option: OpenUnionOption = .notForInitialization
+  ) -> Operand {
+    insert(
+      module.makeOpenUnion(
+        container, as: payload, forInitialization: option == .forInitialization, at: source!))!
+  }
+
 }
