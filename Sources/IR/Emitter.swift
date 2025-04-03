@@ -691,7 +691,7 @@ struct Emitter {
       let object = me.module.type(of: receiver).ast
 
       if object.hasRecordLayout {
-        me.emitMoveInitRecordParts(of: receiver, consuming: argument, at: me.source!)
+        me._emitMoveInitRecordParts(of: receiver, consuming: argument)
       } else if object.base is UnionType {
         me.emitMoveInitUnionPayload(of: receiver, consuming: argument, at: me.source!)
       }
@@ -704,10 +704,9 @@ struct Emitter {
 
   /// Inserts the IR for initializing the stored parts of `receiver`, which stores a record,
   /// consuming `argument` at `site`.
-  private mutating func emitMoveInitRecordParts(
-    of receiver: Operand, consuming argument: Operand, at site: SourceRange
+  private mutating func _emitMoveInitRecordParts(
+    of receiver: Operand, consuming argument: Operand
   ) {
-    _lowering(at: site)
     let layout = AbstractTypeLayout(of: module.type(of: receiver).ast, definedIn: program)
 
     // If the object is empty, simply mark it initialized.
