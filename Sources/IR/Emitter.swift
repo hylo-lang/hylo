@@ -779,8 +779,8 @@ struct Emitter {
     _move(.set, x1, to: x0)
 
     // Close the unions.
-    insert(module.makeCloseUnion(x0, at: source!))
-    insert(module.makeCloseUnion(x1, at: source!))
+    _close_union(x0)
+    _close_union(x1)
   }
 
   /// Inserts the IR for `d`, which is a synthetic move initialization method.
@@ -927,8 +927,8 @@ struct Emitter {
     let x0 = _open_union(source, as: payload)
     let x1 = _open_union(target, as: payload, .forInitialization)
     emitCopy(x0, to: x1, at: site)
-    insert(module.makeCloseUnion(x0, at: site))
-    insert(module.makeCloseUnion(x1, at: site))
+    _close_union(x0)
+    _close_union(x1)
   }
 
   /// Inserts the IR for lowering `d`, which is a global binding initializer, returning the ID of
@@ -1583,10 +1583,11 @@ struct Emitter {
 
     // `A ~> Union<A, B>`
     if let u = UnionType(target), u.elements.contains(source) {
+      _lowering(e)
       let x0 = insert(
         module.makeOpenUnion(storage, as: source, forInitialization: true, at: program[e].site))!
       _store(ast[e].left, in: x0)
-      insert(module.makeCloseUnion(x0, at: program[e].site))
+      _close_union(x0)
       return
     }
 
@@ -1857,7 +1858,7 @@ struct Emitter {
         module.makeOpenUnion(
           storage, as: rhsType, forInitialization: true, at: ast[e].site))!
       _store(e, in: x0)
-      insert(module.makeCloseUnion(x0, at: ast[e].site))
+      _close_union(x0)
     } else {
       UNIMPLEMENTED()
     }
@@ -2557,7 +2558,7 @@ struct Emitter {
       let x1 = _open_union(x0, as: lhsType)
       _move(.set, x1, to: target)
       emitLocalDeclarations(introducedBy: lhs, referringTo: [], relativeTo: target)
-      insert(module.makeCloseUnion(x1, at: source!))
+      _close_union(x1)
       insert(module.makeEndAccess(x0, at: source!))
     } else {
       let k = AccessEffect(program[lhs].introducer.value)
@@ -2683,7 +2684,7 @@ struct Emitter {
     let x0 = emitAllocStack(for: ^target, at: site)
     let x1 = _open_union(x0, as: lhs, .forInitialization)
     _move(.set, source, to: x1)
-    insert(module.makeCloseUnion(x1, at: site))
+    _close_union(x1)
     return x0
   }
 
@@ -3271,7 +3272,7 @@ struct Emitter {
     _lowering(at: site)
     let x0 = _open_union(storage, as: payload)
     _deinit(x0)
-    insert(module.makeCloseUnion(x0, at: site))
+    _close_union(x0)
   }
 
   // MARK: Equality
@@ -3370,8 +3371,8 @@ struct Emitter {
       let y0 = _open_union(lhs, as: u)
       let y1 = _open_union(rhs, as: u)
       emitStoreEquality(y0, y1, to: target, at: site)
-      insert(module.makeCloseUnion(y1, at: site))
-      insert(module.makeCloseUnion(y0, at: site))
+      _close_union(y1)
+      _close_union(y0)
       _branch(to: tail)
     }
 
@@ -3786,6 +3787,10 @@ extension Emitter {
     insert(
       module.makeOpenUnion(
         container, as: payload, forInitialization: option == .forInitialization, at: source!))!
+  }
+
+  fileprivate mutating func _close_union(_ x: Operand  ) {
+    insert(module.makeCloseUnion(x, at: source!))
   }
 
 }
