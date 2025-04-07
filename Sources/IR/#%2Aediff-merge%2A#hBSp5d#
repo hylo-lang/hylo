@@ -43,7 +43,7 @@ struct Emitter {
   var insertionPoint: InsertionPoint?
 
   /// The source code associated with instructions to be inserted.
-  var _site: SourceRange?
+  var source: SourceRange?
 
   /// The program being lowered.
   private var program: TypedProgram {
@@ -300,7 +300,7 @@ struct Emitter {
 
     default:
       let v = _convert(foreignResult, to: module.functions[f]!.output)
-      _emitMove(.set, v, to: returnValue!)
+      _emitMove([.set], v, to: returnValue!)
     }
     _emitDeallocTopFrame()
     _return()
@@ -436,7 +436,7 @@ struct Emitter {
       _lowering(e)
       within(Frame(locals: locals)) { (this) in
         let x0 = this.emitLValue(e)
-        let x1 = this._access([this.ast[d].introducer.value], from: x0)
+        let x1 = this._access([this.ast[d].introducer.value], from: x0)!
         this._yield(this.ast[d].introducer.value, x1)
       }
       _return()
@@ -531,10 +531,9 @@ struct Emitter {
   private mutating func lower(storedLocalBinding d: BindingDecl.ID) {
     precondition(program.isLocal(d))
     precondition(read(program[d].pattern.introducer.value, { ($0 == .var) || ($0 == .sinklet) }))
-    _lowering(d)
 
     // Allocate storage for all the names declared by `d` in a single aggregate.
-    let storage = _alloc_stack(program[d].type)
+    let storage = emitAllocStack(for: program[d].type, at: ast[d].site)
 
     // Declare all introduced names, initializing them if possible.
     let lhs = program[d].pattern.subpattern.id
@@ -592,8 +591,7 @@ struct Emitter {
     in lhs: TuplePattern.ID, referringTo subfield: RecordPath, relativeTo storage: Operand,
     consuming initializer: AnyExprID
   ) {
-    _lowering(lhs)
-    let rhs = _subfield_view(storage, at: subfield)
+    let rhs = emitSubfieldView(storage, at: subfield, at: ast[lhs].site)
     emitStore(value: initializer, to: rhs)
     emitLocalDeclarations(introducedBy: lhs, referringTo: subfield, relativeTo: storage)
   }
@@ -614,8 +612,7 @@ struct Emitter {
   private mutating func emitLocalDeclaration(
     of name: NamePattern.ID, referringTo subfield: RecordPath, relativeTo storage: Operand
   ) -> Operand {
-    _lowering(name)
-    let s = _subfield_view(storage, at: subfield)
+    let s = emitSubfieldView(storage, at: subfield, at: ast[name].site)
     frames[ast[name].decl] = s
     return s
   }
@@ -636,13 +633,12 @@ struct Emitter {
     let request: AccessEffectSet = module.isSink(rhs) ? [k, .sink] : [k]
 
     for (path, name) in ast.names(in: program[d].subpattern) {
-      _lowering(program[name].decl)
-      var part = _subfield_view(rhs, at: path)
+      var part = emitSubfieldView(rhs, at: path, at: program[name].decl.site)
       let partDecl = ast[name].decl
 
       let bindingType = canonical(program[partDecl].type)
       _lowering(partDecl)
-      part = _emitCoerce(part, to: bindingType)
+      part = emitCoerce(part, to: bindingType, at: ast[partDecl].site)
 
       frames[partDecl] = _access(request, from: part, correspondingTo: partDecl)
     }
@@ -676,7 +672,7 @@ struct Emitter {
     withPrologue(of: d) { (me, entry) in
       // The receiver is a sink parameter representing the object to deinitialize.
       let receiver = Operand.parameter(entry, 0)
-      me._emitDeinitParts(of: receiver)
+      me.emitDeinitParts(of: receiver, at: me.source!)
 
       me._mark_state(.initialized, me.returnValue)
       me._emitDeallocTopFrame()
@@ -692,9 +688,9 @@ struct Emitter {
       let object = me.module.type(of: receiver).ast
 
       if object.hasRecordLayout {
-        me._emitMoveInitRecordParts(of: receiver, consuming: argument)
+        me.emitMoveInitRecordParts(of: receiver, consuming: argument, at: me.source!)
       } else if object.base is UnionType {
-        me._emitMoveInitUnionPayload(of: receiver, consuming: argument)
+        me.emitMoveInitUnionPayload(of: receiver, consuming: argument, at: me.source!)
       }
 
       me._mark_state(.initialized, me.returnValue)
@@ -705,9 +701,10 @@ struct Emitter {
 
   /// Inserts the IR for initializing the stored parts of `receiver`, which stores a record,
   /// consuming `argument` at `site`.
-  private mutating func _emitMoveInitRecordParts(
-    of receiver: Operand, consuming argument: Operand
+  private mutating func emitMoveInitRecordParts(
+    of receiver: Operand, consuming argument: Operand, at site: SourceRange
   ) {
+    _lowering(at: site)
     let layout = AbstractTypeLayout(of: module.type(of: receiver).ast, definedIn: program)
 
     // If the object is empty, simply mark it initialized.
@@ -721,18 +718,20 @@ struct Emitter {
 
     // Otherwise, move initialize each property.
     for i in layout.properties.indices {
-      let source = _subfield_view(argument, at: [i])
-      let target = _subfield_view(receiver, at: [i])
-      _emitMove(.set, source, to: target)
+      let source = emitSubfieldView(argument, at: [i], at: site)
+      let target = emitSubfieldView(receiver, at: [i], at: site)
+      _emitMove([.set], source, to: target)
     }
   }
 
   /// Inserts the IR for initializing the payload of `receiver`, which stores a union container,
   /// consuming `argument` at `site`.
-  private mutating func _emitMoveInitUnionPayload(
-    of receiver: Operand, consuming argument: Operand
+  private mutating func emitMoveInitUnionPayload(
+    of receiver: Operand, consuming argument: Operand, at site: SourceRange
   ) {
     let t = UnionType(module.type(of: receiver).ast)!
+
+    _lowering(at: site)
 
     // If union is empty, simply mark it initialized.
     if t.elements.isEmpty {
@@ -743,7 +742,7 @@ struct Emitter {
 
     // Trivial if the union has a single member.
     if let e = t.elements.uniqueElement {
-      _emitMoveInitUnionPayload(of: receiver, consuming: argument, containing: e)
+      emitMoveInitUnionPayload(of: receiver, consuming: argument, containing: e, at: site)
       return
     }
 
@@ -751,13 +750,13 @@ struct Emitter {
     let targets = UnionSwitch.Targets(
       t.elements.map({ (e) in (key: e, value: appendBlock()) }),
       uniquingKeysWith: { (a, _) in a })
-    _emitUnionSwitch(on: argument, toOneOf: targets)
+    emitUnionSwitch(on: argument, toOneOf: targets, at: site)
 
     let tail = appendBlock()
     for (u, b) in targets {
       insertionPoint = .end(of: b)
-      _emitMoveInitUnionPayload(of: receiver, consuming: argument, containing: u)
-      _branch(to: tail)
+      emitMoveInitUnionPayload(of: receiver, consuming: argument, containing: u, at: site)
+      emitBranch(to: tail, at: site)
     }
 
     insertionPoint = .end(of: tail)
@@ -767,17 +766,20 @@ struct Emitter {
   /// a `payload`, consuming `argument` at `site`.
   ///
   /// - Requires: the type of `storage` is a union containing a `payload`.
-  private mutating func _emitMoveInitUnionPayload(
-    of receiver: Operand, consuming argument: Operand, containing payload: AnyType
+  private mutating func emitMoveInitUnionPayload(
+    of receiver: Operand, consuming argument: Operand, containing payload: AnyType,
+    at site: SourceRange
   ) {
+    _lowering(at: site)
     // Move the argument.
-    let x0 = _open_union(receiver, as: payload, .forInitialization)
-    let x1 = _open_union(argument, as: payload)
-    _emitMove(.set, x1, to: x0)
+    let x0 = insert(
+      module.makeOpenUnion(receiver, as: payload, forInitialization: true, at: site))!
+    let x1 = insert(module.makeOpenUnion(argument, as: payload, at: site))!
+    _emitMove([.set], x1, to: x0)
 
     // Close the unions.
-    _close_union(x0)
-    _close_union(x1)
+    insert(module.makeCloseUnion(x0, at: site))
+    insert(module.makeCloseUnion(x1, at: site))
   }
 
   /// Inserts the IR for `d`, which is a synthetic move initialization method.
@@ -790,7 +792,7 @@ struct Emitter {
       me._emitDeinit(receiver)
 
       // Apply the move-initializer.
-      me._emitMove(.set, argument, to: receiver)
+      me._emitMove([.set], argument, to: receiver)
       me._mark_state(.initialized, me.returnValue)
       me._emitDeallocTopFrame()
       me._return()
@@ -805,9 +807,9 @@ struct Emitter {
       let object = me.module.type(of: source).ast
 
       if object.hasRecordLayout {
-        me._emitCopyRecordParts(from: source, to: target)
+        me.emitCopyRecordParts(from: source, to: target, at: me.source!)
       } else if object.base is UnionType {
-        me._emitCopyUnionPayload(from: source, to: target)
+        me.emitCopyUnionPayload(from: source, to: target, at: me.source!)
       }
 
       me._emitDeallocTopFrame()
@@ -823,9 +825,9 @@ struct Emitter {
       let t = me.module.type(of: lhs).ast
 
       if t.hasRecordLayout {
-        me._emitStorePartsEquality(lhs, rhs, to: me.returnValue!)
+        me.emitStorePartsEquality(lhs, rhs, to: me.returnValue!, at: me.source!)
       } else if t.base is UnionType {
-        me._emitStoreUnionPayloadEquality(lhs, rhs, to: me.returnValue!)
+        me.emitStoreUnionPayloadEquality(lhs, rhs, to: me.returnValue!, at: me.source!)
       } else {
         UNIMPLEMENTED("synthetic equality for type '\(t)'")
       }
@@ -849,8 +851,8 @@ struct Emitter {
         me.insertionPoint = .end(of: entry)
         me.frames.push()
 
-        let savedSite = me._site
-        defer { me._site = savedSite }
+        let savedSite = me.source
+        defer { me.source = savedSite }
         me._lowering(me.module.id)
         action(&me, entry)
 
@@ -861,10 +863,12 @@ struct Emitter {
     }
   }
 
-  /// Inserts the IR for copying the stored parts of `source`, which stores a record, to `target`.
-  private mutating func _emitCopyRecordParts(
-    from source: Operand, to target: Operand
+  /// Inserts the IR for copying the stored parts of `source`, which stores a record, to `target`
+  /// at `site`.
+  private mutating func emitCopyRecordParts(
+    from source: Operand, to target: Operand, at site: SourceRange
   ) {
+    _lowering(at: site)
     let layout = AbstractTypeLayout(of: module.type(of: source).ast, definedIn: program)
 
     // If the object is empty, simply mark the target as initialized.
@@ -875,16 +879,17 @@ struct Emitter {
 
     // Otherwise, copy each property.
     for i in layout.properties.indices {
-      let s = _subfield_view(source, at: [i])
-      let t = _subfield_view(target, at: [i])
-      _emitCopy(s, to: t)
+      let s = emitSubfieldView(source, at: [i], at: site)
+      let t = emitSubfieldView(target, at: [i], at: site)
+      emitCopy(s, to: t, at: site)
     }
   }
 
   /// Inserts the IR for copying `source`, which stores a union container, to `target` at `site`.
-  private mutating func _emitCopyUnionPayload(
-    from source: Operand, to target: Operand
+  private mutating func emitCopyUnionPayload(
+    from source: Operand, to target: Operand, at site: SourceRange
   ) {
+    _lowering(at: site)
     let t = UnionType(module.type(of: source).ast)!
 
     // If union is empty, simply mark the target as initialized.
@@ -895,7 +900,7 @@ struct Emitter {
 
     // Trivial if the union has a single member.
     if let e = t.elements.uniqueElement {
-      _emitCopyUnionPayload(from: source, containing: e, to: target)
+      emitCopyUnionPayload(from: source, containing: e, to: target, at: site)
       return
     }
 
@@ -903,13 +908,13 @@ struct Emitter {
     let targets = UnionSwitch.Targets(
       t.elements.map({ (e) in (key: e, value: appendBlock()) }),
       uniquingKeysWith: { (a, _) in a })
-    _emitUnionSwitch(on: source, toOneOf: targets)
+    emitUnionSwitch(on: source, toOneOf: targets, at: site)
 
     let tail = appendBlock()
     for (u, b) in targets {
       insertionPoint = .end(of: b)
-      _emitCopyUnionPayload(from: source, containing: u, to: target)
-      _branch(to: tail)
+      emitCopyUnionPayload(from: source, containing: u, to: target, at: site)
+      emitBranch(to: tail, at: site)
     }
 
     insertionPoint = .end(of: tail)
@@ -917,14 +922,14 @@ struct Emitter {
 
   /// Inserts the IR for copying `source`, which stores a union containing a `payload`, to `target`
   /// at `site`.
-  private mutating func _emitCopyUnionPayload(
-    from source: Operand, containing payload: AnyType, to target: Operand
+  private mutating func emitCopyUnionPayload(
+    from source: Operand, containing payload: AnyType, to target: Operand, at site: SourceRange
   ) {
-    let x0 = _open_union(source, as: payload)
-    let x1 = _open_union(target, as: payload, .forInitialization)
-    _emitCopy(x0, to: x1)
-    _close_union(x0)
-    _close_union(x1)
+    let x0 = insert(module.makeOpenUnion(source, as: payload, at: site))!
+    let x1 = insert(module.makeOpenUnion(target, as: payload, forInitialization: true, at: site))!
+    emitCopy(x0, to: x1, at: site)
+    insert(module.makeCloseUnion(x0, at: site))
+    insert(module.makeCloseUnion(x1, at: site))
   }
 
   /// Inserts the IR for lowering `d`, which is a global binding initializer, returning the ID of
@@ -936,7 +941,8 @@ struct Emitter {
       guard case .globalInitialization(let binding) = d.kind else { unreachable() }
 
       let initializer = me.program[binding].initializer!
-      me._lowering(initializer)
+      let site = me.program[initializer].site
+      me._lowering(at: site)
 
       me.emitInitStoredLocalBindings(
         in: me.program[binding].pattern.subpattern, referringTo: [], relativeTo: storage,
@@ -1013,7 +1019,7 @@ struct Emitter {
   private mutating func emitControlFlow(return s: ReturnStmt.ID) {
     _lowering(s)
     for f in frames.elements.reversed() {
-      _emitDeallocs(for: f)
+      emitDeallocs(for: f, at: source!)
     }
     _return()
   }
@@ -1029,7 +1035,7 @@ struct Emitter {
       _emitDeallocTopFrame()
       frames.pop()
     }
-    _branch(to: innermost.exit)
+    emitBranch(to: innermost.exit, at: source!)
   }
 
   /// Inserts the IR for `s`, returning its effect on control flow.
@@ -1078,8 +1084,7 @@ struct Emitter {
 
     // The RHS is evaluated first, stored into some local storage, and moved to the LHS. Implicit
     // conversion is necessary if the RHS is subtype of the LHS.
-    _lowering(s)
-    let rhs = _alloc_stack(program[s].left.type)
+    let rhs = emitAllocStack(for: program[s].left.type, at: ast[s].site)
     emitStore(convertingIfNecessary: ast[s].right, to: rhs)
     let lhs = emitLValue(ast[s].left)
     _lowering(s)
@@ -1143,26 +1148,25 @@ struct Emitter {
   }
 
   private mutating func emit(conditionalStmt s: ConditionalStmt.ID) -> ControlFlow {
-    _lowering(s)
     let (firstBranch, secondBranch) = emitTest(condition: ast[s].condition, in: AnyScopeID(s))
     let tail = appendBlock()
 
     insertionPoint = .end(of: firstBranch)
     let f1 = emit(braceStmt: ast[s].success)
     emitControlFlow(f1) { (me) in
-      me._branch(to: tail)
+      me.emitBranch(to: tail, at: me.ast[s].site)
     }
 
     insertionPoint = .end(of: secondBranch)
     guard let failure = ast[s].failure else {
-      _branch(to: tail)
+      emitBranch(to: tail, at: ast[s].site)
       insertionPoint = .end(of: tail)
       return .next
     }
 
     let f2 = emit(stmt: failure.value)
     emitControlFlow(f2) { (me) in
-      me._branch(to: tail)
+      me.emitBranch(to: tail, at: me.ast[s].site)
     }
 
     insertionPoint = .end(of: tail)
@@ -1192,8 +1196,7 @@ struct Emitter {
     loops.append(LoopID(depth: frames.depth, exit: exit))
     defer { loops.removeLast() }
 
-    _lowering(before: s)
-    _branch(to: body)
+    emitBranch(to: body, at: .empty(at: ast[s].site.start))
     insertionPoint = .end(of: body)
 
     // We're not using `emit(braceStmt:into:)` because we need to evaluate the loop condition
@@ -1254,7 +1257,7 @@ struct Emitter {
     // The collection on which the loop iterates.
     let domain = emitLValue(program[s].domain.value)
     // The element extracted before each iteration.
-    let element = _alloc_stack(^ast.optional(witness.element))
+    let element = emitAllocStack(for: ^ast.optional(witness.element), at: introducer)
     // The storage containing the result of binding each element.
     let storage = emitAllocation(binding: ast[s].binding)
 
@@ -1266,11 +1269,10 @@ struct Emitter {
     loops.append(LoopID(depth: frames.depth, exit: exit))
     defer { loops.removeLast() }
 
-    _branch(to: head)
+    emitBranch(to: head, at: introducer)
     insertionPoint = .end(of: head)
 
-    _lowering(at: introducer)
-    let x0 = _access(.inout, from: domain)
+    let x0 = _access([.inout], from: domain)!
     emitApply(witness.next, to: [x0], writingResultTo: element, at: introducer)
     insert(module.makeEndAccess(x0, at: introducer))
 
@@ -1285,8 +1287,7 @@ struct Emitter {
     insertionPoint = .end(of: next)
     let flow = emit(braceStmt: ast[s].body)
     emitControlFlow(flow) { (me) in
-      me._lowering(after: me.program[s].body)
-      me._branch(to: head)
+      me.emitBranch(to: head, at: .empty(at: me.program[s].body.site.end))
     }
 
     insertionPoint = .end(of: exit)
@@ -1312,7 +1313,7 @@ struct Emitter {
     // The collection on which the loop iterates.
     let domain = emitLValue(program[s].domain.value)
     // The storage allocated for the result of the exit condition.
-    let quit = _alloc_stack(^ast.coreType("Bool")!)
+    let quit = emitAllocStack(for: ^ast.coreType("Bool")!, at: introducer)
     // The start and end positions of the collection; the former is updated with each iteration.
     let (currentPosition, endPosition) = emitPositions(
       forIteratingOver: domain, usingWitness: collectionWitness, at: introducer)
@@ -1329,12 +1330,11 @@ struct Emitter {
     loops.append(LoopID(depth: frames.depth, exit: exit))
     defer { loops.removeLast() }
 
-    _branch(to: head)
+    emitBranch(to: head, at: introducer)
 
-    _lowering(at: introducer)
     insertionPoint = .end(of: head)
-    let x0 = _access(.let, from: currentPosition)
-    let x1 = _access(.let, from: endPosition)
+    let x0 = _access([.let], from: currentPosition)!
+    let x1 = _access([.let], from: endPosition)!
     emitApply(.constant(equal), to: [x0, x1], writingResultTo: quit, at: introducer)
     insert(module.makeEndAccess(x1, at: introducer))
     insert(module.makeEndAccess(x0, at: introducer))
@@ -1342,8 +1342,8 @@ struct Emitter {
     emitCondBranch(if: x2, then: exit, else: enter, at: introducer)
 
     insertionPoint = .end(of: enter)
-    let x6 = _access(.let, from: domain)
-    let x7 = _access(.let, from: currentPosition)
+    let x6 = _access([.let], from: domain)!
+    let x7 = _access([.let], from: currentPosition)!
 
     let t = RemoteType(.let, collectionWitness.element)
     let x8 = insert(
@@ -1361,21 +1361,20 @@ struct Emitter {
 
     let flow = emit(braceStmt: ast[s].body)
     emitControlFlow(flow) { (me) in
-      me._lowering(after: me.program[s].body)
-      me._branch(to: tail)
+      me.emitBranch(to: tail, at: .empty(at: me.program[s].body.site.end))
     }
 
     _lowering(at: introducer)
     insertionPoint = .end(of: tail)
     let x3 = insert(module.makeAllocStack(collectionWitness.position, at: introducer))!
-    let x4 = _access(.let, from: domain)
-    let x5 = _access(.let, from: currentPosition)
+    let x4 = _access([.let], from: domain)!
+    let x5 = _access([.let], from: currentPosition)!
     emitApply(collectionWitness.positionAfter, to: [x4, x5], writingResultTo: x3, at: introducer)
     insert(module.makeEndAccess(x4, at: introducer))
     insert(module.makeEndAccess(x5, at: introducer))
-    _emitMove(.inout, x3, to: currentPosition)
+    _emitMove([.inout], x3, to: currentPosition)
     insert(module.makeDeallocStack(for: x3, at: introducer))
-    _branch(to: head)
+    emitBranch(to: head, at: introducer)
 
     insertionPoint = .end(of: exit)
     return .next
@@ -1388,12 +1387,12 @@ struct Emitter {
     usingWitness witness: CollectionWitness, at site: SourceRange
   ) -> (startIndex: Operand, endIndex: Operand) {
     _lowering(at: site)
-    let start = _alloc_stack(witness.position)
-    let end = _alloc_stack(witness.position)
+    let start = emitAllocStack(for: witness.position, at: site)
+    let end = emitAllocStack(for: witness.position, at: site)
 
-    let x0 = _access(.let, from: domain)
-    emitApply(witness.startPosition, to: [x0], writingResultTo: start, at: _site!)
-    emitApply(witness.endPosition, to: [x0], writingResultTo: end, at: _site!)
+    let x0 = _access([.let], from: domain)!
+    emitApply(witness.startPosition, to: [x0], writingResultTo: start, at: site)
+    emitApply(witness.endPosition, to: [x0], writingResultTo: end, at: site)
     insert(module.makeEndAccess(x0, at: site))
 
     return (startIndex: start, endIndex: end)
@@ -1420,8 +1419,7 @@ struct Emitter {
   private mutating func emit(whileStmt s: WhileStmt.ID) -> ControlFlow {
     // Enter the loop.
     let head = appendBlock(in: s)
-    _lowering(before: s)
-    _branch(to: head)
+    emitBranch(to: head, at: .empty(at: ast[s].site.start))
 
     // Test the conditions.
     insertionPoint = .end(of: head)
@@ -1434,9 +1432,8 @@ struct Emitter {
     // Execute the body.
     insertionPoint = .end(of: body)
     let flow = emit(braceStmt: ast[s].body)
-    _lowering(after: program[s].body)
     emitControlFlow(flow) { (me) in
-      me._branch(to: head)
+      me.emitBranch(to: head, at: .empty(at: me.program[s].body.site.end))
     }
 
     // Exit.
@@ -1449,7 +1446,7 @@ struct Emitter {
 
     let x0 = emitLValue(ast[s].value)
     _lowering(s)
-    let x1 = _access(.let, from: x0)
+    let x1 = _access([.let], from: x0)!
     _yield(.let, x1)
     return .next
   }
@@ -1460,8 +1457,7 @@ struct Emitter {
   private mutating func emitInitialize(
     storage: Operand, to value: Operand, at site: SourceRange
   ) {
-    _lowering(at: site)
-    let x0 = _access(.set, from: storage)
+    let x0 = _access([.set], from: storage)!
     insert(module.makeStore(value, at: x0, at: site))
     insert(module.makeEndAccess(x0, at: site))
   }
@@ -1470,11 +1466,7 @@ struct Emitter {
   /// address of this allocation.
   @discardableResult
   private mutating func emitStore<T: ExprID>(value e: T) -> Operand {
-    let savedSite = _site
-    defer { _site = savedSite }
-
-    _lowering(e)
-    let s = _alloc_stack(program[e].type)
+    let s = emitAllocStack(for: program[e].type, at: ast[e].site)
     emitStore(value: e, to: s)
     return s
   }
@@ -1484,9 +1476,6 @@ struct Emitter {
   /// - Requires: `storage` is the address of some uninitialized memory block capable of storing
   ///   the value of `e`.
   private mutating func emitStore<T: ExprID>(value e: T, to storage: Operand) {
-    let savedSource = _site
-    defer { _site = savedSource }
-
     switch e.kind {
     case BooleanLiteralExpr.self:
       emitStore(BooleanLiteralExpr.ID(e)!, to: storage)
@@ -1551,10 +1540,11 @@ struct Emitter {
   private mutating func emitStore(_ e: CaptureExpr.ID, to storage: Operand) {
     let t = RemoteType(program[e].type)!
     _lowering(e)
+    let s = program[e].site
 
     let x0 = emitLValue(program[e].source)
-    let x1 = _access([t.access], from: x0)
-    emitStore(access: x1, to: storage, at: _site!)
+    let x1 = _access([t.access], from: x0)!
+    emitStore(access: x1, to: storage, at: s)
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
@@ -1583,11 +1573,10 @@ struct Emitter {
 
     // `A ~> Union<A, B>`
     if let u = UnionType(target), u.elements.contains(source) {
-      _lowering(e)
       let x0 = insert(
         module.makeOpenUnion(storage, as: source, forInitialization: true, at: program[e].site))!
       emitStore(value: ast[e].left, to: x0)
-      _close_union(x0)
+      insert(module.makeCloseUnion(x0, at: program[e].site))
       return
     }
 
@@ -1638,13 +1627,12 @@ struct Emitter {
     // Emit the success branch.
     insertionPoint = .end(of: success)
     within(Frame()) { $0.emitStore(value: $0.ast[e].success, to: storage) }
-    _lowering(e)
-    _branch(to: tail)
+    emitBranch(to: tail, at: ast[e].site)
 
     // Emit the failure branch.
     insertionPoint = .end(of: failure)
     within(Frame()) { $0.emitStore(value: $0.ast[e].failure.value, to: storage) }
-    _branch(to: tail)
+    emitBranch(to: tail, at: ast[e].site)
 
     insertionPoint = .end(of: tail)
   }
@@ -1662,7 +1650,7 @@ struct Emitter {
       switch program[n].referredDecl {
       case .builtinFunction(let f):
         let x0 = emit(apply: f, to: ast[e].arguments, at: ast[e].site)
-        let x1 = _access(.set, from: storage)
+        let x1 = _access([.set], from: storage)!
         insert(module.makeStore(x0, at: x1, at: ast[e].site))
         return
 
@@ -1699,13 +1687,13 @@ struct Emitter {
       specializedBy: module.specialization(in: insertionFunction!), in: insertionScope!)
 
     _lowering(e)
-    let site = _site!
+    let site = ast[e].site
     let x0 = insert(module.makeAddressToPointer(.constant(r), at: site))!
-    let x1 = _subfield_view(storage, at: [0])
+    let x1 = emitSubfieldView(storage, at: [0], at: site)
     emitInitialize(storage: x1, to: x0, at: ast[e].site)
 
     let arrow = ArrowType(program.canonical(program[e].type, in: insertionScope!))!
-    let x2 = _subfield_view(storage, at: [1])
+    let x2 = emitSubfieldView(storage, at: [1], at: site)
 
     // Simply mark the lambda's environment initialized if it's empty.
     if arrow.environment == .void {
@@ -1718,15 +1706,15 @@ struct Emitter {
     for b in program[e].decl.explicitCaptures {
       // TODO: See #878
       guard program[b].pattern.subpattern.kind == NamePattern.self else { UNIMPLEMENTED() }
-      let y0 = _subfield_view(x2, at: [i])
+      let y0 = emitSubfieldView(x2, at: [i], at: site)
       emitStore(value: program[b].initializer!, to: y0)
       i += 1
     }
 
     for c in program[e].decl.implicitCaptures {
       let y0 = emitLValue(directReferenceTo: c.decl, at: site)
-      let y1 = _access([c.type.access], from: y0)
-      let y2 = _subfield_view(x2, at: [i])
+      let y1 = _access([c.type.access], from: y0)!
+      let y2 = emitSubfieldView(x2, at: [i], at: site)
       emitStore(access: y1, to: y2, at: site)
       i += 1
     }
@@ -1762,8 +1750,8 @@ struct Emitter {
     _lowering(e)
 
     let x0 = emitLValue(program[e].operand)
-    let x1 = _access([t.access], from: x0)
-    emitStore(access: x1, to: storage, at: _site!)
+    let x1 = _access([t.access], from: x0)!
+    emitStore(access: x1, to: storage, at: source!)
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
@@ -1827,8 +1815,7 @@ struct Emitter {
     }
 
     for (i, element) in ast[e].elements.enumerated() {
-      _lowering(element.value)
-      let xi = _subfield_view(storage, at: [i])
+      let xi = emitSubfieldView(storage, at: [i], at: ast[element.value].site)
       emitStore(value: element.value, to: xi)
     }
   }
@@ -1854,10 +1841,11 @@ struct Emitter {
     if program.areEquivalent(lhsType, rhsType, in: program[e].scope) {
       emitStore(value: e, to: storage)
     } else if lhsType.base is UnionType {
-      _lowering(e)
-      let x0 = _open_union(storage, as: rhsType, .forInitialization)
+      let x0 = insert(
+        module.makeOpenUnion(
+          storage, as: rhsType, forInitialization: true, at: ast[e].site))!
       emitStore(value: e, to: x0)
-      _close_union(x0)
+      insert(module.makeCloseUnion(x0, at: ast[e].site))
     } else {
       UNIMPLEMENTED()
     }
@@ -1902,10 +1890,11 @@ struct Emitter {
     evaluatedBy evaluate: (String) -> FloatingPointConstant
   ) {
     _lowering(literal)
-    let x0 = _subfield_view(storage, at: [0])
-    let x1 = _access(.set, from: x0)
-    let x2 = Operand.constant(evaluate(ast[literal].value))
-    insert(module.makeStore(x2, at: x1, at: _site!))
+    let syntax = ast[literal]
+    let x0 = emitSubfieldView(storage, at: [0], at: source!)
+    let x1 = _access([.set], from: x0)!
+    let x2 = Operand.constant(evaluate(syntax.value))
+    insert(module.makeStore(x2, at: x1, at: syntax.site))
   }
 
   /// Writes the value of `literal` to `storage`, knowing it is a core integer instance with given
@@ -1914,20 +1903,20 @@ struct Emitter {
     integer literal: T.ID, signed: Bool, bitWidth: Int, to storage: Operand
   ) {
     _lowering(literal)
-    let literalValue = ast[literal].value
-    guard let bits = WideUInt(hyloLiteral: literalValue, signed: signed, bitWidth: bitWidth) else {
+    let syntax = ast[literal]
+    guard let bits = WideUInt(hyloLiteral: syntax.value, signed: signed, bitWidth: bitWidth) else {
       diagnostics.insert(
         .error(
-          integerLiteral: literalValue,
+          integerLiteral: syntax.value,
           overflowsWhenStoredInto: program[literal].type,
-          at: _site!))
+          at: syntax.site))
       return
     }
 
-    let x0 = _subfield_view(storage, at: [0])
-    let x1 = _access(.set, from: x0)
+    let x0 = emitSubfieldView(storage, at: [0], at: source!)
+    let x1 = _access([.set], from: x0)!
     let x2 = Operand.constant(IntegerConstant(bits))
-    insert(module.makeStore(x2, at: x1, at: _site!))
+    insert(module.makeStore(x2, at: x1, at: syntax.site))
   }
 
   /// Writes an instance of `Hylo.Bool` with value `v` to `storage`.
@@ -1935,10 +1924,10 @@ struct Emitter {
   /// - Requires: `storage` is the address of uninitialized memory of type `Hylo.Int`.
   private mutating func emitStore(boolean v: Bool, to storage: Operand, at site: SourceRange) {
     _lowering(at: site)
-    let x0 = _subfield_view(storage, at: [0])
-    let x1 = _access(.set, from: x0)
-    insert(module.makeStore(.i1(v), at: x1, at: _site!))
-    insert(module.makeEndAccess(x1, at: _site!))
+    let x0 = emitSubfieldView(storage, at: [0], at: site)
+    let x1 = _access([.set], from: x0)!
+    insert(module.makeStore(.i1(v), at: x1, at: site))
+    insert(module.makeEndAccess(x1, at: site))
   }
 
   /// Writes an instance of `Hylo.Int` with value `v` to `storage`.
@@ -1946,10 +1935,10 @@ struct Emitter {
   /// - Requires: `storage` is the address of uninitialized memory of type `Hylo.Int`.
   mutating func emitStore(int v: Int, to storage: Operand, at site: SourceRange) {
     _lowering(at: site)
-    let x0 = _subfield_view(storage, at: [0])
-    let x1 = _access(.set, from: x0)
-    insert(module.makeStore(.word(v), at: x1, at: _site!))
-    insert(module.makeEndAccess(x1, at: _site!))
+    let x0 = emitSubfieldView(storage, at: [0], at: site)
+    let x1 = _access([.set], from: x0)!
+    insert(module.makeStore(.word(v), at: x1, at: site))
+    insert(module.makeEndAccess(x1, at: site))
   }
 
   /// Writes an instance of `Hylo.String` with value `v` to `storage`.
@@ -1957,11 +1946,11 @@ struct Emitter {
   /// - Requires: `storage` is the address of uninitialized memory of type `Hylo.String`.
   private mutating func emitStore(string v: String, to storage: Operand, at site: SourceRange) {
     _lowering(at: site)
-    let x0 = insert(module.makeConstantString(utf8: v.unescaped.data(using: .utf8)!, at: _site!))!
-    let x1 = _subfield_view(storage, at: [0, 0])
-    let x2 = _access(.set, from: x1)
-    insert(module.makeStore(x0, at: x2, at: _site!))
-    insert(module.makeEndAccess(x2, at: _site!))
+    let x0 = insert(module.makeConstantString(utf8: v.unescaped.data(using: .utf8)!, at: site))!
+    let x1 = emitSubfieldView(storage, at: [0, 0], at: site)
+    let x2 = _access([.set], from: x1)!
+    insert(module.makeStore(x0, at: x2, at: site))
+    insert(module.makeEndAccess(x2, at: site))
   }
 
   /// Inserts the IR for storing `a`, which is an `access`, to `storage`.
@@ -1977,9 +1966,9 @@ struct Emitter {
       return
     }
 
-    let x0 = _access(.set, from: storage)
-    insert(module.makeCapture(a, in: x0, at: _site!))
-    insert(module.makeEndAccess(x0, at: _site!))
+    let x0 = _access([.set], from: storage)!
+    insert(module.makeCapture(a, in: x0, at: site))
+    insert(module.makeEndAccess(x0, at: site))
     frames.top.setMayHoldCaptures(s)
   }
 
@@ -2004,10 +1993,10 @@ struct Emitter {
     _ callee: Operand, to arguments: [Operand],
     writingResultTo storage: Operand, at site: SourceRange
   ) {
-    _lowering(at: _site!)
-    let o = _access(.set, from: storage)
-    insert(module.makeCall(applying: callee, to: arguments, writingResultTo: o, at: _site!))
-    insert(module.makeEndAccess(o, at: _site!))
+    assert(site == source!)
+    let o = _access([.set], from: storage)!
+    insert(module.makeCall(applying: callee, to: arguments, writingResultTo: o, at: site))
+    insert(module.makeEndAccess(o, at: site))
   }
 
   /// Inserts the IR for calling `callee` on `arguments`, storing the result to `storage`.
@@ -2015,13 +2004,13 @@ struct Emitter {
     _ callee: BundleReference<MethodDecl>, to arguments: [Operand],
     writingResultTo storage: Operand, at site: SourceRange
   ) {
-    _lowering(at: _site!)
-    let o = _access(.set, from: storage)
+    assert(site == source!)
+    let o = _access([.set], from: storage)!
     let s = module.makeCallBundle(
-      applying: callee, to: arguments, writingResultTo: o, at: _site!,
+      applying: callee, to: arguments, writingResultTo: o, at: site,
       canonicalizingTypesIn: insertionScope!)
     insert(s)
-    insert(module.makeEndAccess(o, at: _site!))
+    insert(module.makeEndAccess(o, at: site))
   }
 
   /// Inserts the IR for given constructor `call`, which initializes storage `r` by applying
@@ -2050,16 +2039,16 @@ struct Emitter {
 
     _lowering(call)
     // Receiver is captured next.
-    let receiver = _access(.set, from: s)
+    let receiver = _access(.set, from: s)!
 
     // Call is evaluated last.
     let f = Operand.constant(
       FunctionReference(to: AnyDeclID(d), in: &module, specializedBy: a, in: insertionScope!))
-    let x0 = _alloc_stack(.void)
-    let x1 = _access(.set, from: x0)
+    let x0 = emitAllocStack(for: .void, at: ast[call].site)
+    let x1 = _access(.set, from: x0)!
 
     let s = module.makeCall(
-      applying: f, to: [receiver] + arguments, writingResultTo: x1, at: _site!)
+      applying: f, to: [receiver] + arguments, writingResultTo: x1, at: ast[call].site)
     insert(s)
   }
 
@@ -2087,7 +2076,7 @@ struct Emitter {
         UNIMPLEMENTED()
       }
 
-      let s = _subfield_view(receiver, at: [i])
+      let s = emitSubfieldView(receiver, at: [i], at: ast[call].site)
       emitStore(value: ast[call].arguments[i].value, to: s)
     }
   }
@@ -2127,7 +2116,7 @@ struct Emitter {
 
       case .implicit(let d):
         let s = emitLValue(directReferenceTo: d, at: syntheticSite)
-        result.append(_access([p.access], from: s))
+        result.append(_access([p.access], from: s)!)
       }
     }
 
@@ -2152,13 +2141,13 @@ struct Emitter {
     // Pragma literals require extra care to adjust the site at which they are evaluated.
     _lowering(at: syntheticSite ?? program[e].site)
     if let a = PragmaLiteralExpr.ID(e) {
-      return emitPragmaLiteralArgument(a, to: p, at: _site!)
+      return emitPragmaLiteralArgument(a, to: p, at: source!)
     }
 
     let x0 = emitLValue(e)
-    let x1 = unwrapCapture(x0, at: _site!)
-    let x2 = _emitCoerce(x1, to: p.bareType)
-    return _access([p.access], from: x2)
+    let x1 = unwrapCapture(x0, at: source!)
+    let x2 = emitCoerce(x1, to: p.bareType, at: source!)
+    return _access([p.access], from: x2)!
   }
 
   /// Inserts the IR for argument `e` passed to an autoclosure parameter of type `p`.
@@ -2176,10 +2165,10 @@ struct Emitter {
       specializedBy: module.specialization(in: insertionFunction!), in: insertionScope!)
 
     _lowering(e)
-    let x0 = insert(module.makeAddressToPointer(.constant(r), at: _site!))!
-    let x1 = _alloc_stack(p.bareType)
-    emitInitialize(storage: x1, to: x0, at: _site!)
-    return _access([p.access], from: x1)
+    let x0 = insert(module.makeAddressToPointer(.constant(r), at: source!))!
+    let x1 = emitAllocStack(for: p.bareType, at: source!)
+    emitInitialize(storage: x1, to: x0, at: source!)
+    return _access([p.access], from: x1)!
   }
 
   /// Inserts the IR for argument `e` passed to a parameter of type `p`, evaluating the literal's
@@ -2188,9 +2177,9 @@ struct Emitter {
     _ e: PragmaLiteralExpr.ID, to p: ParameterType, at site: SourceRange
   ) -> Operand {
     _lowering(at: site)
-    let x0 = _alloc_stack(program[e].type)
-    emitStore(e, to: x0, at: _site!)
-    return _access([p.access], from: x0)
+    let x0 = emitAllocStack(for: program[e].type, at: source!)
+    emitStore(e, to: x0, at: source!)
+    return _access([p.access], from: x0)!
   }
 
   /// Inserts the IR generating the operands of the subscript call `e`.
@@ -2213,10 +2202,10 @@ struct Emitter {
     case .infix(let f, _, _):
       let t = ArrowType(canonical(program[f.expr].type))!.lifted
       _lowering(at: ast.site(of: e))
-      let s = _alloc_stack(t.output)
+      let s = emitAllocStack(for: t.output, at: source!)
       emitStore(e, to: s)
-      let u = _emitCoerce(s, to: p.bareType)
-      return _access([p.access], from: u)
+      let u = emitCoerce(s, to: p.bareType, at: source!)
+      return _access([p.access], from: u)!
 
     case .leaf(let e):
       return emitArgument(e, to: p, at: program[e].site)
@@ -2231,7 +2220,7 @@ struct Emitter {
     switch f {
     case .addressOf:
       let source = emitLValue(arguments[0].value)
-      return insert(module.makeAddressToPointer(source, at: self._site!))!
+      return insert(module.makeAddressToPointer(source, at: site))!
 
     case .markUninitialized:
       let source = emitLValue(arguments[0].value)
@@ -2242,12 +2231,12 @@ struct Emitter {
       var a: [Operand] = []
       for e in arguments {
         let x0 = emitStore(value: e.value)
-        let x1 = _access(.sink, from: x0)
-        let x2 = insert(module.makeLoad(x1, at: _site!))!
+        let x1 = _access([.sink], from: x0)!
+        let x2 = insert(module.makeLoad(x1, at: site))!
         a.append(x2)
-        insert(module.makeEndAccess(x1, at: _site!))
+        insert(module.makeEndAccess(x1, at: site))
       }
-      return insert(module.makeCallBuiltin(applying: f, to: a, at: _site!))!
+      return insert(module.makeCallBuiltin(applying: f, to: a, at: site))!
     }
   }
 
@@ -2341,9 +2330,9 @@ struct Emitter {
       specializedBy: a, usedIn: scopeOfUse)
 
     if case .bundle(let b) = entityToCall {
-      return emitMethodBundleCallee(referringTo: b, on: r, at: _site!)
+      return emitMethodBundleCallee(referringTo: b, on: r, at: site)
     } else {
-      let c = _access(requested, from: r)
+      let c = _access(requested, from: r)!
       return (callee: entityToCall, captures: [c])
     }
   }
@@ -2361,10 +2350,10 @@ struct Emitter {
     if let k = b.capabilities.uniqueElement {
       let d = module.demandDeclaration(lowering: program.ast.implementation(k, of: b.bundle)!)
       let f = FunctionReference(to: d, in: module, specializedBy: b.arguments, in: insertionScope!)
-      let c = _access([k], from: receiver)
+      let c = _access([k], from: receiver)!
       return (callee: .direct(f), captures: [c])
     } else {
-      let c = _access([b.capabilities.weakest!], from: receiver)
+      let c = _access([b.capabilities.weakest!], from: receiver)!
       return (callee: .bundle(b), captures: [c])
     }
   }
@@ -2382,7 +2371,7 @@ struct Emitter {
 
     case let k:
       let l = emitLValue(callee)
-      return _access([k], from: l)
+      return _access([k], from: l)!
     }
   }
 
@@ -2437,8 +2426,8 @@ struct Emitter {
     guard case .member(let d, let a, let s) = program[callee].referredDecl else { unreachable() }
 
     let entityToCall = program.subscriptBundleReference(to: .init(d)!, specializedBy: a)
-    let r = emitLValue(receiver: s, at: _site!)
-    let c = _access(entityToCall.capabilities, from: r)
+    let r = emitLValue(receiver: s, at: source!)
+    let c = _access(entityToCall.capabilities, from: r)!
     return (entityToCall, [c])
   }
 
@@ -2482,8 +2471,7 @@ struct Emitter {
   /// a rreference to that storage. Otherwise, returns `nil`.
   private mutating func emitAllocation(binding d: BindingDecl.ID) -> Operand? {
     if program[d].pattern.introducer.value.isConsuming {
-      _lowering(d)
-      return _alloc_stack(program[d].type)
+      return emitAllocStack(for: program[d].type, at: ast[d].site)
     } else {
       return nil
     }
@@ -2548,21 +2536,31 @@ struct Emitter {
       rhsType.elements.map({ (e) in (key: e, value: failure) }),
       uniquingKeysWith: { (a, _) in a })
     targets[lhsType] = next
-    _emitUnionSwitch(on: rhs, toOneOf: targets)
+    emitUnionSwitch(on: rhs, toOneOf: targets, at: source!)
 
     insertionPoint = .end(of: next)
 
     if let target = storage {
-      let x0 = _access(.sink, from: rhs)
-      let x1 = _open_union(x0, as: lhsType)
-      _emitMove(.set, x1, to: target)
+<<<<<<< variant A
+      let x0 = insert(module.makeAccess(.sink, from: rhs, at: site))!
+      let x1 = insert(module.makeOpenUnion(x0, as: lhsType, at: site))!
+      _emitMove([.set], x1, to: target)
+>>>>>>> variant B
+      let x0 = _access([.sink], from: rhs)!
+      let x1 = insert(module.makeOpenUnion(x0, as: lhsType, at: source!))!
+      _move([.set], x1, to: target)
+####### Ancestor
+      let x0 = insert(module.makeAccess(.sink, from: rhs, at: site))!
+      let x1 = insert(module.makeOpenUnion(x0, as: lhsType, at: site))!
+      _move([.set], x1, to: target)
+======= end
       emitLocalDeclarations(introducedBy: lhs, referringTo: [], relativeTo: target)
-      _close_union(x1)
-      insert(module.makeEndAccess(x0, at: _site!))
+      insert(module.makeCloseUnion(x1, at: source!))
+      insert(module.makeEndAccess(x0, at: source!))
     } else {
       let k = AccessEffect(program[lhs].introducer.value)
-      let x0 = _access([k], from: rhs)
-      let x1 = _open_union(x0, as: lhsType)
+      let x0 = _access([k], from: rhs)!
+      let x1 = insert(module.makeOpenUnion(x0, as: lhsType, at: source!))!
       assignProjections(of: x1, to: lhs)
     }
 
@@ -2583,10 +2581,10 @@ struct Emitter {
   private mutating func emitLoadBuiltinBool(_ wrapper: Operand, at site: SourceRange) -> Operand {
     _lowering(at: site)
     precondition(module.type(of: wrapper) == .address(ast.coreType("Bool")!))
-    let x0 = _subfield_view(wrapper, at: [0])
-    let x1 = _access(.sink, from: x0)
-    let x2 = insert(module.makeLoad(x1, at: _site!))!
-    insert(module.makeEndAccess(x1, at: _site!))
+    let x0 = emitSubfieldView(wrapper, at: [0], at: source!)
+    let x1 = _access([.sink], from: x0)!
+    let x2 = insert(module.makeLoad(x1, at: site))!
+    insert(module.makeEndAccess(x1, at: site))
     return x2
   }
 
@@ -2604,7 +2602,9 @@ struct Emitter {
   ///
   /// `source` is returned unchanged if it stores an instance of `target`. Otherwise, the IR
   /// producing an address of type `target` is inserted, consuming `source` if necessary.
-  private mutating func _emitCoerce(_ source: Operand, to target: AnyType) -> Operand {
+  private mutating func emitCoerce(
+    _ source: Operand, to target: AnyType, at site: SourceRange
+  ) -> Operand {
     let lhs = module.type(of: source).ast
     let rhs = program.canonical(target, in: insertionScope!)
 
@@ -2613,17 +2613,17 @@ struct Emitter {
     }
 
     if lhs.base is RemoteType {
-      let s = insert(module.makeOpenCapture(source, at: _site!))!
-      return _emitCoerce(s, to: rhs)
+      let s = insert(module.makeOpenCapture(source, at: site))!
+      return emitCoerce(s, to: rhs, at: site)
     }
 
     switch rhs.base {
     case let t as ExistentialType:
-      return _emitCoerce(source, to: t)
+      return _emitCoerce(source, to: t, at: site)
     case let t as ArrowType:
-      return _emitCoerce(source, to: t)
+      return _emitCoerce(source, to: t, at: site)
     case let t as UnionType:
-      return _emitCoerce(source, to: t)
+      return _emitCoerce(source, to: t, at: site)
     default:
       unexpectedCoercion(from: lhs, to: rhs)
     }
@@ -2633,21 +2633,21 @@ struct Emitter {
   ///
   /// - Requires: `target` is canonical.
   private mutating func _emitCoerce(
-    _ source: Operand, to target: ExistentialType
+    _ source: Operand, to target: ExistentialType, at site: SourceRange
   ) -> Operand {
     let t = module.type(of: source).ast
     if t.base is ExistentialType {
       return source
     }
 
-    return emitExistential(target, wrapping: source, at: _site!)
+    return emitExistential(target, wrapping: source, at: site)
   }
 
   /// Inserts the IR for coercing `source` to an address of type `target`.
   ///
   /// - Requires: `target` is canonical.
   private mutating func _emitCoerce(
-    _ source: Operand, to target: ArrowType
+    _ source: Operand, to target: ArrowType, at site: SourceRange
   ) -> Operand {
     let t = module.type(of: source).ast
     guard let lhs = ArrowType(t) else {
@@ -2673,14 +2673,15 @@ struct Emitter {
   ///
   /// - Requires: `target` is canonical.
   private mutating func _emitCoerce(
-    _ source: Operand, to target: UnionType
+    _ source: Operand, to target: UnionType, at site: SourceRange
   ) -> Operand {
+    _lowering(at: site)
     let lhs = module.type(of: source).ast
 
-    let x0 = _alloc_stack(^target)
-    let x1 = _open_union(x0, as: lhs, .forInitialization)
-    _emitMove(.set, source, to: x1)
-    _close_union(x1)
+    let x0 = emitAllocStack(for: ^target, at: site)
+    let x1 = insert(module.makeOpenUnion(x0, as: lhs, forInitialization: true, at: site))!
+    _emitMove([.set], source, to: x1)
+    insert(module.makeCloseUnion(x1, at: site))
     return x0
   }
 
@@ -2707,26 +2708,26 @@ struct Emitter {
     // TODO: Handle cases where the foreign representation of `t` is not built-in.
 
     // Store the foreign representation in memory to call the converter.
-    let source = _alloc_stack(module.type(of: foreign).ast)
-    emitInitialize(storage: source, to: foreign, at: self._site!)
+    let source = emitAllocStack(for: module.type(of: foreign).ast, at: source!)
+    emitInitialize(storage: source, to: foreign, at: self.source!)
 
     switch foreignConvertibleConformance.implementations[r]! {
     case .explicit(let m):
       let convert = module.demandDeclaration(lowering: m)!
       let f = module.reference(to: convert, implementedFor: foreignConvertibleConformance)
 
-      let x0 = _alloc_stack(ir)
-      let x1 = _access(.set, from: x0)
-      let x2 = _alloc_stack(ArrowType(f.type.ast)!.output)
-      let x3 = _access(.set, from: x2)
-      let x4 = _access(.sink, from: source)
+      let x0 = emitAllocStack(for: ir, at: self.source!)
+      let x1 = _access(.set, from: x0)!
+      let x2 = emitAllocStack(for: ArrowType(f.type.ast)!.output, at: self.source!)
+      let x3 = _access(.set, from: x2)!
+      let x4 = _access(.sink, from: source)!
 
-      let s = module.makeCall(applying: .constant(f), to: [x1, x4], writingResultTo: x3, at: self._site!)
+      let s = module.makeCall(applying: .constant(f), to: [x1, x4], writingResultTo: x3, at: self.source!)
       insert(s)
 
-      insert(module.makeEndAccess(x4, at: self._site!))
-      insert(module.makeEndAccess(x3, at: self._site!))
-      insert(module.makeEndAccess(x1, at: self._site!))
+      insert(module.makeEndAccess(x4, at: self.source!))
+      insert(module.makeEndAccess(x3, at: self.source!))
+      insert(module.makeEndAccess(x1, at: self.source!))
       return x0
 
     case .synthetic:
@@ -2753,16 +2754,16 @@ struct Emitter {
       let convert = module.demandDeclaration(lowering: m)!
       let f = module.reference(to: convert, implementedFor: foreignConvertibleConformance)
 
-      let x0 = _access(.let, from: o)
-      let x1 = _alloc_stack(ArrowType(f.type.ast)!.output)
-      let x2 = _access(.set, from: x1)
-      insert(module.makeCall(applying: .constant(f), to: [x0], writingResultTo: x2, at: _site!))
-      insert(module.makeEndAccess(x2, at: _site!))
-      insert(module.makeEndAccess(x0, at: _site!))
+      let x0 = _access(.let, from: o)!
+      let x1 = emitAllocStack(for: ArrowType(f.type.ast)!.output, at: source!)
+      let x2 = _access(.set, from: x1)!
+      insert(module.makeCall(applying: .constant(f), to: [x0], writingResultTo: x2, at: source!))
+      insert(module.makeEndAccess(x2, at: source!))
+      insert(module.makeEndAccess(x0, at: source!))
 
-      let x3 = _access(.sink, from: x1)
-      let x4 = insert(module.makeLoad(x3, at: _site!))!
-      insert(module.makeEndAccess(x3, at: _site!))
+      let x3 = _access(.sink, from: x1)!
+      let x4 = insert(module.makeLoad(x3, at: source!))!
+      insert(module.makeEndAccess(x3, at: source!))
       return x4
 
     case .synthetic:
@@ -2783,9 +2784,6 @@ struct Emitter {
 
   /// Inserts the IR for lvalue `e`.
   private mutating func emitLValue(_ e: AnyExprID) -> Operand {
-    let savedSite = _site
-    defer { _site = savedSite }
-
     switch e.kind {
     case CastExpr.self:
       return emitLValue(CastExpr.ID(e)!)
@@ -2832,12 +2830,12 @@ struct Emitter {
   private mutating func emitLValue(pointerConversion e: CastExpr.ID) -> Operand {
     _lowering(e)
     let x0 = emitLValue(ast[e].left)
-    let x1 = _access(.sink, from: x0)
-    let x2 = insert(module.makeLoad(x1, at: _site!))!
-    insert(module.makeEndAccess(x1, at: _site!))
+    let x1 = _access(.sink, from: x0)!
+    let x2 = insert(module.makeLoad(x1, at: ast[e].site))!
+    insert(module.makeEndAccess(x1, at: ast[e].site))
 
     let t = RemoteType(MetatypeType(canonical(program[e].right.type))!.instance)!
-    return insert(module.makePointerToAddress(x2, to: t, at: _site!))!
+    return insert(module.makePointerToAddress(x2, to: t, at: ast[e].site))!
   }
 
   /// Inserts the IR for lvalue `e`.
@@ -2861,9 +2859,7 @@ struct Emitter {
   /// Inserts the IR for lvalue `e`.
   private mutating func emitLValue(_ e: TupleMemberExpr.ID) -> Operand {
     let base = emitLValue(ast[e].tuple)
-    let i = ast[e].index
-    _lowering(i)
-    return _subfield_view(base, at: [i.value])
+    return emitSubfieldView(base, at: [ast[e].index.value], at: ast[e].index.site)
   }
 
   /// Inserts the IR for `r` used a lvalue at `site`.
@@ -2903,7 +2899,6 @@ struct Emitter {
   private mutating func emitLValue(
     directReferenceTo d: AnyDeclID, at site: SourceRange
   ) -> Operand {
-    _lowering(at: site)
     // Handle local bindings.
     if let s = frames[d] {
       return s
@@ -2911,7 +2906,7 @@ struct Emitter {
 
     // Handle references to type declarations.
     if let t = MetatypeType(program[d].type) {
-      let s = _alloc_stack(^t)
+      let s = emitAllocStack(for: ^t, at: site)
       emitInitialize(storage: s, to: .constant(t), at: site)
       return s
     }
@@ -2925,7 +2920,7 @@ struct Emitter {
     case VarDecl.self:
       let (root, subfied) = program.subfieldRelativeToRoot(of: .init(d)!)
       let s = insert(module.makeGlobalAddr(of: root, at: site))!
-      return _subfield_view(s, at: subfied)
+      return emitSubfieldView(s, at: subfied, at: site)
 
     default:
       unexpected(d, in: program.ast)
@@ -2938,7 +2933,6 @@ struct Emitter {
     boundTo r: Operand, declaredBy d: AnyDeclID, specializedBy z: GenericArguments,
     at site: SourceRange
   ) -> Operand {
-    _lowering(at: site)
     switch d.kind {
     case SubscriptDecl.self:
       return emitComputedProperty(
@@ -2947,7 +2941,7 @@ struct Emitter {
     case VarDecl.self:
       let l = AbstractTypeLayout(of: module.type(of: r).ast, definedIn: program)
       let i = l.offset(of: ast[VarDecl.ID(d)!].baseName)!
-      return _subfield_view(r, at: [i])
+      return emitSubfieldView(r, at: [i], at: site)
 
     default:
       UNIMPLEMENTED()
@@ -2965,11 +2959,10 @@ struct Emitter {
 
     let t = SubscriptType(canonicalType(of: d, specializedBy: z))!
     let b = BundleReference(to: d, specializedBy: z, requesting: t.capabilities)
-    _lowering(at: site)
-    let a = _access(t.capabilities, from: r)
+    let a = insert(module.makeAccess(t.capabilities, from: r, at: site))!
 
     let s = module.makeProjectBundle(
-      applying: b, to: [a], at: _site!, canonicalizingTypesIn: insertionScope!)
+      applying: b, to: [a], at: site, canonicalizingTypesIn: insertionScope!)
     return insert(s)!
   }
 
@@ -2980,8 +2973,7 @@ struct Emitter {
   ) -> Operand {
     let t = SubscriptImplType(canonicalType(of: d, specializedBy: z))!
     let o = RemoteType(ast[d].introducer.value, t.output)
-    _lowering(at: site)
-    let a = _access([o.access], from: r)
+    let a = insert(module.makeAccess([o.access], from: r, at: site))!
     let f = module.demandDeclaration(lowering: d)
 
     let s = module.makeProject(o, applying: f, specializedBy: z, to: [a], at: site)
@@ -3014,8 +3006,8 @@ struct Emitter {
   /// Inserts IR for move-initializing/assigning `storage` with `value` at `site`.
   ///
   /// The value of `semantics` defines the type of move to emit:
-  /// - `.set` emits move-initialization.
-  /// - `.inout` emits move-assignment.
+  /// - `[.set]` emits move-initialization.
+  /// - `[.inout]` emits move-assignment.
   /// - `[.inout, .set]` emits a `move` instruction that will is later replaced during definite
   ///   initialization analysis by either move-assignment if `storage` is found initialized or
   ///   by move-initialization otherwise.
@@ -3028,34 +3020,34 @@ struct Emitter {
 
     // Built-in types are handled as a special case.
     if model.isBuiltin {
-      emitMoveBuiltIn(value, to: storage, at: _site!)
+      emitMoveBuiltIn(value, to: storage, at: source!)
       return
     }
 
     // Other types must be movable.
     let m = program.ast.core.movable.type
     guard let movable = program.conformance(of: model, to: m, exposedTo: insertionScope!) else {
-      report(.error(model, doesNotConformTo: m, at: _site!))
+      report(.error(model, doesNotConformTo: m, at: source!))
       return
     }
 
     // Use memcpy of `source` is trivially movable.
     if program.isTrivial(movable) {
-      let x0 = _access(.sink, from: value)
-      let x1 = _access(.set, from: storage)
-      insert(module.makeMemoryCopy(x0, x1, at: _site!))
-      insert(module.makeEndAccess(x1, at: _site!))
+      let x0 = _access(.sink, from: value)!
+      let x1 = _access(.set, from: storage)!
+      insert(module.makeMemoryCopy(x0, x1, at: source!))
+      insert(module.makeEndAccess(x1, at: source!))
       _mark_state(.uninitialized, x0)
-      insert(module.makeEndAccess(x0, at: _site!))
+      insert(module.makeEndAccess(x0, at: source!))
       return
     }
 
     // Insert a call to the appropriate move implementation if its semantics is unambiguous.
     // Otherwise, insert a call to the method bundle.
     if let k = semantics.uniqueElement {
-      emitMove(k, value, to: storage, withMovableConformance: movable, at: _site!)
+      emitMove(k, value, to: storage, withMovableConformance: movable, at: source!)
     } else {
-      insert(module.makeMove(value, to: storage, usingConformance: movable, at: _site!))
+      insert(module.makeMove(value, to: storage, usingConformance: movable, at: source!))
     }
   }
 
@@ -3065,12 +3057,12 @@ struct Emitter {
   ) {
     _lowering(at: site)
     // Built-in are always stored.
-    let x0 = _access(.set, from: storage)
-    let x1 = _access(.sink, from: value)
-    let x2 = insert(module.makeLoad(x1, at: _site!))!
-    insert(module.makeStore(x2, at: x0, at: _site!))
-    insert(module.makeEndAccess(x1, at: _site!))
-    insert(module.makeEndAccess(x0, at: _site!))
+    let x0 = _access(.set, from: storage)!
+    let x1 = _access(.sink, from: value)!
+    let x2 = insert(module.makeLoad(x1, at: source!))!
+    insert(module.makeStore(x2, at: x0, at: source!))
+    insert(module.makeEndAccess(x1, at: source!))
+    insert(module.makeEndAccess(x0, at: source!))
   }
 
   /// Inserts IR for move-initializing/assigning `storage` with `value` at `site` using `movable`
@@ -3089,29 +3081,29 @@ struct Emitter {
     let d = module.demandTakeValueDeclaration(semantics, definedBy: movable)
     let f = module.reference(to: d, implementedFor: movable)
 
-    let x0 = insert(module.makeAllocStack(.void, at: _site!))!
-    let x1 = _access(.set, from: x0)
-    let x2 = _access([semantics], from: storage)
-    let x3 = _access(.sink, from: value)
-    insert(module.makeCall(applying: .constant(f), to: [x2, x3], writingResultTo: x1, at: _site!))
-    insert(module.makeEndAccess(x3, at: _site!))
-    insert(module.makeEndAccess(x2, at: _site!))
-    insert(module.makeEndAccess(x1, at: _site!))
-    insert(module.makeDeallocStack(for: x0, at: _site!))
+    let x0 = insert(module.makeAllocStack(.void, at: source!))!
+    let x1 = _access(.set, from: x0)!
+    let x2 = _access([semantics], from: storage)!
+    let x3 = _access(.sink, from: value)!
+    insert(module.makeCall(applying: .constant(f), to: [x2, x3], writingResultTo: x1, at: source!))
+    insert(module.makeEndAccess(x3, at: source!))
+    insert(module.makeEndAccess(x2, at: source!))
+    insert(module.makeEndAccess(x1, at: source!))
+    insert(module.makeDeallocStack(for: x0, at: source!))
   }
 
   // MARK: Copy
 
   /// Inserts IR for copying `source` to `target` at `site`.
-  private mutating func _emitCopy(
-    _ source: Operand, to target: Operand
+  private mutating func emitCopy(
+    _ source: Operand, to target: Operand, at site: SourceRange
   ) {
     let model = module.type(of: source).ast
     precondition(model == module.type(of: target).ast)
 
     // Built-in types are handled as a special case.
     if model.isBuiltin {
-      emitMoveBuiltIn(source, to: target, at: _site!)
+      emitMoveBuiltIn(source, to: target, at: site)
       return
     }
 
@@ -3120,23 +3112,24 @@ struct Emitter {
       let copyable = program.conformance(
         of: model, to: program.ast.core.copyable.type, exposedTo: insertionScope!)
     else { preconditionFailure("expected '\(model)' to be 'Copyable'") }
-    _emitCopy(source, to: target, withCopyableConformance: copyable)
+    emitCopy(source, to: target, withCopyableConformance: copyable, at: site)
   }
 
   /// Inserts IR for copying `source` to `target` at `site` using `copyable` to locate the
   /// implementation of the copy operation.
-  private mutating func _emitCopy(
+  private mutating func emitCopy(
     _ source: Operand, to target: Operand,
-    withCopyableConformance copyable: FrontEnd.Conformance
+    withCopyableConformance copyable: FrontEnd.Conformance, at site: SourceRange
   ) {
     let d = module.demandCopyDeclaration(definedBy: copyable)
     let f = module.reference(to: d, implementedFor: copyable)
 
-    let x0 = _access(.let, from: source)
-    let x1 = _access(.set, from: target)
-    insert(module.makeCall(applying: .constant(f), to: [x0], writingResultTo: x1, at: self._site!))
-    insert(module.makeEndAccess(x1, at: self._site!))
-    insert(module.makeEndAccess(x0, at: self._site!))
+    _lowering(at: site)
+    let x0 = _access(.let, from: source)!
+    let x1 = _access(.set, from: target)!
+    insert(module.makeCall(applying: .constant(f), to: [x0], writingResultTo: x1, at: self.source!))
+    insert(module.makeEndAccess(x1, at: self.source!))
+    insert(module.makeEndAccess(x0, at: self.source!))
   }
 
   // MARK: Deinitialization
@@ -3161,7 +3154,7 @@ struct Emitter {
     } else if m.isBuiltinOrRawTuple {
       _mark_state(.uninitialized, storage)
     } else {
-      report(.error(m, doesNotConformTo: d, at: _site!))
+      report(.error(m, doesNotConformTo: d, at: source!))
     }
   }
 
@@ -3172,29 +3165,30 @@ struct Emitter {
     let d = module.demandDeinitDeclaration(from: c)
     let f = module.reference(to: d, implementedFor: c)
 
-    let x0 = insert(module.makeAllocStack(.void, at: _site!))!
-    let x1 = _access(.set, from: x0)
-    let x2 = _access(.sink, from: storage)
-    insert(module.makeCall(applying: .constant(f), to: [x2], writingResultTo: x1, at: _site!))
-    insert(module.makeEndAccess(x2, at: _site!))
-    insert(module.makeEndAccess(x1, at: _site!))
+    let x0 = insert(module.makeAllocStack(.void, at: source!))!
+    let x1 = _access(.set, from: x0)!
+    let x2 = _access(.sink, from: storage)!
+    insert(module.makeCall(applying: .constant(f), to: [x2], writingResultTo: x1, at: source!))
+    insert(module.makeEndAccess(x2, at: source!))
+    insert(module.makeEndAccess(x1, at: source!))
     _mark_state(.uninitialized, x0)
-    insert(module.makeDeallocStack(for: x0, at: _site!))
+    insert(module.makeDeallocStack(for: x0, at: source!))
   }
 
   /// If `storage` is deinitializable in `self.insertionScope`, inserts the IR for deinitializing
   /// it; reports a diagnostic for each part that isn't deinitializable otherwise.
-  mutating func _emitDeinitParts(of storage: Operand) {
+  mutating func emitDeinitParts(of storage: Operand, at site: SourceRange) {
+    _lowering(at: site)
     let t = module.type(of: storage).ast
 
     if program.isTriviallyDeinitializable(t, in: insertionScope!) {
       _mark_state(.uninitialized, storage)
     } else if t.base is UnionType {
-      emitDeinitUnionPayload(of: storage, at: _site!)
+      emitDeinitUnionPayload(of: storage, at: site)
     } else if t.hasRecordLayout {
-      emitDeinitRecordParts(of: storage, at: _site!)
+      emitDeinitRecordParts(of: storage, at: site)
     } else {
-      report(.error(t, doesNotConformTo: ast.core.deinitializable.type, at: _site!))
+      report(.error(t, doesNotConformTo: ast.core.deinitializable.type, at: site))
     }
   }
 
@@ -3218,7 +3212,7 @@ struct Emitter {
 
     // Otherwise, deinitialize each property.
     for i in layout.properties.indices {
-      let x0 = _subfield_view(storage, at: [i])
+      let x0 = emitSubfieldView(storage, at: [i], at: site)
       _emitDeinit(x0)
     }
   }
@@ -3248,13 +3242,13 @@ struct Emitter {
     let targets = UnionSwitch.Targets(
       t.elements.map({ (e) in (key: e, value: appendBlock()) }),
       uniquingKeysWith: { (a, _) in a })
-    _emitUnionSwitch(on: storage, toOneOf: targets)
+    emitUnionSwitch(on: storage, toOneOf: targets, at: site)
 
     let tail = appendBlock()
     for (u, b) in targets {
       insertionPoint = .end(of: b)
       emitDeinitUnionPayload(of: storage, containing: u, at: site)
-      _branch(to: tail)
+      emitBranch(to: tail, at: site)
     }
 
     insertionPoint = .end(of: tail)
@@ -3267,9 +3261,9 @@ struct Emitter {
     of storage: Operand, containing payload: AnyType, at site: SourceRange
   ) {
     _lowering(at: site)
-    let x0 = _open_union(storage, as: payload)
+    let x0 = insert(module.makeOpenUnion(storage, as: payload, at: site))!
     _emitDeinit(x0)
-    _close_union(x0)
+    insert(module.makeCloseUnion(x0, at: site))
   }
 
   // MARK: Equality
@@ -3285,22 +3279,22 @@ struct Emitter {
       let d = module.demandEqualDeclaration(definedBy: equatable)
       let f = module.reference(to: d, implementedFor: equatable)
 
-      let x0 = _access(.set, from: target)
-      let x1 = _access(.let, from: lhs)
-      let x2 = _access(.let, from: rhs)
-      insert(module.makeCall(applying: .constant(f), to: [x1, x2], writingResultTo: x0, at: _site!))
-      insert(module.makeEndAccess(x2, at: _site!))
-      insert(module.makeEndAccess(x1, at: _site!))
-      insert(module.makeEndAccess(x0, at: _site!))
+      let x0 = _access(.set, from: target)!
+      let x1 = _access(.let, from: lhs)!
+      let x2 = _access(.let, from: rhs)!
+      insert(module.makeCall(applying: .constant(f), to: [x1, x2], writingResultTo: x0, at: source!))
+      insert(module.makeEndAccess(x2, at: source!))
+      insert(module.makeEndAccess(x1, at: source!))
+      insert(module.makeEndAccess(x0, at: source!))
     } else {
-      report(.error(m, doesNotConformTo: d, at: _site!))
+      report(.error(m, doesNotConformTo: d, at: source!))
     }
   }
 
   /// Inserts the IR writing in `target` whether the parts of `lhs` and `rhs` are pairwise equal.
-  private mutating func _emitStorePartsEquality(
+  private mutating func emitStorePartsEquality(
     _ lhs: Operand, _ rhs: Operand,
-    to target: Operand
+    to target: Operand, at site: SourceRange
   ) {
     let layout = AbstractTypeLayout(
       of: module.type(of: lhs).ast, definedIn: module.program)
@@ -3308,39 +3302,40 @@ struct Emitter {
     // If the object is empty, return true.
     var parts = layout.properties[...]
     if parts.isEmpty {
-      emitStore(boolean: true, to: target, at: _site!)
+      emitStore(boolean: true, to: target, at: site)
       return
     }
 
     // Otherwise, compare all parts pairwise.
     let tail = appendBlock()
     while !parts.isEmpty {
-      let x0 = _subfield_view(lhs, at: [parts.startIndex])
-      let x1 = _subfield_view(rhs, at: [parts.startIndex])
-      emitStoreEquality(x0, x1, to: target, at: _site!)
+      let x0 = emitSubfieldView(lhs, at: [parts.startIndex], at: site)
+      let x1 = emitSubfieldView(rhs, at: [parts.startIndex], at: site)
+      emitStoreEquality(x0, x1, to: target, at: site)
 
       parts = parts.dropFirst()
       if parts.isEmpty {
-        _branch(to: tail)
+        emitBranch(to: tail, at: site)
         insertionPoint = .end(of: tail)
       } else {
-        let x2 = emitLoadBuiltinBool(target, at: _site!)
+        let x2 = emitLoadBuiltinBool(target, at: site)
         let next = appendBlock()
-        emitCondBranch(if: x2, then: next, else: tail, at: _site!)
+        emitCondBranch(if: x2, then: next, else: tail, at: site)
         insertionPoint = .end(of: next)
       }
     }
   }
 
   /// Inserts the IR writing in `target` whether the payloads of `lhs` and `rhs` are equal.
-  private mutating func _emitStoreUnionPayloadEquality(
-    _ lhs: Operand, _ rhs: Operand, to target: Operand
+  private mutating func emitStoreUnionPayloadEquality(
+    _ lhs: Operand, _ rhs: Operand,
+    to target: Operand, at site: SourceRange
   ) {
     let union = UnionType(module.type(of: lhs).ast)!
 
     // If the union is empty, return true.
     if union.elements.isEmpty {
-      emitStore(boolean: true, to: target, at: _site!)
+      emitStore(boolean: true, to: target, at: site)
       return
     }
 
@@ -3353,27 +3348,27 @@ struct Emitter {
     let tail = appendBlock()
 
     // The success blocks compare discriminators and then payloads.
-    let dl = emitUnionDiscriminator(lhs, at: _site!)
-    let dr = emitUnionDiscriminator(rhs, at: _site!)
-    let x0 = insert(module.makeCallBuiltin(applying: .icmp(.eq, .discriminator), to: [dl, dr], at: _site!))!
-    emitCondBranch(if: x0, then: same, else: fail, at: _site!)
+    let dl = emitUnionDiscriminator(lhs, at: site)
+    let dr = emitUnionDiscriminator(rhs, at: site)
+    let x0 = insert(module.makeCallBuiltin(applying: .icmp(.eq, .discriminator), to: [dl, dr], at: site))!
+    emitCondBranch(if: x0, then: same, else: fail, at: site)
 
     insertionPoint = .end(of: same)
-    _emitUnionSwitch(on: lhs, toOneOf: targets)
+    emitUnionSwitch(on: lhs, toOneOf: targets, at: site)
     for (u, b) in targets {
       insertionPoint = .end(of: b)
-      let y0 = _open_union(lhs, as: u)
-      let y1 = _open_union(rhs, as: u)
-      emitStoreEquality(y0, y1, to: target, at: _site!)
-      _close_union(y1)
-      _close_union(y0)
-      _branch(to: tail)
+      let y0 = insert(module.makeOpenUnion(lhs, as: u, at: site))!
+      let y1 = insert(module.makeOpenUnion(rhs, as: u, at: site))!
+      emitStoreEquality(y0, y1, to: target, at: site)
+      insert(module.makeCloseUnion(y1, at: site))
+      insert(module.makeCloseUnion(y0, at: site))
+      emitBranch(to: tail, at: site)
     }
 
     // The failure block writes `false` to the return storage.
     insertionPoint = .end(of: fail)
-    emitStore(boolean: false, to: target, at: _site!)
-    _branch(to: tail)
+    emitStore(boolean: false, to: target, at: site)
+    emitBranch(to: tail, at: site)
 
     // The tail block represents the continuation.
     insertionPoint = .end(of: tail)
@@ -3408,41 +3403,43 @@ struct Emitter {
   }
 
   /// Inserts a stack allocation for an object of type `t`.
-  private mutating func _alloc_stack(_ t: AnyType) -> Operand {
-    let s = insert(module.makeAllocStack(canonical(t), at: _site!))!
+  private mutating func emitAllocStack(
+    for t: AnyType, at site: SourceRange
+  ) -> Operand {
+    let s = insert(module.makeAllocStack(canonical(t), at: site))!
     frames.top.allocs.append((source: s, mayHoldCaptures: false))
     return s
   }
 
   /// Inserts the IR for deallocating each allocation in the top frame of `self.frames`.
   private mutating func _emitDeallocTopFrame() {
-    _emitDeallocs(for: frames.top)
+    emitDeallocs(for: frames.top, at: source!)
     frames.top.allocs.removeAll()
   }
 
   /// Inserts the IR for deallocating each allocation in `f`.
-  private mutating func _emitDeallocs(for f: Frame) {
+  private mutating func emitDeallocs(for f: Frame, at site: SourceRange) {
     for a in f.allocs.reversed() {
       if a.mayHoldCaptures {
-        insert(module.makeReleaseCapture(a.source, at: _site!))
+        insert(module.makeReleaseCapture(a.source, at: site))
       }
-      insert(module.makeDeallocStack(for: a.source, at: _site!))
+      insert(module.makeDeallocStack(for: a.source, at: site))
     }
   }
 
   /// Appends the IR for computing the address of the given `subfield` of the record at
   /// `recordAddress` and returns the resulting address.
-  mutating func _subfield_view(
-    _ recordAddress: Operand, at subfield: RecordPath
+  mutating func emitSubfieldView(
+    _ recordAddress: Operand, at subfield: RecordPath, at site: SourceRange
   ) -> Operand {
     if subfield.isEmpty { return recordAddress }
 
     if let r = module[recordAddress] as? SubfieldView {
       let p = r.subfield + subfield
-      let s = module.makeSubfieldView(of: r.recordAddress, subfield: p, at: _site!)
+      let s = module.makeSubfieldView(of: r.recordAddress, subfield: p, at: site)
       return insert(s)!
     } else {
-      let s = module.makeSubfieldView(of: recordAddress, subfield: subfield, at: _site!)
+      let s = module.makeSubfieldView(of: recordAddress, subfield: subfield, at: site)
       return insert(s)!
     }
   }
@@ -3464,20 +3461,20 @@ struct Emitter {
     _ container: Operand, at site: SourceRange
   ) -> Operand {
     _lowering(at: site)
-    let x0 = _access(.let, from: container)
-    let x1 = insert(module.makeUnionDiscriminator(x0, at: _site!))!
-    insert(module.makeEndAccess(x0, at: _site!))
+    let x0 = _access(.let, from: container)!
+    let x1 = insert(module.makeUnionDiscriminator(x0, at: source!))!
+    insert(module.makeEndAccess(x0, at: source!))
     return x1
   }
 
   /// Appends the IR for jumping to the block assigned to the type of `scrutinee`'s payload in
   /// `targets`.
-  private mutating func _emitUnionSwitch(
-    on scrutinee: Operand, toOneOf targets: UnionSwitch.Targets
+  private mutating func emitUnionSwitch(
+    on scrutinee: Operand, toOneOf targets: UnionSwitch.Targets, at site: SourceRange
   ) {
     let u = UnionType(module.type(of: scrutinee).ast)!
-    let i = emitUnionDiscriminator(scrutinee, at: _site!)
-    insert(module.makeUnionSwitch(over: i, of: u, toOneOf: targets, at: _site!))
+    let i = emitUnionDiscriminator(scrutinee, at: site)
+    insert(module.makeUnionSwitch(over: i, of: u, toOneOf: targets, at: site))
   }
 
   /// Returns the result of calling `action` on `self` within `newFrame`.
@@ -3488,12 +3485,9 @@ struct Emitter {
   private mutating func within<T>(_ newFrame: Frame, _ action: (inout Self) -> T) -> T {
     frames.push(newFrame)
     defer {
-      let savedSource = _site
-
       _lowering(after: insertionScope!)
       _emitDeallocTopFrame()
       frames.pop()
-      _site = savedSource
     }
     return action(&self)
   }
@@ -3504,17 +3498,14 @@ struct Emitter {
     var p: InsertionPoint? = nil
     var f = Stack()
     var l = LoopIDs()
-    var s: SourceRange?
 
     swap(&p, &insertionPoint)
     swap(&f, &frames)
     swap(&l, &loops)
-    swap(&s, &_site)
     defer {
       swap(&p, &insertionPoint)
       swap(&f, &frames)
       swap(&l, &loops)
-      swap(&s, &_site)
     }
     return try action(&self)
   }
@@ -3645,6 +3636,11 @@ extension Emitter {
     insert(module.makeCondBranch(if: condition, then: targetIfTrue, else: targetIfFalse, at: site))
   }
 
+  /// Inserts a `branch` to `next` anchored at `site`.
+  fileprivate mutating func emitBranch(to next: Block.ID, at site: SourceRange) {
+    checkEntryStack(next)
+    insert(module.makeBranch(to: next, at: site))
+  }
 }
 
 extension Diagnostic {
@@ -3694,78 +3690,58 @@ extension Emitter {
     _lowering(at: ast[x].site)
   }
 
-  mutating func _lowering<T>(_ x: SourceRepresentable<T>) {
-    _lowering(at: x.site)
-  }
-
-  mutating func _lowering<ID: NodeIDProtocol>(before x: ID) {
-    _lowering(at: .empty(at: ast[x].site.start))
-  }
-
   mutating func _lowering<ID: NodeIDProtocol>(after x: ID) {
     _lowering(at: .empty(at: ast[x].site.end))
   }
 
   mutating func _lowering(at x: SourceRange) {
-    _site = x
+    source = x
   }
 
   enum InitializationState {
     case uninitialized, initialized
   }
 
-  enum OpenUnionOption {
-    case notForInitialization, forInitialization
-  }
-
   mutating func _mark_state(_ x: InitializationState, _ op: Operand?) {
-    insert(module.makeMarkState(op!, initialized: x == .initialized, at: _site!))
+    insert(module.makeMarkState(op!, initialized: x == .initialized, at: source!))
   }
 
   mutating func _call_ffi<T: TypeProtocol>(_ foreignName: String, on arguments: [Operand], returning returnType: T) -> Operand {
     insert(
       module.makeCallFFI(
-        returning: .object(returnType), applying: foreignName, to: arguments, at: _site!))!
+        returning: .object(returnType), applying: foreignName, to: arguments, at: source!))!
   }
 
   mutating func _unreachable() {
-    insert(module.makeUnreachable(at: _site!))
+    insert(module.makeUnreachable(at: source!))
   }
 
   mutating func _convert(_ foreignResult: Operand, to t: AnyType) -> Operand {
-    emitConvert(foreign: foreignResult, to: t, at: _site!)
+    emitConvert(foreign: foreignResult, to: t, at: source!)
   }
 
   mutating func _return() {
-    insert(module.makeReturn(at: _site!))
+    insert(module.makeReturn(at: source!))
   }
 
   fileprivate mutating func _access(
     _ capabilities: AccessEffectSet, from s: Operand, correspondingTo binding: VarDecl.ID? = nil
-  ) -> Operand {
-    insert(module.makeAccess(capabilities, from: s, correspondingTo: binding, at: _site!))!
+  ) -> Operand? {
+    insert(module.makeAccess(capabilities, from: s, at: source!))
   }
 
   fileprivate mutating func _yield(_ c: AccessEffect, _ a: Operand) {
-    _ = insert(module.makeYield(c, a, at: _site!))
+    _ = insert(module.makeYield(c, a, at: source!))
+  }
+####### Ancestor
+  @discardableResult
+  mutating func _frame<R>(locals: DeclProperty<Operand> = .init(), _ body: (inout Self)->R) -> R {
+    pushing(Frame(locals: locals), body)
   }
 
-  fileprivate mutating func _branch(to x: Block.ID) {
-    checkEntryStack(x)
-    _ = insert(module.makeBranch(to: x, at: _site!))
+  @discardableResult
+  fileprivate mutating func inFrame<R>(_ f: Frame, _ body: (inout Self)->R) -> R {
+    pushing(f, body)
   }
-
-  fileprivate mutating func _open_union(
-    _ container: Operand, as payload: AnyType,
-    _ option: OpenUnionOption = .notForInitialization
-  ) -> Operand {
-    insert(
-      module.makeOpenUnion(
-        container, as: payload, forInitialization: option == .forInitialization, at: _site!))!
-  }
-
-  fileprivate mutating func _close_union(_ x: Operand  ) {
-    insert(module.makeCloseUnion(x, at: _site!))
-  }
-
+======= end
 }
