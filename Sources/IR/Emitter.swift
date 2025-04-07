@@ -806,7 +806,7 @@ struct Emitter {
       if object.hasRecordLayout {
         me._emitCopyRecordParts(from: source, to: target)
       } else if object.base is UnionType {
-        me.emitCopyUnionPayload(from: source, to: target, at: me.source!)
+        me._emitCopyUnionPayload(from: source, to: target)
       }
 
       me._emitDeallocTopFrame()
@@ -881,10 +881,9 @@ struct Emitter {
   }
 
   /// Inserts the IR for copying `source`, which stores a union container, to `target` at `site`.
-  private mutating func emitCopyUnionPayload(
-    from source: Operand, to target: Operand, at site: SourceRange
+  private mutating func _emitCopyUnionPayload(
+    from source: Operand, to target: Operand
   ) {
-    _lowering(at: site)
     let t = UnionType(module.type(of: source).ast)!
 
     // If union is empty, simply mark the target as initialized.
@@ -895,7 +894,7 @@ struct Emitter {
 
     // Trivial if the union has a single member.
     if let e = t.elements.uniqueElement {
-      emitCopyUnionPayload(from: source, containing: e, to: target, at: site)
+      _emitCopyUnionPayload(from: source, containing: e, to: target)
       return
     }
 
@@ -903,12 +902,12 @@ struct Emitter {
     let targets = UnionSwitch.Targets(
       t.elements.map({ (e) in (key: e, value: appendBlock()) }),
       uniquingKeysWith: { (a, _) in a })
-    emitUnionSwitch(on: source, toOneOf: targets, at: site)
+    emitUnionSwitch(on: source, toOneOf: targets, at: self.source!)
 
     let tail = appendBlock()
     for (u, b) in targets {
       insertionPoint = .end(of: b)
-      emitCopyUnionPayload(from: source, containing: u, to: target, at: site)
+      _emitCopyUnionPayload(from: source, containing: u, to: target)
       _branch(to: tail)
     }
 
@@ -917,13 +916,12 @@ struct Emitter {
 
   /// Inserts the IR for copying `source`, which stores a union containing a `payload`, to `target`
   /// at `site`.
-  private mutating func emitCopyUnionPayload(
-    from source: Operand, containing payload: AnyType, to target: Operand, at site: SourceRange
+  private mutating func _emitCopyUnionPayload(
+    from source: Operand, containing payload: AnyType, to target: Operand
   ) {
-    _lowering(at: site)
     let x0 = _open_union(source, as: payload)
     let x1 = _open_union(target, as: payload, .forInitialization)
-    emitCopy(x0, to: x1, at: site)
+    emitCopy(x0, to: x1, at: self.source!)
     _close_union(x0)
     _close_union(x1)
   }
