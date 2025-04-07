@@ -680,7 +680,7 @@ struct Emitter {
     withPrologue(of: d) { (me, entry) in
       // The receiver is a sink parameter representing the object to deinitialize.
       let receiver = Operand.parameter(entry, 0)
-      me.emitDeinitParts(of: receiver, at: me._site!)
+      me._emitDeinitParts(of: receiver)
 
       me._mark_state(.initialized, me.returnValue)
       me._dealloc_top_frame()
@@ -3188,18 +3188,17 @@ struct Emitter {
 
   /// If `storage` is deinitializable in `self.insertionScope`, inserts the IR for deinitializing
   /// it; reports a diagnostic for each part that isn't deinitializable otherwise.
-  mutating func emitDeinitParts(of storage: Operand, at site: SourceRange) {
-    _lowering(at: site)
+  mutating func _emitDeinitParts(of storage: Operand) {
     let t = module.type(of: storage).ast
 
     if program.isTriviallyDeinitializable(t, in: insertionScope!) {
       _mark_state(.uninitialized, storage)
     } else if t.base is UnionType {
-      emitDeinitUnionPayload(of: storage, at: site)
+      emitDeinitUnionPayload(of: storage, at: _site!)
     } else if t.hasRecordLayout {
-      emitDeinitRecordParts(of: storage, at: site)
+      emitDeinitRecordParts(of: storage, at: _site!)
     } else {
-      report(.error(t, doesNotConformTo: ast.core.deinitializable.type, at: site))
+      report(.error(t, doesNotConformTo: ast.core.deinitializable.type, at: _site!))
     }
   }
 

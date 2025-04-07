@@ -754,7 +754,8 @@ extension Module {
   ) {
     Emitter.withInstance(insertingIn: &self, reportingDiagnosticsTo: &log) { (e) in
       e.insertionPoint = .before(i)
-      e.emitDeinitParts(of: whole, at: site)
+      e._lowering(at: site)
+      e._emitDeinitParts(of: whole)
     }
   }
 
