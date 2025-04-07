@@ -642,7 +642,7 @@ struct Emitter {
 
       let bindingType = canonical(program[partDecl].type)
       _lowering(partDecl)
-      part = emitCoerce(part, to: bindingType, at: ast[partDecl].site)
+      part = _emitCoerce(part, to: bindingType)
 
       frames[partDecl] = _access(request, from: part, correspondingTo: partDecl)
     }
@@ -2157,7 +2157,7 @@ struct Emitter {
 
     let x0 = emitLValue(e)
     let x1 = unwrapCapture(x0, at: _site!)
-    let x2 = emitCoerce(x1, to: p.bareType, at: _site!)
+    let x2 = _emitCoerce(x1, to: p.bareType)
     return _access([p.access], from: x2)
   }
 
@@ -2215,7 +2215,7 @@ struct Emitter {
       _lowering(at: ast.site(of: e))
       let s = _alloc_stack(t.output)
       emitStore(e, to: s)
-      let u = emitCoerce(s, to: p.bareType, at: _site!)
+      let u = _emitCoerce(s, to: p.bareType)
       return _access([p.access], from: u)
 
     case .leaf(let e):
@@ -2604,9 +2604,7 @@ struct Emitter {
   ///
   /// `source` is returned unchanged if it stores an instance of `target`. Otherwise, the IR
   /// producing an address of type `target` is inserted, consuming `source` if necessary.
-  private mutating func emitCoerce(
-    _ source: Operand, to target: AnyType, at site: SourceRange
-  ) -> Operand {
+  private mutating func _emitCoerce(_ source: Operand, to target: AnyType) -> Operand {
     let lhs = module.type(of: source).ast
     let rhs = program.canonical(target, in: insertionScope!)
 
@@ -2615,17 +2613,17 @@ struct Emitter {
     }
 
     if lhs.base is RemoteType {
-      let s = insert(module.makeOpenCapture(source, at: site))!
-      return emitCoerce(s, to: rhs, at: site)
+      let s = insert(module.makeOpenCapture(source, at: _site!))!
+      return _emitCoerce(s, to: rhs)
     }
 
     switch rhs.base {
     case let t as ExistentialType:
-      return _emitCoerce(source, to: t, at: site)
+      return _emitCoerce(source, to: t)
     case let t as ArrowType:
-      return _emitCoerce(source, to: t, at: site)
+      return _emitCoerce(source, to: t)
     case let t as UnionType:
-      return _emitCoerce(source, to: t, at: site)
+      return _emitCoerce(source, to: t)
     default:
       unexpectedCoercion(from: lhs, to: rhs)
     }
@@ -2635,21 +2633,21 @@ struct Emitter {
   ///
   /// - Requires: `target` is canonical.
   private mutating func _emitCoerce(
-    _ source: Operand, to target: ExistentialType, at site: SourceRange
+    _ source: Operand, to target: ExistentialType
   ) -> Operand {
     let t = module.type(of: source).ast
     if t.base is ExistentialType {
       return source
     }
 
-    return emitExistential(target, wrapping: source, at: site)
+    return emitExistential(target, wrapping: source, at: _site!)
   }
 
   /// Inserts the IR for coercing `source` to an address of type `target`.
   ///
   /// - Requires: `target` is canonical.
   private mutating func _emitCoerce(
-    _ source: Operand, to target: ArrowType, at site: SourceRange
+    _ source: Operand, to target: ArrowType
   ) -> Operand {
     let t = module.type(of: source).ast
     guard let lhs = ArrowType(t) else {
@@ -2675,9 +2673,8 @@ struct Emitter {
   ///
   /// - Requires: `target` is canonical.
   private mutating func _emitCoerce(
-    _ source: Operand, to target: UnionType, at site: SourceRange
+    _ source: Operand, to target: UnionType
   ) -> Operand {
-    _lowering(at: site)
     let lhs = module.type(of: source).ast
 
     let x0 = _alloc_stack(^target)
