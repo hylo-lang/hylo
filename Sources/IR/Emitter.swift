@@ -877,7 +877,7 @@ struct Emitter {
     for i in layout.properties.indices {
       let s = _subfield_view(source, at: [i])
       let t = _subfield_view(target, at: [i])
-      emitCopy(s, to: t, at: self._site!)
+      _emitCopy(s, to: t)
     }
   }
 
@@ -922,7 +922,7 @@ struct Emitter {
   ) {
     let x0 = _open_union(source, as: payload)
     let x1 = _open_union(target, as: payload, .forInitialization)
-    emitCopy(x0, to: x1, at: self._site!)
+    _emitCopy(x0, to: x1)
     _close_union(x0)
     _close_union(x1)
   }
@@ -3103,15 +3103,15 @@ struct Emitter {
   // MARK: Copy
 
   /// Inserts IR for copying `source` to `target` at `site`.
-  private mutating func emitCopy(
-    _ source: Operand, to target: Operand, at site: SourceRange
+  private mutating func _emitCopy(
+    _ source: Operand, to target: Operand
   ) {
     let model = module.type(of: source).ast
     precondition(model == module.type(of: target).ast)
 
     // Built-in types are handled as a special case.
     if model.isBuiltin {
-      emitMoveBuiltIn(source, to: target, at: site)
+      emitMoveBuiltIn(source, to: target, at: _site!)
       return
     }
 
@@ -3120,19 +3120,18 @@ struct Emitter {
       let copyable = program.conformance(
         of: model, to: program.ast.core.copyable.type, exposedTo: insertionScope!)
     else { preconditionFailure("expected '\(model)' to be 'Copyable'") }
-    emitCopy(source, to: target, withCopyableConformance: copyable, at: site)
+    _emitCopy(source, to: target, withCopyableConformance: copyable)
   }
 
   /// Inserts IR for copying `source` to `target` at `site` using `copyable` to locate the
   /// implementation of the copy operation.
-  private mutating func emitCopy(
+  private mutating func _emitCopy(
     _ source: Operand, to target: Operand,
-    withCopyableConformance copyable: FrontEnd.Conformance, at site: SourceRange
+    withCopyableConformance copyable: FrontEnd.Conformance
   ) {
     let d = module.demandCopyDeclaration(definedBy: copyable)
     let f = module.reference(to: d, implementedFor: copyable)
 
-    _lowering(at: site)
     let x0 = _access(.let, from: source)
     let x1 = _access(.set, from: target)
     insert(module.makeCall(applying: .constant(f), to: [x0], writingResultTo: x1, at: self._site!))
