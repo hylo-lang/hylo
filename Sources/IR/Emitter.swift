@@ -1014,7 +1014,7 @@ struct Emitter {
   private mutating func emitControlFlow(return s: ReturnStmt.ID) {
     _lowering(s)
     for f in frames.elements.reversed() {
-      emitDeallocs(for: f, at: _site!)
+      _emitDeallocs(for: f)
     }
     _return()
   }
@@ -3419,17 +3419,17 @@ struct Emitter {
 
   /// Inserts the IR for deallocating each allocation in the top frame of `self.frames`.
   private mutating func _dealloc_top_frame() {
-    emitDeallocs(for: frames.top, at: _site!)
+    _emitDeallocs(for: frames.top)
     frames.top.allocs.removeAll()
   }
 
   /// Inserts the IR for deallocating each allocation in `f`.
-  private mutating func emitDeallocs(for f: Frame, at site: SourceRange) {
+  private mutating func _emitDeallocs(for f: Frame) {
     for a in f.allocs.reversed() {
       if a.mayHoldCaptures {
-        insert(module.makeReleaseCapture(a.source, at: site))
+        insert(module.makeReleaseCapture(a.source, at: _site!))
       }
-      insert(module.makeDeallocStack(for: a.source, at: site))
+      insert(module.makeDeallocStack(for: a.source, at: _site!))
     }
   }
 
