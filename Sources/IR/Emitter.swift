@@ -808,7 +808,7 @@ struct Emitter {
       let object = me.module.type(of: source).ast
 
       if object.hasRecordLayout {
-        me.emitCopyRecordParts(from: source, to: target, at: me.source!)
+        me._emitCopyRecordParts(from: source, to: target)
       } else if object.base is UnionType {
         me.emitCopyUnionPayload(from: source, to: target, at: me.source!)
       }
@@ -861,12 +861,10 @@ struct Emitter {
     }
   }
 
-  /// Inserts the IR for copying the stored parts of `source`, which stores a record, to `target`
-  /// at `site`.
-  private mutating func emitCopyRecordParts(
-    from source: Operand, to target: Operand, at site: SourceRange
+  /// Inserts the IR for copying the stored parts of `source`, which stores a record, to `target`.
+  private mutating func _emitCopyRecordParts(
+    from source: Operand, to target: Operand
   ) {
-    _lowering(at: site)
     let layout = AbstractTypeLayout(of: module.type(of: source).ast, definedIn: program)
 
     // If the object is empty, simply mark the target as initialized.
@@ -879,7 +877,7 @@ struct Emitter {
     for i in layout.properties.indices {
       let s = _subfield_view(source, at: [i])
       let t = _subfield_view(target, at: [i])
-      emitCopy(s, to: t, at: site)
+      emitCopy(s, to: t, at: self.source!)
     }
   }
 
