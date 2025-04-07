@@ -826,7 +826,7 @@ struct Emitter {
       let t = me.module.type(of: lhs).ast
 
       if t.hasRecordLayout {
-        me.emitStorePartsEquality(lhs, rhs, to: me.returnValue!, at: me._site!)
+        me._emitStorePartsEquality(lhs, rhs, to: me.returnValue!)
       } else if t.base is UnionType {
         me.emitStoreUnionPayloadEquality(lhs, rhs, to: me.returnValue!, at: me._site!)
       } else {
@@ -3297,18 +3297,17 @@ struct Emitter {
   }
 
   /// Inserts the IR writing in `target` whether the parts of `lhs` and `rhs` are pairwise equal.
-  private mutating func emitStorePartsEquality(
+  private mutating func _emitStorePartsEquality(
     _ lhs: Operand, _ rhs: Operand,
-    to target: Operand, at site: SourceRange
+    to target: Operand
   ) {
-    _lowering(at: site)
     let layout = AbstractTypeLayout(
       of: module.type(of: lhs).ast, definedIn: module.program)
 
     // If the object is empty, return true.
     var parts = layout.properties[...]
     if parts.isEmpty {
-      emitStore(boolean: true, to: target, at: site)
+      emitStore(boolean: true, to: target, at: _site!)
       return
     }
 
@@ -3317,16 +3316,16 @@ struct Emitter {
     while !parts.isEmpty {
       let x0 = _subfield_view(lhs, at: [parts.startIndex])
       let x1 = _subfield_view(rhs, at: [parts.startIndex])
-      emitStoreEquality(x0, x1, to: target, at: site)
+      emitStoreEquality(x0, x1, to: target, at: _site!)
 
       parts = parts.dropFirst()
       if parts.isEmpty {
         _branch(to: tail)
         insertionPoint = .end(of: tail)
       } else {
-        let x2 = emitLoadBuiltinBool(target, at: site)
+        let x2 = emitLoadBuiltinBool(target, at: _site!)
         let next = appendBlock()
-        emitCondBranch(if: x2, then: next, else: tail, at: site)
+        emitCondBranch(if: x2, then: next, else: tail, at: _site!)
         insertionPoint = .end(of: next)
       }
     }
