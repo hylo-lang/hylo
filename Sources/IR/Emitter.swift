@@ -824,7 +824,7 @@ struct Emitter {
       if t.hasRecordLayout {
         me._emitStorePartsEquality(lhs, rhs, to: me.returnValue!)
       } else if t.base is UnionType {
-        me.emitStoreUnionPayloadEquality(lhs, rhs, to: me.returnValue!, at: me._site!)
+        me._emitStoreUnionPayloadEquality(lhs, rhs, to: me.returnValue!)
       } else {
         UNIMPLEMENTED("synthetic equality for type '\(t)'")
       }
@@ -3329,16 +3329,14 @@ struct Emitter {
   }
 
   /// Inserts the IR writing in `target` whether the payloads of `lhs` and `rhs` are equal.
-  private mutating func emitStoreUnionPayloadEquality(
-    _ lhs: Operand, _ rhs: Operand,
-    to target: Operand, at site: SourceRange
+  private mutating func _emitStoreUnionPayloadEquality(
+    _ lhs: Operand, _ rhs: Operand, to target: Operand
   ) {
-    _lowering(at: site)
     let union = UnionType(module.type(of: lhs).ast)!
 
     // If the union is empty, return true.
     if union.elements.isEmpty {
-      emitStore(boolean: true, to: target, at: site)
+      emitStore(boolean: true, to: target, at: _site!)
       return
     }
 
@@ -3351,18 +3349,18 @@ struct Emitter {
     let tail = appendBlock()
 
     // The success blocks compare discriminators and then payloads.
-    let dl = emitUnionDiscriminator(lhs, at: site)
-    let dr = emitUnionDiscriminator(rhs, at: site)
-    let x0 = insert(module.makeCallBuiltin(applying: .icmp(.eq, .discriminator), to: [dl, dr], at: site))!
-    emitCondBranch(if: x0, then: same, else: fail, at: site)
+    let dl = emitUnionDiscriminator(lhs, at: _site!)
+    let dr = emitUnionDiscriminator(rhs, at: _site!)
+    let x0 = insert(module.makeCallBuiltin(applying: .icmp(.eq, .discriminator), to: [dl, dr], at: _site!))!
+    emitCondBranch(if: x0, then: same, else: fail, at: _site!)
 
     insertionPoint = .end(of: same)
-    emitUnionSwitch(on: lhs, toOneOf: targets, at: site)
+    emitUnionSwitch(on: lhs, toOneOf: targets, at: _site!)
     for (u, b) in targets {
       insertionPoint = .end(of: b)
       let y0 = _open_union(lhs, as: u)
       let y1 = _open_union(rhs, as: u)
-      emitStoreEquality(y0, y1, to: target, at: site)
+      emitStoreEquality(y0, y1, to: target, at: _site!)
       _close_union(y1)
       _close_union(y0)
       _branch(to: tail)
@@ -3370,7 +3368,7 @@ struct Emitter {
 
     // The failure block writes `false` to the return storage.
     insertionPoint = .end(of: fail)
-    emitStore(boolean: false, to: target, at: site)
+    emitStore(boolean: false, to: target, at: _site!)
     _branch(to: tail)
 
     // The tail block represents the continuation.
