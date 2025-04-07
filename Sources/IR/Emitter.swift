@@ -531,9 +531,10 @@ struct Emitter {
   private mutating func lower(storedLocalBinding d: BindingDecl.ID) {
     precondition(program.isLocal(d))
     precondition(read(program[d].pattern.introducer.value, { ($0 == .var) || ($0 == .sinklet) }))
+    _lowering(d)
 
     // Allocate storage for all the names declared by `d` in a single aggregate.
-    let storage = emitAllocStack(for: program[d].type, at: ast[d].site)
+    let storage = _alloc_stack(program[d].type)
 
     // Declare all introduced names, initializing them if possible.
     let lhs = program[d].pattern.subpattern.id
@@ -1077,7 +1078,8 @@ struct Emitter {
 
     // The RHS is evaluated first, stored into some local storage, and moved to the LHS. Implicit
     // conversion is necessary if the RHS is subtype of the LHS.
-    let rhs = emitAllocStack(for: program[s].left.type, at: ast[s].site)
+    _lowering(s)
+    let rhs = _alloc_stack(program[s].left.type)
     emitStore(convertingIfNecessary: ast[s].right, to: rhs)
     let lhs = emitLValue(ast[s].left)
     _lowering(s)
@@ -1252,7 +1254,7 @@ struct Emitter {
     // The collection on which the loop iterates.
     let domain = emitLValue(program[s].domain.value)
     // The element extracted before each iteration.
-    let element = emitAllocStack(for: ^ast.optional(witness.element), at: introducer)
+    let element = _alloc_stack(^ast.optional(witness.element))
     // The storage containing the result of binding each element.
     let storage = emitAllocation(binding: ast[s].binding)
 
@@ -1310,7 +1312,7 @@ struct Emitter {
     // The collection on which the loop iterates.
     let domain = emitLValue(program[s].domain.value)
     // The storage allocated for the result of the exit condition.
-    let quit = emitAllocStack(for: ^ast.coreType("Bool")!, at: introducer)
+    let quit = _alloc_stack(^ast.coreType("Bool")!)
     // The start and end positions of the collection; the former is updated with each iteration.
     let (currentPosition, endPosition) = emitPositions(
       forIteratingOver: domain, usingWitness: collectionWitness, at: introducer)
@@ -1386,12 +1388,12 @@ struct Emitter {
     usingWitness witness: CollectionWitness, at site: SourceRange
   ) -> (startIndex: Operand, endIndex: Operand) {
     _lowering(at: site)
-    let start = emitAllocStack(for: witness.position, at: site)
-    let end = emitAllocStack(for: witness.position, at: site)
+    let start = _alloc_stack(witness.position)
+    let end = _alloc_stack(witness.position)
 
     let x0 = _access(.let, from: domain)
-    emitApply(witness.startPosition, to: [x0], writingResultTo: start, at: site)
-    emitApply(witness.endPosition, to: [x0], writingResultTo: end, at: site)
+    emitApply(witness.startPosition, to: [x0], writingResultTo: start, at: _site!)
+    emitApply(witness.endPosition, to: [x0], writingResultTo: end, at: _site!)
     insert(module.makeEndAccess(x0, at: site))
 
     return (startIndex: start, endIndex: end)
@@ -1468,7 +1470,11 @@ struct Emitter {
   /// address of this allocation.
   @discardableResult
   private mutating func emitStore<T: ExprID>(value e: T) -> Operand {
-    let s = emitAllocStack(for: program[e].type, at: ast[e].site)
+    let savedSite = _site
+    defer { _site = savedSite }
+
+    _lowering(e)
+    let s = _alloc_stack(program[e].type)
     emitStore(value: e, to: s)
     return s
   }
@@ -1848,9 +1854,8 @@ struct Emitter {
     if program.areEquivalent(lhsType, rhsType, in: program[e].scope) {
       emitStore(value: e, to: storage)
     } else if lhsType.base is UnionType {
-      let x0 = insert(
-        module.makeOpenUnion(
-          storage, as: rhsType, forInitialization: true, at: ast[e].site))!
+      _lowering(e)
+      let x0 = _open_union(storage, as: rhsType, .forInitialization)
       emitStore(value: e, to: x0)
       _close_union(x0)
     } else {
@@ -2050,7 +2055,7 @@ struct Emitter {
     // Call is evaluated last.
     let f = Operand.constant(
       FunctionReference(to: AnyDeclID(d), in: &module, specializedBy: a, in: insertionScope!))
-    let x0 = emitAllocStack(for: .void, at: _site!)
+    let x0 = _alloc_stack(.void)
     let x1 = _access(.set, from: x0)
 
     let s = module.makeCall(
@@ -2172,7 +2177,7 @@ struct Emitter {
 
     _lowering(e)
     let x0 = insert(module.makeAddressToPointer(.constant(r), at: _site!))!
-    let x1 = emitAllocStack(for: p.bareType, at: _site!)
+    let x1 = _alloc_stack(p.bareType)
     emitInitialize(storage: x1, to: x0, at: _site!)
     return _access([p.access], from: x1)
   }
@@ -2183,7 +2188,7 @@ struct Emitter {
     _ e: PragmaLiteralExpr.ID, to p: ParameterType, at site: SourceRange
   ) -> Operand {
     _lowering(at: site)
-    let x0 = emitAllocStack(for: program[e].type, at: _site!)
+    let x0 = _alloc_stack(program[e].type)
     emitStore(e, to: x0, at: _site!)
     return _access([p.access], from: x0)
   }
@@ -2208,7 +2213,7 @@ struct Emitter {
     case .infix(let f, _, _):
       let t = ArrowType(canonical(program[f.expr].type))!.lifted
       _lowering(at: ast.site(of: e))
-      let s = emitAllocStack(for: t.output, at: _site!)
+      let s = _alloc_stack(t.output)
       emitStore(e, to: s)
       let u = emitCoerce(s, to: p.bareType, at: _site!)
       return _access([p.access], from: u)
@@ -2477,7 +2482,8 @@ struct Emitter {
   /// a rreference to that storage. Otherwise, returns `nil`.
   private mutating func emitAllocation(binding d: BindingDecl.ID) -> Operand? {
     if program[d].pattern.introducer.value.isConsuming {
-      return emitAllocStack(for: program[d].type, at: ast[d].site)
+      _lowering(d)
+      return _alloc_stack(program[d].type)
     } else {
       return nil
     }
@@ -2674,7 +2680,7 @@ struct Emitter {
     _lowering(at: site)
     let lhs = module.type(of: source).ast
 
-    let x0 = emitAllocStack(for: ^target, at: site)
+    let x0 = _alloc_stack(^target)
     let x1 = _open_union(x0, as: lhs, .forInitialization)
     _emitMove(.set, source, to: x1)
     _close_union(x1)
@@ -2704,7 +2710,7 @@ struct Emitter {
     // TODO: Handle cases where the foreign representation of `t` is not built-in.
 
     // Store the foreign representation in memory to call the converter.
-    let source = emitAllocStack(for: module.type(of: foreign).ast, at: _site!)
+    let source = _alloc_stack(module.type(of: foreign).ast)
     emitInitialize(storage: source, to: foreign, at: self._site!)
 
     switch foreignConvertibleConformance.implementations[r]! {
@@ -2712,9 +2718,9 @@ struct Emitter {
       let convert = module.demandDeclaration(lowering: m)!
       let f = module.reference(to: convert, implementedFor: foreignConvertibleConformance)
 
-      let x0 = emitAllocStack(for: ir, at: self._site!)
+      let x0 = _alloc_stack(ir)
       let x1 = _access(.set, from: x0)
-      let x2 = emitAllocStack(for: ArrowType(f.type.ast)!.output, at: self._site!)
+      let x2 = _alloc_stack(ArrowType(f.type.ast)!.output)
       let x3 = _access(.set, from: x2)
       let x4 = _access(.sink, from: source)
 
@@ -2751,7 +2757,7 @@ struct Emitter {
       let f = module.reference(to: convert, implementedFor: foreignConvertibleConformance)
 
       let x0 = _access(.let, from: o)
-      let x1 = emitAllocStack(for: ArrowType(f.type.ast)!.output, at: _site!)
+      let x1 = _alloc_stack(ArrowType(f.type.ast)!.output)
       let x2 = _access(.set, from: x1)
       insert(module.makeCall(applying: .constant(f), to: [x0], writingResultTo: x2, at: _site!))
       insert(module.makeEndAccess(x2, at: _site!))
@@ -2780,6 +2786,9 @@ struct Emitter {
 
   /// Inserts the IR for lvalue `e`.
   private mutating func emitLValue(_ e: AnyExprID) -> Operand {
+    let savedSite = _site
+    defer { _site = savedSite }
+
     switch e.kind {
     case CastExpr.self:
       return emitLValue(CastExpr.ID(e)!)
@@ -2905,7 +2914,7 @@ struct Emitter {
 
     // Handle references to type declarations.
     if let t = MetatypeType(program[d].type) {
-      let s = emitAllocStack(for: ^t, at: site)
+      let s = _alloc_stack(^t)
       emitInitialize(storage: s, to: .constant(t), at: site)
       return s
     }
@@ -3404,10 +3413,8 @@ struct Emitter {
   }
 
   /// Inserts a stack allocation for an object of type `t`.
-  private mutating func emitAllocStack(
-    for t: AnyType, at site: SourceRange
-  ) -> Operand {
-    let s = insert(module.makeAllocStack(canonical(t), at: site))!
+  private mutating func _alloc_stack(_ t: AnyType) -> Operand {
+    let s = insert(module.makeAllocStack(canonical(t), at: _site!))!
     frames.top.allocs.append((source: s, mayHoldCaptures: false))
     return s
   }
