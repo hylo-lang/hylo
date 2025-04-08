@@ -11,7 +11,7 @@ extension Module {
   /// reporting errors and warnings to `diagnostics`.
   ///
   /// - Requires: Borrows in `self` have been closed. `f` is in `self`.
-  public mutating func normalizeObjectStates(in f: Function.ID, diagnostics: inout DiagnosticSet) {
+  public mutating func analyzeDefiniteLifetimes(in f: Function.ID, diagnostics: inout DiagnosticSet) {
     var machine = AbstractInterpreter(analyzing: f, in: self, entryContext: entryContext(of: f))
 
     // Verify that object states are properly initialized/deinitialized in `b` given `context`,
