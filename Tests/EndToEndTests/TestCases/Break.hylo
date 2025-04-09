@@ -23,8 +23,21 @@ public fun main() {
   &a.append(false)
   &i = 0
   for let flag in a {
-    if !flag { break }
+    if !flag {
+      break
+    }
     &i -= 1
+
+  }
+
+  while i != 0 {
+    var b = i.copy()
+    if a.count() == 0 {
+      var x = a.count()
+      while x == 0 { break }
+      &x -= 1
+    }
+    &b -= 1
   }
   precondition(i == 0)
 }
