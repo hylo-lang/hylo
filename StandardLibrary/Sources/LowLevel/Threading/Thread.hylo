@@ -27,24 +27,37 @@ conformance ThreadId: Regular {}
 /// This allows the caller to wait for the thread to complete. The caller needs to ensure that the
 /// thread joins before the handler is destroyed.
 ///
+/// The thread starts with an argument of type `A` (mutable or not), which needs to be alive for
+/// the whole duration of this object.
+///
 /// TODO: return type should be generic
-public type ThreadCompletion<E: Deinitializable & Movable> {
-
-  /// The closure that is being executed by the thread.
-  // var closure: [E]() -> Void
-  var closure_data: E
+public type ThreadCompletion<A>: SemiRegular {
 
   /// The underlying thread object, as seen by the operating system.
   var thread: OSThread
 
-  /// Initializes `self` with the given operating system thread object.
-  internal init(stack: UInt, executing f: sink [E]() -> Void) {
-    // Closure has the type: { ptr-to-fun, { closure-data...: E } }
-    let closure_address = take_address(&f)
-    let function_ptr = deref(closure_address)
-    let closure_data_ptr = closure_address.advance(by: MemoryLayout<MemoryAddress>.size())
-    &self.closure_data = PointerToMutable<E>(type_punning: closure_data_ptr).unsafe_pointee()
-    &self.thread = OSThread.spawn_thread(stack: stack.copy(), executing: function_ptr, with_argument: take_address(&self.closure_data))
+  /// Starts a new OS thread with `stack` bytes of stack space, executing `f`, and passing the value `a` as an argument.
+  internal init(stack: UInt, executing f: sink []() -> Void) {
+    &self.thread = OSThread.spawn_thread(
+      stack: stack.copy(),
+      executing: function_ptr_from_closure(&f),
+      with_argument: .null())
+  }
+
+  /// Starts a new OS thread with `stack` bytes of stack space, executing `f`, and passing the value `a` as an argument.
+  internal init(stack: UInt, executing f: sink [](A) -> Void, with_argument a: Pointer<A>) {
+    &self.thread = OSThread.spawn_thread(
+      stack: stack.copy(),
+      executing: function_ptr_from_closure(&f),
+      with_argument: MemoryAddress(type_punning: PointerToMutable<A>(adding_mutation_to: a)))
+  }
+
+  /// Starts a new OS thread with `stack` bytes of stack space, executing `f`, and passing the inout value `a` as an argument.
+  internal init(stack: UInt, executing f: sink [](inout A) -> Void, with_inout_argument a: PointerToMutable<A>) {
+    &self.thread = OSThread.spawn_thread(
+      stack: stack.copy(),
+      executing: function_ptr_from_closure(&f),
+      with_argument: MemoryAddress(type_punning: a))
   }
 
   /// Returns the unique identifier for the thread.
@@ -55,6 +68,13 @@ public type ThreadCompletion<E: Deinitializable & Movable> {
   /// Awaits for the thread to complete
   public fun await() sink {
     &thread.join()
+  }
+
+  /// Returns the function pointer from the given closure
+  private static fun function_ptr_from_closure<Closure>(_ f: inout Closure) -> MemoryAddress {
+    // Closure has the type: { ptr-to-fun, { closure-data...: E } }
+    let closure_address = take_address(&f)
+    return deref(closure_address)
   }
 
   /// Returns the address of `x` as a `MemoryAddress`.
@@ -69,14 +89,35 @@ public type ThreadCompletion<E: Deinitializable & Movable> {
 
 }
 
-/// Creates a new thread that will execute `f`.
-public fun spawn_thread<E: Deinitializable & Movable>(executing f: sink [E]() -> Void) -> ThreadCompletion<E> {
+/// Creates a new thread that will execute `f` with no arguments.
+public fun spawn_thread(executing f: sink []() -> Void) -> ThreadCompletion<Void> {
   .new(stack: 0, executing: f)
 }
 
-/// Creates a new thread that will execute `f`, using a stack size of `stack_size`.
-public fun spawn_thread<E: Deinitializable & Movable>(stack_size: UInt, executing f: sink [E]() -> Void) -> ThreadCompletion<E> {
+/// Creates a new thread that will execute `f` with argument `a`.
+public fun spawn_thread<A>(executing f: sink [](A) -> Void, with_argument a: Pointer<A>) -> ThreadCompletion<A> {
+  .new(stack: 0, executing: f, with_argument: a)
+}
+
+/// Creates a new thread that will execute `f` with inout argument `a`.
+public fun spawn_thread<A>(executing f: sink [](inout A) -> Void, with_inout_argument a: PointerToMutable<A>) -> ThreadCompletion<A> {
+  .new(stack: 0, executing: f, with_inout_argument: a)
+}
+
+
+/// Creates a new thread that will execute `f` with no arguments, using a stack size of `stack_size`.
+public fun spawn_thread(stack_size: UInt, executing f: sink []() -> Void) -> ThreadCompletion<Void> {
   .new(stack: stack_size, executing: f)
+}
+
+/// Creates a new thread that will execute `f` with argument `a`, using a stack size of `stack_size`.
+public fun spawn_thread<A>(stack_size: UInt, executing f: sink [](A) -> Void, with_argument a: Pointer<A>) -> ThreadCompletion<A> {
+  .new(stack: stack_size, executing: f, with_argument: a)
+}
+
+/// Creates a new thread that will execute `f` with inout argument `a`, using a stack size of `stack_size`.
+public fun spawn_thread<A>(stack_size: UInt, executing f: sink [](inout A) -> Void, with_inout_argument a: PointerToMutable<A>) -> ThreadCompletion<A> {
+  .new(stack: stack_size, executing: f, with_inout_argument: a)
 }
 
 /// Returns the unique identifier for the current thread.

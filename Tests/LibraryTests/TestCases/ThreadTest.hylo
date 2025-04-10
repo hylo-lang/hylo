@@ -5,18 +5,88 @@ fun thread_function(_ x: Int) {
   print(x)
 }
 
-public fun main() {
-  var future = spawn_thread(executing: fun[sink let x = 13]() { thread_function(x) })
+fun mutating_function(_ x: inout Int) {
+  print("Hello, from mutating thread!")
+  &x = 13
+  print(x)
+}
+
+fun test_can_create_thread_with_no_argument() {
+  var future = spawn_thread(executing: fun[]() -> Void {})
+  precondition(future.thread_id().numeric_value() >= 0, "Thread creation failed.")
+  future.await()
+}
+
+fun test_can_create_thread_with_argument() {
+  var arg = 11
+  var future = spawn_thread(executing: fun[](_ x: Int) { thread_function(x) }, with_argument: pointer[to: &arg])
+  precondition(future.thread_id().numeric_value() >= 0, "Thread creation failed.")
+  future.await()
+}
+
+fun test_can_create_thread_with_mutating_argument() {
+  var arg = 0
+  var future = spawn_thread(executing: fun[](_ x: inout Int) { mutating_function(&x) }, with_inout_argument: mutable_pointer[to: &arg])
+  future.await()
+  precondition(arg == 13, "Expected mutation did not happen.")
+}
+
+//
+fun test_can_create_thread_with_stack_and_no_argument() {
+  var future = spawn_thread(stack_size: 512, executing: fun[]() -> Void {})
+  precondition(future.thread_id().numeric_value() >= 0, "Thread creation failed.")
+  future.await()
+}
+
+fun test_can_create_thread_with_stack_and_argument() {
+  var arg = 11
+  var future = spawn_thread(stack_size: 512, executing: fun[](_ x: Int) { thread_function(x) }, with_argument: pointer[to: &arg])
+  precondition(future.thread_id().numeric_value() >= 0, "Thread creation failed.")
+  future.await()
+}
+
+fun test_can_create_thread_with_stack_and_mutating_argument() {
+  var arg = 0
+  var future = spawn_thread(stack_size: 512, executing: fun[](_ x: inout Int) { mutating_function(&x) }, with_inout_argument: mutable_pointer[to: &arg])
+  future.await()
+  precondition(arg == 13, "Expected mutation did not happen.")
+}
+
+fun test_new_thread_has_a_different_thread_id() {
+  var future = spawn_thread(executing: fun[]() -> Void {})
   precondition(future.thread_id().numeric_value() >= 0, "Thread creation failed.")
   let tid = future.thread_id().numeric_value()
   future.await()
-  print("thread ID: ", terminator: "")
-  print(Int(truncating_or_extending: tid))
-
-  print("Available parallelism: ", terminator: "")
-  print(available_parallelism())
-
   precondition(tid != 0)
   precondition(tid != UInt64(truncating_or_extending: -1))
   precondition(tid != current_thread_id().numeric_value())
+}
+
+fun test_can_yield_thread() {
+  var future = spawn_thread(executing: fun[]() -> Void {
+    let i = 0
+    print("Before yielding loop")
+    while i < 1000 {
+      yield_now()
+      &i += 1
+    }
+    print("After yielding loop")
+  })
+  future.await()
+}
+
+fun test_available_parallelism() {
+  let available = available_parallelism()
+  precondition(available > 0, "Expected at least one thread to be available.")
+  print("Available parallelism: ", terminator: "")
+  print(available)
+}
+
+public fun main() {
+  test_can_create_thread_with_no_argument()
+  test_can_create_thread_with_argument()
+  test_can_create_thread_with_mutating_argument()
+  test_new_thread_has_a_different_thread_id()
+  test_can_yield_thread()
+  test_available_parallelism()
 }
