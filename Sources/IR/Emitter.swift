@@ -83,7 +83,6 @@ struct Emitter {
   /// Appends a new basic block at the end of `self.insertionFunction`, defined in s.
   private mutating func appendBlock<T: ScopeID>(in s: T) -> Block.ID {
     let r = module.appendBlock(in: s, to: insertionFunction!)
-    stackOnEntry[r] = frames
     return r
   }
 
@@ -3520,14 +3519,23 @@ extension Emitter {
   /// A stack of loop identifiers.
   fileprivate typealias LoopIDs = [LoopID]
 
-  fileprivate mutating func emitCondBranch(if test: Operand, then next: Block.ID, else failure: Block.ID, at site: SourceRange) {
-    assert(frames == stackOnEntry[next])
-    assert(frames == stackOnEntry[failure])
-    insert(module.makeCondBranch(if: test, then: next, else: failure, at: site))
+  fileprivate mutating func checkEntryStack(_ b: Block.ID) {
+    if let x = stackOnEntry[b] {
+      assert(x == frames)
+    }
+    else {
+      stackOnEntry[b] = frames
+    }
+  }
+
+  fileprivate mutating func emitCondBranch(if test: Operand, then success: Block.ID, else failure: Block.ID, at site: SourceRange) {
+    checkEntryStack(success)
+    checkEntryStack(failure)
+    insert(module.makeCondBranch(if: test, then: success, else: failure, at: site))
   }
 
   fileprivate mutating func emitBranch(to next: Block.ID, at site: SourceRange) {
-    assert(frames == stackOnEntry[next])
+    checkEntryStack(next)
     insert(module.makeBranch(to: next, at: site))
   }
 }
