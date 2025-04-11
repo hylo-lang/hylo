@@ -901,8 +901,7 @@ struct Emitter {
     for (u, b) in targets {
       insertionPoint = .end(of: b)
       emitCopyUnionPayload(from: source, containing: u, to: target, at: site)
-      assert(frames == stackOnEntry[tail])
-      insert(module.makeBranch(to: tail, at: site))
+      emitBranch(to: tail, at: site)
     }
 
     insertionPoint = .end(of: tail)
@@ -1015,8 +1014,7 @@ struct Emitter {
     for f in frames.elements[frames.depth...].reversed() {
       emitDeallocs(for: f, at: ast[s].site)
     }
-    assert(frames == stackOnEntry[innermost.exit])
-    insert(module.makeBranch(to: innermost.exit, at: ast[s].site))
+    emitBranch(to: innermost.exit, at: ast[s].site)
   }
 
   /// Inserts the IR for `s`, returning its effect on control flow.
@@ -1139,8 +1137,7 @@ struct Emitter {
 
     insertionPoint = .end(of: secondBranch)
     guard let failure = ast[s].failure else {
-      assert(frames == stackOnEntry[tail])
-      insert(module.makeBranch(to: tail, at: ast[s].site))
+      emitBranch(to: tail, at: ast[s].site)
       insertionPoint = .end(of: tail)
       return .next
     }
@@ -1177,8 +1174,7 @@ struct Emitter {
     loops.append(LoopID(depth: frames.depth, exit: exit))
     defer { loops.removeLast() }
 
-    assert(frames == stackOnEntry[body])
-    insert(module.makeBranch(to: body, at: .empty(at: ast[s].site.start)))
+    emitBranch(to: body, at: .empty(at: ast[s].site.start))
     insertionPoint = .end(of: body)
 
     // We're not using `emit(braceStmt:into:)` because we need to evaluate the loop condition
@@ -1205,9 +1201,7 @@ struct Emitter {
     emitDeallocTopFrame(at: ast[s].site)
     frames.pop()
 
-    assert(frames == stackOnEntry[body])
-    assert(frames == stackOnEntry[exit])
-    insert(module.makeCondBranch(if: c, then: body, else: exit, at: ast[condition].site))
+    emitCondBranch(if: c, then: body, else: exit, at: ast[condition].site)
     insertionPoint = .end(of: exit)
     return .next
   }
@@ -1250,8 +1244,7 @@ struct Emitter {
     loops.append(LoopID(depth: frames.depth, exit: exit))
     defer { loops.removeLast() }
 
-    assert(frames == stackOnEntry[head])
-    insert(module.makeBranch(to: head, at: introducer))
+    emitBranch(to: head, at: introducer)
     insertionPoint = .end(of: head)
 
     let x0 = insert(module.makeAccess(.inout, from: domain, at: introducer))!
@@ -1312,8 +1305,7 @@ struct Emitter {
     loops.append(LoopID(depth: frames.depth, exit: exit))
     defer { loops.removeLast() }
 
-    assert(frames == stackOnEntry[head])
-    insert(module.makeBranch(to: head, at: introducer))
+    emitBranch(to: head, at: introducer)
 
     insertionPoint = .end(of: head)
     let x0 = insert(module.makeAccess(.let, from: currentPosition, at: introducer))!
@@ -1322,9 +1314,7 @@ struct Emitter {
     insert(module.makeEndAccess(x1, at: introducer))
     insert(module.makeEndAccess(x0, at: introducer))
     let x2 = emitLoadBuiltinBool(quit, at: introducer)
-    assert(frames == stackOnEntry[exit])
-    assert(frames == stackOnEntry[enter])
-    insert(module.makeCondBranch(if: x2, then: exit, else: enter, at: introducer))
+    emitCondBranch(if: x2, then: exit, else: enter, at: introducer)
 
     insertionPoint = .end(of: enter)
     let x6 = insert(module.makeAccess(.let, from: domain, at: introducer))!
@@ -1359,8 +1349,7 @@ struct Emitter {
     insert(module.makeEndAccess(x5, at: introducer))
     emitMove([.inout], x3, to: currentPosition, at: introducer)
     insert(module.makeDeallocStack(for: x3, at: introducer))
-    assert(frames == stackOnEntry[head])
-    insert(module.makeBranch(to: head, at: introducer))
+    emitBranch(to: head, at: introducer)
 
     insertionPoint = .end(of: exit)
     return .next
@@ -1403,8 +1392,7 @@ struct Emitter {
   private mutating func emit(whileStmt s: WhileStmt.ID) -> ControlFlow {
     // Enter the loop.
     let head = appendBlock(in: s)
-    assert(frames == stackOnEntry[head])
-    insert(module.makeBranch(to: head, at: .empty(at: ast[s].site.start)))
+    emitBranch(to: head, at: .empty(at: ast[s].site.start))
 
     // Test the conditions.
     insertionPoint = .end(of: head)
@@ -1609,14 +1597,12 @@ struct Emitter {
     // Emit the success branch.
     insertionPoint = .end(of: success)
     pushing(Frame(), { $0.emitStore(value: $0.ast[e].success, to: storage) })
-    assert(frames == stackOnEntry[tail])
-    insert(module.makeBranch(to: tail, at: ast[e].site))
+    emitBranch(to: tail, at: ast[e].site)
 
     // Emit the failure branch.
     insertionPoint = .end(of: failure)
     pushing(Frame(), { $0.emitStore(value: $0.ast[e].failure.value, to: storage) })
-    assert(frames == stackOnEntry[tail])
-    insert(module.makeBranch(to: tail, at: ast[e].site))
+    emitBranch(to: tail, at: ast[e].site)
 
     insertionPoint = .end(of: tail)
   }
@@ -2412,9 +2398,7 @@ struct Emitter {
       case .expr(let e):
         let test = pushing(Frame(), { $0.emit(branchCondition: e) })
         let next = appendBlock(in: scope)
-        assert(frames == stackOnEntry[next])
-        assert(frames == stackOnEntry[failure])
-        insert(module.makeCondBranch(if: test, then: next, else: failure, at: ast[e].site))
+        emitCondBranch(if: test, then: next, else: failure, at: ast[e].site)
         insertionPoint = .end(of: next)
 
       case .decl(let d):
@@ -3191,8 +3175,7 @@ struct Emitter {
     for (u, b) in targets {
       insertionPoint = .end(of: b)
       emitDeinitUnionPayload(of: storage, containing: u, at: site)
-      assert(frames == stackOnEntry[tail])
-      insert(module.makeBranch(to: tail, at: site))
+      emitBranch(to: tail, at: site)
     }
 
     insertionPoint = .end(of: tail)
@@ -3257,15 +3240,12 @@ struct Emitter {
 
       parts = parts.dropFirst()
       if parts.isEmpty {
-        assert(frames == stackOnEntry[tail])
-        insert(module.makeBranch(to: tail, at: site))
+        emitBranch(to: tail, at: site)
         insertionPoint = .end(of: tail)
       } else {
         let x2 = emitLoadBuiltinBool(target, at: site)
         let next = appendBlock()
-        assert(frames == stackOnEntry[next])
-        assert(frames == stackOnEntry[tail])
-        insert(module.makeCondBranch(if: x2, then: next, else: tail, at: site))
+        emitCondBranch(if: x2, then: next, else: tail, at: site)
         insertionPoint = .end(of: next)
       }
     }
@@ -3296,9 +3276,7 @@ struct Emitter {
     let dl = emitUnionDiscriminator(lhs, at: site)
     let dr = emitUnionDiscriminator(rhs, at: site)
     let x0 = insert(module.makeCallBuiltin(applying: .icmp(.eq, .discriminator), to: [dl, dr], at: site))!
-    assert(frames == stackOnEntry[same])
-    assert(frames == stackOnEntry[fail])
-    insert(module.makeCondBranch(if: x0, then: same, else: fail, at: site))
+    emitCondBranch(if: x0, then: same, else: fail, at: site)
 
     insertionPoint = .end(of: same)
     emitUnionSwitch(on: lhs, toOneOf: targets, at: site)
@@ -3309,15 +3287,13 @@ struct Emitter {
       emitStoreEquality(y0, y1, to: target, at: site)
       insert(module.makeCloseUnion(y1, at: site))
       insert(module.makeCloseUnion(y0, at: site))
-      assert(frames == stackOnEntry[tail])
-      insert(module.makeBranch(to: tail, at: site))
+      emitBranch(to: tail, at: site)
     }
 
     // The failure block writes `false` to the return storage.
     insertionPoint = .end(of: fail)
     emitStore(boolean: false, to: target, at: site)
-    assert(frames == stackOnEntry[tail])
-    insert(module.makeBranch(to: tail, at: site))
+    emitBranch(to: tail, at: site)
 
     // The tail block represents the continuation.
     insertionPoint = .end(of: tail)
@@ -3397,9 +3373,7 @@ struct Emitter {
   private mutating func emitGuard(_ predicate: Operand, at site: SourceRange) {
     let failure = appendBlock()
     let success = appendBlock()
-    assert(frames == stackOnEntry[success])
-    assert(frames == stackOnEntry[failure])
-    insert(module.makeCondBranch(if: predicate, then: success, else: failure, at: site))
+    emitCondBranch(if: predicate, then: success, else: failure, at: site)
 
     insertionPoint = .end(of: failure)
     insert(module.makeUnreachable(at: site))
@@ -3552,6 +3526,16 @@ extension Emitter {
   /// A stack of loop identifiers.
   fileprivate typealias LoopIDs = [LoopID]
 
+  fileprivate mutating func emitCondBranch(if test: Operand, then next: Block.ID, else failure: Block.ID, at site: SourceRange) {
+    assert(frames == stackOnEntry[next])
+    assert(frames == stackOnEntry[failure])
+    insert(module.makeCondBranch(if: test, then: next, else: failure, at: site))
+  }
+
+  fileprivate mutating func emitBranch(to next: Block.ID, at site: SourceRange) {
+    assert(frames == stackOnEntry[next])
+    insert(module.makeBranch(to: next, at: site))
+  }
 }
 
 extension Diagnostic {
