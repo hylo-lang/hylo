@@ -33,6 +33,8 @@ struct Emitter {
   /// A stack of frames describing the variables and allocations of each traversed lexical scope.
   private var frames = Stack()
 
+  private var mayHoldCaptures = Set<Operand>()
+
   /// The loops in which control flow has currently entered.
   private var loops = LoopIDs()
 
@@ -1921,7 +1923,7 @@ struct Emitter {
     let x0 = insert(module.makeAccess(.set, from: storage, at: site))!
     insert(module.makeCapture(a, in: x0, at: site))
     insert(module.makeEndAccess(x0, at: site))
-    frames.top.setMayHoldCaptures(s)
+    mayHoldCaptures.insert(s)
   }
 
   /// Inserts the IR for calling `callee` on `arguments`, storing the result to `storage`.
@@ -3325,7 +3327,7 @@ struct Emitter {
     for t: AnyType, at site: SourceRange
   ) -> Operand {
     let s = insert(module.makeAllocStack(canonical(t), at: site))!
-    frames.top.allocs.append(.init(source: s, mayHoldCaptures: false))
+    frames.top.allocs.append(s)
     return s
   }
 
@@ -3338,10 +3340,10 @@ struct Emitter {
   /// Inserts the IR for deallocating each allocation in `f`.
   private mutating func emitDeallocs(for f: Frame, at site: SourceRange) {
     for a in f.allocs.reversed() {
-      if a.mayHoldCaptures {
-        insert(module.makeReleaseCapture(a.source, at: site))
+      if mayHoldCaptures.remove(a) != nil {
+        insert(module.makeReleaseCapture(a, at: site))
       }
-      insert(module.makeDeallocStack(for: a.source, at: site))
+      insert(module.makeDeallocStack(for: a, at: site))
     }
   }
 
@@ -3437,20 +3439,8 @@ extension Emitter {
     /// A map from declaration of a local variable to its corresponding IR in the frame.
     var locals = DeclProperty<Operand>()
 
-    struct Allocation: Hashable {
-      var source: Operand
-      var mayHoldCaptures: Bool
-    }
-
-    /// The allocations in the frame, in FILO order, paired with a flag that's `true` iff they may
-    /// hold captured accesses.
-    var allocs: [Allocation] = []
-
-    /// Sets the `mayHoldCaptures` on the allocation corresponding to `source`.
-    mutating func setMayHoldCaptures(_ source: Operand) {
-      let i = allocs.firstIndex(where: { $0.source == source })!
-      allocs[i].mayHoldCaptures = true
-    }
+    /// The allocations in the frame, in FILO order.
+    var allocs: [Operand] = []
 
   }
 
@@ -3538,6 +3528,7 @@ extension Emitter {
     checkEntryStack(next)
     insert(module.makeBranch(to: next, at: site))
   }
+
 }
 
 extension Diagnostic {
