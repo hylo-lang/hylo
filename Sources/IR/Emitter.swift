@@ -747,8 +747,7 @@ struct Emitter {
     for (u, b) in targets {
       insertionPoint = .end(of: b)
       emitMoveInitUnionPayload(of: receiver, consuming: argument, containing: u, at: site)
-      assert(stackOnEntry[tail] ==  frames)
-      insert(module.makeBranch(to: tail, at: site))
+      emitBranch(to: tail, at: site)
     }
 
     insertionPoint = .end(of: tail)
@@ -1131,8 +1130,7 @@ struct Emitter {
     insertionPoint = .end(of: firstBranch)
     let f1 = emit(braceStmt: ast[s].success)
     emitControlFlow(f1) { (me) in
-      assert(me.frames == me.stackOnEntry[tail])
-      me.insert(me.module.makeBranch(to: tail, at: me.ast[s].site))
+      me.emitBranch(to: tail, at: me.ast[s].site)
     }
 
     insertionPoint = .end(of: secondBranch)
@@ -1144,8 +1142,7 @@ struct Emitter {
 
     let f2 = emit(stmt: failure.value)
     emitControlFlow(f2) { (me) in
-      assert(me.frames == me.stackOnEntry[tail])
-      me.insert(me.module.makeBranch(to: tail, at: me.ast[s].site))
+      me.emitBranch(to: tail, at: me.ast[s].site)
     }
 
     insertionPoint = .end(of: tail)
@@ -1262,8 +1259,7 @@ struct Emitter {
     insertionPoint = .end(of: next)
     let flow = emit(braceStmt: ast[s].body)
     emitControlFlow(flow) { (me) in
-      assert(me.frames == me.stackOnEntry[head])
-      me.insert(me.module.makeBranch(to: head, at: .empty(at: me.program[s].body.site.end)))
+      me.emitBranch(to: head, at: .empty(at: me.program[s].body.site.end))
     }
 
     insertionPoint = .end(of: exit)
@@ -1336,8 +1332,7 @@ struct Emitter {
 
     let flow = emit(braceStmt: ast[s].body)
     emitControlFlow(flow) { (me) in
-      assert(me.frames == me.stackOnEntry[tail])
-      me.insert(me.module.makeBranch(to: tail, at: .empty(at: me.program[s].body.site.end)))
+      me.emitBranch(to: tail, at: .empty(at: me.program[s].body.site.end))
     }
 
     insertionPoint = .end(of: tail)
@@ -1406,8 +1401,7 @@ struct Emitter {
     insertionPoint = .end(of: body)
     let flow = emit(braceStmt: ast[s].body)
     emitControlFlow(flow) { (me) in
-      assert(me.frames == me.stackOnEntry[head])
-      me.insert(me.module.makeBranch(to: head, at: .empty(at: me.program[s].body.site.end)))
+      me.emitBranch(to: head, at: .empty(at: me.program[s].body.site.end))
     }
 
     // Exit.
