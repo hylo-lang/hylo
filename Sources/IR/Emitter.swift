@@ -36,6 +36,7 @@ struct Emitter {
   /// The loops in which control flow has currently entered.
   private var loops = LoopIDs()
 
+  /// For each block, the state of `frames` where the block was first entered.
   private var stackOnEntry: [ Block.ID: Stack ] = [:]
 
   /// Where new instructions are inserted.
@@ -82,8 +83,7 @@ struct Emitter {
 
   /// Appends a new basic block at the end of `self.insertionFunction`, defined in s.
   private mutating func appendBlock<T: ScopeID>(in s: T) -> Block.ID {
-    let r = module.appendBlock(in: s, to: insertionFunction!)
-    return r
+    module.appendBlock(in: s, to: insertionFunction!)
   }
 
   /// Appends a new basic block at the end of `self.insertionFunction`, defined in the same scope
@@ -1010,6 +1010,7 @@ struct Emitter {
   private mutating func emitControlFlow(break s: BreakStmt.ID) {
     let site = ast[s].site
     let innermost = loops.last!
+    // Restore frames upon exit so that closing the surrounding block works.
     let savedFrames = frames
     defer { frames = savedFrames }
     while frames.depth > innermost.depth {
@@ -3329,7 +3330,7 @@ struct Emitter {
     for t: AnyType, at site: SourceRange
   ) -> Operand {
     let s = insert(module.makeAllocStack(canonical(t), at: site))!
-    frames.top.allocs.append(.init(source: s, mayHoldCaptures: false))
+    frames.top.allocs.append((source: s, mayHoldCaptures: false))
     return s
   }
 
@@ -3441,14 +3442,9 @@ extension Emitter {
     /// A map from declaration of a local variable to its corresponding IR in the frame.
     var locals = DeclProperty<Operand>()
 
-    struct Allocation: Hashable {
-      var source: Operand
-      var mayHoldCaptures: Bool
-    }
-
     /// The allocations in the frame, in FILO order, paired with a flag that's `true` iff they may
     /// hold captured accesses.
-    var allocs: [Allocation] = []
+    var allocs: [(source: Operand, mayHoldCaptures: Bool)] = []
 
     /// Sets the `mayHoldCaptures` on the allocation corresponding to `source`.
     mutating func setMayHoldCaptures(_ source: Operand) {
@@ -3456,13 +3452,21 @@ extension Emitter {
       allocs[i].mayHoldCaptures = true
     }
 
+    /// Returns `true` iff `other` describes the same stack of allocations.
+    func hasSameAllocations(as other: Self) -> Bool {
+      allocs.elementsEqual(other.allocs) { $0.source == $1.source }
+    }
   }
 
   /// A stack of frames.
   fileprivate struct Stack {
 
+    /// Returns `true` iff `other` describes the same number of frames
+    /// having the same stacks of allocations.
     func hasSameAllocations(as s: Stack) -> Bool {
-      elements.elementsEqual(s.elements) { $0.allocs == $1.allocs }
+      elements.elementsEqual(s.elements) {
+        $0.hasSameAllocations(as: $1)
+      }
     }
 
     /// The frames in the stack, ordered from bottom to top.
@@ -3527,21 +3531,34 @@ extension Emitter {
   /// A stack of loop identifiers.
   fileprivate typealias LoopIDs = [LoopID]
 
+  /// If the state of the stack upon entering `b` is not known,
+  /// records it as `frames`; otherwise asserts that it has the same
+  /// allocations as `frames`.
+  ///
+  /// This test is used to ensure that all points branching to a block
+  /// have consistent stack allocations.
   fileprivate mutating func checkEntryStack(_ b: Block.ID) {
-    if let x = stackOnEntry[b] {
-      assert(x.hasSameAllocations(as: frames))
-    }
-    else {
-      stackOnEntry[b] = frames
+    modify(&stackOnEntry[b]) { x in
+      if let y = x {
+        assert(y.hasSameAllocations(as: frames))
+      }
+      else {
+        x = frames
+      }
     }
   }
 
-  fileprivate mutating func emitCondBranch(if test: Operand, then success: Block.ID, else failure: Block.ID, at site: SourceRange) {
-    checkEntryStack(success)
-    checkEntryStack(failure)
-    insert(module.makeCondBranch(if: test, then: success, else: failure, at: site))
+  /// Inserts a `cond_branch` anchored at `site` that jumps to `targetIfTrue` if `condition` is
+  /// true or `targetIfFalse` otherwise.
+  fileprivate mutating func emitCondBranch(
+    if condition: Operand, then targetIfTrue: Block.ID, else targetIfFalse: Block.ID, at site: SourceRange
+  ) {
+    checkEntryStack(targetIfTrue)
+    checkEntryStack(targetIfFalse)
+    insert(module.makeCondBranch(if: condition, then: targetIfTrue, else: targetIfFalse, at: site))
   }
 
+  /// Inserts a `branch` to `next` anchored at `site`.
   fileprivate mutating func emitBranch(to next: Block.ID, at site: SourceRange) {
     checkEntryStack(next)
     insert(module.makeBranch(to: next, at: site))
