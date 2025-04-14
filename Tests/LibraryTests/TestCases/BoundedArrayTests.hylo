@@ -56,6 +56,27 @@ fun test_init_with_lambda() {
   precondition(d[9].value == 18)
 }
 
+fun test_init_with_lambda_that_has_side_effects() {
+  inout accumulator = 0
+  let f = fun (_ i: Int, _ e: set Immovable) -> Void {
+    &accumulator += i
+    &e.value = accumulator.copy()
+  }
+  let d = BoundedArray<Immovable>(count: 10, initialized_with: &f)
+  precondition(d.count() == 10)
+  precondition(d.is_full())
+  precondition(d[0].value == 0)
+  precondition(d[1].value == 1)
+  precondition(d[2].value == 3)
+  precondition(d[3].value == 6)
+  precondition(d[4].value == 10)
+  precondition(d[5].value == 15)
+  precondition(d[6].value == 21)
+  precondition(d[7].value == 28)
+  precondition(d[8].value == 36)
+  precondition(d[9].value == 45)
+}
+
 fun test_init_with_movable_elements() {
   let d = BoundedArray([21, 42])
   precondition(d.count() == 2)
@@ -318,6 +339,7 @@ public fun main() {
   test_init_empty()
   test_init_with_capacity()
   test_init_with_lambda()
+  test_init_with_lambda_that_has_side_effects()
   test_init_with_movable_elements()
 
   test_can_get_pointer_access()
