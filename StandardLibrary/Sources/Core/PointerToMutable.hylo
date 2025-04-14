@@ -135,6 +135,16 @@ public extension PointerToMutable where Pointee: Movable {
 
 }
 
+public extension PointerToMutable where Pointee: Deinitializable {
+
+  /// Deinitializes the value at the address represented by `self`.
+  public fun unsafe_deinitialize_pointee() {
+    let pointee = base as* (remote sink Pointee)
+    pointee.deinit()
+  }
+
+}
+
 public extension PointerToMutable where Pointee: Copyable {
 
   /// Initializes the memory referenced by `self` with `count` consecutive copies of `value`.

@@ -1,0 +1,280 @@
+/// An ordered, random-access collection that has a fixed maximum size.
+///
+/// Similar to `Array`, but with a fixed maximum size.
+/// By default, the element type is not required to be `Movable`.
+public type BoundedArray<Element: Deinitializable>: SemiRegular {
+
+  /// The out-of-line storage of the array.
+  ///
+  /// The header of the buffer indicates the number of elements contained in the array.
+  var storage: DynamicBuffer<Int, Element>
+
+  /// Creates an empty array.
+  public init() {
+    &storage = .new()
+  }
+
+  /// Creates an array that can hold `capacity` elements, initially empty.
+  ///
+  /// - Requires: `capacity >= 0`.
+  public init(capacity: Int) {
+    precondition(capacity >= 0, "negative array capacity")
+    &storage = new_storage(capacity)
+  }
+
+  /// Creates an array whose contents are the results, of calling `initialize` with the values
+  /// `0 ..< count`, in order, passing also the element that needs to be initialized.
+  ///
+  /// `initialize` accepts an index and the element that needs to be initialized.
+  ///
+  /// - Requires: `count >= 0`.
+  public init<E>(count: Int, initialized_with initialize: [E](Int, set Element) -> Void) {
+    precondition(count >= 0, "negative array count")
+
+    &storage = new_storage(count)
+
+    var i = 0
+    while i != count {
+      let i_copy = i.copy()
+      &append(initialized_with: fun (_ e: set Element) -> Void {
+        initialize(i_copy, &e)
+      })
+      &i += 1
+    }
+  }
+
+  /// Deinitializes `self`.
+  public fun deinit() sink {
+    &remove_all()
+  }
+
+  /// Returns the number of elements in `self`.
+  public fun count() -> Int {
+    if storage.capacity() == 0 { 0 } else { storage.header.copy() }
+  }
+
+  /// Returns `true` if `self` is empty.
+  public fun is_empty() -> Bool {
+    count() == 0
+  }
+
+  /// Returns `true` if `self` is full (`count() == capacity()`).
+  public fun is_full() -> Bool {
+    count() == capacity()
+  }
+
+  /// The maximum number of elements that can be stored in the array.
+  ///
+  /// Unlike `Array`, this value can only be changed by creating a new instance.
+  public fun capacity() -> Int {
+    storage.capacity()
+  }
+
+  /// Projects a pointer to the start of the array's contiguous storage.
+  ///
+  /// The projected pointer is valid only for the duration of the projection and can be advanced up
+  /// to `count()`. It may be null if `self` is empty.
+  public property contiguous_storage: Pointer<Element> {
+    yield if capacity() == 0 { .null() } else { .new(pointer_to_element(at: 0)) }
+  }
+
+  /// Calls `action` with a pointer to the start of the array's mutable contiguous storage.
+  ///
+  /// The projected pointer is valid only for the duration of the projection and can be advanced up
+  /// to `count()`. It may be null if `self` is empty.
+  public fun with_mutable_contiguous_storage<E, T: Movable>(
+    _ action: inout [E](PointerToMutable<Element>) inout -> T
+  ) inout -> T {
+    if capacity() == 0 { &action(.null()) } else { &action(pointer_to_element(at: 0)) }
+  }
+
+  /// Adds a new element at the end of the array.
+  ///
+  /// Requires: `count() < capacity()`.
+  /// Complexity: O(1).
+  public fun append<E>(initialized_with initializer: inout [E](set Element) -> Void) inout {
+    precondition(count() < capacity(), "array is full")
+    pointer_to_element(at: count()).unsafe_initialize_pointee(&initializer)
+    &storage.header += 1
+  }
+
+  /// Removes al elements in the array.
+  ///
+  /// Effects: `append()` can called `capacity()` times after this call.
+  /// Complexity: O(n), where n is the number of elements in `self`.
+  public fun remove_all() inout {
+    if capacity() == 0 { return }
+
+    let c = count()
+    var i = 0
+    while i < c {
+      &pointer_to_element(at: i).unsafe_deinitialize_pointee()
+      &i += 1
+    }
+    &storage.header = 0
+  }
+
+  /// Removes the last element of the array.
+  ///
+  /// - Requires: `count() > 0`.
+  public fun pop_last() inout {
+    let c = count()
+    precondition(c > 0, "array is empty")
+    pointer_to_element(at: c - 1).unsafe_deinitialize_pointee()
+    &storage.header -= 1
+  }
+
+  /// Removes the last `n` elements of the array.
+  ///
+  /// - Requires: `count() >= n`.
+  public fun pop_last_n(_ n: Int) inout {
+    let c = count()
+    precondition(c >= n, "array is empty")
+    var i = c - n
+    while i < c {
+      pointer_to_element(at: i).unsafe_deinitialize_pointee()
+      &i += 1
+    }
+    &storage.header -= n
+  }
+
+  /// Creates a new storage buffer that can store `n` elements.
+  static fun new_storage(_ n: Int) -> DynamicBuffer<Int, Element> {
+    DynamicBuffer<Int, Element>(
+      capacity: n,
+      initializing_header_with: fun (_ h: set Int) -> Void { &h = 0 })
+  }
+
+  /// Returns the address of the element at `position`.
+  ///
+  /// - Requires: `position` is in the range `0 ..< capacity()`.
+  fun pointer_to_element(at position: Int) -> PointerToMutable<Element> {
+    storage.first_element_address().advance(by: position)
+  }
+
+}
+
+public extension BoundedArray where Element: Movable {
+
+  /// Creates a bounded array with the given `elements`.
+  public init<value n: Int>(_ elements: sink Element[n]) {
+    &storage = new_storage(n)
+
+    // Note: lifetime of `p` is guaranteed by the use of `elements` after the loop.
+    let p = PointerToMutable<Element>(type_punning: mutable_pointer[to: &elements])
+    var i = 0
+    while i < n {
+      &append(value: p.advance(by: i).unsafe_pointee())
+      &i += 1
+    }
+
+    Builtin.mark_uninitialized(elements)
+  }
+
+  /// Creates a bounded array that can hold `capacity` elements, initializing it with the given `elements`.
+  ///
+  /// Requires: `capacity >= n`.
+  public init<value n: Int>(capacity c: Int, initial_elements elements: sink Element[n]) {
+    precondition(c >= n, "capacity is less than the number of elements")
+
+    &storage = new_storage(c)
+
+    // Note: lifetime of `p` is guaranteed by the use of `elements` after the loop.
+    let p = PointerToMutable<Element>(type_punning: mutable_pointer[to: &elements])
+    var i = 0
+    while i < n {
+      &append(value: p.advance(by: i).unsafe_pointee())
+      &i += 1
+    }
+
+    Builtin.mark_uninitialized(elements)
+  }
+
+  /// Adds a new element at the end of the array.
+  public fun append(value: sink Element) inout {
+    precondition(count() < capacity(), "array is full")
+    pointer_to_element(at: count()).unsafe_initialize_pointee(value)
+    &storage.header += 1
+  }
+
+
+}
+
+public conformance BoundedArray: Equatable where Element: Equatable {
+
+  /// Returns `true` iff `other` has an equivalent value.
+  public fun infix== (_ other: Self) -> Bool {
+    if self.storage.first_element_address() == other.storage.first_element_address() {
+      return true
+    } else if count() != other.count() {
+      return false
+    } else {
+      var i = 0
+      while i < count() {
+        if self[i] != other[i] { return false }
+        &i += 1
+      }
+      return true
+    }
+  }
+
+}
+
+public conformance BoundedArray: Copyable where Element: Copyable & Movable {
+
+  /// Returns a copy of `self`.
+  public fun copy() -> Self {
+    var result = BoundedArray<Element>()
+    &result.storage = new_storage(capacity())
+    for let e in self {
+      &result.append(value: e.copy())
+    }
+    return result
+  }
+
+}
+
+public conformance BoundedArray: Collection {
+
+  public typealias Position = Int
+
+  public fun start_position() -> Int { 0 }
+
+  public fun end_position() -> Int { count() }
+
+  /// Returns the position immediately after `i`.
+  ///
+  /// - Requires: `i != end_position()`.
+  /// - Complexity: O(1).
+  public fun position(after i: Int) -> Int { i + 1 }
+
+  /// Accesses the element at `position`.
+  ///
+  /// - Requires: `position` is in the range `0 ..< count()`.
+  public subscript(_ position: Int): Element {
+    let {
+      precondition((position >= 0) && (position < count()), "position is out of bounds")
+      yield pointer_to_element(at: position).unsafe[]
+    }
+    inout {
+      precondition((position >= 0) && (position < count()), "position is out of bounds")
+      yield &(pointer_to_element(at: position).unsafe[])
+    }
+  }
+
+}
+
+public conformance BoundedArray: MutableCollection where Element: Movable {
+
+  public fun swap_at(_ i: Int, _ j: Int) inout {
+    precondition((i >= 0) && (i < count()), "position is out of bounds")
+    precondition((j >= 0) && (j < count()), "position is out of bounds")
+    if i == j { return }
+
+    var p = pointer_to_element(at: i)
+    var q = pointer_to_element(at: j)
+    &p.unsafe[].exchange(with: &q.unsafe[])
+  }
+
+}
+
