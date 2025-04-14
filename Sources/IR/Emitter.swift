@@ -703,8 +703,10 @@ struct Emitter {
 
     // If the object is empty, simply mark it initialized.
     if layout.properties.isEmpty {
+      // Note: we must not call the argument's deinitializer since we're notionally moving its
+      // value to the receiver rather than destroying it.
       insert(module.makeMarkState(receiver, initialized: true, at: site))
-      emitDeinit(argument, at: site)
+      insert(module.makeMarkState(argument, initialized: false, at: site))
       return
     }
 
