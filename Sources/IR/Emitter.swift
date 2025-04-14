@@ -1010,11 +1010,15 @@ struct Emitter {
 
   /// Inserts IR for breaking from innermost loop, anchoring instructions at `s`.
   private mutating func emitControlFlow(break s: BreakStmt.ID) {
+    let site = ast[s].site
     let innermost = loops.last!
-    for f in frames.elements[frames.depth...].reversed() {
-      emitDeallocs(for: f, at: ast[s].site)
+    let savedFrames = frames
+    defer { frames = savedFrames }
+    while frames.depth > innermost.depth {
+      emitDeallocTopFrame(at: site)
+      frames.pop()
     }
-    emitBranch(to: innermost.exit, at: ast[s].site)
+    emitBranch(to: innermost.exit, at: site)
   }
 
   /// Inserts the IR for `s`, returning its effect on control flow.
@@ -3434,7 +3438,7 @@ struct Emitter {
 extension Emitter {
 
   /// The local variables and allocations of a lexical scope.
-  fileprivate struct Frame: Hashable {
+  fileprivate struct Frame {
 
     /// A map from declaration of a local variable to its corresponding IR in the frame.
     var locals = DeclProperty<Operand>()
@@ -3445,7 +3449,11 @@ extension Emitter {
   }
 
   /// A stack of frames.
-  fileprivate struct Stack: Hashable {
+  fileprivate struct Stack {
+
+    func hasSameAllocations(as s: Stack) -> Bool {
+      elements.elementsEqual(s.elements) { $0.allocs == $1.allocs }
+    }
 
     /// The frames in the stack, ordered from bottom to top.
     private(set) var elements: [Frame] = []
@@ -3511,7 +3519,7 @@ extension Emitter {
 
   fileprivate mutating func checkEntryStack(_ b: Block.ID) {
     if let x = stackOnEntry[b] {
-      assert(x == frames)
+      assert(x.hasSameAllocations(as: frames))
     }
     else {
       stackOnEntry[b] = frames
