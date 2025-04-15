@@ -1,15 +1,13 @@
-/// An ordered, random-access collection that has a fixed maximum size.
+/// A random-access collection with contiguous memory, stable element addresses,
+/// and a fixed maximum size.
 ///
-/// Similar to `Array`, but with a fixed maximum size.
-/// By default, the element type is not required to be `Movable`.
+/// Unlike `Array`, this collection is suitable for non-`Movable` elements.
 public type BoundedArray<Element: Deinitializable>: SemiRegular {
 
-  /// The out-of-line storage of the array.
-  ///
-  /// The header of the buffer indicates the number of elements contained in the array.
+  /// The storage for the length and elements.
   var storage: DynamicBuffer<Int, Element>
 
-  /// Creates an empty array.
+  /// An empty instance.
   public init() {
     &storage = .new()
   }
