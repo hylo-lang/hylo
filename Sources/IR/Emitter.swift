@@ -2385,7 +2385,8 @@ struct Emitter {
     }
 
     let failure = module.appendBlock(in: scope, to: insertionFunction!)
-    for (i, item) in condition.enumerated() {
+    var nextAllocation = 0
+    for item in condition {
       switch item {
       case .expr(let e):
         let test = pushing(Frame(), { $0.emit(branchCondition: e) })
@@ -2395,9 +2396,10 @@ struct Emitter {
 
       case .decl(let d):
         let next = emitConditionalNarrowing(
-          d, movingConsumedValuesTo: allocations[i],
+          d, movingConsumedValuesTo: allocations[nextAllocation],
           branchingOnFailureTo: failure, in: scope)
         insertionPoint = .end(of: next)
+        nextAllocation += 1
       }
     }
 
