@@ -1221,7 +1221,7 @@ struct Emitter {
     _emitDeallocTopFrame()
     frames.pop()
 
-    emitCondBranch(if: c, then: body, else: exit, at: ast[condition].site)
+    _cond_branch(if: c, then: body, else: exit)
     insertionPoint = .end(of: exit)
     return .next
   }
@@ -1339,7 +1339,7 @@ struct Emitter {
     insert(module.makeEndAccess(x1, at: introducer))
     insert(module.makeEndAccess(x0, at: introducer))
     let x2 = emitLoadBuiltinBool(quit, at: introducer)
-    emitCondBranch(if: x2, then: exit, else: enter, at: introducer)
+    _cond_branch(if: x2, then: exit, else: enter)
 
     insertionPoint = .end(of: enter)
     let x6 = _access(.let, from: domain)
@@ -2463,7 +2463,8 @@ struct Emitter {
       case .expr(let e):
         let test = within(Frame(), { $0.emit(branchCondition: e) })
         let next = appendBlock(in: scope)
-        emitCondBranch(if: test, then: next, else: failure, at: ast[e].site)
+        _lowering(e)
+        _cond_branch(if: test, then: next, else: failure)
         insertionPoint = .end(of: next)
 
       case .decl(let d):
@@ -3326,7 +3327,7 @@ struct Emitter {
       } else {
         let x2 = emitLoadBuiltinBool(target, at: _site!)
         let next = appendBlock()
-        emitCondBranch(if: x2, then: next, else: tail, at: _site!)
+        _cond_branch(if: x2, then: next, else: tail)
         insertionPoint = .end(of: next)
       }
     }
@@ -3356,7 +3357,7 @@ struct Emitter {
     let dl = emitUnionDiscriminator(lhs, at: _site!)
     let dr = emitUnionDiscriminator(rhs, at: _site!)
     let x0 = insert(module.makeCallBuiltin(applying: .icmp(.eq, .discriminator), to: [dl, dr], at: _site!))!
-    emitCondBranch(if: x0, then: same, else: fail, at: _site!)
+    _cond_branch(if: x0, then: same, else: fail)
 
     insertionPoint = .end(of: same)
     _emitUnionSwitch(on: lhs, toOneOf: targets)
@@ -3451,7 +3452,7 @@ struct Emitter {
   private mutating func emitGuard(_ predicate: Operand, at site: SourceRange) {
     let failure = appendBlock()
     let success = appendBlock()
-    emitCondBranch(if: predicate, then: success, else: failure, at: site)
+    _cond_branch(if: predicate, then: success, else: failure)
 
     insertionPoint = .end(of: failure)
     insert(module.makeUnreachable(at: site))
@@ -3517,6 +3518,13 @@ struct Emitter {
       swap(&s, &_site)
     }
     return try action(&self)
+  }
+
+  /// Inserts a `cond_branch` instruction that jumps to `targetIfTrue` if `condition` is true or `targetIfFalse` otherwise.
+  mutating func _cond_branch(if condition: Operand, then targetIfTrue: Block.ID, else targetIfFalse: Block.ID) {
+    checkEntryStack(targetIfTrue)
+    checkEntryStack(targetIfFalse)
+    insert(module.makeCondBranch(if: condition, then: targetIfTrue, else: targetIfFalse, at: _site!))
   }
 
 }
@@ -3633,16 +3641,6 @@ extension Emitter {
         x = frames
       }
     }
-  }
-
-  /// Inserts a `cond_branch` anchored at `site` that jumps to `targetIfTrue` if `condition` is
-  /// true or `targetIfFalse` otherwise.
-  fileprivate mutating func emitCondBranch(
-    if condition: Operand, then targetIfTrue: Block.ID, else targetIfFalse: Block.ID, at site: SourceRange
-  ) {
-    checkEntryStack(targetIfTrue)
-    checkEntryStack(targetIfFalse)
-    insert(module.makeCondBranch(if: condition, then: targetIfTrue, else: targetIfFalse, at: site))
   }
 
 }
