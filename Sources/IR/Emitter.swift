@@ -1348,8 +1348,7 @@ struct Emitter {
     let x7 = _access(.let, from: currentPosition)
 
     let t = RemoteType(.let, collectionWitness.element)
-    let x8 = insert(
-      module.makeProject(t, applying: collectionWitness.access, to: [x6, x7], at: introducer))!
+    let x8 = _project(t, applying: collectionWitness.access.function, specializedBy: collectionWitness.access.specialization, to: [x6, x7])
 
     if module.type(of: x8).ast != collectionWitness.element {
       UNIMPLEMENTED("narrowing projections #1099")
@@ -2988,8 +2987,7 @@ struct Emitter {
     let a = _access([o.access], from: r)
     let f = module.demandDeclaration(lowering: d)
 
-    let s = module.makeProject(o, applying: f, specializedBy: z, to: [a], at: site)
-    return insert(s)!
+    return _project(o, applying: f, specializedBy: z, to: [a])
   }
 
   // MARK: Move
@@ -3782,6 +3780,14 @@ extension Emitter {
 
   fileprivate mutating func _close_union(_ x: Operand  ) {
     insert(module.makeCloseUnion(x, at: _site!))
+  }
+
+  fileprivate mutating func _project(
+    _ t: RemoteType, applying s: Function.ID, specializedBy z: GenericArguments,
+    to arguments: [Operand]
+  ) -> Operand {
+    insert(
+      module.makeProject(t, applying: s, specializedBy: z, to: arguments, at: _site!))!
   }
 
 }
