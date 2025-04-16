@@ -1274,7 +1274,7 @@ struct Emitter {
     _lowering(at: introducer)
     let x0 = _access(.inout, from: domain)
     emitApply(witness.next, to: [x0], writingResultTo: element, at: introducer)
-    insert(module.makeEndAccess(x0, at: introducer))
+    _end_access(x0)
 
     let next = emitUnionNarrowing(
       from: element, to: ast[ast[s].binding].pattern, typed: witness.element,
@@ -1338,8 +1338,8 @@ struct Emitter {
     let x0 = _access(.let, from: currentPosition)
     let x1 = _access(.let, from: endPosition)
     emitApply(.constant(equal), to: [x0, x1], writingResultTo: quit, at: introducer)
-    insert(module.makeEndAccess(x1, at: introducer))
-    insert(module.makeEndAccess(x0, at: introducer))
+    _end_access(x1)
+    _end_access(x0)
     let x2 = emitLoadBuiltinBool(quit, at: introducer)
     _cond_branch(if: x2, then: exit, else: enter)
 
@@ -1373,8 +1373,8 @@ struct Emitter {
     let x4 = _access(.let, from: domain)
     let x5 = _access(.let, from: currentPosition)
     emitApply(collectionWitness.positionAfter, to: [x4, x5], writingResultTo: x3, at: introducer)
-    insert(module.makeEndAccess(x4, at: introducer))
-    insert(module.makeEndAccess(x5, at: introducer))
+    _end_access(x4)
+    _end_access(x5)
     _move(.inout, x3, to: currentPosition)
     insert(module.makeDeallocStack(for: x3, at: introducer))
     _branch(to: head)
@@ -1396,7 +1396,7 @@ struct Emitter {
     let x0 = _access(.let, from: domain)
     emitApply(witness.startPosition, to: [x0], writingResultTo: start, at: _site!)
     emitApply(witness.endPosition, to: [x0], writingResultTo: end, at: _site!)
-    insert(module.makeEndAccess(x0, at: site))
+    _end_access(x0)
 
     return (startIndex: start, endIndex: end)
   }
@@ -1464,7 +1464,7 @@ struct Emitter {
   ) {
     let x0 = _access(.set, from: storage)
     insert(module.makeStore(value, at: x0, at: site))
-    insert(module.makeEndAccess(x0, at: site))
+    _end_access(x0)
   }
 
   /// Inserts the IR for storing the value of `e` to a fresh stack allocation, returning the
@@ -1941,7 +1941,7 @@ struct Emitter {
     let x0 = _subfield_view(storage, at: [0])
     let x1 = _access(.set, from: x0)
     insert(module.makeStore(.i1(v), at: x1, at: site))
-    insert(module.makeEndAccess(x1, at: site))
+    _end_access(x1)
   }
 
   /// Writes an instance of `Hylo.Int` with value `v` to `storage`.
@@ -1952,7 +1952,7 @@ struct Emitter {
     let x0 = _subfield_view(storage, at: [0])
     let x1 = _access(.set, from: x0)
     insert(module.makeStore(.word(v), at: x1, at: site))
-    insert(module.makeEndAccess(x1, at: site))
+    _end_access(x1)
   }
 
   /// Writes an instance of `Hylo.String` with value `v` to `storage`.
@@ -1964,7 +1964,7 @@ struct Emitter {
     let x1 = _subfield_view(storage, at: [0, 0])
     let x2 = _access(.set, from: x1)
     insert(module.makeStore(x0, at: x2, at: site))
-    insert(module.makeEndAccess(x2, at: site))
+    _end_access(x2)
   }
 
   /// Inserts the IR for storing `a`, which is an `access`, to `storage`.
@@ -1982,7 +1982,7 @@ struct Emitter {
 
     let x0 = _access(.set, from: storage)
     insert(module.makeCapture(a, in: x0, at: site))
-    insert(module.makeEndAccess(x0, at: site))
+    _end_access(x0)
     frames.top.setMayHoldCaptures(s)
   }
 
@@ -2010,7 +2010,7 @@ struct Emitter {
     assert(site == _site!)
     let o = _access(.set, from: storage)
     insert(module.makeCall(applying: callee, to: arguments, writingResultTo: o, at: site))
-    insert(module.makeEndAccess(o, at: site))
+    _end_access(o)
   }
 
   /// Inserts the IR for calling `callee` on `arguments`, storing the result to `storage`.
@@ -2024,7 +2024,7 @@ struct Emitter {
       applying: callee, to: arguments, writingResultTo: o, at: site,
       canonicalizingTypesIn: insertionScope!)
     insert(s)
-    insert(module.makeEndAccess(o, at: site))
+    _end_access(o)
   }
 
   /// Inserts the IR for given constructor `call`, which initializes storage `r` by applying
@@ -2248,7 +2248,7 @@ struct Emitter {
         let x1 = _access(.sink, from: x0)
         let x2 = insert(module.makeLoad(x1, at: site))!
         a.append(x2)
-        insert(module.makeEndAccess(x1, at: site))
+        _end_access(x1)
       }
       return insert(module.makeCallBuiltin(applying: f, to: a, at: site))!
     }
@@ -2562,7 +2562,7 @@ struct Emitter {
       _move(.set, x1, to: target)
       emitLocalDeclarations(introducedBy: lhs, referringTo: [], relativeTo: target)
       _close_union(x1)
-      insert(module.makeEndAccess(x0, at: _site!))
+      _end_access(x0)
     } else {
       let k = AccessEffect(program[lhs].introducer.value)
       let x0 = _access([k], from: rhs)
@@ -2589,8 +2589,8 @@ struct Emitter {
     precondition(module.type(of: wrapper) == .address(ast.coreType("Bool")!))
     let x0 = _subfield_view(wrapper, at: [0])
     let x1 = _access(.sink, from: x0)
-    let x2 = insert(module.makeLoad(x1, at: site))!
-    insert(module.makeEndAccess(x1, at: site))
+    let x2 = insert(module.makeLoad(x1, at: _site!))!
+    _end_access(x1)
     return x2
   }
 
@@ -2728,9 +2728,9 @@ struct Emitter {
       let s = module.makeCall(applying: .constant(f), to: [x1, x4], writingResultTo: x3, at: self._site!)
       insert(s)
 
-      insert(module.makeEndAccess(x4, at: self._site!))
-      insert(module.makeEndAccess(x3, at: self._site!))
-      insert(module.makeEndAccess(x1, at: self._site!))
+      _end_access(x4)
+      _end_access(x3)
+      _end_access(x1)
       return x0
 
     case .synthetic:
@@ -2761,12 +2761,12 @@ struct Emitter {
       let x1 = _alloc_stack(ArrowType(f.type.ast)!.output)
       let x2 = _access(.set, from: x1)
       insert(module.makeCall(applying: .constant(f), to: [x0], writingResultTo: x2, at: _site!))
-      insert(module.makeEndAccess(x2, at: _site!))
-      insert(module.makeEndAccess(x0, at: _site!))
+      _end_access(x2)
+      _end_access(x0)
 
       let x3 = _access(.sink, from: x1)
       let x4 = insert(module.makeLoad(x3, at: _site!))!
-      insert(module.makeEndAccess(x3, at: _site!))
+      _end_access(x3)
       return x4
 
     case .synthetic:
@@ -2838,7 +2838,7 @@ struct Emitter {
     let x0 = emitLValue(ast[e].left)
     let x1 = _access(.sink, from: x0)
     let x2 = insert(module.makeLoad(x1, at: ast[e].site))!
-    insert(module.makeEndAccess(x1, at: ast[e].site))
+    _end_access(x1)
 
     let t = RemoteType(MetatypeType(canonical(program[e].right.type))!.instance)!
     return insert(module.makePointerToAddress(x2, to: t, at: ast[e].site))!
@@ -3048,9 +3048,9 @@ struct Emitter {
       let x0 = _access(.sink, from: value)
       let x1 = _access(.set, from: storage)
       insert(module.makeMemoryCopy(x0, x1, at: _site!))
-      insert(module.makeEndAccess(x1, at: _site!))
+      _end_access(x1)
       _mark_state(.uninitialized, x0)
-      insert(module.makeEndAccess(x0, at: _site!))
+      _end_access(x0)
       return
     }
 
@@ -3073,8 +3073,8 @@ struct Emitter {
     let x1 = _access(.sink, from: value)
     let x2 = insert(module.makeLoad(x1, at: _site!))!
     insert(module.makeStore(x2, at: x0, at: _site!))
-    insert(module.makeEndAccess(x1, at: _site!))
-    insert(module.makeEndAccess(x0, at: _site!))
+    _end_access(x1)
+    _end_access(x0)
   }
 
   /// Inserts IR for move-initializing/assigning `storage` with `value` at `site` using `movable`
@@ -3098,9 +3098,9 @@ struct Emitter {
     let x2 = _access([semantics], from: storage)
     let x3 = _access(.sink, from: value)
     insert(module.makeCall(applying: .constant(f), to: [x2, x3], writingResultTo: x1, at: _site!))
-    insert(module.makeEndAccess(x3, at: _site!))
-    insert(module.makeEndAccess(x2, at: _site!))
-    insert(module.makeEndAccess(x1, at: _site!))
+    _end_access(x3)
+    _end_access(x2)
+    _end_access(x1)
     insert(module.makeDeallocStack(for: x0, at: _site!))
   }
 
@@ -3139,8 +3139,8 @@ struct Emitter {
     let x0 = _access(.let, from: source)
     let x1 = _access(.set, from: target)
     insert(module.makeCall(applying: .constant(f), to: [x0], writingResultTo: x1, at: self._site!))
-    insert(module.makeEndAccess(x1, at: self._site!))
-    insert(module.makeEndAccess(x0, at: self._site!))
+    _end_access(x1)
+    _end_access(x0)
   }
 
   // MARK: Deinitialization
@@ -3180,8 +3180,8 @@ struct Emitter {
     let x1 = _access(.set, from: x0)
     let x2 = _access(.sink, from: storage)
     insert(module.makeCall(applying: .constant(f), to: [x2], writingResultTo: x1, at: _site!))
-    insert(module.makeEndAccess(x2, at: _site!))
-    insert(module.makeEndAccess(x1, at: _site!))
+    _end_access(x2)
+    _end_access(x1)
     _mark_state(.uninitialized, x0)
     insert(module.makeDeallocStack(for: x0, at: _site!))
   }
@@ -3293,9 +3293,9 @@ struct Emitter {
       let x1 = _access(.let, from: lhs)
       let x2 = _access(.let, from: rhs)
       insert(module.makeCall(applying: .constant(f), to: [x1, x2], writingResultTo: x0, at: _site!))
-      insert(module.makeEndAccess(x2, at: _site!))
-      insert(module.makeEndAccess(x1, at: _site!))
-      insert(module.makeEndAccess(x0, at: _site!))
+      _end_access(x2)
+      _end_access(x1)
+      _end_access(x0)
     } else {
       report(.error(m, doesNotConformTo: d, at: _site!))
     }
@@ -3471,7 +3471,7 @@ struct Emitter {
     _lowering(at: site)
     let x0 = _access(.let, from: container)
     let x1 = insert(module.makeUnionDiscriminator(x0, at: _site!))!
-    insert(module.makeEndAccess(x0, at: _site!))
+    _end_access(x0)
     return x1
   }
 
@@ -3756,6 +3756,10 @@ extension Emitter {
     _ capabilities: AccessEffectSet, from s: Operand, correspondingTo binding: VarDecl.ID? = nil
   ) -> Operand {
     insert(module.makeAccess(capabilities, from: s, correspondingTo: binding, at: _site!))!
+  }
+
+  fileprivate mutating func _end_access(_ x: Operand) {
+    insert(module.makeEndAccess(x, at: _site!))
   }
 
   fileprivate mutating func _yield(_ c: AccessEffect, _ a: Operand) {
