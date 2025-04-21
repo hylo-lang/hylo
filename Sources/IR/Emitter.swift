@@ -1372,14 +1372,14 @@ struct Emitter {
 
     _lowering(at: introducer)
     insertionPoint = .end(of: tail)
-    let x3 = insert(module.makeAllocStack(collectionWitness.position, at: introducer))!
+    let x3 = _alloc_stack(collectionWitness.position)
     let x4 = _access(.let, from: domain)
     let x5 = _access(.let, from: currentPosition)
     emitApply(collectionWitness.positionAfter, to: [x4, x5], writingResultTo: x3, at: introducer)
     _end_access(x4)
     _end_access(x5)
     _move(.inout, x3, to: currentPosition)
-    insert(module.makeDeallocStack(for: x3, at: introducer))
+    _dealloc_stack(x3)
     _branch(to: head)
 
     insertionPoint = .end(of: exit)
@@ -3095,7 +3095,7 @@ struct Emitter {
     let d = module.demandTakeValueDeclaration(semantics, definedBy: movable)
     let f = module.reference(to: d, implementedFor: movable)
 
-    let x0 = insert(module.makeAllocStack(.void, at: _site!))!
+    let x0 = _alloc_stack(.void)
     let x1 = _access(.set, from: x0)
     let x2 = _access([semantics], from: storage)
     let x3 = _access(.sink, from: value)
@@ -3103,7 +3103,7 @@ struct Emitter {
     _end_access(x3)
     _end_access(x2)
     _end_access(x1)
-    insert(module.makeDeallocStack(for: x0, at: _site!))
+    _dealloc_stack(x0)
   }
 
   // MARK: Copy
@@ -3178,14 +3178,14 @@ struct Emitter {
     let d = module.demandDeinitDeclaration(from: c)
     let f = module.reference(to: d, implementedFor: c)
 
-    let x0 = insert(module.makeAllocStack(.void, at: _site!))!
+    let x0 = _alloc_stack(.void)
     let x1 = _access(.set, from: x0)
     let x2 = _access(.sink, from: storage)
     insert(module.makeCall(applying: .constant(f), to: [x2], writingResultTo: x1, at: _site!))
     _end_access(x2)
     _end_access(x1)
     _mark_state(.uninitialized, x0)
-    insert(module.makeDeallocStack(for: x0, at: _site!))
+    _dealloc_stack(x0)
   }
 
   /// If `storage` is deinitializable in `self.insertionScope`, inserts the IR for deinitializing
@@ -3432,8 +3432,19 @@ struct Emitter {
       if a.mayHoldCaptures {
         insert(module.makeReleaseCapture(a.source, at: _site!))
       }
-      insert(module.makeDeallocStack(for: a.source, at: _site!))
+      _dealloc_stack(a.source)
     }
+  }
+
+  private mutating func _dealloc_stack(_ source: Operand) {
+    let a = frames.top.allocs.popLast()!
+    precondition(
+      a.source == source,
+      "dealloc_stack(\(source)) doesn't match last allocated \(a.source)")
+    if a.mayHoldCaptures {
+      insert(module.makeReleaseCapture(a.source, at: _site!))
+    }
+    insert(module.makeDeallocStack(for: source, at: _site!))
   }
 
   /// Appends the IR for computing the address of the given `subfield` of the record at
