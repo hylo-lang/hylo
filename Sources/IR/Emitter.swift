@@ -1013,8 +1013,12 @@ struct Emitter {
   /// Inserts IR for returning from current function, anchoring instructions at `s`.
   private mutating func emitControlFlow(return s: ReturnStmt.ID) {
     _lowering(s)
-    for f in frames.elements.reversed() {
-      _emitDeallocs(for: f)
+    // Restore frames upon exit so that closing the surrounding block works.
+    let savedFrames = frames
+    defer { frames = savedFrames }
+    while !frames.isEmpty {
+      _dealloc_top_frame()
+      frames.pop()
     }
     _return()
   }
