@@ -1465,8 +1465,9 @@ struct Emitter {
   private mutating func emitInitialize(
     storage: Operand, to value: Operand, at site: SourceRange
   ) {
+    _lowering(at: site)
     let x0 = _access(.set, from: storage)
-    insert(module.makeStore(value, at: x0, at: site))
+    _store(value, x0)
     _end_access(x0)
   }
 
@@ -1668,7 +1669,7 @@ struct Emitter {
       case .builtinFunction(let f):
         let x0 = emit(apply: f, to: ast[e].arguments, at: ast[e].site)
         let x1 = _access(.set, from: storage)
-        insert(module.makeStore(x0, at: x1, at: ast[e].site))
+        _store(x0, x1)
         return
 
       case .constructor:
@@ -1907,11 +1908,10 @@ struct Emitter {
     evaluatedBy evaluate: (String) -> FloatingPointConstant
   ) {
     _lowering(literal)
-    let syntax = ast[literal]
     let x0 = _subfield_view(storage, at: [0])
     let x1 = _access(.set, from: x0)
-    let x2 = Operand.constant(evaluate(syntax.value))
-    insert(module.makeStore(x2, at: x1, at: syntax.site))
+    let x2 = Operand.constant(evaluate(ast[literal].value))
+    _store(x2, x1)
   }
 
   /// Writes the value of `literal` to `storage`, knowing it is a core integer instance with given
@@ -1933,7 +1933,7 @@ struct Emitter {
     let x0 = _subfield_view(storage, at: [0])
     let x1 = _access(.set, from: x0)
     let x2 = Operand.constant(IntegerConstant(bits))
-    insert(module.makeStore(x2, at: x1, at: syntax.site))
+    _store(x2, x1)
   }
 
   /// Writes an instance of `Hylo.Bool` with value `v` to `storage`.
@@ -1943,7 +1943,7 @@ struct Emitter {
     _lowering(at: site)
     let x0 = _subfield_view(storage, at: [0])
     let x1 = _access(.set, from: x0)
-    insert(module.makeStore(.i1(v), at: x1, at: site))
+    _store(.i1(v), x1)
     _end_access(x1)
   }
 
@@ -1954,7 +1954,7 @@ struct Emitter {
     _lowering(at: site)
     let x0 = _subfield_view(storage, at: [0])
     let x1 = _access(.set, from: x0)
-    insert(module.makeStore(.word(v), at: x1, at: site))
+    _store(.word(v), x1)
     _end_access(x1)
   }
 
@@ -1966,7 +1966,7 @@ struct Emitter {
     let x0 = insert(module.makeConstantString(utf8: v.unescaped.data(using: .utf8)!, at: site))!
     let x1 = _subfield_view(storage, at: [0, 0])
     let x2 = _access(.set, from: x1)
-    insert(module.makeStore(x0, at: x2, at: site))
+    _store(x0, x2)
     _end_access(x2)
   }
 
@@ -3074,7 +3074,7 @@ struct Emitter {
     let x0 = _access(.set, from: storage)
     let x1 = _access(.sink, from: value)
     let x2 = insert(module.makeLoad(x1, at: _site!))!
-    insert(module.makeStore(x2, at: x0, at: _site!))
+    _store(x2, x0)
     _end_access(x1)
     _end_access(x0)
   }
@@ -3803,6 +3803,10 @@ extension Emitter {
   ) -> Operand {
     insert(
       module.makeProject(t, applying: s, specializedBy: z, to: arguments, at: _site!))!
+  }
+
+  fileprivate mutating func _store(_ source: Operand, _ target: Operand) {
+    insert(module.makeStore(source, at: target, at: _site!))
   }
 
 }
