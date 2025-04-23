@@ -2856,10 +2856,9 @@ struct Emitter {
 
   /// Inserts the IR for lvalue `e`.
   private mutating func emitLValue(_ e: SubscriptCallExpr.ID) -> Operand {
+    _lowering(e)
     let (b, a) = emitOperands(e)
-    let s = module.makeProjectBundle(
-      applying: b, to: a, at: ast[e].site, canonicalizingTypesIn: insertionScope!)
-    return insert(s)!
+    return _project_bundle(applying: b, to: a)
   }
 
   /// Inserts the IR for lvalue `e`.
@@ -2972,9 +2971,7 @@ struct Emitter {
     _lowering(at: site)
     let a = _access(t.capabilities, from: r)
 
-    let s = module.makeProjectBundle(
-      applying: b, to: [a], at: _site!, canonicalizingTypesIn: insertionScope!)
-    return insert(s)!
+    return _project_bundle(applying: b, to: [a])
   }
 
   /// Returns the projection of the property declared by `d`, bound to `r`, and specialized by `z`.
@@ -3548,6 +3545,15 @@ struct Emitter {
     applying f: BuiltinFunction, to arguments: [Operand]
   ) -> Operand {
     insert(module.makeCallBuiltin(applying: f, to: arguments, at: _site!))!
+  }
+
+  fileprivate mutating func _project_bundle(
+    applying b: BundleReference<SubscriptDecl>, to arguments: [Operand]
+  ) -> Operand {
+    insert(
+      module.makeProjectBundle(
+        applying: b, to: arguments, at: _site!,
+        canonicalizingTypesIn: insertionScope!))!
   }
 
 }
