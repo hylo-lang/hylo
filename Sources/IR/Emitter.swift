@@ -2234,7 +2234,7 @@ struct Emitter {
     switch f {
     case .addressOf:
       let source = emitLValue(arguments[0].value)
-      return insert(module.makeAddressToPointer(source, at: self._site!))!
+      return _address_to_pointer(source)
 
     case .markUninitialized:
       let source = emitLValue(arguments[0].value)
@@ -3538,6 +3538,10 @@ struct Emitter {
     checkEntryStack(targetIfTrue)
     checkEntryStack(targetIfFalse)
     insert(module.makeCondBranch(if: condition, then: targetIfTrue, else: targetIfFalse, at: _site!))
+  }
+
+  fileprivate mutating func _address_to_pointer(_ source: Operand) -> Operand {
+    insert(module.makeAddressToPointer(source, at: _site!))!
   }
 
 }
