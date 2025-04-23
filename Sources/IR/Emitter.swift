@@ -3427,7 +3427,7 @@ struct Emitter {
   private mutating func _dealloc_top_frame() {
     for a in frames.top.allocs.reversed() {
       if a.mayHoldCaptures {
-        insert(module.makeReleaseCapture(a.source, at: _site!))
+        _release_capture(a.source)
       }
       _dealloc_stack(a.source)
     }
@@ -3440,7 +3440,7 @@ struct Emitter {
       a.source == source,
       "dealloc_stack(\(source)) doesn't match last allocated \(a.source)")
     if a.mayHoldCaptures {
-      insert(module.makeReleaseCapture(a.source, at: _site!))
+      _release_capture(a.source)
     }
     insert(module.makeDeallocStack(for: source, at: _site!))
   }
@@ -3563,6 +3563,10 @@ struct Emitter {
 
   fileprivate mutating func _open_capture(_ s: Operand) -> Operand {
     insert(module.makeOpenCapture(s, at: _site!))!
+  }
+
+  fileprivate mutating func _release_capture(_ source: Operand) {
+    insert(module.makeReleaseCapture(source, at: _site!))
   }
 
 }
