@@ -1377,6 +1377,7 @@ struct Emitter {
     _end_access(x4)
     _end_access(x5)
     _emitMove(.inout, x3, to: currentPosition)
+    _emitMove(.inout, x3, to: currentPosition)
     _dealloc_stack(x3)
     _branch(to: head)
 
@@ -1907,8 +1908,16 @@ struct Emitter {
     _lowering(literal)
     let x0 = _subfield_view(storage, at: [0])
     let x1 = _access(.set, from: x0)
+<<<<<<< variant A
+    let x2 = Operand.constant(evaluate(ast[literal].value))
+    insert(module.makeStore(x2, at: x1, at: _site!))
+>>>>>>> variant B
     let x2 = Operand.constant(evaluate(ast[literal].value))
     _store(x2, x1)
+####### Ancestor
+    let x2 = Operand.constant(evaluate(syntax.value))
+    insert(module.makeStore(x2, at: x1, at: syntax.site))
+======= end
   }
 
   /// Writes the value of `literal` to `storage`, knowing it is a core integer instance with given
@@ -1930,7 +1939,13 @@ struct Emitter {
     let x0 = _subfield_view(storage, at: [0])
     let x1 = _access(.set, from: x0)
     let x2 = Operand.constant(IntegerConstant(bits))
+<<<<<<< variant A
+    insert(module.makeStore(x2, at: x1, at: _site!))
+>>>>>>> variant B
     _store(x2, x1)
+####### Ancestor
+    insert(module.makeStore(x2, at: x1, at: syntax.site))
+======= end
   }
 
   /// Writes an instance of `Hylo.Bool` with value `v` to `storage`.
@@ -1940,7 +1955,13 @@ struct Emitter {
     _lowering(at: site)
     let x0 = _subfield_view(storage, at: [0])
     let x1 = _access(.set, from: x0)
+<<<<<<< variant A
+    insert(module.makeStore(.i1(v), at: x1, at: _site!))
+>>>>>>> variant B
     _store(.i1(v), x1)
+####### Ancestor
+    insert(module.makeStore(.i1(v), at: x1, at: site))
+======= end
     _end_access(x1)
   }
 
@@ -1951,7 +1972,13 @@ struct Emitter {
     _lowering(at: site)
     let x0 = _subfield_view(storage, at: [0])
     let x1 = _access(.set, from: x0)
+<<<<<<< variant A
+    insert(module.makeStore(.word(v), at: x1, at: _site!))
+>>>>>>> variant B
     _store(.word(v), x1)
+####### Ancestor
+    insert(module.makeStore(.word(v), at: x1, at: site))
+======= end
     _end_access(x1)
   }
 
@@ -1963,7 +1990,13 @@ struct Emitter {
     let x0 = insert(module.makeConstantString(utf8: v.unescaped.data(using: .utf8)!, at: _site!))!
     let x1 = _subfield_view(storage, at: [0, 0])
     let x2 = _access(.set, from: x1)
+<<<<<<< variant A
+    insert(module.makeStore(x0, at: x2, at: _site!))
+>>>>>>> variant B
     _store(x0, x2)
+####### Ancestor
+    insert(module.makeStore(x0, at: x2, at: site))
+======= end
     _end_access(x2)
   }
 
@@ -2964,7 +2997,7 @@ struct Emitter {
     at site: SourceRange
   ) -> Operand {
     if let i = ast[d].impls.uniqueElement {
-      return emitComputedProperty(boundTo: r, declaredBy: i, specializedBy: z, at: site)
+      return emitComputedProperty(boundTo: r, declaredBy: i, specializedBy: z, at: _site!)
     }
 
     let t = SubscriptType(canonicalType(of: d, specializedBy: z))!
