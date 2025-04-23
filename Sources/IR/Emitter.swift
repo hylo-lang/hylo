@@ -3538,33 +3538,6 @@ struct Emitter {
     insert(module.makeCondBranch(if: condition, then: targetIfTrue, else: targetIfFalse, at: _site!))
   }
 
-  fileprivate mutating func _address_to_pointer(_ source: Operand) -> Operand {
-    insert(module.makeAddressToPointer(source, at: _site!))!
-  }
-
-  fileprivate mutating func _call_builtin(
-    applying f: BuiltinFunction, to arguments: [Operand]
-  ) -> Operand {
-    insert(module.makeCallBuiltin(applying: f, to: arguments, at: _site!))!
-  }
-
-  fileprivate mutating func _project_bundle(
-    applying b: BundleReference<SubscriptDecl>, to arguments: [Operand]
-  ) -> Operand {
-    insert(
-      module.makeProjectBundle(
-        applying: b, to: arguments, at: _site!,
-        canonicalizingTypesIn: insertionScope!))!
-  }
-
-  fileprivate mutating func _open_capture(_ s: Operand) -> Operand {
-    insert(module.makeOpenCapture(s, at: _site!))!
-  }
-
-  fileprivate mutating func _release_capture(_ source: Operand) {
-    insert(module.makeReleaseCapture(source, at: _site!))
-  }
-
 }
 
 extension Emitter {
@@ -3823,6 +3796,34 @@ extension Emitter {
   /// Inserts a `load` instruction reading from `source`.
   fileprivate mutating func _load(_ source: Operand) -> Operand {
     insert(module.makeLoad(source, at: _site!))!
+  }
+
+
+  fileprivate mutating func _address_to_pointer(_ source: Operand) -> Operand {
+    insert(module.makeAddressToPointer(source, at: _site!))!
+  }
+
+  fileprivate mutating func _call_builtin(
+    applying f: BuiltinFunction, to arguments: [Operand]
+  ) -> Operand {
+    insert(module.makeCallBuiltin(applying: f, to: arguments, at: _site!))!
+  }
+
+  fileprivate mutating func _project_bundle(
+    applying b: BundleReference<SubscriptDecl>, to arguments: [Operand]
+  ) -> Operand {
+    insert(
+      module.makeProjectBundle(
+        applying: b, to: arguments, at: _site!,
+        canonicalizingTypesIn: insertionScope!))!
+  }
+
+  fileprivate mutating func _open_capture(_ s: Operand) -> Operand {
+    insert(module.makeOpenCapture(s, at: _site!))!
+  }
+
+  fileprivate mutating func _release_capture(_ source: Operand) {
+    insert(module.makeReleaseCapture(source, at: _site!))
   }
 
 }
