@@ -2600,8 +2600,9 @@ struct Emitter {
   /// If `s` has a remote type, returns the result of an instruction exposing the captured access.
   /// Otherwise, returns `s` as is.
   private mutating func unwrapCapture(_ s: Operand, at site: SourceRange) -> Operand {
+    _lowering(at: site)
     if module.type(of: s).ast.base is RemoteType {
-      return insert(module.makeOpenCapture(s, at: site))!
+      return _open_capture(s)
     } else {
       return s
     }
@@ -3558,6 +3559,10 @@ struct Emitter {
       module.makeProjectBundle(
         applying: b, to: arguments, at: _site!,
         canonicalizingTypesIn: insertionScope!))!
+  }
+
+  fileprivate mutating func _open_capture(_ s: Operand) -> Operand {
+    insert(module.makeOpenCapture(s, at: _site!))!
   }
 
 }
