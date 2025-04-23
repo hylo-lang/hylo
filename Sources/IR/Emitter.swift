@@ -3415,6 +3415,11 @@ struct Emitter {
 
   /// Inserts a stack allocation for an object of type `t`.
   private mutating func _alloc_stack(_ t: AnyType) -> Operand {
+    // This is a temporary hack to deal with the fact that later passes come
+    // back and start emitting code in the middle of a block without
+    // having set up a record of frames and allocations.  When we recompute
+    // allocations as on-demand, that will become a non-issue.
+    if frames.isEmpty { frames.push() }
     let s = insert(module.makeAllocStack(canonical(t), at: _site!))!
     frames.top.allocs.append((source: s, mayHoldCaptures: false))
     return s
