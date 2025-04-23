@@ -2249,7 +2249,7 @@ struct Emitter {
       for e in arguments {
         let x0 = emitStore(value: e.value)
         let x1 = _access(.sink, from: x0)
-        let x2 = insert(module.makeLoad(x1, at: site))!
+        let x2 = _load(x1)
         a.append(x2)
         _end_access(x1)
       }
@@ -2592,7 +2592,7 @@ struct Emitter {
     precondition(module.type(of: wrapper) == .address(ast.coreType("Bool")!))
     let x0 = _subfield_view(wrapper, at: [0])
     let x1 = _access(.sink, from: x0)
-    let x2 = insert(module.makeLoad(x1, at: _site!))!
+    let x2 = _load(x1)
     _end_access(x1)
     return x2
   }
@@ -2768,7 +2768,7 @@ struct Emitter {
       _end_access(x0)
 
       let x3 = _access(.sink, from: x1)
-      let x4 = insert(module.makeLoad(x3, at: _site!))!
+      let x4 = _load(x3)
       _end_access(x3)
       return x4
 
@@ -2840,7 +2840,7 @@ struct Emitter {
     _lowering(e)
     let x0 = emitLValue(ast[e].left)
     let x1 = _access(.sink, from: x0)
-    let x2 = insert(module.makeLoad(x1, at: ast[e].site))!
+    let x2 = _load(x1)
     _end_access(x1)
 
     let t = RemoteType(MetatypeType(canonical(program[e].right.type))!.instance)!
@@ -3073,7 +3073,7 @@ struct Emitter {
     // Built-in are always stored.
     let x0 = _access(.set, from: storage)
     let x1 = _access(.sink, from: value)
-    let x2 = insert(module.makeLoad(x1, at: _site!))!
+    let x2 = _load(x1)
     _store(x2, x0)
     _end_access(x1)
     _end_access(x0)
@@ -3807,6 +3807,11 @@ extension Emitter {
 
   fileprivate mutating func _store(_ source: Operand, _ target: Operand) {
     insert(module.makeStore(source, at: target, at: _site!))
+  }
+
+  /// Inserts a `load` instruction reading from `source`.
+  fileprivate mutating func _load(_ source: Operand) -> Operand {
+    insert(module.makeLoad(source, at: _site!))!
   }
 
 }
