@@ -3424,18 +3424,13 @@ struct Emitter {
 
   /// Inserts the IR for deallocating each allocation in the top frame of `self.frames`.
   private mutating func _emitDeallocTopFrame() {
-    _emitDeallocs(for: frames.top)
-    frames.top.allocs.removeAll()
-  }
-
-  /// Inserts the IR for deallocating each allocation in `f`.
-  private mutating func _emitDeallocs(for f: Frame) {
-    for a in f.allocs.reversed() {
+    for a in frames.top.allocs.reversed() {
       if a.mayHoldCaptures {
         insert(module.makeReleaseCapture(a.source, at: _site!))
       }
       _dealloc_stack(a.source)
     }
+    assert(frames.top.allocs.isEmpty)
   }
 
   private mutating func _dealloc_stack(_ source: Operand) {
