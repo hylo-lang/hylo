@@ -2614,7 +2614,7 @@ struct Emitter {
     }
 
     if lhs.base is RemoteType {
-      let s = insert(module.makeOpenCapture(source, at: _site!))!
+      let s = _open_capture(source)
       return _emitCoerce(s, to: rhs)
     }
 
