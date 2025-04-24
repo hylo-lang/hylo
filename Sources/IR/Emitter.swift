@@ -1,6 +1,7 @@
 import BigInt
 import FrontEnd
 import Utils
+import Foundation
 
 /// Hylo's IR emitter.
 ///
@@ -1960,7 +1961,7 @@ struct Emitter {
   /// - Requires: `storage` is the address of uninitialized memory of type `Hylo.String`.
   private mutating func emitStore(string v: String, to storage: Operand, at site: SourceRange) {
     _lowering(at: site)
-    let x0 = insert(module.makeConstantString(utf8: v.unescaped.data(using: .utf8)!, at: _site!))!
+    let x0 = _constant_string(utf8: v.unescaped.data(using: .utf8)!)
     let x1 = _subfield_view(storage, at: [0, 0])
     let x2 = _access(.set, from: x1)
     _store(x0, x2)
@@ -3828,6 +3829,10 @@ extension Emitter {
 
   fileprivate mutating func _advanced(_ source: Operand, byStrides n: Int) -> Operand {
     insert(module.makeAdvanced(source, byStrides: n, at: _site!))!
+  }
+
+  fileprivate mutating func _constant_string(utf8 value: Data) -> Operand {
+    insert(module.makeConstantString(utf8: value, at: _site!))!
   }
 
 }
