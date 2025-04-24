@@ -1545,7 +1545,8 @@ struct Emitter {
 
     // The elements of a buffer literal have the same type.
     for (i, v) in program[e].elements.enumerated() {
-      let x0 = insert(module.makeAdvanced(storage, byStrides: i, at: program[v].site))!
+      _lowering(v)
+      let x0 = _advanced(storage, byStrides: i)
       emitStore(value: v, to: x0)
     }
   }
@@ -3824,6 +3825,10 @@ extension Emitter {
 
   fileprivate mutating func _release_capture(_ source: Operand) {
     insert(module.makeReleaseCapture(source, at: _site!))
+  }
+
+  fileprivate mutating func _advanced(_ source: Operand, byStrides n: Int) -> Operand {
+    insert(module.makeAdvanced(source, byStrides: n, at: _site!))!
   }
 
 }
