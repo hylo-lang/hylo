@@ -54,7 +54,7 @@ public type PointerToMutable<Pointee>: Regular {
   ///
   /// - Requires: the `MemoryLayout<Pointee>.size()` bytes starting at the address are uninitialized
   ///   and suitably aligned for `Pointee`.
-  public fun unsafe_initialize_pointee<E, R>(_ initialize: inout [E](set Pointee) -> R) -> R {
+  public fun unsafe_initialize_pointee<E, R>(_ initialize: inout [E](set Pointee) inout -> R) -> R {
     initialize(&(base as* (remote set Pointee)))
   }
 
@@ -131,6 +131,16 @@ public extension PointerToMutable where Pointee: Movable {
   ///   and suitably aligned for `Pointee`.
   public fun unsafe_initialize_pointee(_ value: sink Pointee) {
     initialize<Pointee>(&(base as* (remote set Pointee)), to: value)
+  }
+
+}
+
+public extension PointerToMutable where Pointee: Deinitializable {
+
+  /// Deinitializes the value at the address represented by `self`.
+  public fun unsafe_deinitialize_pointee() {
+    let pointee = base as* (remote sink Pointee)
+    pointee.deinit()
   }
 
 }
