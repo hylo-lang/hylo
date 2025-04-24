@@ -2021,10 +2021,7 @@ struct Emitter {
   ) {
     _lowering(at: _site!)
     let o = _access(.set, from: storage)
-    let s = module.makeCallBundle(
-      applying: callee, to: arguments, writingResultTo: o, at: _site!,
-      canonicalizingTypesIn: insertionScope!)
-    insert(s)
+    _call_bundle(callee, arguments, to: o, scopeOfUse: insertionScope!)
     _end_access(o)
   }
 
@@ -3842,4 +3839,13 @@ extension Emitter {
     insert(module.makeCall(applying: callee, to: arguments, writingResultTo: output, at: _site!))
   }
 
+  fileprivate mutating func _call_bundle(
+    _ m: BundleReference<MethodDecl>, _ a: [Operand],
+    to o: Operand,
+    scopeOfUse: AnyScopeID
+  ) {
+    insert(module.makeCallBundle(
+      applying: m, to: a, writingResultTo: o, at: _site!,
+      canonicalizingTypesIn: scopeOfUse))
+  }
 }
