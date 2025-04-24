@@ -2013,7 +2013,7 @@ struct Emitter {
   ) {
     assert(site == _site!)
     let o = _access(.set, from: storage)
-    insert(module.makeCall(applying: callee, to: arguments, writingResultTo: o, at: site))
+    _call(callee, arguments, to: o)
     _end_access(o)
   }
 
@@ -2065,9 +2065,7 @@ struct Emitter {
     let x0 = _alloc_stack(.void)
     let x1 = _access(.set, from: x0)
 
-    let s = module.makeCall(
-      applying: f, to: [receiver] + arguments, writingResultTo: x1, at: ast[call].site)
-    insert(s)
+    _call(f, [receiver] + arguments, to: x1)
   }
 
   /// Inserts the IR for given memberwise constructor `call`, which initializes `receiver`.
@@ -2730,8 +2728,7 @@ struct Emitter {
       let x3 = _access(.set, from: x2)
       let x4 = _access(.sink, from: source)
 
-      let s = module.makeCall(applying: .constant(f), to: [x1, x4], writingResultTo: x3, at: self._site!)
-      insert(s)
+      _call(.constant(f), [x1, x4], to: x3)
 
       _end_access(x4)
       _end_access(x3)
@@ -2765,7 +2762,7 @@ struct Emitter {
       let x0 = _access(.let, from: o)
       let x1 = _alloc_stack(ArrowType(f.type.ast)!.output)
       let x2 = _access(.set, from: x1)
-      insert(module.makeCall(applying: .constant(f), to: [x0], writingResultTo: x2, at: _site!))
+      _call(.constant(f), [x0], to: x2)
       _end_access(x2)
       _end_access(x0)
 
@@ -3098,7 +3095,7 @@ struct Emitter {
     let x1 = _access(.set, from: x0)
     let x2 = _access([semantics], from: storage)
     let x3 = _access(.sink, from: value)
-    insert(module.makeCall(applying: .constant(f), to: [x2, x3], writingResultTo: x1, at: _site!))
+    _call(.constant(f), [x2, x3], to: x1)
     _end_access(x3)
     _end_access(x2)
     _end_access(x1)
@@ -3139,7 +3136,7 @@ struct Emitter {
 
     let x0 = _access(.let, from: source)
     let x1 = _access(.set, from: target)
-    insert(module.makeCall(applying: .constant(f), to: [x0], writingResultTo: x1, at: self._site!))
+    _call(.constant(f), [x0], to: x1)
     _end_access(x1)
     _end_access(x0)
   }
@@ -3180,7 +3177,7 @@ struct Emitter {
     let x0 = _alloc_stack(.void)
     let x1 = _access(.set, from: x0)
     let x2 = _access(.sink, from: storage)
-    insert(module.makeCall(applying: .constant(f), to: [x2], writingResultTo: x1, at: _site!))
+    _call(.constant(f), [x2], to: x1)
     _end_access(x2)
     _end_access(x1)
     _mark_state(.uninitialized, x0)
@@ -3293,7 +3290,7 @@ struct Emitter {
       let x0 = _access(.set, from: target)
       let x1 = _access(.let, from: lhs)
       let x2 = _access(.let, from: rhs)
-      insert(module.makeCall(applying: .constant(f), to: [x1, x2], writingResultTo: x0, at: _site!))
+      _call(.constant(f), [x1, x2], to: x0)
       _end_access(x2)
       _end_access(x1)
       _end_access(x0)
@@ -3852,4 +3849,11 @@ extension Emitter {
   fileprivate mutating func _capture(_ source: Operand, in target: Operand) {
     insert(module.makeCapture(source, in: target, at: _site!))
   }
+
+  fileprivate mutating func _call(
+    _ callee: Operand, _ arguments: [Operand], to output: Operand
+  ) {
+    insert(module.makeCall(applying: callee, to: arguments, writingResultTo: output, at: _site!))
+  }
+
 }
