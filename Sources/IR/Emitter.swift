@@ -2249,7 +2249,7 @@ struct Emitter {
         a.append(x2)
         _end_access(x1)
       }
-      return insert(module.makeCallBuiltin(applying: f, to: a, at: site))!
+      return _call_builtin(f, a)
     }
   }
 
@@ -3354,7 +3354,7 @@ struct Emitter {
     // The success blocks compare discriminators and then payloads.
     let dl = emitUnionDiscriminator(lhs, at: _site!)
     let dr = emitUnionDiscriminator(rhs, at: _site!)
-    let x0 = _call_builtin(applying: .icmp(.eq, .discriminator), to: [dl, dr])
+    let x0 = _call_builtin(.icmp(.eq, .discriminator), [dl, dr])
     _cond_branch(if: x0, then: same, else: fail)
 
     insertionPoint = .end(of: same)
@@ -3813,7 +3813,7 @@ extension Emitter {
   }
 
   fileprivate mutating func _call_builtin(
-    applying f: BuiltinFunction, to arguments: [Operand]
+    _ f: BuiltinFunction, _ arguments: [Operand]
   ) -> Operand {
     insert(module.makeCallBuiltin(applying: f, to: arguments, at: _site!))!
   }
