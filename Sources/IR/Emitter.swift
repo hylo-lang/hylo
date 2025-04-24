@@ -1982,7 +1982,7 @@ struct Emitter {
     }
 
     let x0 = _access(.set, from: storage)
-    insert(module.makeCapture(a, in: x0, at: _site!))
+    _capture(a, in: x0)
     _end_access(x0)
     frames.top.setMayHoldCaptures(s)
   }
@@ -3835,4 +3835,7 @@ extension Emitter {
     insert(module.makeConstantString(utf8: value, at: _site!))!
   }
 
+  fileprivate mutating func _capture(_ source: Operand, in target: Operand) {
+    insert(module.makeCapture(source, in: target, at: _site!))
+  }
 }
