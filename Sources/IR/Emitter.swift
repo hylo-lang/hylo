@@ -1588,8 +1588,7 @@ struct Emitter {
     // `A ~> Union<A, B>`
     if let u = UnionType(target), u.elements.contains(source) {
       _lowering(e)
-      let x0 = insert(
-        module.makeOpenUnion(storage, as: source, forInitialization: true, at: program[e].site))!
+      let x0 = _open_union(storage, as: source, .forInitialization)
       emitStore(value: ast[e].left, to: x0)
       _close_union(x0)
       return
