@@ -1702,8 +1702,7 @@ struct Emitter {
       specializedBy: module.specialization(in: insertionFunction!), in: insertionScope!)
 
     _lowering(e)
-    let site = _site!
-    let x0 = insert(module.makeAddressToPointer(.constant(r), at: site))!
+    let x0 = _address_to_pointer(.constant(r))
     let x1 = _subfield_view(storage, at: [0])
     emitInitialize(storage: x1, to: x0, at: ast[e].site)
 
@@ -1727,10 +1726,11 @@ struct Emitter {
     }
 
     for c in program[e].decl.implicitCaptures {
-      let y0 = emitLValue(directReferenceTo: c.decl, at: site)
+      _lowering(e)
+      let y0 = emitLValue(directReferenceTo: c.decl, at: _site!)
       let y1 = _access([c.type.access], from: y0)
       let y2 = _subfield_view(x2, at: [i])
-      emitStore(access: y1, to: y2, at: site)
+      emitStore(access: y1, to: y2, at: _site!)
       i += 1
     }
   }
@@ -2179,7 +2179,7 @@ struct Emitter {
       specializedBy: module.specialization(in: insertionFunction!), in: insertionScope!)
 
     _lowering(e)
-    let x0 = insert(module.makeAddressToPointer(.constant(r), at: _site!))!
+    let x0 = _address_to_pointer(.constant(r))
     let x1 = _alloc_stack(p.bareType)
     emitInitialize(storage: x1, to: x0, at: _site!)
     return _access([p.access], from: x1)
