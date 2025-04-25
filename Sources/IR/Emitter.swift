@@ -2838,7 +2838,7 @@ struct Emitter {
     _end_access(x1)
 
     let t = RemoteType(MetatypeType(canonical(program[e].right.type))!.instance)!
-    return insert(module.makePointerToAddress(x2, to: t, at: _site!))!
+    return _pointer_to_address(x2, as: t)
   }
 
   /// Inserts the IR for lvalue `e`.
@@ -3854,6 +3854,10 @@ extension Emitter {
     _ witness: Operand, _ table: Operand, as interface: ExistentialType
   ) -> Operand {
     insert(module.makeWrapExistentialAddr(witness, table, as: interface, at: _site!))!
+  }
+
+  fileprivate mutating func _pointer_to_address(_ x: Operand, as t: RemoteType) -> Operand {
+    insert(module.makePointerToAddress(x, to: t, at: _site!))!
   }
 
 }
