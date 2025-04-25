@@ -2923,7 +2923,7 @@ struct Emitter {
 
     switch d.kind {
     case GenericParameterDecl.self:
-      return insert(module.makeGenericParameter(passedTo: .init(d)!, at: site))!
+      return _generic_parameter(at: .init(d)!)
 
     case VarDecl.self:
       let (root, subfied) = program.subfieldRelativeToRoot(of: .init(d)!)
@@ -3872,6 +3872,10 @@ extension Emitter {
 
   fileprivate mutating func _pointer_to_address(_ x: Operand, as t: RemoteType) -> Operand {
     insert(module.makePointerToAddress(x, to: t, at: _site!))!
+  }
+
+  fileprivate mutating func _generic_parameter(at x: GenericParameterDecl.ID) -> Operand {
+    insert(module.makeGenericParameter(passedTo: x, at: _site!))!
   }
 
 }
