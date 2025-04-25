@@ -2776,7 +2776,8 @@ struct Emitter {
   ) -> Operand {
     let w = module.type(of: witness).ast
     let table = Operand.constant(module.demandWitnessTable(w, in: insertionScope!))
-    return insert(module.makeWrapExistentialAddr(witness, table, as: t, at: site))!
+    _lowering(at: site)
+    return _wrap_existential_addr(witness, table, as: t)
   }
 
   // MARK: l-values
@@ -3848,4 +3849,11 @@ extension Emitter {
       applying: m, to: a, writingResultTo: o, at: _site!,
       canonicalizingTypesIn: scopeOfUse))
   }
+
+  fileprivate mutating func _wrap_existential_addr(
+    _ witness: Operand, _ table: Operand, as interface: ExistentialType
+  ) -> Operand {
+    insert(module.makeWrapExistentialAddr(witness, table, as: interface, at: _site!))!
+  }
+
 }
