@@ -164,7 +164,7 @@ fun test_append_value_can_fill_the_array() {
   precondition(d[2] == 84)
 }
 
-// TODO: LLVM error
+// TODO (#1679) LLVM error
 // fun test_append_value_on_array_with_initial_elements() {
 //   var d = BoundedArray<Int>(capacity: 10, initial_elements: [2, 3, 5, 7])
 //   &d.append(value: 21)

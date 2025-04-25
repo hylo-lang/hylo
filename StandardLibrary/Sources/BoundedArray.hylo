@@ -33,6 +33,7 @@ public type BoundedArray<Element: Deinitializable>: SemiRegular {
 
     var i = 0
     while i != count {
+      // TODO (#1678): without copy, "illegal mutable access" is raised when `i` is incremented.
       let i_copy = i.copy()
       &append(initialized_with: fun (_ e: set Element) -> Void {
         &initialize(i_copy, &e)
@@ -161,9 +162,10 @@ public extension BoundedArray where Element: Movable {
     let p = PointerToMutable<Element>(type_punning: mutable_pointer[to: &elements])
     var i = 0
     while i < n {
-      &append(value: p.advance(by: i).unsafe_pointee())
+      pointer_to_element(at: i).unsafe_initialize_pointee(p.advance(by: i).unsafe_pointee())
       &i += 1
     }
+    &storage.header += n
 
     Builtin.mark_uninitialized(elements)
   }
