@@ -1,5 +1,5 @@
 /// A random-access collection with contiguous memory, stable element addresses,
-/// and a fixed maximum size.
+/// and a fixed capacity.
 ///
 /// Unlike `Array`, this collection is suitable for non-`Movable` elements.
 public type BoundedArray<Element: Deinitializable>: SemiRegular {
@@ -20,8 +20,8 @@ public type BoundedArray<Element: Deinitializable>: SemiRegular {
     &storage = new_storage(capacity)
   }
 
-  /// Creates an array whose contents are the results, of calling `initialize` with the values
-  /// `0 ..< count`, in order, passing also the element that needs to be initialized.
+  /// Creates an array whose contents are the results of calling `initialize` with the values
+  /// in the range `0 ..< count`, in order, along with the storage of the corresponding element.
   ///
   /// `initialize` accepts an index and the element that needs to be initialized.
   ///
@@ -88,18 +88,17 @@ public type BoundedArray<Element: Deinitializable>: SemiRegular {
 
   /// Adds a new element at the end of the array.
   ///
-  /// Requires: `count() < capacity()`.
-  /// Complexity: O(1).
+  /// - Requires: `count() < capacity()`.
+  /// - Complexity: O(1).
   public fun append<E>(initialized_with initializer: inout [E](set Element) inout -> Void) inout {
     precondition(count() < capacity(), "array is full")
     pointer_to_element(at: count()).unsafe_initialize_pointee(&initializer)
     &storage.header += 1
   }
 
-  /// Removes al elements in the array.
+  /// Removes all elements in the array, keeping its capacity.
   ///
-  /// Effects: `append()` can called `capacity()` times after this call.
-  /// Complexity: O(n), where n is the number of elements in `self`.
+  /// - Complexity: O(n), where n is the number of elements in `self`.
   public fun remove_all() inout {
     if capacity() == 0 { return }
 
@@ -115,7 +114,7 @@ public type BoundedArray<Element: Deinitializable>: SemiRegular {
   /// Removes the last element of the array.
   ///
   /// - Requires: `count() > 0`.
-  public fun pop_last() inout {
+  public fun remove_last() inout {
     let c = count()
     precondition(c > 0, "array is empty")
     pointer_to_element(at: c - 1).unsafe_deinitialize_pointee()
@@ -125,7 +124,7 @@ public type BoundedArray<Element: Deinitializable>: SemiRegular {
   /// Removes the last `n` elements of the array.
   ///
   /// - Requires: `count() >= n`.
-  public fun pop_last_n(_ n: Int) inout {
+  public fun remove_last(count n: Int) inout {
     let c = count()
     precondition(c >= n, "array is empty")
     var i = c - n
@@ -195,7 +194,6 @@ public extension BoundedArray where Element: Movable {
     &storage.header += 1
   }
 
-
 }
 
 public conformance BoundedArray: Equatable where Element: Equatable {
@@ -218,7 +216,7 @@ public conformance BoundedArray: Equatable where Element: Equatable {
 
 }
 
-public conformance BoundedArray: Copyable where Element: Copyable & Movable {
+public conformance BoundedArray: Copyable where Element: Copyable {
 
   /// Returns a copy of `self`.
   public fun copy() -> Self {
