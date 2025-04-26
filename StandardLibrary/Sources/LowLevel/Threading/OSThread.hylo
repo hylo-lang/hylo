@@ -1,4 +1,4 @@
-internal let invalid_thread_id: pthread_t = 0xffffffffffffffff
+private let invalid_thread_id: pthread_t = 0xffffffffffffffff
 
 // TODO: usable from inline; needs to be internal
 public type OSThread: Regular {
@@ -18,7 +18,8 @@ public type OSThread: Regular {
   public static fun spawn_thread(
       stack: UInt,
       executing function_ptr: MemoryAddress,
-      with_argument a: MemoryAddress) -> OSThread {
+      with_argument a: MemoryAddress
+    ) -> OSThread {
     #if os(Linux) || os(macOS)
       // TODO: improve error handling
       var thread_id: pthread_t = invalid_thread_id.copy()
@@ -38,7 +39,7 @@ public type OSThread: Regular {
 
   public fun yield_now() {
     #if os(Linux) || os(macOS)
-      let _ = sched_yield()
+      _ = sched_yield()
     #endif
   }
 
@@ -69,7 +70,7 @@ public type OSThread: Regular {
       if r >= 0 {
         return Int(truncating_or_extending: r)
       }
-      #endif
+    #endif
     return 0
   }
 
