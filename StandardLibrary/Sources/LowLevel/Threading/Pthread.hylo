@@ -1,6 +1,7 @@
 internal typealias pthread_t = UInt64
 
 internal type pthread_attr_t : Deinitializable {
+  // TODO (#1680): we should use a buffer here, but the compiler has trouble initializing it
   var p0: MemoryAddress
   var p1: MemoryAddress
   var p2: MemoryAddress

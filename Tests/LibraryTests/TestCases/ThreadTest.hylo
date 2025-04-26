@@ -31,7 +31,6 @@ fun test_can_create_thread_with_mutating_argument() {
   precondition(arg == 13, "Expected mutation did not happen.")
 }
 
-//
 fun test_can_create_thread_with_stack_and_no_argument() {
   var future = spawn_thread(stack_size: 512, executing: fun[]() -> Void {})
   precondition(future.thread_id().numeric_value() >= 0, "Thread creation failed.")
@@ -64,8 +63,12 @@ fun test_new_thread_has_a_different_thread_id() {
 
 fun test_can_yield_thread() {
   var future = spawn_thread(executing: fun[]() -> Void {
-    let i = 0
     print("Before yielding loop")
+    // TODO (#1534): we should be using `for` here, but it doesn't work yet.
+    // for _ in 0 ..< 1000 {
+    //   yield_now()
+    // }
+    let i = 0
     while i < 1000 {
       yield_now()
       &i += 1
