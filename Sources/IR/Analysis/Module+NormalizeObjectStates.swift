@@ -58,8 +58,8 @@ extension Module {
           pc = interpret(genericParameter: user, in: &context)
         case is GlobalAddr:
           pc = interpret(globalAddr: user, in: &context)
-        case is LLVMInstruction:
-          pc = interpret(llvm: user, in: &context)
+        case is CallBuiltinFunction:
+          pc = interpret(callBuiltin: user, in: &context)
         case is Load:
           pc = interpret(load: user, in: &context)
         case is MarkState:
@@ -335,7 +335,7 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(llvm i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(callBuiltin i: InstructionID, in context: inout Context) -> PC? {
       // TODO: Check that operands are initialized.
       initializeRegister(createdBy: i, in: &context)
       return successor(of: i)

@@ -29,7 +29,7 @@ add_hylo_library(Driver
   Collections)
 
 add_hylo_library(FrontEnd
-  DEPENDENCIES BigInt OrderedCollections Durian SwiftyLLVM Utils)
+  DEPENDENCIES BigInt OrderedCollections Durian Utils)
 
 add_hylo_library(IR
   DEPENDENCIES FrontEnd Utils)
