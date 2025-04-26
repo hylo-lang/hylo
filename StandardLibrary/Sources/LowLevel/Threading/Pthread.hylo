@@ -36,16 +36,16 @@ internal type pthread_attr_t : Deinitializable {
 }
 
 @ffi("pthread_attr_init")
-internal fun pthread_attr_init(_ attr: PointerToMutable<pthread_attr_t>) -> CInt
+internal fun pthread_attr_init(_ attr: PointerToMutable<pthread_attr_t>) -> CTypes.int
 @ffi("pthread_attr_setstacksize")
-internal fun pthread_attr_setstacksize(_ attr: PointerToMutable<pthread_attr_t>, _ size: CSizeT) -> CInt
+internal fun pthread_attr_setstacksize(_ attr: PointerToMutable<pthread_attr_t>, _ size: CTypes.size_t) -> CTypes.int
 @ffi("pthread_attr_destroy")
-internal fun pthread_attr_destroy(_ attr: PointerToMutable<pthread_attr_t>) -> CInt
+internal fun pthread_attr_destroy(_ attr: PointerToMutable<pthread_attr_t>) -> CTypes.int
 @ffi("pthread_create")
-internal fun pthread_create(_ thread: PointerToMutable<pthread_t>, _ attr: PointerToMutable<pthread_attr_t>, _ f: MemoryAddress, _ arg: MemoryAddress) -> CInt
+internal fun pthread_create(_ thread: PointerToMutable<pthread_t>, _ attr: PointerToMutable<pthread_attr_t>, _ f: MemoryAddress, _ arg: MemoryAddress) -> CTypes.int
 @ffi("pthread_join")
-internal fun pthread_join(_ thread: pthread_t, _ ret: PointerToMutable<MemoryAddress>) -> CInt
+internal fun pthread_join(_ thread: pthread_t, _ ret: PointerToMutable<MemoryAddress>) -> CTypes.int
 @ffi("pthread_detach")
-internal fun pthread_detach(_ thread: pthread_t) -> CInt
+internal fun pthread_detach(_ thread: pthread_t) -> CTypes.int
 @ffi("pthread_self")
 internal fun pthread_self() -> pthread_t
