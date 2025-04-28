@@ -1,0 +1,11 @@
+//- compileAndRun expecting: .success
+
+fun f() -> Int { 1 }
+
+public fun main() {
+  var x: Int[2]
+  &x = [f(), f()]
+  let p = pointer[to: x]
+  let q = Pointer<Int>(type_punning: p)
+  precondition(q.unsafe[] == 1)
+}
