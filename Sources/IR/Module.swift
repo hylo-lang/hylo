@@ -122,6 +122,8 @@ public struct Module {
       return false
     case let s as AdvancedByBytes:
       return isBoundImmutably(s.base)
+    case let s as AdvancedByStrides:
+      return isBoundImmutably(s.base)
     case let s as Access:
       return isBoundImmutably(s.source)
     case let s as OpenCapture:
