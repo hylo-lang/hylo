@@ -1,0 +1,32 @@
+@ffi("__errno_location")
+internal fun __errno_location() -> MemoryAddress
+
+@ffi("__error")
+internal fun __error() -> MemoryAddress
+
+@ffi("perror")
+internal fun perror(_ s: MemoryAddress)
+
+
+internal fun errno() -> Int32 {
+  #if os(Linux)
+    return Pointer<Int32>(type_punning: __errno_location()).unsafe[].copy()
+  #elseif os(macOS)
+    return Pointer<Int32>(type_punning: __error()).unsafe[].copy()
+  #else
+    return 0
+  #endif
+}
+
+// TODO: Use exceptions instead of trapping
+internal fun report_errno_failure_if(_ is_failure: Bool, operation: String) {
+  if is_failure {
+    let err = errno()
+    print("Error: ", terminator: "")
+    print(operation, terminator: "")
+    print("; errno: ", terminator: "")
+    print(Int(truncating_or_extending: err))
+    perror(.null())
+    fatal_error("Aborting due to error")
+  }
+}

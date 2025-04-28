@@ -1,26 +1,26 @@
 // TODO: this file should be deleted when we have proper atomics in the standard library
 
-internal fun atomic_load_relaxed_i32(_ atomic: inout UInt32) -> UInt32 {
+public fun atomic_load_relaxed_i32(_ atomic: inout UInt32) -> UInt32 {
     .new(value: Builtin.atomic_load_relaxed_i32(Builtin.address(of: atomic.value)))
 }
 
-internal fun atomic_load_acquire_i32(_ atomic: inout UInt32) -> UInt32 {
+public fun atomic_load_acquire_i32(_ atomic: inout UInt32) -> UInt32 {
     .new(value: Builtin.atomic_load_acquire_i32(Builtin.address(of: atomic.value)))
 }
 
-internal fun atomic_swap_acquire_i32(_ atomic: inout UInt32, _ value: UInt32) -> UInt32 {
+public fun atomic_swap_acquire_i32(_ atomic: inout UInt32, _ value: UInt32) -> UInt32 {
   .new(value: Builtin.atomic_swap_acquire_i32(Builtin.address(of: atomic.value), value.value))
 }
 
-internal fun atomic_swap_release_i32(_ atomic: inout UInt32, _ value: UInt32) -> UInt32 {
+public fun atomic_swap_release_i32(_ atomic: inout UInt32, _ value: UInt32) -> UInt32 {
   .new(value: Builtin.atomic_swap_release_i32(Builtin.address(of: atomic.value), value.value))
 }
 
-internal fun atomic_cmpxchg_acquire_relaxed_i32(_ atomic: inout UInt32, expected: UInt32, desired: UInt32) -> {exchanged: Bool, original: UInt32} {
+public fun atomic_cmpxchg_acquire_relaxed_i32(_ atomic: inout UInt32, expected: UInt32, desired: UInt32) -> {exchanged: Bool, original: UInt32} {
   let r = Builtin.atomic_cmpxchg_acquire_relaxed_i32(Builtin.address(of: atomic.value), expected.value, desired.value)
   return (exchanged: Bool(value: r.1), original: UInt32(value: r.0))
 }
 
-internal fun atomic_add_relaxed_i32(_ atomic: inout UInt32, _ value: UInt32) -> UInt32 {
+public fun atomic_add_relaxed_i32(_ atomic: inout UInt32, _ value: UInt32) -> UInt32 {
   UInt32(value: Builtin.atomic_add_relaxed_i32(Builtin.address(of: atomic.value), value.value))
 }

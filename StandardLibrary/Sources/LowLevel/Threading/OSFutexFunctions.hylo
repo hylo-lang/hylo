@@ -1,12 +1,92 @@
-let SYS_futex: c_long = 98
-let FUTEX_WAIT: c_int = 0
-let FUTEX_WAKE: c_int = 1
-let FUTEX_WAIT_PRIVATE: c_int = 128
-let FUTEX_WAKE_PRIVATE: c_int = 129
+namespace LinuxFutex {
+
+  let SYS_futex: c_long = 98
+  let FUTEX_WAIT: c_int = 0
+  let FUTEX_WAKE: c_int = 1
+  let FUTEX_WAIT_PRIVATE: c_int = 128
+  let FUTEX_WAKE_PRIVATE: c_int = 129
+
+  internal fun futex_wait(futex: inout UInt32, expected: UInt32) {
+    let err = syscall_for_futex(
+      number: SYS_futex,
+      uaddr: MemoryAddress(type_punning: mutable_pointer[to: &futex]),
+      futex_op: FUTEX_WAIT_PRIVATE,
+      val: expected,
+      timeout: .null(),
+      uaddr2: .null(),
+      val3: 0)
+    report_errno_failure_if(err == -1, operation: "futex_wait")
+  }
+
+  internal fun futex_wake(futex: inout UInt32, threads_to_wake: UInt32) {
+    var r = syscall_for_futex(
+      number: SYS_futex,
+      uaddr: MemoryAddress(type_punning: mutable_pointer[to: &futex]),
+      futex_op: FUTEX_WAKE_PRIVATE,
+      val: threads_to_wake,
+      timeout: .null(),
+      uaddr2: .null(),
+      val3: 0)
+    report_errno_failure_if(r == -1, operation: "futex_wake")
+  }
+
+}
+
+namespace MacOSFutex {
+
+  /// An atomic compare-and-wait operation with a timeout, used to implement higher-level synchronization primitives.
+  ///
+  /// See https://developer.apple.com/documentation/os/os_sync_wait_on_address_with_timeout
+  @ffi("os_sync_wait_on_address_with_timeout")
+  internal fun os_sync_wait_on_address_with_timeout(addr: MemoryAddress, value: UInt64, size: c_size_t, flags: UInt32, clockid: UInt32, timeout_ns: UInt64) -> c_int
+
+  /// An atomic operation that wakes one thread blocked on a futex wait, used to implement higher-level synchronization primitives.
+  ///
+  /// See https://developer.apple.com/documentation/os/os_sync_wake_by_address_any
+  @ffi("os_sync_wake_by_address_any")
+  internal fun os_sync_wake_by_address_any(addr: MemoryAddress, size: c_size_t, flags: UInt32) -> c_int
+
+  /// An atomic operation that wakes all threads blocked on a futex wait, used to implement higher-level synchronization primitives.
+  ///
+  /// See https://developer.apple.com/documentation/os/os_sync_wake_by_address_all
+  @ffi("os_sync_wake_by_address_all")
+  internal fun os_sync_wake_by_address_all(addr: MemoryAddress, size: c_size_t, flags: UInt32) -> c_int
+
+  let OS_SYNC_WAIT_ON_ADDRESS_NONE: UInt32 = 0
+  let OS_CLOCK_MACH_ABSOLUTE_TIME: UInt32 = 32
+
+  internal fun futex_wait(futex: inout UInt32, expected: UInt32) {
+    let r = os_sync_wait_on_address_with_timeout(
+      addr: MemoryAddress(type_punning: mutable_pointer[to: &futex]),
+      value: UInt64(truncating_or_extending: expected),
+      size: 4,
+      flags: OS_SYNC_WAIT_ON_ADDRESS_NONE,
+      clockid: OS_CLOCK_MACH_ABSOLUTE_TIME,
+      timeout_ns: UInt64.max())
+    report_errno_failure_if(r == -1, operation: "futex_wait")
+  }
+
+  internal fun futex_wake(futex: inout UInt32, threads_to_wake: UInt32) {
+    if threads_to_wake == 1 {
+      let r = os_sync_wake_by_address_any(
+        addr: MemoryAddress(type_punning: mutable_pointer[to: &futex]),
+        size: 4,
+        flags: OS_SYNC_WAIT_ON_ADDRESS_NONE)
+      report_errno_failure_if(r == -1, operation: "futex_wake")
+    } else {
+      let r = os_sync_wake_by_address_all(
+        addr: MemoryAddress(type_punning: mutable_pointer[to: &futex]),
+        size: 4,
+        flags: OS_SYNC_WAIT_ON_ADDRESS_NONE)
+      report_errno_failure_if(r == -1, operation: "futex_wake")
+    }
+  }
+
+}
 
 
 /// Sleep until the value at `futex` changes to a value different than `expected`.
-internal fun futex_wait(futex: inout UInt32, expected: UInt32) {
+public fun futex_wait(futex: inout UInt32, expected: UInt32) {
   while true {
     // No need to wait if the value already changed.
     var value: UInt32 = .new(value: Builtin.atomic_load_relaxed_i32(Builtin.address(of: futex.value)))
@@ -14,27 +94,23 @@ internal fun futex_wait(futex: inout UInt32, expected: UInt32) {
       break
     }
 
-    // Make a system call to wait for the value to change.
-    let _ = syscall_for_futex(
-      number: SYS_futex,
-      uaddr: MemoryAddress(type_punning: mutable_pointer[to: &futex]),
-      futex_op: FUTEX_WAIT_PRIVATE,
-      val: 0,
-      timeout: .null(),
-      uaddr2: .null(),
-      val3: 0)
+    #if os(Linux)
+      LinuxFutex.futex_wait(futex: &futex, expected: expected)
+    #elseif os(macOS)
+      MacOSFutex.futex_wait(futex: &futex, expected: expected)
+    #else
+      // Do nothing; repeat (in a busy loop) until the value changes.
+    #endif
   }
 }
 
-/// Wake up `threads_to_wake` threads waiting on `futex`. Returns the number of threads woken up.
-internal fun futex_wake(futex: inout UInt32, threads_to_wake: UInt32) -> UInt32 {
-  var r = syscall_for_futex(
-    number: SYS_futex,
-    uaddr: MemoryAddress(type_punning: mutable_pointer[to: &futex]),
-    futex_op: FUTEX_WAKE_PRIVATE,
-    val: threads_to_wake,
-    timeout: .null(),
-    uaddr2: .null(),
-    val3: 0)
-  return .new(truncating_or_extending: r)
+/// Wake up at least `threads_to_wake` threads waiting on `futex`.
+public fun futex_wake(futex: inout UInt32, threads_to_wake: UInt32) {
+  #if os(Linux)
+    LinuxFutex.futex_wake(futex: &futex, threads_to_wake: threads_to_wake)
+  #elseif os(macOS)
+    MacOSFutex.futex_wake(futex: &futex, threads_to_wake: threads_to_wake)
+  #else
+    // Do nothing; assume the thread never really went to sleep.
+  #endif
 }

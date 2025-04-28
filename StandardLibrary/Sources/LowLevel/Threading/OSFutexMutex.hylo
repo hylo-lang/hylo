@@ -48,7 +48,7 @@ public type OSFutexMutex: Deinitializable, Movable {
     if old == CONTENDED {
       // Some thread is sleeping, wake it up.
       // Waking up one thread is better for concurrency; eventually all threads will be woken up.
-      let _ = futex_wake(futex: &futex, threads_to_wake: 1)
+      futex_wake(futex: &futex, threads_to_wake: 1)
     }
   }
 
