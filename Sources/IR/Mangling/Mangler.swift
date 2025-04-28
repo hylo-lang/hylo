@@ -109,19 +109,19 @@ struct Mangler {
 
     switch d.kind {
     case AssociatedTypeDecl.self:
-      append(entity: AssociatedTypeDecl.ID(d)!, to: &output)
+      append(unqualified: AssociatedTypeDecl.ID(d)!, to: &output)
     case AssociatedValueDecl.self:
-      append(entity: AssociatedValueDecl.ID(d)!, to: &output)
+      append(unqualified: AssociatedValueDecl.ID(d)!, to: &output)
     case BindingDecl.self:
-      append(entity: BindingDecl.ID(d)!, to: &output)
+      append(unqualified: BindingDecl.ID(d)!, to: &output)
     case ImportDecl.self:
-      append(entity: ImportDecl.ID(d)!, to: &output)
+      append(unqualified: ImportDecl.ID(d)!, to: &output)
     case GenericParameterDecl.self:
-      append(entity: GenericParameterDecl.ID(d)!, to: &output)
+      append(unqualified: GenericParameterDecl.ID(d)!, to: &output)
     case ParameterDecl.self:
-      append(entity: ParameterDecl.ID(d)!, to: &output)
+      append(unqualified: ParameterDecl.ID(d)!, to: &output)
     case VarDecl.self:
-      append(entity: VarDecl.ID(d)!, to: &output)
+      append(unqualified: VarDecl.ID(d)!, to: &output)
     default:
       unexpected(d, in: program.ast)
     }
@@ -129,14 +129,14 @@ struct Mangler {
     symbolPosition[.node(AnyNodeID(d))] = symbolPosition.count
   }
 
-  /// Writes the mangled representation of `d` to `output`.
-  private mutating func append<T: SingleEntityDecl>(entity d: T.ID, to output: inout Output) {
+  /// Writes the mangled representation of `d` sans qualification to `output`.
+  private mutating func append<T: SingleEntityDecl>(unqualified d: T.ID, to output: inout Output) {
     append(operator: .init(for: T.self), to: &output)
     append(string: program.ast[d].baseName, to: &output)
   }
 
-  /// Writes the mangled representation of `d` to `output`.
-  private mutating func append(entity d: BindingDecl.ID, to output: inout Output) {
+  /// Writes the mangled representation of `d` sans qualification to `output`.
+  private mutating func append(unqualified d: BindingDecl.ID, to output: inout Output) {
     append(operator: .bindingDecl, to: &output)
     append(items: program.ast.names(in: program[d].pattern), to: &output) { (me, n, o) in
       me.append(decl: me.program.ast[n.pattern].decl, to: &o)
@@ -201,21 +201,21 @@ struct Mangler {
     case MethodImpl.self:
       append(methodImpl: MethodImpl.ID(s)!, to: &output)
     case ModuleDecl.self:
-      append(entity: ModuleDecl.ID(s)!, to: &output)
+      append(unqualified: ModuleDecl.ID(s)!, to: &output)
     case NamespaceDecl.self:
-      append(entity: NamespaceDecl.ID(s)!, to: &output)
+      append(unqualified: NamespaceDecl.ID(s)!, to: &output)
     case ProductTypeDecl.self:
-      append(entity: ProductTypeDecl.ID(s)!, to: &output)
+      append(unqualified: ProductTypeDecl.ID(s)!, to: &output)
     case SubscriptDecl.self:
       append(subscriptDecl: SubscriptDecl.ID(s)!, to: &output)
     case SubscriptImpl.self:
       append(subscriptImpl: SubscriptImpl.ID(s)!, to: &output)
     case TraitDecl.self:
-      append(entity: TraitDecl.ID(s)!, to: &output)
+      append(unqualified: TraitDecl.ID(s)!, to: &output)
     case TranslationUnit.self:
       append(translationUnit: TranslationUnit.ID(s)!, to: &output)
     case TypeAliasDecl.self:
-      append(entity: TypeAliasDecl.ID(s)!, to: &output)
+      append(unqualified: TypeAliasDecl.ID(s)!, to: &output)
     case WhileStmt.self:
       append(anonymous: s, to: &output)
     default:
@@ -411,7 +411,7 @@ struct Mangler {
       append(base64Didit: 4, to: &output)
     case .globalInitialization(let d):
       append(base64Didit: 5, to: &output)
-      append(entity: d, to: &output)
+      append(decl: d, to: &output)
     case .autoclosure(let e):
       append(base64Didit: 6, to: &output)
       // To allow using multiple autoclosures in the same scope, also write the expression ID.
@@ -443,7 +443,7 @@ struct Mangler {
       let v = (t.value as? Int) ?? UNIMPLEMENTED()
       append(integer: v, to: &output)
     case let t as GenericTermParameter:
-      append(entity: t.decl, to: &output)
+      append(decl: t.decl, to: &output)
     default:
       UNIMPLEMENTED()
     }

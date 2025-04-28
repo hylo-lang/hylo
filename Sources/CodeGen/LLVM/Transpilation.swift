@@ -75,6 +75,9 @@ struct CodeGenerationContext {
   /// A table from string constant to its representation in LLVM.
   var strings = Trie<Data, SwiftyLLVM.GlobalVariable>()
 
+  /// A table from mangled function name to its transpilation status.
+  var transpiled: Set<IR.Function.ID> = []
+
   /// Creates an instance for compiling `m`, which is a module of `p`.
   init(forCompiling m: ModuleDecl.ID, of p: IR.Program) {
     self.ir = p
@@ -112,19 +115,21 @@ extension SwiftyLLVM.Module {
   /// Transpiles and incorporates `f`, which is a function or subscript of `m` in `ir`.
   mutating func incorporate(_ f: IR.Function.ID, in context: inout CodeGenerationContext) {
     // Don't transpile generic functions.
-    if context.source[f].isGeneric {
-      return
+    if context.source[f].isGeneric { return }
+    // Don't re-transpile functions.
+    if !context.transpiled.insert(f).inserted { return }
+
+    // Get the declaraiton of LLVM function corresponding to `f`. It is possible that this function
+    // has already been declared if it is referred to by some code that was transpiled first.
+    let transpilation = if context.source[f].isSubscript {
+      declareSubscript(transpiledFrom: f, in: &context)
+    } else {
+      declareFunction(transpiledFrom: f, in: &context)
     }
 
-    if context.source[f].isSubscript {
-      let d = declareSubscript(transpiledFrom: f, in: &context)
-      transpile(contentsOf: f, into: d, inContext: &context)
-    } else {
-      let d = declareFunction(transpiledFrom: f, in: &context)
-      transpile(contentsOf: f, into: d, inContext: &context)
-      if f == context.source.entryFunction {
-        defineMain(calling: f, in: &context)
-      }
+    transpile(contentsOf: f, into: transpilation.function, inContext: &context)
+    if f == context.source.entryFunction {
+      defineMain(calling: f, in: &context)
     }
   }
 
@@ -545,42 +550,42 @@ extension SwiftyLLVM.Module {
   /// Inserts and returns the transpiled declaration of `f`, which is a function of `m` in `ir`.
   private mutating func declareFunction(
     transpiledFrom f: IR.Function.ID, in context: inout CodeGenerationContext
-  ) -> SwiftyLLVM.Function {
+  ) -> (inserted: Bool, function: SwiftyLLVM.Function) {
     precondition(!context.source[f].isSubscript)
 
     // Parameters and return values are passed by reference.
-    let parameters = Array(
-      repeating: ptr as SwiftyLLVM.IRType, count: context.source[f].inputs.count + 1)
-    let transpilation = declareFunction(
-      context.ir.llvmName(of: f), .init(from: parameters, in: &self))
+    let parameters = Array(repeating: ptr, count: context.source[f].inputs.count + 1)
+    let name = context.ir.llvmName(of: f)
+    let transpilation = declareFunction(name, .init(from: parameters, in: &self))
 
-    configureAttributes(transpilation, transpiledFrom: f, of: context.source)
+    configureAttributes(
+      transpilation, transpiledFrom: f, of: context.source)
     configureInputAttributes(
       transpilation.parameters.dropLast(), transpiledFrom: f, in: context.source)
 
-    return transpilation
+    return (true, transpilation)
   }
 
   /// Inserts and returns the transpiled declaration of `f`, which is a subscript of `m` in `ir`.
   private mutating func declareSubscript(
     transpiledFrom f: IR.Function.ID, in context: inout CodeGenerationContext
-  ) -> SwiftyLLVM.Function {
+  ) -> (inserted: Bool, function: SwiftyLLVM.Function) {
     precondition(context.source[f].isSubscript)
 
     // Parameters are a buffer for the subscript frame followed by its declared parameters. Return
     // type is a pair `(c, p)` where `c` points to a subscript slide and `p` is the address of the
     // projected value.
     let r = SwiftyLLVM.StructType([ptr, ptr], in: &self)
-    let parameters = Array(
-      repeating: ptr as SwiftyLLVM.IRType, count: context.source[f].inputs.count + 1)
-    let transpilation = declareFunction(
-      context.ir.llvmName(of: f), .init(from: parameters, to: r, in: &self))
+    let parameters = Array(repeating: ptr, count: context.source[f].inputs.count + 1)
+    let name = context.ir.llvmName(of: f)
+    let transpilation = declareFunction(name, .init(from: parameters, to: r, in: &self))
 
-    configureAttributes(transpilation, transpiledFrom: f, of: context.source)
+    configureAttributes(
+      transpilation, transpiledFrom: f, of: context.source)
     configureInputAttributes(
       transpilation.parameters.dropFirst(), transpiledFrom: f, in: context.source)
 
-    return transpilation
+    return (true, transpilation)
   }
 
   /// Adds to `llvmFunction` the attributes implied by its IR form `f`, which is in `m`.
@@ -634,11 +639,15 @@ extension SwiftyLLVM.Module {
 
   /// Inserts into `transpilation `the transpiled contents of `f`, which is a function or subscript
   /// of `m` in `ir`.
+  ///
+  /// - Requires: `transpilation` contains no instruction.
   private mutating func transpile(
     contentsOf f: IR.Function.ID,
     into transpilation: SwiftyLLVM.Function,
     inContext context: inout CodeGenerationContext
   ) {
+    assert(transpilation.basicBlocks.isEmpty)
+
     /// The function's entry.
     guard let entry = context.source[f].entry else { return }
 
@@ -1667,7 +1676,7 @@ extension SwiftyLLVM.Module {
       }
 
       // %1 = call ptr @llvm.coro.prepare.retcon(ptr @s)
-      let f = declareSubscript(transpiledFrom: s.callee, in: &context)
+      let (_, f) = declareSubscript(transpiledFrom: s.callee, in: &context)
       let prepare = intrinsic(named: Intrinsic.llvm.coro.prepare.retcon)!
       let x1 = insertCall(SwiftyLLVM.Function(prepare)!, on: [f], at: insertionPoint)
 
