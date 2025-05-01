@@ -1,37 +1,11 @@
 internal typealias pthread_t = UInt64
 
 internal type pthread_attr_t : Deinitializable {
-  // TODO (#1680): we should use a buffer here, but the compiler has trouble initializing it
-  var p0: MemoryAddress
-  var p1: MemoryAddress
-  var p2: MemoryAddress
-  var p3: MemoryAddress
-  var p4: MemoryAddress
-  var p5: MemoryAddress
-  var p6: MemoryAddress
-  var p7: MemoryAddress
-  var p8: MemoryAddress
-  var p9: MemoryAddress
-  var p10: MemoryAddress
-  var p11: MemoryAddress
-  var p12: MemoryAddress
-  var p13: MemoryAddress
+  var storage: MemoryAddress[14]
 
   internal init() {
-    &self.p0 = .null()
-    &self.p1 = .null()
-    &self.p2 = .null()
-    &self.p3 = .null()
-    &self.p4 = .null()
-    &self.p5 = .null()
-    &self.p6 = .null()
-    &self.p7 = .null()
-    &self.p8 = .null()
-    &self.p9 = .null()
-    &self.p10 = .null()
-    &self.p11 = .null()
-    &self.p12 = .null()
-    &self.p13 = .null()
+    &self.storage = [.null(), .null(), .null(), .null(), .null(), .null(), .null(),
+                     .null(), .null(), .null(), .null(), .null(), .null(), .null()]
   }
 
 }
