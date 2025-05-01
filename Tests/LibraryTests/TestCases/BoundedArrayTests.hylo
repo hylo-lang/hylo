@@ -164,25 +164,24 @@ fun test_append_value_can_fill_the_array() {
   precondition(d[2] == 84)
 }
 
-// TODO (#1679) LLVM error
-// fun test_append_value_on_array_with_initial_elements() {
-//   var d = BoundedArray<Int>(capacity: 10, initial_elements: [2, 3, 5, 7])
-//   &d.append(value: 21)
-//   &d.append(value: 42)
-//   &d.append(value: 84)
+fun test_append_value_on_array_with_initial_elements() {
+  var d = BoundedArray<Int>(capacity: 10, initial_elements: [2, 3, 5, 7])
+  &d.append(value: 21)
+  &d.append(value: 42)
+  &d.append(value: 84)
 
-//   precondition(d.count() == 7)
-//   precondition(d.capacity() == 10)
-//   precondition(!d.is_empty())
-//   precondition(!d.is_full())
-//   precondition(d[0] == 2)
-//   precondition(d[1] == 3)
-//   precondition(d[2] == 5)
-//   precondition(d[3] == 7)
-//   precondition(d[4] == 21)
-//   precondition(d[5] == 42)
-//   precondition(d[6] == 84)
-// }
+  precondition(d.count() == 7)
+  precondition(d.capacity() == 10)
+  precondition(!d.is_empty())
+  precondition(!d.is_full())
+  precondition(d[0] == 2)
+  precondition(d[1] == 3)
+  precondition(d[2] == 5)
+  precondition(d[3] == 7)
+  precondition(d[4] == 21)
+  precondition(d[5] == 42)
+  precondition(d[6] == 84)
+}
 
 
 fun test_remove_all_removes_all_the_elements() {
@@ -349,7 +348,7 @@ public fun main() {
   test_append_with_initializer_can_fill_the_array()
   test_append_value_on_empty_array()
   test_append_value_can_fill_the_array()
-  // test_append_value_on_array_with_initial_elements()
+  test_append_value_on_array_with_initial_elements()
   test_remove_all_removes_all_the_elements()
   test_remove_all_on_empty_array_does_nothing()
   test_remove_last_reduces_the_count_by_one()
