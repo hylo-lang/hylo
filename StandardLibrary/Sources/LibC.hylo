@@ -57,7 +57,7 @@ public fun memmove(
 ///
 /// See https://www.man7.org/linux/man-pages/man3/sysconf.3.html.
 @ffi("sysconf")
-internal fun sysconf(name: CTypes.int) -> CTypes.long
+internal fun sysconf(name: C.int) -> C.long
 
 /// Give the current thread time slice back to the OS scheduler.
 ///
@@ -65,4 +65,4 @@ internal fun sysconf(name: CTypes.int) -> CTypes.long
 ///
 /// See: https://www.man7.org/linux/man-pages/man2/sched_yield.2.html
 @ffi("sched_yield")
-internal fun sched_yield() -> CTypes.int
+internal fun sched_yield() -> C.int

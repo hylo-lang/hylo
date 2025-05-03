@@ -27,7 +27,7 @@ public type OSThread: Regular {
       let pattr = mutable_pointer[to: &attr]
       if pthread_attr_init(pattr) != 0 { return .new() }
       if stack > 0 {
-        if pthread_attr_setstacksize(pattr, CTypes.size_t(truncating_or_extending: stack)) != 0 { return .new() }
+        if pthread_attr_setstacksize(pattr, C.size_t(truncating_or_extending: stack)) != 0 { return .new() }
       }
       if pthread_create(mutable_pointer[to: &thread_id], pattr, function_ptr, a) != 0 { return .new() }
 
@@ -62,9 +62,9 @@ public type OSThread: Regular {
   public static fun available_parallelism() -> Int {
     #if os(Linux) || os(macOS)
       #if os(Linux)
-        let _SC_NPROCESSORS_ONLN: CTypes.int = 84
+        let _SC_NPROCESSORS_ONLN: C.int = 84
       #elseif os(macOS)
-        let _SC_NPROCESSORS_ONLN: CTypes.int = 58
+        let _SC_NPROCESSORS_ONLN: C.int = 58
       #endif
       let r = sysconf(name: _SC_NPROCESSORS_ONLN)
       if r >= 0 {
