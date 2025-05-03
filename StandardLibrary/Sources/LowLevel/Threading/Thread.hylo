@@ -2,7 +2,7 @@
 /// A unique identifier for a running thread.
 ///
 /// This is an abstraction over the thread ID for the underlying operating system.
-public type ThreadId {
+public type ThreadId: Regular {
 
   /// The underlying thread ID, as seen by the operating system.
   var id: pthread_t
@@ -19,7 +19,6 @@ public type ThreadId {
   }
 
 }
-conformance ThreadId: Regular {}
 
 
 /// Handler for a thread that is being executed.
@@ -103,7 +102,6 @@ public fun spawn_thread<A>(executing f: sink [](A) -> Void, with_argument a: Poi
 public fun spawn_thread<A>(executing f: sink [](inout A) -> Void, with_inout_argument a: PointerToMutable<A>) -> ThreadCompletion<A> {
   .new(stack: 0, executing: f, with_inout_argument: a)
 }
-
 
 /// Creates a new thread that will execute `f` with no arguments, using a stack size of `stack_size`.
 public fun spawn_thread(stack_size: UInt, executing f: sink []() -> Void) -> ThreadCompletion<Void> {

@@ -1,5 +1,5 @@
 
-namespace CTypes {
+namespace C {
 
   /// Type alias compatible with C `size_t` type.
   public typealias size_t = UInt
