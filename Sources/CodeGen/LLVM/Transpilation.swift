@@ -1126,6 +1126,12 @@ extension SwiftyLLVM.Module {
         let source = llvm(s.operands[0])
         register[.register(i)] = insertPtrToInt(source, to: target, at: insertionPoint)
 
+      case .fromcint(let cIntType, let targetType): 
+        insertTruncateOrExtend(sourceType: .cNumeric(cIntType), targetType: targetType, sourceValue: llvm(s.operands[0]), 
+          isSourceTypeSigned: cIntType.signedInteger, for: i)
+      case .tocint(let hyloIntegerType, let targetCType, let sourceTypeSigned):
+        insertTruncateOrExtend(sourceType: hyloIntegerType, targetType: .cNumeric(targetCType), sourceValue: llvm(s.operands[0]), 
+          isSourceTypeSigned: sourceTypeSigned, for: i)
       case .fadd:
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
@@ -1604,6 +1610,27 @@ extension SwiftyLLVM.Module {
     func insertAtomicFence(_ ordering: AtomicOrdering, singleThread: Bool, for i: IR.InstructionID) {
       insertFence(ordering, singleThread: singleThread, at: insertionPoint)
       register[.register(i)] = ptr.null
+    }
+
+    /// Inserts a truncation/extension from source to target type.
+    func insertTruncateOrExtend(sourceType: BuiltinType, targetType: BuiltinType, sourceValue: IRValue, isSourceTypeSigned: Bool,
+     for i: IR.InstructionID) {
+      
+      let targetLLVMType = context.ir.llvm(builtinType: targetType, in: &self)
+      let sourceTypeSize = ConcreteTypeLayout(of: sourceType, forUseIn: &self)
+      let targetTypeSize = ConcreteTypeLayout(of: targetType, forUseIn: &self)
+
+        if sourceTypeSize.size == targetTypeSize.size {
+          // just copy the value
+          register[.register(i)] = sourceValue
+        } else if sourceTypeSize.size > targetTypeSize.size {
+          // Truncate the value. Negative values are correctly truncated also due to two's complement.
+          register[.register(i)] = insertTrunc(sourceValue, to: targetLLVMType, at: insertionPoint)
+        } else if isSourceTypeSigned {
+          register[.register(i)] = insertSignExtend(sourceValue, to: targetLLVMType, at: insertionPoint)
+        } else {
+          register[.register(i)] = insertZeroExtend(sourceValue, to: targetLLVMType, at: insertionPoint)
+        }
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.

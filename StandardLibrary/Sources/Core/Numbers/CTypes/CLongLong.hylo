@@ -1,0 +1,49 @@
+/// Represents the C `long long` type.
+/// The range covers at least [-9223372036854775807, 9223372036854775807].
+/// Guaranteed to be at least 64 bits.
+public type CLongLong {
+    internal var value: Builtin.clonglong
+    internal memberwise init
+
+    public static fun min() -> Self {
+        -9223372036854775808 // todo CLongLong(value: Builtin.int_clonglong_min())
+    }
+    public static fun max() -> Self {
+        9223372036854775807 // todo CLongLong(value: Builtin.int_clonglong_max())
+    }
+}
+
+public conformance CLongLong: ExpressibleByIntegerLiteral {}
+public conformance CLongLong: Deinitializable {}
+public conformance CLongLong: Movable {}
+public conformance CLongLong: Copyable {
+    public fun copy() -> Self {
+        CLongLong(value: value)
+    }
+}
+
+public conformance CLongLong: Equatable {
+
+  public fun infix== (_ other: Self) -> Bool {
+    Bool(value: Builtin.icmp_eq_clonglong(value, other.value))
+  }
+
+  public fun infix!= (_ other: Self) -> Bool {
+    Bool(value: Builtin.icmp_ne_clonglong(value, other.value))
+  }
+
+}
+
+public conformance CLongLong: ForeignConvertible {
+
+  public typealias ForeignRepresentation = Builtin.clonglong
+
+  public init(foreign_value: sink Builtin.clonglong) {
+    &self.value = foreign_value
+  }
+
+  public fun foreign_value() -> Builtin.clonglong {
+    return value
+  }
+
+}
