@@ -1696,12 +1696,12 @@ final class ParserTests: XCTestCase {
     XCTAssertEqual(stmt.condition, .operatingSystem("macOs"))
     XCTAssertEqual(stmt.stmts.count, 1)
     XCTAssertEqual(stmt.fallback.count, 1)
-    
+
     let stmt2 = try XCTUnwrap(ast[stmt.fallback[0]] as? ConditionalCompilationStmt)
     XCTAssertEqual(stmt2.condition, .operatingSystem("Linux"))
     XCTAssertEqual(stmt2.stmts.count, 1)
     XCTAssertEqual(stmt2.fallback.count, 1)
-    
+
     let stmt3 = try XCTUnwrap(ast[stmt2.fallback[0]] as? ConditionalCompilationStmt)
     XCTAssertEqual(stmt3.condition, .operatingSystem("Windows"))
     XCTAssertEqual(stmt3.stmts.count, 1)
@@ -1716,17 +1716,17 @@ final class ParserTests: XCTestCase {
     XCTAssertEqual(stmt.condition, .architecture("x86_64"))
     XCTAssertEqual(stmt.stmts.count, 1)
     XCTAssertEqual(stmt.fallback.count, 1)
-    
+
     let stmt2 = try XCTUnwrap(ast[stmt.fallback[0]] as? ConditionalCompilationStmt)
     XCTAssertEqual(stmt2.condition, .architecture("i386"))
     XCTAssertEqual(stmt2.stmts.count, 1)
     XCTAssertEqual(stmt2.fallback.count, 1)
-    
+
     let stmt3 = try XCTUnwrap(ast[stmt2.fallback[0]] as? ConditionalCompilationStmt)
     XCTAssertEqual(stmt3.condition, .architecture("arm64"))
     XCTAssertEqual(stmt3.stmts.count, 1)
     XCTAssertEqual(stmt3.fallback.count, 1)
-    
+
     let stmt4 = try XCTUnwrap(ast[stmt3.fallback[0]] as? ConditionalCompilationStmt)
     XCTAssertEqual(stmt4.condition, .architecture("arm"))
     XCTAssertEqual(stmt4.stmts.count, 1)
@@ -1842,7 +1842,7 @@ final class ParserTests: XCTestCase {
       .hyloVersion(comparison: .less(SemanticVersion(major: 0, minor: 1, patch: 0))))
     XCTAssertEqual(stmt.stmts.count, 0)  // Body not parsed
     XCTAssertEqual(stmt.fallback.count, 1)
-    
+
     let stmt2 = try XCTUnwrap(ast[stmt.fallback[0]] as? ConditionalCompilationStmt)
     XCTAssertEqual(stmt2.condition, .operatingSystem("bla"))
     XCTAssertEqual(stmt2.stmts.count, 0)

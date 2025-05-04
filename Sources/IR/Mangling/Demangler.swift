@@ -502,7 +502,7 @@ struct Demangler {
     let ts = takeItems(from: &stream) { (me, s) in
       me.demangleType(from: &s)
     }
-    return ts.map({ (s) in .type(.existentialTrait(s))})
+    return ts.map({ (s) in .type(.existentialTrait(s)) })
   }
 
   /// Demangles an arrow type from `stream`.

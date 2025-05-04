@@ -75,7 +75,7 @@ extension IR.Program {
     case .ptr:
       return module.ptr
     case .cNumeric(let cType):
-      return SwiftyLLVM.IntegerType(cType.size*8, in: &module)
+      return SwiftyLLVM.IntegerType(cType.size * 8, in: &module)
     case .module:
       notLLVMRepresentable(t)
     }

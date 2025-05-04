@@ -1,8 +1,8 @@
 import FrontEnd
 import StandardLibrary
+import TestUtils
 import Utils
 import XCTest
-import TestUtils
 
 final class ASTTests: XCTestCase {
 

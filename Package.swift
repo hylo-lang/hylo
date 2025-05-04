@@ -55,7 +55,7 @@ let package = Package(
       branch: "main"),
     .package(
       url: "https://github.com/apple/swift-format",
-      from: "508.0.1"),
+      from: "510.1.0"),
     .package(
       url: "https://github.com/SwiftPackageIndex/SPIManifest.git",
       from: "0.12.0"),

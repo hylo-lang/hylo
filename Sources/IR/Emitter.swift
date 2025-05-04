@@ -37,7 +37,7 @@ struct Emitter {
   private var loops = LoopIDs()
 
   /// For each block, the state of `frames` where the block was first entered.
-  private var stackOnEntry: [ Block.ID: Stack ] = [:]
+  private var stackOnEntry: [Block.ID: Stack] = [:]
 
   /// Where new instructions are inserted.
   var insertionPoint: InsertionPoint?
@@ -2298,7 +2298,7 @@ struct Emitter {
     let r = emitLValue(receiver: s, at: ast[callee].site)
     return emitMemberFunctionCallee(
       referringTo: d, memberOf: r, markedForMutation: isMutating,
-      specializedBy: a, in:program[callee].scope,
+      specializedBy: a, in: program[callee].scope,
       at: program[callee].site)
   }
 
@@ -2421,7 +2421,6 @@ struct Emitter {
     let c = insert(module.makeAccess(entityToCall.capabilities, from: r, at: ast[callee].site))!
     return (entityToCall, [c])
   }
-
 
   /// Returns `(success: a, failure: b)` where `a` is the basic block reached if all items in
   /// `condition` hold and `b` is the basic block reached otherwise, creating new basic blocks
@@ -3321,7 +3320,8 @@ struct Emitter {
     // The success blocks compare discriminators and then payloads.
     let dl = emitUnionDiscriminator(lhs, at: site)
     let dr = emitUnionDiscriminator(rhs, at: site)
-    let x0 = insert(module.makeCallBuiltin(applying: .icmp(.eq, .discriminator), to: [dl, dr], at: site))!
+    let x0 = insert(
+      module.makeCallBuiltin(applying: .icmp(.eq, .discriminator), to: [dl, dr], at: site))!
     emitCondBranch(if: x0, then: same, else: fail, at: site)
 
     insertionPoint = .end(of: same)
@@ -3589,8 +3589,7 @@ extension Emitter {
     modify(&stackOnEntry[b]) { x in
       if let y = x {
         assert(y.hasSameAllocations(as: frames))
-      }
-      else {
+      } else {
         x = frames
       }
     }
@@ -3599,7 +3598,8 @@ extension Emitter {
   /// Inserts a `cond_branch` anchored at `site` that jumps to `targetIfTrue` if `condition` is
   /// true or `targetIfFalse` otherwise.
   fileprivate mutating func emitCondBranch(
-    if condition: Operand, then targetIfTrue: Block.ID, else targetIfFalse: Block.ID, at site: SourceRange
+    if condition: Operand, then targetIfTrue: Block.ID, else targetIfFalse: Block.ID,
+    at site: SourceRange
   ) {
     checkEntryStack(targetIfTrue)
     checkEntryStack(targetIfFalse)

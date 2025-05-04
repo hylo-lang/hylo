@@ -3050,7 +3050,7 @@ public enum Parser {
         guard let c = parseConnective(in: &state) else { return lhs }
 
         // Backtrack if the connective we got hasn't strong enough precedence.
-        if (c.rawValue < p.rawValue) {
+        if c.rawValue < p.rawValue {
           state.restore(from: backup)
           return lhs
         }
@@ -3104,7 +3104,7 @@ public enum Parser {
       } else if h.kind == .poundElse {
         fallback = try parseConditionalCompilationBranch(in: &state)
         _ = try state.expect("'#endif'", using: { $0.take(.poundEndif) })
-      } else{
+      } else {
         fallback = [try parseCompilerConditionTail(head: h, in: &state)]
       }
 

@@ -4,10 +4,10 @@ import IR
 import SwiftyLLVM
 import Utils
 
-fileprivate extension SwiftyLLVM.OverflowBehavior {
+extension SwiftyLLVM.OverflowBehavior {
 
   /// An instance equivalent to `x`
-  init(_ x: FrontEnd.OverflowBehavior) {
+  fileprivate init(_ x: FrontEnd.OverflowBehavior) {
     switch x {
     case .ignore: self = .ignore
     case .nsw: self = .nsw
@@ -17,10 +17,10 @@ fileprivate extension SwiftyLLVM.OverflowBehavior {
 
 }
 
-fileprivate extension SwiftyLLVM.IntegerPredicate {
+extension SwiftyLLVM.IntegerPredicate {
 
   /// An instance equivalent to `x`
-  init(_ x: FrontEnd.IntegerPredicate) {
+  fileprivate init(_ x: FrontEnd.IntegerPredicate) {
     switch x {
     case .eq: self = .eq
     case .slt: self = .slt
@@ -37,10 +37,10 @@ fileprivate extension SwiftyLLVM.IntegerPredicate {
 
 }
 
-fileprivate extension SwiftyLLVM.FloatingPointPredicate {
+extension SwiftyLLVM.FloatingPointPredicate {
 
   /// An instance equivalent to `x`
-  init(_ x: FrontEnd.FloatingPointPredicate) {
+  fileprivate init(_ x: FrontEnd.FloatingPointPredicate) {
     switch x {
     case .alwaysFalse: self = .alwaysFalse
     case .alwaysTrue: self = .alwaysTrue
@@ -121,11 +121,12 @@ extension SwiftyLLVM.Module {
 
     // Get the declaraiton of LLVM function corresponding to `f`. It is possible that this function
     // has already been declared if it is referred to by some code that was transpiled first.
-    let transpilation = if context.source[f].isSubscript {
-      declareSubscript(transpiledFrom: f, in: &context)
-    } else {
-      declareFunction(transpiledFrom: f, in: &context)
-    }
+    let transpilation =
+      if context.source[f].isSubscript {
+        declareSubscript(transpiledFrom: f, in: &context)
+      } else {
+        declareFunction(transpiledFrom: f, in: &context)
+      }
 
     transpile(contentsOf: f, into: transpilation.function, inContext: &context)
     if f == context.source.entryFunction {
@@ -1465,94 +1466,130 @@ extension SwiftyLLVM.Module {
         insert(atomicRMW: .xor, ordering: .sequentiallyConsistent, for: i)
 
       case .atomic_cmpxchg_relaxed_relaxed:
-        insertAtomicCompareExchange(successOrdering: .monotonic, failureOrdering: .monotonic, weak: false, for: i)
+        insertAtomicCompareExchange(
+          successOrdering: .monotonic, failureOrdering: .monotonic, weak: false, for: i)
 
       case .atomic_cmpxchg_relaxed_acquire:
-        insertAtomicCompareExchange(successOrdering: .monotonic, failureOrdering: .acquire, weak: false, for: i)
+        insertAtomicCompareExchange(
+          successOrdering: .monotonic, failureOrdering: .acquire, weak: false, for: i)
 
       case .atomic_cmpxchg_relaxed_seqcst:
-        insertAtomicCompareExchange(successOrdering: .monotonic, failureOrdering: .sequentiallyConsistent, weak: false, for: i)
+        insertAtomicCompareExchange(
+          successOrdering: .monotonic, failureOrdering: .sequentiallyConsistent, weak: false, for: i
+        )
 
       case .atomic_cmpxchg_acquire_relaxed:
-        insertAtomicCompareExchange(successOrdering: .acquire, failureOrdering: .monotonic, weak: false, for: i)
+        insertAtomicCompareExchange(
+          successOrdering: .acquire, failureOrdering: .monotonic, weak: false, for: i)
 
       case .atomic_cmpxchg_acquire_acquire:
-        insertAtomicCompareExchange(successOrdering: .acquire, failureOrdering: .acquire, weak: false, for: i)
+        insertAtomicCompareExchange(
+          successOrdering: .acquire, failureOrdering: .acquire, weak: false, for: i)
 
       case .atomic_cmpxchg_acquire_seqcst:
-        insertAtomicCompareExchange(successOrdering: .acquire, failureOrdering: .sequentiallyConsistent, weak: false, for: i)
+        insertAtomicCompareExchange(
+          successOrdering: .acquire, failureOrdering: .sequentiallyConsistent, weak: false, for: i)
 
       case .atomic_cmpxchg_release_relaxed:
-        insertAtomicCompareExchange(successOrdering: .release, failureOrdering: .monotonic, weak: false, for: i)
+        insertAtomicCompareExchange(
+          successOrdering: .release, failureOrdering: .monotonic, weak: false, for: i)
 
       case .atomic_cmpxchg_release_acquire:
-        insertAtomicCompareExchange(successOrdering: .release, failureOrdering: .acquire, weak: false, for: i)
+        insertAtomicCompareExchange(
+          successOrdering: .release, failureOrdering: .acquire, weak: false, for: i)
 
       case .atomic_cmpxchg_release_seqcst:
-        insertAtomicCompareExchange(successOrdering: .release, failureOrdering: .sequentiallyConsistent, weak: false, for: i)
+        insertAtomicCompareExchange(
+          successOrdering: .release, failureOrdering: .sequentiallyConsistent, weak: false, for: i)
 
       case .atomic_cmpxchg_acqrel_relaxed:
-        insertAtomicCompareExchange(successOrdering: .acquireRelease, failureOrdering: .monotonic, weak: false, for: i)
+        insertAtomicCompareExchange(
+          successOrdering: .acquireRelease, failureOrdering: .monotonic, weak: false, for: i)
 
       case .atomic_cmpxchg_acqrel_acquire:
-        insertAtomicCompareExchange(successOrdering: .acquireRelease, failureOrdering: .acquire, weak: false, for: i)
+        insertAtomicCompareExchange(
+          successOrdering: .acquireRelease, failureOrdering: .acquire, weak: false, for: i)
 
       case .atomic_cmpxchg_acqrel_seqcst:
-        insertAtomicCompareExchange(successOrdering: .acquireRelease, failureOrdering: .sequentiallyConsistent, weak: false, for: i)
+        insertAtomicCompareExchange(
+          successOrdering: .acquireRelease, failureOrdering: .sequentiallyConsistent, weak: false,
+          for: i)
 
       case .atomic_cmpxchg_seqcst_relaxed:
-        insertAtomicCompareExchange(successOrdering: .sequentiallyConsistent, failureOrdering: .monotonic, weak: false, for: i)
+        insertAtomicCompareExchange(
+          successOrdering: .sequentiallyConsistent, failureOrdering: .monotonic, weak: false, for: i
+        )
 
       case .atomic_cmpxchg_seqcst_acquire:
-        insertAtomicCompareExchange(successOrdering: .sequentiallyConsistent, failureOrdering: .acquire, weak: false, for: i)
+        insertAtomicCompareExchange(
+          successOrdering: .sequentiallyConsistent, failureOrdering: .acquire, weak: false, for: i)
 
       case .atomic_cmpxchg_seqcst_seqcst:
-        insertAtomicCompareExchange(successOrdering: .sequentiallyConsistent, failureOrdering: .sequentiallyConsistent, weak: false, for: i)
+        insertAtomicCompareExchange(
+          successOrdering: .sequentiallyConsistent, failureOrdering: .sequentiallyConsistent,
+          weak: false, for: i)
 
       case .atomic_cmpxchgweak_relaxed_relaxed:
-        insertAtomicCompareExchange(successOrdering: .monotonic, failureOrdering: .monotonic, weak: true, for: i)
+        insertAtomicCompareExchange(
+          successOrdering: .monotonic, failureOrdering: .monotonic, weak: true, for: i)
 
       case .atomic_cmpxchgweak_relaxed_acquire:
-        insertAtomicCompareExchange(successOrdering: .monotonic, failureOrdering: .acquire, weak: true, for: i)
+        insertAtomicCompareExchange(
+          successOrdering: .monotonic, failureOrdering: .acquire, weak: true, for: i)
 
       case .atomic_cmpxchgweak_relaxed_seqcst:
-        insertAtomicCompareExchange(successOrdering: .monotonic, failureOrdering: .sequentiallyConsistent, weak: true, for: i)
+        insertAtomicCompareExchange(
+          successOrdering: .monotonic, failureOrdering: .sequentiallyConsistent, weak: true, for: i)
 
       case .atomic_cmpxchgweak_acquire_relaxed:
-        insertAtomicCompareExchange(successOrdering: .acquire, failureOrdering: .monotonic, weak: true, for: i)
+        insertAtomicCompareExchange(
+          successOrdering: .acquire, failureOrdering: .monotonic, weak: true, for: i)
 
       case .atomic_cmpxchgweak_acquire_acquire:
-        insertAtomicCompareExchange(successOrdering: .acquire, failureOrdering: .acquire, weak: true, for: i)
+        insertAtomicCompareExchange(
+          successOrdering: .acquire, failureOrdering: .acquire, weak: true, for: i)
 
       case .atomic_cmpxchgweak_acquire_seqcst:
-        insertAtomicCompareExchange(successOrdering: .acquire, failureOrdering: .sequentiallyConsistent, weak: true, for: i)
+        insertAtomicCompareExchange(
+          successOrdering: .acquire, failureOrdering: .sequentiallyConsistent, weak: true, for: i)
 
       case .atomic_cmpxchgweak_release_relaxed:
-        insertAtomicCompareExchange(successOrdering: .release, failureOrdering: .monotonic, weak: true, for: i)
+        insertAtomicCompareExchange(
+          successOrdering: .release, failureOrdering: .monotonic, weak: true, for: i)
 
       case .atomic_cmpxchgweak_release_acquire:
-        insertAtomicCompareExchange(successOrdering: .release, failureOrdering: .acquire, weak: true, for: i)
+        insertAtomicCompareExchange(
+          successOrdering: .release, failureOrdering: .acquire, weak: true, for: i)
 
       case .atomic_cmpxchgweak_release_seqcst:
-        insertAtomicCompareExchange(successOrdering: .release, failureOrdering: .sequentiallyConsistent, weak: true, for: i)
+        insertAtomicCompareExchange(
+          successOrdering: .release, failureOrdering: .sequentiallyConsistent, weak: true, for: i)
 
       case .atomic_cmpxchgweak_acqrel_relaxed:
-        insertAtomicCompareExchange(successOrdering: .acquireRelease, failureOrdering: .monotonic, weak: true, for: i)
+        insertAtomicCompareExchange(
+          successOrdering: .acquireRelease, failureOrdering: .monotonic, weak: true, for: i)
 
       case .atomic_cmpxchgweak_acqrel_acquire:
-        insertAtomicCompareExchange(successOrdering: .acquireRelease, failureOrdering: .acquire, weak: true, for: i)
+        insertAtomicCompareExchange(
+          successOrdering: .acquireRelease, failureOrdering: .acquire, weak: true, for: i)
 
       case .atomic_cmpxchgweak_acqrel_seqcst:
-        insertAtomicCompareExchange(successOrdering: .acquireRelease, failureOrdering: .sequentiallyConsistent, weak: true, for: i)
+        insertAtomicCompareExchange(
+          successOrdering: .acquireRelease, failureOrdering: .sequentiallyConsistent, weak: true,
+          for: i)
 
       case .atomic_cmpxchgweak_seqcst_relaxed:
-        insertAtomicCompareExchange(successOrdering: .sequentiallyConsistent, failureOrdering: .monotonic, weak: true, for: i)
+        insertAtomicCompareExchange(
+          successOrdering: .sequentiallyConsistent, failureOrdering: .monotonic, weak: true, for: i)
 
       case .atomic_cmpxchgweak_seqcst_acquire:
-        insertAtomicCompareExchange(successOrdering: .sequentiallyConsistent, failureOrdering: .acquire, weak: true, for: i)
+        insertAtomicCompareExchange(
+          successOrdering: .sequentiallyConsistent, failureOrdering: .acquire, weak: true, for: i)
 
       case .atomic_cmpxchgweak_seqcst_seqcst:
-        insertAtomicCompareExchange(successOrdering: .sequentiallyConsistent, failureOrdering: .sequentiallyConsistent, weak: true, for: i)
+        insertAtomicCompareExchange(
+          successOrdering: .sequentiallyConsistent, failureOrdering: .sequentiallyConsistent,
+          weak: true, for: i)
 
       case .atomic_fence_acquire:
         insertAtomicFence(.acquire, singleThread: false, for: i)
@@ -1587,12 +1624,17 @@ extension SwiftyLLVM.Module {
       let s = context.source[i] as! IR.CallBuiltinFunction
       let target = llvm(s.operands[0])
       let value = llvm(s.operands[1])
-      let o = insertAtomicRMW(target, operation: oper, value: value, ordering: ordering, singleThread: false, at: insertionPoint)
+      let o = insertAtomicRMW(
+        target, operation: oper, value: value, ordering: ordering, singleThread: false,
+        at: insertionPoint)
       register[.register(i)] = o
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insertAtomicCompareExchange(successOrdering: AtomicOrdering, failureOrdering: AtomicOrdering, weak: Bool, for i: IR.InstructionID) {
+    func insertAtomicCompareExchange(
+      successOrdering: AtomicOrdering, failureOrdering: AtomicOrdering, weak: Bool,
+      for i: IR.InstructionID
+    ) {
       let s = context.source[i] as! IR.CallBuiltinFunction
       let target = llvm(s.operands[0])
       let old = llvm(s.operands[1])
@@ -1610,7 +1652,8 @@ extension SwiftyLLVM.Module {
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insertAtomicFence(_ ordering: AtomicOrdering, singleThread: Bool, for i: IR.InstructionID) {
+    func insertAtomicFence(_ ordering: AtomicOrdering, singleThread: Bool, for i: IR.InstructionID)
+    {
       insertFence(ordering, singleThread: singleThread, at: insertionPoint)
       register[.register(i)] = ptr.null
     }
