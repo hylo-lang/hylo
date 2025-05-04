@@ -102,6 +102,13 @@ public enum BuiltinFunction: Hashable {
 
   case ptrtoint(BuiltinType)
 
+  /// Truncates/extends from the given C integer type to the given built-in integer type.
+  case fromcint(cIntType: BuiltinCNumericType, targetType: BuiltinType)
+
+  /// Truncates/extends from the given Hylo integer type to the given C type.
+  case tocint(
+    hyloIntegerType: BuiltinType, targetCType: BuiltinCNumericType, sourceTypeSigned: Bool)
+
   case fadd(MathFlags, BuiltinType)
 
   case fsub(MathFlags, BuiltinType)
@@ -371,7 +378,6 @@ public enum BuiltinFunction: Hashable {
 
   case atomic_singlethreadfence_seqcst
 
-
   /// A set of customizations to the behavior of floating point operations.
   ///
   /// The meaning of each customization is given by the LLVM option of the same name.
@@ -481,6 +487,10 @@ extension BuiltinFunction {
       return .init(^t, to: .builtin(.ptr))
     case .ptrtoint(let t):
       return .init(.builtin(.ptr), to: ^t)
+    case .fromcint(let cIntType, let targetType):
+      return .init(.builtin(.cNumeric(cIntType)), to: .builtin(targetType))
+    case .tocint(let hyloIntegerType, let targetCType, _):
+      return .init(.builtin(hyloIntegerType), to: .builtin(.cNumeric(targetCType)))
     case .fadd(_, let t):
       return .init(^t, ^t, to: ^t)
     case .fsub(_, let t):
@@ -818,6 +828,11 @@ extension BuiltinFunction: CustomStringConvertible {
       return "inttoptr_\(t)"
     case .ptrtoint(let t):
       return "ptrtoint_\(t)"
+    case .fromcint(let cIntType, let targetType):
+      return "fromcint_\(cIntType)_\(targetType)"
+    case .tocint(let hyloIntegerType, let targetCIntType, let isSigned):
+      let signed = isSigned ? "s" : "u"
+      return "tocint_\(signed)_\(hyloIntegerType)_\(targetCIntType)"
     case .fadd(let f, let t):
       return f.isEmpty ? "fadd_\(t)" : "fadd_\(f)_\(t)"
     case .fsub(let f, let t):
@@ -1109,7 +1124,6 @@ extension BuiltinFunction.MathFlags: CustomStringConvertible {
 
 }
 
-
 // MARK: Parsing
 
 extension BuiltinFunction {
@@ -1242,6 +1256,36 @@ extension BuiltinFunction {
     case "ptrtoint":
       guard let t = builtinType(&tokens) else { return nil }
       self = .ptrtoint(t)
+
+    case "fromcint":
+      guard
+        let fromCType = builtinType(&tokens),
+        case .cNumeric(let cIntType) = fromCType,
+        cIntType.isInteger
+      else { return nil }
+
+      guard let targetIntType = builtinType(&tokens), targetIntType.isInteger
+      else { return nil }
+
+      self = .fromcint(cIntType: cIntType, targetType: targetIntType)
+
+    case "tocint":
+      guard let isSized = tokens.popFirst(),
+        isSized == "u" || isSized == "s"
+      else { return nil }
+
+      guard
+        let fromType = builtinType(&tokens),
+        fromType.isInteger
+      else { return nil }
+
+      guard let targetType = builtinType(&tokens),
+        case .cNumeric(let cIntType) = targetType,
+        cIntType.isInteger
+      else { return nil }
+
+      self = .tocint(
+        hyloIntegerType: fromType, targetCType: cIntType, sourceTypeSigned: isSized == "s")
 
     case "fadd":
       guard let (p, t) = floatingPointArithmeticTail(&tokens) else { return nil }

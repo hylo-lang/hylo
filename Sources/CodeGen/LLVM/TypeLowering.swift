@@ -74,6 +74,8 @@ extension IR.Program {
       return SwiftyLLVM.FloatingPointType.fp128(in: &module)
     case .ptr:
       return module.ptr
+    case .cNumeric(let cType):
+      return SwiftyLLVM.IntegerType(cType.size*8, in: &module)
     case .module:
       notLLVMRepresentable(t)
     }

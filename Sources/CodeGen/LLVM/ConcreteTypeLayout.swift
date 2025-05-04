@@ -79,6 +79,8 @@ struct ConcreteTypeLayout {
       self.init(size: 8, alignment: 8)
     case .float128:
       self.init(size: 16, alignment: 8)
+    case .cNumeric(let cType):
+      self.init(size: cType.size, alignment: cType.alignment)
     case .module:
       notLLVMRepresentable(^t)
     }
@@ -86,3 +88,4 @@ struct ConcreteTypeLayout {
   }
 
 }
+

@@ -1,0 +1,49 @@
+/// Represents the C `unsigned int` type.
+/// The range covers at least [0, 65535].
+/// The actual range is typically much wider on modern platforms.
+public type CUInt {
+    internal var value: Builtin.cuint
+    internal memberwise init
+
+    public static fun min() -> Self {
+        0
+    }
+    public static fun max() -> Self {
+        4294967295 // todo CUInt(value: Builtin.int_cuint_max())
+    }
+}
+
+public conformance CUInt: ExpressibleByIntegerLiteral {}
+public conformance CUInt: Deinitializable {}
+public conformance CUInt: Movable {}
+public conformance CUInt: Copyable {
+    public fun copy() -> Self {
+        CUInt(value: value)
+    }
+}
+
+public conformance CUInt: Equatable {
+
+  public fun infix== (_ other: Self) -> Bool {
+    Bool(value: Builtin.icmp_eq_cuint(value, other.value))
+  }
+
+  public fun infix!= (_ other: Self) -> Bool {
+    Bool(value: Builtin.icmp_ne_cuint(value, other.value))
+  }
+
+}
+
+public conformance CUInt: ForeignConvertible {
+
+  public typealias ForeignRepresentation = Builtin.cuint
+
+  public init(foreign_value: sink Builtin.cuint) {
+    &self.value = foreign_value
+  }
+
+  public fun foreign_value() -> Builtin.cuint {
+    return value
+  }
+
+}

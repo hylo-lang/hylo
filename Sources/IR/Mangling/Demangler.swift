@@ -46,6 +46,8 @@ struct Demangler {
         demangled = .type(.builtin(.module))
       case .builtinWordType:
         demangled = .type(.builtin(.word))
+      case .builtinCNumericType:
+        demangled = takeCNumericType(from: &stream)
       case .conformanceDecl:
         demangled = take(ConformanceDecl.self, qualifiedBy: qualification, from: &stream)
       case .directDeclReference:
@@ -475,6 +477,15 @@ struct Demangler {
     default:
       return nil
     }
+  }
+
+  private mutating func takeCNumericType(from stream: inout Substring) -> DemangledSymbol? {
+    guard
+      let n = takeInteger(from: &stream), n.rawValue < UInt8.max,
+      let t = BuiltinCNumericType(rawValue: UInt8(n.rawValue))
+    else { return nil }
+
+    return .type(.builtin(.cNumeric(t)))
   }
 
   /// Demangles an existential generic type from `stream`.

@@ -1,0 +1,49 @@
+/// Represents the C `long` type.
+/// The range varies by platform, typically 32-bit on Windows and 64-bit on Unix systems.
+/// Guaranteed to be at least 32 bits, with a range of at least [-2147483647, 2147483647].
+public type CLong {
+    internal var value: Builtin.clong
+    internal memberwise init
+
+    public static fun min() -> Self {
+        -9223372036854775808 // todo CLong(value: Builtin.int_clong_min())
+    }
+    public static fun max() -> Self {
+        9223372036854775807 // todo CLong(value: Builtin.int_clong_max())
+    }
+}
+
+public conformance CLong: ExpressibleByIntegerLiteral {}
+public conformance CLong: Deinitializable {}
+public conformance CLong: Movable {}
+public conformance CLong: Copyable {
+    public fun copy() -> Self {
+        CLong(value: value)
+    }
+}
+
+public conformance CLong: Equatable {
+
+  public fun infix== (_ other: Self) -> Bool {
+    Bool(value: Builtin.icmp_eq_clong(value, other.value))
+  }
+
+  public fun infix!= (_ other: Self) -> Bool {
+    Bool(value: Builtin.icmp_ne_clong(value, other.value))
+  }
+
+}
+
+public conformance CLong: ForeignConvertible {
+
+  public typealias ForeignRepresentation = Builtin.clong
+
+  public init(foreign_value: sink Builtin.clong) {
+    &self.value = foreign_value
+  }
+
+  public fun foreign_value() -> Builtin.clong {
+    return value
+  }
+
+}

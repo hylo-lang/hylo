@@ -1843,6 +1843,50 @@ struct Emitter {
       emitStore(floatingPoint: literal, to: storage, evaluatedBy: FloatingPointConstant.float64(_:))
     case ast.coreType("Float32")!:
       emitStore(floatingPoint: literal, to: storage, evaluatedBy: FloatingPointConstant.float32(_:))
+    case ast.coreType("CChar")!:
+      emitStore(
+        integer: literal, signed: BuiltinCNumericType.cChar.signedInteger,
+        bitWidth: BuiltinCNumericType.cChar.bitwidth, to: storage)
+    case ast.coreType("CUChar")!:
+      emitStore(
+        integer: literal, signed: BuiltinCNumericType.cUChar.signedInteger,
+        bitWidth: BuiltinCNumericType.cUChar.bitwidth, to: storage)
+    case ast.coreType("CSChar")!:
+      emitStore(
+        integer: literal, signed: BuiltinCNumericType.cSChar.signedInteger,
+        bitWidth: BuiltinCNumericType.cSChar.bitwidth, to: storage)
+    case ast.coreType("CShort")!:
+      emitStore(
+        integer: literal, signed: BuiltinCNumericType.cShort.signedInteger,
+        bitWidth: BuiltinCNumericType.cShort.bitwidth, to: storage)
+    case ast.coreType("CUShort")!:
+      emitStore(
+        integer: literal, signed: BuiltinCNumericType.cUShort.signedInteger,
+        bitWidth: BuiltinCNumericType.cUShort.bitwidth, to: storage)
+    case ast.coreType("CInt")!:
+      emitStore(
+        integer: literal, signed: BuiltinCNumericType.cInt.signedInteger,
+        bitWidth: BuiltinCNumericType.cInt.bitwidth, to: storage)
+    case ast.coreType("CUInt")!:
+      emitStore(
+        integer: literal, signed: BuiltinCNumericType.cUInt.signedInteger,
+        bitWidth: BuiltinCNumericType.cUInt.bitwidth, to: storage)
+    case ast.coreType("CLong")!:
+      emitStore(
+        integer: literal, signed: BuiltinCNumericType.cLong.signedInteger,
+        bitWidth: BuiltinCNumericType.cLong.bitwidth, to: storage)
+    case ast.coreType("CULong")!:
+      emitStore(
+        integer: literal, signed: BuiltinCNumericType.cULong.signedInteger,
+        bitWidth: BuiltinCNumericType.cULong.bitwidth, to: storage)
+    case ast.coreType("CLongLong")!:
+      emitStore(
+        integer: literal, signed: BuiltinCNumericType.cLongLong.signedInteger,
+        bitWidth: BuiltinCNumericType.cLongLong.bitwidth, to: storage)
+    case ast.coreType("CULongLong")!:
+      emitStore(
+        integer: literal, signed: BuiltinCNumericType.cULongLong.signedInteger,
+        bitWidth: BuiltinCNumericType.cULongLong.bitwidth, to: storage)
     default:
       UNIMPLEMENTED()
     }
@@ -1862,7 +1906,7 @@ struct Emitter {
   }
 
   /// Writes the value of `literal` to `storage`, knowing it is a core integer instance with given
-  /// sign and width.
+  /// signedness and width.
   private mutating func emitStore<T: NumericLiteralExpr>(
     integer literal: T.ID, signed: Bool, bitWidth: Int, to storage: Operand
   ) {

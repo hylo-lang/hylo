@@ -70,6 +70,8 @@ public enum ManglingOperator: String {
 
   case builtinFloatType = "bfT"
 
+  case builtinCNumericType = "bcT"
+
   case builtinPointerType = "bpT"
 
   case builtinModuleType = "bmT"
