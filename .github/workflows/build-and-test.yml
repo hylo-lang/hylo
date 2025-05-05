@@ -44,7 +44,7 @@ on:
 env:
   spm-build-options: -Xswiftc -enable-testing --explicit-target-dependency-import-check error
   spm-test-options: --parallel
-  swift-version: '5.10'
+  swift-version: '6.1'
 
 jobs:
   determine-version:
@@ -151,7 +151,7 @@ jobs:
 
       - name: Upload coverage reports to Codecov
         if: ${{ contains(matrix.more-spm-test-options, '--enable-code-coverage') }}
-        uses: codecov/codecov-action@v4.5.0
+        uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: true
