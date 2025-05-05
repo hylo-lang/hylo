@@ -22,7 +22,7 @@ public typealias WorkItemPointer = Pointer<WorkItemTypeErased>
 public trait WorkProvider: Movable, Deinitializable {
 
   /// Returns the next work item to be executed.
-  public fun next_work_item(worker_index: Int) inout -> Pointer<WorkItemTypeErased>
+  public fun next_work_item(worker_index: Int) inout -> WorkItemPointer
 
 }
 

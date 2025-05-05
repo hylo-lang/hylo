@@ -7,7 +7,7 @@ type NoWorkProvider: WorkProvider {
   public init() {}
 
   /// Provide no work.
-  public fun next_work_item(worker_index: Int) inout -> Pointer<WorkItemTypeErased> {
+  public fun next_work_item(worker_index: Int) inout -> WorkItemPointer {
     .null()
   }
 
@@ -22,7 +22,7 @@ type SimpleWorkItem<E: Movable & Deinitializable>: Movable, Deinitializable {
     &self.f = f
   }
 
-  public fun as_base() inout -> Pointer<WorkItemTypeErased> {
+  public fun as_base() inout -> WorkItemPointer {
     return .new(type_punning: pointer[to: &self])
   }
 
@@ -47,7 +47,7 @@ type SimpleWorkProvider<E: Movable & Deinitializable>: WorkProvider {
     &self.repeat_count = repeat_count.copy()
   }
 
-  public fun next_work_item(worker_index: Int) inout -> Pointer<WorkItemTypeErased> {
+  public fun next_work_item(worker_index: Int) inout -> WorkItemPointer {
     let old_value = atomic_add_relaxed_i32(&completed, 1)
     if Int(truncating_or_extending: old_value) < repeat_count {
       return &work.as_base()
@@ -62,15 +62,15 @@ type SimpleWorkProvider<E: Movable & Deinitializable>: WorkProvider {
 /// A work provider that returns work items from an array, one at a time.
 type ArrayWorkProvider: WorkProvider {
 
-  let work: Array<Pointer<WorkItemTypeErased>>
+  let work: Array<WorkItemPointer>
   let completed: UInt32
 
-  public init(_ work: sink Array<Pointer<WorkItemTypeErased>>) {
+  public init(_ work: sink Array<WorkItemPointer>) {
     &self.work = work
     &self.completed = 0
   }
 
-  public fun next_work_item(worker_index: Int) inout -> Pointer<WorkItemTypeErased> {
+  public fun next_work_item(worker_index: Int) inout -> WorkItemPointer {
     let index = atomic_add_relaxed_i32(&completed, 1)
     let i = Int(truncating_or_extending: index)
     if i < work.count() {
@@ -132,7 +132,7 @@ fun test_execution_can_park_and_unpark_workers() {
     _ = atomic_add_relaxed_i32(&(q.copy()).unsafe[], 1)
   }
   let work_item = SimpleWorkItem(f: f)
-  let work = Array<Pointer<WorkItemTypeErased>>([
+  let work = Array<WorkItemPointer>([
     work_item.as_base(), work_item.as_base(), work_item.as_base(), work_item.as_base(),
     .null(), .null(), .null(), .null(),
     work_item.as_base(), work_item.as_base(), work_item.as_base(), work_item.as_base()
@@ -164,7 +164,7 @@ fun test_one_unparked_worker_is_enough_to_complete_work() {
     _ = atomic_add_relaxed_i32(&(q.copy()).unsafe[], 1)
   }
   let work_item = SimpleWorkItem(f: f)
-  let work = Array<Pointer<WorkItemTypeErased>>([
+  let work = Array<WorkItemPointer>([
     work_item.as_base(), work_item.as_base(), work_item.as_base(), work_item.as_base(),
     .null(), .null(), .null(), .null(),
     work_item.as_base(), work_item.as_base(), work_item.as_base(), work_item.as_base()
