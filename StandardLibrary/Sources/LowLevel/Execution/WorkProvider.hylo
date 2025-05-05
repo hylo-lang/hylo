@@ -1,0 +1,25 @@
+/// Type-erased work item.
+/// TODO: this should be a trait, and then we should use existentials for work items.
+public type WorkItemTypeErased {
+
+  // HACK: we don't have proper existentials yet, so we use manually type-erase work items
+  // We reserve space for two pointers for closure data; we can't put more on the closure than these two pointers.
+  var f: [{MemoryAddress, MemoryAddress}]() -> Void
+
+  /// Execute the work item.
+  public fun execute() -> Void {
+    f()
+  }
+
+}
+
+/// Represents a provide of work items.
+///
+/// Instances of this trait will be used by the worker threads to get the next work item to execute.
+public trait WorkProvider: Movable, Deinitializable {
+
+  /// Returns the next work item to be executed.
+  public fun next_work_item(worker_index: Int) inout -> Pointer<WorkItemTypeErased>
+
+}
+
