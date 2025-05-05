@@ -44,7 +44,7 @@ on:
 env:
   spm-build-options: -Xswiftc -enable-testing --explicit-target-dependency-import-check error
   spm-test-options: --parallel
-  swift-version: '5.10'
+  swift-version: '6.1'
 
 jobs:
   determine-version:
@@ -152,7 +152,7 @@ jobs:
 
       - name: Upload coverage reports to Codecov
         if: ${{ contains(matrix.more-spm-test-options, '--enable-code-coverage') }}
-        uses: codecov/codecov-action@v4.5.0
+        uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: true
@@ -198,11 +198,10 @@ jobs:
             windows_only: ''
 
           - os: windows-latest
-            use_spm: false
+            use_spm: true
 
           - os: macos-14
             triple_suffix: apple-darwin24.1.0
-            triple_cpu: arm64
 
           - os: ubuntu-latest
             triple_suffix: unknown-linux-gnu
@@ -233,7 +232,9 @@ jobs:
         working-directory: hylo
         run: ./Tools/set-hc-version.sh ${{ needs.determine-version.outputs.version }}
         shell: bash
-
+      - name: Import Swift GPG Key (Ubuntu Only) # until fix arrives for https://github.com/SwiftyLab/setup-swift/issues/388
+        if: runner.os == 'Linux'
+        run: gpg --keyserver hkp://keyserver.ubuntu.com --recv-keys '52BB 7E3D E28A 71BE 22EC 05FF EF80 A866 B47A 981F'
       - name: Set up swift (non-Windows)
         if: ${{ runner.os != 'Windows' }}
         uses: SwiftyLab/setup-swift@latest
@@ -278,7 +279,7 @@ jobs:
           ${{ matrix.cmake_generator != 'Xcode' && format('-DCMAKE_BUILD_TYPE={0}', matrix.cmake_build_type) || '' }}
           -DBUILD_TESTING=YES
           -DLLVM_DIR=${{ github.workspace }}/${{ env.llvm_package_basename }}/lib/cmake/llvm
-          ${{ runner.os == 'macOS' && '-D CMAKE_Swift_COMPILER=swiftc -DCMAKE_OSX_SYSROOT=$(xcrun --show-sdk-path)' || '' }}
+          ${{ runner.os == 'macOS' && '-DCMAKE_Swift_COMPILER=swiftc -DCMAKE_OSX_SYSROOT=$(xcrun --show-sdk-path)' || '' }}
         working-directory: hylo
 
       - name: Build (CMake)

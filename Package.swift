@@ -1,4 +1,4 @@
-// swift-tools-version:5.10
+// swift-tools-version:6.1
 import Foundation
 import PackageDescription
 
@@ -25,7 +25,7 @@ let package = Package(
   name: "Hylo",
 
   platforms: [
-    .macOS(.v13)
+    .macOS(.v14)
   ],
 
   products: [
@@ -37,28 +37,28 @@ let package = Package(
   dependencies: [
     .package(
       url: "https://github.com/apple/swift-argument-parser.git",
-      from: "1.1.4"),
+      from: "1.5.0"),
     .package(
       url: "https://github.com/apple/swift-collections.git",
-      from: "1.0.0"),
+      from: "1.1.4"),
     .package(
       url: "https://github.com/apple/swift-algorithms.git",
-      from: "1.2.0"),
+      from: "1.2.1"),
     .package(
       url: "https://github.com/hylo-lang/Durian.git",
       from: "1.2.0"),
     .package(
-      url: "https://github.com/attaswift/BigInt.git",
-      from: "5.3.0"),
+      url: "https://github.com/tothambrus11/BigInt.git",
+      branch: "swift6"),
     .package(
       url: "https://github.com/hylo-lang/Swifty-LLVM",
-      branch: "main"),
+      branch: "swift-601"),
     .package(
       url: "https://github.com/apple/swift-format",
       from: "508.0.1"),
     .package(
       url: "https://github.com/SwiftPackageIndex/SPIManifest.git",
-      from: "0.12.0"),
+      from: "1.7.0"),
   ]
     + docGenerationDependency,
 

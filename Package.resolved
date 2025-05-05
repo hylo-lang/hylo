@@ -1,13 +1,13 @@
 {
-  "originHash" : "95ff483b2e7dc485aa5e3a5765c4e25dd5ec98b639cdd3ff580e9f41eb484dbb",
+  "originHash" : "fe0426676d0fa0823ff1839b0ace946f466aa7834247c038c31c2495a609efef",
   "pins" : [
     {
       "identity" : "bigint",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/attaswift/BigInt.git",
+      "location" : "https://github.com/tothambrus11/BigInt.git",
       "state" : {
-        "revision" : "114343a705df4725dfe7ab8a2a326b8883cfd79c",
-        "version" : "5.5.1"
+        "branch" : "swift6",
+        "revision" : "e97764c8099deaf392e12e273083ffdf2b439365"
       }
     },
     {
@@ -24,8 +24,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/SwiftPackageIndex/SPIManifest.git",
       "state" : {
-        "revision" : "59b957c55c274ae08da9aaa36efcaac3fb7a326c",
-        "version" : "0.19.0"
+        "revision" : "df8dfd0295c5ec9840c2987f8adec20381243109",
+        "version" : "1.8.2"
       }
     },
     {
@@ -33,8 +33,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-algorithms.git",
       "state" : {
-        "revision" : "f6919dfc309e7f1b56224378b11e28bab5bccc42",
-        "version" : "1.2.0"
+        "revision" : "87e50f483c54e6efd60e885f7f5aa946cee68023",
+        "version" : "1.2.1"
       }
     },
     {
@@ -94,10 +94,10 @@
     {
       "identity" : "swifty-llvm",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/hylo-lang/Swifty-LLVM",
+      "location" : "https://github.com/tothambrus11/Swifty-LLVM",
       "state" : {
-        "branch" : "main",
-        "revision" : "509567462dfff80f93244884876dba27858453ef"
+        "branch" : "swift-601",
+        "revision" : "2da639f614593303c4f053367b981ad966a9e76f"
       }
     },
     {

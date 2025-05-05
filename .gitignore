@@ -7,6 +7,7 @@
 /.vscode
 /.swiftpm
 /.vscode/launch.json
+/.idea
 # macOS
 .DS_Store
 \#*ediff-merge*#

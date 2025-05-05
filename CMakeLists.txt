@@ -2,6 +2,7 @@
 # Standard project boilerplate
 #
 cmake_minimum_required(VERSION 3.30)
+set(CMAKE_OSX_DEPLOYMENT_TARGET 14.0)
 
 project(Hylo
   VERSION 0.1.0
@@ -11,8 +12,6 @@ project(Hylo
 )
 enable_testing()
 include(CTest)
-
-set(CMAKE_OSX_DEPLOYMENT_TARGET "13.0")
 
 list(PREPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/modules)
 set(CMAKE_Swift_LANGUAGE_VERSION 5)
