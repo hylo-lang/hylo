@@ -201,9 +201,8 @@ jobs:
           - os: windows-latest
             use_spm: true
 
-          - os: macos-14
-            triple_suffix: apple-darwin24.1.0
-            triple_cpu: arm64
+          - os: macos-15
+            triple_suffix: apple-darwin23.3.0
 
           - os: ubuntu-latest
             triple_suffix: unknown-linux-gnu
