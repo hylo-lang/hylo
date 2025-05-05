@@ -1,4 +1,4 @@
-// swift-tools-version:5.10
+// swift-tools-version:6.1
 import Foundation
 import PackageDescription
 
@@ -40,7 +40,7 @@ let package = Package(
       from: "1.5.0"),
     .package(
       url: "https://github.com/apple/swift-collections.git",
-      from: "1.0.0"),
+      from: "1.1.4"),
     .package(
       url: "https://github.com/apple/swift-algorithms.git",
       from: "1.2.1"),
@@ -58,7 +58,7 @@ let package = Package(
       from: "508.0.1"),
     .package(
       url: "https://github.com/SwiftPackageIndex/SPIManifest.git",
-      from: "0.12.0"),
+      from: "1.7.0"),
   ]
     + docGenerationDependency,
 
