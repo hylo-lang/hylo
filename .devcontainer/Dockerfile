@@ -1,4 +1,6 @@
-ARG SWIFT_VERSION=5.10
+ARG SWIFT_VERSION=6.1
+ARG CMAKE_VERSION=3.29.1
+
 # Other ARG declarations must follow FROM
 FROM swift:${SWIFT_VERSION}
 
@@ -8,17 +10,16 @@ ARG HYLO_LLVM_VERSION=17.0.6
 
 ENV HYLO_LLVM_DOWNLOAD_URL="https://github.com/hylo-lang/llvm-build/releases/download"
 
-RUN apt install -y gnupg
-RUN apt update
 # llvm-15 is installed to get llvm-cov, which is needed to generate our coverage reports.
-RUN apt install -y curl libzstd-dev libzstd1 lsb-release make ninja-build tar wget zstd software-properties-common python3-pip llvm-15
+# Note, apt-get is used for stable CLI interface instead of apt. Cleaning is done in the same
+# layer as installations to save disk space.
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends gnupg curl libzstd-dev libzstd1 lsb-release make \
+       ninja-build tar wget zstd software-properties-common python3-pip llvm-15 cmake && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
-# Get a recent cmake (https://www.kitware.com//cmake-python-wheels/)
-RUN if $(/usr/bin/which cmake) ; then apt purge --auto-remove cmake ; fi
-RUN pip3 install --upgrade cmake
-
-# Reclaim some disk, maybe.
-RUN apt-get clean
+RUN cmake --version
 
 # Get the LLVM build(s) for the host architecture
 RUN <<EOT bash -ex -o pipefail
