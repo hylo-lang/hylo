@@ -1,0 +1,197 @@
+//- compileAndRun expecting: .success
+
+/// Work provider that doesn't provide any work.
+type NoWorkProvider: WorkProvider {
+
+  /// Initializes `self` with no work.
+  public init() {}
+
+  /// Provide no work.
+  public fun next_work_item(worker_index: Int) inout -> Pointer<WorkItemTypeErased> {
+    .null()
+  }
+
+}
+
+/// A work item that executes a given lambda function.
+type SimpleWorkItem<E: Movable & Deinitializable>: Movable, Deinitializable {
+
+  var f: [E]() inout -> Void
+
+  public init(f: sink [E]() inout -> Void) {
+    &self.f = f
+  }
+
+  public fun as_base() inout -> Pointer<WorkItemTypeErased> {
+    return .new(type_punning: pointer[to: &self])
+  }
+
+}
+
+/// A work provider that provides a single work item, possibly repeating it multiple times.
+type SimpleWorkProvider<E: Movable & Deinitializable>: WorkProvider {
+
+  let work: SimpleWorkItem<E>
+  let completed: UInt32
+  let repeat_count: Int
+
+  public init(_ work: sink SimpleWorkItem<E>) {
+    &self.work = work
+    &self.completed = 0
+    &self.repeat_count = 1
+  }
+
+  public init(_ work: sink SimpleWorkItem<E>, repeat_count: Int) {
+    &self.work = work
+    &self.completed = 0
+    &self.repeat_count = repeat_count.copy()
+  }
+
+  public fun next_work_item(worker_index: Int) inout -> Pointer<WorkItemTypeErased> {
+    let old_value = atomic_add_relaxed_i32(&completed, 1)
+    if Int(truncating_or_extending: old_value) < repeat_count {
+      return &work.as_base()
+    }
+    else {
+      return .null()
+    }
+  }
+
+}
+
+/// A work provider that returns work items from an array, one at a time.
+type ArrayWorkProvider: WorkProvider {
+
+  let work: Array<Pointer<WorkItemTypeErased>>
+  let completed: UInt32
+
+  public init(_ work: sink Array<Pointer<WorkItemTypeErased>>) {
+    &self.work = work
+    &self.completed = 0
+  }
+
+  public fun next_work_item(worker_index: Int) inout -> Pointer<WorkItemTypeErased> {
+    let index = atomic_add_relaxed_i32(&completed, 1)
+    let i = Int(truncating_or_extending: index)
+    if i < work.count() {
+      return work[i].copy()
+    }
+    else {
+      return .null()
+    }
+  }
+
+}
+
+/// Pause for a while; give a chance to other threads do do some work.
+fun pause() {
+  for var i in 0 ..< 100 {
+    yield_now()
+  }
+}
+
+
+fun test_static_thread_pool_with_no_work() {
+  let work_provider: NoWorkProvider = .new()
+  var pool: StaticWorkerPool<NoWorkProvider> = .new(size: 4, work_provider: &work_provider)
+  pool.await()
+}
+
+fun test_static_thread_pool_with_no_work_and_delayed_await() {
+  let work_provider: NoWorkProvider = .new()
+  var pool: StaticWorkerPool<NoWorkProvider> = .new(size: 4, work_provider: &work_provider)
+  pause()
+  pool.await()
+}
+
+fun test_executing_one_work_item() {
+  var executed = false
+  let f = fun[sink let q=mutable_pointer[to: &executed].copy()] () -> Void {
+    &(q.copy()).unsafe[] = true
+  }
+  var pool = StaticWorkerPool(size: 4, work_provider: SimpleWorkProvider(SimpleWorkItem(f: f)))
+  pool.await()
+  precondition(executed, "Work item was not executed.")
+}
+
+fun test_executing_multiple_work_items() {
+  var count: UInt32 = 0
+  let f = fun[sink let q=mutable_pointer[to: &count].copy()] () -> Void {
+    _ = atomic_add_relaxed_i32(&(q.copy()).unsafe[], 1)
+  }
+  var pool = StaticWorkerPool(size: 4, work_provider: SimpleWorkProvider(SimpleWorkItem(f: f), repeat_count: 10))
+  pool.await()
+  precondition(count == 10, "We should have 10 work items executed.")
+}
+
+fun test_execution_can_park_and_unpark_workers() {
+  var count: UInt32 = 0
+
+  // Create work items: 4 active tasks, 4 pauses, and 4 more active tasks.
+  let f = fun[sink let q=mutable_pointer[to: &count].copy()] () -> Void {
+    _ = atomic_add_relaxed_i32(&(q.copy()).unsafe[], 1)
+  }
+  let work_item = SimpleWorkItem(f: f)
+  let work = Array<Pointer<WorkItemTypeErased>>([
+    work_item.as_base(), work_item.as_base(), work_item.as_base(), work_item.as_base(),
+    .null(), .null(), .null(), .null(),
+    work_item.as_base(), work_item.as_base(), work_item.as_base(), work_item.as_base()
+  ])
+
+  // Create the thread pool and start executing.
+  var pool = StaticWorkerPool(size: 4, work_provider: ArrayWorkProvider(work))
+
+  // Wait until 4 items were executed, and then unpark the workers.
+  while Int(truncating_or_extending: atomic_load_relaxed_i32(&count)) < 4 {
+    // Wait for the workers to park.
+    pause()
+  }
+  for var i in 0 ..< 4 {
+    pool.unpark(index: i)
+  }
+  pause()
+
+  // Wait for all work items to finish.
+  pool.await()
+  precondition(count == 8, "We should have 8 work items executed.")
+}
+
+fun test_one_unparked_worker_is_enough_to_complete_work() {
+  var count: UInt32 = 0
+
+  // Create work items: 4 active tasks, 4 pauses, and 4 more active tasks.
+  let f = fun[sink let q=mutable_pointer[to: &count].copy()] () -> Void {
+    _ = atomic_add_relaxed_i32(&(q.copy()).unsafe[], 1)
+  }
+  let work_item = SimpleWorkItem(f: f)
+  let work = Array<Pointer<WorkItemTypeErased>>([
+    work_item.as_base(), work_item.as_base(), work_item.as_base(), work_item.as_base(),
+    .null(), .null(), .null(), .null(),
+    work_item.as_base(), work_item.as_base(), work_item.as_base(), work_item.as_base()
+  ])
+
+  // Create the thread pool and start executing.
+  var pool = StaticWorkerPool(size: 4, work_provider: ArrayWorkProvider(work))
+
+  // Wait until 4 items were executed, and then unpark just one worker.
+  while Int(truncating_or_extending: atomic_load_relaxed_i32(&count)) < 4 {
+    // Wait for the workers to park.
+    pause()
+  }
+  pool.unpark(index: 0)
+  pause()
+
+  // Wait for all work items to finish.
+  pool.await()
+  precondition(count == 8, "We should have 8 work items executed.")
+}
+
+public fun main() {
+  #if os(Linux) || os(macOS)
+    test_static_thread_pool_with_no_work()
+    test_static_thread_pool_with_no_work_and_delayed_await()
+    test_executing_one_work_item()
+    test_executing_multiple_work_items()
+    test_one_unparked_worker_is_enough_to_complete_work()
+  #endif
+}

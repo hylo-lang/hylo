@@ -1,0 +1,164 @@
+
+/// Type-erased work item.
+/// TODO: this should be a trait, and then we should use existentials for work items.
+public type WorkItemTypeErased {
+
+  // HACK: we don't have proper existentials yet, so we use manually type-erase work items
+  // We reserve space for two pointers for closure data; we can't put more on the closure than these two pointers.
+  var f: [{MemoryAddress, MemoryAddress}]() -> Void
+
+  /// Execute the work item.
+  public fun execute() -> Void {
+    f()
+  }
+
+}
+
+/// Represents a provide of work items.
+///
+/// Instances of this trait will be used by the worker threads to get the next work item to execute.
+public trait WorkProvider: Movable, Deinitializable {
+
+  /// Returns the next work item to be executed.
+  public fun next_work_item(worker_index: Int) inout -> Pointer<WorkItemTypeErased>
+
+}
+
+/// Indicates that the worker thread is parked (not consuming CPU time), while waiting for work to do.
+let STATE_PARKED: UInt32 = 0
+/// Indicates that the worker thread is running (polling and executing work items).
+let STATE_RUNNING: UInt32 = 1
+/// Indicates that the worker thread should quit.
+let STATE_SHOULD_QUIT: UInt32 = 0xff
+
+/// Data associated with a worker thread.
+internal type ThreadData<W: WorkProvider>: Deinitializable {
+
+  /// The index of the worker thread.
+  internal var index: Int
+  /// The work provider that the worker thread will use to get work items.
+  internal var work_provider: PointerToMutable<W>
+  /// The state of the worker thread; one of: STATE_PARKED, STATE_RUNNING, STATE_SHOULD_QUIT.
+  /// This will be used as an atomic variable.
+  internal var state: UInt32
+
+  /// Initializes `self` for worker at index `index`, using the work provider `work_provider`,
+  /// placing it in the STATE_PARKED state.
+  internal static fun init_self(_ self: set Self, _ index: Int, _ work_provider: PointerToMutable<W>) -> Void {
+    &self.index = index.copy()
+    &self.work_provider = work_provider.copy()
+    &self.state = STATE_PARKED.copy()
+  }
+
+}
+
+/// A worker thread that will execute work items from a work provider.
+public type WorkerThread<W: WorkProvider>: Deinitializable {
+
+  /// The data associated with the worker thread.
+  var data: ThreadData<W>
+  /// The thread completion object that will be used to await for the thread to complete.
+  var completion: ThreadCompletion<ThreadData<W>>
+
+  /// Initializes `self` for worker at index `index`, using the work provider `provider`.
+  public static fun init_self(_ self: set Self, _ index: Int, work_from provider: PointerToMutable<W>) -> Void {
+    ThreadData.init_self(&self.data, index, provider)
+    &self.completion = spawn_thread(
+      executing: fun (_ data: inout ThreadData<W>) { Self.run(&data) },
+      with_inout_argument: mutable_pointer[to: &self.data])
+  }
+
+  /// The main function of the worker thread.
+  private static fun run(_ data: inout ThreadData<W>) -> Void {
+    while atomic_load_relaxed_i32(&data.state) != STATE_SHOULD_QUIT {
+      // Move to the RUNNING state.
+      var old = atomic_swap_release_i32(&data.state, STATE_RUNNING)
+      if old == STATE_SHOULD_QUIT {
+        break
+      }
+
+      // While there is work to do (and we shouldn't quit), execute it.
+      var work: Pointer<WorkItemTypeErased>
+      do {
+        &work = data.work_provider.unsafe[].next_work_item(worker_index: data.index)
+        if work != .null() {
+          work.unsafe[].execute()
+        }
+      } while work != .null()
+
+      // Move to the PARKED state.
+      &old = atomic_swap_release_i32(&data.state, STATE_PARKED)
+      if old == STATE_SHOULD_QUIT {
+        break
+      }
+
+      // Wait for an "unpark" or "quit" signal.
+      futex_wait(futex: &data.state, expected: STATE_PARKED)
+    }
+  }
+
+  /// Signals the worker thread to quit.
+  public fun signal_quit() inout {
+    _ = atomic_swap_release_i32(&data.state, STATE_SHOULD_QUIT)
+    futex_wake(futex: &data.state, threads_to_wake: 1)
+  }
+
+  /// Signals the worker thread to exit STATE_PARKED and enter STATE_RUNNING.
+  public fun unpark() inout {
+    // If we were in the PARKED state, change the state to RUNNING.
+    let r = atomic_cmpxchg_acquire_relaxed_i32(
+      &data.state,
+      expected: STATE_PARKED,
+      desired: STATE_RUNNING)
+
+    if r.0 {
+      // The thread was parked, so we need to wake it up.
+      futex_wake(futex: &data.state, threads_to_wake: 1)
+    }
+  }
+
+  /// Awaits for the worker thread to complete.
+  public fun deinit() sink {
+    &completion.await()
+  }
+}
+
+/// A fixed-size pool of worker threads that can execute work items from a work provider.
+public type StaticWorkerPool<W: WorkProvider> {
+
+  /// The work provider from which work is being taken.
+  var work_provider: W
+  /// The worker threads in the pool.
+  var threads: BoundedArray<WorkerThread<W>>
+
+  /// Initializes `self` with `n` worker threads, using `work_provider` as a work provider.
+  public init(size n: Int, work_provider: sink W) {
+    &self.work_provider = work_provider
+    let p = mutable_pointer[to: &self.work_provider]
+    &self.threads = .new(count: n, initialized_with: fun (_ i: Int, _ thread: set WorkerThread<W>) -> Void {
+      WorkerThread<W>.init_self(&thread, i, work_from: p)
+    })
+  }
+
+  /// Unparks the worker thread at `index`, if that thread is parked.
+  public fun unpark(index: Int) inout {
+    &threads[index].unpark()
+  }
+
+  /// Awaits for all the threads to complete.
+  public fun await() sink {
+    &signal_quit()
+    &threads.remove_all()
+    &threads.deinit()
+  }
+
+  /// Sends the quit signals to all threads.
+  fun signal_quit() inout {
+    var i = 0
+    while i < threads.count() {
+      &threads[i].signal_quit()
+      &i += 1
+    }
+  }
+
+}
