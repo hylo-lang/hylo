@@ -25,7 +25,7 @@ let package = Package(
   name: "Hylo",
 
   platforms: [
-    .macOS(.v15)
+    .macOS(.v14)
   ],
 
   products: [

@@ -200,7 +200,7 @@ jobs:
           - os: windows-latest
             use_spm: true
 
-          - os: macos-15
+          - os: macos-14
             triple_suffix: apple-darwin23.3.0
 
           - os: ubuntu-latest
