@@ -188,7 +188,7 @@ jobs:
           - unpackage_command: tar -x --zstd -f
           # https://github.com/apple/swift/issues/72121
           - windows_only: '# WINDOWS ONLY:'
-          - on_windows_and_spm_works: false
+          - on_windows_and_spm_works: ${{ matrix.os == 'windows-latest' }}
           - use_spm: true
 
           - os: windows-latest

@@ -48,8 +48,8 @@ let package = Package(
       url: "https://github.com/hylo-lang/Durian.git",
       from: "1.2.0"),
     .package(
-      url: "https://github.com/attaswift/BigInt.git",
-      from: "5.3.0"),
+      url: "https://github.com/tothambrus11/BigInt.git",
+      branch: "swift6"),
     .package(
       url: "https://github.com/tothambrus11/Swifty-LLVM",
       branch: "swift-601"),
