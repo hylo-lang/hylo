@@ -1,5 +1,5 @@
 {
-  "originHash" : "bcac8dfb3f4a0fadeb9ebe2939f1032c447ed70c2a7242b862d2a91640041b56",
+  "originHash" : "7c45596d8bcf4ddcdd92aaee6c254ef7aec57ec872eda64f532331784b91a0cd",
   "pins" : [
     {
       "identity" : "bigint",
@@ -33,8 +33,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-algorithms.git",
       "state" : {
-        "revision" : "f6919dfc309e7f1b56224378b11e28bab5bccc42",
-        "version" : "1.2.0"
+        "revision" : "87e50f483c54e6efd60e885f7f5aa946cee68023",
+        "version" : "1.2.1"
       }
     },
     {

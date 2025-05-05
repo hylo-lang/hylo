@@ -37,13 +37,13 @@ let package = Package(
   dependencies: [
     .package(
       url: "https://github.com/apple/swift-argument-parser.git",
-      from: "1.1.4"),
+      from: "1.5.0"),
     .package(
       url: "https://github.com/apple/swift-collections.git",
       from: "1.0.0"),
     .package(
       url: "https://github.com/apple/swift-algorithms.git",
-      from: "1.2.0"),
+      from: "1.2.1"),
     .package(
       url: "https://github.com/hylo-lang/Durian.git",
       from: "1.2.0"),
