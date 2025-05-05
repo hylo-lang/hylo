@@ -15,11 +15,13 @@ ENV HYLO_LLVM_DOWNLOAD_URL="https://github.com/hylo-lang/llvm-build/releases/dow
 # layer as installations to save disk space.
 RUN apt-get update && \
     apt-get install -y --no-install-recommends gnupg curl libzstd-dev libzstd1 lsb-release make \
-       ninja-build tar wget zstd software-properties-common python3-pip llvm-15 cmake && \
+       ninja-build tar wget zstd software-properties-common python3-pip llvm-15 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-RUN cmake --version
+RUN if $(/usr/bin/which cmake) ; then apt purge --auto-remove cmake ; fi && \
+    pip3 install --upgrade cmake && \
+    cmake --version
 
 # Get the LLVM build(s) for the host architecture
 RUN <<EOT bash -ex -o pipefail
