@@ -13,6 +13,9 @@ public type WorkItemTypeErased {
 
 }
 
+/// A pointer to a type-erased work item.
+public typealias WorkItemPointer = Pointer<WorkItemTypeErased>
+
 /// Represents a provide of work items.
 ///
 /// Instances of this trait will be used by the worker threads to get the next work item to execute.
