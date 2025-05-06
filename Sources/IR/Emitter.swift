@@ -3043,7 +3043,7 @@ struct Emitter {
     if program.isTrivial(movable) {
       let x0 = _access(.sink, from: value)
       let x1 = _access(.set, from: storage)
-      insert(module.makeMemoryCopy(x0, x1, at: _site!))
+      _memory_copy(x0, x1)
       _end_access(x1)
       _mark_state(.uninitialized, x0)
       _end_access(x0)
@@ -3881,4 +3881,9 @@ extension Emitter {
   fileprivate mutating func _global_addr(at x: BindingDecl.ID) -> Operand {
     insert(module.makeGlobalAddr(of: x, at: _site!))!
   }
+
+  fileprivate mutating func _memory_copy(_ source: Operand, _ target: Operand) {
+    insert(module.makeMemoryCopy(source, target, at: _site!))
+  }
+
 }
