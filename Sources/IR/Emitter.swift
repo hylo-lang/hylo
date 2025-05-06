@@ -3485,7 +3485,7 @@ struct Emitter {
   ) {
     let u = UnionType(module.type(of: scrutinee).ast)!
     let i = emitUnionDiscriminator(scrutinee, at: _site!)
-    insert(module.makeUnionSwitch(over: i, of: u, toOneOf: targets, at: _site!))
+    _union_switch(case: i, of: u, targets)
   }
 
   /// Returns the result of calling `action` on `self` within `newFrame`.
@@ -3878,6 +3878,10 @@ extension Emitter {
 
   fileprivate mutating func _union_discriminator(_ x: Operand) -> Operand {
     insert(module.makeUnionDiscriminator(x, at: _site!))!
+  }
+
+  fileprivate mutating func _union_switch(case discriminator: Operand, of u: UnionType, _ targets: UnionSwitch.Targets) {
+    insert(module.makeUnionSwitch(over: discriminator, of: u, toOneOf: targets, at: _site!))
   }
 
 }
