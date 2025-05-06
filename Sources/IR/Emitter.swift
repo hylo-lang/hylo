@@ -573,7 +573,7 @@ struct Emitter {
       case WildcardPattern.self:
         let s = emitStore(value: rhs)
         assert(_site == ast[p].site)
-        _deinit(s)
+        _emitDeinit(s)
 
       default:
         unexpected(p, in: ast)
@@ -742,7 +742,7 @@ struct Emitter {
     // If union is empty, simply mark it initialized.
     if t.elements.isEmpty {
       _mark_state(.initialized, receiver)
-      _deinit(argument)
+      _emitDeinit(argument)
       return
     }
 
@@ -792,7 +792,7 @@ struct Emitter {
       let argument = Operand.parameter(entry, 1)
 
       // Deinitialize the receiver.
-      me._deinit(receiver)
+      me._emitDeinit(receiver)
 
       // Apply the move-initializer.
       me._move(.set, argument, to: receiver)
@@ -1189,7 +1189,7 @@ struct Emitter {
   private mutating func emit(discardStmt s: DiscardStmt.ID) -> ControlFlow {
     _lowering(s)
     let v = emitStore(value: ast[s].expr)
-    _deinit(v)
+    _emitDeinit(v)
     return .next
   }
 
@@ -1236,7 +1236,7 @@ struct Emitter {
   private mutating func emit(exprStmt s: ExprStmt.ID) -> ControlFlow {
     _lowering(s)
     let v = emitStore(value: ast[s].expr)
-    _deinit(v)
+    _emitDeinit(v)
     return .next
   }
 
@@ -1503,7 +1503,7 @@ struct Emitter {
       emitStore(ConditionalExpr.ID(e)!, to: storage)
     case FloatLiteralExpr.self:
       emitStore(FloatLiteralExpr.ID(e)!, to: storage)
-    case FunctionCallExpr.self:
+   case FunctionCallExpr.self:
       emitStore(FunctionCallExpr.ID(e)!, to: storage)
     case IntegerLiteralExpr.self:
       emitStore(IntegerLiteralExpr.ID(e)!, to: storage)
@@ -3137,7 +3137,7 @@ struct Emitter {
   ///
   /// Let `T` be the type of `storage`, `storage` is deinitializable iff `T` has a deinitializer
   /// exposed to `self.insertionScope`.
-  mutating func _deinit(_ storage: Operand) {
+  mutating func _emitDeinit(_ storage: Operand) {
     let m = module.type(of: storage).ast
     let d = program.ast.core.deinitializable.type
 
@@ -3147,7 +3147,7 @@ struct Emitter {
       if program.isTrivial(c) {
         _mark_state(.uninitialized, storage)
       } else {
-        _deinit(storage, via: c)
+        _emitDeinit(storage, via: c)
       }
     } else if m.isBuiltinOrRawTuple {
       _mark_state(.uninitialized, storage)
@@ -3157,7 +3157,7 @@ struct Emitter {
   }
 
   /// Inserts the IR for deinitializing `storage` using the `Deinitializable` conformance `c`.
-  private mutating func _deinit(
+  private mutating func _emitDeinit(
     _ storage: Operand, via c: FrontEnd.Conformance
   ) {
     let d = module.demandDeinitDeclaration(from: c)
@@ -3210,7 +3210,7 @@ struct Emitter {
     // Otherwise, deinitialize each property.
     for i in layout.properties.indices {
       let x0 = _subfield_view(storage, at: [i])
-      _deinit(x0)
+      _emitDeinit(x0)
     }
   }
 
@@ -3259,7 +3259,7 @@ struct Emitter {
   ) {
     _lowering(at: site)
     let x0 = _open_union(storage, as: payload)
-    _deinit(x0)
+    _emitDeinit(x0)
     _close_union(x0)
   }
 
