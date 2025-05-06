@@ -1660,7 +1660,7 @@ struct Emitter {
     if let n = NameExpr.ID(ast[e].callee) {
       switch program[n].referredDecl {
       case .builtinFunction(let f):
-        let x0 = emit(apply: f, to: ast[e].arguments, at: ast[e].site)
+        let x0 = _emit(apply: f, to: ast[e].arguments)
         let x1 = _access(.set, from: storage)
         _store(x0, x1)
         return
@@ -2213,10 +2213,7 @@ struct Emitter {
   }
 
   /// Emits the IR of a call to `f` with given `arguments` at `site`.
-  private mutating func emit(
-    apply f: BuiltinFunction, to arguments: [LabeledArgument], at site: SourceRange
-  ) -> Operand {
-    _lowering(at: site)
+  private mutating func _emit(apply f: BuiltinFunction, to arguments: [LabeledArgument]) -> Operand {
     switch f {
     case .addressOf:
       let source = emitLValue(arguments[0].value)
