@@ -2328,7 +2328,7 @@ struct Emitter {
       specializedBy: a, usedIn: scopeOfUse)
 
     if case .bundle(let b) = entityToCall {
-      return emitMethodBundleCallee(referringTo: b, on: r, at: _site!)
+      return _emitMethodBundleCallee(referringTo: b, on: r)
     } else {
       let c = _access(requested, from: r)
       return (callee: entityToCall, captures: [c])
@@ -2341,10 +2341,9 @@ struct Emitter {
   /// the corresponding variant. Otherwise, it is `b` unchanged. The returned capture is an access
   /// on `receiver` taking the weakest capability that `b` requests. This access may be modified
   /// later to take a stronger capability if last use analysis allows it.
-  private mutating func emitMethodBundleCallee(
-    referringTo b: BundleReference<MethodDecl>, on receiver: Operand, at site: SourceRange
+  private mutating func _emitMethodBundleCallee(
+    referringTo b: BundleReference<MethodDecl>, on receiver: Operand
   ) -> (callee: Callee, captures: [Operand]) {
-    _lowering(at: site)
     if let k = b.capabilities.uniqueElement {
       let d = module.demandDeclaration(lowering: program.ast.implementation(k, of: b.bundle)!)
       let f = FunctionReference(to: d, in: module, specializedBy: b.arguments, in: insertionScope!)
