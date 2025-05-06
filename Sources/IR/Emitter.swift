@@ -214,7 +214,7 @@ struct Emitter {
       _return()
 
     case .expr(let e):
-      pushing(bodyFrame, { $0._store(e, in: $0.returnValue!) })
+      pushing(bodyFrame, { $0.emitStore(e, in: $0.returnValue!) })
       _lowering(e)
       _return()
     }
@@ -379,7 +379,7 @@ struct Emitter {
 
     case .expr(let e):
       _frame(locals: parameters) {
-        $0._store(e, in: $0.returnValue!)
+        $0.emitStore(e, in: $0.returnValue!)
       }
       _lowering(e)
     }
@@ -599,7 +599,7 @@ struct Emitter {
   ) {
     _lowering(lhs)
     let rhs = _subfield_view(storage, at: subfield)
-    _store(initializer, in: rhs)
+    emitStore(initializer, in: rhs)
     emitLocalDeclarations(introducedBy: lhs, referringTo: subfield, relativeTo: storage)
   }
 
@@ -963,7 +963,7 @@ struct Emitter {
 
     // Emit the body.
     _lowering(argument)
-    _store(argument, in: returnValue!)
+    emitStore(argument, in: returnValue!)
     _return()
 
     return f
@@ -1413,7 +1413,7 @@ struct Emitter {
     }
 
     if let e = ast[s].value {
-      _store(e, in: returnValue!)
+      emitStore(e, in: returnValue!)
     } else {
       _mark_state(.initialized, returnValue)
     }
@@ -1477,7 +1477,7 @@ struct Emitter {
 
     _lowering(e)
     let s = _alloc_stack(program[e].type)
-    _store(e, in: s)
+    emitStore(e, in: s)
     return s
   }
 
@@ -1485,7 +1485,7 @@ struct Emitter {
   ///
   /// - Requires: `storage` is the address of some uninitialized memory block capable of storing
   ///   the value of `e`.
-  private mutating func _store<T: ExprID>(_ e: T, in storage: Operand) {
+  private mutating func emitStore<T: ExprID>(_ e: T, in storage: Operand) {
     let savedSource = _site
     defer { _site = savedSource }
     _lowering(e)
@@ -1542,7 +1542,7 @@ struct Emitter {
     for (i, v) in program[e].elements.enumerated() {
       _lowering(v)
       let x0 = _advanced(storage, byStrides: i)
-      _store(v, in: x0)
+      emitStore(v, in: x0)
     }
   }
 
@@ -1577,7 +1577,7 @@ struct Emitter {
 
     // `A ~> A`
     if program.areEquivalent(source, target, in: program[e].scope) {
-      _store(ast[e].left, in: storage)
+      emitStore(ast[e].left, in: storage)
       return
     }
 
@@ -1585,7 +1585,7 @@ struct Emitter {
     if let u = UnionType(target), u.elements.contains(source) {
       _lowering(e)
       let x0 = _open_union(storage, as: source, .forInitialization)
-      _store(ast[e].left, in: x0)
+      emitStore(ast[e].left, in: x0)
       _close_union(x0)
       return
     }
@@ -1601,7 +1601,7 @@ struct Emitter {
 
     // Store the LHS to `storage` if it already has the desired type.
     if program.areEquivalent(program[ast[e].left].type, target, in: program[e].scope) {
-      _store(ast[e].left, in: storage)
+      emitStore(ast[e].left, in: storage)
       return
     }
 
@@ -1636,13 +1636,13 @@ struct Emitter {
 
     // Emit the success branch.
     insertionPoint = .end(of: success)
-    _frame { $0._store($0.ast[e].success, in: storage) }
+    _frame { $0.emitStore($0.ast[e].success, in: storage) }
     _lowering(e)
     _branch(to: tail)
 
     // Emit the failure branch.
     insertionPoint = .end(of: failure)
-    _frame { $0._store($0.ast[e].failure.value, in: storage) }
+    _frame { $0.emitStore($0.ast[e].failure.value, in: storage) }
     _branch(to: tail)
 
     insertionPoint = .end(of: tail)
@@ -1717,7 +1717,7 @@ struct Emitter {
       // TODO: See #878
       guard program[b].pattern.subpattern.kind == NamePattern.self else { UNIMPLEMENTED() }
       let y0 = _subfield_view(x2, at: [i])
-      _store(program[b].initializer!, in: y0)
+      emitStore(program[b].initializer!, in: y0)
       i += 1
     }
 
@@ -1795,7 +1795,7 @@ struct Emitter {
       emitApply(callee, to: captures + [r], writingResultTo: storage, at: site)
 
     case .leaf(let v):
-      _store(v, in: storage)
+      emitStore(v, in: storage)
     }
   }
 
@@ -1828,7 +1828,7 @@ struct Emitter {
     for (i, element) in ast[e].elements.enumerated() {
       _lowering(element.value)
       let xi = _subfield_view(storage, at: [i])
-      _store(element.value, in: xi)
+      emitStore(element.value, in: xi)
     }
   }
 
@@ -1851,11 +1851,11 @@ struct Emitter {
     let rhsType = canonical(program[e].type)
 
     if program.areEquivalent(lhsType, rhsType, in: program[e].scope) {
-      _store(e, in: storage)
+      emitStore(e, in: storage)
     } else if lhsType.base is UnionType {
       _lowering(e)
       let x0 = _open_union(storage, as: rhsType, .forInitialization)
-      _store(e, in: x0)
+      emitStore(e, in: x0)
       _close_union(x0)
     } else {
       UNIMPLEMENTED()
@@ -2081,7 +2081,7 @@ struct Emitter {
       }
 
       let s = _subfield_view(receiver, at: [i])
-      _store(ast[call].arguments[i].value, in: s)
+      emitStore(ast[call].arguments[i].value, in: s)
     }
   }
 
