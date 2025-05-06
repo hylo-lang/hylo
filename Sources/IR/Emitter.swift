@@ -1319,8 +1319,8 @@ struct Emitter {
     // The storage allocated for the result of the exit condition.
     let quit = _alloc_stack(^ast.coreType("Bool")!)
     // The start and end positions of the collection; the former is updated with each iteration.
-    let (currentPosition, endPosition) = emitPositions(
-      forIteratingOver: domain, usingWitness: collectionWitness, at: introducer)
+    let (currentPosition, endPosition) = _emitPositions(
+      forIteratingOver: domain, usingWitness: collectionWitness)
 
     // The "head" of the loop; tests for the exit condition.
     let head = appendBlock(in: s)
@@ -1387,11 +1387,10 @@ struct Emitter {
 
   /// Inserts the IR for initializing the start and end positions of `domain`, whose conformance to
   /// the collection trait is witnessed by `witness`, returning these positions.
-  private mutating func emitPositions(
+  private mutating func _emitPositions(
     forIteratingOver domain: Operand,
-    usingWitness witness: CollectionWitness, at site: SourceRange
+    usingWitness witness: CollectionWitness
   ) -> (startIndex: Operand, endIndex: Operand) {
-    _lowering(at: site)
     let start = _alloc_stack(witness.position)
     let end = _alloc_stack(witness.position)
 
