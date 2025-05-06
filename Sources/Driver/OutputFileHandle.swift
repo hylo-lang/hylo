@@ -1,6 +1,6 @@
 import Foundation
 
-struct OutputFileHandle: TextOutputStream {
+struct OutputFileHandle: TextOutputStream, Sendable {
 
   private let base: FileHandle
 

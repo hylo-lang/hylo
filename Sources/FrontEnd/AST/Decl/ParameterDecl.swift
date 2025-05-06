@@ -1,5 +1,5 @@
 /// A parameter declaration in a function or subscript declaration.
-public struct ParameterDecl: SingleEntityDecl {
+public struct ParameterDecl: SingleEntityDecl, Sendable {
 
   public static let constructDescription = "parameter declaration"
 

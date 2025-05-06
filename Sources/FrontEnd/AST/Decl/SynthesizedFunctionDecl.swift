@@ -1,10 +1,10 @@
 import Utils
 
 /// A function declaration synthesized during compilation.
-public struct SynthesizedFunctionDecl: Hashable {
+public struct SynthesizedFunctionDecl: Hashable, Sendable {
 
   /// The kind of a synthesized declaration.
-  public enum Kind: Hashable {
+  public enum Kind: Hashable, Sendable {
 
     /// A deinitializer.
     case deinitialize

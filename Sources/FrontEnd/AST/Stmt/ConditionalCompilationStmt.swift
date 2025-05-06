@@ -1,5 +1,5 @@
 /// A conditional-compilation statement.
-public struct ConditionalCompilationStmt: Stmt {
+public struct ConditionalCompilationStmt: Stmt, Sendable {
 
   /// A comparison test for semantic version.
   public enum VersionComparison: Codable, Equatable {

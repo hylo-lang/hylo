@@ -1,5 +1,5 @@
 /// An expression evaluated in place.
-public struct InoutExpr: Expr {
+public struct InoutExpr: Expr, Sendable {
 
   public let site: SourceRange
 

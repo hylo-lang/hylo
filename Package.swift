@@ -1,4 +1,4 @@
-// swift-tools-version:6.1
+// swift-tools-version:5.10
 import Foundation
 import PackageDescription
 
@@ -45,8 +45,8 @@ let package = Package(
       url: "https://github.com/apple/swift-algorithms.git",
       from: "1.2.1"),
     .package(
-      url: "https://github.com/hylo-lang/Durian.git",
-      from: "1.2.0"),
+      url: "https://github.com/tothambrus11/Durian.git",
+      branch: "swift6"),
     .package(
       url: "https://github.com/tothambrus11/BigInt.git",
       branch: "swift6"),
@@ -139,8 +139,7 @@ let package = Package(
 
     .plugin(
       name: "TestGeneratorPlugin", capability: .buildTool(),
-      // Workaround for SPM bug; see PortableBuildToolPlugin.swift
-      dependencies: osIsWindows ? [] : ["GenerateHyloFileTests"]),
+      dependencies: ["GenerateHyloFileTests"]),
 
     .executableTarget(
       name: "GenerateHyloFileTests",

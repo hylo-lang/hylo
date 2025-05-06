@@ -8,7 +8,7 @@ import XCTest
 #if !os(macOS)
 
   /// An object that represents a test failure.
-  public struct XCTIssue {
+  public struct XCTIssue: Sendable {
 
     /// Constants that indicate types of test failures.
     public enum IssueType: Int {
@@ -35,7 +35,7 @@ import XCTest
 
   /// An object that contains call stack and source code location details to provide context for a
   /// point of execution in a test.
-  public struct XCTSourceCodeContext {
+  public struct XCTSourceCodeContext: Sendable {
 
     /// A representation of a location in source code where a test issue occurred.
     public var location: XCTSourceCodeLocation?
@@ -70,7 +70,7 @@ import XCTest
   }
 
   /// A proxy for the current testing context.
-  public struct XCTContext {
+  public struct XCTContext: Sendable {
 
     /// Creates and runs an activity with the provided block of code.
     public static func runActivity<Result>(
@@ -83,7 +83,7 @@ import XCTest
   }
 
   /// A named substep of a test method.
-  public struct XCTActivity {
+  public struct XCTActivity: Sendable {
 
     /// A human-readable name for the activity.
     public var debugName: String

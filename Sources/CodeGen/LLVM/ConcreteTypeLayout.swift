@@ -4,7 +4,7 @@ import SwiftyLLVM
 import Utils
 
 /// The concrete layout of a type, describing the byte offsets of its stored properties.
-struct ConcreteTypeLayout {
+struct ConcreteTypeLayout: Sendable {
 
   /// The contiguous memory footprint of the type's instances, in bytes.
   let size: Int

@@ -2,7 +2,7 @@
 ///
 /// This structure is used during name resolution to identify the type of which an entity is member
 /// and the generic arguments captured by that entity.
-struct NameResolutionContext {
+struct NameResolutionContext: Sendable {
 
   /// The type of the receiver.
   ///

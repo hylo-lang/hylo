@@ -1,13 +1,13 @@
 import Utils
 
 /// A where clause.
-public struct WhereClause: Codable {
+public struct WhereClause: Codable, Sendable {
 
   /// The site of the `where` introducer.
   public let introducerSite: SourceRange
 
   /// The expression of a type constraint defined in a generic clause.
-  public enum ConstraintExpr: Codable {
+  public enum ConstraintExpr: Codable, Sendable {
 
     /// An equality constraint involving one or two skolems.
     case equality(l: NameExpr.ID, r: AnyExprID)

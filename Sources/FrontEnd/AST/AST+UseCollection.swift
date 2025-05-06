@@ -17,7 +17,7 @@ extension AST {
 }
 
 /// The state of the visitor gathering uses.
-private struct UseVisitor: ASTWalkObserver {
+private struct UseVisitor: ASTWalkObserver, Sendable {
 
   /// The names being used with their visibility.
   private(set) var uses: [(NameExpr.ID, AccessEffect)] = []
