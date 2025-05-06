@@ -740,7 +740,7 @@ extension Module {
         e.insertionPoint = .before(i)
         e._lowering(at: site)
         let s = e._subfield_view(root, at: path)
-        e._deinit(s)
+        e._emitDeinit(s)
       }
     }
   }
