@@ -2924,7 +2924,7 @@ struct Emitter {
 
     case VarDecl.self:
       let (root, subfied) = program.subfieldRelativeToRoot(of: .init(d)!)
-      let s = insert(module.makeGlobalAddr(of: root, at: site))!
+      let s = _global_addr(at: root)
       return _subfield_view(s, at: subfied)
 
     default:
@@ -3864,4 +3864,7 @@ extension Emitter {
     insert(module.makeGenericParameter(passedTo: x, at: _site!))!
   }
 
+  fileprivate mutating func _global_addr(at x: BindingDecl.ID) -> Operand {
+    insert(module.makeGlobalAddr(of: x, at: _site!))!
+  }
 }
