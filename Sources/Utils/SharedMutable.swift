@@ -26,8 +26,8 @@ public final class SharedMutable<SharedValue> {
 
   /// Returns the result of thread-safely applying `modification` to the wrapped instance.
   ///
-  /// - Requires: `computeValue` does not mutate any existing state.
-  /// - Warning: Swift silently creates mutable captures in closures! If `computeValue` mutates
+  /// - Requires: `modification` does not mutate any existing state.
+  /// - Warning: Swift silently creates mutable captures in closures! If `modification` mutates
   ///   anything other than its local variables, you can create data races and undefined behavior.
   public func modify<R>(applying modification: (inout SharedValue) throws -> R) rethrows -> R {
     try mutex.sync {
