@@ -1488,10 +1488,11 @@ struct Emitter {
   private mutating func _store<T: ExprID>(_ e: T, in storage: Operand) {
     let savedSource = _site
     defer { _site = savedSource }
+    _lowering(e)
 
     switch e.kind {
     case BooleanLiteralExpr.self:
-      emitStore(BooleanLiteralExpr.ID(e)!, to: storage)
+      _emitStore(boolean: ast[BooleanLiteralExpr.ID(e)!].value, to: storage)
     case BufferLiteralExpr.self:
       emitStore(BufferLiteralExpr.ID(e)!, to: storage)
     case CaptureExpr.self:
@@ -1527,12 +1528,6 @@ struct Emitter {
     default:
       unexpected(e, in: ast)
     }
-  }
-
-  /// Inserts the IR for storing the value of `e` to `storage`.
-  private mutating func emitStore(_ e: BooleanLiteralExpr.ID, to storage: Operand) {
-    _lowering(e)
-    _emitStore(boolean: ast[e].value, to: storage)
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
