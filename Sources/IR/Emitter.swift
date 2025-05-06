@@ -1460,10 +1460,7 @@ struct Emitter {
   // MARK: Values
 
   /// Inserts the IR for initializing `storage` by storing `value` to it.
-  private mutating func emitInitialize(
-    storage: Operand, to value: Operand, at site: SourceRange
-  ) {
-    _lowering(at: site)
+  private mutating func _emitInitialize(storage: Operand, to value: Operand) {
     let x0 = _access(.set, from: storage)
     _store(value, x0)
     _end_access(x0)
@@ -1704,7 +1701,7 @@ struct Emitter {
     _lowering(e)
     let x0 = _address_to_pointer(.constant(r))
     let x1 = _subfield_view(storage, at: [0])
-    emitInitialize(storage: x1, to: x0, at: ast[e].site)
+    _emitInitialize(storage: x1, to: x0)
 
     let arrow = ArrowType(program.canonical(program[e].type, in: insertionScope!))!
     let x2 = _subfield_view(storage, at: [1])
@@ -2176,7 +2173,7 @@ struct Emitter {
     _lowering(e)
     let x0 = _address_to_pointer(.constant(r))
     let x1 = _alloc_stack(p.bareType)
-    emitInitialize(storage: x1, to: x0, at: _site!)
+    _emitInitialize(storage: x1, to: x0)
     return _access([p.access], from: x1)
   }
 
@@ -2708,7 +2705,7 @@ struct Emitter {
 
     // Store the foreign representation in memory to call the converter.
     let source = _alloc_stack(module.type(of: foreign).ast)
-    emitInitialize(storage: source, to: foreign, at: self._site!)
+    _emitInitialize(storage: source, to: foreign)
 
     switch foreignConvertibleConformance.implementations[r]! {
     case .explicit(let m):
@@ -2911,7 +2908,7 @@ struct Emitter {
     // Handle references to type declarations.
     if let t = MetatypeType(program[d].type) {
       let s = _alloc_stack(^t)
-      emitInitialize(storage: s, to: .constant(t), at: site)
+      _emitInitialize(storage: s, to: .constant(t))
       return s
     }
 
