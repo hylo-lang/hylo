@@ -1751,7 +1751,8 @@ struct Emitter {
     case .file:
       emitStore(utf8: anchor.file.url.absoluteURL.fileSystemPath.utf8, to: storage, at: anchor)
     case .line:
-      emitStore(int: anchor.start.line.number, to: storage, at: anchor)
+      _lowering(at: anchor)
+      _emitStore(int: anchor.start.line.number, to: storage)
     }
   }
 
@@ -1939,8 +1940,7 @@ struct Emitter {
   /// Writes an instance of `Hylo.Int` with value `v` to `storage`.
   ///
   /// - Requires: `storage` is the address of uninitialized memory of type `Hylo.Int`.
-  mutating func emitStore(int v: Int, to storage: Operand, at site: SourceRange) {
-    _lowering(at: site)
+  mutating func _emitStore(int v: Int, to storage: Operand) {
     let x0 = _subfield_view(storage, at: [0])
     let x1 = _access(.set, from: x0)
     _store(.word(v), x1)
