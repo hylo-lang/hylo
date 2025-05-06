@@ -1531,7 +1531,8 @@ struct Emitter {
 
   /// Inserts the IR for storing the value of `e` to `storage`.
   private mutating func emitStore(_ e: BooleanLiteralExpr.ID, to storage: Operand) {
-    emitStore(boolean: ast[e].value, to: storage, at: ast[e].site)
+    _lowering(e)
+    _emitStore(boolean: ast[e].value, to: storage)
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
@@ -1936,8 +1937,7 @@ struct Emitter {
   /// Writes an instance of `Hylo.Bool` with value `v` to `storage`.
   ///
   /// - Requires: `storage` is the address of uninitialized memory of type `Hylo.Int`.
-  private mutating func emitStore(boolean v: Bool, to storage: Operand, at site: SourceRange) {
-    _lowering(at: site)
+  private mutating func _emitStore(boolean v: Bool, to storage: Operand) {
     let x0 = _subfield_view(storage, at: [0])
     let x1 = _access(.set, from: x0)
     _store(.i1(v), x1)
@@ -3304,7 +3304,7 @@ struct Emitter {
     // If the object is empty, return true.
     var parts = layout.properties[...]
     if parts.isEmpty {
-      emitStore(boolean: true, to: target, at: _site!)
+      _emitStore(boolean: true, to: target)
       return
     }
 
@@ -3336,7 +3336,7 @@ struct Emitter {
 
     // If the union is empty, return true.
     if union.elements.isEmpty {
-      emitStore(boolean: true, to: target, at: _site!)
+      _emitStore(boolean: true, to: target)
       return
     }
 
@@ -3368,7 +3368,7 @@ struct Emitter {
 
     // The failure block writes `false` to the return storage.
     insertionPoint = .end(of: fail)
-    emitStore(boolean: false, to: target, at: _site!)
+    _emitStore(boolean: false, to: target)
     _branch(to: tail)
 
     // The tail block represents the continuation.
