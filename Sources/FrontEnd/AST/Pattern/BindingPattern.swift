@@ -4,7 +4,7 @@ import Utils
 ///
 /// This pattern alters the semantics of its sub-pattern. Nested name patterns create new variable
 /// bindings, instead of referring to existing declarations.
-public struct BindingPattern: Pattern {
+public struct BindingPattern: Pattern, Sendable {
 
   /// An introducer in a binding pattern.
   public enum Introducer: Codable {

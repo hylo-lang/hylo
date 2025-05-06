@@ -22,7 +22,7 @@ import Utils
 /// - Note: Unless documented otherwise, the methods of `Emitter` type insert IR in `self.module`
 ///   at `self.insertionPoint`, anchoring new instructions at the given source range, named `site`
 ///   in their parameter lists.
-struct Emitter {
+struct Emitter: Sendable {
 
   /// The diagnostics of lowering errors.
   private var diagnostics: DiagnosticSet = []
@@ -3420,7 +3420,7 @@ struct Emitter {
 
   /// Returns the result of calling `action` on a copy of `self` whose insertion block and frames
   /// are clear.
-  private mutating func withClearContext<T>(_ action: (inout Self) throws -> T) rethrows -> T {
+  private mutating func withClearContext<T>(_ action: @Sendable (inout Self) throws -> T) rethrows -> T {
     var p: InsertionPoint? = nil
     var f = Stack()
     var l = LoopIDs()
@@ -3441,7 +3441,7 @@ struct Emitter {
 extension Emitter {
 
   /// The local variables and allocations of a lexical scope.
-  fileprivate struct Frame {
+  fileprivate struct Frame: Sendable {
 
     /// A map from declaration of a local variable to its corresponding IR in the frame.
     var locals = DeclProperty<Operand>()
@@ -3463,7 +3463,7 @@ extension Emitter {
   }
 
   /// A stack of frames.
-  fileprivate struct Stack {
+  fileprivate struct Stack: Sendable {
 
     /// Returns `true` iff `other` describes the same number of frames
     /// having the same stacks of allocations.
@@ -3522,7 +3522,7 @@ extension Emitter {
   }
 
   /// The identifier of a loop lexically enclosing newly generated IR.
-  fileprivate struct LoopID {
+  fileprivate struct LoopID: Sendable {
 
     /// The innermost frame enclosing the loop in the emitter context.
     let depth: Int

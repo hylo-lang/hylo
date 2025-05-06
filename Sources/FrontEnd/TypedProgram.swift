@@ -2,7 +2,7 @@ import Foundation
 import Utils
 
 /// A data structure representing a typed Hylo program ready to be lowered.
-public struct TypedProgram {
+public struct TypedProgram: Sendable {
 
   /// A set of conformances represented to answer "does A conform to T in S" efficiently.
   public typealias ConformanceSet = [AnyType: ConformanceTable]
@@ -606,7 +606,7 @@ public struct TypedProgram {
   ///   guaranteeing that the result of the merge is a refinement.
   mutating func write<V>(
     _ value: V, at path: WritableKeyPath<Self, V>,
-    mergingWith merge: (inout V, V) -> Void
+    mergingWith merge: @Sendable (inout V, V) -> Void
   ) {
     modify(&self[keyPath: path], { (u) in merge(&u, value) })
   }

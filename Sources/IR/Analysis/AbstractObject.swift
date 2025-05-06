@@ -1,5 +1,5 @@
 /// An object in an abstract interpreter.
-struct AbstractObject<Domain: AbstractDomain>: Equatable {
+struct AbstractObject<Domain: AbstractDomain>: Equatable, Sendable {
 
   /// The abstract layout of the object.
   let layout: AbstractTypeLayout

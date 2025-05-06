@@ -1,7 +1,7 @@
 import Utils
 
 /// A set of rewriting rules describing some equational equivalences.
-struct RewritingSystem<Term: RewritingTerm> {
+struct RewritingSystem<Term: RewritingTerm>: Sendable {
 
   /// The identifier of a rule in a rewriting system.
   typealias RuleID = Int
@@ -263,7 +263,7 @@ struct RewritingSystem<Term: RewritingTerm> {
   }
 
   /// The rewritings of a term by two different rules or the same rule at two different positions.
-  private struct CriticalPair {
+  private struct CriticalPair: Sendable {
 
     /// The first term of the pair.
     let first: Term
@@ -280,7 +280,7 @@ struct RewritingSystem<Term: RewritingTerm> {
   }
 
   /// The identifier of an overlap between rewriting rules.
-  private struct OverlapIdentifier: Hashable {
+  private struct OverlapIdentifier: Hashable, Sendable {
 
     /// The raw value of this identifier.
     private let rawValue: UInt64

@@ -6,7 +6,7 @@ public struct DoublyLinkedList<Element> {
   // after an element has been removed.
 
   /// The address of an element in a doubly linked list.
-  public struct Address: Hashable {
+  public struct Address: Hashable, Sendable {
 
     public fileprivate(set) var rawValue: Int
 
@@ -29,7 +29,7 @@ public struct DoublyLinkedList<Element> {
   }
 
   /// A collection with the addresses of a doubly-linked list.
-  public struct Addresses {
+  public struct Addresses : @unchecked Sendable {
 
     private var base: DoublyLinkedList.Indices
 
@@ -39,6 +39,7 @@ public struct DoublyLinkedList<Element> {
 
   }
 
+typealias a = DefaultIndices<DoublyLinkedList<Element>>
   /// A bucket in the internal storage of a doubly linked list.
   ///
   /// - Note: A bucket is said to be used if its element is not `nil`.
@@ -84,7 +85,7 @@ public struct DoublyLinkedList<Element> {
   }
 
   /// Returns the first address at which an element satisfies the given predicate.
-  public func firstAddress(where predicate: (Element) throws -> Bool) rethrows -> Address? {
+  public func firstAddress(where predicate: @Sendable (Element) throws -> Bool) rethrows -> Address? {
     guard var i = firstAddress else { return nil }
     while true {
       if try predicate(self[i]) { return i }
@@ -99,7 +100,7 @@ public struct DoublyLinkedList<Element> {
   }
 
   /// Returns the last address at which an element satisfies the given predicate.
-  public func lastAddress(where predicate: (Element) throws -> Bool) rethrows -> Address? {
+  public func lastAddress(where predicate: @Sendable (Element) throws -> Bool) rethrows -> Address? {
     guard var i = lastAddress else { return nil }
     while true {
       if try predicate(self[i]) { return i }
@@ -313,9 +314,12 @@ public struct DoublyLinkedList<Element> {
 
 }
 
+extension DoublyLinkedList.Bucket: Sendable where Element: Sendable {
+}
+
 extension DoublyLinkedList: BidirectionalCollection, MutableCollection {
 
-  public struct Index: Comparable, Hashable {
+  public struct Index: Comparable, Hashable, Sendable {
 
     /// The address corresponding to that index.
     public let address: Address
@@ -435,3 +439,5 @@ extension DoublyLinkedList.Addresses: BidirectionalCollection {
   }
 
 }
+
+extension DoublyLinkedList: Sendable where Element: Sendable {}

@@ -1,5 +1,5 @@
 /// The expression of a tuple member, referred by its index.
-public struct TupleMemberExpr: Expr {
+public struct TupleMemberExpr: Expr, Sendable {
 
   public let site: SourceRange
 

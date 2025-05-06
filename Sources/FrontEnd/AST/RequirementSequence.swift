@@ -1,5 +1,5 @@
 /// A sequence with the requirements of a trait declaration.
-public struct RequirementSequence: IteratorProtocol, Sequence {
+public struct RequirementSequence: IteratorProtocol, Sequence, Sendable {
 
   public typealias Element = AnyDeclID
 

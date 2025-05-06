@@ -19,7 +19,7 @@ private protocol TermBox {
 }
 
 /// A box wrapping an instance of `Base`.
-private struct ConcreteTermBox<Base: TermProtocol>: TermBox {
+private struct ConcreteTermBox<Base: TermProtocol>: TermBox, Sendable {
 
   /// The value wrapped by this instance.
   let base: Base
@@ -43,7 +43,7 @@ private struct ConcreteTermBox<Base: TermProtocol>: TermBox {
 }
 
 /// The compile-time representation of the value of an expression.
-public struct AnyTerm {
+public struct AnyTerm: Sendable {
 
   /// A shorthand for `^ErrorTerm()`.
   public static let error = ^ErrorTerm()

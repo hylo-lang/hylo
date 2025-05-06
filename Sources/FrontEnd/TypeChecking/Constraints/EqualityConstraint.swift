@@ -1,7 +1,7 @@
 import Utils
 
 /// A constraint `L == R` specifying that `L` is exactly the same type as `R`.
-struct EqualityConstraint: Constraint, Hashable {
+struct EqualityConstraint: Constraint, Hashable, Sendable {
 
   /// The left operand.
   private(set) var left: AnyType

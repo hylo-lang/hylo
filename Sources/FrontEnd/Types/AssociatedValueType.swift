@@ -1,7 +1,7 @@
 import Utils
 
 /// The type of an associated value of a generic type parameter, or associated type thereof.
-public struct AssociatedValueType: TypeProtocol {
+public struct AssociatedValueType: TypeProtocol, Sendable {
 
   /// The declaration that introduces the associated value in the parent trait.
   public let decl: AssociatedValueDecl.ID

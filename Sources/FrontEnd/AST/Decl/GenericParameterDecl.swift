@@ -1,10 +1,10 @@
 /// A generic parameter declaration.
-public struct GenericParameterDecl: SingleEntityDecl, ConstrainedGenericTypeDecl {
+public struct GenericParameterDecl: SingleEntityDecl, ConstrainedGenericTypeDecl, Sendable {
 
   public static let constructDescription = "generic parameter declaration"
 
   /// The introducer of a generic parameter declaration.
-  public enum Introducer: Codable {
+  public enum Introducer: Codable, Sendable {
 
     /// The type introducer, `type`.
     case type

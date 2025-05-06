@@ -34,7 +34,7 @@ extension ExprID {
 extension NodeID: ExprID where Subject: Expr {}
 
 /// The type-erased ID of a value expression.
-public struct AnyExprID: ExprID {
+public struct AnyExprID: ExprID, Sendable {
 
   /// The underlying type-erased ID.
   public let base: AnyNodeID
