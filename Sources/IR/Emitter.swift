@@ -1784,13 +1784,12 @@ struct Emitter {
         unreachable()
       }
 
-      let site = program[callee.expr].site
+      _lowering(callee.expr)
       let lhsIsMarkedForMutation = program.ast.isMarkedForMutation(lhs)
-      let (callee, captures) = emitMemberFunctionCallee(
+      let (callee, captures) = _emitMemberFunctionCallee(
         referringTo: d, memberOf: l, markedForMutation: lhsIsMarkedForMutation,
-        specializedBy: a, in: program[callee.expr].scope,
-        at: site)
-      emitApply(callee, to: captures + [r], writingResultTo: storage, at: site)
+        specializedBy: a, in: program[callee.expr].scope)
+      emitApply(callee, to: captures + [r], writingResultTo: storage, at: _site!)
 
     case .leaf(let v):
       emitStore(v, in: storage)
@@ -2302,11 +2301,11 @@ struct Emitter {
   ) -> (callee: Callee, captures: [Operand]) {
     guard case .member(let d, let a, let s) = program[callee].referredDecl else { unreachable() }
 
+    _lowering(callee)
     let r = emitLValue(receiver: s, at: ast[callee].site)
-    return emitMemberFunctionCallee(
+    return _emitMemberFunctionCallee(
       referringTo: d, memberOf: r, markedForMutation: isMutating,
-      specializedBy: a, in:program[callee].scope,
-      at: program[callee].site)
+      specializedBy: a, in:program[callee].scope)
   }
 
   /// Inserts the IR constructing the callee of a call referring to `d`, which is a member function
@@ -2314,12 +2313,10 @@ struct Emitter {
   ///
   /// The callee is marked for mutation iff `isMutating` is `true`, in which case the receiver is
   /// accessed with a `set` or `inout` capability.
-  private mutating func emitMemberFunctionCallee(
+  private mutating func _emitMemberFunctionCallee(
     referringTo d: AnyDeclID, memberOf r: Operand, markedForMutation isMutating: Bool,
-    specializedBy a: GenericArguments, in scopeOfUse: AnyScopeID,
-    at site: SourceRange
+    specializedBy a: GenericArguments, in scopeOfUse: AnyScopeID
   ) -> (callee: Callee, captures: [Operand]) {
-    _lowering(at: site)
     let available = receiverCapabilities(program[d].type)
     var requested = available.intersection(.forUseOfBundle(performingInPlaceMutation: isMutating))
 
@@ -2331,7 +2328,7 @@ struct Emitter {
       specializedBy: a, usedIn: scopeOfUse)
 
     if case .bundle(let b) = entityToCall {
-      return emitMethodBundleCallee(referringTo: b, on: r, at: site)
+      return emitMethodBundleCallee(referringTo: b, on: r, at: _site!)
     } else {
       let c = _access(requested, from: r)
       return (callee: entityToCall, captures: [c])
