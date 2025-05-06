@@ -2632,7 +2632,7 @@ struct Emitter {
       return source
     }
 
-    return emitExistential(target, wrapping: source, at: _site!)
+    return _emitExistential(target, wrapping: source)
   }
 
   /// Inserts the IR for coercing `source` to an address of type `target`.
@@ -2762,12 +2762,12 @@ struct Emitter {
   }
 
   /// Returns an existential container of type `t` wrappring `witness`.
-  private mutating func emitExistential(
-    _ t: ExistentialType, wrapping witness: Operand, at site: SourceRange
+  private mutating func _emitExistential(
+    _ t: ExistentialType, wrapping witness: Operand
   ) -> Operand {
     let w = module.type(of: witness).ast
     let table = Operand.constant(module.demandWitnessTable(w, in: insertionScope!))
-    _lowering(at: site)
+    _lowering(at: _site!)
     return _wrap_existential_addr(witness, table, as: t)
   }
 
