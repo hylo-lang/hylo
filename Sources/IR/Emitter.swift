@@ -3446,17 +3446,6 @@ struct Emitter {
     }
   }
 
-  /// Emits the IR trapping iff `predicate`, which is an object of type `i1`.
-  private mutating func emitGuard(_ predicate: Operand, at site: SourceRange) {
-    let failure = appendBlock()
-    let success = appendBlock()
-    _cond_branch(if: predicate, then: success, else: failure)
-
-    insertionPoint = .end(of: failure)
-    insert(module.makeUnreachable(at: site))
-    insertionPoint = .end(of: success)
-  }
-
   /// Emits the IR for copying the union discriminator of `container`, which is the address of
   /// a union container.
   private mutating func emitUnionDiscriminator(
