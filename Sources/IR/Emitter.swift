@@ -3341,8 +3341,8 @@ struct Emitter {
     let tail = appendBlock()
 
     // The success blocks compare discriminators and then payloads.
-    let dl = emitUnionDiscriminator(lhs, at: _site!)
-    let dr = emitUnionDiscriminator(rhs, at: _site!)
+    let dl = _emitUnionDiscriminator(lhs)
+    let dr = _emitUnionDiscriminator(rhs)
     let x0 = _call_builtin(.icmp(.eq, .discriminator), [dl, dr])
     _cond_branch(if: x0, then: same, else: fail)
 
@@ -3448,10 +3448,9 @@ struct Emitter {
 
   /// Emits the IR for copying the union discriminator of `container`, which is the address of
   /// a union container.
-  private mutating func emitUnionDiscriminator(
-    _ container: Operand, at site: SourceRange
+  private mutating func _emitUnionDiscriminator(
+    _ container: Operand
   ) -> Operand {
-    _lowering(at: site)
     let x0 = _access(.let, from: container)
     let x1 = _union_discriminator(x0)
     _end_access(x0)
@@ -3464,7 +3463,7 @@ struct Emitter {
     on scrutinee: Operand, toOneOf targets: UnionSwitch.Targets
   ) {
     let u = UnionType(module.type(of: scrutinee).ast)!
-    let i = emitUnionDiscriminator(scrutinee, at: _site!)
+    let i = _emitUnionDiscriminator(scrutinee)
     _union_switch(case: i, of: u, targets)
   }
 
