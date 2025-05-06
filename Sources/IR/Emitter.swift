@@ -3052,7 +3052,7 @@ struct Emitter {
     if let k = semantics.uniqueElement {
       emitMove(k, value, to: storage, withMovableConformance: movable, at: _site!)
     } else {
-      insert(module.makeMove(value, to: storage, usingConformance: movable, at: _site!))
+      _move(value, storage, via: movable)
     }
   }
 
@@ -3870,6 +3870,10 @@ extension Emitter {
 
   fileprivate mutating func _memory_copy(_ source: Operand, _ target: Operand) {
     insert(module.makeMemoryCopy(source, target, at: _site!))
+  }
+
+  fileprivate mutating func _move(_ source: Operand, _ target: Operand, via movability: FrontEnd.Conformance) {
+    insert(module.makeMove(source, to: target, usingConformance: movability, at: _site!))
   }
 
 }
