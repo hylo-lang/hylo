@@ -62,7 +62,7 @@ public struct StronglyConnectedComponents<Vertex: Hashable> {
   }
 
   /// The properties associated with a vertex in Tarjan's algorithm.
-  private struct Properties {
+  private struct Properties: Sendable {
 
     /// The smallest index of any vertex reachable from this vertex.
     var low: Int

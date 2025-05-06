@@ -1,7 +1,7 @@
 import Utils
 
 /// A module type.
-public struct ModuleType: TypeProtocol {
+public struct ModuleType: TypeProtocol, Sendable {
 
   /// The declaration that introduces the module.
   public let decl: ModuleDecl.ID

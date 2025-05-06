@@ -1,5 +1,5 @@
 /// An assignment statement.
-public struct AssignStmt: Stmt {
+public struct AssignStmt: Stmt, Sendable {
 
   public let site: SourceRange
 

@@ -1,7 +1,7 @@
 /// A part of an AST node that may have a textual representation in source code.
 ///
 /// - Note: The site is a non-salient annotation. It does not contribute to a node's value.
-public struct SourceRepresentable<Part> {
+public struct SourceRepresentable<Part>: Sendable {
 
   /// The part.
   public let value: Part
@@ -35,7 +35,7 @@ extension SourceRepresentable: Hashable where Part: Hashable {
 
 extension SourceRepresentable: Codable where Part: Codable {
 
-  fileprivate enum CodingKeys: String, CodingKey {
+  fileprivate enum CodingKeys: String, CodingKey, Sendable {
 
     case value, range
 

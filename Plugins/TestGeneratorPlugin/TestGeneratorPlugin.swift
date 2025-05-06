@@ -14,18 +14,18 @@ struct TestGeneratorPlugin: SPMBuildToolPlugin {
     // Using target.sourceFiles(withSuffix: ".hylo").map(\.path) as inputFiles creates noisy
     // warnings about unused sources. Instead, find the input files relative to the target
     // directory and exclude them as sources in Package.swift.
-    let testCases = target.directory.url / "TestCases"
+    let testCases = target.directoryURL / "TestCases"
     let inputPaths = try FileManager.default.subpathsOfDirectory(atPath: testCases.platformString)
-      .compactMap { (p) in p.hasSuffix(".hylo") ? .some((testCases / p).spmPath) : nil }
+      .compactMap { (p) in p.hasSuffix(".hylo") ? .some(testCases / p) : nil }
 
-    let outputPath = context.pluginWorkDirectory.appending("HyloFileTests.swift")
+    let outputPath = context.pluginWorkDirectoryURL / "HyloFileTests.swift"
     let options = ["-o", outputPath.platformString, "-n", target.moduleName]
 
     return [
       .buildCommand(
         displayName: "Generating XCTestCases into \(outputPath)",
         executable: .targetInThisPackage("GenerateHyloFileTests"),
-        arguments: options + inputPaths.map(\.platformString),
+        arguments: options + inputPaths.map { $0.platformString },
         inputFiles: inputPaths,
         outputFiles: [outputPath])
     ]

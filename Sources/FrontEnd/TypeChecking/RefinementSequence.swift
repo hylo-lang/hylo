@@ -2,7 +2,7 @@
 ///
 /// The sequence is ordered such that a trait `t` always occur **after** the traits which it
 /// refines. Hence the last element of the sequence is the most refined trait of the closure.
-struct RefinementSequence: IteratorProtocol, Sequence {
+struct RefinementSequence: IteratorProtocol, Sequence, Sendable {
 
   /// A stack of vertices left to visit with the indices of their currently visited neighbors.
   private typealias VisitList = [(TraitType, RefinementClosure.Refinements.OutgoingEdges.Index)]

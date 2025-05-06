@@ -66,7 +66,7 @@ extension Diagnostic {
 extension Diagnostic {
 
   /// Style transforms applied to the raw text of different parts of a diagnostic.
-  public struct TextOutputStyle {
+  public struct TextOutputStyle: Sendable {
 
     /// How the site is rendered in this style.
     fileprivate let sourceRange: String.ANSIStyle
@@ -113,7 +113,7 @@ extension Diagnostic {
 
 /// An ANSI [Select Graphic Rendition](https://en.wikipedia.org/wiki/ANSI_escape_code#SGR) (SGR)
 /// escape code.
-private enum ANSISGR: Int {
+private enum ANSISGR: Int, Sendable {
 
   /// Reset all SGR attributes
   case reset = 0

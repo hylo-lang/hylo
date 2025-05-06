@@ -1,5 +1,5 @@
 /// The type of a remote part.
-public struct RemoteType: TypeProtocol {
+public struct RemoteType: TypeProtocol, Sendable {
 
   /// The capabilities of the projection.
   public let access: AccessEffect

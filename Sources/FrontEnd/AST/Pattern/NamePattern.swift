@@ -1,5 +1,5 @@
 /// A pattern which binds an identifier.
-public struct NamePattern: Pattern {
+public struct NamePattern: Pattern, Sendable {
 
   public let site: SourceRange
 

@@ -4,7 +4,7 @@ import Utils
 extension Function {
 
   /// The global identity of an IR function.
-  public struct ID: Hashable {
+  public struct ID: Hashable, Sendable {
 
     /// The value of a function IR identity.
     public enum Value: Hashable {
