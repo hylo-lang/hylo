@@ -1513,7 +1513,7 @@ struct Emitter {
     case PragmaLiteralExpr.self:
       emitStore(PragmaLiteralExpr.ID(e)!, to: storage)
     case RemoteTypeExpr.self:
-      emitStore(RemoteTypeExpr.ID(e)!, to: storage)
+      _emitStore(RemoteTypeExpr.ID(e)!, to: storage)
     case SequenceExpr.self:
       emitStore(SequenceExpr.ID(e)!, to: storage)
     case SubscriptCallExpr.self:
@@ -1531,7 +1531,10 @@ struct Emitter {
 
   /// Inserts the IR for storing the value of `e` to `storage`.
   private mutating func emitStore(_ e: BufferLiteralExpr.ID, to storage: Operand) {
+    let savedSite = _site
+    defer { _site = savedSite }
     _lowering(e)
+
     if program[e].elements.isEmpty {
       _mark_state(.initialized, storage)
       return
@@ -1752,10 +1755,8 @@ struct Emitter {
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
-  private mutating func emitStore(_ e: RemoteTypeExpr.ID, to storage: Operand) {
+  private mutating func _emitStore(_ e: RemoteTypeExpr.ID, to storage: Operand) {
     let t = RemoteType(program[e].type)!
-    _lowering(e)
-
     let x0 = emitLValue(program[e].operand)
     let x1 = _access([t.access], from: x0)
     _emitStore(access: x1, to: storage)
