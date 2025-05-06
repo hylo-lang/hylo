@@ -2865,7 +2865,8 @@ struct Emitter {
 
     case .member(let d, let a, let s):
       let receiver = emitLValue(receiver: s, at: site)
-      return emitProperty(boundTo: receiver, declaredBy: d, specializedBy: a, at: site)
+      _lowering(at: site)
+      return _emitProperty(boundTo: receiver, declaredBy: d, specializedBy: a)
 
     case .constructor:
       UNIMPLEMENTED()
@@ -2925,15 +2926,13 @@ struct Emitter {
 
   /// Inserts the IR to return the address of the member declared by `d`, bound to `r`, and
   /// specialized by `z`.
-  private mutating func emitProperty(
-    boundTo r: Operand, declaredBy d: AnyDeclID, specializedBy z: GenericArguments,
-    at site: SourceRange
+  private mutating func _emitProperty(
+    boundTo r: Operand, declaredBy d: AnyDeclID, specializedBy z: GenericArguments
   ) -> Operand {
-    _lowering(at: site)
     switch d.kind {
     case SubscriptDecl.self:
       return emitComputedProperty(
-        boundTo: r, declaredByBundle: .init(d)!, specializedBy: z, at: site)
+        boundTo: r, declaredByBundle: .init(d)!, specializedBy: z, at: _site!)
 
     case VarDecl.self:
       let l = AbstractTypeLayout(of: module.type(of: r).ast, definedIn: program)
