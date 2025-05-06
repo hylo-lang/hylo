@@ -570,7 +570,6 @@ struct Emitter {
       case WildcardPattern.self:
         let s = emitStore(value: rhs)
         assert(_site == ast[p].site)
-        _lowering(p)
         _emitDeinit(s)
 
       default:
