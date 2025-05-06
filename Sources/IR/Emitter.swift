@@ -1551,7 +1551,7 @@ struct Emitter {
 
     let x0 = emitLValue(program[e].source)
     let x1 = _access([t.access], from: x0)
-    emitStore(access: x1, to: storage, at: _site!)
+    _emitStore(access: x1, to: storage)
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
@@ -1723,7 +1723,7 @@ struct Emitter {
       let y0 = emitLValue(directReferenceTo: c.decl, at: _site!)
       let y1 = _access([c.type.access], from: y0)
       let y2 = _subfield_view(x2, at: [i])
-      emitStore(access: y1, to: y2, at: _site!)
+      _emitStore(access: y1, to: y2)
       i += 1
     }
   }
@@ -1759,7 +1759,7 @@ struct Emitter {
 
     let x0 = emitLValue(program[e].operand)
     let x1 = _access([t.access], from: x0)
-    emitStore(access: x1, to: storage, at: _site!)
+    _emitStore(access: x1, to: storage)
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
@@ -1963,12 +1963,11 @@ struct Emitter {
   ///
   /// - Parameter storage: an address derived from an `alloc_stack` that is outlived by the
   ///   provenances of `a`.
-  private mutating func emitStore(
-    access a: Operand, to storage: Operand, at site: SourceRange
+  private mutating func _emitStore(
+    access a: Operand, to storage: Operand
   ) {
-    _lowering(at: site)
     guard let s = module.provenances(storage).uniqueElement, module[s] is AllocStack else {
-      report(.error(cannotCaptureAccessAt: site))
+      report(.error(cannotCaptureAccessAt: _site!))
       return
     }
 
