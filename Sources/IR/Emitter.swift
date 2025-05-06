@@ -2302,7 +2302,7 @@ struct Emitter {
     guard case .member(let d, let a, let s) = program[callee].referredDecl else { unreachable() }
 
     _lowering(callee)
-    let r = emitLValue(receiver: s, at: ast[callee].site)
+    let r = _emitLValue(receiver: s)
     return _emitMemberFunctionCallee(
       referringTo: d, memberOf: r, markedForMutation: isMutating,
       specializedBy: a, in:program[callee].scope)
@@ -2424,7 +2424,7 @@ struct Emitter {
     guard case .member(let d, let a, let s) = program[callee].referredDecl else { unreachable() }
 
     let entityToCall = program.subscriptBundleReference(to: .init(d)!, specializedBy: a)
-    let r = emitLValue(receiver: s, at: _site!)
+    let r = _emitLValue(receiver: s)
     let c = _access(entityToCall.capabilities, from: r)
     return (entityToCall, [c])
   }
@@ -2861,8 +2861,8 @@ struct Emitter {
       return emitLValue(directReferenceTo: d, at: site)
 
     case .member(let d, let a, let s):
-      let receiver = emitLValue(receiver: s, at: site)
       _lowering(at: site)
+      let receiver = _emitLValue(receiver: s)
       return _emitProperty(boundTo: receiver, declaredBy: d, specializedBy: a)
 
     case .constructor:
@@ -2875,16 +2875,14 @@ struct Emitter {
   }
 
   /// Returns the address of the `operation`'s receiver, which refers to a member declaration.
-  private mutating func emitLValue(
-    receiver r: DeclReference.Receiver, at site: SourceRange
-  ) -> Operand {
+  private mutating func _emitLValue(receiver r: DeclReference.Receiver) -> Operand {
     switch r {
     case .operand, .implicit:
       unreachable()
     case .explicit(let e):
       return emitLValue(e)
     case .elided(let s):
-      return emitLValue(reference: s, at: site)
+      return emitLValue(reference: s, at: _site!)
     }
   }
 
