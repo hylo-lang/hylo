@@ -3473,7 +3473,7 @@ struct Emitter {
   ) -> Operand {
     _lowering(at: site)
     let x0 = _access(.let, from: container)
-    let x1 = insert(module.makeUnionDiscriminator(x0, at: _site!))!
+    let x1 = _union_discriminator(x0)
     _end_access(x0)
     return x1
   }
@@ -3874,6 +3874,10 @@ extension Emitter {
 
   fileprivate mutating func _move(_ source: Operand, _ target: Operand, via movability: FrontEnd.Conformance) {
     insert(module.makeMove(source, to: target, usingConformance: movability, at: _site!))
+  }
+
+  fileprivate mutating func _union_discriminator(_ x: Operand) -> Operand {
+    insert(module.makeUnionDiscriminator(x, at: _site!))!
   }
 
 }
