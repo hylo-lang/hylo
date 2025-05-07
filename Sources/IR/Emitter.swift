@@ -302,7 +302,7 @@ struct Emitter {
       _mark_state(.initialized, returnValue!)
 
     default:
-      let v = _convert(foreignResult, to: module.functions[f]!.output)
+      let v = _emitConvert(foreign: foreignResult, to: module.functions[f]!.output)
       _move(.set, v, to: returnValue!)
     }
     _dealloc_top_frame()
@@ -2677,11 +2677,8 @@ struct Emitter {
   }
 
   /// Inserts the IR for converting `foreign` to a value of type `ir`.
-  private mutating func emitConvert(
-    foreign: Operand, to ir: AnyType, at site: SourceRange
-  ) -> Operand {
+  private mutating func _emitConvert(foreign: Operand, to ir: AnyType) -> Operand {
     precondition(module.type(of: foreign).isObject)
-    _lowering(at: site)
 
     let foreignConvertible = ast.core.foreignConvertible.type
     let foreignConvertibleConformance = program.conformance(
@@ -3691,10 +3688,6 @@ extension Emitter {
 
   mutating func _unreachable() {
     insert(module.makeUnreachable(at: _site!))
-  }
-
-  mutating func _convert(_ foreignResult: Operand, to t: AnyType) -> Operand {
-    emitConvert(foreign: foreignResult, to: t, at: _site!)
   }
 
   mutating func _return() {
