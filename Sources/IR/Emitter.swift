@@ -3170,7 +3170,7 @@ struct Emitter {
     } else if t.base is UnionType {
       _emitDeinitUnionPayload(of: storage)
     } else if t.hasRecordLayout {
-      emitDeinitRecordParts(of: storage, at: _site!)
+      _emitDeinitRecordParts(of: storage)
     } else {
       report(.error(t, doesNotConformTo: ast.core.deinitializable.type, at: _site!))
     }
@@ -3181,8 +3181,7 @@ struct Emitter {
   /// deinitializable otherwise.
   ///
   /// - Requires: the type of `storage` has a record layout.
-  private mutating func emitDeinitRecordParts(of storage: Operand, at site: SourceRange) {
-    _lowering(at: site)
+  private mutating func _emitDeinitRecordParts(of storage: Operand) {
     let t = module.type(of: storage).ast
     precondition(t.hasRecordLayout)
 
