@@ -1675,10 +1675,10 @@ struct Emitter {
     }
 
     // Arguments are evaluated first, from left to right; callee and captures are evaluated next
-    let arguments = emitArguments(
-      to: ast[e].callee, in: CallID(e),
-      usingExplicit: ast[e].arguments, synthesizingDefaultAt: .empty(at: ast[e].site.end))
+    _lowering(after: e)
+    let arguments = _emitArguments(to: ast[e].callee, in: CallID(e), usingExplicit: ast[e].arguments)
     let m = ast.isMarkedForMutation(ast[e].callee)
+    _lowering(e)
     let (callee, captures) = emitFunctionCallee(ast[e].callee, markedForMutation: m)
 
     // Call is evaluated last.
@@ -2035,9 +2035,8 @@ struct Emitter {
     }
 
     // Arguments are evaluated first, from left to right.
-    let arguments = emitArguments(
-      to: ast[call].callee, in: CallID(call),
-      usingExplicit: ast[call].arguments, synthesizingDefaultAt: .empty(at: ast[call].site.end))
+    _lowering(after: call)
+    let arguments = _emitArguments(to: ast[call].callee, in: CallID(call), usingExplicit: ast[call].arguments)
 
     _lowering(call)
     // Receiver is captured next.
@@ -2087,12 +2086,10 @@ struct Emitter {
   /// Information about argument resolution is read from `program.callOperands`. Arguments passed
   /// explicitly have a corresponding expression in `arguments`. If default arguments are used,
   /// `callee` is a name expression referring to a callable declaration.
-  private mutating func emitArguments(
+  private mutating func _emitArguments(
     to callee: AnyExprID, in call: CallID,
-    usingExplicit arguments: [LabeledArgument],
-    synthesizingDefaultAt syntheticSite: SourceRange
+    usingExplicit arguments: [LabeledArgument]
   ) -> [Operand] {
-    _lowering(at: syntheticSite)
     let parameters = (canonical(program[callee].type).base as! CallableType).inputs
     let inputs = program.callOperands[call]!
     assert(parameters.count == inputs.count)
@@ -2182,10 +2179,9 @@ struct Emitter {
   private mutating func emitOperands(
     _ e: SubscriptCallExpr.ID
   ) -> (callee: BundleReference<SubscriptDecl>, arguments: [Operand]) {
+    _lowering(after: e)
     // Arguments are evaluated first, from left to right; callee and captures are evaluated next.
-    let arguments = emitArguments(
-      to: ast[e].callee, in: CallID(e),
-      usingExplicit: ast[e].arguments, synthesizingDefaultAt: .empty(at: ast[e].site.end))
+    let arguments = _emitArguments(to: ast[e].callee, in: CallID(e), usingExplicit: ast[e].arguments)
     let (callee, captures) = emitSubscriptCallee(ast[e].callee)
     return (callee, captures + arguments)
   }
@@ -2994,7 +2990,7 @@ struct Emitter {
 
     // Built-in types are handled as a special case.
     if model.isBuiltin {
-      emitMoveBuiltIn(value, to: storage, at: _site!)
+      _emitMoveBuiltIn(value, to: storage)
       return
     }
 
@@ -3026,10 +3022,7 @@ struct Emitter {
   }
 
   /// Inserts IR for move-initializing/assigning `storage` with built-in `value` at `site`.
-  private mutating func emitMoveBuiltIn(
-    _ value: Operand, to storage: Operand, at site: SourceRange
-  ) {
-    _lowering(at: site)
+  private mutating func _emitMoveBuiltIn(_ value: Operand, to storage: Operand) {
     // Built-in are always stored.
     let x0 = _access(.set, from: storage)
     let x1 = _access(.sink, from: value)
@@ -3076,7 +3069,7 @@ struct Emitter {
 
     // Built-in types are handled as a special case.
     if model.isBuiltin {
-      emitMoveBuiltIn(source, to: target, at: _site!)
+      _emitMoveBuiltIn(source, to: target)
       return
     }
 
