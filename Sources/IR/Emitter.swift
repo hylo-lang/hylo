@@ -2978,7 +2978,8 @@ struct Emitter {
     let predecessor = module.instruction(before: i)
 
     insertionPoint = .before(i)
-    emitMove(semantics, s.object, to: s.target, withMovableConformance: s.movable, at: s.site)
+    _lowering(at: s.site)
+    _emitMove(semantics, s.object, to: s.target, withMovableConformance: s.movable)
     module.removeInstruction(i)
 
     if let p = predecessor {
@@ -3031,7 +3032,7 @@ struct Emitter {
     // Insert a call to the appropriate move implementation if its semantics is unambiguous.
     // Otherwise, insert a call to the method bundle.
     if let k = semantics.uniqueElement {
-      emitMove(k, value, to: storage, withMovableConformance: movable, at: _site!)
+      _emitMove(k, value, to: storage, withMovableConformance: movable)
     } else {
       _move(value, storage, via: movable)
     }
@@ -3059,11 +3060,10 @@ struct Emitter {
   /// - `.inout` emits move-assignment.
   ///
   /// - Requires: `storage` does not have a built-in type.
-  private mutating func emitMove(
+  private mutating func _emitMove(
     _ semantics: AccessEffect, _ value: Operand, to storage: Operand,
-    withMovableConformance movable: FrontEnd.Conformance, at site: SourceRange
+    withMovableConformance movable: FrontEnd.Conformance
   ) {
-    _lowering(at: site)
     let d = module.demandTakeValueDeclaration(semantics, definedBy: movable)
     let f = module.reference(to: d, implementedFor: movable)
 
