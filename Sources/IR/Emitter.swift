@@ -2922,8 +2922,8 @@ struct Emitter {
   ) -> Operand {
     switch d.kind {
     case SubscriptDecl.self:
-      return emitComputedProperty(
-        boundTo: r, declaredByBundle: .init(d)!, specializedBy: z, at: _site!)
+      return _emitComputedProperty(
+        boundTo: r, declaredByBundle: .init(d)!, specializedBy: z)
 
     case VarDecl.self:
       let l = AbstractTypeLayout(of: module.type(of: r).ast, definedIn: program)
@@ -2936,30 +2936,26 @@ struct Emitter {
   }
 
   /// Returns the projection the property declared by `d`, bound to `r`, and specialized by `z`.
-  private mutating func emitComputedProperty(
-    boundTo r: Operand, declaredByBundle d: SubscriptDecl.ID, specializedBy z: GenericArguments,
-    at site: SourceRange
+  private mutating func _emitComputedProperty(
+    boundTo r: Operand, declaredByBundle d: SubscriptDecl.ID, specializedBy z: GenericArguments
   ) -> Operand {
     if let i = ast[d].impls.uniqueElement {
-      return emitComputedProperty(boundTo: r, declaredBy: i, specializedBy: z, at: site)
+      return _emitComputedProperty(boundTo: r, declaredBy: i, specializedBy: z)
     }
 
     let t = SubscriptType(canonicalType(of: d, specializedBy: z))!
     let b = BundleReference(to: d, specializedBy: z, requesting: t.capabilities)
-    _lowering(at: site)
     let a = _access(t.capabilities, from: r)
 
     return _project_bundle(applying: b, to: [a])
   }
 
   /// Returns the projection of the property declared by `d`, bound to `r`, and specialized by `z`.
-  private mutating func emitComputedProperty(
-    boundTo r: Operand, declaredBy d: SubscriptImpl.ID, specializedBy z: GenericArguments,
-    at site: SourceRange
+  private mutating func _emitComputedProperty(
+    boundTo r: Operand, declaredBy d: SubscriptImpl.ID, specializedBy z: GenericArguments
   ) -> Operand {
     let t = SubscriptImplType(canonicalType(of: d, specializedBy: z))!
     let o = RemoteType(ast[d].introducer.value, t.output)
-    _lowering(at: site)
     let a = _access([o.access], from: r)
     let f = module.demandDeclaration(lowering: d)
 
