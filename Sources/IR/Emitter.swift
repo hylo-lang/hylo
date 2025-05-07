@@ -2145,7 +2145,7 @@ struct Emitter {
     }
 
     let x0 = emitLValue(e)
-    let x1 = unwrapCapture(x0, at: _site!)
+    let x1 = _unwrapCapture(x0)
     let x2 = _emitCoerce(x1, to: p.bareType)
     return _access([p.access], from: x2)
   }
@@ -2576,8 +2576,7 @@ struct Emitter {
 
   /// If `s` has a remote type, returns the result of an instruction exposing the captured access.
   /// Otherwise, returns `s` as is.
-  private mutating func unwrapCapture(_ s: Operand, at site: SourceRange) -> Operand {
-    _lowering(at: site)
+  private mutating func _unwrapCapture(_ s: Operand) -> Operand {
     if module.type(of: s).ast.base is RemoteType {
       return _open_capture(s)
     } else {
