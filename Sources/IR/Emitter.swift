@@ -2141,7 +2141,7 @@ struct Emitter {
     // Pragma literals require extra care to adjust the site at which they are evaluated.
     _lowering(at: syntheticSite ?? program[e].site)
     if let a = PragmaLiteralExpr.ID(e) {
-      return emitPragmaLiteralArgument(a, to: p, at: _site!)
+      return _emitPragmaLiteralArgument(a, to: p)
     }
 
     let x0 = emitLValue(e)
@@ -2173,10 +2173,9 @@ struct Emitter {
 
   /// Inserts the IR for argument `e` passed to a parameter of type `p`, evaluating the literal's
   /// value as though it appeared at `site`.
-  private mutating func emitPragmaLiteralArgument(
-    _ e: PragmaLiteralExpr.ID, to p: ParameterType, at site: SourceRange
+  private mutating func _emitPragmaLiteralArgument(
+    _ e: PragmaLiteralExpr.ID, to p: ParameterType
   ) -> Operand {
-    _lowering(at: site)
     let x0 = _alloc_stack(program[e].type)
     emitStore(e, to: x0, at: _site!)
     return _access([p.access], from: x0)
