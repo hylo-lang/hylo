@@ -1345,7 +1345,7 @@ struct Emitter {
     emitApply(.constant(equal), to: [x0, x1], writingResultTo: quit, at: introducer)
     _end_access(x1)
     _end_access(x0)
-    let x2 = emitLoadBuiltinBool(quit, at: introducer)
+    let x2 = _emitLoadBuiltinBool(quit)
     _cond_branch(if: x2, then: exit, else: enter)
 
     insertionPoint = .end(of: enter)
@@ -2560,12 +2560,12 @@ struct Emitter {
     precondition(
       program.areEquivalent(program[e].type, ^ast.coreType("Bool")!, in: insertionScope!))
     let wrapper = emitLValue(e)
-    return emitLoadBuiltinBool(wrapper, at: ast[e].site)
+    _lowering(e)
+    return _emitLoadBuiltinBool(wrapper)
   }
 
   /// Inserts the IR for extracting the built-in value stored in an instance of `Hylo.Bool`.
-  private mutating func emitLoadBuiltinBool(_ wrapper: Operand, at site: SourceRange) -> Operand {
-    _lowering(at: site)
+  private mutating func _emitLoadBuiltinBool(_ wrapper: Operand) -> Operand {
     precondition(module.type(of: wrapper) == .address(ast.coreType("Bool")!))
     let x0 = _subfield_view(wrapper, at: [0])
     let x1 = _access(.sink, from: x0)
@@ -3285,7 +3285,7 @@ struct Emitter {
         _branch(to: tail)
         insertionPoint = .end(of: tail)
       } else {
-        let x2 = emitLoadBuiltinBool(target, at: _site!)
+        let x2 = _emitLoadBuiltinBool(target)
         let next = appendBlock()
         _cond_branch(if: x2, then: next, else: tail)
         insertionPoint = .end(of: next)
