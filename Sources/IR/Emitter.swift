@@ -3168,7 +3168,7 @@ struct Emitter {
     if program.isTriviallyDeinitializable(t, in: insertionScope!) {
       _mark_state(.uninitialized, storage)
     } else if t.base is UnionType {
-      emitDeinitUnionPayload(of: storage, at: _site!)
+      _emitDeinitUnionPayload(of: storage)
     } else if t.hasRecordLayout {
       emitDeinitRecordParts(of: storage, at: _site!)
     } else {
@@ -3206,8 +3206,7 @@ struct Emitter {
   /// deinitializable otherwise.
   ///
   /// - Requires: the type of `storage` is a union.
-  private mutating func emitDeinitUnionPayload(of storage: Operand, at site: SourceRange) {
-    _lowering(at: site)
+  private mutating func _emitDeinitUnionPayload(of storage: Operand) {
     let t = UnionType(module.type(of: storage).ast)!
 
     // If union is empty, simply mark it uninitialized.
@@ -3218,7 +3217,7 @@ struct Emitter {
 
     // Trivial if the union has a single member.
     if let e = t.elements.uniqueElement {
-      emitDeinitUnionPayload(of: storage, containing: e, at: site)
+      _emitDeinitUnionPayload(of: storage, containing: e)
       return
     }
 
@@ -3231,7 +3230,7 @@ struct Emitter {
     let tail = appendBlock()
     for (u, b) in targets {
       insertionPoint = .end(of: b)
-      emitDeinitUnionPayload(of: storage, containing: u, at: site)
+      _emitDeinitUnionPayload(of: storage, containing: u)
       _branch(to: tail)
     }
 
@@ -3241,10 +3240,7 @@ struct Emitter {
   /// If `storage`, which stores a union container holding a `payload`, is deinitializable in
   /// `self.insertionScope`, inserts the IR for deinitializing it; reports a diagnostic for each
   /// part that isn't deinitializable otherwise.
-  private mutating func emitDeinitUnionPayload(
-    of storage: Operand, containing payload: AnyType, at site: SourceRange
-  ) {
-    _lowering(at: site)
+  private mutating func _emitDeinitUnionPayload(of storage: Operand, containing payload: AnyType) {
     let x0 = _open_union(storage, as: payload)
     _emitDeinit(x0)
     _close_union(x0)
