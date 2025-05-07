@@ -2107,12 +2107,12 @@ struct Emitter {
       switch inputs[i] {
       case .explicit(let n):
         let a = arguments[n].value
-        result.append(emitArgument(a, to: p, at: syntheticSite))
+        result.append(_emitArgument(a, to: p))
 
       case .defaulted:
         let parameterDecls = program.runtimeParameters(of: callee)!
         let a = program[parameterDecls[i]].defaultValue!
-        result.append(emitArgument(a, to: p, at: syntheticSite))
+        result.append(_emitArgument(a, to: p))
 
       case .implicit(let d):
         let s = _emitLValue(directReferenceTo: d)
@@ -2123,10 +2123,9 @@ struct Emitter {
     return result
   }
 
-  /// Inserts the IR for the argument `e` passed to a parameter of type `p`, anchoring instructions
-  /// at `syntheticSite ?? program[e].site`.
-  private mutating func emitArgument(
-    _ e: AnyExprID, to p: ParameterType, at syntheticSite: SourceRange?
+  /// Inserts the IR for the argument `e` passed to a parameter of type `p`
+  private mutating func _emitArgument(
+    _ e: AnyExprID, to p: ParameterType
   ) -> Operand {
     if p.isAutoclosure {
       return emitAutoclosureArgument(e, to: p)
@@ -2138,8 +2137,6 @@ struct Emitter {
       report(.error(argumentTo: p.access, requiresMutationMarkerAt: program[e].site))
     }
 
-    // Pragma literals require extra care to adjust the site at which they are evaluated.
-    _lowering(at: syntheticSite ?? program[e].site)
     if let a = PragmaLiteralExpr.ID(e) {
       return _emitPragmaLiteralArgument(a, to: p)
     }
@@ -2197,17 +2194,17 @@ struct Emitter {
   private mutating func emit(
     infixOperand e: FoldedSequenceExpr, passedTo p: ParameterType
   ) -> Operand {
+    _lowering(at: ast.site(of: e))
     switch e {
     case .infix(let f, _, _):
       let t = ArrowType(canonical(program[f.expr].type))!.lifted
-      _lowering(at: ast.site(of: e))
       let s = _alloc_stack(t.output)
       emitStore(e, to: s)
       let u = _emitCoerce(s, to: p.bareType)
       return _access([p.access], from: u)
 
     case .leaf(let e):
-      return emitArgument(e, to: p, at: program[e].site)
+      return _emitArgument(e, to: p)
     }
   }
 
