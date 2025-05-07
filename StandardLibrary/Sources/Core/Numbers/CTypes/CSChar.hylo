@@ -1,0 +1,49 @@
+/// Represents the C `signed char` type.
+/// The range covers at least [-128, 127].
+/// The actual range might be wider on specific platforms.
+public type CSChar {
+    internal var value: Builtin.cschar
+    internal memberwise init
+
+    public static fun min() -> Self {
+        -128 // todo CSChar(value: Builtin.int_cschar_min())
+    }
+    public static fun max() -> Self {
+        127 // todo CSChar(value: Builtin.int_cschar_max())
+    }
+}
+
+public conformance CSChar: ExpressibleByIntegerLiteral {}
+public conformance CSChar: Deinitializable {}
+public conformance CSChar: Movable {}
+public conformance CSChar: Copyable {
+    public fun copy() -> Self {
+        CSChar(value: value)
+    }
+}
+
+public conformance CSChar: Equatable {
+
+  public fun infix== (_ other: Self) -> Bool {
+    Bool(value: Builtin.icmp_eq_cschar(value, other.value))
+  }
+
+  public fun infix!= (_ other: Self) -> Bool {
+    Bool(value: Builtin.icmp_ne_cschar(value, other.value))
+  }
+
+}
+
+public conformance CSChar: ForeignConvertible {
+
+  public typealias ForeignRepresentation = Builtin.cschar
+
+  public init(foreign_value: sink Builtin.cschar) {
+    &self.value = foreign_value
+  }
+
+  public fun foreign_value() -> Builtin.cschar {
+    return value
+  }
+
+}

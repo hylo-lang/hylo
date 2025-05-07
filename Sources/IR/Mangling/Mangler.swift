@@ -400,20 +400,20 @@ struct Mangler {
   ) {
     switch k {
     case .deinitialize:
-      append(base64Didit: 0, to: &output)
+      append(base64Digit: 0, to: &output)
     case .moveInitialization:
-      append(base64Didit: 1, to: &output)
+      append(base64Digit: 1, to: &output)
     case .moveAssignment:
-      append(base64Didit: 2, to: &output)
+      append(base64Digit: 2, to: &output)
     case .copy:
-      append(base64Didit: 3, to: &output)
+      append(base64Digit: 3, to: &output)
     case .equal:
-      append(base64Didit: 4, to: &output)
+      append(base64Digit: 4, to: &output)
     case .globalInitialization(let d):
-      append(base64Didit: 5, to: &output)
+      append(base64Digit: 5, to: &output)
       append(decl: d, to: &output)
     case .autoclosure(let e):
-      append(base64Didit: 6, to: &output)
+      append(base64Digit: 6, to: &output)
       // To allow using multiple autoclosures in the same scope, also write the expression ID.
       append(integer: Int(e.rawValue.bits), to: &output)
     }
@@ -538,7 +538,7 @@ struct Mangler {
     append(term: t.count, to: &output)
   }
 
-  /// Writes the mangled representation of `z` to `output`.
+  /// Writes the mangled representation of `t` to `output`.
   private mutating func append(builtin t: BuiltinType, to output: inout Output) {
     switch t {
     case .i(let width):
@@ -560,6 +560,9 @@ struct Mangler {
       append(integer: 128, to: &output)
     case .ptr:
       append(operator: .builtinPointerType, to: &output)
+    case .cNumeric(let t):
+      append(operator: .builtinCNumericType, to: &output)
+      append(base64Digit: t.rawValue, to: &output)
     case .module:
       append(operator: .builtinModuleType, to: &output)
     }
@@ -672,7 +675,7 @@ struct Mangler {
     if name.notation != nil { tag = 1 }
     if name.introducer != nil { tag = tag | 2 }
 
-    append(base64Didit: tag, to: &output)
+    append(base64Digit: tag, to: &output)
     if let n = name.notation {
       append(base64Digit: n, to: &output)
     }
@@ -705,11 +708,11 @@ struct Mangler {
 
   /// Writes the raw value of `v` encoded as a base 64 digit to `output`.
   private func append<T: RawRepresentable<UInt8>>(base64Digit v: T, to output: inout Output) {
-    append(base64Didit: v.rawValue, to: &output)
+    append(base64Digit: v.rawValue, to: &output)
   }
 
   /// Writes `v` encoded as a base 64 digit to `output`.
-  private func append(base64Didit v: UInt8, to output: inout Output) {
+  private func append(base64Digit v: UInt8, to output: inout Output) {
     Base64Digit(rawValue: v)!.description.write(to: &output)
   }
 

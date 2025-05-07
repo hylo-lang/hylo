@@ -101,10 +101,10 @@ final class TrieTests: XCTestCase {
 
   func testSubscript() {
     var s = Trie<String, Int>()
-    
+
     // Read
     XCTAssertNil(s["x"])
-    
+
     // Write
     s["abc"] = 1
     s["abcd"] = 2
@@ -132,7 +132,7 @@ final class TrieTests: XCTestCase {
     var s = Trie<String, Int>()
     s["abc"] = 1
     s["ab"] = 2
-    
+
     var t = s
     XCTAssertEqual(s, t)
     t["abc"] = nil
@@ -154,7 +154,7 @@ final class TrieTests: XCTestCase {
 
     var t = s
     t["abc"] = nil
-    
+
     h1 = Hasher()
     h2 = Hasher()
     s.hash(into: &h1)

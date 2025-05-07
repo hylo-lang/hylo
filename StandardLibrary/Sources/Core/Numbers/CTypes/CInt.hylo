@@ -1,0 +1,49 @@
+/// Represents the C `int` type.
+/// The range covers at least [-32767, 32767].
+/// The actual range is typically much wider on modern platforms.
+public type CInt {
+    internal var value: Builtin.cint
+    internal memberwise init
+
+    public static fun min() -> Self {
+        -2147483648 // todo CInt(value: Builtin.int_cint_min())
+    }
+    public static fun max() -> Self {
+        2147483647 // todo CInt(value: Builtin.int_cint_max())
+    }
+}
+
+public conformance CInt: ExpressibleByIntegerLiteral {}
+public conformance CInt: Deinitializable {}
+public conformance CInt: Movable {}
+public conformance CInt: Copyable {
+    public fun copy() -> Self {
+        CInt(value: value)
+    }
+}
+
+public conformance CInt: Equatable {
+
+  public fun infix== (_ other: Self) -> Bool {
+    Bool(value: Builtin.icmp_eq_cint(value, other.value))
+  }
+
+  public fun infix!= (_ other: Self) -> Bool {
+    Bool(value: Builtin.icmp_ne_cint(value, other.value))
+  }
+
+}
+
+public conformance CInt: ForeignConvertible {
+
+  public typealias ForeignRepresentation = Builtin.cint
+
+  public init(foreign_value: sink Builtin.cint) {
+    &self.value = foreign_value
+  }
+
+  public fun foreign_value() -> Builtin.cint {
+    return value
+  }
+
+}
