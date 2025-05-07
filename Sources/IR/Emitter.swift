@@ -3252,10 +3252,7 @@ struct Emitter {
 
   // MARK: Equality
 
-  private mutating func emitStoreEquality(
-    _ lhs: Operand, _ rhs: Operand, to target: Operand, at site: SourceRange
-  ) {
-    _lowering(at: site)
+  private mutating func _emitStoreEquality(_ lhs: Operand, _ rhs: Operand, to target: Operand) {
     let m = module.type(of: lhs).ast
     let d = program.ast.core.equatable.type
 
@@ -3295,7 +3292,7 @@ struct Emitter {
     while !parts.isEmpty {
       let x0 = _subfield_view(lhs, at: [parts.startIndex])
       let x1 = _subfield_view(rhs, at: [parts.startIndex])
-      emitStoreEquality(x0, x1, to: target, at: _site!)
+      _emitStoreEquality(x0, x1, to: target)
 
       parts = parts.dropFirst()
       if parts.isEmpty {
@@ -3342,7 +3339,7 @@ struct Emitter {
       insertionPoint = .end(of: b)
       let y0 = _open_union(lhs, as: u)
       let y1 = _open_union(rhs, as: u)
-      emitStoreEquality(y0, y1, to: target, at: _site!)
+      _emitStoreEquality(y0, y1, to: target)
       _close_union(y1)
       _close_union(y0)
       _branch(to: tail)
