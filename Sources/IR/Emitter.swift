@@ -1723,7 +1723,7 @@ struct Emitter {
 
     for c in program[e].decl.implicitCaptures {
       _lowering(e)
-      let y0 = emitLValue(directReferenceTo: c.decl, at: _site!)
+      let y0 = _emitLValue(directReferenceTo: c.decl)
       let y1 = _access([c.type.access], from: y0)
       let y2 = _subfield_view(x2, at: [i])
       _emitStore(access: y1, to: y2)
@@ -2115,7 +2115,7 @@ struct Emitter {
         result.append(emitArgument(a, to: p, at: syntheticSite))
 
       case .implicit(let d):
-        let s = emitLValue(directReferenceTo: d, at: syntheticSite)
+        let s = _emitLValue(directReferenceTo: d)
         result.append(_access([p.access], from: s))
       }
     }
@@ -2832,7 +2832,8 @@ struct Emitter {
 
   /// Inserts the IR for lvalue `e`.
   private mutating func emitLValue(_ e: NameExpr.ID) -> Operand {
-    emitLValue(reference: program[e].referredDecl, at: ast[e].site)
+    _lowering(e)
+    return _emitLValue(reference: program[e].referredDecl)
   }
 
   /// Inserts the IR for lvalue `e`.
@@ -2851,13 +2852,12 @@ struct Emitter {
   }
 
   /// Inserts the IR for `r` used a lvalue at `site`.
-  private mutating func emitLValue(reference r: DeclReference, at site: SourceRange) -> Operand {
+  private mutating func _emitLValue(reference r: DeclReference) -> Operand {
     switch r {
     case .direct(let d, _):
-      return emitLValue(directReferenceTo: d, at: site)
+      return _emitLValue(directReferenceTo: d)
 
     case .member(let d, let a, let s):
-      _lowering(at: site)
       let receiver = _emitLValue(receiver: s)
       return _emitProperty(boundTo: receiver, declaredBy: d, specializedBy: a)
 
@@ -2878,15 +2878,14 @@ struct Emitter {
     case .explicit(let e):
       return emitLValue(e)
     case .elided(let s):
-      return emitLValue(reference: s, at: _site!)
+      return _emitLValue(reference: s)
     }
   }
 
   /// Inserts the IR denoting a direct reference to `d`.
-  private mutating func emitLValue(
-    directReferenceTo d: AnyDeclID, at site: SourceRange
+  private mutating func _emitLValue(
+    directReferenceTo d: AnyDeclID
   ) -> Operand {
-    _lowering(at: site)
     // Handle local bindings.
     if let s = frames[d] {
       return s
