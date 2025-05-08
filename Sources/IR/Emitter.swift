@@ -1747,11 +1747,11 @@ struct Emitter {
     at site: SourceRange? = nil
   ) {
     let anchor = site ?? ast[e].site
+    _lowering(at: anchor)
     switch ast[e].kind {
     case .file:
-      emitStore(utf8: anchor.file.url.absoluteURL.fileSystemPath.utf8, to: storage, at: anchor)
+      _emitStore(utf8: anchor.file.url.absoluteURL.fileSystemPath.utf8, to: storage)
     case .line:
-      _lowering(at: anchor)
       _emitStore(int: anchor.start.line.number, to: storage)
     }
   }
@@ -1812,7 +1812,8 @@ struct Emitter {
 
   /// Inserts the IR for storing the value of `e` to `storage`.
   private mutating func emitStore(_ e: StringLiteralExpr.ID, to storage: Operand) {
-    emitStore(utf8: ast[e].value.unescaped.utf8, to: storage, at: ast[e].site)
+    _lowering(e)
+    _emitStore(utf8: ast[e].value.unescaped.utf8, to: storage)
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
@@ -1950,8 +1951,7 @@ struct Emitter {
   /// Writes an instance of `Hylo.String` with value `v` to `storage`.
   ///
   /// - Requires: `storage` is the address of uninitialized memory of type `Hylo.String`.
-  private mutating func emitStore(utf8 v: String.UTF8View, to storage: Operand, at site: SourceRange) {
-    _lowering(at: site)
+  private mutating func _emitStore(utf8 v: String.UTF8View, to storage: Operand) {
     let x0 = _constant_string(utf8: Data(v))
     let x1 = _subfield_view(storage, at: [0, 0])
     let x2 = _access(.set, from: x1)
