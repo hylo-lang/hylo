@@ -1278,7 +1278,7 @@ struct Emitter {
 
     _lowering(at: introducer)
     let x0 = _access(.inout, from: domain)
-    emitApply(witness.next, to: [x0], writingResultTo: element, at: introducer)
+    _emitApply(witness.next, to: [x0], writingResultTo: element)
     _end_access(x0)
 
     let next = emitUnionNarrowing(
@@ -1342,7 +1342,7 @@ struct Emitter {
     insertionPoint = .end(of: head)
     let x0 = _access(.let, from: currentPosition)
     let x1 = _access(.let, from: endPosition)
-    emitApply(.constant(equal), to: [x0, x1], writingResultTo: quit, at: introducer)
+    _emitApply(.constant(equal), to: [x0, x1], writingResultTo: quit)
     _end_access(x1)
     _end_access(x0)
     let x2 = _emitLoadBuiltinBool(quit)
@@ -1376,7 +1376,7 @@ struct Emitter {
     let x3 = _alloc_stack(collectionWitness.position)
     let x4 = _access(.let, from: domain)
     let x5 = _access(.let, from: currentPosition)
-    emitApply(collectionWitness.positionAfter, to: [x4, x5], writingResultTo: x3, at: introducer)
+    _emitApply(collectionWitness.positionAfter, to: [x4, x5], writingResultTo: x3)
     _end_access(x4)
     _end_access(x5)
     _move(.inout, x3, to: currentPosition)
@@ -1397,8 +1397,8 @@ struct Emitter {
     let end = _alloc_stack(witness.position)
 
     let x0 = _access(.let, from: domain)
-    emitApply(witness.startPosition, to: [x0], writingResultTo: start, at: _site!)
-    emitApply(witness.endPosition, to: [x0], writingResultTo: end, at: _site!)
+    _emitApply(witness.startPosition, to: [x0], writingResultTo: start)
+    _emitApply(witness.endPosition, to: [x0], writingResultTo: end)
     _end_access(x0)
 
     return (startIndex: start, endIndex: end)
@@ -1682,7 +1682,7 @@ struct Emitter {
     let (callee, captures) = emitFunctionCallee(ast[e].callee, markedForMutation: m)
 
     // Call is evaluated last.
-    emitApply(callee, to: captures + arguments, writingResultTo: storage, at: ast[e].site)
+    _emitApply(callee, to: captures + arguments, writingResultTo: storage)
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
@@ -1790,7 +1790,7 @@ struct Emitter {
       let (callee, captures) = _emitMemberFunctionCallee(
         referringTo: d, memberOf: l, markedForMutation: lhsIsMarkedForMutation,
         specializedBy: a, in: program[callee.expr].scope)
-      emitApply(callee, to: captures + [r], writingResultTo: storage, at: _site!)
+      _emitApply(callee, to: captures + [r], writingResultTo: storage)
 
     case .leaf(let v):
       emitStore(v, in: storage)
@@ -1978,38 +1978,35 @@ struct Emitter {
   }
 
   /// Inserts the IR for calling `callee` on `arguments`, storing the result to `storage`.
-  private mutating func emitApply(
+  private mutating func _emitApply(
     _ callee: Callee, to arguments: [Operand],
-    writingResultTo storage: Operand, at site: SourceRange
+    writingResultTo storage: Operand
   ) {
-    _lowering(at: site)
     switch callee {
     case .direct(let r):
-      emitApply(.constant(r), to: arguments, writingResultTo: storage, at: site)
+      _emitApply(.constant(r), to: arguments, writingResultTo: storage)
     case .lambda(let r):
-      emitApply(r, to: arguments, writingResultTo: storage, at: site)
+      _emitApply(r, to: arguments, writingResultTo: storage)
     case .bundle(let r):
-      emitApply(r, to: arguments, writingResultTo: storage, at: site)
+      _emitApply(r, to: arguments, writingResultTo: storage)
     }
   }
 
   /// Inserts the IR for calling `callee` on `arguments`, storing the result to `storage`.
-  private mutating func emitApply(
+  private mutating func _emitApply(
     _ callee: Operand, to arguments: [Operand],
-    writingResultTo storage: Operand, at site: SourceRange
+    writingResultTo storage: Operand
   ) {
-    assert(site == _site!)
     let o = _access(.set, from: storage)
     _call(callee, arguments, to: o)
     _end_access(o)
   }
 
   /// Inserts the IR for calling `callee` on `arguments`, storing the result to `storage`.
-  private mutating func emitApply(
+  private mutating func _emitApply(
     _ callee: BundleReference<MethodDecl>, to arguments: [Operand],
-    writingResultTo storage: Operand, at site: SourceRange
+    writingResultTo storage: Operand
   ) {
-    assert(site == _site!)
     let o = _access(.set, from: storage)
     _call_bundle(callee, arguments, to: o, scopeOfUse: insertionScope!)
     _end_access(o)
