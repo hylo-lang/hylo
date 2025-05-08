@@ -60,12 +60,12 @@ public type OSThread: Regular {
   }
 
   public static fun available_parallelism() -> Int {
+    #if os(Linux)
+      let _SC_NPROCESSORS_ONLN: C.int = 84
+    #elseif os(macOS)
+      let _SC_NPROCESSORS_ONLN: C.int = 58
+    #endif
     #if os(Linux) || os(macOS)
-      #if os(Linux)
-        let _SC_NPROCESSORS_ONLN: C.int = 84
-      #elseif os(macOS)
-        let _SC_NPROCESSORS_ONLN: C.int = 58
-      #endif
       let r = sysconf(name: _SC_NPROCESSORS_ONLN)
       if r >= 0 {
         return Int(truncating_or_extending: r)

@@ -59,7 +59,7 @@ public fun memmove(
 @ffi("sysconf")
 internal fun sysconf(name: C.int) -> C.long
 
-/// Give the current thread time slice back to the OS scheduler.
+/// Gives the current thread time slice back to the OS scheduler.
 ///
 /// The thread is moved to the end of the queue for its static priority and a new thread gets to run.
 ///

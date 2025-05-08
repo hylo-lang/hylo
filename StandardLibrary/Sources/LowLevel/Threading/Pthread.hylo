@@ -4,8 +4,10 @@ internal type pthread_attr_t : Deinitializable {
   var storage: MemoryAddress[14]
 
   internal init() {
-    &self.storage = [.null(), .null(), .null(), .null(), .null(), .null(), .null(),
-                     .null(), .null(), .null(), .null(), .null(), .null(), .null()]
+    &self.storage = [
+      .null(), .null(), .null(), .null(), .null(), .null(), .null(),
+      .null(), .null(), .null(), .null(), .null(), .null(), .null(),
+    ]
   }
 
 }
