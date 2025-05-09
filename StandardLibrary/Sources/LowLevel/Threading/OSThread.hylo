@@ -15,10 +15,10 @@ private let invalid_thread_id: pthread_t = 0xffffffffffffffff
 internal type ThreadFunction: Movable, Deinitializable {
 
   /// The type-erased function type.
-  typealias TypeErasedFuncionType = [](MemoryAddress) -> Void
+  typealias TypeErasedFunctionType = [](MemoryAddress) -> Void
 
   /// Storage for our function pointer.
-  var type_erased: TypeErasedFuncionType
+  var type_erased: TypeErasedFunctionType
 
   /// Initializes `self` with `f`.
   internal init(_ f: sink []() -> Void) {
@@ -35,9 +35,9 @@ internal type ThreadFunction: Movable, Deinitializable {
     &self.type_erased = type_erase(&f)
   }
 
-  /// Type erases `f` transforming it into a `TypeErasedFuncionType`; works for our supported closure types.
-  private static fun type_erase<Closure>(_ f: inout Closure) -> TypeErasedFuncionType {
-    return PointerToMutable<TypeErasedFuncionType>(type_punning: mutable_pointer[to: &f]).unsafe_pointee()
+  /// Type erases `f` transforming it into a `TypeErasedFunctionType`; works for our supported closure types.
+  private static fun type_erase<Closure>(_ f: inout Closure) -> TypeErasedFunctionType {
+    return PointerToMutable<TypeErasedFunctionType>(type_punning: mutable_pointer[to: &f]).unsafe_pointee()
   }
 
   /// Returns a raw pointer from `self`.
