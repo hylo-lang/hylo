@@ -36,7 +36,10 @@ public type ThreadCompletion<A>: SemiRegular {
   var thread: OSThread
 
   /// Starts a new OS thread with `stack` bytes of stack space, executing `f`, and passing the value `a` as an argument.
-  internal init(stack: UInt, executing f: sink []() -> Void) {
+  ///
+  /// - Requires: `stack >= 0`.
+  internal init(stack: Int, executing f: sink []() -> Void) {
+    precondition(stack >= 0, "Stack size must be non-negative.")
     &self.thread = OSThread.spawn_thread(
       stack: stack.copy(),
       executing: function_ptr_from_closure(&f),
@@ -44,7 +47,10 @@ public type ThreadCompletion<A>: SemiRegular {
   }
 
   /// Starts a new OS thread with `stack` bytes of stack space, executing `f`, and passing the value `a` as an argument.
-  internal init(stack: UInt, executing f: sink [](A) -> Void, with_argument a: Pointer<A>) {
+  ///
+  /// - Requires: `stack >= 0`.
+  internal init(stack: Int, executing f: sink [](A) -> Void, with_argument a: Pointer<A>) {
+    precondition(stack >= 0, "Stack size must be non-negative.")
     &self.thread = OSThread.spawn_thread(
       stack: stack.copy(),
       executing: function_ptr_from_closure(&f),
@@ -52,7 +58,10 @@ public type ThreadCompletion<A>: SemiRegular {
   }
 
   /// Starts a new OS thread with `stack` bytes of stack space, executing `f`, and passing the inout value `a` as an argument.
-  internal init(stack: UInt, executing f: sink [](inout A) -> Void, with_inout_argument a: PointerToMutable<A>) {
+  ///
+  /// - Requires: `stack >= 0`.
+  internal init(stack: Int, executing f: sink [](inout A) -> Void, with_inout_argument a: PointerToMutable<A>) {
+    precondition(stack >= 0, "Stack size must be non-negative.")
     &self.thread = OSThread.spawn_thread(
       stack: stack.copy(),
       executing: function_ptr_from_closure(&f),
@@ -104,17 +113,23 @@ public fun spawn_thread<A>(executing f: sink [](inout A) -> Void, with_inout_arg
 }
 
 /// Creates a new thread that will execute `f` with no arguments, using a stack size of `stack_size`.
-public fun spawn_thread(stack_size: UInt, executing f: sink []() -> Void) -> ThreadCompletion<Void> {
+///
+/// - Requires: `stack >= 0`.
+public fun spawn_thread(stack_size: Int, executing f: sink []() -> Void) -> ThreadCompletion<Void> {
   .new(stack: stack_size, executing: f)
 }
 
 /// Creates a new thread that will execute `f` with argument `a`, using a stack size of `stack_size`.
-public fun spawn_thread<A>(stack_size: UInt, executing f: sink [](A) -> Void, with_argument a: Pointer<A>) -> ThreadCompletion<A> {
+///
+/// - Requires: `stack >= 0`.
+public fun spawn_thread<A>(stack_size: Int, executing f: sink [](A) -> Void, with_argument a: Pointer<A>) -> ThreadCompletion<A> {
   .new(stack: stack_size, executing: f, with_argument: a)
 }
 
 /// Creates a new thread that will execute `f` with inout argument `a`, using a stack size of `stack_size`.
-public fun spawn_thread<A>(stack_size: UInt, executing f: sink [](inout A) -> Void, with_inout_argument a: PointerToMutable<A>) -> ThreadCompletion<A> {
+///
+/// - Requires: `stack >= 0`.
+public fun spawn_thread<A>(stack_size: Int, executing f: sink [](inout A) -> Void, with_inout_argument a: PointerToMutable<A>) -> ThreadCompletion<A> {
   .new(stack: stack_size, executing: f, with_inout_argument: a)
 }
 

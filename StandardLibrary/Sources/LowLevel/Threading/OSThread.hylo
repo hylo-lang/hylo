@@ -23,7 +23,7 @@ public type OSThread: Regular {
   /// Spawn a new thread with `stack` bytes of stack space, executing `function_ptr`, and passing the value `a` as an argument.
   /// - Requires: `stack >= 0`.
   public static fun spawn_thread(
-      stack: UInt,
+      stack: Int,
       executing function_ptr: MemoryAddress,
       with_argument a: MemoryAddress
     ) -> OSThread {
