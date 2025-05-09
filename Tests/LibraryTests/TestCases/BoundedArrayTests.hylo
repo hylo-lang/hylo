@@ -1,0 +1,364 @@
+//- compileAndRun expecting: .success
+
+type Immovable: Deinitializable {
+
+  public var value: Int
+
+  public memberwise init
+
+}
+
+fun test_init_empty() {
+  var d = BoundedArray<Int>()
+  precondition(d.count() == 0)
+  precondition(d.capacity() == 0)
+  precondition(d.is_empty())
+  precondition(d.is_full())
+
+  var d2 = BoundedArray<Immovable>()
+  precondition(d2.count() == 0)
+  precondition(d2.capacity() == 0)
+  precondition(d2.is_empty())
+  precondition(d2.is_full())
+}
+
+fun test_init_with_capacity() {
+  var d = BoundedArray<Int>(capacity: 10)
+  precondition(d.count() == 0)
+  precondition(d.capacity() == 10)
+  precondition(d.is_empty())
+  precondition(!d.is_full())
+
+  var d2 = BoundedArray<Immovable>(capacity: 10)
+  precondition(d2.count() == 0)
+  precondition(d2.capacity() == 10)
+  precondition(d2.is_empty())
+  precondition(!d2.is_full())
+}
+
+fun test_init_with_lambda() {
+  let d = BoundedArray<Immovable>(
+    count: 10,
+    initialized_with: fun (_ i: Int, _ e: set Immovable) -> Void { &e.value = i * 2 })
+  precondition(d.count() == 10)
+  precondition(d.capacity() == 10)
+  precondition(!d.is_empty())
+  precondition(d.is_full())
+  precondition(d[0].value == 0)
+  precondition(d[1].value == 2)
+  precondition(d[2].value == 4)
+  precondition(d[3].value == 6)
+  precondition(d[4].value == 8)
+  precondition(d[5].value == 10)
+  precondition(d[6].value == 12)
+  precondition(d[7].value == 14)
+  precondition(d[8].value == 16)
+  precondition(d[9].value == 18)
+}
+
+fun test_init_with_lambda_that_has_side_effects() {
+  inout accumulator = 0
+  let f = fun (_ i: Int, _ e: set Immovable) -> Void {
+    &accumulator += i
+    &e.value = accumulator.copy()
+  }
+  let d = BoundedArray<Immovable>(count: 10, initialized_with: &f)
+  precondition(d.count() == 10)
+  precondition(d.is_full())
+  precondition(d[0].value == 0)
+  precondition(d[1].value == 1)
+  precondition(d[2].value == 3)
+  precondition(d[3].value == 6)
+  precondition(d[4].value == 10)
+  precondition(d[5].value == 15)
+  precondition(d[6].value == 21)
+  precondition(d[7].value == 28)
+  precondition(d[8].value == 36)
+  precondition(d[9].value == 45)
+}
+
+fun test_init_with_movable_elements() {
+  let d = BoundedArray([21, 42])
+  precondition(d.count() == 2)
+  precondition(d.capacity() == 2)
+  precondition(!d.is_empty())
+  precondition(d.is_full())
+  precondition(d[0] == 21)
+  precondition(d[1] == 42)
+}
+
+fun test_can_get_pointer_access() {
+  let d = BoundedArray([21, 42])
+  let p = d.contiguous_storage
+  precondition(p.unsafe[] == 21)
+  precondition(p.advance(by: 1).unsafe[] == 42)
+}
+
+fun test_can_mutate_through_pointer_access() {
+  let d = BoundedArray([21, 42])
+  d.with_mutable_contiguous_storage(fun (_ p: PointerToMutable<Int>) -> Void {
+    &(p.advance(by: 0)).unsafe[] = 17
+    &(p.advance(by: 1)).unsafe[] = 19
+  })
+  precondition(d[0] == 17)
+  precondition(d[1] == 19)
+}
+
+fun test_append_with_initializer_on_empty_array() {
+  var d = BoundedArray<Immovable>(capacity: 10)
+  &d.append(initialized_with: fun (_ e: set Immovable) -> Void { &e.value = 21 })
+  &d.append(initialized_with: fun (_ e: set Immovable) -> Void { &e.value = 42 })
+  &d.append(initialized_with: fun (_ e: set Immovable) -> Void { &e.value = 84 })
+
+  precondition(d.count() == 3)
+  precondition(d.capacity() == 10)
+  precondition(!d.is_empty())
+  precondition(!d.is_full())
+  precondition(d[0].value == 21)
+  precondition(d[1].value == 42)
+  precondition(d[2].value == 84)
+}
+
+fun test_append_with_initializer_can_fill_the_array() {
+  var d = BoundedArray<Immovable>(capacity: 3)
+  &d.append(initialized_with: fun (_ e: set Immovable) -> Void { &e.value = 21 })
+  &d.append(initialized_with: fun (_ e: set Immovable) -> Void { &e.value = 42 })
+  &d.append(initialized_with: fun (_ e: set Immovable) -> Void { &e.value = 84 })
+
+  precondition(d.count() == 3)
+  precondition(d.capacity() == 3)
+  precondition(!d.is_empty())
+  precondition(d.is_full())
+  precondition(d[0].value == 21)
+  precondition(d[1].value == 42)
+  precondition(d[2].value == 84)
+}
+
+fun test_append_value_on_empty_array() {
+  var d = BoundedArray<Int>(capacity: 10)
+  &d.append(value: 21)
+  &d.append(value: 42)
+  &d.append(value: 84)
+
+  precondition(d.count() == 3)
+  precondition(d.capacity() == 10)
+  precondition(!d.is_empty())
+  precondition(!d.is_full())
+  precondition(d[0] == 21)
+  precondition(d[1] == 42)
+  precondition(d[2] == 84)
+}
+
+fun test_append_value_can_fill_the_array() {
+  var d = BoundedArray<Int>(capacity: 3)
+  &d.append(value: 21)
+  &d.append(value: 42)
+  &d.append(value: 84)
+
+  precondition(d.count() == 3)
+  precondition(d.capacity() == 3)
+  precondition(!d.is_empty())
+  precondition(d.is_full())
+  precondition(d[0] == 21)
+  precondition(d[1] == 42)
+  precondition(d[2] == 84)
+}
+
+fun test_append_value_on_array_with_initial_elements() {
+  var d = BoundedArray<Int>(capacity: 10, initial_elements: [2, 3, 5, 7])
+  &d.append(value: 21)
+  &d.append(value: 42)
+  &d.append(value: 84)
+
+  precondition(d.count() == 7)
+  precondition(d.capacity() == 10)
+  precondition(!d.is_empty())
+  precondition(!d.is_full())
+  precondition(d[0] == 2)
+  precondition(d[1] == 3)
+  precondition(d[2] == 5)
+  precondition(d[3] == 7)
+  precondition(d[4] == 21)
+  precondition(d[5] == 42)
+  precondition(d[6] == 84)
+}
+
+
+fun test_remove_all_removes_all_the_elements() {
+  var d = BoundedArray<Int>([11, 13, 17, 19])
+  precondition(d.count() == 4)
+  precondition(d.capacity() == 4)
+  precondition(!d.is_empty())
+  precondition(d.is_full())
+
+  &d.remove_all()
+
+  precondition(d.count() == 0)
+  precondition(d.capacity() == 4)
+  precondition(d.is_empty())
+  precondition(!d.is_full())
+
+  &d.remove_all()
+
+  precondition(d.count() == 0)
+  precondition(d.capacity() == 4)
+  precondition(d.is_empty())
+  precondition(!d.is_full())
+}
+
+fun test_remove_all_on_empty_array_does_nothing() {
+  var d = BoundedArray<Int>()
+  precondition(d.count() == 0)
+  precondition(d.capacity() == 0)
+  precondition(d.is_empty())
+  precondition(d.is_full())
+
+  &d.remove_all()
+
+  precondition(d.count() == 0)
+  precondition(d.capacity() == 0)
+  precondition(d.is_empty())
+  precondition(d.is_full())
+}
+
+fun test_remove_last_reduces_the_count_by_one() {
+  var d = BoundedArray<Int>([2, 3, 5, 7])
+
+  &d.remove_last()
+
+  precondition(d.count() == 3)
+  precondition(d.capacity() == 4)
+  precondition(!d.is_empty())
+  precondition(!d.is_full())
+}
+
+fun test_remove_last_can_create_an_empty_array() {
+  var d = BoundedArray<Int>([2, 3, 5, 7])
+
+  &d.remove_last()
+  &d.remove_last()
+  &d.remove_last()
+  &d.remove_last()
+
+  precondition(d.count() == 0)
+  precondition(d.capacity() == 4)
+  precondition(d.is_empty())
+  precondition(!d.is_full())
+}
+
+fun test_remove_last_count_reduces_the_count_by_n() {
+  var d = BoundedArray<Int>([2, 3, 5, 7])
+
+  &d.remove_last(count: 3)
+
+  precondition(d.count() == 1)
+  precondition(d.capacity() == 4)
+  precondition(!d.is_empty())
+  precondition(!d.is_full())
+}
+
+fun test_remove_last_count_can_empty_the_array() {
+  var d = BoundedArray<Int>([2, 3, 5, 7])
+
+  &d.remove_last(count: 4)
+
+  precondition(d.count() == 0)
+  precondition(d.capacity() == 4)
+  precondition(d.is_empty())
+  precondition(!d.is_full())
+}
+
+fun test_bounded_array_is_movable_even_if_the_element_is_immovable() {
+  let a = BoundedArray<Immovable>(
+    count: 3,
+    initialized_with: fun (_ i: Int, _ e: set Immovable) -> Void { &e.value = i.copy() })
+  let b = BoundedArray<Immovable>(
+    count: 10,
+    initialized_with: fun (_ i: Int, _ e: set Immovable) -> Void { &e.value = 2 * i })
+
+  &b = a
+
+  precondition(b.count() == 3)
+  precondition(b.is_full())
+  precondition(b[0].value == 0)
+  precondition(b[1].value == 1)
+  precondition(b[2].value == 2)
+}
+
+fun test_bounded_array_is_equatable() {
+  precondition(BoundedArray<Int>() == BoundedArray<Int>())
+
+  var a = BoundedArray<Int>(capacity: 2)
+  &a.append(value: 21)
+  &a.append(value: 42)
+  precondition(a == a)
+  precondition(a != BoundedArray())
+
+  var b = BoundedArray<Int>(capacity: 2)
+  &b.append(value: 21)
+  &b.append(value: 42)
+  precondition(a == b)
+}
+
+fun test_bounded_arrays_can_compare_equal_if_capacities_are_different() {
+  var a = BoundedArray<Int>(capacity: 2)
+  &a.append(value: 21)
+  &a.append(value: 42)
+  var b = BoundedArray<Int>(capacity: 20)
+  &b.append(value: 21)
+  &b.append(value: 42)
+
+  precondition(a == b)
+}
+
+fun test_bounded_array_is_copyable() {
+  var a = BoundedArray<Int>(capacity: 5)
+  &a.append(value: 21)
+  &a.append(value: 42)
+
+  var b = a.copy()
+  precondition(b.count() == 2)
+  precondition(b[0] == 21)
+  precondition(b[1] == 42)
+
+  &a.append(value: 84)
+  precondition(b.count() == 2)
+}
+
+fun test_copying_a_bounded_array_also_copies_capacity() {
+  var a = BoundedArray<Int>(capacity: 5)
+  &a.append(value: 21)
+  &a.append(value: 42)
+
+  var b = a.copy()
+  precondition(b.capacity() == 5)
+}
+
+public fun main() {
+  test_init_empty()
+  test_init_with_capacity()
+  test_init_with_lambda()
+  test_init_with_lambda_that_has_side_effects()
+  test_init_with_movable_elements()
+
+  test_can_get_pointer_access()
+  test_can_mutate_through_pointer_access()
+
+  test_append_with_initializer_on_empty_array()
+  test_append_with_initializer_can_fill_the_array()
+  test_append_value_on_empty_array()
+  test_append_value_can_fill_the_array()
+  test_append_value_on_array_with_initial_elements()
+  test_remove_all_removes_all_the_elements()
+  test_remove_all_on_empty_array_does_nothing()
+  test_remove_last_reduces_the_count_by_one()
+  test_remove_last_can_create_an_empty_array()
+  test_remove_last_count_reduces_the_count_by_n()
+  test_remove_last_count_can_empty_the_array()
+
+  test_bounded_array_is_movable_even_if_the_element_is_immovable()
+  test_bounded_array_is_equatable()
+  test_bounded_arrays_can_compare_equal_if_capacities_are_different()
+  test_bounded_array_is_copyable()
+  test_copying_a_bounded_array_also_copies_capacity()
+}
