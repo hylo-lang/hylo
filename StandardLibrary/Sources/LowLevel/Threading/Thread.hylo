@@ -42,7 +42,7 @@ public type ThreadCompletion<A>: SemiRegular {
     precondition(stack >= 0, "Stack size must be non-negative.")
     &self.thread = OSThread.spawn_thread(
       stack: stack.copy(),
-      executing: function_ptr_from_closure(&f),
+      executing: ThreadFunction(&f),
       with_argument: .null())
   }
 
@@ -53,7 +53,7 @@ public type ThreadCompletion<A>: SemiRegular {
     precondition(stack >= 0, "Stack size must be non-negative.")
     &self.thread = OSThread.spawn_thread(
       stack: stack.copy(),
-      executing: function_ptr_from_closure(&f),
+      executing: ThreadFunction(&f),
       with_argument: MemoryAddress(type_punning: PointerToMutable<A>(adding_mutation_to: a)))
   }
 
@@ -64,7 +64,7 @@ public type ThreadCompletion<A>: SemiRegular {
     precondition(stack >= 0, "Stack size must be non-negative.")
     &self.thread = OSThread.spawn_thread(
       stack: stack.copy(),
-      executing: function_ptr_from_closure(&f),
+      executing: ThreadFunction(&f),
       with_argument: MemoryAddress(type_punning: a))
   }
 
@@ -76,23 +76,6 @@ public type ThreadCompletion<A>: SemiRegular {
   /// Awaits for the thread to complete
   public fun await() sink {
     &thread.join()
-  }
-
-  /// Returns the function pointer from the given closure
-  private static fun function_ptr_from_closure<Closure>(_ f: inout Closure) -> MemoryAddress {
-    // Closure has the type: { ptr-to-fun, { closure-data...: E } }
-    let closure_address = take_address(&f)
-    return deref(closure_address)
-  }
-
-  /// Returns the address of `x` as a `MemoryAddress`.
-  private static fun take_address<T>(_ x: inout T) -> MemoryAddress {
-    return MemoryAddress(type_punning: mutable_pointer[to: &x])
-  }
-
-  /// Dereferences `o` and returns the value as a pointer.
-  private static fun deref(_ p: MemoryAddress) -> MemoryAddress {
-    return PointerToMutable<MemoryAddress>(type_punning: p).unsafe_pointee()
   }
 
 }
