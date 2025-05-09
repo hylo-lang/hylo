@@ -1,0 +1,57 @@
+/// The type to represent a POSIX thread.
+internal typealias pthread_t = UInt64
+
+/// The type to represent a POSIX thread attribute.
+internal type pthread_attr_t : Deinitializable {
+  var storage: MemoryAddress[14]
+
+  internal init() {
+    &self.storage = [
+      .null(), .null(), .null(), .null(), .null(), .null(), .null(),
+      .null(), .null(), .null(), .null(), .null(), .null(), .null(),
+    ]
+  }
+
+}
+
+/// Initializes `attr` with default values.
+///
+/// See: https://www.man7.org/linux/man-pages/man3/pthread_attr_init.3.html
+@ffi("pthread_attr_init")
+internal fun pthread_attr_init(_ attr: PointerToMutable<pthread_attr_t>) -> C.int
+
+/// TODO
+///
+/// See: TODO
+@ffi("pthread_attr_setstacksize")
+internal fun pthread_attr_setstacksize(_ attr: PointerToMutable<pthread_attr_t>, _ size: C.size_t) -> C.int
+
+/// TODO
+///
+/// See: TODO
+@ffi("pthread_attr_destroy")
+internal fun pthread_attr_destroy(_ attr: PointerToMutable<pthread_attr_t>) -> C.int
+
+/// Starts a new OS thread.
+///
+/// See: https://www.man7.org/linux/man-pages/man3/pthread_create.3.html
+@ffi("pthread_create")
+internal fun pthread_create(_ thread: PointerToMutable<pthread_t>, _ attr: PointerToMutable<pthread_attr_t>, _ f: MemoryAddress, _ arg: MemoryAddress) -> C.int
+
+/// What for thread identified by `thread` to finish.
+///
+/// See: https://man7.org/linux/man-pages/man3/pthread_join.3.html
+@ffi("pthread_join")
+internal fun pthread_join(_ thread: pthread_t, _ ret: PointerToMutable<MemoryAddress>) -> C.int
+
+/// Marks the thread identified by `thread` as detached.
+///
+/// See: https://man7.org/linux/man-pages/man3/pthread_detach.3.html
+@ffi("pthread_detach")
+internal fun pthread_detach(_ thread: pthread_t) -> C.int
+
+/// Returns the thread ID of the calling thread.
+///
+/// See: https://www.man7.org/linux/man-pages/man3/pthread_self.3.html
+@ffi("pthread_self")
+internal fun pthread_self() -> pthread_t
