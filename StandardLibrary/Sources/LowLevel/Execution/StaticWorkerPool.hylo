@@ -98,7 +98,7 @@ public type WorkerThread<W: WorkProvider>: Deinitializable {
 }
 
 /// A fixed-size pool of worker threads that can execute work items from a work provider.
-public type StaticWorkerPool<W: WorkProvider> {
+public type StaticWorkerPool<W: WorkProvider>: Movable, Deinitializable {
 
   /// The work provider from which work is being taken.
   var work_provider: W
@@ -112,6 +112,17 @@ public type StaticWorkerPool<W: WorkProvider> {
     &self.threads = .new(count: n, initialized_with: fun (_ i: Int, _ thread: set WorkerThread<W>) -> Void {
       WorkerThread<W>.init_self(&thread, i, work_from: p)
     })
+  }
+
+  // TODO (#1688): We should not have this; instead users should explicitly call `await()`.
+  public fun deinit() sink {
+    precondition(false, "Call `await()` instead of `deinit()` on `StaticWorkerPool` object.")
+    &self.await()
+  }
+
+  /// Returns the number of available threads in the pool.
+  public fun available_parallelism() -> Int {
+    return threads.count()
   }
 
   /// Unparks the worker thread at `index`, if that thread is parked.

@@ -1,0 +1,23 @@
+//- compileAndRun expecting: .success
+
+fun test_can_create_executor() {
+  var executor = ThreadPoolExecutor(size: 4)
+  executor.await()
+}
+
+fun test_can_get_available_parallelism() {
+  var e1 = ThreadPoolExecutor(size: 1)
+  precondition(e1.available_parallelism() == 1, "Expected 1 thread in the pool.")
+  e1.await()
+
+  var e10 = ThreadPoolExecutor(size: 10)
+  precondition(e10.available_parallelism() == 10, "Expected 10 threads in the pool.")
+  e10.await()
+}
+
+public fun main() {
+  #if os(Linux) || os(macOS)
+    test_can_create_executor()
+    test_can_get_available_parallelism()
+  #endif
+}

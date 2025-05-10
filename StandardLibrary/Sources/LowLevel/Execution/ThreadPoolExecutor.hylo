@@ -1,15 +1,22 @@
 /// Executor backed by a fixed-size thread pool.
 public type ThreadPoolExecutor: Movable, Deinitializable {
 
+  var workers: StaticWorkerPool<NoWorkProvider>
+
   /// Initializes `self` with `n` worker threads.
   public init(size n: Int) {
-    // TODO
+    StaticWorkerPool<NoWorkProvider>.`init`(self: &workers, size: n, work_provider: .new())
+  }
+
+  // TODO (#1688): We should not have this; instead users should explicitly call `await()`.
+  public fun deinit() sink {
+    precondition(false, "Call `await()` instead of `deinit()` on `ThreadPoolExecutor` object.")
+    &self.await()
   }
 
   /// Returns the number of available threads in the pool.
   public fun available_parallelism() -> Int {
-    // TODO
-    return 0
+    return workers.available_parallelism()
   }
 
   /// Enqueues `task` to be executed threads in `self`.
@@ -26,7 +33,20 @@ public type ThreadPoolExecutor: Movable, Deinitializable {
 
   /// Awaits for all the tasks to complete, and closes the executor.
   public fun await() sink {
-    // TODO
+    &workers.await()
+  }
+
+  /// Work provider that doesn't provide any work.
+  type NoWorkProvider: WorkProvider {
+
+    /// Initializes `self` with no work.
+    public init() {}
+
+    /// Provide no work.
+    public fun next_work_item(worker_index: Int) inout -> TaskPointer {
+      .null()
+    }
+
   }
 
 }
