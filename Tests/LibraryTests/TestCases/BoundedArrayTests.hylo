@@ -164,25 +164,24 @@ fun test_append_value_can_fill_the_array() {
   precondition(d[2] == 84)
 }
 
-// TODO: LLVM error
-// fun test_append_value_on_array_with_initial_elements() {
-//   var d = BoundedArray<Int>(capacity: 10, initial_elements: [2, 3, 5, 7])
-//   &d.append(value: 21)
-//   &d.append(value: 42)
-//   &d.append(value: 84)
+fun test_append_value_on_array_with_initial_elements() {
+  var d = BoundedArray<Int>(capacity: 10, initial_elements: [2, 3, 5, 7])
+  &d.append(value: 21)
+  &d.append(value: 42)
+  &d.append(value: 84)
 
-//   precondition(d.count() == 7)
-//   precondition(d.capacity() == 10)
-//   precondition(!d.is_empty())
-//   precondition(!d.is_full())
-//   precondition(d[0] == 2)
-//   precondition(d[1] == 3)
-//   precondition(d[2] == 5)
-//   precondition(d[3] == 7)
-//   precondition(d[4] == 21)
-//   precondition(d[5] == 42)
-//   precondition(d[6] == 84)
-// }
+  precondition(d.count() == 7)
+  precondition(d.capacity() == 10)
+  precondition(!d.is_empty())
+  precondition(!d.is_full())
+  precondition(d[0] == 2)
+  precondition(d[1] == 3)
+  precondition(d[2] == 5)
+  precondition(d[3] == 7)
+  precondition(d[4] == 21)
+  precondition(d[5] == 42)
+  precondition(d[6] == 84)
+}
 
 
 fun test_remove_all_removes_all_the_elements() {
@@ -222,10 +221,10 @@ fun test_remove_all_on_empty_array_does_nothing() {
   precondition(d.is_full())
 }
 
-fun test_pop_last_reduces_the_count_by_one() {
+fun test_remove_last_reduces_the_count_by_one() {
   var d = BoundedArray<Int>([2, 3, 5, 7])
 
-  &d.pop_last()
+  &d.remove_last()
 
   precondition(d.count() == 3)
   precondition(d.capacity() == 4)
@@ -233,13 +232,13 @@ fun test_pop_last_reduces_the_count_by_one() {
   precondition(!d.is_full())
 }
 
-fun test_pop_last_can_create_an_empty_array() {
+fun test_remove_last_can_create_an_empty_array() {
   var d = BoundedArray<Int>([2, 3, 5, 7])
 
-  &d.pop_last()
-  &d.pop_last()
-  &d.pop_last()
-  &d.pop_last()
+  &d.remove_last()
+  &d.remove_last()
+  &d.remove_last()
+  &d.remove_last()
 
   precondition(d.count() == 0)
   precondition(d.capacity() == 4)
@@ -247,10 +246,10 @@ fun test_pop_last_can_create_an_empty_array() {
   precondition(!d.is_full())
 }
 
-fun test_pop_last_n_reduces_the_count_by_n() {
+fun test_remove_last_count_reduces_the_count_by_n() {
   var d = BoundedArray<Int>([2, 3, 5, 7])
 
-  &d.pop_last_n(3)
+  &d.remove_last(count: 3)
 
   precondition(d.count() == 1)
   precondition(d.capacity() == 4)
@@ -258,10 +257,10 @@ fun test_pop_last_n_reduces_the_count_by_n() {
   precondition(!d.is_full())
 }
 
-fun test_pop_last_n_can_empty_the_array() {
+fun test_remove_last_count_can_empty_the_array() {
   var d = BoundedArray<Int>([2, 3, 5, 7])
 
-  &d.pop_last_n(4)
+  &d.remove_last(count: 4)
 
   precondition(d.count() == 0)
   precondition(d.capacity() == 4)
@@ -349,13 +348,13 @@ public fun main() {
   test_append_with_initializer_can_fill_the_array()
   test_append_value_on_empty_array()
   test_append_value_can_fill_the_array()
-  // test_append_value_on_array_with_initial_elements()
+  test_append_value_on_array_with_initial_elements()
   test_remove_all_removes_all_the_elements()
   test_remove_all_on_empty_array_does_nothing()
-  test_pop_last_reduces_the_count_by_one()
-  test_pop_last_can_create_an_empty_array()
-  test_pop_last_n_reduces_the_count_by_n()
-  test_pop_last_n_can_empty_the_array()
+  test_remove_last_reduces_the_count_by_one()
+  test_remove_last_can_create_an_empty_array()
+  test_remove_last_count_reduces_the_count_by_n()
+  test_remove_last_count_can_empty_the_array()
 
   test_bounded_array_is_movable_even_if_the_element_is_immovable()
   test_bounded_array_is_equatable()

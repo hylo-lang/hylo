@@ -1,15 +1,13 @@
-/// An ordered, random-access collection that has a fixed maximum size.
+/// A random-access collection with contiguous memory, stable element addresses,
+/// and a fixed capacity.
 ///
-/// Similar to `Array`, but with a fixed maximum size.
-/// By default, the element type is not required to be `Movable`.
+/// Unlike `Array`, this collection is suitable for non-`Movable` elements.
 public type BoundedArray<Element: Deinitializable>: SemiRegular {
 
-  /// The out-of-line storage of the array.
-  ///
-  /// The header of the buffer indicates the number of elements contained in the array.
+  /// The storage for the length and elements.
   var storage: DynamicBuffer<Int, Element>
 
-  /// Creates an empty array.
+  /// An empty instance.
   public init() {
     &storage = .new()
   }
@@ -22,8 +20,8 @@ public type BoundedArray<Element: Deinitializable>: SemiRegular {
     &storage = new_storage(capacity)
   }
 
-  /// Creates an array whose contents are the results, of calling `initialize` with the values
-  /// `0 ..< count`, in order, passing also the element that needs to be initialized.
+  /// Creates an array whose contents are the results of calling `initialize` with the values
+  /// in the range `0 ..< count`, in order, along with the storage of the corresponding element.
   ///
   /// `initialize` accepts an index and the element that needs to be initialized.
   ///
@@ -35,9 +33,9 @@ public type BoundedArray<Element: Deinitializable>: SemiRegular {
 
     var i = 0
     while i != count {
-      let i_copy = i.copy()
-      &append(initialized_with: fun (_ e: set Element) -> Void {
-        &initialize(i_copy, &e)
+      // TODO (#1678): without copy, "illegal mutable access" is raised when `i` is incremented.
+      &append(initialized_with: fun[sink let j = i.copy()] (_ e: set Element) -> Void {
+        &initialize(j, &e)
       })
       &i += 1
     }
@@ -75,7 +73,7 @@ public type BoundedArray<Element: Deinitializable>: SemiRegular {
   /// The projected pointer is valid only for the duration of the projection and can be advanced up
   /// to `count()`. It may be null if `self` is empty.
   public property contiguous_storage: Pointer<Element> {
-    yield if capacity() == 0 { .null() } else { .new(pointer_to_element(at: 0)) }
+    if capacity() == 0 { yield .null() } else { yield .new(pointer_to_element(at: 0)) }
   }
 
   /// Calls `action` with a pointer to the start of the array's mutable contiguous storage.
@@ -90,18 +88,17 @@ public type BoundedArray<Element: Deinitializable>: SemiRegular {
 
   /// Adds a new element at the end of the array.
   ///
-  /// Requires: `count() < capacity()`.
-  /// Complexity: O(1).
+  /// - Requires: `count() < capacity()`.
+  /// - Complexity: O(1).
   public fun append<E>(initialized_with initializer: inout [E](set Element) inout -> Void) inout {
     precondition(count() < capacity(), "array is full")
     pointer_to_element(at: count()).unsafe_initialize_pointee(&initializer)
     &storage.header += 1
   }
 
-  /// Removes al elements in the array.
+  /// Removes all elements in the array, keeping its capacity.
   ///
-  /// Effects: `append()` can called `capacity()` times after this call.
-  /// Complexity: O(n), where n is the number of elements in `self`.
+  /// - Complexity: O(n), where n is the number of elements in `self`.
   public fun remove_all() inout {
     if capacity() == 0 { return }
 
@@ -117,7 +114,7 @@ public type BoundedArray<Element: Deinitializable>: SemiRegular {
   /// Removes the last element of the array.
   ///
   /// - Requires: `count() > 0`.
-  public fun pop_last() inout {
+  public fun remove_last() inout {
     let c = count()
     precondition(c > 0, "array is empty")
     pointer_to_element(at: c - 1).unsafe_deinitialize_pointee()
@@ -126,10 +123,10 @@ public type BoundedArray<Element: Deinitializable>: SemiRegular {
 
   /// Removes the last `n` elements of the array.
   ///
-  /// - Requires: `count() >= n`.
-  public fun pop_last_n(_ n: Int) inout {
+  /// - Requires: `count() >= n && n >= 0`.
+  public fun remove_last(count n: Int) inout {
     let c = count()
-    precondition(c >= n, "array is empty")
+    precondition((n >= 0) && (n <= count()), "count is out of bounds")
     var i = c - n
     while i < c {
       pointer_to_element(at: i).unsafe_deinitialize_pointee()
@@ -164,9 +161,10 @@ public extension BoundedArray where Element: Movable {
     let p = PointerToMutable<Element>(type_punning: mutable_pointer[to: &elements])
     var i = 0
     while i < n {
-      &append(value: p.advance(by: i).unsafe_pointee())
+      pointer_to_element(at: i).unsafe_initialize_pointee(p.advance(by: i).unsafe_pointee())
       &i += 1
     }
+    &storage.header += n
 
     Builtin.mark_uninitialized(elements)
   }
@@ -197,7 +195,6 @@ public extension BoundedArray where Element: Movable {
     &storage.header += 1
   }
 
-
 }
 
 public conformance BoundedArray: Equatable where Element: Equatable {
@@ -220,7 +217,7 @@ public conformance BoundedArray: Equatable where Element: Equatable {
 
 }
 
-public conformance BoundedArray: Copyable where Element: Copyable & Movable {
+public conformance BoundedArray: Copyable where Element: Copyable {
 
   /// Returns a copy of `self`.
   public fun copy() -> Self {

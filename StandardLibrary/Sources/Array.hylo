@@ -102,7 +102,7 @@ public type Array<Element: SemiRegular>: SemiRegular {
   /// The projected pointer is valid only for the duration of the projection and can be advanced up
   /// to `count()`. It may be null if `self` is empty.
   public property contiguous_storage: Pointer<Element> {
-    yield if capacity() == 0 { .null() } else { .new(pointer_to_element(at: 0)) }
+    if capacity() == 0 { yield .null() } else { yield .new(pointer_to_element(at: 0)) }
   }
 
   /// Calls `action` with a pointer to the start of the array's mutable contiguous storage.
