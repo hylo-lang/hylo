@@ -13,13 +13,13 @@ public type ThreadPoolExecutor: Movable, Deinitializable {
   }
 
   /// Enqueues `task` to be executed threads in `self`.
-  public fun enqueue(_ task: WorkItemPointer) {
+  public fun enqueue(_ task: TaskPointer) {
     // TODO
   }
 
   /// If `task` did not start executing yet, it will be removed from the queue.
   /// Returns `true` if the task was removed from the queue.
-  public fun extract(_ task: WorkItemPointer) -> Bool {
+  public fun extract(_ task: TaskPointer) -> Bool {
     // TODO
     return false
   }

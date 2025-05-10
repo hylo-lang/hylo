@@ -1,20 +1,33 @@
-/// Type-erased work item.
-/// TODO: this should be a trait, and then we should use existentials for work items.
-public type WorkItemTypeErased {
+/// A pointer to a task.
+public typealias TaskPointer = PointerToMutable<TaskBase>
 
-  // HACK: we don't have proper existentials yet, so we use manually type-erase work items
-  // We reserve space for two pointers for closure data; we can't put more on the closure than these two pointers.
-  var f: [{MemoryAddress, MemoryAddress}]() -> Void
+/// The basic task type.
+///
+/// This holds necessary information to encapsulate a task, and chain it with other tasks.
+public type TaskBase: Deinitializable {
 
-  /// Execute the work item.
-  public fun execute() -> Void {
-    f()
+  /// The function that will be executed when the task is run.
+  internal var task_function: [](TaskPointer) -> Void
+  /// The next task in the chain.
+  internal var next: TaskPointer
+  /// Pointer to the link from the previous task to the current task.
+  /// This is used to remove the task from the chain.
+  internal var previous_link: PointerToMutable<TaskPointer>
+
+  /// Initializes `self` with `f`.
+  public init(executing f: sink [](TaskPointer) -> Void) {
+    &self.task_function = f
+    &self.next = .null()
+    &self.previous_link = .null()
+  }
+
+  /// Executes the task.
+  public fun execute() inout {
+    let p = mutable_pointer[to: &self]
+    task_function(p.copy())
   }
 
 }
-
-/// A pointer to a type-erased work item.
-public typealias WorkItemPointer = Pointer<WorkItemTypeErased>
 
 /// Represents a provide of work items.
 ///
@@ -22,7 +35,7 @@ public typealias WorkItemPointer = Pointer<WorkItemTypeErased>
 public trait WorkProvider: Movable, Deinitializable {
 
   /// Returns the next work item to be executed.
-  public fun next_work_item(worker_index: Int) inout -> WorkItemPointer
+  public fun next_work_item(worker_index: Int) inout -> TaskPointer
 
 }
 

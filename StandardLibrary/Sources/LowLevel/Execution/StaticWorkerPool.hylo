@@ -52,7 +52,7 @@ public type WorkerThread<W: WorkProvider>: Deinitializable {
       }
 
       // While there is work to do (and we shouldn't quit), execute it.
-      var work: WorkItemPointer
+      var work: TaskPointer
       do {
         &work = data.work_provider.unsafe[].next_work_item(worker_index: data.index)
         if work != .null() {
