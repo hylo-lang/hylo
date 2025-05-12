@@ -1512,7 +1512,7 @@ struct Emitter {
     case NameExpr.self:
       emitStore(NameExpr.ID(e)!, to: storage)
     case PragmaLiteralExpr.self:
-      emitStore(PragmaLiteralExpr.ID(e)!, to: storage)
+      _emitStore(PragmaLiteralExpr.ID(e)!, to: storage)
     case RemoteTypeExpr.self:
       _emitStore(RemoteTypeExpr.ID(e)!, to: storage)
     case SequenceExpr.self:
@@ -1739,20 +1739,14 @@ struct Emitter {
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
-  ///
-  /// - Parameters:
-  ///   - site: The source range in which `e` is being evaluated. Defaults to `e.site`.
-  private mutating func emitStore(
-    _ e: PragmaLiteralExpr.ID, to storage: Operand,
-    at site: SourceRange? = nil
+  private mutating func _emitStore(
+    _ e: PragmaLiteralExpr.ID, to storage: Operand
   ) {
-    let anchor = site ?? ast[e].site
-    _lowering(at: anchor)
     switch ast[e].kind {
     case .file:
-      _emitStore(utf8: anchor.file.url.absoluteURL.fileSystemPath.utf8, to: storage)
+      _emitStore(utf8: _site!.file.url.absoluteURL.fileSystemPath.utf8, to: storage)
     case .line:
-      _emitStore(int: anchor.start.line.number, to: storage)
+      _emitStore(int: _site!.start.line.number, to: storage)
     }
   }
 
@@ -2162,13 +2156,12 @@ struct Emitter {
     return _access([p.access], from: x1)
   }
 
-  /// Inserts the IR for argument `e` passed to a parameter of type `p`, evaluating the literal's
-  /// value as though it appeared at `site`.
+  /// Inserts the IR for argument `e` passed to a parameter of type `p`
   private mutating func _emitPragmaLiteralArgument(
     _ e: PragmaLiteralExpr.ID, to p: ParameterType
   ) -> Operand {
     let x0 = _alloc_stack(program[e].type)
-    emitStore(e, to: x0, at: _site!)
+    _emitStore(e, to: x0)
     return _access([p.access], from: x0)
   }
 
