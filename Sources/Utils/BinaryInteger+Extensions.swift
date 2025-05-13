@@ -7,9 +7,11 @@ extension BinaryInteger {
     precondition(n != 0)
     let m = Self(n.magnitude)
     let r = self % m
-    return r == 0 ? self
-      : self < 0 ? self - r
-      : self + (m - r)
+    return r == 0
+      ? self
+      : self < 0
+        ? self - r
+        : self + (m - r)
   }
 
 }
