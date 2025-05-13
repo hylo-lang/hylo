@@ -5,7 +5,7 @@ import Utils
 ///
 /// A basic blocks is sequence of instructions free of conditional control flow. It may also accept
 /// arguments representing values that are notionally defined before its first instruction.
-public struct Block {
+public struct Block: Sendable {
 
   /// A collection of instructions with stable identities.
   public typealias Instructions = DoublyLinkedList<Instruction>

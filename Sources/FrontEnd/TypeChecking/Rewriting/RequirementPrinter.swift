@@ -1,7 +1,7 @@
 import Utils
 
 /// An object creating textual descriptions of requirement rewriting systems.
-struct RequirementPrinter {
+struct RequirementPrinter: Sendable {
 
   /// The program defining the symbols represented by the terms.
   let program: TypedProgram

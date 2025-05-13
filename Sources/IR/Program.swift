@@ -1,7 +1,7 @@
 import FrontEnd
 
 /// A program lowered to Hylo IR.
-public struct Program: FrontEnd.Program {
+public struct Program: FrontEnd.Program, Sendable {
 
   public var ast: FrontEnd.AST { base.ast }
 

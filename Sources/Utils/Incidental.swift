@@ -15,3 +15,5 @@ public struct Incidental<T>: Hashable {
   public static func == (l: Self, r: Self) -> Bool { true }
 
 }
+
+extension Incidental : Sendable where T: Sendable {}

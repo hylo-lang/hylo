@@ -1,5 +1,5 @@
 /// A unicode scalar literal expression.
-public struct UnicodeScalarLiteralExpr: Expr {
+public struct UnicodeScalarLiteralExpr: Expr, Sendable {
 
   public let site: SourceRange
 

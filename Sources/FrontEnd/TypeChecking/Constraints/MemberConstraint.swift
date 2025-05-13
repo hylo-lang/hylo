@@ -1,7 +1,7 @@
 import Utils
 
 /// A constraint `L.m == R` specifying that `L` has a member of type `R` named `m`.
-struct MemberConstraint: Constraint, Hashable {
+struct MemberConstraint: Constraint, Hashable, Sendable {
 
   /// The base type of the left operand.
   private(set) var subject: AnyType

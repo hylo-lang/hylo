@@ -1,5 +1,5 @@
 /// A string literal expression.
-public struct StringLiteralExpr: Expr {
+public struct StringLiteralExpr: Expr, Sendable {
 
   public let site: SourceRange
 

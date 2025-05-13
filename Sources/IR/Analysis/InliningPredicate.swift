@@ -1,5 +1,5 @@
 /// A predicate testing whether inlining should apply.
-public enum InliningPredicate {
+public enum InliningPredicate: Sendable {
 
   /// The function is inlined iff it has no control flow.
   case hasNoControlFlow

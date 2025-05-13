@@ -1,5 +1,5 @@
 /// An associated type declaration.
-public struct AssociatedTypeDecl: SingleEntityDecl, ConstrainedGenericTypeDecl {
+public struct AssociatedTypeDecl: SingleEntityDecl, ConstrainedGenericTypeDecl, Sendable {
 
   public static let constructDescription = "associated type declaration"
 

@@ -1,5 +1,5 @@
 /// A type denoting a type checking error.
-public struct ErrorType: TypeProtocol {
+public struct ErrorType: TypeProtocol, Sendable {
 
   public var flags: ValueFlags { .hasError }
 

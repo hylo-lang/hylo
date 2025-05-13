@@ -1,7 +1,7 @@
 import FrontEnd
 
 /// The address of some statically allocated storage.
-public struct StaticStorage {
+public struct StaticStorage: Sendable {
 
   /// The identifier of the storage.
   public let id: AnyDeclID

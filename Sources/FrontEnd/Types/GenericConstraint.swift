@@ -1,5 +1,5 @@
 /// A constraint on generic type and value parameters.
-public struct GenericConstraint: Hashable {
+public struct GenericConstraint: Hashable, Sendable {
 
   /// The value of a generic constraint.
   public enum Value: Hashable {
