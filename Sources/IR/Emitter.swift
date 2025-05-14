@@ -210,12 +210,12 @@ struct Emitter {
     switch b {
     case .block(let s):
       let returnType = ArrowType(program[d].type)!.output
-      let returnSite = inFrame(bodyFrame) { $0._returnSite(lowering: s, output: returnType) }
+      let returnSite = inFrame(bodyFrame) { $0.returnSite(lowering: s, output: returnType) }
       _lowering(at: returnSite) { $0._return() }
 
     case .expr(let e):
       _lowering(e) { me in
-        me.pushing(bodyFrame, { $0.emitStore(e, in: $0.returnValue!) })
+        me.pushing(bodyFrame, { $0._emitStore(e, in: $0.returnValue!) })
         me._return()
       }
     }
@@ -243,14 +243,14 @@ struct Emitter {
   /// function returning instances of `returnType`, and returns the
   /// site of the return statement.
   @discardableResult
-  private mutating func _returnSite(
+  private mutating func returnSite(
     lowering b: BraceStmt.ID, output returnType: AnyType
   ) -> SourceRange {
     switch emit(braceStmt: b) {
     case .next:
       if canonical(returnType).isVoidOrNever {
         _lowering(after: b) { e in
-          e._mark_state(.initialized, returnValue!)
+          e._mark_state(.initialized, e.returnValue!)
         }
       }
       return ast[b].site
@@ -290,7 +290,7 @@ struct Emitter {
       let returnType = t.isVoidOrNever ? t
         : e.program.foreignRepresentation(of: t, exposedTo: e.insertionScope!)
 
-      let foreignResult = e._call_ffi(program[d].attributes.foreignName!, on: arguments, returning: returnType)
+      let foreignResult = e._call_ffi(e.program[d].attributes.foreignName!, on: arguments, returning: returnType)
 
       // Convert the result of the FFI to its Hylo representation and return it.
       switch returnType {
@@ -299,11 +299,11 @@ struct Emitter {
         return
 
       case .void:
-        e._mark_state(.initialized, returnValue!)
+        e._mark_state(.initialized, e.returnValue!)
 
       default:
-        let v = e._emitConvert(foreign: foreignResult, to: module.functions[f]!.output)
-        e._move(.set, v, to: returnValue!)
+        let v = e._emitConvert(foreign: foreignResult, to: e.module.functions[f]!.output)
+        e._move(.set, v, to: e.returnValue!)
       }
       e._dealloc_top_frame()
       e._return()
@@ -331,7 +331,7 @@ struct Emitter {
     insertionPoint = .end(of: entry)
 
     let returnSite = _frame(locals: locals) {
-      $0._returnSite(lowering: $0.ast[d].body!, output: .void)
+      $0.returnSite(lowering: $0.ast[d].body!, output: .void)
     }
 
     // If the object is empty, simply mark it initialized.
@@ -375,15 +375,17 @@ struct Emitter {
     switch b {
     case .block(let s):
       let returnSite = _frame(locals: parameters) {
-        $0._returnSite(lowering: s, output: ArrowType($0.program[d].type)!.output)
+        $0.returnSite(lowering: s, output: ArrowType($0.program[d].type)!.output)
       }
       _lowering(at: returnSite) { $0._return() }
 
     case .expr(let e):
-      _frame(locals: parameters) {
-        $0.emitStore(e, in: $0.returnValue!)
+      _lowering(e) { me in
+        me._frame(locals: parameters) { me in
+          me._emitStore(e, in: me.returnValue!)
+        }
+        me._return()
       }
-      _lowering(e) { $0._return() }
     }
   }
 
@@ -571,10 +573,10 @@ struct Emitter {
 
         case WildcardPattern.self:
           let s = e.emitStore(value: rhs)
-          _emitDeinit(s)
+          e._emitDeinit(s)
 
         default:
-          unexpected(p, in: ast)
+          unexpected(p, in: e.ast)
         }
       }
     }
@@ -649,8 +651,8 @@ struct Emitter {
 
       let bindingType = canonical(program[partDecl].type)
       _lowering(partDecl) { e in
-        part = _emitCoerce(part, to: bindingType)
-        frames[partDecl] = _access(request, from: part, correspondingTo: partDecl)
+        part = e._emitCoerce(part, to: bindingType)
+        e.frames[partDecl] = e._access(request, from: part, correspondingTo: partDecl)
       }
 
     }
@@ -967,7 +969,7 @@ struct Emitter {
 
     // Emit the body.
     _lowering(argument) { e in
-      e.emitStore(argument, in: returnValue!)
+      e._emitStore(argument, in: e.returnValue!)
       e._return()
     }
 
@@ -1074,7 +1076,7 @@ struct Emitter {
       case YieldStmt.self:
         return e.emit(yieldStmt: .init(s)!)
       default:
-        unexpected(s, in: ast)
+        unexpected(s, in: e.ast)
       }
     }
   }
@@ -1289,7 +1291,7 @@ struct Emitter {
     insertionPoint = .end(of: next)
     // TODO: check this _site control logic.
     _lowering(at: introducer) { e in
-      let flow = e.emit(braceStmt: ast[s].body)
+      let flow = e.emit(braceStmt: e.ast[s].body)
       e.emitControlFlow(flow) { (me) in
         me._lowering(after: me.program[s].body) { $0._branch(to: head) }
       }
@@ -1335,7 +1337,7 @@ struct Emitter {
       e.loops.append(LoopID(depth: e.frames.depth, exit: exit))
       defer { e.loops.removeLast() }
 
-      _branch(to: head)
+      e._branch(to: head)
 
       e.insertionPoint = .end(of: head)
       let x0 = e._access(.let, from: currentPosition)
@@ -1346,7 +1348,7 @@ struct Emitter {
       let x2 = e._emitLoadBuiltinBool(quit)
       e._cond_branch(if: x2, then: exit, else: enter)
 
-      insertionPoint = .end(of: enter)
+      e.insertionPoint = .end(of: enter)
       let x6 = e._access(.let, from: domain)
       let x7 = e._access(.let, from: currentPosition)
 
@@ -1355,22 +1357,22 @@ struct Emitter {
         t, applying: collectionWitness.access.function,
         specializedBy: collectionWitness.access.specialization, to: [x6, x7])
 
-      if module.type(of: x8).ast != collectionWitness.element {
+      if e.module.type(of: x8).ast != collectionWitness.element {
         UNIMPLEMENTED("narrowing projections #1099")
       }
 
-      emitLocalDeclarations(
-        introducedBy: program[s].binding.pattern, referringTo: [], relativeTo: x8)
+      e.emitLocalDeclarations(
+        introducedBy: e.program[s].binding.pattern, referringTo: [], relativeTo: x8)
 
       // TODO: Filter
-      precondition(ast[s].filter == nil, "loop filters are not implemented")
+      precondition(e.ast[s].filter == nil, "loop filters are not implemented")
 
-      let flow = emit(braceStmt: ast[s].body)
-      emitControlFlow(flow) { (me) in
+      let flow = e.emit(braceStmt: e.ast[s].body)
+      e.emitControlFlow(flow) { (me) in
         me._lowering(after: me.program[s].body) { $0._branch(to: tail) }
       }
 
-      insertionPoint = .end(of: tail)
+      e.insertionPoint = .end(of: tail)
       let x3 = e._alloc_stack(collectionWitness.position)
       let x4 = e._access(.let, from: domain)
       let x5 = e._access(.let, from: currentPosition)
@@ -1404,7 +1406,10 @@ struct Emitter {
   }
 
   /// Inserts the IR for `s`, returning its effect on control flow.
+  ///
+  /// - Precondition: _site == ast[s].site
   private mutating func _emit(returnStmt s: ReturnStmt.ID) -> ControlFlow {
+    precondition(_site == ast[s].site)
     if module[insertionFunction!].isSubscript {
       report(.error(returnInSubscript: s, in: ast))
       return .next
@@ -1469,8 +1474,11 @@ struct Emitter {
   /// address of this allocation.
   @discardableResult
   private mutating func emitStore<T: ExprID>(value e: T) -> Operand {
-    let s = _lowering(e) { $0._alloc_stack(program[e].type) }
-    emitStore(e, in: s)
+    let s = _lowering(e) { this in
+      let r = this._alloc_stack(this.program[e].type)
+      this.emitStore(e, in: s)
+      return r
+    }
     return s
   }
 
@@ -1479,45 +1487,51 @@ struct Emitter {
   /// - Requires: `storage` is the address of some uninitialized memory block capable of storing
   ///   the value of `e`.
   private mutating func emitStore<T: ExprID>(_ e: T, in storage: Operand) {
-    _lowering(e) {
-      switch e.kind {
-      case BooleanLiteralExpr.self:
-        _emitStore(boolean: ast[BooleanLiteralExpr.ID(e)!].value, to: storage)
-      case BufferLiteralExpr.self:
-        _emitStore(BufferLiteralExpr.ID(e)!, to: storage)
-      case CaptureExpr.self:
-        emitStore(CaptureExpr.ID(e)!, to: storage)
-      case CastExpr.self:
-        emitStore(CastExpr.ID(e)!, to: storage)
-      case ConditionalExpr.self:
-        emitStore(ConditionalExpr.ID(e)!, to: storage)
-      case FloatLiteralExpr.self:
-        emitStore(FloatLiteralExpr.ID(e)!, to: storage)
-      case FunctionCallExpr.self:
-        emitStore(FunctionCallExpr.ID(e)!, to: storage)
-      case IntegerLiteralExpr.self:
-        emitStore(IntegerLiteralExpr.ID(e)!, to: storage)
-      case LambdaExpr.self:
-        emitStore(LambdaExpr.ID(e)!, to: storage)
-      case NameExpr.self:
-        emitStore(NameExpr.ID(e)!, to: storage)
-      case PragmaLiteralExpr.self:
-        _emitStore(PragmaLiteralExpr.ID(e)!, to: storage)
-      case RemoteTypeExpr.self:
-        _emitStore(RemoteTypeExpr.ID(e)!, to: storage)
-      case SequenceExpr.self:
-        emitStore(SequenceExpr.ID(e)!, to: storage)
-      case SubscriptCallExpr.self:
-        emitStore(SubscriptCallExpr.ID(e)!, to: storage)
-      case StringLiteralExpr.self:
-        emitStore(StringLiteralExpr.ID(e)!, to: storage)
-      case TupleExpr.self:
-        emitStore(TupleExpr.ID(e)!, to: storage)
-      case TupleMemberExpr.self:
-        emitStore(TupleMemberExpr.ID(e)!, to: storage)
-      default:
-        unexpected(e, in: ast)
-      }
+    _lowering(e) { $0._emitStore(e, in: storage) }
+  }
+
+  /// Inserts the IR for storing the value of `e` to `storage`.
+  ///
+  /// Precondition: `_site == ast[e].site`
+  private mutating func _emitStore<T: ExprID>(_ e: T, in storage: Operand) {
+    precondition(_site == ast[e].site)
+    switch e.kind {
+    case BooleanLiteralExpr.self:
+      _emitStore(boolean: ast[BooleanLiteralExpr.ID(e)!].value, to: storage)
+    case BufferLiteralExpr.self:
+      _emitStore(BufferLiteralExpr.ID(e)!, to: storage)
+    case CaptureExpr.self:
+      emitStore(CaptureExpr.ID(e)!, to: storage)
+    case CastExpr.self:
+      emitStore(CastExpr.ID(e)!, to: storage)
+    case ConditionalExpr.self:
+      emitStore(ConditionalExpr.ID(e)!, to: storage)
+    case FloatLiteralExpr.self:
+      emitStore(FloatLiteralExpr.ID(e)!, to: storage)
+    case FunctionCallExpr.self:
+      emitStore(FunctionCallExpr.ID(e)!, to: storage)
+    case IntegerLiteralExpr.self:
+      emitStore(IntegerLiteralExpr.ID(e)!, to: storage)
+    case LambdaExpr.self:
+      emitStore(LambdaExpr.ID(e)!, to: storage)
+    case NameExpr.self:
+      emitStore(NameExpr.ID(e)!, to: storage)
+    case PragmaLiteralExpr.self:
+      _emitStore(PragmaLiteralExpr.ID(e)!, to: storage)
+    case RemoteTypeExpr.self:
+      _emitStore(RemoteTypeExpr.ID(e)!, to: storage)
+    case SequenceExpr.self:
+      emitStore(SequenceExpr.ID(e)!, to: storage)
+    case SubscriptCallExpr.self:
+      emitStore(SubscriptCallExpr.ID(e)!, to: storage)
+    case StringLiteralExpr.self:
+      emitStore(StringLiteralExpr.ID(e)!, to: storage)
+    case TupleExpr.self:
+      emitStore(TupleExpr.ID(e)!, to: storage)
+    case TupleMemberExpr.self:
+      emitStore(TupleMemberExpr.ID(e)!, to: storage)
+    default:
+      unexpected(e, in: ast)
     }
   }
 
@@ -1569,10 +1583,11 @@ struct Emitter {
 
     // `A ~> Union<A, B>`
     if let u = UnionType(target), u.elements.contains(source) {
-      _lowering(e)
-      let x0 = _open_union(storage, as: source, .forInitialization)
-      emitStore(ast[e].left, in: x0)
-      _close_union(x0)
+      _lowering(e) { me in
+        let x0 = me._open_union(storage, as: source, .forInitialization)
+        me.emitStore(me.ast[e].left, in: x0)
+        me._close_union(x0)
+      }
       return
     }
 
@@ -1601,7 +1616,6 @@ struct Emitter {
 
   /// Inserts the IR for storing the value of `e` to `storage`.
   private mutating func emitStore(pointerConversion e: CastExpr.ID, to storage: Operand) {
-    _lowering(e)
     let x0 = emitLValue(pointerConversion: e)
 
     // Consuming a pointee requires a conformance to `Movable`.
@@ -1612,7 +1626,9 @@ struct Emitter {
       return
     }
 
-    _move([.inout, .set], x0, to: storage)
+    _lowering(e) {
+      $0._move([.inout, .set], x0, to: storage)
+    }
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
@@ -1623,14 +1639,14 @@ struct Emitter {
     // Emit the success branch.
     insertionPoint = .end(of: success)
     _frame { $0.emitStore($0.ast[e].success, in: storage) }
-    _lowering(e)
-    _branch(to: tail)
+    _lowering(e) { me in
+      me._branch(to: tail)
 
-    // Emit the failure branch.
-    insertionPoint = .end(of: failure)
-    _frame { $0.emitStore($0.ast[e].failure.value, in: storage) }
-    _branch(to: tail)
-
+      // Emit the failure branch.
+      me.insertionPoint = .end(of: failure)
+      me._frame { $0.emitStore($0.ast[e].failure.value, in: storage) }
+      me._branch(to: tail)
+    }
     insertionPoint = .end(of: tail)
   }
 
@@ -1641,7 +1657,7 @@ struct Emitter {
 
   /// Inserts the IR for storing the value of `e` to `storage`.
   private mutating func emitStore(_ e: FunctionCallExpr.ID, to storage: Operand) {
-    _lowering(e)
+    _lowering(e) { _ in }
     // Handle built-ins and constructor calls.
     if let n = NameExpr.ID(ast[e].callee) {
       switch program[n].referredDecl {
@@ -1661,10 +1677,10 @@ struct Emitter {
     }
 
     // Arguments are evaluated first, from left to right; callee and captures are evaluated next
-    _lowering(after: e)
+    _lowering(after: e)  { _ in }
     let arguments = _emitArguments(to: ast[e].callee, in: CallID(e), usingExplicit: ast[e].arguments)
     let m = ast.isMarkedForMutation(ast[e].callee)
-    _lowering(e)
+    _lowering(e)  { _ in }
     let (callee, captures) = emitFunctionCallee(ast[e].callee, markedForMutation: m)
 
     // Call is evaluated last.
@@ -1683,7 +1699,7 @@ struct Emitter {
       to: callee, in: module,
       specializedBy: module.specialization(in: insertionFunction!), in: insertionScope!)
 
-    _lowering(e)
+    _lowering(e)  { _ in }
     let x0 = _address_to_pointer(.constant(r))
     let x1 = _subfield_view(storage, at: [0])
     _emitInitialize(storage: x1, to: x0)
@@ -1708,7 +1724,7 @@ struct Emitter {
     }
 
     for c in program[e].decl.implicitCaptures {
-      _lowering(e)
+      _lowering(e)  { _ in }
       let y0 = _emitLValue(directReferenceTo: c.decl)
       let y1 = _access([c.type.access], from: y0)
       let y2 = _subfield_view(x2, at: [i])
@@ -1719,7 +1735,7 @@ struct Emitter {
 
   /// Inserts the IR for storing the value of `e` to `storage`.
   private mutating func emitStore(_ e: NameExpr.ID, to storage: Operand) {
-    _lowering(e)
+    _lowering(e) { _ in }
     let x0 = emitLValue(e)
     _move([.inout, .set], x0, to: storage)
   }
@@ -1765,7 +1781,7 @@ struct Emitter {
         unreachable()
       }
 
-      _lowering(callee.expr)
+      _lowering(callee.expr) { _ in }
       let lhsIsMarkedForMutation = program.ast.isMarkedForMutation(lhs)
       let (callee, captures) = _emitMemberFunctionCallee(
         referringTo: d, memberOf: l, markedForMutation: lhsIsMarkedForMutation,
@@ -1792,20 +1808,20 @@ struct Emitter {
 
   /// Inserts the IR for storing the value of `e` to `storage`.
   private mutating func emitStore(_ e: StringLiteralExpr.ID, to storage: Operand) {
-    _lowering(e)
+    _lowering(e) { _ in }
     _emitStore(utf8: ast[e].value.unescaped.utf8, to: storage)
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
   private mutating func emitStore(_ e: TupleExpr.ID, to storage: Operand) {
-    _lowering(e)
+    _lowering(e) { _ in }
     if ast[e].elements.isEmpty {
       _mark_state(.initialized, storage)
       return
     }
 
     for (i, element) in ast[e].elements.enumerated() {
-      _lowering(element.value)
+      _lowering(element.value) { _ in }
       let xi = _subfield_view(storage, at: [i])
       emitStore(element.value, in: xi)
     }
@@ -1813,7 +1829,7 @@ struct Emitter {
 
   /// Inserts the IR for storing the value of `e` to `storage`.
   private mutating func emitStore(_ e: TupleMemberExpr.ID, to storage: Operand) {
-    _lowering(e)
+    _lowering(e) { _ in }
     let x0 = emitLValue(e)
     _move([.inout, .set], x0, to: storage)
   }
@@ -1832,7 +1848,7 @@ struct Emitter {
     if program.areEquivalent(lhsType, rhsType, in: program[e].scope) {
       emitStore(e, in: storage)
     } else if lhsType.base is UnionType {
-      _lowering(e)
+      _lowering(e) { _ in }
       let x0 = _open_union(storage, as: rhsType, .forInitialization)
       emitStore(e, in: x0)
       _close_union(x0)
@@ -1879,7 +1895,7 @@ struct Emitter {
     floatingPoint literal: T.ID, to storage: Operand,
     evaluatedBy evaluate: (String) -> FloatingPointConstant
   ) {
-    _lowering(literal)
+    _lowering(literal) { _ in }
     let x0 = _subfield_view(storage, at: [0])
     let x1 = _access(.set, from: x0)
     let x2 = Operand.constant(evaluate(ast[literal].value))
@@ -1891,7 +1907,7 @@ struct Emitter {
   private mutating func emitStore<T: NumericLiteralExpr>(
     integer literal: T.ID, signed: Bool, bitWidth: Int, to storage: Operand
   ) {
-    _lowering(literal)
+    _lowering(literal) { _ in }
     let syntax = ast[literal]
     guard let bits = WideUInt(hyloLiteral: syntax.value, signed: signed, bitWidth: bitWidth) else {
       diagnostics.insert(
@@ -2012,10 +2028,10 @@ struct Emitter {
     }
 
     // Arguments are evaluated first, from left to right.
-    _lowering(after: call)
+    _lowering(after: call) { _ in }
     let arguments = _emitArguments(to: ast[call].callee, in: CallID(call), usingExplicit: ast[call].arguments)
 
-    _lowering(call)
+    _lowering(call) { _ in }
     // Receiver is captured next.
     let receiver = _access(.set, from: s)
 
@@ -2037,7 +2053,7 @@ struct Emitter {
   private mutating func emit(
     memberwiseInitializerCall call: FunctionCallExpr.ID, initializing receiver: Operand
   ) {
-    _lowering(call)
+    _lowering(call) { _ in }
     let callee = ArrowType(canonical(program[ast[call].callee].type))!
 
     if callee.inputs.isEmpty {
@@ -2135,7 +2151,7 @@ struct Emitter {
       to: callee, in: module,
       specializedBy: module.specialization(in: insertionFunction!), in: insertionScope!)
 
-    _lowering(e)
+    _lowering(e) { _ in }
     let x0 = _address_to_pointer(.constant(r))
     let x1 = _alloc_stack(p.bareType)
     _emitInitialize(storage: x1, to: x0)
@@ -2155,7 +2171,7 @@ struct Emitter {
   private mutating func emitOperands(
     _ e: SubscriptCallExpr.ID
   ) -> (callee: BundleReference<SubscriptDecl>, arguments: [Operand]) {
-    _lowering(after: e)
+    _lowering(after: e) { _ in }
     // Arguments are evaluated first, from left to right; callee and captures are evaluated next.
     let arguments = _emitArguments(to: ast[e].callee, in: CallID(e), usingExplicit: ast[e].arguments)
     let (callee, captures) = emitSubscriptCallee(ast[e].callee)
@@ -2166,7 +2182,7 @@ struct Emitter {
   private mutating func emit(
     infixOperand e: FoldedSequenceExpr, passedTo p: ParameterType
   ) -> Operand {
-    _lowering(at: ast.site(of: e))
+    _lowering(at: ast.site(of: e)) { _ in }
     switch e {
     case .infix(let f, _, _):
       let t = ArrowType(canonical(program[f.expr].type))!.lifted
@@ -2266,7 +2282,7 @@ struct Emitter {
   ) -> (callee: Callee, captures: [Operand]) {
     guard case .member(let d, let a, let s) = program[callee].referredDecl else { unreachable() }
 
-    _lowering(callee)
+    _lowering(callee) { _ in }
     let r = _emitLValue(receiver: s)
     return _emitMemberFunctionCallee(
       referringTo: d, memberOf: r, markedForMutation: isMutating,
@@ -2324,7 +2340,7 @@ struct Emitter {
   ///
   /// - Requires: `callee` has a lambda type.
   private mutating func emitLambdaCallee(_ callee: AnyExprID) -> Operand {
-    _lowering(callee)
+    _lowering(callee) { _ in }
     switch ArrowType(program[callee].type)!.receiverEffect {
     case .yielded:
       unreachable()
@@ -2384,7 +2400,7 @@ struct Emitter {
   private mutating func emitMemberSubscriptCallee(
     _ callee: NameExpr.ID
   ) -> (callee: BundleReference<SubscriptDecl>, captures: [Operand]) {
-    _lowering(callee)
+    _lowering(callee) { _ in }
     guard case .member(let d, let a, let s) = program[callee].referredDecl else { unreachable() }
 
     let entityToCall = program.subscriptBundleReference(to: .init(d)!, specializedBy: a)
@@ -2414,7 +2430,7 @@ struct Emitter {
       case .expr(let e):
         let test = _frame { $0.emit(branchCondition: e) }
         let next = appendBlock(in: scope)
-        _lowering(e)
+        _lowering(e) { _ in }
         _cond_branch(if: test, then: next, else: failure)
         insertionPoint = .end(of: next)
 
@@ -2434,7 +2450,7 @@ struct Emitter {
   /// a rreference to that storage. Otherwise, returns `nil`.
   private mutating func emitAllocation(binding d: BindingDecl.ID) -> Operand? {
     if program[d].pattern.introducer.value.isConsuming {
-      _lowering(d)
+      _lowering(d) { _ in }
       return _alloc_stack(program[d].type)
     } else {
       return nil
@@ -2491,7 +2507,7 @@ struct Emitter {
     branchingOnFailureTo failure: Block.ID,
     in scope: AnyScopeID
   ) -> Block.ID {
-    _lowering(lhs)
+    _lowering(lhs) { _ in }
     let rhsType = UnionType(module.type(of: rhs).ast)!
     precondition(rhsType.elements.contains(lhsType), "recursive narrowing is unimplemented")
 
@@ -2528,7 +2544,7 @@ struct Emitter {
     precondition(
       program.areEquivalent(program[e].type, ^ast.coreType("Bool")!, in: insertionScope!))
     let wrapper = emitLValue(e)
-    _lowering(e)
+    _lowering(e) { _ in }
     return _emitLoadBuiltinBool(wrapper)
   }
 
@@ -2724,7 +2740,7 @@ struct Emitter {
   ) -> Operand {
     let w = module.type(of: witness).ast
     let table = Operand.constant(module.demandWitnessTable(w, in: insertionScope!))
-    _lowering(at: _site!)
+    _lowering(at: _site!) { _ in }
     return _wrap_existential_addr(witness, table, as: t)
   }
 
@@ -2776,7 +2792,7 @@ struct Emitter {
 
   /// Inserts the IR for lvalue `e`.
   private mutating func emitLValue(pointerConversion e: CastExpr.ID) -> Operand {
-    _lowering(e)
+    _lowering(e) { _ in }
     let x0 = emitLValue(ast[e].left)
     let x1 = _access(.sink, from: x0)
     let x2 = _load(x1)
@@ -2793,13 +2809,13 @@ struct Emitter {
 
   /// Inserts the IR for lvalue `e`.
   private mutating func emitLValue(_ e: NameExpr.ID) -> Operand {
-    _lowering(e)
+    _lowering(e) { _ in }
     return _emitLValue(reference: program[e].referredDecl)
   }
 
   /// Inserts the IR for lvalue `e`.
   private mutating func emitLValue(_ e: SubscriptCallExpr.ID) -> Operand {
-    _lowering(e)
+    _lowering(e) { _ in }
     let (b, a) = emitOperands(e)
     return _project_bundle(applying: b, to: a)
   }
@@ -2808,7 +2824,7 @@ struct Emitter {
   private mutating func emitLValue(_ e: TupleMemberExpr.ID) -> Operand {
     let base = emitLValue(ast[e].tuple)
     let i = ast[e].index
-    _lowering(i)
+    _lowering(i) { _ in }
     return _subfield_view(base, at: [i.value])
   }
 
@@ -2934,7 +2950,7 @@ struct Emitter {
     let predecessor = module.instruction(before: i)
 
     insertionPoint = .before(i)
-    _lowering(at: s.site)
+    _lowering(at: s.site) { _ in }
     _emitMove(semantics, s.object, to: s.target, withMovableConformance: s.movable)
     module.removeInstruction(i)
 
@@ -3412,7 +3428,7 @@ struct Emitter {
     defer {
       let savedSource = _site
 
-      _lowering(after: insertionScope!)
+      _lowering(after: insertionScope!) { _ in }
       _dealloc_top_frame()
       frames.pop()
       _site = savedSource
