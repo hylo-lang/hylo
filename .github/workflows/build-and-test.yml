@@ -165,25 +165,22 @@ jobs:
 
   native:
     needs: determine-version
-    name: "Native: ${{ matrix.os }}/${{ matrix.spm_configuration }}/${{ matrix.build_system }}/${{ matrix.cmake_generator }}"
+    name: "Native: ${{ matrix.os }}/${{ matrix.spm_configuration }}/${{ matrix.build_system }}${{ matrix.build_system == 'cmake' && format(':{0}', matrix.cmake_generator) || '' }}"
     strategy:
       fail-fast: false
       matrix:
         # macos-latest is apparently not the latest.
         os: [macos-13, ubuntu-latest, windows-latest]
         spm_configuration: [debug, release]
-        cmake_generator: [Ninja, Xcode]
         build_system: [cmake, spm]
 
-        exclude:
-          - os: ubuntu-latest
-            cmake_generator: Xcode
-          - os: windows-latest
-            cmake_generator: Xcode
-          - build_system: spm
-            cmake_generator: Ninja
-
         include:
+          - cmake_generator: Ninja
+
+          - build_system: cmake
+            os: macos-13
+            cmake_generator: Xcode
+
           - HYLO_LLVM_BUILD_RELEASE: 20240303-215025
           - HYLO_LLVM_BUILD_TYPE: MinSizeRel
           - HYLO_LLVM_DOWNLOAD_URL: https://github.com/hylo-lang/llvm-build/releases/download
@@ -193,16 +190,12 @@ jobs:
           # https://github.com/apple/swift/issues/72121
           - windows_only: '# WINDOWS ONLY:'
           - on_windows_and_spm_works: false
-          - use_spm: true
 
           - os: windows-latest
             unpackage_command: 7z x -t7z
             llvm_package_suffix: .7z
             triple_suffix: unknown-windows-msvc17
             windows_only: ''
-
-          - os: windows-latest
-            use_spm: false
 
           - os: macos-13
             triple_suffix: apple-darwin23.3.0
@@ -215,9 +208,6 @@ jobs:
 
           - spm_configuration: release
             cmake_build_type: Release
-
-          - cmake_generator: Xcode
-            use_spm: false
 
     runs-on: ${{ matrix.os }}
     env:
@@ -294,7 +284,7 @@ jobs:
         if: ${{ matrix.build_system == 'cmake' }}
         run: ctest --output-on-failure --parallel --test-dir hylo/.ninja-build ${{ matrix.cmake_generator == 'Xcode' && format('-C {0}', matrix.cmake_build_type) || '' }}
 
-      - if: ${{ matrix.build_system == 'spm' && matrix.use_spm }}
+      - if: ${{ matrix.build_system == 'spm' }}
         name: Create LLVM pkgconfig file and make it findable
         run: >-
           set -ex -o pipefail
@@ -307,7 +297,7 @@ jobs:
           echo 'PKG_CONFIG_PATH=${{ github.workspace }}/pkg-config' >> "$GITHUB_ENV"
         shell: bash
 
-      - if: ${{ matrix.build_system == 'spm' && matrix.use_spm }}
+      - if: ${{ matrix.build_system == 'spm' }}
         uses: actions/cache@v4
         name: SPM cache setup
         with:
@@ -332,7 +322,7 @@ jobs:
           }
         working-directory: hylo
 
-      - if: ${{ matrix.build_system == 'spm' && matrix.use_spm }}
+      - if: ${{ matrix.build_system == 'spm' }}
         name: Build
         run: |
           swift build -c ${{ matrix.spm_configuration }} ${{ env.spm-build-options }} --build-tests
@@ -340,7 +330,7 @@ jobs:
 
         working-directory: hylo
 
-      - if: ${{ matrix.build_system == 'spm' && matrix.use_spm }}
+      - if: ${{ matrix.build_system == 'spm' }}
         name: Test
         run: |
           swift test --skip-build -c ${{ matrix.spm_configuration }} ${{ env.spm-build-options }} ${{ env.spm-test-options }}
