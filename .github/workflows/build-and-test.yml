@@ -49,7 +49,7 @@ env:
 jobs:
   determine-version:
     name: "Determine compiler version from git tag"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       version: ${{ steps.get-tag.outputs.version }}
     steps:
@@ -81,7 +81,7 @@ jobs:
             spm_configuration: release
             HYLO_LLVM_BUILD_TYPE: MinSizeRel
 
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
@@ -173,7 +173,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-14, ubuntu-latest, windows-latest]
+        os: [macos-14, ubuntu-24.04, windows-latest]
         spm_configuration: [debug, release]
         build_system: [cmake, spm]
 
@@ -205,7 +205,7 @@ jobs:
             triple_suffix: apple-darwin24.1.0
             triple_cpu: arm64
 
-          - os: ubuntu-latest
+          - os: ubuntu-24.04
             triple_suffix: unknown-linux-gnu
 
           - spm_configuration: debug
