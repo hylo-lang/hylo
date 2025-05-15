@@ -64,10 +64,11 @@ jobs:
 
   devcontainer:
     needs: determine-version
-    name: Ubuntu dev container/${{ matrix.cmake_build_type }}
+    name: Ubuntu dev container/${{ matrix.cmake_build_type }}/${{ matrix.build_system }}
     strategy:
       fail-fast: false
       matrix:
+        build_system: [cmake, spm]
         spm_configuration: [debug, release]
         include:
           - spm_configuration: debug
@@ -96,6 +97,7 @@ jobs:
           push: never
 
       - name: Build and Test via CMake
+        if: ${{ matrix.build_system == 'cmake' }}
         uses: devcontainers/ci@v0.3
         env:
           HYLO_LLVM_BUILD_TYPE: ${{ matrix.HYLO_LLVM_BUILD_TYPE }}
@@ -115,10 +117,8 @@ jobs:
             ctest --output-on-failure --parallel --test-dir .ninja-build
           push: never
 
-      - name: Reclaim disk space
-        run: rm -rf .ninja-build
-
       - name: Restore Cache for SPM
+        if: ${{ matrix.build_system == 'spm' }}
         uses: actions/cache@v4
         with:
           path: .build
@@ -127,6 +127,7 @@ jobs:
             ${{ runner.os }}-spm-
 
       - name: Build and Test via SPM
+        if: ${{ matrix.build_system == 'spm' }}
         uses: devcontainers/ci@v0.3
         with:
           runCmd: |
@@ -136,7 +137,7 @@ jobs:
 
       - name: Export Coverage
         uses: devcontainers/ci@v0.3
-        if: ${{ contains(matrix.more-spm-test-options, '--enable-code-coverage') }}
+        if: ${{ matrix.build_system == 'spm' && contains(matrix.more-spm-test-options, '--enable-code-coverage') }}
         with:
           runCmd: |
             shopt -s nullglob
@@ -150,7 +151,7 @@ jobs:
           push: never
 
       - name: Upload coverage reports to Codecov
-        if: ${{ contains(matrix.more-spm-test-options, '--enable-code-coverage') }}
+        if: ${{ matrix.build_system == 'spm' && contains(matrix.more-spm-test-options, '--enable-code-coverage') }}
         uses: codecov/codecov-action@v4.5.0
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
@@ -164,7 +165,7 @@ jobs:
 
   native:
     needs: determine-version
-    name: "Native: ${{ matrix.os }}/${{ matrix.spm_configuration }}/${{ matrix.cmake_generator }}"
+    name: "Native: ${{ matrix.os }}/${{ matrix.spm_configuration }}/${{ matrix.build_system }}/${{ matrix.cmake_generator }}"
     strategy:
       fail-fast: false
       matrix:
@@ -172,12 +173,15 @@ jobs:
         os: [macos-13, ubuntu-latest, windows-latest]
         spm_configuration: [debug, release]
         cmake_generator: [Ninja, Xcode]
+        build_system: [cmake, spm]
 
         exclude:
           - os: ubuntu-latest
             cmake_generator: Xcode
           - os: windows-latest
             cmake_generator: Xcode
+          - build_system: spm
+            cmake_generator: Ninja
 
         include:
           - HYLO_LLVM_BUILD_RELEASE: 20240303-215025
@@ -272,6 +276,7 @@ jobs:
           ${{ matrix.unpackage_command }} ${{ env.llvm_package_basename }}${{ matrix.llvm_package_suffix }}
 
       - name: Configure (CMake)
+        if: ${{ matrix.build_system == 'cmake' }}
         # We explicitly point to swiftc in the PATH because otherwise CMake picks up the one in XCode.
         run: >-
           cmake -G '${{ matrix.cmake_generator }}' -S . -B .ninja-build
@@ -282,12 +287,14 @@ jobs:
         working-directory: hylo
 
       - name: Build (CMake)
+        if: ${{ matrix.build_system == 'cmake' }}
         run: cmake --build hylo/.ninja-build ${{ matrix.cmake_generator == 'Xcode' && format('--config {0}', matrix.cmake_build_type) || '' }}
 
       - name: Test (CMake)
+        if: ${{ matrix.build_system == 'cmake' }}
         run: ctest --output-on-failure --parallel --test-dir hylo/.ninja-build ${{ matrix.cmake_generator == 'Xcode' && format('-C {0}', matrix.cmake_build_type) || '' }}
 
-      - if: ${{ matrix.use_spm }}
+      - if: ${{ matrix.build_system == 'spm' && matrix.use_spm }}
         name: Create LLVM pkgconfig file and make it findable
         run: >-
           set -ex -o pipefail
@@ -300,7 +307,7 @@ jobs:
           echo 'PKG_CONFIG_PATH=${{ github.workspace }}/pkg-config' >> "$GITHUB_ENV"
         shell: bash
 
-      - if: ${{ matrix.use_spm }}
+      - if: ${{ matrix.build_system == 'spm' && matrix.use_spm }}
         uses: actions/cache@v4
         name: SPM cache setup
         with:
@@ -314,7 +321,7 @@ jobs:
         run: clang -c ./StandardLibrary/Sources/LibC.c -o HyloLibC.lib
         working-directory: hylo
 
-      - if: ${{ matrix.on_windows_and_spm_works }}
+      - if: ${{ matrix.on_windows_and_spm_works && matrix.build_system == 'spm' }}
         name: Build the dependencies of build tools
         run: |
           echo 'SPM_BUILD_TOOL_SUPPORT_NO_REENTRANT_BUILD=1' >> $env:GITHUB_ENV
@@ -325,7 +332,7 @@ jobs:
           }
         working-directory: hylo
 
-      - if: ${{ matrix.use_spm }}
+      - if: ${{ matrix.build_system == 'spm' && matrix.use_spm }}
         name: Build
         run: |
           swift build -c ${{ matrix.spm_configuration }} ${{ env.spm-build-options }} --build-tests
@@ -333,7 +340,7 @@ jobs:
 
         working-directory: hylo
 
-      - if: ${{ matrix.use_spm }}
+      - if: ${{ matrix.build_system == 'spm' && matrix.use_spm }}
         name: Test
         run: |
           swift test --skip-build -c ${{ matrix.spm_configuration }} ${{ env.spm-build-options }} ${{ env.spm-test-options }}
