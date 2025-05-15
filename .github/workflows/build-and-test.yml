@@ -49,7 +49,7 @@ env:
 jobs:
   determine-version:
     name: "Determine compiler version from git tag"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       version: ${{ steps.get-tag.outputs.version }}
     steps:
@@ -79,7 +79,7 @@ jobs:
             cmake_build_type: Release
             HYLO_LLVM_BUILD_TYPE: MinSizeRel
 
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
@@ -169,12 +169,12 @@ jobs:
       fail-fast: false
       matrix:
         # macos-latest is apparently not the latest.
-        os: [macos-13, ubuntu-latest, windows-latest]
+        os: [macos-13, ubuntu-24.04, windows-latest]
         spm_configuration: [debug, release]
         cmake_generator: [Ninja, Xcode]
 
         exclude:
-          - os: ubuntu-latest
+          - os: ubuntu-24.04
             cmake_generator: Xcode
           - os: windows-latest
             cmake_generator: Xcode
@@ -203,7 +203,7 @@ jobs:
           - os: macos-13
             triple_suffix: apple-darwin23.3.0
 
-          - os: ubuntu-latest
+          - os: ubuntu-24.04
             triple_suffix: unknown-linux-gnu
 
           - spm_configuration: debug
