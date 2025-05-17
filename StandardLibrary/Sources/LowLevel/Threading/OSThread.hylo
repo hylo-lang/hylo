@@ -37,16 +37,15 @@ internal type ThreadFunction: Movable, Deinitializable {
 
   /// Type erases `f` transforming it into a `TypeErasedFunctionType`; works for our supported closure types.
   private static fun type_erase<Closure>(_ f: inout Closure) -> TypeErasedFunctionType {
-    return PointerToMutable<TypeErasedFunctionType>(type_punning: mutable_pointer[to: &f]).unsafe_pointee()
+    PointerToMutable<TypeErasedFunctionType>(type_punning: mutable_pointer[to: &f]).unsafe_pointee()
   }
 
   /// Returns a raw pointer from `self`.
   internal fun as_raw_pointer() -> MemoryAddress {
-    return Pointer<MemoryAddress>(type_punning: pointer[to: type_erased]).unsafe[].copy()
+    Pointer<MemoryAddress>(type_punning: pointer[to: type_erased]).unsafe[].copy()
   }
 
 }
-
 
 /// Encapsulates an operating system thread.
 public type OSThread: Regular {
@@ -70,10 +69,10 @@ public type OSThread: Regular {
   /// Spawn a new thread with `stack` bytes of stack space, executing `function_ptr`, and passing the value `a` as an argument.
   /// - Requires: `stack >= 0`.
   public static fun spawn_thread(
-      stack: Int,
-      executing function: ThreadFunction,
-      with_argument a: MemoryAddress
-    ) -> OSThread {
+    stack: Int,
+    executing function: ThreadFunction,
+    with_argument a: MemoryAddress
+  ) -> OSThread {
     #if os(Linux) || os(macOS)
       // TODO: improve error handling
       var thread_id: pthread_t = invalid_thread_id.copy()

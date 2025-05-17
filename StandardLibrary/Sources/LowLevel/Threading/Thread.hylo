@@ -20,7 +20,6 @@ public type ThreadId: Regular {
 
 }
 
-
 /// Handler for a thread that is being executed.
 ///
 /// This allows the caller to wait for the thread to complete. The caller needs to ensure that the
