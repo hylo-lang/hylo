@@ -112,7 +112,7 @@ jobs:
 
             find .ninja-build -name '*.a' -delete
 
-            ctest --output-on-failure --parallel --test-dir .ninja-build
+            ctest --timeout 600 --output-on-failure --parallel --test-dir .ninja-build
           push: never
 
       - name: Reclaim disk space
@@ -285,7 +285,7 @@ jobs:
         run: cmake --build hylo/.ninja-build ${{ matrix.cmake_generator == 'Xcode' && format('--config {0}', matrix.cmake_build_type) || '' }}
 
       - name: Test (CMake)
-        run: ctest --output-on-failure --parallel --test-dir hylo/.ninja-build ${{ matrix.cmake_generator == 'Xcode' && format('-C {0}', matrix.cmake_build_type) || '' }}
+        run: ctest --timeout 600 --output-on-failure --parallel --test-dir hylo/.ninja-build ${{ matrix.cmake_generator == 'Xcode' && format('-C {0}', matrix.cmake_build_type) || '' }}
 
       - if: ${{ matrix.use_spm }}
         name: Create LLVM pkgconfig file and make it findable

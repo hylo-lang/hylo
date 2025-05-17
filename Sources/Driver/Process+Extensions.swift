@@ -1,5 +1,6 @@
 import Foundation
 import Utils
+import Dispatch
 
 extension Pipe {
 
@@ -44,8 +45,21 @@ extension Process {
     p.arguments = arguments
     p.standardOutput = pipes.standardOutput
     p.standardError = pipes.standardError
+
+    #if !os(Linux)
+
     try p.run()
     p.waitUntilExit()
+
+    #else
+
+    // Workaround https://github.com/swiftlang/swift-corelibs-foundation/issues/5197
+    let done = DispatchSemaphore(value: 0)
+    p.terminationHandler = { _ in done.signal() }
+    try p.run()
+    done.wait()
+
+    #endif
 
     let r: OutputText = (
       Lazy { pipes.standardOutput.readUTF8() },
