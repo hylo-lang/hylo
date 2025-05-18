@@ -3,7 +3,7 @@
 /// The shared resource is held inside the mutex, and can only be accessed through a lock.
 ///
 /// A mutex is, by default, a bottleneck; it prevents more than one thread to make progress at the same time.
-public type Mutex<T: Regular>: Deinitializable {
+public type Mutex<T: Regular>: Deinitializable, Movable {
 
   /// The OS mutex.
   internal var inner: OSFutexMutex
@@ -23,9 +23,9 @@ public type Mutex<T: Regular>: Deinitializable {
   }
 
   /// Accesses the protected data within the mutex, calling `f` with a mutable reference to the data.
-  public fun access<E>(within f: [E](inout T) -> Void) {
+  public fun access<E>(within f: inout [E](inout T) inout -> Void) {
     inner_as_mutable().unsafe[].lock()
-    f(&(data_as_mutable().unsafe[]))
+    &f(&(data_as_mutable().unsafe[]))
     inner_as_mutable().unsafe[].unlock()
   }
   /// Try accessing the protected data within the mutex, calling `f` with a mutable reference to the data.

@@ -1,0 +1,336 @@
+//- compileAndRun expecting: .success
+
+type TestTask: Deinitializable {
+
+  public var base: TaskBase
+  public var index: Int
+
+  public init() {
+    TaskBase.`init`(self: &base, executing : fun(_ t: TaskPointer) -> Void {})
+    &self.index = 0
+  }
+
+  public init(_ index: Int) {
+    TaskBase.`init`(self: &base, executing : fun(_ t: TaskPointer) -> Void {})
+    &self.index = index.copy()
+  }
+
+  public fun task_pointer() inout -> TaskPointer {
+    return mutable_pointer[to: &base].copy()
+  }
+
+  // public fun infix== (_ task: TaskPointer) -> Bool {
+  //   return pointer[to: &base] == Pointer<TaskBase>(task)
+  // }
+  // public fun infix!= (_ task: TaskPointer) -> Bool {
+  //   return pointer[to: &base] != Pointer<TaskBase>(task)
+  // }
+
+}
+
+public conformance TestTask: Movable {
+
+  // Fake it till you make it. Allows us to easily initialize `Self` in tests.
+  public fun take_value(from source: sink Self) {
+    set { Self.`init`(self: &self, source.index) }
+    inout { precondition(false, "not implemented") }
+  }
+
+}
+
+// Assumes that `task` is a `TestTask`, and checks that the index is correct.
+fun check_task(_ task: TaskPointer, index: Int) {
+  let t = Pointer<TestTask>(type_punning: task)
+  precondition(t.unsafe[].index == index, "task index mismatch")
+}
+
+
+fun test_can_try_extracting_work_from_empty_provider() {
+  var provider = LIFOWorkProvider()
+  let task = provider.next_work_item(worker_index: 0)
+  precondition(task == .null())
+}
+
+fun test_add_and_extract_would_return_the_same_task() {
+  var provider = LIFOWorkProvider()
+  var task: TestTask = .new(13)
+  provider.add_task(task.task_pointer())
+  var extracted_task = provider.next_work_item(worker_index: 0)
+  check_task(extracted_task, index: 13)
+}
+
+fun test_extract_tasks_in_reverse_order() {
+  var provider = LIFOWorkProvider()
+  var task1 = TestTask(1)
+  var task2 = TestTask(2)
+  var task3 = TestTask(3)
+  
+  provider.add_task(task1.task_pointer())
+  provider.add_task(task2.task_pointer())
+  provider.add_task(task3.task_pointer())
+  
+  // Extract tasks in reverse order.
+  check_task(provider.next_work_item(worker_index: 0), index: 3)
+  check_task(provider.next_work_item(worker_index: 0), index: 2)
+  check_task(provider.next_work_item(worker_index: 0), index: 1)
+  // Get a null task if we finished extracting all tasks.
+  precondition(provider.next_work_item(worker_index: 0) == .null())
+}
+
+fun test_add_twice_and_extract_once_repeatedly() {
+  var provider = LIFOWorkProvider()
+  // Create an array of tasks.
+  let count = 10
+  var tasks = BoundedArray<TestTask>(count: count * 2, initialized_with: fun(_ i: Int, _ e: set TestTask) -> Void {
+    &e = TestTask(i)
+  })
+
+  for sink let i in 0 ..< count {
+    provider.add_task(tasks[2 * i].task_pointer())
+    provider.add_task(tasks[2 * i + 1].task_pointer())
+    let next_task = provider.next_work_item(worker_index: 0)
+    check_task(next_task, index: 2 * i + 1)
+  }
+
+  // Check remaining tasks.
+  for sink let i in 0 ..< count {
+    let next_task = provider.next_work_item(worker_index: 0)
+    check_task(next_task, index: 2 * (count - i - 1))
+  }
+  precondition(provider.next_work_item(worker_index: 0) == .null())
+}
+
+fun test_add_and_remove_task() {
+  var provider = LIFOWorkProvider()
+  var task = TestTask()
+  
+  provider.add_task(task.task_pointer())
+  precondition(provider.remove_task(task.task_pointer()))
+  
+  // No task left to extract.
+  precondition(provider.next_work_item(worker_index: 0) == .null())
+}
+
+fun test_remove_task_from_middle_leave_other_tasks_ok() {
+  var provider = LIFOWorkProvider()
+  var task1 = TestTask(1)
+  var task2 = TestTask(2)
+  var task3 = TestTask(3)
+  
+  provider.add_task(task1.task_pointer())
+  provider.add_task(task2.task_pointer())
+  provider.add_task(task3.task_pointer())
+  precondition(provider.remove_task(task2.task_pointer()))
+  
+  // Extract tasks in reverse order.
+  check_task(provider.next_work_item(worker_index: 0), index: 3)
+  // task2 was removed, so we should get task1 next.
+  check_task(provider.next_work_item(worker_index: 0), index: 1)
+  // Get a null task if we finished extracting all tasks.
+  precondition(provider.next_work_item(worker_index: 0) == .null())
+}
+
+fun test_add_twice_and_remove_once_repeatedly() {
+  var provider = LIFOWorkProvider()
+  // Create an array of tasks.
+  let count = 10
+  var tasks = BoundedArray<TestTask>(count: count * 2, initialized_with: fun(_ i: Int, _ e: set TestTask) -> Void {
+    &e = TestTask(i)
+  })
+
+  for sink let i in 0 ..< count {
+    provider.add_task(tasks[2 * i].task_pointer())
+    provider.add_task(tasks[2 * i + 1].task_pointer())
+    precondition(provider.remove_task(tasks[2 * i].task_pointer()))
+  }
+
+  // Only the odd tasks should remain; extracting them in reverse order.
+  for sink let i in 0 ..< count {
+    let next_task = provider.next_work_item(worker_index: 0)
+    check_task(next_task, index: 2 * count - 2 * i - 1)
+  }
+  precondition(provider.next_work_item(worker_index: 0) == .null())
+}
+
+fun test_add_many_tasks_remove_some_check_remaining() {
+  var provider = LIFOWorkProvider()
+  // Create an array of tasks.
+  let count = 10
+  var tasks = BoundedArray<TestTask>(count: count * 2, initialized_with: fun(_ i: Int, _ e: set TestTask) -> Void {
+    &e = TestTask(i)
+  })
+
+  // Add all the tasks.
+  for sink let i in 0 ..< count {
+    provider.add_task(tasks[2 * i].task_pointer())
+    provider.add_task(tasks[2 * i + 1].task_pointer())
+  }
+
+  // Remove the odd tasks.
+  for sink let i in 0 ..< count {
+    precondition(provider.remove_task(tasks[2 * i + 1].task_pointer()))
+  }
+
+  // Only the even tasks should remain; extracting them in reverse order.
+  for sink let i in 0 ..< count {
+    let next_task = provider.next_work_item(worker_index: 0)
+    check_task(next_task, index: 2 * count - 2 * i - 2)
+  }
+  precondition(provider.next_work_item(worker_index: 0) == .null())
+}
+
+type SharedData: Movable, Deinitializable {
+
+  public var provider: LIFOWorkProvider
+  public var tasks: BoundedArray<TestTask>
+  public var added_tasks_count: UInt32
+
+  public init(count: Int) {
+    &provider = LIFOWorkProvider()
+    &tasks = BoundedArray<TestTask>(count: count, initialized_with: fun(_ i: Int, _ e: set TestTask) -> Void {
+      &e = TestTask(i)
+    })
+    &added_tasks_count = 0
+  }
+
+}
+
+fun test_add_remove_in_parallel() {
+  let count = 100
+  var data = SharedData(count: count)
+
+  let adder_thread = spawn_thread(
+    executing: fun(_ data2: inout SharedData) -> Void {
+      let n = data2.tasks.count()
+      for sink let i in 0 ..< n {
+        data2.provider.add_task(data2.tasks[i].task_pointer())
+        _ = atomic_add_relaxed_i32(&data2.added_tasks_count, 1)
+      }
+    },
+    with_inout_argument: mutable_pointer[to: &data])
+
+  let remover_thread = spawn_thread(
+    executing: fun(_ data2: inout SharedData) -> Void {
+      let n = data2.tasks.count()
+      for sink let i in 0 ..< (n / 2) {
+        while atomic_load_relaxed_i32(&data2.added_tasks_count) <= UInt32(truncating_or_extending: 2 * i + 1) {
+          yield_now()
+        }
+        precondition(data2.provider.remove_task(data2.tasks[2 * i + 1].task_pointer()))
+      }
+    },
+    with_inout_argument: mutable_pointer[to: &data])
+
+  adder_thread.await()
+  remover_thread.await()
+
+  precondition(atomic_load_relaxed_i32(&data.added_tasks_count) == UInt32(truncating_or_extending: count))
+
+  // We are left with the even tasks.
+  for sink let i in 0 ..< (count / 2) {
+    let next_task = data.provider.next_work_item(worker_index: 0)
+    check_task(next_task, index: 2 * (count / 2 - i - 1))
+  }
+  precondition(data.provider.next_work_item(worker_index: 0) == .null())
+}
+
+fun test_add_extract_in_parallel() {
+  let count = 100
+  var data = SharedData(count: count)
+
+  let adder_thread = spawn_thread(
+    executing: fun(_ data2: inout SharedData) -> Void {
+      let n = data2.tasks.count()
+      for sink let i in 0 ..< n {
+        data2.provider.add_task(data2.tasks[i].task_pointer())
+        _ = atomic_add_relaxed_i32(&data2.added_tasks_count, 1)
+      }
+    },
+    with_inout_argument: mutable_pointer[to: &data])
+
+  let extractor_thread = spawn_thread(
+    executing: fun(_ data2: inout SharedData) -> Void {
+      let n = data2.tasks.count()
+      for sink let i in 0 ..< (n / 2) {
+        while atomic_load_relaxed_i32(&data2.added_tasks_count) <= UInt32(truncating_or_extending: 2 * i + 1) {
+          yield_now()
+        }
+        let next_task = data2.provider.next_work_item(worker_index: 0)
+        let t = Pointer<TestTask>(type_punning: next_task)
+        // We've added at least `2 * i + 1` tasks, and we removed `i`.
+        precondition(t.unsafe[].index >=  i + 1)
+      }
+    },
+    with_inout_argument: mutable_pointer[to: &data])
+
+  adder_thread.await()
+  extractor_thread.await()
+
+  precondition(atomic_load_relaxed_i32(&data.added_tasks_count) == UInt32(truncating_or_extending: count))
+
+  // We are left with half of the tasks.
+  for sink let i in 0 ..< (count / 2) {
+    precondition(data.provider.next_work_item(worker_index: 0) != .null())
+  }
+  precondition(data.provider.next_work_item(worker_index: 0) == .null())
+}
+
+fun test_add_remove_extract_in_parallel() {
+  let count = 100
+  var data = SharedData(count: count)
+
+  let adder_thread = spawn_thread(
+    executing: fun(_ data2: inout SharedData) -> Void {
+      let n = data2.tasks.count()
+      for sink let i in 0 ..< n {
+        data2.provider.add_task(data2.tasks[i].task_pointer())
+        _ = atomic_add_relaxed_i32(&data2.added_tasks_count, 1)
+      }
+    },
+    with_inout_argument: mutable_pointer[to: &data])
+
+  let extractor_thread = spawn_thread(
+    executing: fun(_ data2: inout SharedData) -> Void {
+      let n = data2.tasks.count()
+      for sink let i in 0 ..< (n / 2) {
+        while atomic_load_relaxed_i32(&data2.added_tasks_count) <= UInt32(truncating_or_extending: 2 * i + 1) {
+          yield_now()
+        }
+        precondition(data2.provider.next_work_item(worker_index: 0) != .null())
+      }
+    },
+    with_inout_argument: mutable_pointer[to: &data])
+
+  let remover_thread = spawn_thread(
+    executing: fun(_ data2: inout SharedData) -> Void {
+      let n = data2.tasks.count()
+      for sink let i in 0 ..< (n / 2) {
+        while atomic_load_relaxed_i32(&data2.added_tasks_count) <= UInt32(truncating_or_extending: 2 * i + 1) {
+          yield_now()
+        }
+        _ = data2.provider.remove_task(data2.tasks[2 * i + 1].task_pointer())
+      }
+    },
+    with_inout_argument: mutable_pointer[to: &data])
+
+  adder_thread.await()
+  extractor_thread.await()
+  remover_thread.await()
+
+  precondition(atomic_load_relaxed_i32(&data.added_tasks_count) == UInt32(truncating_or_extending: count))
+}
+
+
+public fun main() {
+  test_can_try_extracting_work_from_empty_provider()
+  test_add_and_extract_would_return_the_same_task()
+  test_extract_tasks_in_reverse_order()
+  test_add_twice_and_extract_once_repeatedly()
+  test_add_and_remove_task()
+  test_remove_task_from_middle_leave_other_tasks_ok()
+  test_add_twice_and_remove_once_repeatedly()
+  test_add_many_tasks_remove_some_check_remaining()
+  test_add_remove_in_parallel()
+  test_add_extract_in_parallel()
+  test_add_remove_extract_in_parallel()
+}

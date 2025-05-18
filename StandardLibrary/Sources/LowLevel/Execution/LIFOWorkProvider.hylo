@@ -1,0 +1,104 @@
+/// Work provider that gets work from a single pool, using last-in-first-out policy.
+public type LIFOWorkProvider: WorkProvider {
+
+  var tasks: Mutex<TaskPointer>
+
+  public init() {
+    &tasks = .new(.null())
+  }
+
+  /// Returns the next work item to be executed.
+  public fun next_work_item(worker_index: Int) inout -> TaskPointer {
+    var r: TaskPointer = .null()
+    { // TODO: illegal mutable access on return without this extra scope
+      &tasks.access(within: fun(_ t: inout TaskPointer) -> Void {
+        if t == .null() {
+          return
+        }
+        &r = t.copy()
+        if t != .null() {
+          &t = t.unsafe[].next.copy()
+          if t != .null() {
+            &t.unsafe[].previous_link = mutable_pointer[to: &t].copy()
+          }
+        }
+        check_list(t)
+      })
+    }
+    if r != .null() {
+      &r.unsafe[].next = .null()
+      &r.unsafe[].previous_link = .null()
+    }
+    // print_task(r, "next_work_item: ")
+    return r
+  }
+
+  /// Adds a task to our work provider.
+  public fun add_task(_ task: sink TaskPointer) inout {
+    // print_task(task, "add_task: ")
+    &tasks.access(within: fun(_ t: inout TaskPointer) -> Void {
+      &task.unsafe[].next = t.copy()
+      if t != .null() {
+        &t.unsafe[].previous_link = mutable_pointer[to: &task.unsafe[].next].copy()
+      }
+      &task.unsafe[].previous_link = mutable_pointer[to: &t].copy()
+      &t = task.copy()
+      check_list(t)
+    })
+  }
+
+  /// Removes a task from our work provider.
+  ///
+  /// Requires: `task` was previously added to this work provider, and has not been executed nor removed.
+  public fun remove_task(_ task: sink TaskPointer) inout -> Bool {
+    // print_task(task, "remove_task: ")
+    var r = false
+    { // TODO: illegal mutable access on return without this extra scope
+      &tasks.access(within: fun(_ t: inout TaskPointer) -> Void {
+        check_list(t)
+        if task.unsafe[].previous_link == .null() && task != t {
+          return
+        }
+        &task.unsafe[].previous_link.unsafe[] = task.unsafe[].next.copy()
+        if task.unsafe[].next != .null() {
+          &task.unsafe[].next.unsafe[].previous_link = task.unsafe[].previous_link.copy()
+        }
+        &task.unsafe[].next = .null()
+        &task.unsafe[].previous_link = .null()
+        check_list(t)
+        &r = true
+      })
+    }
+    return r
+  }
+
+  /// Checks that the list of tasks is consistent.
+  static fun check_list(_ head: TaskPointer) {
+    // print("check_list head: ", terminator: "")
+    // print(Int(bit_pattern: MemoryAddress(type_punning: PointerToMutable<TaskPointer>(adding_mutation_to: pointer[to: head]))), radix: 16)
+    var t = head.copy()
+    while t != .null() {
+      // print_task(t, "check_list element: ")
+      precondition(t.unsafe[].previous_link != .null(), "previous link is null")
+      precondition(t.unsafe[].previous_link.unsafe[] == t.copy(), "previous link is not correct")
+      &t = t.unsafe[].next.copy()
+    }
+  }
+
+  static fun print_task(_ task: TaskPointer, _ description: String = "") {
+    print(description, terminator: "")
+    print(Int(bit_pattern: MemoryAddress(type_punning: task)), radix: 16, terminator: "")
+    if task != .null() {
+      print(", next=", terminator: "")
+      print(Int(bit_pattern: MemoryAddress(type_punning: task.unsafe[].next)), radix: 16, terminator: "")
+      print(", previous_link=", terminator: "")
+      print(Int(bit_pattern: MemoryAddress(type_punning: task.unsafe[].previous_link)), radix: 16, terminator: "")
+      if task.unsafe[].previous_link != .null() {
+        print(", *previous_link=", terminator: "")
+        print(Int(bit_pattern: MemoryAddress(type_punning: task.unsafe[].previous_link.unsafe[])), radix: 16, terminator: "")
+      }
+    }
+    print(".")
+  }
+
+}
