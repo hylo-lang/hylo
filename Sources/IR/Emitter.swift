@@ -42,6 +42,9 @@ struct Emitter {
   /// Where new instructions are inserted.
   var insertionPoint: InsertionPoint?
 
+  /// The source code associated with instructions to be inserted.
+  var source: SourceRange?
+
   /// The program being lowered.
   private var program: TypedProgram {
     module.program
@@ -3606,6 +3609,22 @@ extension Diagnostic {
 
   fileprivate static func warning(unreachableStatement s: AnyStmtID, in ast: AST) -> Diagnostic {
     .error("statement will never be executed", at: .empty(at: ast[s].site.start))
+  }
+
+}
+
+extension Emitter {
+
+  mutating func _lowering<ID: NodeIDProtocol>(_ x: ID) {
+    _lowering(at: ast[x].site)
+  }
+
+  mutating func _lowering<ID: NodeIDProtocol>(after x: ID) {
+    _lowering(at: .empty(at: ast[x].site.end))
+  }
+
+  mutating func _lowering(at x: SourceRange) {
+    source = x
   }
 
 }
