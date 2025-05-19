@@ -244,9 +244,10 @@ struct Emitter {
     switch emit(braceStmt: b) {
     case .next:
       if canonical(returnType).isVoidOrNever {
-        let anchor = SourceRange.empty(at: ast[b].site.end)
-        insert(module.makeMarkState(returnValue!, initialized: true, at: anchor))
+        _lowering(after: b)
+        _mark_state(.initialized, returnValue!)
       }
+      _lowering(b)
       return ast[b].site
 
     case .return(let s):
@@ -271,6 +272,7 @@ struct Emitter {
       assert(self.frames.isEmpty)
     }
 
+    _lowering(d)
     let site = ast[d].site
 
     // Convert Hylo arguments to their foreign representation. Note that the last parameter of the
@@ -298,7 +300,7 @@ struct Emitter {
       insert(module.makeUnreachable(at: site))
 
     case .void:
-      insert(module.makeMarkState(returnValue!, initialized: true, at: site))
+      _mark_state(.initialized, returnValue!)
       emitDeallocTopFrame(at: site)
       insert(module.makeReturn(at: site))
 
@@ -334,9 +336,10 @@ struct Emitter {
     // If the object is empty, simply mark it initialized.
     let r = module.type(of: .parameter(entry, 0)).ast
     let l = AbstractTypeLayout(of: r, definedIn: program)
+
+    _lowering(d)
     if l.properties.isEmpty {
-      let receiver = entry.parameter(0)
-      insert(module.makeMarkState(receiver, initialized: true, at: ast[d].site))
+      _mark_state(.initialized, entry.parameter(0))
     }
 
     insert(module.makeReturn(at: returnSite))
@@ -672,7 +675,7 @@ struct Emitter {
       let receiver = Operand.parameter(entry, 0)
       me.emitDeinitParts(of: receiver, at: site)
 
-      me.insert(me.module.makeMarkState(me.returnValue!, initialized: true, at: site))
+      me._mark_state(.initialized, me.returnValue!)
       me.emitDeallocTopFrame(at: site)
       me.insert(me.module.makeReturn(at: site))
     }
@@ -691,7 +694,7 @@ struct Emitter {
         me.emitMoveInitUnionPayload(of: receiver, consuming: argument, at: site)
       }
 
-      me.insert(me.module.makeMarkState(me.returnValue!, initialized: true, at: site))
+      me._mark_state(.initialized, me.returnValue!)
       me.emitDeallocTopFrame(at: site)
       me.insert(me.module.makeReturn(at: site))
     }
@@ -702,14 +705,15 @@ struct Emitter {
   private mutating func emitMoveInitRecordParts(
     of receiver: Operand, consuming argument: Operand, at site: SourceRange
   ) {
+    _lowering(at: site)
     let layout = AbstractTypeLayout(of: module.type(of: receiver).ast, definedIn: program)
 
     // If the object is empty, simply mark it initialized.
     if layout.properties.isEmpty {
       // Note: we must not call the argument's deinitializer since we're notionally moving its
       // value to the receiver rather than destroying it.
-      insert(module.makeMarkState(receiver, initialized: true, at: site))
-      insert(module.makeMarkState(argument, initialized: false, at: site))
+      _mark_state(.initialized, receiver)
+      _mark_state(.uninitialized, argument)
       return
     }
 
@@ -726,11 +730,12 @@ struct Emitter {
   private mutating func emitMoveInitUnionPayload(
     of receiver: Operand, consuming argument: Operand, at site: SourceRange
   ) {
+    _lowering(at: site)
     let t = UnionType(module.type(of: receiver).ast)!
 
     // If union is empty, simply mark it initialized.
     if t.elements.isEmpty {
-      insert(module.makeMarkState(receiver, initialized: true, at: site))
+      _mark_state(.initialized, receiver)
       emitDeinit(argument, at: site)
       return
     }
@@ -787,7 +792,7 @@ struct Emitter {
 
       // Apply the move-initializer.
       me.emitMove([.set], argument, to: receiver, at: site)
-      me.insert(me.module.makeMarkState(me.returnValue!, initialized: true, at: site))
+      me._mark_state(.initialized, me.returnValue!)
       me.emitDeallocTopFrame(at: site)
       me.insert(me.module.makeReturn(at: site))
     }
@@ -863,11 +868,12 @@ struct Emitter {
   private mutating func emitCopyRecordParts(
     from source: Operand, to target: Operand, at site: SourceRange
   ) {
+    _lowering(at: site)
     let layout = AbstractTypeLayout(of: module.type(of: source).ast, definedIn: program)
 
     // If the object is empty, simply mark the target as initialized.
     if layout.properties.isEmpty {
-      insert(module.makeMarkState(target, initialized: true, at: site))
+      _mark_state(.initialized, target)
       return
     }
 
@@ -883,11 +889,12 @@ struct Emitter {
   private mutating func emitCopyUnionPayload(
     from source: Operand, to target: Operand, at site: SourceRange
   ) {
+    _lowering(at: site)
     let t = UnionType(module.type(of: source).ast)!
 
     // If union is empty, simply mark the target as initialized.
     if t.elements.isEmpty {
-      insert(module.makeMarkState(target, initialized: true, at: site))
+      _mark_state(.initialized, target)
       return
     }
 
@@ -939,7 +946,7 @@ struct Emitter {
       me.emitInitStoredLocalBindings(
         in: me.program[binding].pattern.subpattern, referringTo: [], relativeTo: storage,
         consuming: initializer)
-      me.insert(me.module.makeMarkState(me.returnValue!, initialized: true, at: site))
+      me._mark_state(.initialized, me.returnValue!)
       me.emitDeallocTopFrame(at: site)
       me.insert(me.module.makeReturn(at: site))
     }
@@ -1389,7 +1396,8 @@ struct Emitter {
     if let e = ast[s].value {
       emitStore(value: e, to: returnValue!)
     } else {
-      insert(module.makeMarkState(returnValue!, initialized: true, at: ast[s].site))
+      _lowering(s)
+      _mark_state(.initialized, returnValue!)
     }
 
     // The return instruction is emitted by the caller handling this control-flow effect.
@@ -1502,8 +1510,9 @@ struct Emitter {
 
   /// Inserts the IR for storing the value of `e` to `storage`.
   private mutating func emitStore(_ e: BufferLiteralExpr.ID, to storage: Operand) {
+    _lowering(e)
     if program[e].elements.isEmpty {
-      insert(module.makeMarkState(storage, initialized: true, at: program[e].site))
+      _mark_state(.initialized, storage)
       return
     }
 
@@ -1661,6 +1670,7 @@ struct Emitter {
       to: callee, in: module,
       specializedBy: module.specialization(in: insertionFunction!), in: insertionScope!)
 
+    _lowering(e)
     let site = ast[e].site
     let x0 = insert(module.makeAddressToPointer(.constant(r), at: site))!
     let x1 = emitSubfieldView(storage, at: [0], at: site)
@@ -1671,7 +1681,7 @@ struct Emitter {
 
     // Simply mark the lambda's environment initialized if it's empty.
     if arrow.environment == .void {
-      insert(module.makeMarkState(x2, initialized: true, at: site))
+      _mark_state(.initialized, x2)
       return
     }
 
@@ -1781,8 +1791,9 @@ struct Emitter {
 
   /// Inserts the IR for storing the value of `e` to `storage`.
   private mutating func emitStore(_ e: TupleExpr.ID, to storage: Operand) {
+    _lowering(e)
     if ast[e].elements.isEmpty {
-      insert(module.makeMarkState(storage, initialized: true, at: ast[e].site))
+      _mark_state(.initialized, storage)
       return
     }
 
@@ -2022,10 +2033,11 @@ struct Emitter {
   private mutating func emit(
     memberwiseInitializerCall call: FunctionCallExpr.ID, initializing receiver: Operand
   ) {
+    _lowering(call)
     let callee = ArrowType(canonical(program[ast[call].callee].type))!
 
     if callee.inputs.isEmpty {
-      insert(module.makeMarkState(receiver, initialized: true, at: ast[call].site))
+      _mark_state(.initialized, receiver)
       return
     }
 
@@ -2173,6 +2185,7 @@ struct Emitter {
   private mutating func emit(
     apply f: BuiltinFunction, to arguments: [LabeledArgument], at site: SourceRange
   ) -> Operand {
+    _lowering(at: site)
     switch f {
     case .addressOf:
       let source = emitLValue(arguments[0].value)
@@ -2180,7 +2193,7 @@ struct Emitter {
 
     case .markUninitialized:
       let source = emitLValue(arguments[0].value)
-      insert(module.makeMarkState(source, initialized: false, at: site))
+      _mark_state(.uninitialized, source)
       return .void
 
     default:
@@ -2953,6 +2966,7 @@ struct Emitter {
   private mutating func emitMove(
     _ semantics: AccessEffectSet, _ value: Operand, to storage: Operand, at site: SourceRange
   ) {
+    _lowering(at: site)
     precondition(!semantics.isEmpty && semantics.isSubset(of: [.set, .inout]))
     let model = module.type(of: value).ast
     precondition(model == module.type(of: storage).ast)
@@ -2976,7 +2990,7 @@ struct Emitter {
       let x1 = insert(module.makeAccess(.set, from: storage, at: site))!
       insert(module.makeMemoryCopy(x0, x1, at: site))
       insert(module.makeEndAccess(x1, at: site))
-      insert(module.makeMarkState(x0, initialized: false, at: site))
+      _mark_state(.uninitialized, x0)
       insert(module.makeEndAccess(x0, at: site))
       return
     }
@@ -3079,16 +3093,17 @@ struct Emitter {
     let m = module.type(of: storage).ast
     let d = program.ast.core.deinitializable.type
 
+    _lowering(at: site)
     if m.base is RemoteType {
-      insert(module.makeMarkState(storage, initialized: false, at: site))
+      _mark_state(.uninitialized, storage)
     } else if let c = program.conformance(of: m, to: d, exposedTo: insertionScope!) {
       if program.isTrivial(c) {
-        insert(module.makeMarkState(storage, initialized: false, at: site))
+        _mark_state(.uninitialized, storage)
       } else {
         emitDeinit(storage, withDeinitializableConformance: c, at: site)
       }
     } else if m.isBuiltinOrRawTuple {
-      insert(module.makeMarkState(storage, initialized: false, at: site))
+      _mark_state(.uninitialized, storage)
     } else {
       report(.error(m, doesNotConformTo: d, at: site))
     }
@@ -3100,6 +3115,7 @@ struct Emitter {
     _ storage: Operand, withDeinitializableConformance deinitializable: FrontEnd.Conformance,
     at site: SourceRange
   ) {
+    _lowering(at: site)
     let d = module.demandDeinitDeclaration(from: deinitializable)
     let f = module.reference(to: d, implementedFor: deinitializable)
 
@@ -3109,17 +3125,18 @@ struct Emitter {
     insert(module.makeCall(applying: .constant(f), to: [x2], writingResultTo: x1, at: site))
     insert(module.makeEndAccess(x2, at: site))
     insert(module.makeEndAccess(x1, at: site))
-    insert(module.makeMarkState(x0, initialized: false, at: site))
+    _mark_state(.uninitialized, x0)
     insert(module.makeDeallocStack(for: x0, at: site))
   }
 
   /// If `storage` is deinitializable in `self.insertionScope`, inserts the IR for deinitializing
   /// it; reports a diagnostic for each part that isn't deinitializable otherwise.
   mutating func emitDeinitParts(of storage: Operand, at site: SourceRange) {
+    _lowering(at: site)
     let t = module.type(of: storage).ast
 
     if program.isTriviallyDeinitializable(t, in: insertionScope!) {
-      insert(module.makeMarkState(storage, initialized: false, at: site))
+      _mark_state(.uninitialized, storage)
     } else if t.base is UnionType {
       emitDeinitUnionPayload(of: storage, at: site)
     } else if t.hasRecordLayout {
@@ -3142,7 +3159,8 @@ struct Emitter {
 
     // If the object is empty, simply mark it uninitialized.
     if layout.properties.isEmpty {
-      insert(module.makeMarkState(storage, initialized: false, at: site))
+      _lowering(at: site)
+      _mark_state(.uninitialized, storage)
       return
     }
 
@@ -3159,11 +3177,12 @@ struct Emitter {
   ///
   /// - Requires: the type of `storage` is a union.
   private mutating func emitDeinitUnionPayload(of storage: Operand, at site: SourceRange) {
+    _lowering(at: site)
     let t = UnionType(module.type(of: storage).ast)!
 
     // If union is empty, simply mark it uninitialized.
     if t.elements.isEmpty {
-      insert(module.makeMarkState(storage, initialized: false, at: site))
+      _mark_state(.uninitialized, storage)
       return
     }
 
@@ -3628,6 +3647,14 @@ extension Emitter {
 
   mutating func _lowering(at x: SourceRange) {
     source = x
+  }
+
+  enum InitializationState {
+    case uninitialized, initialized
+  }
+
+  mutating func _mark_state(_ x: InitializationState, _ op: Operand?) {
+    insert(module.makeMarkState(op!, initialized: x == .initialized, at: source!))
   }
 
 }
