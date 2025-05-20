@@ -11,7 +11,7 @@ extension Module {
   /// reporting errors and warnings to `diagnostics`.
   ///
   /// - Requires: Borrows in `self` have been closed. `f` is in `self`.
-  public mutating func analyzeDefiniteLifetimes(in f: Function.ID, diagnostics: inout DiagnosticSet) {
+  public mutating func normalizeObjectStates(in f: Function.ID, diagnostics: inout DiagnosticSet) {
     var machine = AbstractInterpreter(analyzing: f, in: self, entryContext: entryContext(of: f))
 
     // Verify that object states are properly initialized/deinitialized in `b` given `context`,
@@ -105,18 +105,10 @@ extension Module {
       self[i.function][i.block].instructions.address(after: i.address)
     }
 
-    func checkAllocated(_ o: Operand, in context: Context, at site: SourceRange) {
-      let a = AbstractLocation.root(o)
-      if case .full(.deallocated(at: let deallocationSite)) = context.memory[a]?.value {
-        diagnostics.insert(.use(at: site, ofStackMemoryDeallocatedAt: deallocationSite))
-      }
-    }
-
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(access i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! Access
       precondition(s.source.constant == nil, "source is a constant")
-      checkAllocated(s.source, in: context, at: s.site)
 
       // Access is expected to be reified at this stage.
       let request = s.capabilities.uniqueElement!
@@ -158,11 +150,7 @@ extension Module {
     func interpret(allocStack i: InstructionID, in context: inout Context) -> PC? {
       // A stack leak may occur if this instruction is in a loop.
       let l = AbstractLocation.root(.register(i))
-      let x = context.memory[l]
-      if case .full(.deallocated(_)) = x?.value {}
-      else {
-        precondition(x == nil, "stack leak")
-      }
+      precondition(context.memory[l] == nil, "stack leak")
       context.declareStorage(assignedTo: i, in: self, initially: .uninitialized)
       return successor(of: i)
     }
@@ -170,9 +158,6 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(advancedByBytes i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! AdvancedByBytes
-      checkAllocated(s.base, in: context, at: s.site)
-      checkAllocated(s.byteOffset, in: context, at: s.site)
-
       consume(s.base, with: i, at: s.site, in: &context)
       consume(s.byteOffset, with: i, at: s.site, in: &context)
       initializeRegister(createdBy: i, in: &context)
@@ -182,7 +167,6 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(advancedByStrides i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! AdvancedByStrides
-      checkAllocated(s.base, in: context, at: s.site)
 
       // Operand must a location.
       let locations: [AbstractLocation]
@@ -200,17 +184,7 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(call i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! Call
-      for o in s.operands {
-        checkAllocated(o, in: context, at: s.site)
-      }
-      for o in s.arguments {
-        checkAllocated(o, in: context, at: s.site)
-      }
-      checkAllocated(s.callee, in: context, at: s.site)
-      checkAllocated(s.output, in: context, at: s.site)
-
       let f = s.callee
-
       let callee = ArrowType(type(of: f).ast)!
 
       // Evaluate the callee.
@@ -246,7 +220,6 @@ extension Module {
     func interpret(callFFI i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! CallFFI
       for a in s.operands {
-        checkAllocated(a, in: context, at: s.site)
         consume(a, with: i, at: s.site, in: &context)
       }
       initializeRegister(createdBy: i, in: &context)
@@ -256,7 +229,6 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(captureIn i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! CaptureIn
-      checkAllocated(s.target, in: context, at: s.site)
       initialize(s.target, in: &context)
       return successor(of: i)
     }
@@ -264,7 +236,6 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(closeCapture i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! CloseCapture
-      for o in s.operands { checkAllocated(o, in: context, at: s.site) }
       let l = context.locals[s.start]!.unwrapLocations()!.uniqueElement!
       let projection = context.withObject(at: l, { $0 })
 
@@ -293,8 +264,6 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(closeUnion i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! CloseUnion
-      for o in s.operands { checkAllocated(o, in: context, at: s.site) }
-
       let payload = context.locals[s.start]!.unwrapLocations()!.uniqueElement!
 
       // The state of the projected payload can't be partial.
@@ -316,7 +285,6 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(condBranch i: InstructionID, in context: inout Context) -> PC? {
       let branch = self[i] as! CondBranch
-      checkAllocated(branch.condition, in: context, at: branch.site)
       consume(branch.condition, with: i, at: branch.site, in: &context)
       return successor(of: i)
     }
@@ -330,8 +298,6 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(deallocStack i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! DeallocStack
-      checkAllocated(s.location, in: context, at: s.site)
-
       let l = context.locals[s.location]!.unwrapLocations()!.uniqueElement!
 
       // Make sure the memory at the deallocated location is consumed or uninitialized before
@@ -340,14 +306,13 @@ extension Module {
       insertDeinit(
         s.location, at: p, before: i,
         anchoringInstructionsTo: s.site, reportingDiagnosticsTo: &diagnostics)
-      context.memory[l]!.value = .full(.deallocated(at: s.site))
+      context.memory[l] = nil
       return successor(of: i)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(endProject i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! EndProject
-      for o in s.operands { checkAllocated(o, in: context, at: s.site) }
       let r = self[s.start.instruction!] as! Project
 
       // TODO: Process projection arguments
@@ -379,7 +344,6 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(load i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! Load
-      checkAllocated(s.source, in: context, at: s.site)
       sink(s.source, with: i, in: &context)
       initializeRegister(createdBy: i, in: &context)
       return successor(of: i)
@@ -388,8 +352,6 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(markState i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! MarkState
-      for o in s.operands { checkAllocated(o, in: context, at: s.site) }
-      checkAllocated(s.storage, in: context, at: s.site)
 
       // Built-in values are never consumed.
       let isBuiltin = type(of: s.storage).ast.isBuiltin
@@ -416,9 +378,6 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(move i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! Move
-      checkAllocated(s.object, in: context, at: s.site)
-      checkAllocated(s.target, in: context, at: s.site)
-
       let k: AccessEffect = context.isStaticallyInitialized(s.target) ? .inout : .set
       let n = Emitter.withInstance(insertingIn: &self, reportingDiagnosticsTo: &diagnostics) {
         $0.replaceMove(i, with: k)
@@ -429,7 +388,6 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(openCapture i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! OpenCapture
-      for o in s.operands { checkAllocated(o, in: context, at: s.site) }
       let t = RemoteType(self.type(of: s.source).ast)!
       initializeRegister(createdBy: i, projecting: t, in: &context)
       return successor(of: i)
@@ -438,7 +396,6 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(openUnion i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! OpenUnion
-      for o in s.operands { checkAllocated(o, in: context, at: s.site) }
       let l = AbstractLocation.root(.register(i))
       precondition(context.memory[l] == nil, "overlapping accesses to union payload")
 
@@ -457,8 +414,6 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(pointerToAddress i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! PointerToAddress
-      checkAllocated(s.source, in: context, at: s.site)
-
       consume(s.source, with: i, at: s.site, in: &context)
       initializeRegister(createdBy: i, projecting: s.target, in: &context)
       return successor(of: i)
@@ -467,7 +422,6 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(project i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! Project
-      for o in s.operands { checkAllocated(o, in: context, at: s.site) }
 
       // TODO: Process arguments
 
@@ -502,19 +456,15 @@ extension Module {
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(store i: InstructionID, in context: inout Context) -> PC? {
-      let s = self[i] as! Store
-      checkAllocated(s.object, in: context, at: s.site)
-      checkAllocated(s.target, in: context, at: s.site)
-
-      consume(s.object, with: i, at: s.site, in: &context)
-      initialize(s.target, in: &context)
+      let store = self[i] as! Store
+      consume(store.object, with: i, at: store.site, in: &context)
+      initialize(store.target, in: &context)
       return successor(of: i)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(subfieldView i: InstructionID, in context: inout Context) -> PC? {
       let addr = self[i] as! SubfieldView
-      checkAllocated(addr.recordAddress, in: context, at: addr.site)
 
       // Operand must a location.
       let locations: [AbstractLocation]
@@ -541,9 +491,6 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(wrapExistentialAddr i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! WrapExistentialAddr
-      checkAllocated(s.witness, in: context, at: s.site)
-      checkAllocated(s.table, in: context, at: s.site)
-
       if case .constant = s.witness {
         // Operand is a constant.
         UNIMPLEMENTED()
@@ -556,8 +503,6 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(yield i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! Yield
-      checkAllocated(s.projection, in: context, at: s.site)
-
       assert(self[s.projection.instruction!].isAccess(s.capability))
       return successor(of: i)
     }
@@ -792,10 +737,9 @@ extension Module {
   ) {
     for path in initializedSubfields {
       Emitter.withInstance(insertingIn: &self, reportingDiagnosticsTo: &log) { (e) in
-        e._lowering(at: site)
         e.insertionPoint = .before(i)
-        let s = e._subfield_view(root, at: path)
-        e._emitDeinit(s)
+        let s = e.emitSubfieldView(root, at: path, at: site)
+        e.emitDeinit(s, at: site)
       }
     }
   }
@@ -809,8 +753,7 @@ extension Module {
   ) {
     Emitter.withInstance(insertingIn: &self, reportingDiagnosticsTo: &log) { (e) in
       e.insertionPoint = .before(i)
-      e._lowering(at: site)
-      e._emitDeinitParts(of: whole)
+      e.emitDeinitParts(of: whole, at: site)
     }
   }
 
@@ -882,12 +825,8 @@ private enum State: AbstractDomain {
   /// - Requires: The payload is not empty.
   case consumed(by: Consumers)
 
-  case deallocated(at: SourceRange)
-
   /// Forms a new state by merging `lhs` with `rhs`.
   static func && (lhs: State, rhs: State) -> State {
-    if case .deallocated(_) = rhs { return rhs }
-
     switch lhs {
     case .initialized:
       return rhs
@@ -901,8 +840,6 @@ private enum State: AbstractDomain {
       } else {
         return .consumed(by: a)
       }
-    case deallocated:
-      return lhs
     }
   }
 
@@ -913,13 +850,11 @@ extension State: CustomStringConvertible {
   var description: String {
     switch self {
     case .initialized:
-      return "\u{23Fa}" // ⏺
+      return "\u{23Fa}"
     case .uninitialized:
-      return "\u{25cb}" // ⏋
+      return "\u{25cb}"
     case .consumed(let consumers):
       return "←\(consumers)"
-    case .deallocated:
-      return "❌"
     }
   }
 
@@ -954,7 +889,7 @@ extension AbstractObject.Value where Domain == State {
     switch self {
     case .full(.initialized):
       return [[]]
-    case .full(.uninitialized), .full(.consumed), .full(.deallocated):
+    case .full(.uninitialized), .full(.consumed):
       return []
     case .partial:
       return subfields!.initialized
@@ -983,7 +918,6 @@ extension AbstractObject.Value where Domain == State {
         for p in parts {
           p.gatherSubobjectPaths(prefixedBy: prefix + [i], into: &paths)
         }
-      case .full(.deallocated): do {}
       }
     }
   }
@@ -991,7 +925,7 @@ extension AbstractObject.Value where Domain == State {
   /// The consumers of the object.
   fileprivate var consumers: State.Consumers {
     switch self {
-    case .full(.initialized), .full(.uninitialized), .full(.deallocated):
+    case .full(.initialized), .full(.uninitialized):
       return []
     case .full(.consumed(let c)):
       return c
@@ -1007,9 +941,6 @@ extension AbstractObject.Value where Domain == State {
     switch self {
     case .full(.initialized):
       return
-
-    case .full(.deallocated(at: let deallocationSite)):
-      log.insert(.use(at: site, ofStackMemoryDeallocatedAt: deallocationSite))
 
     case .full(.uninitialized):
       log.insert(.useOfUninitializedObject(at: site))
@@ -1102,15 +1033,6 @@ extension Diagnostic {
     } else {
       return .error("parameter was consumed", at: site)
     }
-  }
-
-  fileprivate static func use(
-    at site: SourceRange,
-    ofStackMemoryDeallocatedAt deallocationSite: SourceRange
-  ) -> Diagnostic {
-    return .error(
-      "Internal error: memory deallocated is later used", at: deallocationSite,
-      notes: [Diagnostic.note("use is here", at: site) ])
   }
 
   fileprivate static func uninitializedSetParameter(
