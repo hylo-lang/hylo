@@ -569,7 +569,8 @@ struct Emitter {
 
       case WildcardPattern.self:
         let s = emitStore(value: rhs)
-        emitDeinit(s, at: ast[p].site)
+        _lowering(p)
+        _emitDeinit(s)
 
       default:
         unexpected(p, in: ast)
@@ -738,7 +739,7 @@ struct Emitter {
     // If union is empty, simply mark it initialized.
     if t.elements.isEmpty {
       _mark_state(.initialized, receiver)
-      emitDeinit(argument, at: site)
+      _emitDeinit(argument)
       return
     }
 
@@ -790,7 +791,7 @@ struct Emitter {
       let argument = Operand.parameter(entry, 1)
 
       // Deinitialize the receiver.
-      me.emitDeinit(receiver, at: site)
+      me._emitDeinit(receiver)
 
       // Apply the move-initializer.
       me.emitMove([.set], argument, to: receiver, at: site)
@@ -1184,7 +1185,8 @@ struct Emitter {
 
   private mutating func emit(discardStmt s: DiscardStmt.ID) -> ControlFlow {
     let v = emitStore(value: ast[s].expr)
-    emitDeinit(v, at: ast[s].site)
+    _lowering(s)
+    _emitDeinit(v)
     return .next
   }
 
@@ -1229,7 +1231,8 @@ struct Emitter {
 
   private mutating func emit(exprStmt s: ExprStmt.ID) -> ControlFlow {
     let v = emitStore(value: ast[s].expr)
-    emitDeinit(v, at: ast[s].site)
+    _lowering(s)
+    _emitDeinit(v)
     return .next
   }
 
@@ -3094,36 +3097,33 @@ struct Emitter {
   ///
   /// Let `T` be the type of `storage`, `storage` is deinitializable iff `T` has a deinitializer
   /// exposed to `self.insertionScope`.
-  mutating func emitDeinit(_ storage: Operand, at site: SourceRange) {
+  mutating func _emitDeinit(_ storage: Operand) {
     let m = module.type(of: storage).ast
     let d = program.ast.core.deinitializable.type
 
-    _lowering(at: site)
     if m.base is RemoteType {
       _mark_state(.uninitialized, storage)
     } else if let c = program.conformance(of: m, to: d, exposedTo: insertionScope!) {
       if program.isTrivial(c) {
         _mark_state(.uninitialized, storage)
       } else {
-        emitDeinit(storage, withDeinitializableConformance: c, at: site)
+        _emitDeinit(storage, via: c)
       }
     } else if m.isBuiltinOrRawTuple {
       _mark_state(.uninitialized, storage)
     } else {
-      report(.error(m, doesNotConformTo: d, at: site))
+      report(.error(m, doesNotConformTo: d, at: source!))
     }
   }
 
-  /// Inserts the IR for deinitializing `storage`, using `deinitializable` to identify the locate
-  /// the deinitializer to apply.
-  private mutating func emitDeinit(
-    _ storage: Operand, withDeinitializableConformance deinitializable: FrontEnd.Conformance,
-    at site: SourceRange
+  /// Inserts the IR for deinitializing `storage` using the `Deinitializable` conformance `c`.
+  private mutating func _emitDeinit(
+    _ storage: Operand, via c: FrontEnd.Conformance
   ) {
-    _lowering(at: site)
-    let d = module.demandDeinitDeclaration(from: deinitializable)
-    let f = module.reference(to: d, implementedFor: deinitializable)
+    let d = module.demandDeinitDeclaration(from: c)
+    let f = module.reference(to: d, implementedFor: c)
 
+    let site = source!
     let x0 = insert(module.makeAllocStack(.void, at: site))!
     let x1 = insert(module.makeAccess(.set, from: x0, at: site))!
     let x2 = insert(module.makeAccess(.sink, from: storage, at: site))!
@@ -3157,6 +3157,7 @@ struct Emitter {
   ///
   /// - Requires: the type of `storage` has a record layout.
   private mutating func emitDeinitRecordParts(of storage: Operand, at site: SourceRange) {
+    _lowering(at: site)
     let t = module.type(of: storage).ast
     precondition(t.hasRecordLayout)
 
@@ -3164,7 +3165,6 @@ struct Emitter {
 
     // If the object is empty, simply mark it uninitialized.
     if layout.properties.isEmpty {
-      _lowering(at: site)
       _mark_state(.uninitialized, storage)
       return
     }
@@ -3172,7 +3172,7 @@ struct Emitter {
     // Otherwise, deinitialize each property.
     for i in layout.properties.indices {
       let x0 = emitSubfieldView(storage, at: [i], at: site)
-      emitDeinit(x0, at: site)
+      _emitDeinit(x0)
     }
   }
 
@@ -3219,8 +3219,9 @@ struct Emitter {
   private mutating func emitDeinitUnionPayload(
     of storage: Operand, containing payload: AnyType, at site: SourceRange
   ) {
+    _lowering(at: site)
     let x0 = insert(module.makeOpenUnion(storage, as: payload, at: site))!
-    emitDeinit(x0, at: site)
+    _emitDeinit(x0)
     insert(module.makeCloseUnion(x0, at: site))
   }
 
