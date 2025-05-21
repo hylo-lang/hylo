@@ -300,12 +300,12 @@ struct Emitter {
 
     case .void:
       _mark_state(.initialized, returnValue!)
-      emitDeallocTopFrame(at: site)
+      _emitDeallocTopFrame()
 
     default:
       let v = _convert(foreignResult, to: module.functions[f]!.output)
       emitMove([.set], v, to: returnValue!, at: site)
-      emitDeallocTopFrame(at: site)
+      _emitDeallocTopFrame()
     }
     _return()
   }
@@ -678,7 +678,7 @@ struct Emitter {
       me.emitDeinitParts(of: receiver, at: site)
 
       me._mark_state(.initialized, me.returnValue!)
-      me.emitDeallocTopFrame(at: site)
+      me._emitDeallocTopFrame()
       me._return()
     }
   }
@@ -697,7 +697,7 @@ struct Emitter {
       }
 
       me._mark_state(.initialized, me.returnValue!)
-      me.emitDeallocTopFrame(at: site)
+      me._emitDeallocTopFrame()
       me._return()
     }
   }
@@ -795,7 +795,7 @@ struct Emitter {
       // Apply the move-initializer.
       me.emitMove([.set], argument, to: receiver, at: site)
       me._mark_state(.initialized, me.returnValue!)
-      me.emitDeallocTopFrame(at: site)
+      me._emitDeallocTopFrame()
       me._return()
     }
   }
@@ -813,7 +813,7 @@ struct Emitter {
         me.emitCopyUnionPayload(from: source, to: target, at: site)
       }
 
-      me.emitDeallocTopFrame(at: site)
+      me._emitDeallocTopFrame()
       me._return()
     }
   }
@@ -833,7 +833,7 @@ struct Emitter {
         UNIMPLEMENTED("synthetic equality for type '\(t)'")
       }
 
-      me.emitDeallocTopFrame(at: site)
+      me._emitDeallocTopFrame()
       me._return()
     }
   }
@@ -943,13 +943,14 @@ struct Emitter {
       guard case .globalInitialization(let binding) = d.kind else { unreachable() }
 
       let initializer = me.program[binding].initializer!
+      me._lowering(initializer)
       let site = me.program[initializer].site
 
       me.emitInitStoredLocalBindings(
         in: me.program[binding].pattern.subpattern, referringTo: [], relativeTo: storage,
         consuming: initializer)
       me._mark_state(.initialized, me.returnValue!)
-      me.emitDeallocTopFrame(at: site)
+      me._emitDeallocTopFrame()
       me.insert(me.module.makeReturn(at: site))
     }
   }
@@ -1025,16 +1026,16 @@ struct Emitter {
 
   /// Inserts IR for breaking from innermost loop, anchoring instructions at `s`.
   private mutating func emitControlFlow(break s: BreakStmt.ID) {
-    let site = ast[s].site
+    _lowering(s)
     let innermost = loops.last!
     // Restore frames upon exit so that closing the surrounding block works.
     let savedFrames = frames
     defer { frames = savedFrames }
     while frames.depth > innermost.depth {
-      emitDeallocTopFrame(at: site)
+      _emitDeallocTopFrame()
       frames.pop()
     }
-    emitBranch(to: innermost.exit, at: site)
+    emitBranch(to: innermost.exit, at: source!)
   }
 
   /// Inserts the IR for `s`, returning its effect on control flow.
@@ -1094,7 +1095,8 @@ struct Emitter {
   private mutating func emit(braceStmt s: BraceStmt.ID) -> ControlFlow {
     frames.push()
     defer {
-      emitDeallocTopFrame(at: .empty(at: ast[s].site.end))
+      _lowering(after: s)
+      _emitDeallocTopFrame()
       frames.pop()
     }
 
@@ -1187,6 +1189,7 @@ struct Emitter {
   }
 
   private mutating func emit(doWhileStmt s: DoWhileStmt.ID) -> ControlFlow {
+    _lowering(s)
     let body = appendBlock(in: ast[s].body)
     let exit = appendBlock(in: ast[s].body)
     loops.append(LoopID(depth: frames.depth, exit: exit))
@@ -1216,7 +1219,7 @@ struct Emitter {
 
     let condition = ast[s].condition.value
     let c = emit(branchCondition: condition)
-    emitDeallocTopFrame(at: ast[s].site)
+    _emitDeallocTopFrame()
     frames.pop()
 
     emitCondBranch(if: c, then: body, else: exit, at: ast[condition].site)
@@ -3366,8 +3369,8 @@ struct Emitter {
   }
 
   /// Inserts the IR for deallocating each allocation in the top frame of `self.frames`.
-  private mutating func emitDeallocTopFrame(at site: SourceRange) {
-    emitDeallocs(for: frames.top, at: site)
+  private mutating func _emitDeallocTopFrame() {
+    emitDeallocs(for: frames.top, at: source!)
     frames.top.allocs.removeAll()
   }
 
@@ -3438,7 +3441,8 @@ struct Emitter {
   private mutating func within<T>(_ newFrame: Frame, _ action: (inout Self) -> T) -> T {
     frames.push(newFrame)
     defer {
-      emitDeallocTopFrame(at: .empty(at: ast[insertionScope!].site.end))
+      _lowering(after: insertionScope!)
+      _emitDeallocTopFrame()
       frames.pop()
     }
     return action(&self)
