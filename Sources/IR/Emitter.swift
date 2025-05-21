@@ -846,6 +846,9 @@ struct Emitter {
         me.insertionPoint = .end(of: entry)
         me.frames.push()
 
+        let savedSite = me.source
+        defer { me.source = savedSite }
+        me._lowering(me.module.id)
         action(&me, site, entry)
 
         me.frames.pop()
