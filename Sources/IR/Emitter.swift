@@ -210,11 +210,13 @@ struct Emitter {
     case .block(let s):
       let returnType = ArrowType(program[d].type)!.output
       let returnSite = within(bodyFrame, { $0.lowerStatements(s, expecting: returnType) })
-      insert(module.makeReturn(at: returnSite))
+      _lowering(at: returnSite)
+      _return()
 
     case .expr(let e):
       within(bodyFrame, { $0.emitStore(value: e, to: $0.returnValue!) })
-      insert(module.makeReturn(at: ast[e].site))
+      _lowering(e)
+      _return()
     }
 
     return f
@@ -294,18 +296,18 @@ struct Emitter {
     switch returnType {
     case .never:
       _unreachable()
+      return
 
     case .void:
       _mark_state(.initialized, returnValue!)
       emitDeallocTopFrame(at: site)
-      insert(module.makeReturn(at: site))
 
     default:
       let v = _convert(foreignResult, to: module.functions[f]!.output)
       emitMove([.set], v, to: returnValue!, at: site)
       emitDeallocTopFrame(at: site)
-      insert(module.makeReturn(at: site))
     }
+    _return()
   }
 
   /// Inserts the IR for `d`.
@@ -337,8 +339,8 @@ struct Emitter {
     if l.properties.isEmpty {
       _mark_state(.initialized, entry.parameter(0))
     }
-
-    insert(module.makeReturn(at: returnSite))
+    _lowering(at: returnSite)
+    _return()
   }
 
   /// Inserts the IR for `d`.
@@ -373,12 +375,13 @@ struct Emitter {
     case .block(let s):
       let returnType = ArrowType(program[d].type)!.output
       let returnSite = within(bodyFrame, { $0.lowerStatements(s, expecting: returnType) })
-      insert(module.makeReturn(at: returnSite))
+      _lowering(at: returnSite)
 
     case .expr(let e):
       within(bodyFrame, { $0.emitStore(value: e, to: $0.returnValue!) })
-      insert(module.makeReturn(at: ast[e].site))
+      _lowering(e)
     }
+    _return()
   }
 
   /// Inserts the IR for `d`.
@@ -438,7 +441,8 @@ struct Emitter {
           this.module.makeAccess(this.ast[d].introducer.value, from: x0, at: this.ast[e].site))!
         this.insert(this.module.makeYield(this.ast[d].introducer.value, x1, at: this.ast[e].site))
       }
-      insert(module.makeReturn(at: ast[e].site))
+      _lowering(e)
+      _return()
     }
   }
 
@@ -446,9 +450,11 @@ struct Emitter {
   private mutating func lower(body b: BraceStmt.ID, of d: SubscriptImpl.ID, in f: Frame) {
     switch within(f, { $0.emit(braceStmt: b) }) {
     case .next:
-      insert(module.makeReturn(at: .empty(at: ast[b].site.end)))
+      _lowering(after: b)
+      _return()
     case .return(let s):
-      insert(module.makeReturn(at: ast[s].site))
+      _lowering(s)
+      _return()
     default:
       UNIMPLEMENTED()
     }
@@ -673,7 +679,7 @@ struct Emitter {
 
       me._mark_state(.initialized, me.returnValue!)
       me.emitDeallocTopFrame(at: site)
-      me.insert(me.module.makeReturn(at: site))
+      me._return()
     }
   }
 
@@ -692,7 +698,7 @@ struct Emitter {
 
       me._mark_state(.initialized, me.returnValue!)
       me.emitDeallocTopFrame(at: site)
-      me.insert(me.module.makeReturn(at: site))
+      me._return()
     }
   }
 
@@ -790,7 +796,7 @@ struct Emitter {
       me.emitMove([.set], argument, to: receiver, at: site)
       me._mark_state(.initialized, me.returnValue!)
       me.emitDeallocTopFrame(at: site)
-      me.insert(me.module.makeReturn(at: site))
+      me._return()
     }
   }
 
@@ -808,7 +814,7 @@ struct Emitter {
       }
 
       me.emitDeallocTopFrame(at: site)
-      me.insert(me.module.makeReturn(at: site))
+      me._return()
     }
   }
 
@@ -828,7 +834,7 @@ struct Emitter {
       }
 
       me.emitDeallocTopFrame(at: site)
-      me.insert(me.module.makeReturn(at: site))
+      me._return()
     }
   }
 
@@ -3664,6 +3670,10 @@ extension Emitter {
 
   mutating func _convert(_ foreignResult: Operand, to t: AnyType) -> Operand {
     emitConvert(foreign: foreignResult, to: t, at: source!)
+  }
+
+  mutating func _return() {
+    insert(module.makeReturn(at: source!))
   }
 
 }
