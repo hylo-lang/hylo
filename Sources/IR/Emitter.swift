@@ -209,11 +209,11 @@ struct Emitter {
     switch b {
     case .block(let s):
       let returnType = ArrowType(program[d].type)!.output
-      let returnSite = pushing(bodyFrame, { $0.lowerStatements(s, expecting: returnType) })
+      let returnSite = within(bodyFrame, { $0.lowerStatements(s, expecting: returnType) })
       insert(module.makeReturn(at: returnSite))
 
     case .expr(let e):
-      pushing(bodyFrame, { $0.emitStore(value: e, to: $0.returnValue!) })
+      within(bodyFrame, { $0.emitStore(value: e, to: $0.returnValue!) })
       insert(module.makeReturn(at: ast[e].site))
     }
 
@@ -331,7 +331,7 @@ struct Emitter {
     // Emit the body.
     insertionPoint = .end(of: entry)
     let bodyFrame = Frame(locals: locals)
-    let returnSite = pushing(bodyFrame, { $0.lowerStatements($0.ast[d].body!, expecting: .void) })
+    let returnSite = within(bodyFrame, { $0.lowerStatements($0.ast[d].body!, expecting: .void) })
 
     // If the object is empty, simply mark it initialized.
     let r = module.type(of: .parameter(entry, 0)).ast
@@ -376,11 +376,11 @@ struct Emitter {
     switch b {
     case .block(let s):
       let returnType = ArrowType(program[d].type)!.output
-      let returnSite = pushing(bodyFrame, { $0.lowerStatements(s, expecting: returnType) })
+      let returnSite = within(bodyFrame, { $0.lowerStatements(s, expecting: returnType) })
       insert(module.makeReturn(at: returnSite))
 
     case .expr(let e):
-      pushing(bodyFrame, { $0.emitStore(value: e, to: $0.returnValue!) })
+      within(bodyFrame, { $0.emitStore(value: e, to: $0.returnValue!) })
       insert(module.makeReturn(at: ast[e].site))
     }
   }
@@ -436,7 +436,7 @@ struct Emitter {
       lower(body: s, of: d, in: Frame(locals: locals))
 
     case .expr(let e):
-      pushing(Frame(locals: locals)) { (this) in
+      within(Frame(locals: locals)) { (this) in
         let x0 = this.emitLValue(e)
         let x1 = this.insert(
           this.module.makeAccess(this.ast[d].introducer.value, from: x0, at: this.ast[e].site))!
@@ -448,7 +448,7 @@ struct Emitter {
 
   /// Inserts the IR for `b`, which is the body of `d` and is enclosed in `bodyFrame`.
   private mutating func lower(body b: BraceStmt.ID, of d: SubscriptImpl.ID, in f: Frame) {
-    switch pushing(f, { $0.emit(braceStmt: b) }) {
+    switch within(f, { $0.emit(braceStmt: b) }) {
     case .next:
       insert(module.makeReturn(at: .empty(at: ast[b].site.end)))
     case .return(let s):
@@ -1611,12 +1611,12 @@ struct Emitter {
 
     // Emit the success branch.
     insertionPoint = .end(of: success)
-    pushing(Frame(), { $0.emitStore(value: $0.ast[e].success, to: storage) })
+    within(Frame(), { $0.emitStore(value: $0.ast[e].success, to: storage) })
     emitBranch(to: tail, at: ast[e].site)
 
     // Emit the failure branch.
     insertionPoint = .end(of: failure)
-    pushing(Frame(), { $0.emitStore(value: $0.ast[e].failure.value, to: storage) })
+    within(Frame(), { $0.emitStore(value: $0.ast[e].failure.value, to: storage) })
     emitBranch(to: tail, at: ast[e].site)
 
     insertionPoint = .end(of: tail)
@@ -2416,7 +2416,7 @@ struct Emitter {
     for item in condition {
       switch item {
       case .expr(let e):
-        let test = pushing(Frame(), { $0.emit(branchCondition: e) })
+        let test = within(Frame(), { $0.emit(branchCondition: e) })
         let next = appendBlock(in: scope)
         emitCondBranch(if: test, then: next, else: failure, at: ast[e].site)
         insertionPoint = .end(of: next)
@@ -3428,13 +3428,12 @@ struct Emitter {
     insert(module.makeUnionSwitch(over: i, of: u, toOneOf: targets, at: site))
   }
 
-  /// Returns the result of calling `action` on a copy of `self` in which a `newFrame` is the top
-  /// frame.
+  /// Returns the result of calling `action` on `self` within `newFrame`.
   ///
   /// `newFrame` is pushed on `self.frames` before `action` is called. When `action` returns,
   /// outstanding stack allocations are deallocated and `newFrame` is popped. References to stack
   /// memory allocated by `action` are invalidated when this method returns.
-  private mutating func pushing<T>(_ newFrame: Frame, _ action: (inout Self) -> T) -> T {
+  private mutating func within<T>(_ newFrame: Frame, _ action: (inout Self) -> T) -> T {
     frames.push(newFrame)
     defer {
       emitDeallocTopFrame(at: .empty(at: ast[insertionScope!].site.end))
