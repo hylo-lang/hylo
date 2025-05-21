@@ -288,11 +288,7 @@ struct Emitter {
       t.isVoidOrNever ? t : program.foreignRepresentation(of: t, exposedTo: insertionScope!)
     }
 
-    // Emit the call to the foreign function.
-    let foreignResult = insert(
-      module.makeCallFFI(
-        returning: .object(returnType), applying: program[d].attributes.foreignName!, to: arguments,
-        at: site))!
+    let foreignResult = _call_ffi(program[d].attributes.foreignName!, on: arguments, returning: returnType)
 
     // Convert the result of the FFI to its Hylo representation and return it.
     switch returnType {
@@ -3654,6 +3650,12 @@ extension Emitter {
 
   mutating func _mark_state(_ x: InitializationState, _ op: Operand?) {
     insert(module.makeMarkState(op!, initialized: x == .initialized, at: source!))
+  }
+
+  mutating func _call_ffi<T: TypeProtocol>(_ foreignName: String, on arguments: [Operand], returning returnType: T) -> Operand {
+    insert(
+      module.makeCallFFI(
+        returning: .object(returnType), applying: foreignName, to: arguments, at: source!))!
   }
 
 }
