@@ -301,7 +301,7 @@ struct Emitter {
       insert(module.makeReturn(at: site))
 
     default:
-      let v = emitConvert(foreign: foreignResult, to: module.functions[f]!.output, at: site)
+      let v = _convert(foreignResult, to: module.functions[f]!.output)
       emitMove([.set], v, to: returnValue!, at: site)
       emitDeallocTopFrame(at: site)
       insert(module.makeReturn(at: site))
@@ -3660,6 +3660,10 @@ extension Emitter {
 
   mutating func _unreachable() {
     insert(module.makeUnreachable(at: source!))
+  }
+
+  mutating func _convert(_ foreignResult: Operand, to t: AnyType) -> Operand {
+    emitConvert(foreign: foreignResult, to: t, at: source!)
   }
 
 }
