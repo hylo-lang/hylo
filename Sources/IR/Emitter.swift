@@ -293,7 +293,7 @@ struct Emitter {
     // Convert the result of the FFI to its Hylo representation and return it.
     switch returnType {
     case .never:
-      insert(module.makeUnreachable(at: site))
+      _unreachable()
 
     case .void:
       _mark_state(.initialized, returnValue!)
@@ -3656,6 +3656,10 @@ extension Emitter {
     insert(
       module.makeCallFFI(
         returning: .object(returnType), applying: foreignName, to: arguments, at: source!))!
+  }
+
+  mutating func _unreachable() {
+    insert(module.makeUnreachable(at: source!))
   }
 
 }
