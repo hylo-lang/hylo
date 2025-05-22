@@ -356,26 +356,27 @@ struct Emitter {
     let entry = module.appendEntry(in: program.scopeContainingBody(of: d)!, to: f)
 
     // Configure the locals.
-    var locals = DeclProperty<Operand>()
-    locals[ast[d].receiver] = .parameter(entry, 0)
+    var parameters = DeclProperty<Operand>()
+    parameters[ast[d].receiver] = .parameter(entry, 0)
 
     let bundle = MethodDecl.ID(program[d].scope)!
     for (i, p) in ast[bundle].parameters.enumerated() {
-      locals[p] = .parameter(entry, i + 1)
+      parameters[p] = .parameter(entry, i + 1)
     }
-
-    let bodyFrame = Frame(locals: locals)
 
     // Emit the body.
     self.insertionPoint = .end(of: entry)
     switch b {
     case .block(let s):
-      let returnType = ArrowType(program[d].type)!.output
-      let returnSite = within(bodyFrame, { $0._lowered(s, output: returnType) })
+      let returnSite = within(Frame(locals: parameters)) {
+        $0._lowered(s, output: ArrowType($0.program[d].type)!.output)
+      }
       _lowering(at: returnSite)
 
     case .expr(let e):
-      within(bodyFrame, { $0.emitStore(value: e, to: $0.returnValue!) })
+      within(Frame(locals: parameters)) {
+        $0.emitStore(value: e, to: $0.returnValue!)
+      }
       _lowering(e)
     }
     _return()
