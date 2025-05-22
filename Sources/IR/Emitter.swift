@@ -731,8 +731,9 @@ struct Emitter {
   private mutating func emitMoveInitUnionPayload(
     of receiver: Operand, consuming argument: Operand, at site: SourceRange
   ) {
-    _lowering(at: site)
     let t = UnionType(module.type(of: receiver).ast)!
+
+    _lowering(at: site)
 
     // If union is empty, simply mark it initialized.
     if t.elements.isEmpty {
@@ -942,8 +943,8 @@ struct Emitter {
       guard case .globalInitialization(let binding) = d.kind else { unreachable() }
 
       let initializer = me.program[binding].initializer!
-      me._lowering(initializer)
       let site = me.program[initializer].site
+      me._lowering(at: site)
 
       me.emitInitStoredLocalBindings(
         in: me.program[binding].pattern.subpattern, referringTo: [], relativeTo: storage,
@@ -1083,10 +1084,10 @@ struct Emitter {
 
     // The RHS is evaluated first, stored into some local storage, and moved to the LHS. Implicit
     // conversion is necessary if the RHS is subtype of the LHS.
-    _lowering(s)
     let rhs = emitAllocStack(for: program[s].left.type, at: ast[s].site)
     emitStore(convertingIfNecessary: ast[s].right, to: rhs)
     let lhs = emitLValue(ast[s].left)
+    _lowering(s)
     _emitMove([.inout, .set], rhs, to: lhs)
 
     return .next
@@ -1190,7 +1191,6 @@ struct Emitter {
   }
 
   private mutating func emit(doWhileStmt s: DoWhileStmt.ID) -> ControlFlow {
-    _lowering(s)
     let body = appendBlock(in: ast[s].body)
     let exit = appendBlock(in: ast[s].body)
     loops.append(LoopID(depth: frames.depth, exit: exit))
@@ -1220,6 +1220,7 @@ struct Emitter {
 
     let condition = ast[s].condition.value
     let c = emit(branchCondition: condition)
+    _lowering(s)
     _emitDeallocTopFrame()
     frames.pop()
 
@@ -1229,8 +1230,8 @@ struct Emitter {
   }
 
   private mutating func emit(exprStmt s: ExprStmt.ID) -> ControlFlow {
-    let v = emitStore(value: ast[s].expr)
     _lowering(s)
+    let v = emitStore(value: ast[s].expr)
     _emitDeinit(v)
     return .next
   }
@@ -1306,6 +1307,7 @@ struct Emitter {
     let equal = module.reference(toImplementationOf: equatable.equal, for: equatableConformance)
 
     let introducer = program[s].introducerSite
+    _lowering(at: introducer)
 
     // The collection on which the loop iterates.
     let domain = emitLValue(program[s].domain.value)
@@ -1368,7 +1370,6 @@ struct Emitter {
     emitApply(collectionWitness.positionAfter, to: [x4, x5], writingResultTo: x3, at: introducer)
     insert(module.makeEndAccess(x4, at: introducer))
     insert(module.makeEndAccess(x5, at: introducer))
-    _lowering(at: introducer)
     _emitMove([.inout], x3, to: currentPosition)
     insert(module.makeDeallocStack(for: x3, at: introducer))
     emitBranch(to: head, at: introducer)
@@ -2504,11 +2505,12 @@ struct Emitter {
     branchingOnFailureTo failure: Block.ID,
     in scope: AnyScopeID
   ) -> Block.ID {
+    _lowering(lhs)
     let rhsType = UnionType(module.type(of: rhs).ast)!
     precondition(rhsType.elements.contains(lhsType), "recursive narrowing is unimplemented")
 
+    let site = source!
     let next = appendBlock(in: scope)
-    let site = program[lhs].site
     var targets = UnionSwitch.Targets(
       rhsType.elements.map({ (e) in (key: e, value: failure) }),
       uniquingKeysWith: { (a, _) in a })
@@ -2518,7 +2520,6 @@ struct Emitter {
     insertionPoint = .end(of: next)
 
     if let target = storage {
-      _lowering(at: site)
       let x0 = insert(module.makeAccess(.sink, from: rhs, at: site))!
       let x1 = insert(module.makeOpenUnion(x0, as: lhsType, at: site))!
       _emitMove([.set], x1, to: target)
@@ -2642,11 +2643,11 @@ struct Emitter {
   private mutating func _emitCoerce(
     _ source: Operand, to target: UnionType, at site: SourceRange
   ) -> Operand {
+    _lowering(at: site)
     let lhs = module.type(of: source).ast
 
     let x0 = emitAllocStack(for: ^target, at: site)
     let x1 = insert(module.makeOpenUnion(x0, as: lhs, forInitialization: true, at: site))!
-    _lowering(at: site)
     _emitMove([.set], source, to: x1)
     insert(module.makeCloseUnion(x1, at: site))
     return x0
