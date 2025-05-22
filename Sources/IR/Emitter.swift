@@ -592,7 +592,8 @@ struct Emitter {
     in lhs: TuplePattern.ID, referringTo subfield: RecordPath, relativeTo storage: Operand,
     consuming initializer: AnyExprID
   ) {
-    let rhs = emitSubfieldView(storage, at: subfield, at: ast[lhs].site)
+    _lowering(lhs)
+    let rhs = _subfield_view(storage, at: subfield)
     emitStore(value: initializer, to: rhs)
     emitLocalDeclarations(introducedBy: lhs, referringTo: subfield, relativeTo: storage)
   }
@@ -613,7 +614,8 @@ struct Emitter {
   private mutating func emitLocalDeclaration(
     of name: NamePattern.ID, referringTo subfield: RecordPath, relativeTo storage: Operand
   ) -> Operand {
-    let s = emitSubfieldView(storage, at: subfield, at: ast[name].site)
+    _lowering(name)
+    let s = _subfield_view(storage, at: subfield)
     frames[ast[name].decl] = s
     return s
   }
@@ -634,7 +636,8 @@ struct Emitter {
     let request: AccessEffectSet = module.isSink(rhs) ? [k, .sink] : [k]
 
     for (path, name) in ast.names(in: program[d].subpattern) {
-      var part = emitSubfieldView(rhs, at: path, at: program[name].decl.site)
+      _lowering(program[name].decl)
+      var part = _subfield_view(rhs, at: path)
       let partDecl = ast[name].decl
 
       let bindingType = canonical(program[partDecl].type)
@@ -719,8 +722,8 @@ struct Emitter {
 
     // Otherwise, move initialize each property.
     for i in layout.properties.indices {
-      let source = emitSubfieldView(argument, at: [i], at: site)
-      let target = emitSubfieldView(receiver, at: [i], at: site)
+      let source = _subfield_view(argument, at: [i])
+      let target = _subfield_view(receiver, at: [i])
       _emitMove(.set, source, to: target)
     }
   }
@@ -880,8 +883,8 @@ struct Emitter {
 
     // Otherwise, copy each property.
     for i in layout.properties.indices {
-      let s = emitSubfieldView(source, at: [i], at: site)
-      let t = emitSubfieldView(target, at: [i], at: site)
+      let s = _subfield_view(source, at: [i])
+      let t = _subfield_view(target, at: [i])
       emitCopy(s, to: t, at: site)
     }
   }
@@ -1694,11 +1697,11 @@ struct Emitter {
     _lowering(e)
     let site = ast[e].site
     let x0 = insert(module.makeAddressToPointer(.constant(r), at: site))!
-    let x1 = emitSubfieldView(storage, at: [0], at: site)
+    let x1 = _subfield_view(storage, at: [0])
     emitInitialize(storage: x1, to: x0, at: ast[e].site)
 
     let arrow = ArrowType(program.canonical(program[e].type, in: insertionScope!))!
-    let x2 = emitSubfieldView(storage, at: [1], at: site)
+    let x2 = _subfield_view(storage, at: [1])
 
     // Simply mark the lambda's environment initialized if it's empty.
     if arrow.environment == .void {
@@ -1711,7 +1714,7 @@ struct Emitter {
     for b in program[e].decl.explicitCaptures {
       // TODO: See #878
       guard program[b].pattern.subpattern.kind == NamePattern.self else { UNIMPLEMENTED() }
-      let y0 = emitSubfieldView(x2, at: [i], at: site)
+      let y0 = _subfield_view(x2, at: [i])
       emitStore(value: program[b].initializer!, to: y0)
       i += 1
     }
@@ -1719,7 +1722,7 @@ struct Emitter {
     for c in program[e].decl.implicitCaptures {
       let y0 = emitLValue(directReferenceTo: c.decl, at: site)
       let y1 = _access([c.type.access], from: y0)
-      let y2 = emitSubfieldView(x2, at: [i], at: site)
+      let y2 = _subfield_view(x2, at: [i])
       emitStore(access: y1, to: y2, at: site)
       i += 1
     }
@@ -1820,7 +1823,8 @@ struct Emitter {
     }
 
     for (i, element) in ast[e].elements.enumerated() {
-      let xi = emitSubfieldView(storage, at: [i], at: ast[element.value].site)
+      _lowering(element.value)
+      let xi = _subfield_view(storage, at: [i])
       emitStore(value: element.value, to: xi)
     }
   }
@@ -1896,7 +1900,7 @@ struct Emitter {
   ) {
     _lowering(literal)
     let syntax = ast[literal]
-    let x0 = emitSubfieldView(storage, at: [0], at: source!)
+    let x0 = _subfield_view(storage, at: [0])
     let x1 = _access(.set, from: x0)
     let x2 = Operand.constant(evaluate(syntax.value))
     insert(module.makeStore(x2, at: x1, at: syntax.site))
@@ -1918,7 +1922,7 @@ struct Emitter {
       return
     }
 
-    let x0 = emitSubfieldView(storage, at: [0], at: source!)
+    let x0 = _subfield_view(storage, at: [0])
     let x1 = _access(.set, from: x0)
     let x2 = Operand.constant(IntegerConstant(bits))
     insert(module.makeStore(x2, at: x1, at: syntax.site))
@@ -1929,7 +1933,7 @@ struct Emitter {
   /// - Requires: `storage` is the address of uninitialized memory of type `Hylo.Int`.
   private mutating func emitStore(boolean v: Bool, to storage: Operand, at site: SourceRange) {
     _lowering(at: site)
-    let x0 = emitSubfieldView(storage, at: [0], at: site)
+    let x0 = _subfield_view(storage, at: [0])
     let x1 = _access(.set, from: x0)
     insert(module.makeStore(.i1(v), at: x1, at: site))
     insert(module.makeEndAccess(x1, at: site))
@@ -1940,7 +1944,7 @@ struct Emitter {
   /// - Requires: `storage` is the address of uninitialized memory of type `Hylo.Int`.
   mutating func emitStore(int v: Int, to storage: Operand, at site: SourceRange) {
     _lowering(at: site)
-    let x0 = emitSubfieldView(storage, at: [0], at: site)
+    let x0 = _subfield_view(storage, at: [0])
     let x1 = _access(.set, from: x0)
     insert(module.makeStore(.word(v), at: x1, at: site))
     insert(module.makeEndAccess(x1, at: site))
@@ -1952,7 +1956,7 @@ struct Emitter {
   private mutating func emitStore(string v: String, to storage: Operand, at site: SourceRange) {
     _lowering(at: site)
     let x0 = insert(module.makeConstantString(utf8: v.unescaped.data(using: .utf8)!, at: site))!
-    let x1 = emitSubfieldView(storage, at: [0, 0], at: site)
+    let x1 = _subfield_view(storage, at: [0, 0])
     let x2 = _access(.set, from: x1)
     insert(module.makeStore(x0, at: x2, at: site))
     insert(module.makeEndAccess(x2, at: site))
@@ -2081,7 +2085,7 @@ struct Emitter {
         UNIMPLEMENTED()
       }
 
-      let s = emitSubfieldView(receiver, at: [i], at: ast[call].site)
+      let s = _subfield_view(receiver, at: [i])
       emitStore(value: ast[call].arguments[i].value, to: s)
     }
   }
@@ -2576,7 +2580,7 @@ struct Emitter {
   private mutating func emitLoadBuiltinBool(_ wrapper: Operand, at site: SourceRange) -> Operand {
     _lowering(at: site)
     precondition(module.type(of: wrapper) == .address(ast.coreType("Bool")!))
-    let x0 = emitSubfieldView(wrapper, at: [0], at: source!)
+    let x0 = _subfield_view(wrapper, at: [0])
     let x1 = _access(.sink, from: x0)
     let x2 = insert(module.makeLoad(x1, at: site))!
     insert(module.makeEndAccess(x1, at: site))
@@ -2854,7 +2858,9 @@ struct Emitter {
   /// Inserts the IR for lvalue `e`.
   private mutating func emitLValue(_ e: TupleMemberExpr.ID) -> Operand {
     let base = emitLValue(ast[e].tuple)
-    return emitSubfieldView(base, at: [ast[e].index.value], at: ast[e].index.site)
+    let i = ast[e].index
+    _lowering(i)
+    return _subfield_view(base, at: [i.value])
   }
 
   /// Inserts the IR for `r` used a lvalue at `site`.
@@ -2894,6 +2900,7 @@ struct Emitter {
   private mutating func emitLValue(
     directReferenceTo d: AnyDeclID, at site: SourceRange
   ) -> Operand {
+    _lowering(at: site)
     // Handle local bindings.
     if let s = frames[d] {
       return s
@@ -2915,7 +2922,7 @@ struct Emitter {
     case VarDecl.self:
       let (root, subfied) = program.subfieldRelativeToRoot(of: .init(d)!)
       let s = insert(module.makeGlobalAddr(of: root, at: site))!
-      return emitSubfieldView(s, at: subfied, at: site)
+      return _subfield_view(s, at: subfied)
 
     default:
       unexpected(d, in: program.ast)
@@ -2928,6 +2935,7 @@ struct Emitter {
     boundTo r: Operand, declaredBy d: AnyDeclID, specializedBy z: GenericArguments,
     at site: SourceRange
   ) -> Operand {
+    _lowering(at: site)
     switch d.kind {
     case SubscriptDecl.self:
       return emitComputedProperty(
@@ -2936,7 +2944,7 @@ struct Emitter {
     case VarDecl.self:
       let l = AbstractTypeLayout(of: module.type(of: r).ast, definedIn: program)
       let i = l.offset(of: ast[VarDecl.ID(d)!].baseName)!
-      return emitSubfieldView(r, at: [i], at: site)
+      return _subfield_view(r, at: [i])
 
     default:
       UNIMPLEMENTED()
@@ -3209,7 +3217,7 @@ struct Emitter {
 
     // Otherwise, deinitialize each property.
     for i in layout.properties.indices {
-      let x0 = emitSubfieldView(storage, at: [i], at: site)
+      let x0 = _subfield_view(storage, at: [i])
       _emitDeinit(x0)
     }
   }
@@ -3293,6 +3301,7 @@ struct Emitter {
     _ lhs: Operand, _ rhs: Operand,
     to target: Operand, at site: SourceRange
   ) {
+    _lowering(at: site)
     let layout = AbstractTypeLayout(
       of: module.type(of: lhs).ast, definedIn: module.program)
 
@@ -3306,8 +3315,8 @@ struct Emitter {
     // Otherwise, compare all parts pairwise.
     let tail = appendBlock()
     while !parts.isEmpty {
-      let x0 = emitSubfieldView(lhs, at: [parts.startIndex], at: site)
-      let x1 = emitSubfieldView(rhs, at: [parts.startIndex], at: site)
+      let x0 = _subfield_view(lhs, at: [parts.startIndex])
+      let x1 = _subfield_view(rhs, at: [parts.startIndex])
       emitStoreEquality(x0, x1, to: target, at: site)
 
       parts = parts.dropFirst()
@@ -3426,17 +3435,17 @@ struct Emitter {
 
   /// Appends the IR for computing the address of the given `subfield` of the record at
   /// `recordAddress` and returns the resulting address.
-  mutating func emitSubfieldView(
-    _ recordAddress: Operand, at subfield: RecordPath, at site: SourceRange
+  mutating func _subfield_view(
+    _ recordAddress: Operand, at subfield: RecordPath
   ) -> Operand {
     if subfield.isEmpty { return recordAddress }
 
     if let r = module[recordAddress] as? SubfieldView {
       let p = r.subfield + subfield
-      let s = module.makeSubfieldView(of: r.recordAddress, subfield: p, at: site)
+      let s = module.makeSubfieldView(of: r.recordAddress, subfield: p, at: source!)
       return insert(s)!
     } else {
-      let s = module.makeSubfieldView(of: recordAddress, subfield: subfield, at: site)
+      let s = module.makeSubfieldView(of: recordAddress, subfield: subfield, at: source!)
       return insert(s)!
     }
   }
@@ -3691,6 +3700,10 @@ extension Emitter {
 
   mutating func _lowering<ID: NodeIDProtocol>(_ x: ID) {
     _lowering(at: ast[x].site)
+  }
+
+  mutating func _lowering<T>(_ x: SourceRepresentable<T>) {
+    _lowering(at: x.site)
   }
 
   mutating func _lowering<ID: NodeIDProtocol>(after x: ID) {
