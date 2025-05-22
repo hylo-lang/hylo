@@ -739,7 +739,7 @@ extension Module {
       Emitter.withInstance(insertingIn: &self, reportingDiagnosticsTo: &log) { (e) in
         e.insertionPoint = .before(i)
         e._lowering(at: site)
-        let s = e.emitSubfieldView(root, at: path, at: site)
+        let s = e._subfield_view(root, at: path)
         e._emitDeinit(s)
       }
     }
