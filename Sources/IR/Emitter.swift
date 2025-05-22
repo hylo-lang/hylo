@@ -433,13 +433,13 @@ struct Emitter {
       lower(body: s, of: d, in: Frame(locals: locals))
 
     case .expr(let e):
+      _lowering(e)
       within(Frame(locals: locals)) { (this) in
         let x0 = this.emitLValue(e)
         let x1 = this.insert(
-          this.module.makeAccess(this.ast[d].introducer.value, from: x0, at: this.ast[e].site))!
-        this.insert(this.module.makeYield(this.ast[d].introducer.value, x1, at: this.ast[e].site))
+          this.module.makeAccess(this.ast[d].introducer.value, from: x0, at: this.source!))!
+        this.insert(this.module.makeYield(this.ast[d].introducer.value, x1, at: this.source!))
       }
-      _lowering(e)
       _return()
     }
   }
@@ -951,7 +951,7 @@ struct Emitter {
         consuming: initializer)
       me._mark_state(.initialized, me.returnValue)
       me._emitDeallocTopFrame()
-      me.insert(me.module.makeReturn(at: site))
+      me._return()
     }
   }
 
@@ -968,8 +968,9 @@ struct Emitter {
     }
 
     // Emit the body.
+    _lowering(argument)
     emitStore(value: argument, to: returnValue!)
-    insert(module.makeReturn(at: ast[argument].site))
+    _return()
 
     return f
   }
@@ -1018,10 +1019,11 @@ struct Emitter {
 
   /// Inserts IR for returning from current function, anchoring instructions at `s`.
   private mutating func emitControlFlow(return s: ReturnStmt.ID) {
+    _lowering(s)
     for f in frames.elements.reversed() {
-      emitDeallocs(for: f, at: ast[s].site)
+      emitDeallocs(for: f, at: source!)
     }
-    insert(module.makeReturn(at: ast[s].site))
+    _return()
   }
 
   /// Inserts IR for breaking from innermost loop, anchoring instructions at `s`.
