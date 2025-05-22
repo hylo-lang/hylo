@@ -275,20 +275,17 @@ struct Emitter {
     }
 
     _lowering(d)
-    let site = ast[d].site
 
     // Convert Hylo arguments to their foreign representation. Note that the last parameter of the
     // entry is the address of the FFI's return value.
-    var arguments: [Operand] = []
-    for i in 0 ..< module[entry].inputs.count - 1 {
-      let a = _emitConvertToForeign(.parameter(entry, i))
-      arguments.append(a)
+    let arguments = module[entry].inputs.indices.dropLast().map {
+      _emitConvertToForeign(.parameter(entry, $0))
     }
 
     // Return type must be foreign convertible unless it is `Void` or `Never`.
-    let returnType = read(module.functions[f]!.output) { (t) in
-      t.isVoidOrNever ? t : program.foreignRepresentation(of: t, exposedTo: insertionScope!)
-    }
+    let t = module.functions[f]!.output
+    let returnType = t.isVoidOrNever ? t
+      : program.foreignRepresentation(of: t, exposedTo: insertionScope!)
 
     let foreignResult = _call_ffi(program[d].attributes.foreignName!, on: arguments, returning: returnType)
 
@@ -300,13 +297,12 @@ struct Emitter {
 
     case .void:
       _mark_state(.initialized, returnValue!)
-      _emitDeallocTopFrame()
 
     default:
       let v = _convert(foreignResult, to: module.functions[f]!.output)
       _emitMove([.set], v, to: returnValue!)
-      _emitDeallocTopFrame()
     }
+    _emitDeallocTopFrame()
     _return()
   }
 
