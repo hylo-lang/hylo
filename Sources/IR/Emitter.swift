@@ -281,7 +281,7 @@ struct Emitter {
     // entry is the address of the FFI's return value.
     var arguments: [Operand] = []
     for i in 0 ..< module[entry].inputs.count - 1 {
-      let a = emitConvertToForeign(.parameter(entry, i), at: site)
+      let a = _emitConvertToForeign(.parameter(entry, i))
       arguments.append(a)
     }
 
@@ -2707,7 +2707,7 @@ struct Emitter {
   /// Appends the IR to convert `o` to a FFI argument.
   ///
   /// The returned operand is the result of a `load` instruction.
-  private mutating func emitConvertToForeign(_ o: Operand, at site: SourceRange) -> Operand {
+  private mutating func _emitConvertToForeign(_ o: Operand) -> Operand {
     let t = module.type(of: o)
     precondition(t.isAddress)
 
@@ -2723,16 +2723,16 @@ struct Emitter {
       let convert = module.demandDeclaration(lowering: m)!
       let f = module.reference(to: convert, implementedFor: foreignConvertibleConformance)
 
-      let x0 = insert(module.makeAccess(.let, from: o, at: site))!
-      let x1 = emitAllocStack(for: ArrowType(f.type.ast)!.output, at: site)
-      let x2 = insert(module.makeAccess(.set, from: x1, at: site))!
-      insert(module.makeCall(applying: .constant(f), to: [x0], writingResultTo: x2, at: site))
-      insert(module.makeEndAccess(x2, at: site))
-      insert(module.makeEndAccess(x0, at: site))
+      let x0 = insert(module.makeAccess(.let, from: o, at: source!))!
+      let x1 = emitAllocStack(for: ArrowType(f.type.ast)!.output, at: source!)
+      let x2 = insert(module.makeAccess(.set, from: x1, at: source!))!
+      insert(module.makeCall(applying: .constant(f), to: [x0], writingResultTo: x2, at: source!))
+      insert(module.makeEndAccess(x2, at: source!))
+      insert(module.makeEndAccess(x0, at: source!))
 
-      let x3 = insert(module.makeAccess(.sink, from: x1, at: site))!
-      let x4 = insert(module.makeLoad(x3, at: site))!
-      insert(module.makeEndAccess(x3, at: site))
+      let x3 = insert(module.makeAccess(.sink, from: x1, at: source!))!
+      let x4 = insert(module.makeLoad(x3, at: source!))!
+      insert(module.makeEndAccess(x3, at: source!))
       return x4
 
     case .synthetic:
