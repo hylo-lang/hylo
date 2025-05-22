@@ -324,8 +324,9 @@ struct Emitter {
 
     // Emit the body.
     insertionPoint = .end(of: entry)
-    let bodyFrame = Frame(locals: locals)
-    let returnSite = within(bodyFrame, { $0._lowered($0.ast[d].body!, output: .void) })
+    let returnSite = within(Frame(locals: locals)) {
+      $0._lowered($0.ast[d].body!, output: .void)
+    }
 
     // If the object is empty, simply mark it initialized.
     let r = module.type(of: .parameter(entry, 0)).ast
