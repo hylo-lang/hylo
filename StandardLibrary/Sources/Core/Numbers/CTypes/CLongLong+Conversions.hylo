@@ -1,46 +1,46 @@
 public extension Int8 {
-    public init(fromC n: CLongLong) {
+    public init(truncating_or_extending n: CLongLong) {
         // assert(n >= Int8.min() && n <= Int8.max())
         &self = Int8(value: Builtin.fromcint_clonglong_i8(n.value))
     }
 }
 public extension UInt8 {
-    public init(fromC n: CLongLong) {
+    public init(truncating_or_extending n: CLongLong) {
         // assert(n >= 0 && n <= UInt8.max())
         &self = UInt8(value: Builtin.fromcint_clonglong_i8(n.value))
     }
 }
 public extension Int32 {
-    public init(fromC n: CLongLong) {
+    public init(truncating_or_extending n: CLongLong) {
         // assert(n >= Int32.min() && n <= Int32.max())
         &self = Int32(value: Builtin.fromcint_clonglong_i32(n.value))
     }
 }
 public extension UInt32 {
-    public init(fromC n: CLongLong) {
+    public init(truncating_or_extending n: CLongLong) {
         // assert(n >= 0 && n <= UInt32.max())
         &self = UInt32(value: Builtin.fromcint_clonglong_i32(n.value))
     }
 }
 public extension Int64 {
-    public init(fromC n: CLongLong) {
+    public init(truncating_or_extending n: CLongLong) {
         &self = Int64(value: Builtin.fromcint_clonglong_i64(n.value))
     }
 }
 public extension UInt64 {
-    public init(fromC n: CLongLong) {
+    public init(truncating_or_extending n: CLongLong) {
         // assert(n >= 0)
         &self = UInt64(value: Builtin.fromcint_clonglong_i64(n.value))
     }
 }
 public extension Int {
-    public init(fromC n: CLongLong) {
+    public init(truncating_or_extending n: CLongLong) {
         // assert(n >= Int.min() && n <= Int.max())
         &self = Int(value: Builtin.fromcint_clonglong_word(n.value))
     }
 }
 public extension UInt {
-    public init(fromC n: CLongLong) {
+    public init(truncating_or_extending n: CLongLong) {
         // assert(n >= 0 && n <= UInt.max())
         &self = UInt(value: Builtin.fromcint_clonglong_word(n.value))
     }

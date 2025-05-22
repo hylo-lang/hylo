@@ -1,47 +1,59 @@
 public extension Int8 {
-    public init(fromC n: CChar) {
+    /// Precondition: `n` is in the range of `Int8`.
+    public init (_: CChar) {
         // assert(n >= Int8.min() && n <= Int8.max())
-        &self = Int8(value: Builtin.fromcint_cchar_i8(n.value))
+        &self = Int8(value: Builtin.fromcint_cchar_i8(0))
+    }
+
+    public init(truncating_or_extending n: CChar) {
+        &self = Int8(value: Builtin.fromcint_cchar_i8(n.value)) // no assertion
     }
 }
+
 public extension UInt8 {
-    public init(fromC n: CChar) {
+    /// Precondition: `n` is in the range of `UInt8`.
+    public init (_: CChar) {
         // assert(n >= 0 && n <= UInt8.max())
+        &self = UInt8(value: Builtin.fromcint_cchar_i8(0))
+    }
+    
+    public init(truncating_or_extending n: CChar) {
         &self = UInt8(value: Builtin.fromcint_cchar_i8(n.value))
     }
 }
+
 public extension Int32 {
-    public init(fromC n: CChar) {
+    public init(truncating_or_extending n: CChar) {
         // assert(n >= Int32.min() && n <= Int32.max())
         &self = Int32(value: Builtin.fromcint_cchar_i32(n.value))
     }
 }
 public extension UInt32 {
-    public init(fromC n: CChar) {
+    public init(truncating_or_extending n: CChar) {
         // assert(n >= 0 && n <= UInt32.max())
         &self = UInt32(value: Builtin.fromcint_cchar_i32(n.value))
     }
 }
 public extension Int64 {
-    public init(fromC n: CChar) {
+    public init(truncating_or_extending n: CChar) {
         // assert(n >= Int64.min() && n <= Int64.max())
         &self = Int64(value: Builtin.fromcint_cchar_i64(n.value))
     }
 }
 public extension UInt64 {
-    public init(fromC n: CChar) {
+    public init(truncating_or_extending n: CChar) {
         // assert(n >= 0 && n <= UInt64.max())
         &self = UInt64(value: Builtin.fromcint_cchar_i64(n.value))
     }
 }
 public extension Int {
-    public init(fromC n: CChar) {
+    public init(truncating_or_extending n: CChar) {
         // assert(n >= Int.min() && n <= Int.max())
         &self = Int(value: Builtin.fromcint_cchar_word(n.value))
     }
 }
 public extension UInt {
-    public init(fromC n: CChar) {
+    public init(truncating_or_extending n: CChar) {
         // assert(n >= 0 && n <= UInt.max())
         &self = UInt(value: Builtin.fromcint_cchar_word(n.value))
     }
