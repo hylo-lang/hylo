@@ -209,7 +209,7 @@ struct Emitter {
     switch b {
     case .block(let s):
       let returnType = ArrowType(program[d].type)!.output
-      let returnSite = within(bodyFrame, { $0.lowerStatements(s, expecting: returnType) })
+      let returnSite = within(bodyFrame, { $0._lowered(s, output: returnType) })
       _lowering(at: returnSite)
       _return()
 
@@ -240,8 +240,9 @@ struct Emitter {
 
   /// Inserts the IR for the statements of `b`, which is the body of a function returning instances
   /// of `returnType`, and returns the site of the return statement.
-  private mutating func lowerStatements(
-    _ b: BraceStmt.ID, expecting returnType: AnyType
+  @discardableResult
+  private mutating func _lowered(
+    _ b: BraceStmt.ID, output returnType: AnyType
   ) -> SourceRange {
     switch emit(braceStmt: b) {
     case .next:
@@ -249,7 +250,6 @@ struct Emitter {
         _lowering(after: b)
         _mark_state(.initialized, returnValue!)
       }
-      _lowering(b)
       return ast[b].site
 
     case .return(let s):
@@ -325,7 +325,7 @@ struct Emitter {
     // Emit the body.
     insertionPoint = .end(of: entry)
     let bodyFrame = Frame(locals: locals)
-    let returnSite = within(bodyFrame, { $0.lowerStatements($0.ast[d].body!, expecting: .void) })
+    let returnSite = within(bodyFrame, { $0._lowered($0.ast[d].body!, output: .void) })
 
     // If the object is empty, simply mark it initialized.
     let r = module.type(of: .parameter(entry, 0)).ast
@@ -370,7 +370,7 @@ struct Emitter {
     switch b {
     case .block(let s):
       let returnType = ArrowType(program[d].type)!.output
-      let returnSite = within(bodyFrame, { $0.lowerStatements(s, expecting: returnType) })
+      let returnSite = within(bodyFrame, { $0._lowered(s, output: returnType) })
       _lowering(at: returnSite)
 
     case .expr(let e):
