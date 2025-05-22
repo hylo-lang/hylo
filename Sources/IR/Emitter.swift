@@ -676,7 +676,7 @@ struct Emitter {
       let receiver = Operand.parameter(entry, 0)
       me.emitDeinitParts(of: receiver, at: me.source!)
 
-      me._mark_state(.initialized, me.returnValue!)
+      me._mark_state(.initialized, me.returnValue)
       me._emitDeallocTopFrame()
       me._return()
     }
@@ -695,7 +695,7 @@ struct Emitter {
         me.emitMoveInitUnionPayload(of: receiver, consuming: argument, at: me.source!)
       }
 
-      me._mark_state(.initialized, me.returnValue!)
+      me._mark_state(.initialized, me.returnValue)
       me._emitDeallocTopFrame()
       me._return()
     }
@@ -794,7 +794,7 @@ struct Emitter {
 
       // Apply the move-initializer.
       me._emitMove([.set], argument, to: receiver)
-      me._mark_state(.initialized, me.returnValue!)
+      me._mark_state(.initialized, me.returnValue)
       me._emitDeallocTopFrame()
       me._return()
     }
@@ -948,7 +948,7 @@ struct Emitter {
       me.emitInitStoredLocalBindings(
         in: me.program[binding].pattern.subpattern, referringTo: [], relativeTo: storage,
         consuming: initializer)
-      me._mark_state(.initialized, me.returnValue!)
+      me._mark_state(.initialized, me.returnValue)
       me._emitDeallocTopFrame()
       me.insert(me.module.makeReturn(at: site))
     }
@@ -1405,7 +1405,7 @@ struct Emitter {
       emitStore(value: e, to: returnValue!)
     } else {
       _lowering(s)
-      _mark_state(.initialized, returnValue!)
+      _mark_state(.initialized, returnValue)
     }
 
     // The return instruction is emitted by the caller handling this control-flow effect.
