@@ -1,0 +1,52 @@
+/// Represents the C `char` type.
+/// Note: Whether C `char` is signed or unsigned is platform-dependent.
+/// - If signed: The range covers at least [-128, 127].
+/// - If unsigned: The range covers at least [0, 255].
+/// The actual range might be wider on specific platforms.
+public type CChar {
+    internal var value: Builtin.cchar
+    internal memberwise init
+
+    public static fun min() -> Self {
+        -128 // todo CChar(value: Builtin.int_cchar_min())
+    }
+    public static fun max() -> Self {
+        127 // todo CChar(value: Builtin.int_cchar_max())
+    }
+}
+
+public conformance CChar: ExpressibleByIntegerLiteral {}
+public conformance CChar: Deinitializable {}
+public conformance CChar: Movable {}
+public conformance CChar: Copyable {
+    public fun copy() -> Self {
+        CChar(value: value)
+    }
+}
+
+public conformance CChar: Equatable {
+
+  public fun infix== (_ other: Self) -> Bool {
+    Bool(value: Builtin.icmp_eq_cchar(value, other.value))
+  }
+
+  public fun infix!= (_ other: Self) -> Bool {
+    Bool(value: Builtin.icmp_ne_cchar(value, other.value))
+  }
+
+}
+
+public conformance CChar: ForeignConvertible {
+
+  public typealias ForeignRepresentation = Builtin.cchar
+
+  public init(foreign_value: sink Builtin.cchar) {
+    &self.value = foreign_value
+  }
+
+  public fun foreign_value() -> Builtin.cchar {
+    return value
+  }
+
+}
+

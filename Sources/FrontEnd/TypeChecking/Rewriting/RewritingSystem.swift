@@ -99,7 +99,7 @@ struct RewritingSystem<Term: RewritingTerm> {
   /// This method uses Knuth-Bendix completion algorithm to transform `self` into a terminating
   /// confluent system. The completion procedure is semi-decidable: it returns `true` if it
   /// succeeds or `false` if it suspects that it won't terminate.
-  mutating func complete(orderingTermsWith compareOrder: (Term, Term) -> StrictOrdering) -> Bool{
+  mutating func complete(orderingTermsWith compareOrder: (Term, Term) -> StrictOrdering) -> Bool {
     var visitedOverlaps = Set<OverlapIdentifier>()
     var pairs: [CriticalPair] = []
     var changed = true
@@ -128,7 +128,6 @@ struct RewritingSystem<Term: RewritingTerm> {
     leftSimplify()
     return true
   }
-
 
   /// Calls `action` on each overlap between two rules of the system.
   private func forEachOverlap(do action: (RuleID, RuleID, Term.Index) -> Void) {

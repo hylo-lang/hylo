@@ -1,0 +1,49 @@
+/// Represents the C `unsigned short` type.
+/// The range covers at least [0, 65535].
+/// The actual range might be wider on specific platforms.
+public type CUShort {
+    internal var value: Builtin.cushort
+    internal memberwise init
+
+    public static fun min() -> Self {
+        0
+    }
+    public static fun max() -> Self {
+        65535 // todo CUShort(value: Builtin.int_cushort_max())
+    }
+}
+
+public conformance CUShort: ExpressibleByIntegerLiteral {}
+public conformance CUShort: Deinitializable {}
+public conformance CUShort: Movable {}
+public conformance CUShort: Copyable {
+    public fun copy() -> Self {
+        CUShort(value: value)
+    }
+}
+
+public conformance CUShort: Equatable {
+
+  public fun infix== (_ other: Self) -> Bool {
+    Bool(value: Builtin.icmp_eq_cushort(value, other.value))
+  }
+
+  public fun infix!= (_ other: Self) -> Bool {
+    Bool(value: Builtin.icmp_ne_cushort(value, other.value))
+  }
+
+}
+
+public conformance CUShort: ForeignConvertible {
+
+  public typealias ForeignRepresentation = Builtin.cushort
+
+  public init(foreign_value: sink Builtin.cushort) {
+    &self.value = foreign_value
+  }
+
+  public fun foreign_value() -> Builtin.cushort {
+    return value
+  }
+
+}

@@ -213,7 +213,7 @@ final class BuiltinFunctionTests: XCTestCase {
       parameterizedBy: [
         ["relaxed", "i64"],
         ["acquire", "i64"],
-        ["seqcst", "i64"]
+        ["seqcst", "i64"],
       ],
       createInstanceWithType: expectedType)
   }
@@ -225,7 +225,7 @@ final class BuiltinFunctionTests: XCTestCase {
       parameterizedBy: [
         ["relaxed", "i64"],
         ["release", "i64"],
-        ["seqcst", "i64"]
+        ["seqcst", "i64"],
       ],
       createInstanceWithType: expectedType)
   }
@@ -242,14 +242,14 @@ final class BuiltinFunctionTests: XCTestCase {
         "atomic_and",
         "atomic_nand",
         "atomic_or",
-        "atomic_xor"
+        "atomic_xor",
       ],
       parameterizedBy: [
         ["relaxed", "i64"],
         ["acquire", "i64"],
         ["release", "i64"],
         ["acqrel", "i64"],
-        ["seqcst", "i64"]
+        ["seqcst", "i64"],
       ],
       createInstanceWithType: expectedType)
   }
@@ -259,14 +259,14 @@ final class BuiltinFunctionTests: XCTestCase {
     try assertParse(
       instructions: [
         "atomic_umax",
-        "atomic_umin"
+        "atomic_umin",
       ],
       parameterizedBy: [
         ["relaxed", "i64"],
         ["acquire", "i64"],
         ["release", "i64"],
         ["acqrel", "i64"],
-        ["seqcst", "i64"]
+        ["seqcst", "i64"],
       ],
       createInstanceWithType: expectedType)
   }
@@ -279,24 +279,26 @@ final class BuiltinFunctionTests: XCTestCase {
         "atomic_fadd",
         "atomic_fsub",
         "atomic_fmax",
-        "atomic_fmin"
+        "atomic_fmin",
       ],
       parameterizedBy: [
         ["relaxed", "float64"],
         ["acquire", "float64"],
         ["release", "float64"],
         ["acqrel", "float64"],
-        ["seqcst", "float64"]
+        ["seqcst", "float64"],
       ],
       createInstanceWithType: expectedType)
   }
 
   func testAtomicCompareExchange() throws {
-    let expectedType = ArrowType(.builtin(.ptr), .builtin(.i(64)), .builtin(.i(64)), to: ^TupleType(types: [.builtin(.i(64)), .builtin(.i(1))]))
+    let expectedType = ArrowType(
+      .builtin(.ptr), .builtin(.i(64)), .builtin(.i(64)),
+      to: ^TupleType(types: [.builtin(.i(64)), .builtin(.i(1))]))
     try assertParse(
       instructions: [
         "atomic_cmpxchg",
-        "atomic_cmpxchgweak"
+        "atomic_cmpxchgweak",
       ],
       parameterizedBy: [
         ["relaxed", "relaxed", "i64"],
@@ -313,7 +315,7 @@ final class BuiltinFunctionTests: XCTestCase {
         ["acqrel", "seqcst", "i64"],
         ["seqcst", "relaxed", "i64"],
         ["seqcst", "acquire", "i64"],
-        ["seqcst", "seqcst", "i64"]
+        ["seqcst", "seqcst", "i64"],
       ],
       createInstanceWithType: expectedType)
   }
@@ -323,13 +325,13 @@ final class BuiltinFunctionTests: XCTestCase {
     try assertParse(
       instructions: [
         "atomic_fence",
-        "atomic_singlethreadfence"
+        "atomic_singlethreadfence",
       ],
       parameterizedBy: [
         ["acquire"],
         ["release"],
         ["acqrel"],
-        ["seqcst"]
+        ["seqcst"],
       ],
       createInstanceWithType: expectedType)
   }

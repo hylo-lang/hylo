@@ -37,7 +37,7 @@ struct Emitter {
   private var loops = LoopIDs()
 
   /// For each block, the state of `frames` where the block was first entered.
-  private var stackOnEntry: [ Block.ID: Stack ] = [:]
+  private var stackOnEntry: [Block.ID: Stack] = [:]
 
   /// Where new instructions are inserted.
   var insertionPoint: InsertionPoint?
@@ -1843,6 +1843,50 @@ struct Emitter {
       emitStore(floatingPoint: literal, to: storage, evaluatedBy: FloatingPointConstant.float64(_:))
     case ast.coreType("Float32")!:
       emitStore(floatingPoint: literal, to: storage, evaluatedBy: FloatingPointConstant.float32(_:))
+    case ast.coreType("CChar")!:
+      emitStore(
+        integer: literal, signed: BuiltinCNumericType.cChar.signedInteger,
+        bitWidth: BuiltinCNumericType.cChar.bitwidth, to: storage)
+    case ast.coreType("CUChar")!:
+      emitStore(
+        integer: literal, signed: BuiltinCNumericType.cUChar.signedInteger,
+        bitWidth: BuiltinCNumericType.cUChar.bitwidth, to: storage)
+    case ast.coreType("CSChar")!:
+      emitStore(
+        integer: literal, signed: BuiltinCNumericType.cSChar.signedInteger,
+        bitWidth: BuiltinCNumericType.cSChar.bitwidth, to: storage)
+    case ast.coreType("CShort")!:
+      emitStore(
+        integer: literal, signed: BuiltinCNumericType.cShort.signedInteger,
+        bitWidth: BuiltinCNumericType.cShort.bitwidth, to: storage)
+    case ast.coreType("CUShort")!:
+      emitStore(
+        integer: literal, signed: BuiltinCNumericType.cUShort.signedInteger,
+        bitWidth: BuiltinCNumericType.cUShort.bitwidth, to: storage)
+    case ast.coreType("CInt")!:
+      emitStore(
+        integer: literal, signed: BuiltinCNumericType.cInt.signedInteger,
+        bitWidth: BuiltinCNumericType.cInt.bitwidth, to: storage)
+    case ast.coreType("CUInt")!:
+      emitStore(
+        integer: literal, signed: BuiltinCNumericType.cUInt.signedInteger,
+        bitWidth: BuiltinCNumericType.cUInt.bitwidth, to: storage)
+    case ast.coreType("CLong")!:
+      emitStore(
+        integer: literal, signed: BuiltinCNumericType.cLong.signedInteger,
+        bitWidth: BuiltinCNumericType.cLong.bitwidth, to: storage)
+    case ast.coreType("CULong")!:
+      emitStore(
+        integer: literal, signed: BuiltinCNumericType.cULong.signedInteger,
+        bitWidth: BuiltinCNumericType.cULong.bitwidth, to: storage)
+    case ast.coreType("CLongLong")!:
+      emitStore(
+        integer: literal, signed: BuiltinCNumericType.cLongLong.signedInteger,
+        bitWidth: BuiltinCNumericType.cLongLong.bitwidth, to: storage)
+    case ast.coreType("CULongLong")!:
+      emitStore(
+        integer: literal, signed: BuiltinCNumericType.cULongLong.signedInteger,
+        bitWidth: BuiltinCNumericType.cULongLong.bitwidth, to: storage)
     default:
       UNIMPLEMENTED()
     }
@@ -1862,7 +1906,7 @@ struct Emitter {
   }
 
   /// Writes the value of `literal` to `storage`, knowing it is a core integer instance with given
-  /// sign and width.
+  /// signedness and width.
   private mutating func emitStore<T: NumericLiteralExpr>(
     integer literal: T.ID, signed: Bool, bitWidth: Int, to storage: Operand
   ) {
@@ -2254,7 +2298,7 @@ struct Emitter {
     let r = emitLValue(receiver: s, at: ast[callee].site)
     return emitMemberFunctionCallee(
       referringTo: d, memberOf: r, markedForMutation: isMutating,
-      specializedBy: a, in:program[callee].scope,
+      specializedBy: a, in: program[callee].scope,
       at: program[callee].site)
   }
 
@@ -2377,7 +2421,6 @@ struct Emitter {
     let c = insert(module.makeAccess(entityToCall.capabilities, from: r, at: ast[callee].site))!
     return (entityToCall, [c])
   }
-
 
   /// Returns `(success: a, failure: b)` where `a` is the basic block reached if all items in
   /// `condition` hold and `b` is the basic block reached otherwise, creating new basic blocks
@@ -3277,7 +3320,8 @@ struct Emitter {
     // The success blocks compare discriminators and then payloads.
     let dl = emitUnionDiscriminator(lhs, at: site)
     let dr = emitUnionDiscriminator(rhs, at: site)
-    let x0 = insert(module.makeCallBuiltin(applying: .icmp(.eq, .discriminator), to: [dl, dr], at: site))!
+    let x0 = insert(
+      module.makeCallBuiltin(applying: .icmp(.eq, .discriminator), to: [dl, dr], at: site))!
     emitCondBranch(if: x0, then: same, else: fail, at: site)
 
     insertionPoint = .end(of: same)
@@ -3545,8 +3589,7 @@ extension Emitter {
     modify(&stackOnEntry[b]) { x in
       if let y = x {
         assert(y.hasSameAllocations(as: frames))
-      }
-      else {
+      } else {
         x = frames
       }
     }
@@ -3555,7 +3598,8 @@ extension Emitter {
   /// Inserts a `cond_branch` anchored at `site` that jumps to `targetIfTrue` if `condition` is
   /// true or `targetIfFalse` otherwise.
   fileprivate mutating func emitCondBranch(
-    if condition: Operand, then targetIfTrue: Block.ID, else targetIfFalse: Block.ID, at site: SourceRange
+    if condition: Operand, then targetIfTrue: Block.ID, else targetIfFalse: Block.ID,
+    at site: SourceRange
   ) {
     checkEntryStack(targetIfTrue)
     checkEntryStack(targetIfFalse)

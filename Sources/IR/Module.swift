@@ -145,7 +145,7 @@ public struct Module {
 
   /// If `p` is a function parameter, returns its passing convention. Otherwise, returns `nil`.
   public func passingConvention(of p: Operand) -> AccessEffect? {
-    if case .parameter(let e, let i) = p, (entry(of: e.function) == e) {
+    if case .parameter(let e, let i) = p, entry(of: e.function) == e {
       return passingConvention(parameter: i, of: e.function)
     } else {
       return nil

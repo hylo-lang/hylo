@@ -1,0 +1,49 @@
+/// Represents the C `unsigned long` type.
+/// The range varies by platform, typically 32-bit on Windows and 64-bit on Unix systems.
+/// Guaranteed to be at least 32 bits, with a range of at least [0, 4294967295].
+public type CULong {
+    internal var value: Builtin.culong
+    internal memberwise init
+
+    public static fun min() -> Self {
+        0
+    }
+    public static fun max() -> Self {
+        18446744073709551615 // todo CULong(value: Builtin.int_culong_max())
+    }
+}
+
+public conformance CULong: ExpressibleByIntegerLiteral {}
+public conformance CULong: Deinitializable {}
+public conformance CULong: Movable {}
+public conformance CULong: Copyable {
+    public fun copy() -> Self {
+        CULong(value: value)
+    }
+}
+
+public conformance CULong: Equatable {
+
+  public fun infix== (_ other: Self) -> Bool {
+    Bool(value: Builtin.icmp_eq_culong(value, other.value))
+  }
+
+  public fun infix!= (_ other: Self) -> Bool {
+    Bool(value: Builtin.icmp_ne_culong(value, other.value))
+  }
+
+}
+
+public conformance CULong: ForeignConvertible {
+
+  public typealias ForeignRepresentation = Builtin.culong
+
+  public init(foreign_value: sink Builtin.culong) {
+    &self.value = foreign_value
+  }
+
+  public fun foreign_value() -> Builtin.culong {
+    return value
+  }
+
+}
