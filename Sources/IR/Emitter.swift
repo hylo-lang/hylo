@@ -304,7 +304,7 @@ struct Emitter {
 
     default:
       let v = _convert(foreignResult, to: module.functions[f]!.output)
-      emitMove([.set], v, to: returnValue!, at: site)
+      _emitMove([.set], v, to: returnValue!)
       _emitDeallocTopFrame()
     }
     _return()
@@ -724,7 +724,7 @@ struct Emitter {
     for i in layout.properties.indices {
       let source = emitSubfieldView(argument, at: [i], at: site)
       let target = emitSubfieldView(receiver, at: [i], at: site)
-      emitMove([.set], source, to: target, at: site)
+      _emitMove([.set], source, to: target)
     }
   }
 
@@ -773,11 +773,12 @@ struct Emitter {
     of receiver: Operand, consuming argument: Operand, containing payload: AnyType,
     at site: SourceRange
   ) {
+    _lowering(at: site)
     // Move the argument.
     let x0 = insert(
       module.makeOpenUnion(receiver, as: payload, forInitialization: true, at: site))!
     let x1 = insert(module.makeOpenUnion(argument, as: payload, at: site))!
-    emitMove([.set], x1, to: x0, at: site)
+    _emitMove([.set], x1, to: x0)
 
     // Close the unions.
     insert(module.makeCloseUnion(x0, at: site))
@@ -794,7 +795,7 @@ struct Emitter {
       me._emitDeinit(receiver)
 
       // Apply the move-initializer.
-      me.emitMove([.set], argument, to: receiver, at: site)
+      me._emitMove([.set], argument, to: receiver)
       me._mark_state(.initialized, me.returnValue!)
       me._emitDeallocTopFrame()
       me._return()
@@ -1085,10 +1086,11 @@ struct Emitter {
 
     // The RHS is evaluated first, stored into some local storage, and moved to the LHS. Implicit
     // conversion is necessary if the RHS is subtype of the LHS.
+    _lowering(s)
     let rhs = emitAllocStack(for: program[s].left.type, at: ast[s].site)
     emitStore(convertingIfNecessary: ast[s].right, to: rhs)
     let lhs = emitLValue(ast[s].left)
-    emitMove([.inout, .set], rhs, to: lhs, at: ast[s].site)
+    _emitMove([.inout, .set], rhs, to: lhs)
 
     return .next
   }
@@ -1369,7 +1371,8 @@ struct Emitter {
     emitApply(collectionWitness.positionAfter, to: [x4, x5], writingResultTo: x3, at: introducer)
     insert(module.makeEndAccess(x4, at: introducer))
     insert(module.makeEndAccess(x5, at: introducer))
-    emitMove([.inout], x3, to: currentPosition, at: introducer)
+    _lowering(at: introducer)
+    _emitMove([.inout], x3, to: currentPosition)
     insert(module.makeDeallocStack(for: x3, at: introducer))
     emitBranch(to: head, at: introducer)
 
@@ -1599,6 +1602,7 @@ struct Emitter {
 
   /// Inserts the IR for storing the value of `e` to `storage`.
   private mutating func emitStore(pointerConversion e: CastExpr.ID, to storage: Operand) {
+    _lowering(e)
     let x0 = emitLValue(pointerConversion: e)
 
     // Consuming a pointee requires a conformance to `Movable`.
@@ -1609,7 +1613,7 @@ struct Emitter {
       return
     }
 
-    emitMove([.inout, .set], x0, to: storage, at: ast[e].site)
+    _emitMove([.inout, .set], x0, to: storage)
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
@@ -1715,7 +1719,8 @@ struct Emitter {
   /// Inserts the IR for storing the value of `e` to `storage`.
   private mutating func emitStore(_ e: NameExpr.ID, to storage: Operand) {
     let x0 = emitLValue(e)
-    emitMove([.inout, .set], x0, to: storage, at: ast[e].site)
+    _lowering(e)
+    _emitMove([.inout, .set], x0, to: storage)
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
@@ -1814,7 +1819,8 @@ struct Emitter {
   /// Inserts the IR for storing the value of `e` to `storage`.
   private mutating func emitStore(_ e: TupleMemberExpr.ID, to storage: Operand) {
     let x0 = emitLValue(e)
-    emitMove([.inout, .set], x0, to: storage, at: ast[e].site)
+    _lowering(e)
+    _emitMove([.inout, .set], x0, to: storage)
   }
 
   /// Inserts the IR to store the value of `e` to `storage`, converting it to the type of `storage`
@@ -2515,9 +2521,10 @@ struct Emitter {
     insertionPoint = .end(of: next)
 
     if let target = storage {
+      _lowering(at: site)
       let x0 = insert(module.makeAccess(.sink, from: rhs, at: site))!
       let x1 = insert(module.makeOpenUnion(x0, as: lhsType, at: site))!
-      emitMove([.set], x1, to: target, at: site)
+      _emitMove([.set], x1, to: target)
       emitLocalDeclarations(introducedBy: lhs, referringTo: [], relativeTo: target)
       insert(module.makeCloseUnion(x1, at: site))
       insert(module.makeEndAccess(x0, at: site))
@@ -2642,7 +2649,8 @@ struct Emitter {
 
     let x0 = emitAllocStack(for: ^target, at: site)
     let x1 = insert(module.makeOpenUnion(x0, as: lhs, forInitialization: true, at: site))!
-    emitMove([.set], source, to: x1, at: site)
+    _lowering(at: site)
+    _emitMove([.set], source, to: x1)
     insert(module.makeCloseUnion(x1, at: site))
     return x0
   }
@@ -2971,44 +2979,43 @@ struct Emitter {
   /// - `[.inout, .set]` emits a `move` instruction that will is later replaced during definite
   ///   initialization analysis by either move-assignment if `storage` is found initialized or
   ///   by move-initialization otherwise.
-  private mutating func emitMove(
-    _ semantics: AccessEffectSet, _ value: Operand, to storage: Operand, at site: SourceRange
+  private mutating func _emitMove(
+    _ semantics: AccessEffectSet, _ value: Operand, to storage: Operand
   ) {
-    _lowering(at: site)
     precondition(!semantics.isEmpty && semantics.isSubset(of: [.set, .inout]))
     let model = module.type(of: value).ast
     precondition(model == module.type(of: storage).ast)
 
     // Built-in types are handled as a special case.
     if model.isBuiltin {
-      emitMoveBuiltIn(value, to: storage, at: site)
+      emitMoveBuiltIn(value, to: storage, at: source!)
       return
     }
 
     // Other types must be movable.
     let m = program.ast.core.movable.type
     guard let movable = program.conformance(of: model, to: m, exposedTo: insertionScope!) else {
-      report(.error(model, doesNotConformTo: m, at: site))
+      report(.error(model, doesNotConformTo: m, at: source!))
       return
     }
 
     // Use memcpy of `source` is trivially movable.
     if program.isTrivial(movable) {
-      let x0 = insert(module.makeAccess(.sink, from: value, at: site))!
-      let x1 = insert(module.makeAccess(.set, from: storage, at: site))!
-      insert(module.makeMemoryCopy(x0, x1, at: site))
-      insert(module.makeEndAccess(x1, at: site))
+      let x0 = insert(module.makeAccess(.sink, from: value, at: source!))!
+      let x1 = insert(module.makeAccess(.set, from: storage, at: source!))!
+      insert(module.makeMemoryCopy(x0, x1, at: source!))
+      insert(module.makeEndAccess(x1, at: source!))
       _mark_state(.uninitialized, x0)
-      insert(module.makeEndAccess(x0, at: site))
+      insert(module.makeEndAccess(x0, at: source!))
       return
     }
 
     // Insert a call to the appropriate move implementation if its semantics is unambiguous.
     // Otherwise, insert a call to the method bundle.
     if let k = semantics.uniqueElement {
-      emitMove(k, value, to: storage, withMovableConformance: movable, at: site)
+      emitMove(k, value, to: storage, withMovableConformance: movable, at: source!)
     } else {
-      insert(module.makeMove(value, to: storage, usingConformance: movable, at: site))
+      insert(module.makeMove(value, to: storage, usingConformance: movable, at: source!))
     }
   }
 
