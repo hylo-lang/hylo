@@ -437,7 +437,7 @@ struct Emitter {
       within(Frame(locals: locals)) { (this) in
         let x0 = this.emitLValue(e)
         let x1 = this._access([this.ast[d].introducer.value], from: x0)!
-        this.insert(this.module.makeYield(this.ast[d].introducer.value, x1, at: this.source!))
+        this._yield(this.ast[d].introducer.value, x1)
       }
       _return()
     }
@@ -1449,7 +1449,7 @@ struct Emitter {
     let x0 = emitLValue(ast[s].value)
     _lowering(s)
     let x1 = _access(.let, from: x0)!
-    insert(module.makeYield(.let, x1, at: ast[s].site))
+    _yield(.let, x1)
     return .next
   }
 
@@ -3722,6 +3722,9 @@ extension Emitter {
   ) -> Operand? {
     insert(module.makeAccess(capabilities, from: s, correspondingTo: binding, at: source!))
   }
+
+  fileprivate mutating func _yield(_ c: AccessEffect, _ a: Operand) {
+    _ = insert(module.makeYield(c, a, at: source!))
   }
 
 }
