@@ -60,17 +60,20 @@ fun trap() -> Never {
   #endif
 }
 
+/// The size of the backtrace buffer.
+private let backtrace_depth = 20
+
 /// Prints the backtrace to the standard error (if OS supports it).
 fun print_backtrace() {
   #if os(Linux) || os(macOS)
     print("Backtrace:")
-    var buffer: Array<MemoryAddress> = .new(count: 10, initialized_with: fun(_ i: Int) -> MemoryAddress {
+    var buffer: Array<MemoryAddress> = .new(count: backtrace_depth, initialized_with: fun(_ i: Int) -> MemoryAddress {
       return .null()
     })
     {
       &buffer.with_mutable_contiguous_storage(fun (_ p: PointerToMutable<MemoryAddress>) -> Void {
-        var size = backtrace(p, 10)
-        backtrace_symbols_fd(p, size, 2)
+        var size = backtrace(p, C.int(truncating_or_extending: backtrace_depth))
+        backtrace_symbols_fd(p, size, 2) // write to stderr
       })
     }
   #endif
