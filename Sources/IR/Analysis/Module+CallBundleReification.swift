@@ -17,7 +17,7 @@ extension Module {
     let k = s.capabilities.weakest!
 
     var arguments = Array(s.arguments)
-    let r = makeAccess(k, from: arguments[0], at: s.site)
+    let r = makeAccess([k], from: arguments[0], at: s.site)
     arguments[0] = .register(insert(r, before: i))
 
     let b = Block.ID(containing: i)

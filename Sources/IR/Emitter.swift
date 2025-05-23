@@ -300,7 +300,7 @@ struct Emitter {
 
     default:
       let v = _convert(foreignResult, to: module.functions[f]!.output)
-      _emitMove([.set], v, to: returnValue!)
+      _emitMove(.set, v, to: returnValue!)
     }
     _emitDeallocTopFrame()
     _return()
@@ -437,7 +437,7 @@ struct Emitter {
       within(Frame(locals: locals)) { (this) in
         let x0 = this.emitLValue(e)
         let x1 = this.insert(
-          this.module.makeAccess(this.ast[d].introducer.value, from: x0, at: this.source!))!
+          this.module.makeAccess([this.ast[d].introducer.value], from: x0, at: this.source!))!
         this.insert(this.module.makeYield(this.ast[d].introducer.value, x1, at: this.source!))
       }
       _return()
@@ -722,7 +722,7 @@ struct Emitter {
     for i in layout.properties.indices {
       let source = emitSubfieldView(argument, at: [i], at: site)
       let target = emitSubfieldView(receiver, at: [i], at: site)
-      _emitMove([.set], source, to: target)
+      _emitMove(.set, source, to: target)
     }
   }
 
@@ -777,7 +777,7 @@ struct Emitter {
     let x0 = insert(
       module.makeOpenUnion(receiver, as: payload, forInitialization: true, at: site))!
     let x1 = insert(module.makeOpenUnion(argument, as: payload, at: site))!
-    _emitMove([.set], x1, to: x0)
+    _emitMove(.set, x1, to: x0)
 
     // Close the unions.
     insert(module.makeCloseUnion(x0, at: site))
@@ -794,7 +794,7 @@ struct Emitter {
       me._emitDeinit(receiver)
 
       // Apply the move-initializer.
-      me._emitMove([.set], argument, to: receiver)
+      me._emitMove(.set, argument, to: receiver)
       me._mark_state(.initialized, me.returnValue)
       me._emitDeallocTopFrame()
       me._return()
@@ -1372,7 +1372,7 @@ struct Emitter {
     emitApply(collectionWitness.positionAfter, to: [x4, x5], writingResultTo: x3, at: introducer)
     insert(module.makeEndAccess(x4, at: introducer))
     insert(module.makeEndAccess(x5, at: introducer))
-    _emitMove([.inout], x3, to: currentPosition)
+    _emitMove(.inout, x3, to: currentPosition)
     insert(module.makeDeallocStack(for: x3, at: introducer))
     emitBranch(to: head, at: introducer)
 
@@ -1540,7 +1540,7 @@ struct Emitter {
     let s = program[e].site
 
     let x0 = emitLValue(program[e].source)
-    let x1 = insert(module.makeAccess(t.access, from: x0, at: s))!
+    let x1 = insert(module.makeAccess([t.access], from: x0, at: s))!
     emitStore(access: x1, to: storage, at: s)
   }
 
@@ -1709,7 +1709,7 @@ struct Emitter {
 
     for c in program[e].decl.implicitCaptures {
       let y0 = emitLValue(directReferenceTo: c.decl, at: site)
-      let y1 = insert(module.makeAccess(c.type.access, from: y0, at: site))!
+      let y1 = insert(module.makeAccess([c.type.access], from: y0, at: site))!
       let y2 = emitSubfieldView(x2, at: [i], at: site)
       emitStore(access: y1, to: y2, at: site)
       i += 1
@@ -1746,7 +1746,7 @@ struct Emitter {
     let s = program[e].site
 
     let x0 = emitLValue(program[e].operand)
-    let x1 = insert(module.makeAccess(t.access, from: x0, at: s))!
+    let x1 = insert(module.makeAccess([t.access], from: x0, at: s))!
     emitStore(access: x1, to: storage, at: s)
   }
 
@@ -2101,7 +2101,7 @@ struct Emitter {
 
       case .implicit(let d):
         let s = emitLValue(directReferenceTo: d, at: syntheticSite)
-        result.append(insert(module.makeAccess(p.access, from: s, at: syntheticSite))!)
+        result.append(insert(module.makeAccess([p.access], from: s, at: syntheticSite))!)
       }
     }
 
@@ -2132,7 +2132,7 @@ struct Emitter {
     let x0 = emitLValue(e)
     let x1 = unwrapCapture(x0, at: anchor)
     let x2 = emitCoerce(x1, to: p.bareType, at: anchor)
-    return insert(module.makeAccess(p.access, from: x2, at: anchor))!
+    return insert(module.makeAccess([p.access], from: x2, at: anchor))!
   }
 
   /// Inserts the IR for argument `e` passed to an autoclosure parameter of type `p`.
@@ -2153,7 +2153,7 @@ struct Emitter {
     let x0 = insert(module.makeAddressToPointer(.constant(r), at: anchor))!
     let x1 = emitAllocStack(for: p.bareType, at: anchor)
     emitInitialize(storage: x1, to: x0, at: anchor)
-    return insert(module.makeAccess(p.access, from: x1, at: anchor))!
+    return insert(module.makeAccess([p.access], from: x1, at: anchor))!
   }
 
   /// Inserts the IR for argument `e` passed to a parameter of type `p`, evaluating the literal's
@@ -2163,7 +2163,7 @@ struct Emitter {
   ) -> Operand {
     let x0 = emitAllocStack(for: program[e].type, at: site)
     emitStore(e, to: x0, at: site)
-    return insert(module.makeAccess(p.access, from: x0, at: site))!
+    return insert(module.makeAccess([p.access], from: x0, at: site))!
   }
 
   /// Inserts the IR generating the operands of the subscript call `e`.
@@ -2188,7 +2188,7 @@ struct Emitter {
       let s = emitAllocStack(for: t.output, at: ast.site(of: e))
       emitStore(e, to: s)
       let u = emitCoerce(s, to: p.bareType, at: ast.site(of: e))
-      return insert(module.makeAccess(p.access, from: u, at: ast.site(of: e)))!
+      return insert(module.makeAccess([p.access], from: u, at: ast.site(of: e)))!
 
     case .leaf(let e):
       return emitArgument(e, to: p, at: program[e].site)
@@ -2331,10 +2331,10 @@ struct Emitter {
     if let k = b.capabilities.uniqueElement {
       let d = module.demandDeclaration(lowering: program.ast.implementation(k, of: b.bundle)!)
       let f = FunctionReference(to: d, in: module, specializedBy: b.arguments, in: insertionScope!)
-      let c = insert(module.makeAccess(k, from: receiver, at: site))!
+      let c = insert(module.makeAccess([k], from: receiver, at: site))!
       return (callee: .direct(f), captures: [c])
     } else {
-      let c = insert(module.makeAccess(b.capabilities.weakest!, from: receiver, at: site))!
+      let c = insert(module.makeAccess([b.capabilities.weakest!], from: receiver, at: site))!
       return (callee: .bundle(b), captures: [c])
     }
   }
@@ -2351,7 +2351,7 @@ struct Emitter {
 
     case let k:
       let l = emitLValue(callee)
-      let b = module.makeAccess(k, from: l, at: ast[callee].site)
+      let b = module.makeAccess([k], from: l, at: ast[callee].site)
       return insert(b)!
     }
   }
@@ -2524,13 +2524,13 @@ struct Emitter {
     if let target = storage {
       let x0 = insert(module.makeAccess(.sink, from: rhs, at: site))!
       let x1 = insert(module.makeOpenUnion(x0, as: lhsType, at: site))!
-      _emitMove([.set], x1, to: target)
+      _emitMove(.set, x1, to: target)
       emitLocalDeclarations(introducedBy: lhs, referringTo: [], relativeTo: target)
       insert(module.makeCloseUnion(x1, at: site))
       insert(module.makeEndAccess(x0, at: site))
     } else {
       let k = AccessEffect(program[lhs].introducer.value)
-      let x0 = insert(module.makeAccess(k, from: rhs, at: site))!
+      let x0 = insert(module.makeAccess([k], from: rhs, at: site))!
       let x1 = insert(module.makeOpenUnion(x0, as: lhsType, at: site))!
       assignProjections(of: x1, to: lhs)
     }
@@ -2650,7 +2650,7 @@ struct Emitter {
 
     let x0 = emitAllocStack(for: ^target, at: site)
     let x1 = insert(module.makeOpenUnion(x0, as: lhs, forInitialization: true, at: site))!
-    _emitMove([.set], source, to: x1)
+    _emitMove(.set, source, to: x1)
     insert(module.makeCloseUnion(x1, at: site))
     return x0
   }
@@ -2941,7 +2941,7 @@ struct Emitter {
   ) -> Operand {
     let t = SubscriptImplType(canonicalType(of: d, specializedBy: z))!
     let o = RemoteType(ast[d].introducer.value, t.output)
-    let a = insert(module.makeAccess(o.access, from: r, at: site))!
+    let a = insert(module.makeAccess([o.access], from: r, at: site))!
     let f = module.demandDeclaration(lowering: d)
 
     let s = module.makeProject(o, applying: f, specializedBy: z, to: [a], at: site)
@@ -2974,8 +2974,8 @@ struct Emitter {
   /// Inserts IR for move-initializing/assigning `storage` with `value` at `site`.
   ///
   /// The value of `semantics` defines the type of move to emit:
-  /// - `[.set]` emits move-initialization.
-  /// - `[.inout]` emits move-assignment.
+  /// - `.set` emits move-initialization.
+  /// - `.inout` emits move-assignment.
   /// - `[.inout, .set]` emits a `move` instruction that will is later replaced during definite
   ///   initialization analysis by either move-assignment if `storage` is found initialized or
   ///   by move-initialization otherwise.
@@ -3049,7 +3049,7 @@ struct Emitter {
 
     let x0 = insert(module.makeAllocStack(.void, at: site))!
     let x1 = insert(module.makeAccess(.set, from: x0, at: site))!
-    let x2 = insert(module.makeAccess(semantics, from: storage, at: site))!
+    let x2 = insert(module.makeAccess([semantics], from: storage, at: site))!
     let x3 = insert(module.makeAccess(.sink, from: value, at: site))!
     insert(module.makeCall(applying: .constant(f), to: [x2, x3], writingResultTo: x1, at: site))
     insert(module.makeEndAccess(x3, at: site))

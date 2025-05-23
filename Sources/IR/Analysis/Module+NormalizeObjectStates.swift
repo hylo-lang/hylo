@@ -507,7 +507,7 @@ extension Module {
       return successor(of: i)
     }
 
-    /// Updates `context` to mark all objects at `source`, which is an `access [.set]`, as having
+    /// Updates `context` to mark all objects at `source`, which is an `access .set`, as having
     /// been fully initialized.
     func initialize(_ source: Operand, in context: inout Context) {
       assert(self[source.instruction!].isAccess(.set), "bad source")
@@ -516,7 +516,7 @@ extension Module {
       }
     }
 
-    /// Updates `context` to mark all objects at `source`, which is an `access [.sink]`, as having
+    /// Updates `context` to mark all objects at `source`, which is an `access .sink`, as having
     /// been consumed by `consumer`.
     func sink(_ source: Operand, with consumer: InstructionID, in context: inout Context) {
       assert(self[source.instruction!].isAccess(.sink), "bad source")
