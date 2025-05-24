@@ -1,0 +1,74 @@
+
+/// A mutual exclusion object that allows multiple threads to synchronize access to a shared resource.
+///
+/// The shared resource is held inside the mutex, and can only be accessed through a lock.
+///
+/// This object is by definition shareable; for convenience, we don't make any of the methods `inout`,
+/// even if we mutate internal state.
+///
+/// A mutex is, by default, a bottleneck; it prevents more than one thread to make progress at the same time.
+public type Mutex<T: Deinitializable & Movable>: Deinitializable, Movable {
+
+  /// The OS-level implementation of the mutex.
+  internal var inner: OSFutexMutex
+  /// The data that is being protected by the mutex.
+  internal var data: T
+
+  /// Constructs `self` to protect `data`.
+  public init(_ data: sink T) {
+    &self.inner = .new()
+    &self.data = data
+  }
+
+  /// Deinitializes `self`.
+  public fun deinit() sink {
+    &inner.deinit()
+    &data.deinit()
+  }
+
+  /// Accesses the protected data within the mutex, calling `f` with a mutable reference to the data.
+  public fun access<E>(within f: inout [E](inout T) inout -> Void) {
+    inner_as_mutable().unsafe[].lock()
+    &f(&(data_as_mutable().unsafe[]))
+    inner_as_mutable().unsafe[].unlock()
+  }
+  /// Try accessing the protected data within the mutex, calling `f` with a mutable reference to the data.
+  /// Returns `true` if the lock was acquired and `f` executed, `false` otherwise.
+  public fun try_access<E>(within f: [E](inout T) -> Void) -> Bool {
+    if inner_as_mutable().unsafe[].try_lock() {
+      f(&(data_as_mutable().unsafe[]))
+      inner_as_mutable().unsafe[].unlock()
+      return true
+    }
+    return false
+  }
+
+  /// Deinitializes `self` and returns the protected data.
+  public fun unwrap() sink -> T {
+    // No need for locking here, as we are sinking.
+    data_as_mutable().unsafe_pointee()
+  }
+
+  /// Returns a mutable pointer to our inner implementation object.
+  fun inner_as_mutable() -> PointerToMutable<OSFutexMutex> {
+    return PointerToMutable(adding_mutation_to: pointer[to: &inner])
+  }
+
+  /// Returns a mutable pointer to the protected data.
+  fun data_as_mutable() -> PointerToMutable<T> {
+    return PointerToMutable(adding_mutation_to: pointer[to: &data])
+  }
+
+}
+
+extension Mutex where T: Copyable {
+
+  /// Copies the data protected by the mutex, locking it while performing the copy.
+  public fun copy_data() -> T {
+    inner_as_mutable().unsafe[].lock()
+    var r = data_as_mutable().unsafe[].copy()
+    inner_as_mutable().unsafe[].unlock()
+    return r
+  }
+
+}
