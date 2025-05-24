@@ -1,10 +1,10 @@
 namespace LinuxFutex {
 
-  let SYS_futex: c_long = 98
-  let FUTEX_WAIT: c_int = 0
-  let FUTEX_WAKE: c_int = 1
-  let FUTEX_WAIT_PRIVATE: c_int = 128
-  let FUTEX_WAKE_PRIVATE: c_int = 129
+  let SYS_futex: C.long = 98
+  let FUTEX_WAIT: C.int = 0
+  let FUTEX_WAKE: C.int = 1
+  let FUTEX_WAIT_PRIVATE: C.int = 128
+  let FUTEX_WAKE_PRIVATE: C.int = 129
 
   internal fun futex_wait(futex: inout UInt32, expected: UInt32) {
     let err = syscall_for_futex(
@@ -38,19 +38,19 @@ namespace MacOSFutex {
   ///
   /// See https://developer.apple.com/documentation/os/os_sync_wait_on_address_with_timeout
   @ffi("os_sync_wait_on_address_with_timeout")
-  internal fun os_sync_wait_on_address_with_timeout(addr: MemoryAddress, value: UInt64, size: c_size_t, flags: UInt32, clockid: UInt32, timeout_ns: UInt64) -> c_int
+  internal fun os_sync_wait_on_address_with_timeout(addr: MemoryAddress, value: UInt64, size: C.size_t, flags: UInt32, clockid: UInt32, timeout_ns: UInt64) -> C.int
 
   /// An atomic operation that wakes one thread blocked on a futex wait, used to implement higher-level synchronization primitives.
   ///
   /// See https://developer.apple.com/documentation/os/os_sync_wake_by_address_any
   @ffi("os_sync_wake_by_address_any")
-  internal fun os_sync_wake_by_address_any(addr: MemoryAddress, size: c_size_t, flags: UInt32) -> c_int
+  internal fun os_sync_wake_by_address_any(addr: MemoryAddress, size: C.size_t, flags: UInt32) -> C.int
 
   /// An atomic operation that wakes all threads blocked on a futex wait, used to implement higher-level synchronization primitives.
   ///
   /// See https://developer.apple.com/documentation/os/os_sync_wake_by_address_all
   @ffi("os_sync_wake_by_address_all")
-  internal fun os_sync_wake_by_address_all(addr: MemoryAddress, size: c_size_t, flags: UInt32) -> c_int
+  internal fun os_sync_wake_by_address_all(addr: MemoryAddress, size: C.size_t, flags: UInt32) -> C.int
 
   let OS_SYNC_WAIT_ON_ADDRESS_NONE: UInt32 = 0
   let OS_CLOCK_MACH_ABSOLUTE_TIME: UInt32 = 32
