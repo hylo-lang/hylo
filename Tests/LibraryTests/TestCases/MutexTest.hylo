@@ -13,15 +13,21 @@ fun increment_100_times_under_lock(_ mutex: Mutex<Int>) {
 public fun main() {
   let mutex: Mutex<Int> = .new(0)
 
-  var t1 = spawn_thread(executing: fun[sink let p=pointer[to: &mutex].copy()]() {
-    increment_100_times_under_lock(&(p.copy()).unsafe[])
-  })
-  var t2 = spawn_thread(executing: fun[sink let p=pointer[to: &mutex].copy()]() {
-    increment_100_times_under_lock(&(p.copy()).unsafe[])
-  })
-  var t3 = spawn_thread(executing: fun[sink let p=pointer[to: &mutex].copy()]() {
-    increment_100_times_under_lock(&(p.copy()).unsafe[])
-  })
+  var t1 = spawn_thread(
+    executing: fun[](_ m: inout Mutex<Int>) {
+      increment_100_times_under_lock(&m)
+    },
+    with_inout_argument: mutable_pointer[to: &mutex])
+  var t2 = spawn_thread(
+    executing: fun[](_ m: inout Mutex<Int>) {
+      increment_100_times_under_lock(&m)
+    },
+    with_inout_argument: mutable_pointer[to: &mutex])
+  var t3 = spawn_thread(
+    executing: fun[](_ m: inout Mutex<Int>) {
+      increment_100_times_under_lock(&m)
+    },
+    with_inout_argument: mutable_pointer[to: &mutex])
 
   t1.await()
   t2.await()
