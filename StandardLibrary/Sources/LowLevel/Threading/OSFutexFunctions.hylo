@@ -44,13 +44,15 @@ namespace MacOSFutex {
   ///
   /// See https://developer.apple.com/documentation/os/os_sync_wake_by_address_any
   @ffi("os_sync_wake_by_address_any")
-  internal fun os_sync_wake_by_address_any(addr: MemoryAddress, size: C.size_t, flags: UInt32) -> C.int
+  internal fun os_sync_wake_by_address_any(addr: MemoryAddress, size: C.size_t, flags: UInt32) -> Int64
+  // TODO: why do we need to return Int64? documentation says it returns C.int
 
   /// An atomic operation that wakes all threads blocked on a futex wait, used to implement higher-level synchronization primitives.
   ///
   /// See https://developer.apple.com/documentation/os/os_sync_wake_by_address_all
   @ffi("os_sync_wake_by_address_all")
-  internal fun os_sync_wake_by_address_all(addr: MemoryAddress, size: C.size_t, flags: UInt32) -> C.int
+  internal fun os_sync_wake_by_address_all(addr: MemoryAddress, size: C.size_t, flags: UInt32) -> Int64
+  // TODO: why do we need to return Int64? documentation says it returns C.int
 
   let OS_SYNC_WAIT_ON_ADDRESS_NONE: UInt32 = 0
   let OS_CLOCK_MACH_ABSOLUTE_TIME: UInt32 = 32

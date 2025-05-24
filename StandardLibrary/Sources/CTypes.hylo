@@ -6,7 +6,7 @@ namespace C {
   /// Type alias compatible with C `c_ptrdiff_t` type.
   public typealias ptrdiff_t = Int
   /// Type alias compatible with C `int` type.
-  public typealias int = Int // TODO: Int32
+  public typealias int = Int32
   /// Type alias compatible with C `long` type.
   public typealias long = Int64
 
