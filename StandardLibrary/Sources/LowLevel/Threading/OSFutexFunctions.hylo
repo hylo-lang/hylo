@@ -35,6 +35,7 @@ namespace LinuxFutex {
   let FUTEX_WAKE: C.int = 1
   let FUTEX_WAIT_PRIVATE: C.int = 128
   let FUTEX_WAKE_PRIVATE: C.int = 129
+  let EAGAIN: C.int = 11
 
   /// Linux implementation for `futex_wait`.
   internal fun futex_wait(futex: inout UInt32, expected: UInt32) {
@@ -46,7 +47,14 @@ namespace LinuxFutex {
       timeout: .null(),
       uaddr2: .null(),
       val3: 0)
-    report_errno_failure_if(err == -1, operation: "futex_wait")
+    if err == -1 {
+      // The value was different, without the need for sleeping.
+      if errno() == EAGAIN {
+        return
+      }
+      // Otherwise, it was an error.
+      report_errno_failure(operation: "futex_wait")
+    }
   }
 
   /// Linux implementation for `futex_wake`.
