@@ -86,14 +86,4 @@ extension Module {
       site: site)
   }
 
-  /// Creates an `access` anchored at `site` that takes `capability` from `source`, optionally
-  /// associated with a variable declaration in the AST.
-  func makeAccess(
-    _ capability: AccessEffect, from source: Operand,
-    correspondingTo binding: VarDecl.ID? = nil,
-    at site: SourceRange
-  ) -> Access {
-    makeAccess([capability], from: source, correspondingTo: binding, at: site)
-  }
-
 }

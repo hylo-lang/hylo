@@ -5,36 +5,36 @@ final class AccessEffectSetTests: XCTestCase {
 
   func testIsEmpty() {
     XCTAssert(AccessEffectSet().elements.isEmpty)
-    XCTAssertFalse(AccessEffectSet([.let]).elements.isEmpty)
+    XCTAssertFalse(AccessEffectSet.let.elements.isEmpty)
   }
 
   func testContains() {
-    XCTAssertFalse(AccessEffectSet().contains(.inout))
-    XCTAssertFalse(AccessEffectSet([.set]).contains(.inout))
-    XCTAssert(AccessEffectSet([.inout]).contains(.inout))
-    XCTAssert(AccessEffectSet([.inout, .sink]).contains(.inout))
+    XCTAssertFalse(AccessEffectSet().contains(AccessEffect.inout))
+    XCTAssertFalse(AccessEffectSet.set.contains(AccessEffect.inout))
+    XCTAssert(AccessEffectSet.inout.contains(AccessEffect.inout))
+    XCTAssert(AccessEffectSet([.inout, .sink]).contains(AccessEffect.inout))
   }
 
   func testIsSingleton() {
     XCTAssertFalse(AccessEffectSet().isSingleton)
     XCTAssertFalse(AccessEffectSet([.let, .set]).isSingleton)
-    XCTAssert(AccessEffectSet([.let]).isSingleton)
+    XCTAssert(AccessEffectSet.let.isSingleton)
   }
 
   func testUniqueElement() {
     XCTAssertNil(AccessEffectSet().uniqueElement)
     XCTAssertNil(AccessEffectSet([.let, .set]).uniqueElement)
-    XCTAssertEqual(AccessEffectSet([.inout]).uniqueElement, .inout)
+    XCTAssertEqual(AccessEffectSet.inout.uniqueElement, AccessEffect.inout)
   }
 
   func testWeakest() {
     XCTAssertNil(AccessEffectSet().weakest)
-    XCTAssertEqual(AccessEffectSet([.inout, .sink]).weakest, .inout)
+    XCTAssertEqual(AccessEffectSet([.inout, .sink]).weakest, AccessEffect.inout)
   }
 
   func testStrongestIncluding() {
-    XCTAssertEqual(AccessEffectSet().strongest(including: .inout), .inout)
-    XCTAssertEqual(AccessEffectSet([.inout, .sink]).strongest(including: .let), .sink)
+    XCTAssertEqual(AccessEffectSet().strongest(including: .inout), AccessEffect.inout)
+    XCTAssertEqual(AccessEffectSet([.inout, .sink]).strongest(including: .let), AccessEffect.sink)
   }
 
   func testInsert() {

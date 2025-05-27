@@ -1007,7 +1007,7 @@ public struct Module {
       let i = o.instruction,
       let s = self[i] as? Access
     else { return false }
-    return s.capabilities == [.set]
+    return s.capabilities == .set
   }
 
 }
