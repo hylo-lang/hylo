@@ -1663,6 +1663,7 @@ struct Emitter {
         _lowering(e) {
           $0.emit(constructorCall: e, initializing: storage)
         }
+        return
 
       default:
         break
