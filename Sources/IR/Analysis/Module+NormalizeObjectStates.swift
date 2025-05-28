@@ -738,9 +738,10 @@ extension Module {
     for path in initializedSubfields {
       Emitter.withInstance(insertingIn: &self, reportingDiagnosticsTo: &log) { (e) in
         e.insertionPoint = .before(i)
-        e._lowering(at: site)
-        let s = e._subfield_view(root, at: path)
-        e._emitDeinit(s)
+        e._lowering(at: site) { e in
+          let s = e._subfield_view(root, at: path)
+          e._emitDeinit(s)
+        }
       }
     }
   }
@@ -754,8 +755,9 @@ extension Module {
   ) {
     Emitter.withInstance(insertingIn: &self, reportingDiagnosticsTo: &log) { (e) in
       e.insertionPoint = .before(i)
-      e._lowering(at: site)
-      e._emitDeinitParts(of: whole)
+      e._lowering(at: site) { e in
+        e._emitDeinitParts(of: whole)
+      }
     }
   }
 
