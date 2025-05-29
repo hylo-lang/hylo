@@ -6,6 +6,20 @@ public fun print(_ item: String, terminator: String = "\n") {
 }
 
 /// Writes the textual representation of `item` to the standard output.
+public fun print<T>(_ item: PointerToMutable<T>, terminator: String = "\n") {
+  let address = Int(bit_pattern: MemoryAddress(type_punning: item))
+  print("0x", terminator: "")
+  print(address, radix: 16, terminator: terminator)
+}
+
+/// Writes the textual representation of `item` to the standard output.
+public fun print<T>(_ item: Pointer<T>, terminator: String = "\n") {
+  let address = Int(bit_pattern: MemoryAddress(type_punning: PointerToMutable<T>(adding_mutation_to: item)))
+  print("0x", terminator: "")
+  print(address, radix: 16, terminator: terminator)
+}
+
+/// Writes the textual representation of `item` to the standard output.
 public fun print(_ item: Int, radix: Int = 10, terminator: String = "\n") {
   if item == 0 {
     print("0", terminator: terminator)
