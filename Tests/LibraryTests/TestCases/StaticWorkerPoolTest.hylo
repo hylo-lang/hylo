@@ -3,8 +3,10 @@
 /// Work provider that doesn't provide any work.
 type NoWorkProvider: WorkProvider {
 
+  var dummy: Int // TODO: Workaround for #1699.
+
   /// Initializes `self` with no work.
-  public init() {}
+  public init() { &dummy = 0}
 
   /// Provide no work.
   public fun next_work_item(worker_index: Int) inout -> TaskPointer {
@@ -98,13 +100,13 @@ fun pause() {
 
 fun test_static_thread_pool_with_no_work() {
   let work_provider: NoWorkProvider = .new()
-  var pool: StaticWorkerPool<NoWorkProvider> = .new(size: 4, work_provider: &work_provider)
+  var pool: StaticWorkerPool<NoWorkProvider> = .new(size: 4, work_provider: mutable_pointer[to: &work_provider])
   pool.await()
 }
 
 fun test_static_thread_pool_with_no_work_and_delayed_await() {
   let work_provider: NoWorkProvider = .new()
-  var pool: StaticWorkerPool<NoWorkProvider> = .new(size: 4, work_provider: &work_provider)
+  var pool: StaticWorkerPool<NoWorkProvider> = .new(size: 4, work_provider: mutable_pointer[to: &work_provider])
   pause()
   pool.await()
 }
@@ -115,7 +117,8 @@ fun test_executing_one_work_item() {
     &(q.copy()).unsafe[] = true
   }
   var work_item = SimpleWorkItem(f: f)
-  var pool = StaticWorkerPool(size: 4, work_provider: SimpleWorkProvider(work_item.as_task()))
+  let work_provider: SimpleWorkProvider = .new(work_item.as_task())
+  var pool = StaticWorkerPool(size: 4, work_provider: mutable_pointer[to: &work_provider])
   pool.await()
   precondition(executed, "Work item was not executed.")
 }
@@ -126,7 +129,8 @@ fun test_executing_multiple_work_items() {
     _ = atomic_add_relaxed_i32(&(q.copy()).unsafe[], 1)
   }
   var work_item = SimpleWorkItem(f: f)
-  var pool = StaticWorkerPool(size: 4, work_provider: SimpleWorkProvider(work_item.as_task(), repeat_count: 10))
+  let work_provider: SimpleWorkProvider = .new(work_item.as_task(), repeat_count: 10)
+  var pool = StaticWorkerPool(size: 4, work_provider: mutable_pointer[to: &work_provider])
   pool.await()
   precondition(count == 10, "We should have 10 work items executed.")
 }
@@ -146,7 +150,8 @@ fun test_execution_can_park_and_unpark_workers() {
   ])
 
   // Create the thread pool and start executing.
-  var pool = StaticWorkerPool(size: 4, work_provider: ArrayWorkProvider(work))
+  let work_provider = ArrayWorkProvider(work)
+  var pool = StaticWorkerPool(size: 4, work_provider: mutable_pointer[to: &work_provider])
 
   // Wait until 4 items were executed, and then unpark the workers.
   while Int(truncating_or_extending: atomic_load_relaxed_i32(&count)) < 4 {
@@ -178,7 +183,8 @@ fun test_one_unparked_worker_is_enough_to_complete_work() {
   ])
 
   // Create the thread pool and start executing.
-  var pool = StaticWorkerPool(size: 4, work_provider: ArrayWorkProvider(work))
+  let work_provider = ArrayWorkProvider(work)
+  var pool = StaticWorkerPool(size: 4, work_provider: mutable_pointer[to: &work_provider])
 
   // Wait until 4 items were executed, and then unpark just one worker.
   while Int(truncating_or_extending: atomic_load_relaxed_i32(&count)) < 4 {

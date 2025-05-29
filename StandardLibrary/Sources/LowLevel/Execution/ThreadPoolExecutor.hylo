@@ -1,11 +1,15 @@
 /// Executor backed by a fixed-size thread pool.
 public type ThreadPoolExecutor: Movable, Deinitializable {
 
-  var workers: StaticWorkerPool<NoWorkProvider>
+  /// Central object that manages the tasks that need to be executed.
+  var work_provider: LIFOWorkProvider
+  /// The worker pool that will execute the tasks.
+  var workers: StaticWorkerPool<LIFOWorkProvider>
 
   /// Initializes `self` with `n` worker threads.
   public init(size n: Int) {
-    StaticWorkerPool<NoWorkProvider>.`init`(self: &workers, size: n, work_provider: .new())
+    &self.work_provider = .new()
+    StaticWorkerPool<LIFOWorkProvider>.`init`(self: &workers, size: n, work_provider: mutable_pointer[to: &work_provider])
   }
 
   // TODO (#1688): We should not have this; instead users should explicitly call `await()`.
@@ -34,19 +38,6 @@ public type ThreadPoolExecutor: Movable, Deinitializable {
   /// Awaits for all the tasks to complete, and closes the executor.
   public fun await() sink {
     &workers.await()
-  }
-
-  /// Work provider that doesn't provide any work.
-  type NoWorkProvider: WorkProvider {
-
-    /// Initializes `self` with no work.
-    public init() {}
-
-    /// Provide no work.
-    public fun next_work_item(worker_index: Int) inout -> TaskPointer {
-      .null()
-    }
-
   }
 
 }

@@ -101,16 +101,15 @@ public type WorkerThread<W: WorkProvider>: Deinitializable {
 public type StaticWorkerPool<W: WorkProvider>: Movable, Deinitializable {
 
   /// The work provider from which work is being taken.
-  var work_provider: W
+  var work_provider: PointerToMutable<W>
   /// The worker threads in the pool.
   var threads: BoundedArray<WorkerThread<W>>
 
   /// Initializes `self` with `n` worker threads, using `work_provider` as a work provider.
-  public init(size n: Int, work_provider: sink W) {
-    &self.work_provider = work_provider
-    let p = mutable_pointer[to: &self.work_provider]
+  public init(size n: Int, work_provider: PointerToMutable<W>) {
+    &self.work_provider = work_provider.copy()
     &self.threads = .new(count: n, initialized_with: fun (_ i: Int, _ thread: set WorkerThread<W>) -> Void {
-      WorkerThread<W>.init_self(&thread, i, work_from: p)
+      WorkerThread<W>.init_self(&thread, i, work_from: work_provider)
     })
   }
 
