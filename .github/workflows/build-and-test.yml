@@ -247,7 +247,7 @@ jobs:
           # The Swift compiler team is aware of the issue and they are going to release a fix some time.
       - name: Set up swift (Windows)
         if: ${{ runner.os == 'Windows' }}
-        uses: compnerd/gha-setup-swift@v0.2.2
+        uses: compnerd/gha-setup-swift@v0.3.0
         with:
           branch: swift-${{ env.swift-version }}-release
           tag: ${{ env.swift-version }}-RELEASE
