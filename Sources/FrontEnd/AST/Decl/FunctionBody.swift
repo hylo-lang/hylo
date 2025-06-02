@@ -1,5 +1,5 @@
 /// The body of a function or subscript implementation.
-public enum FunctionBody: Codable {
+public enum FunctionBody: Codable, Sendable {
 
   /// An expression body.
   case expr(AnyExprID)

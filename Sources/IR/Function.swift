@@ -2,7 +2,7 @@ import FrontEnd
 import Utils
 
 /// A collection of basic blocks representing a lowered function.
-public struct Function {
+public struct Function: Sendable {
 
   /// A collection of blocks with stable identities.
   public typealias Blocks = DoublyLinkedList<Block>

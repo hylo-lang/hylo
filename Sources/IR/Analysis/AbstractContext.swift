@@ -1,7 +1,7 @@
 import Utils
 
 /// The evaluation context of an abstract interpreter.
-struct AbstractContext<Domain: AbstractDomain>: Equatable {
+struct AbstractContext<Domain: AbstractDomain>: Equatable, Sendable {
 
   /// The values of the locals.
   ///

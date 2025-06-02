@@ -1,5 +1,5 @@
 /// A lambda.
-public struct LambdaExpr: Expr {
+public struct LambdaExpr: Expr, Sendable {
 
   public let site: SourceRange
 

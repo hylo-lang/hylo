@@ -25,7 +25,7 @@ private protocol TypeBox {
 }
 
 /// A box wrapping an instance of `Base`.
-private struct ConcreteTypeBox<Base: TypeProtocol>: TypeBox {
+private struct ConcreteTypeBox<Base: TypeProtocol>: TypeBox, Sendable {
 
   /// The value wrapped by this instance.
   let base: Base
@@ -56,7 +56,7 @@ private struct ConcreteTypeBox<Base: TypeProtocol>: TypeBox {
 }
 
 /// The (static) type of an entity.
-public struct AnyType {
+public struct AnyType: Sendable {
 
   /// Hylo's `Any` type.
   public static let any = ^ExistentialType(traits: [], constraints: [])

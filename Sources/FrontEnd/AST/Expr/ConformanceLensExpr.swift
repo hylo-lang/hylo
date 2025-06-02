@@ -1,5 +1,5 @@
 /// A conformance lens.
-public struct ConformanceLensExpr: Expr {
+public struct ConformanceLensExpr: Expr, Sendable {
 
   public let site: SourceRange
 

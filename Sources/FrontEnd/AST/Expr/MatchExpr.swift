@@ -1,5 +1,5 @@
 /// A match expression.
-public struct MatchExpr: Expr {
+public struct MatchExpr: Expr, Sendable {
 
   public let site: SourceRange
 

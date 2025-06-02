@@ -1,5 +1,5 @@
 /// An instruction operand.
-public enum Operand {
+public enum Operand: Sendable {
 
   /// The result of `instruction`.
   case register(InstructionID)

@@ -1,5 +1,5 @@
 /// A value injected by the compiler.
-public struct PragmaLiteralExpr: Expr {
+public struct PragmaLiteralExpr: Expr, Sendable {
 
   /// The kind of a pragma literal.
   public enum Kind: Codable {

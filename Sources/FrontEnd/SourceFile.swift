@@ -3,7 +3,7 @@ import Utils
 
 /// A Hylo source file, a synthesized fragment of Hylo source, or a fragment Hylo source embedded
 /// in a Swift string literal.
-public struct SourceFile {
+public struct SourceFile: Sendable {
 
   /// The notional stored properties of `self`; distinguished for encoding/decoding purposes.
   ///
@@ -218,7 +218,7 @@ extension SourceFile: Hashable {
 extension SourceFile: Codable {
 
   /// The state that must be maintained on behalf of `SourceFile`s while they are encoded.
-  struct EncodingState {
+  struct EncodingState: Sendable {
 
     /// Creates an empty instance.
     public init() {}
