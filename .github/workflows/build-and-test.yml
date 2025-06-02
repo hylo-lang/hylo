@@ -169,7 +169,7 @@ jobs:
       fail-fast: false
       matrix:
         # macos-latest is apparently not the latest.
-        os: [macos-13, ubuntu-latest, windows-latest]
+        os: [macos-14, ubuntu-latest, windows-latest]
         spm_configuration: [debug, release]
         cmake_generator: [Ninja, Xcode]
 
@@ -200,8 +200,8 @@ jobs:
           - os: windows-latest
             use_spm: false
 
-          - os: macos-13
-            triple_suffix: apple-darwin23.3.0
+          - os: macos-14
+            triple_suffix: apple-darwin24.1.0
 
           - os: ubuntu-latest
             triple_suffix: unknown-linux-gnu
@@ -278,7 +278,7 @@ jobs:
           ${{ matrix.cmake_generator != 'Xcode' && format('-DCMAKE_BUILD_TYPE={0}', matrix.cmake_build_type) || '' }}
           -DBUILD_TESTING=YES
           -DLLVM_DIR=${{ github.workspace }}/${{ env.llvm_package_basename }}/lib/cmake/llvm
-          ${{ matrix.os == 'macos-13' && '-D CMAKE_Swift_COMPILER=swiftc -DCMAKE_OSX_SYSROOT=$(xcrun --show-sdk-path)' || '' }}
+          ${{ matrix.os == 'macos-14' && '-D CMAKE_Swift_COMPILER=swiftc -DCMAKE_OSX_SYSROOT=$(xcrun --show-sdk-path)' || '' }}
         working-directory: hylo
 
       - name: Build (CMake)
