@@ -1556,7 +1556,7 @@ struct Emitter {
     case .down:
       emitStore(downcast: e, to: storage)
     case .pointerConversion:
-      emitStore(pointerConversion: e, to: storage)
+      _emitStore(pointerConversion: e, to: storage)
     }
   }
 
@@ -1604,7 +1604,7 @@ struct Emitter {
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
-  private mutating func emitStore(pointerConversion e: CastExpr.ID, to storage: Operand) {
+  private mutating func _emitStore(pointerConversion e: CastExpr.ID, to storage: Operand) {
     let x0 = emitLValue(pointerConversion: e)
 
     // Consuming a pointee requires a conformance to `Movable`.
@@ -1615,7 +1615,7 @@ struct Emitter {
       return
     }
 
-    _lowering(e) { $0._emitMove([.inout, .set], x0, to: storage) }
+    _emitMove([.inout, .set], x0, to: storage)
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
