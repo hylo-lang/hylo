@@ -24,6 +24,21 @@ import Foundation
 ///   at `self.insertionPoint`, anchoring new instructions at the given source range, named `site`
 ///   in their parameter lists.
 struct Emitter {
+  // Emitter coding convention:
+  //
+  // - The `_site` property is state set by the `_lowering()` family of
+  //   functions.
+  //
+  // - Methods of the form `_snake_case_name` emit a `snake_case_name`
+  //   instruction associated with the current `_site`.
+  //
+  // - Methods of the form `_emitXXX(optionalLabel: something ...)`
+  //   should only be entered in the context of a call to
+  //   `_lowering(something) { ... }`.
+  //
+  // - `_emitMemberFunctionCallee` and its helpers are currently an
+  //   exception to the previous bullet; for some reason they don't
+  //   take the `callee` as the first argument.
 
   /// The diagnostics of lowering errors.
   private var diagnostics: DiagnosticSet = []
