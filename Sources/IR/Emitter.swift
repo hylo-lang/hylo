@@ -1503,7 +1503,7 @@ struct Emitter {
       case IntegerLiteralExpr.self:
         me.emitStore(IntegerLiteralExpr.ID(e)!, to: storage)
       case LambdaExpr.self:
-        me.emitStore(LambdaExpr.ID(e)!, to: storage)
+        me._emitStore(LambdaExpr.ID(e)!, to: storage)
       case NameExpr.self:
         me.emitStore(NameExpr.ID(e)!, to: storage)
       case PragmaLiteralExpr.self:
@@ -1678,43 +1678,41 @@ struct Emitter {
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
-  private mutating func emitStore(_ e: LambdaExpr.ID, to storage: Operand) {
+  private mutating func _emitStore(_ e: LambdaExpr.ID, to storage: Operand) {
     let callee = lower(function: ast[e].decl)
     let r = FunctionReference(
       to: callee, in: module,
       specializedBy: module.specialization(in: insertionFunction!), in: insertionScope!)
 
-    _lowering(e)  { me in
-      let x0 = me._address_to_pointer(.constant(r))
-      let x1 = me._subfield_view(storage, at: [0])
-      me._emitInitialize(storage: x1, to: x0)
+    let x0 = _address_to_pointer(.constant(r))
+    let x1 = _subfield_view(storage, at: [0])
+    _emitInitialize(storage: x1, to: x0)
 
-      let arrow = ArrowType(me.program.canonical(me.program[e].type, in: me.insertionScope!))!
-      let x2 = me._subfield_view(storage, at: [1])
+    let arrow = ArrowType(program.canonical(program[e].type, in: insertionScope!))!
+    let x2 = _subfield_view(storage, at: [1])
 
-      // Simply mark the lambda's environment initialized if it's empty.
-      if arrow.environment == .void {
-        me._mark_state(.initialized, x2)
-        return
-      }
+    // Simply mark the lambda's environment initialized if it's empty.
+    if arrow.environment == .void {
+      _mark_state(.initialized, x2)
+      return
+    }
 
-      // Otherwise, initialize each capture individually.
-      var i = 0
-      for b in me.program[e].decl.explicitCaptures {
-        // TODO: See #878
-        guard me.program[b].pattern.subpattern.kind == NamePattern.self else { UNIMPLEMENTED() }
-        let y0 = me._subfield_view(x2, at: [i])
-        me.emitStore(value: me.program[b].initializer!, to: y0)
-        i += 1
-      }
+    // Otherwise, initialize each capture individually.
+    var i = 0
+    for b in program[e].decl.explicitCaptures {
+      // TODO: See #878
+      guard program[b].pattern.subpattern.kind == NamePattern.self else { UNIMPLEMENTED() }
+      let y0 = _subfield_view(x2, at: [i])
+      emitStore(value: program[b].initializer!, to: y0)
+      i += 1
+    }
 
-      for c in me.program[e].decl.implicitCaptures {
-        let y0 = me._emitLValue(directReferenceTo: c.decl)
-        let y1 = me._access([c.type.access], from: y0)
-        let y2 = me._subfield_view(x2, at: [i])
-        me._emitStore(access: y1, to: y2)
-        i += 1
-      }
+    for c in program[e].decl.implicitCaptures {
+      let y0 = _emitLValue(directReferenceTo: c.decl)
+      let y1 = _access([c.type.access], from: y0)
+      let y2 = _subfield_view(x2, at: [i])
+      _emitStore(access: y1, to: y2)
+      i += 1
     }
   }
 
