@@ -2102,7 +2102,7 @@ struct Emitter {
     _ e: AnyExprID, to p: ParameterType
   ) -> Operand {
     if p.isAutoclosure {
-      return emitAutoclosureArgument(e, to: p)
+      return _emitAutoclosureArgument(e, to: p)
     }
 
     // Make sure arguments to 'set' or 'inout' parameters have a mutation marker, unless it's a
@@ -2122,7 +2122,7 @@ struct Emitter {
   }
 
   /// Inserts the IR for argument `e` passed to an autoclosure parameter of type `p`.
-  private mutating func emitAutoclosureArgument(_ e: AnyExprID, to p: ParameterType) -> Operand {
+  private mutating func _emitAutoclosureArgument(_ e: AnyExprID, to p: ParameterType) -> Operand {
     // Emit synthesized function declaration.
     let t = ArrowType(p.bareType)!
     let h = Array(t.environment.skolems)
@@ -2135,12 +2135,10 @@ struct Emitter {
       to: callee, in: module,
       specializedBy: module.specialization(in: insertionFunction!), in: insertionScope!)
 
-    return _lowering(e) { me in
-      let x0 = me._address_to_pointer(.constant(r))
-      let x1 = me._alloc_stack(p.bareType)
-      me._emitInitialize(storage: x1, to: x0)
-      return me._access([p.access], from: x1)
-    }
+    let x0 = _address_to_pointer(.constant(r))
+    let x1 = _alloc_stack(p.bareType)
+    _emitInitialize(storage: x1, to: x0)
+    return _access([p.access], from: x1)
   }
 
   /// Inserts the IR for argument `e` passed to a parameter of type `p`
