@@ -1519,7 +1519,7 @@ struct Emitter {
       case TupleExpr.self:
         me._emitStore(TupleExpr.ID(e)!, to: storage)
       case TupleMemberExpr.self:
-        me.emitStore(TupleMemberExpr.ID(e)!, to: storage)
+        me._emitStore(TupleMemberExpr.ID(e)!, to: storage)
       default:
         unexpected(e, in: me.ast)
       }
@@ -1810,9 +1810,9 @@ struct Emitter {
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
-  private mutating func emitStore(_ e: TupleMemberExpr.ID, to storage: Operand) {
+  private mutating func _emitStore(_ e: TupleMemberExpr.ID, to storage: Operand) {
     let x0 = emitLValue(e)
-    _lowering(e) { $0._emitMove([.inout, .set], x0, to: storage) }
+    _emitMove([.inout, .set], x0, to: storage)
   }
 
   /// Inserts the IR to store the value of `e` to `storage`, converting it to the type of `storage`
