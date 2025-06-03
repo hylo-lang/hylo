@@ -1845,49 +1845,51 @@ struct Emitter {
   ) {
     let literalType = canonical(program[literal].type)
 
-    switch literalType {
-    case ast.coreType("Int")!:
-      emitStore(integer: literal, signed: true, bitWidth: 64, to: storage)
-    case ast.coreType("Int8")!:
-      emitStore(integer: literal, signed: true, bitWidth: 8, to: storage)
-    case ast.coreType("Int32")!:
-      emitStore(integer: literal, signed: true, bitWidth: 32, to: storage)
-    case ast.coreType("Int64")!:
-      emitStore(integer: literal, signed: true, bitWidth: 64, to: storage)
-    case ast.coreType("UInt")!:
-      emitStore(integer: literal, signed: false, bitWidth: 64, to: storage)
-    case ast.coreType("UInt8")!:
-      emitStore(integer: literal, signed: false, bitWidth: 8, to: storage)
-    case ast.coreType("UInt32")!:
-      emitStore(integer: literal, signed: false, bitWidth: 32, to: storage)
-    case ast.coreType("UInt64")!:
-      emitStore(integer: literal, signed: false, bitWidth: 64, to: storage)
-    case ast.coreType("Float64")!:
-      emitStore(floatingPoint: literal, to: storage, evaluatedBy: FloatingPointConstant.float64(_:))
-    case ast.coreType("Float32")!:
-      emitStore(floatingPoint: literal, to: storage, evaluatedBy: FloatingPointConstant.float32(_:))
-    default:
-      UNIMPLEMENTED()
+    _lowering(literal) { me in
+      switch literalType {
+      case me.ast.coreType("Int")!:
+        me._emitStore(integer: literal, signed: true, bitWidth: 64, to: storage)
+      case me.ast.coreType("Int8")!:
+        me._emitStore(integer: literal, signed: true, bitWidth: 8, to: storage)
+      case me.ast.coreType("Int32")!:
+        me._emitStore(integer: literal, signed: true, bitWidth: 32, to: storage)
+      case me.ast.coreType("Int64")!:
+        me._emitStore(integer: literal, signed: true, bitWidth: 64, to: storage)
+      case me.ast.coreType("UInt")!:
+        me._emitStore(integer: literal, signed: false, bitWidth: 64, to: storage)
+      case me.ast.coreType("UInt8")!:
+        me._emitStore(integer: literal, signed: false, bitWidth: 8, to: storage)
+      case me.ast.coreType("UInt32")!:
+        me._emitStore(integer: literal, signed: false, bitWidth: 32, to: storage)
+      case me.ast.coreType("UInt64")!:
+        me._emitStore(integer: literal, signed: false, bitWidth: 64, to: storage)
+      case me.ast.coreType("Float64")!:
+        me._emitStore(
+          floatingPoint: literal, to: storage, evaluatedBy: FloatingPointConstant.float64(_:))
+      case me.ast.coreType("Float32")!:
+        me._emitStore(
+          floatingPoint: literal, to: storage, evaluatedBy: FloatingPointConstant.float32(_:))
+      default:
+        UNIMPLEMENTED()
+      }
     }
   }
 
   /// Writes the value of `literal` to `storage`, knowing it is a core floating-point instance
   /// evaluated by `evaluate`.
-  private mutating func emitStore<T: NumericLiteralExpr>(
+  private mutating func _emitStore<T: NumericLiteralExpr>(
     floatingPoint literal: T.ID, to storage: Operand,
     evaluatedBy evaluate: (String) -> FloatingPointConstant
   ) {
-    _lowering(literal) { me in
-      let x0 = me._subfield_view(storage, at: [0])
-      let x1 = me._access(.set, from: x0)
-      let x2 = Operand.constant(evaluate(me.ast[literal].value))
-      me._store(x2, x1)
-    }
+    let x0 = _subfield_view(storage, at: [0])
+    let x1 = _access(.set, from: x0)
+    let x2 = Operand.constant(evaluate(ast[literal].value))
+    _store(x2, x1)
   }
 
   /// Writes the value of `literal` to `storage`, knowing it is a core integer instance with given
   /// sign and width.
-  private mutating func emitStore<T: NumericLiteralExpr>(
+  private mutating func _emitStore<T: NumericLiteralExpr>(
     integer literal: T.ID, signed: Bool, bitWidth: Int, to storage: Operand
   ) {
     let literalValue = ast[literal].value
@@ -1900,12 +1902,10 @@ struct Emitter {
       return
     }
 
-    _lowering(literal) { me in
-      let x0 = me._subfield_view(storage, at: [0])
-      let x1 = me._access(.set, from: x0)
-      let x2 = Operand.constant(IntegerConstant(bits))
-      me._store(x2, x1)
-    }
+    let x0 = _subfield_view(storage, at: [0])
+    let x1 = _access(.set, from: x0)
+    let x2 = Operand.constant(IntegerConstant(bits))
+    _store(x2, x1)
   }
 
   /// Writes an instance of `Hylo.Bool` with value `v` to `storage`.
