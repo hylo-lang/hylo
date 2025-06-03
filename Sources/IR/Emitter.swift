@@ -1652,7 +1652,7 @@ struct Emitter {
         return
 
       case .constructor:
-        emit(constructorCall: e, initializing: storage)
+        _emit(constructorCall: e, initializing: storage)
         return
 
       default:
@@ -1999,7 +1999,7 @@ struct Emitter {
   ///   - call: The syntax of the call.
   ///   - s: The address of uninitialized storage typed by the receiver of `call`. This storage is
   ///     borrowed for initialization after evaluating `call`'s arguments and before the call.
-  private mutating func emit(constructorCall call: FunctionCallExpr.ID, initializing s: Operand) {
+  private mutating func _emit(constructorCall call: FunctionCallExpr.ID, initializing s: Operand) {
     let callee = NameExpr.ID(ast[call].callee)!
     guard case .constructor(let d, let a) = program[callee].referredDecl else {
       preconditionFailure()
@@ -2017,18 +2017,16 @@ struct Emitter {
       $0._emitArguments(to: c.callee, in: CallID(call), usingExplicit: c.arguments)
     }
 
-    _lowering(call) { me in
-      // Receiver is captured next.
-      let receiver = me._access(.set, from: s)
+    // Receiver is captured next.
+    let receiver = _access(.set, from: s)
 
-      // Call is evaluated last.
-      let f = Operand.constant(
-        FunctionReference(to: AnyDeclID(d), in: &me.module, specializedBy: a, in: me.insertionScope!))
-      let x0 = me._alloc_stack(.void)
-      let x1 = me._access(.set, from: x0)
+    // Call is evaluated last.
+    let f = Operand.constant(
+      FunctionReference(to: AnyDeclID(d), in: &module, specializedBy: a, in: insertionScope!))
+    let x0 = _alloc_stack(.void)
+    let x1 = _access(.set, from: x0)
 
-      me._call(f, [receiver] + arguments, to: x1)
-    }
+    _call(f, [receiver] + arguments, to: x1)
   }
 
   /// Inserts the IR for given memberwise constructor `call`, which initializes `receiver`.
