@@ -1499,7 +1499,7 @@ struct Emitter {
       case FloatLiteralExpr.self:
         me.emitStore(FloatLiteralExpr.ID(e)!, to: storage)
       case FunctionCallExpr.self:
-        me.emitStore(FunctionCallExpr.ID(e)!, to: storage)
+        me._emitStore(FunctionCallExpr.ID(e)!, to: storage)
       case IntegerLiteralExpr.self:
         me.emitStore(IntegerLiteralExpr.ID(e)!, to: storage)
       case LambdaExpr.self:
@@ -1641,22 +1641,18 @@ struct Emitter {
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
-  private mutating func emitStore(_ e: FunctionCallExpr.ID, to storage: Operand) {
+  private mutating func _emitStore(_ e: FunctionCallExpr.ID, to storage: Operand) {
     // Handle built-ins and constructor calls.
     if let n = NameExpr.ID(ast[e].callee) {
       switch program[n].referredDecl {
       case .builtinFunction(let f):
-        _lowering(e) { me in
-          let x0 = me._emit(apply: f, to: me.ast[e].arguments)
-          let x1 = me._access(.set, from: storage)
-          me._store(x0, x1)
-        }
+        let x0 = _emit(apply: f, to: ast[e].arguments)
+        let x1 = _access(.set, from: storage)
+        _store(x0, x1)
         return
 
       case .constructor:
-        _lowering(e) {
-          $0.emit(constructorCall: e, initializing: storage)
-        }
+        emit(constructorCall: e, initializing: storage)
         return
 
       default:
@@ -1673,9 +1669,7 @@ struct Emitter {
     let (callee, captures) = emitFunctionCallee(ast[e].callee, markedForMutation: m)
 
     // Call is evaluated last.
-    _lowering(e)  {
-      $0._emitApply(callee, to: captures + arguments, writingResultTo: storage)
-    }
+    _emitApply(callee, to: captures + arguments, writingResultTo: storage)
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
