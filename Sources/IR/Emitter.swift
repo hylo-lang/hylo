@@ -1489,9 +1489,9 @@ struct Emitter {
       case BooleanLiteralExpr.self:
         me._emitStore(boolean: me.ast[BooleanLiteralExpr.ID(e)!].value, to: storage)
       case BufferLiteralExpr.self:
-        me.emitStore(BufferLiteralExpr.ID(e)!, to: storage)
+        me._emitStore(BufferLiteralExpr.ID(e)!, to: storage)
       case CaptureExpr.self:
-        me.emitStore(CaptureExpr.ID(e)!, to: storage)
+        me._emitStore(CaptureExpr.ID(e)!, to: storage)
       case CastExpr.self:
         me.emitStore(CastExpr.ID(e)!, to: storage)
       case ConditionalExpr.self:
@@ -1527,9 +1527,9 @@ struct Emitter {
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
-  private mutating func emitStore(_ e: BufferLiteralExpr.ID, to storage: Operand) {
+  private mutating func _emitStore(_ e: BufferLiteralExpr.ID, to storage: Operand) {
     if program[e].elements.isEmpty {
-      _lowering(e) { $0._mark_state(.initialized, storage) }
+      _mark_state(.initialized, storage)
       return
     }
 
@@ -1541,20 +1541,18 @@ struct Emitter {
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
-  private mutating func emitStore(_ e: CaptureExpr.ID, to storage: Operand) {
+  private mutating func _emitStore(_ e: CaptureExpr.ID, to storage: Operand) {
     let t = RemoteType(program[e].type)!
     let x0 = emitLValue(program[e].source)
-    _lowering(e) { me in
-      let x1 = me._access([t.access], from: x0)
-      return me._emitStore(access: x1, to: storage)
-    }
+    let x1 = _access([t.access], from: x0)
+    _emitStore(access: x1, to: storage)
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
   private mutating func emitStore(_ e: CastExpr.ID, to storage: Operand) {
     switch ast[e].direction {
     case .up:
-      emitStore(upcast: e, to: storage)
+      _emitStore(upcast: e, to: storage)
     case .down:
       emitStore(downcast: e, to: storage)
     case .pointerConversion:
@@ -1563,7 +1561,7 @@ struct Emitter {
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
-  private mutating func emitStore(upcast e: CastExpr.ID, to storage: Operand) {
+  private mutating func _emitStore(upcast e: CastExpr.ID, to storage: Operand) {
     assert(ast[e].direction == .up)
     let target = canonical(program[e].type)
     let source = canonical(program[ast[e].left].type)
@@ -1576,11 +1574,9 @@ struct Emitter {
 
     // `A ~> Union<A, B>`
     if let u = UnionType(target), u.elements.contains(source) {
-      _lowering(e) { me in
-        let x0 = me._open_union(storage, as: source, .forInitialization)
-        me.emitStore(value: me.ast[e].left, to: x0)
-        me._close_union(x0)
-      }
+      let x0 = _open_union(storage, as: source, .forInitialization)
+      emitStore(value: ast[e].left, to: x0)
+      _close_union(x0)
       return
     }
 
