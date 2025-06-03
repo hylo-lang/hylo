@@ -1495,7 +1495,7 @@ struct Emitter {
       case CastExpr.self:
         me.emitStore(CastExpr.ID(e)!, to: storage)
       case ConditionalExpr.self:
-        me.emitStore(ConditionalExpr.ID(e)!, to: storage)
+        me._emitStore(ConditionalExpr.ID(e)!, to: storage)
       case FloatLiteralExpr.self:
         me.emitStore(FloatLiteralExpr.ID(e)!, to: storage)
       case FunctionCallExpr.self:
@@ -1619,21 +1619,19 @@ struct Emitter {
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
-  private mutating func emitStore(_ e: ConditionalExpr.ID, to storage: Operand) {
+  private mutating func _emitStore(_ e: ConditionalExpr.ID, to storage: Operand) {
     let (success, failure) = emitTest(condition: ast[e].condition, in: AnyScopeID(e))
     let tail = appendBlock()
 
     // Emit the success branch.
     insertionPoint = .end(of: success)
     within(Frame()) { $0.emitStore(value: $0.ast[e].success, to: storage) }
-    _lowering(e) { me in
-      me._branch(to: tail)
+    _branch(to: tail)
 
-      // Emit the failure branch.
-      me.insertionPoint = .end(of: failure)
-      me.within(Frame()) { $0.emitStore(value: $0.ast[e].failure.value, to: storage) }
-      me._branch(to: tail)
-    }
+    // Emit the failure branch.
+    insertionPoint = .end(of: failure)
+    within(Frame()) { $0.emitStore(value: $0.ast[e].failure.value, to: storage) }
+    _branch(to: tail)
     insertionPoint = .end(of: tail)
   }
 
