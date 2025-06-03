@@ -2007,7 +2007,7 @@ struct Emitter {
 
     // Handle memberwise constructor calls.
     if ast[d].isMemberwise {
-      emit(memberwiseInitializerCall: call, initializing: s)
+      _emit(memberwiseInitializerCall: call, initializing: s)
       return
     }
 
@@ -2035,13 +2035,13 @@ struct Emitter {
   ///   - call: The syntax of the call.
   ///   - receiver: The address of uninitialized storage typed by the receiver of `d`. This storage
   ///     is borrowed for initialization after evaluating `call`'s arguments.
-  private mutating func emit(
+  private mutating func _emit(
     memberwiseInitializerCall call: FunctionCallExpr.ID, initializing receiver: Operand
   ) {
     let callee = ArrowType(canonical(program[ast[call].callee].type))!
 
     if callee.inputs.isEmpty {
-      _lowering(call) { $0._mark_state(.initialized, receiver) }
+      _mark_state(.initialized, receiver)
       return
     }
 
@@ -2052,7 +2052,7 @@ struct Emitter {
         UNIMPLEMENTED()
       }
 
-      let s = _lowering(call) { $0._subfield_view(receiver, at: [i]) }
+      let s = _subfield_view(receiver, at: [i])
       emitStore(value: ast[call].arguments[i].value, to: s)
     }
   }
