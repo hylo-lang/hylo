@@ -1517,7 +1517,7 @@ struct Emitter {
       case StringLiteralExpr.self:
         me._emitStore(StringLiteralExpr.ID(e)!, to: storage)
       case TupleExpr.self:
-        me.emitStore(TupleExpr.ID(e)!, to: storage)
+        me._emitStore(TupleExpr.ID(e)!, to: storage)
       case TupleMemberExpr.self:
         me.emitStore(TupleMemberExpr.ID(e)!, to: storage)
       default:
@@ -1795,9 +1795,9 @@ struct Emitter {
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
-  private mutating func emitStore(_ e: TupleExpr.ID, to storage: Operand) {
+  private mutating func _emitStore(_ e: TupleExpr.ID, to storage: Operand) {
     if ast[e].elements.isEmpty {
-      _lowering(e) { $0._mark_state(.initialized, storage) }
+      _mark_state(.initialized, storage)
       return
     }
 
