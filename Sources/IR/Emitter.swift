@@ -1505,7 +1505,7 @@ struct Emitter {
       case LambdaExpr.self:
         me._emitStore(LambdaExpr.ID(e)!, to: storage)
       case NameExpr.self:
-        me.emitStore(NameExpr.ID(e)!, to: storage)
+        me._emitStore(NameExpr.ID(e)!, to: storage)
       case PragmaLiteralExpr.self:
         me._emitStore(PragmaLiteralExpr.ID(e)!, to: storage)
       case RemoteTypeExpr.self:
@@ -1717,11 +1717,9 @@ struct Emitter {
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
-  private mutating func emitStore(_ e: NameExpr.ID, to storage: Operand) {
+  private mutating func _emitStore(_ e: NameExpr.ID, to storage: Operand) {
     let x0 = emitLValue(e)
-    _lowering(e) {
-      $0._emitMove([.inout, .set], x0, to: storage)
-    }
+    _emitMove([.inout, .set], x0, to: storage)
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
