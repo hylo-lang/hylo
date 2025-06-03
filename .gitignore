@@ -9,7 +9,7 @@
 /.vscode/launch.json
 # macOS
 .DS_Store
-\#*ediff-merge*#
+\#*#
 
 # Misc
 /Examples/**.vir
