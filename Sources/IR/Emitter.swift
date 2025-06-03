@@ -1515,7 +1515,7 @@ struct Emitter {
       case SubscriptCallExpr.self:
         me.emitStore(SubscriptCallExpr.ID(e)!, to: storage)
       case StringLiteralExpr.self:
-        me.emitStore(StringLiteralExpr.ID(e)!, to: storage)
+        me._emitStore(StringLiteralExpr.ID(e)!, to: storage)
       case TupleExpr.self:
         me.emitStore(TupleExpr.ID(e)!, to: storage)
       case TupleMemberExpr.self:
@@ -1790,10 +1790,8 @@ struct Emitter {
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
-  private mutating func emitStore(_ e: StringLiteralExpr.ID, to storage: Operand) {
-    _lowering(e) {
-      $0._emitStore(utf8: $0.ast[e].value.unescaped.utf8, to: storage)
-    }
+  private mutating func _emitStore(_ e: StringLiteralExpr.ID, to storage: Operand) {
+    _emitStore(utf8: ast[e].value.unescaped.utf8, to: storage)
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
