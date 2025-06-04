@@ -29,7 +29,7 @@ jobs:
     runs-on: macos-15
     env:
       llvm_url_prefix: https://github.com/hylo-lang/llvm-build/releases/download/20250603-162600
-      llvm_package_basename: llvm-17.0.6-arm64-apple-darwin23.3.0-MinSizeRel
+      llvm_package_basename: llvm-17.0.6-arm64-apple-darwin24.1.0-MinSizeRel
       swift-version: '5.10'
 
     steps:
