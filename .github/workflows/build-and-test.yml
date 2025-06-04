@@ -68,7 +68,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        spm_configuration: [debug, release]
+        cmake_build_type: [Debug, Release]
+
         include:
           - spm_configuration: debug
             cmake_build_type: Debug
@@ -101,22 +102,22 @@ jobs:
           HYLO_LLVM_BUILD_TYPE: ${{ matrix.HYLO_LLVM_BUILD_TYPE }}
         with:
           runCmd: >-
-            cmake -GNinja -S . -B .ninja-build
+            cmake -GNinja -S . -B .cmake-build
             -DCMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }}
             -DBUILD_TESTING=YES
             -DLLVM_DIR=/opt/llvm-${{ matrix.HYLO_LLVM_BUILD_TYPE }}/lib/cmake/llvm
 
-            cmake --build .ninja-build
+            cmake --build .cmake-build
 
-            find .ninja-build -name '*.o' -delete
+            find .cmake-build -name '*.o' -delete
 
-            find .ninja-build -name '*.a' -delete
+            find .cmake-build -name '*.a' -delete
 
-            ctest --output-on-failure --parallel --test-dir .ninja-build
+            ctest --output-on-failure --parallel --test-dir .cmake-build
           push: never
 
       - name: Reclaim disk space
-        run: rm -rf .ninja-build
+        run: rm -rf .cmake-build
 
       - name: Restore Cache for SPM
         uses: actions/cache@v4
@@ -168,8 +169,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # macos-latest is apparently not the latest.
-        os: [macos-13, ubuntu-latest, windows-latest]
+        os: [macos-14, ubuntu-latest, windows-latest]
         spm_configuration: [debug, release]
         cmake_generator: [Ninja, Xcode]
 
@@ -180,7 +180,7 @@ jobs:
             cmake_generator: Xcode
 
         include:
-          - HYLO_LLVM_BUILD_RELEASE: 20240303-215025
+          - HYLO_LLVM_BUILD_RELEASE: 20250603-162600
           - HYLO_LLVM_BUILD_TYPE: MinSizeRel
           - HYLO_LLVM_DOWNLOAD_URL: https://github.com/hylo-lang/llvm-build/releases/download
           - HYLO_LLVM_VERSION: '17.0.6'
@@ -188,8 +188,8 @@ jobs:
           - unpackage_command: tar -x --zstd -f
           # https://github.com/apple/swift/issues/72121
           - windows_only: '# WINDOWS ONLY:'
-          - on_windows_and_spm_works: false
           - use_spm: true
+          - triple_cpu: x86_64
 
           - os: windows-latest
             unpackage_command: 7z x -t7z
@@ -200,8 +200,9 @@ jobs:
           - os: windows-latest
             use_spm: false
 
-          - os: macos-13
-            triple_suffix: apple-darwin23.3.0
+          - os: macos-14
+            triple_suffix: apple-darwin24.1.0
+            triple_cpu: arm64
 
           - os: ubuntu-latest
             triple_suffix: unknown-linux-gnu
@@ -218,7 +219,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       llvm_url_prefix: ${{ matrix.HYLO_LLVM_DOWNLOAD_URL }}/${{ matrix.HYLO_LLVM_BUILD_RELEASE }}
-      llvm_package_basename: llvm-${{ matrix.HYLO_LLVM_VERSION }}-x86_64-${{ matrix.triple_suffix }}-${{ matrix.HYLO_LLVM_BUILD_TYPE }}
+      llvm_package_basename: llvm-${{ matrix.HYLO_LLVM_VERSION }}-${{ matrix.triple_cpu }}-${{ matrix.triple_suffix }}-${{ matrix.HYLO_LLVM_BUILD_TYPE }}
 
     steps:
       - name: Checkout
@@ -238,7 +239,6 @@ jobs:
         uses: SwiftyLab/setup-swift@latest
         with:
           swift-version: ${{ env.swift-version }}
-          cache-snapshot: false # Workaround for https://github.com/SwiftyLab/setup-swift/issues/315
 
       - uses: compnerd/gha-setup-vsdevenv@main
         with:
@@ -274,18 +274,18 @@ jobs:
       - name: Configure (CMake)
         # We explicitly point to swiftc in the PATH because otherwise CMake picks up the one in XCode.
         run: >-
-          cmake -G '${{ matrix.cmake_generator }}' -S . -B .ninja-build
+          cmake -G '${{ matrix.cmake_generator }}' -S . -B .cmake-build
           ${{ matrix.cmake_generator != 'Xcode' && format('-DCMAKE_BUILD_TYPE={0}', matrix.cmake_build_type) || '' }}
           -DBUILD_TESTING=YES
           -DLLVM_DIR=${{ github.workspace }}/${{ env.llvm_package_basename }}/lib/cmake/llvm
-          ${{ matrix.os == 'macos-13' && '-D CMAKE_Swift_COMPILER=swiftc -DCMAKE_OSX_SYSROOT=$(xcrun --show-sdk-path)' || '' }}
+          ${{ runner.os == 'macOS' && '-D CMAKE_Swift_COMPILER=swiftc -DCMAKE_OSX_SYSROOT=$(xcrun --show-sdk-path)' || '' }}
         working-directory: hylo
 
       - name: Build (CMake)
-        run: cmake --build hylo/.ninja-build ${{ matrix.cmake_generator == 'Xcode' && format('--config {0}', matrix.cmake_build_type) || '' }}
+        run: cmake --build hylo/.cmake-build ${{ matrix.cmake_generator == 'Xcode' && format('--config {0}', matrix.cmake_build_type) || '' }}
 
       - name: Test (CMake)
-        run: ctest --output-on-failure --parallel --test-dir hylo/.ninja-build ${{ matrix.cmake_generator == 'Xcode' && format('-C {0}', matrix.cmake_build_type) || '' }}
+        run: ctest --output-on-failure --parallel --test-dir hylo/.cmake-build ${{ matrix.cmake_generator == 'Xcode' && format('-C {0}', matrix.cmake_build_type) || '' }}
 
       - if: ${{ matrix.use_spm }}
         name: Create LLVM pkgconfig file and make it findable
@@ -301,20 +301,21 @@ jobs:
         shell: bash
 
       - if: ${{ matrix.use_spm }}
-        uses: actions/cache@v4
+        # Workaround for https://github.com/actions/cache/issues/1541
+        uses: actions/cache@v4.2.2
         name: SPM cache setup
         with:
           path: hylo/.build
-          key: ${{ runner.os }}-${{ matrix.spm_configuration }}-spm-${{ hashFiles('hylo/**/Package.resolved') }}
+          key: ${{ matrix.os }}-${{ matrix.spm_configuration }}-spm-${{ hashFiles('hylo/**/Package.resolved') }}
           restore-keys: |
-            ${{ runner.os }}-${{ matrix.spm_configuration }}-spm-
+            ${{ matrix.os }}-${{ matrix.spm_configuration }}-spm-
 
-      - if: ${{ matrix.on_windows_and_spm_works }}
+      - if: ${{ matrix.use_spm && runner.os == 'Windows' }}
         name: Build support library
         run: clang -c ./StandardLibrary/Sources/LibC.c -o HyloLibC.lib
         working-directory: hylo
 
-      - if: ${{ matrix.on_windows_and_spm_works }}
+      - if: ${{ matrix.use_spm && runner.os == 'Windows' }}
         name: Build the dependencies of build tools
         run: |
           echo 'SPM_BUILD_TOOL_SUPPORT_NO_REENTRANT_BUILD=1' >> $env:GITHUB_ENV
@@ -341,4 +342,4 @@ jobs:
         working-directory: hylo
 
       - name: Output compiler version
-        run: cmake --build hylo/.ninja-build --target output_compiler_version -- --quiet&
+        run: cmake --build hylo/.cmake-build --target output_compiler_version -- --quiet&
