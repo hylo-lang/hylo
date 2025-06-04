@@ -229,7 +229,7 @@ struct Emitter {
     switch b {
     case .block(let s):
       let returnType = ArrowType(program[d].type)!.output
-      let returnSite = within(bodyFrame, { $0._lowered(s, output: returnType) })
+      let returnSite = within(bodyFrame, { $0.siteOfReturn(lowering: s, whichReturns: returnType) })
       _lowering(at: returnSite) { $0._return() }
 
     case .expr(let e):
@@ -259,8 +259,8 @@ struct Emitter {
   /// Inserts the IR for the statements of `b`, which is the body of a function returning instances
   /// of `returnType`, and returns the site of the return statement.
   @discardableResult
-  private mutating func _lowered(
-    _ b: BraceStmt.ID, output returnType: AnyType
+  private mutating func siteOfReturn(
+    lowering b: BraceStmt.ID, whichReturns returnType: AnyType
   ) -> SourceRange {
     switch emit(braceStmt: b) {
     case .next:
@@ -345,7 +345,7 @@ struct Emitter {
     // Emit the body.
     insertionPoint = .end(of: entry)
     let returnSite = within(Frame(locals: locals)) {
-      $0._lowered($0.ast[d].body!, output: .void)
+      $0.siteOfReturn(lowering: $0.ast[d].body!, whichReturns: .void)
     }
 
     // If the object is empty, simply mark it initialized.
@@ -390,7 +390,7 @@ struct Emitter {
     switch b {
     case .block(let s):
       let returnSite = within(Frame(locals: parameters)) {
-        $0._lowered(s, output: ArrowType($0.program[d].type)!.output)
+        $0.siteOfReturn(lowering: s, whichReturns: ArrowType($0.program[d].type)!.output)
       }
       _lowering(at: returnSite) { $0._return() }
 
