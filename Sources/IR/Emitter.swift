@@ -26,11 +26,11 @@ import Foundation
 struct Emitter {
   // Emitter coding convention:
   //
-  // - The `_site` property is state set by the `_lowering()` family of
+  // - The `currentSource` property is state set by the `_lowering()` family of
   //   functions.
   //
   // - Methods of the form `_snake_case_name` emit a `snake_case_name`
-  //   instruction associated with the current `_site`.
+  //   instruction associated with the current `currentSource`.
   //
   // - Methods of the form `_emitXXX(optionalLabel: something ...)`
   //   should only be entered in the context of a call to
@@ -63,7 +63,7 @@ struct Emitter {
   var insertionPoint: InsertionPoint?
 
   /// The source code associated with instructions to be inserted.
-  var _site: SourceRange?
+  var currentSource: SourceRange?
 
   /// The program being lowered.
   private var program: TypedProgram {
@@ -872,8 +872,8 @@ struct Emitter {
         me.insertionPoint = .end(of: entry)
         me.frames.push()
 
-        let savedSite = me._site
-        defer { me._site = savedSite }
+        let savedSite = me.currentSource
+        defer { me.currentSource = savedSite }
         me._lowering(me.module.id) { me in
           action(&me, entry)
         }
@@ -1308,7 +1308,7 @@ struct Emitter {
     precondition(ast[s].filter == nil, "loop filters are not implemented")
 
     insertionPoint = .end(of: next)
-    // TODO: check this _site control logic.
+    // TODO: check this currentSource control logic.
     _lowering(at: introducer) { me in
       let flow = me.emit(braceStmt: me.ast[s].body)
       me.emitControlFlow(flow) { (me) in
@@ -1748,9 +1748,9 @@ struct Emitter {
   ) {
     switch ast[e].kind {
     case .file:
-      _emitStore(utf8: _site!.file.url.absoluteURL.fileSystemPath.utf8, to: storage)
+      _emitStore(utf8: currentSource!.file.url.absoluteURL.fileSystemPath.utf8, to: storage)
     case .line:
-      _emitStore(int: _site!.start.line.number, to: storage)
+      _emitStore(int: currentSource!.start.line.number, to: storage)
     }
   }
 
@@ -1918,7 +1918,7 @@ struct Emitter {
         .error(
           integerLiteral: literalValue,
           overflowsWhenStoredInto: program[literal].type,
-          at: _site!))
+          at: currentSource!))
       return
     }
 
@@ -1967,7 +1967,7 @@ struct Emitter {
     access a: Operand, to storage: Operand
   ) {
     guard let s = module.provenances(storage).uniqueElement, module[s] is AllocStack else {
-      report(.error(cannotCaptureAccessAt: _site!))
+      report(.error(cannotCaptureAccessAt: currentSource!))
       return
     }
 
@@ -2996,7 +2996,7 @@ struct Emitter {
     // Other types must be movable.
     let m = program.ast.core.movable.type
     guard let movable = program.conformance(of: model, to: m, exposedTo: insertionScope!) else {
-      report(.error(model, doesNotConformTo: m, at: _site!))
+      report(.error(model, doesNotConformTo: m, at: currentSource!))
       return
     }
 
@@ -3118,7 +3118,7 @@ struct Emitter {
     } else if m.isBuiltinOrRawTuple {
       _mark_state(.uninitialized, storage)
     } else {
-      report(.error(m, doesNotConformTo: d, at: _site!))
+      report(.error(m, doesNotConformTo: d, at: currentSource!))
     }
   }
 
@@ -3151,7 +3151,7 @@ struct Emitter {
     } else if t.hasRecordLayout {
       _emitDeinitRecordParts(of: storage)
     } else {
-      report(.error(t, doesNotConformTo: ast.core.deinitializable.type, at: _site!))
+      report(.error(t, doesNotConformTo: ast.core.deinitializable.type, at: currentSource!))
     }
   }
 
@@ -3242,7 +3242,7 @@ struct Emitter {
       _end_access(x1)
       _end_access(x0)
     } else {
-      report(.error(m, doesNotConformTo: d, at: _site!))
+      report(.error(m, doesNotConformTo: d, at: currentSource!))
     }
   }
 
@@ -3363,7 +3363,7 @@ struct Emitter {
     // having set up a record of frames and allocations.  When we recompute
     // allocations as on-demand, that will become a non-issue.
     if frames.isEmpty { frames.push() }
-    let s = insert(module.makeAllocStack(canonical(t), at: _site!))!
+    let s = insert(module.makeAllocStack(canonical(t), at: currentSource!))!
     frames.top.allocs.append((source: s, mayHoldCaptures: false))
     return s
   }
@@ -3387,7 +3387,7 @@ struct Emitter {
     if a.mayHoldCaptures {
       _release_capture(a.source)
     }
-    insert(module.makeDeallocStack(for: source, at: _site!))
+    insert(module.makeDeallocStack(for: source, at: currentSource!))
   }
 
   /// Appends the IR for computing the address of the given `subfield` of the record at
@@ -3399,10 +3399,10 @@ struct Emitter {
 
     if let r = module[recordAddress] as? SubfieldView {
       let p = r.subfield + subfield
-      let s = module.makeSubfieldView(of: r.recordAddress, subfield: p, at: _site!)
+      let s = module.makeSubfieldView(of: r.recordAddress, subfield: p, at: currentSource!)
       return insert(s)!
     } else {
-      let s = module.makeSubfieldView(of: recordAddress, subfield: subfield, at: _site!)
+      let s = module.makeSubfieldView(of: recordAddress, subfield: subfield, at: currentSource!)
       return insert(s)!
     }
   }
@@ -3436,13 +3436,13 @@ struct Emitter {
   private mutating func within<T>(_ newFrame: Frame, _ action: (inout Self) -> T) -> T {
     frames.push(newFrame)
     defer {
-      let savedSource = _site
+      let savedSource = currentSource
 
       _lowering(after: insertionScope!) {
         $0._emitDeallocTopFrame()
       }
       frames.pop()
-      _site = savedSource
+      currentSource = savedSource
     }
     return action(&self)
   }
@@ -3458,12 +3458,12 @@ struct Emitter {
     swap(&p, &insertionPoint)
     swap(&f, &frames)
     swap(&l, &loops)
-    swap(&s, &_site)
+    swap(&s, &currentSource)
     defer {
       swap(&p, &insertionPoint)
       swap(&f, &frames)
       swap(&l, &loops)
-      swap(&s, &_site)
+      swap(&s, &currentSource)
     }
     return try action(&self)
   }
@@ -3472,7 +3472,7 @@ struct Emitter {
   mutating func _cond_branch(if condition: Operand, then targetIfTrue: Block.ID, else targetIfFalse: Block.ID) {
     checkEntryStack(targetIfTrue)
     checkEntryStack(targetIfFalse)
-    insert(module.makeCondBranch(if: condition, then: targetIfTrue, else: targetIfFalse, at: _site!))
+    insert(module.makeCondBranch(if: condition, then: targetIfTrue, else: targetIfFalse, at: currentSource!))
   }
 
 }
@@ -3636,40 +3636,36 @@ extension Diagnostic {
 
 extension Emitter {
 
-  /// Calls `body(&self)` with `_site` (the source location for
-  /// generated instructions) set to the source location of `x`,
-  /// returning the result.
+  /// Calls `body(&self)` with `currentSource` set to the lexical
+  /// location of `x`, returning the result.
   mutating func _lowering<ASTNode: NodeIDProtocol, R>(_ x: ASTNode, _ body: (inout Emitter)->R) -> R {
     _lowering(at: ast[x].site, body)
   }
 
-  /// Calls `body(&self)` with `_site` (the source location for
-  /// generated instructions) set to the source location of `x`,
-  /// returning the result.
+  /// Calls `body(&self)` with `currentSource` set to the lexical
+  /// location of `x`, returning the result.
   mutating func _lowering<T, R>(_ x: SourceRepresentable<T>, _ body: (inout Emitter)->R) -> R {
     _lowering(at: x.site, body)
   }
 
-  /// Calls `body(&self)` with `_site` (the source location for
-  /// generated instructions) set to the source location where `x`
-  /// begins, returning the result.
+  /// Calls `body(&self)` with `currentSource` set to the lexical
+  /// beginning of `x`, returning the result.
   mutating func _lowering<ID: NodeIDProtocol, R>(before x: ID, _ body: (inout Emitter)->R) -> R {
     _lowering(at: .empty(at: ast[x].site.start), body)
   }
 
-  /// Calls `body(&self)` with `_site` (the source location for
-  /// generated instructions) set to the source location where `x`
-  /// ends, returning the result.
+  /// Calls `body(&self)` with `currentSource` set to the lexical
+  /// end of `x`, returning the result.
   mutating func _lowering<ID: NodeIDProtocol, R>(after x: ID, _ body: (inout Emitter)->R) -> R {
     _lowering(at: .empty(at: ast[x].site.end), body)
   }
 
-  /// Calls `body(&self)` with `_site` (the source location for
-  /// generated instructions) set to `x`, returning the result.
+  /// Calls `body(&self)` with `currentSource` set to `x`, returning
+  /// the result.
   mutating func _lowering<R>(at x: SourceRange, _ body: (inout Emitter)->R) -> R {
-    let savedSite = _site
-    defer { _site = savedSite }
-    _site = x
+    let savedSite = currentSource
+    defer { currentSource = savedSite }
+    currentSource = x
     return body(&self)
   }
 
@@ -3697,40 +3693,40 @@ extension Emitter {
 extension Emitter {
 
   fileprivate mutating func _mark_state(_ x: InitializationState, _ op: Operand?) {
-    insert(module.makeMarkState(op!, initialized: x == .initialized, at: _site!))
+    insert(module.makeMarkState(op!, initialized: x == .initialized, at: currentSource!))
   }
 
   fileprivate mutating func _call_ffi<T: TypeProtocol>(_ foreignName: String, on arguments: [Operand], returning returnType: T) -> Operand {
     insert(
       module.makeCallFFI(
-        returning: .object(returnType), applying: foreignName, to: arguments, at: _site!))!
+        returning: .object(returnType), applying: foreignName, to: arguments, at: currentSource!))!
   }
 
   fileprivate mutating func _unreachable() {
-    insert(module.makeUnreachable(at: _site!))
+    insert(module.makeUnreachable(at: currentSource!))
   }
 
   fileprivate mutating func _return() {
-    insert(module.makeReturn(at: _site!))
+    insert(module.makeReturn(at: currentSource!))
   }
 
   fileprivate mutating func _access(
     _ capabilities: AccessEffectSet, from s: Operand, correspondingTo binding: VarDecl.ID? = nil
   ) -> Operand {
-    insert(module.makeAccess(capabilities, from: s, correspondingTo: binding, at: _site!))!
+    insert(module.makeAccess(capabilities, from: s, correspondingTo: binding, at: currentSource!))!
   }
 
   fileprivate mutating func _end_access(_ x: Operand) {
-    insert(module.makeEndAccess(x, at: _site!))
+    insert(module.makeEndAccess(x, at: currentSource!))
   }
 
   fileprivate mutating func _yield(_ c: AccessEffect, _ a: Operand) {
-    _ = insert(module.makeYield(c, a, at: _site!))
+    _ = insert(module.makeYield(c, a, at: currentSource!))
   }
 
   fileprivate mutating func _branch(to x: Block.ID) {
     checkEntryStack(x)
-    _ = insert(module.makeBranch(to: x, at: _site!))
+    _ = insert(module.makeBranch(to: x, at: currentSource!))
   }
 
   fileprivate mutating func _open_union(
@@ -3739,11 +3735,11 @@ extension Emitter {
   ) -> Operand {
     insert(
       module.makeOpenUnion(
-        container, as: payload, forInitialization: option == .forInitialization, at: _site!))!
+        container, as: payload, forInitialization: option == .forInitialization, at: currentSource!))!
   }
 
   fileprivate mutating func _close_union(_ x: Operand  ) {
-    insert(module.makeCloseUnion(x, at: _site!))
+    insert(module.makeCloseUnion(x, at: currentSource!))
   }
 
   fileprivate mutating func _project(
@@ -3751,27 +3747,27 @@ extension Emitter {
     to arguments: [Operand]
   ) -> Operand {
     insert(
-      module.makeProject(t, applying: s, specializedBy: z, to: arguments, at: _site!))!
+      module.makeProject(t, applying: s, specializedBy: z, to: arguments, at: currentSource!))!
   }
 
   fileprivate mutating func _store(_ source: Operand, _ target: Operand) {
-    insert(module.makeStore(source, at: target, at: _site!))
+    insert(module.makeStore(source, at: target, at: currentSource!))
   }
 
   /// Inserts a `load` instruction reading from `source`.
   fileprivate mutating func _load(_ source: Operand) -> Operand {
-    insert(module.makeLoad(source, at: _site!))!
+    insert(module.makeLoad(source, at: currentSource!))!
   }
 
 
   fileprivate mutating func _address_to_pointer(_ source: Operand) -> Operand {
-    insert(module.makeAddressToPointer(source, at: _site!))!
+    insert(module.makeAddressToPointer(source, at: currentSource!))!
   }
 
   fileprivate mutating func _call_builtin(
     _ f: BuiltinFunction, _ arguments: [Operand]
   ) -> Operand {
-    insert(module.makeCallBuiltin(applying: f, to: arguments, at: _site!))!
+    insert(module.makeCallBuiltin(applying: f, to: arguments, at: currentSource!))!
   }
 
   fileprivate mutating func _project_bundle(
@@ -3779,34 +3775,34 @@ extension Emitter {
   ) -> Operand {
     insert(
       module.makeProjectBundle(
-        applying: b, to: arguments, at: _site!,
+        applying: b, to: arguments, at: currentSource!,
         canonicalizingTypesIn: insertionScope!))!
   }
 
   fileprivate mutating func _open_capture(_ s: Operand) -> Operand {
-    insert(module.makeOpenCapture(s, at: _site!))!
+    insert(module.makeOpenCapture(s, at: currentSource!))!
   }
 
   fileprivate mutating func _release_capture(_ source: Operand) {
-    insert(module.makeReleaseCapture(source, at: _site!))
+    insert(module.makeReleaseCapture(source, at: currentSource!))
   }
 
   fileprivate mutating func _advanced(_ source: Operand, byStrides n: Int) -> Operand {
-    insert(module.makeAdvanced(source, byStrides: n, at: _site!))!
+    insert(module.makeAdvanced(source, byStrides: n, at: currentSource!))!
   }
 
   fileprivate mutating func _constant_string(utf8 value: Data) -> Operand {
-    insert(module.makeConstantString(utf8: value, at: _site!))!
+    insert(module.makeConstantString(utf8: value, at: currentSource!))!
   }
 
   fileprivate mutating func _capture(_ source: Operand, in target: Operand) {
-    insert(module.makeCapture(source, in: target, at: _site!))
+    insert(module.makeCapture(source, in: target, at: currentSource!))
   }
 
   fileprivate mutating func _call(
     _ callee: Operand, _ arguments: [Operand], to output: Operand
   ) {
-    insert(module.makeCall(applying: callee, to: arguments, writingResultTo: output, at: _site!))
+    insert(module.makeCall(applying: callee, to: arguments, writingResultTo: output, at: currentSource!))
   }
 
   fileprivate mutating func _call_bundle(
@@ -3815,42 +3811,42 @@ extension Emitter {
     scopeOfUse: AnyScopeID
   ) {
     insert(module.makeCallBundle(
-      applying: m, to: a, writingResultTo: o, at: _site!,
+      applying: m, to: a, writingResultTo: o, at: currentSource!,
       canonicalizingTypesIn: scopeOfUse))
   }
 
   fileprivate mutating func _wrap_existential_addr(
     _ witness: Operand, _ table: Operand, as interface: ExistentialType
   ) -> Operand {
-    insert(module.makeWrapExistentialAddr(witness, table, as: interface, at: _site!))!
+    insert(module.makeWrapExistentialAddr(witness, table, as: interface, at: currentSource!))!
   }
 
   fileprivate mutating func _pointer_to_address(_ x: Operand, as t: RemoteType) -> Operand {
-    insert(module.makePointerToAddress(x, to: t, at: _site!))!
+    insert(module.makePointerToAddress(x, to: t, at: currentSource!))!
   }
 
   fileprivate mutating func _generic_parameter(at x: GenericParameterDecl.ID) -> Operand {
-    insert(module.makeGenericParameter(passedTo: x, at: _site!))!
+    insert(module.makeGenericParameter(passedTo: x, at: currentSource!))!
   }
 
   fileprivate mutating func _global_addr(at x: BindingDecl.ID) -> Operand {
-    insert(module.makeGlobalAddr(of: x, at: _site!))!
+    insert(module.makeGlobalAddr(of: x, at: currentSource!))!
   }
 
   fileprivate mutating func _memory_copy(_ source: Operand, _ target: Operand) {
-    insert(module.makeMemoryCopy(source, target, at: _site!))
+    insert(module.makeMemoryCopy(source, target, at: currentSource!))
   }
 
   fileprivate mutating func _move(_ source: Operand, _ target: Operand, via movability: FrontEnd.Conformance) {
-    insert(module.makeMove(source, to: target, usingConformance: movability, at: _site!))
+    insert(module.makeMove(source, to: target, usingConformance: movability, at: currentSource!))
   }
 
   fileprivate mutating func _union_discriminator(_ x: Operand) -> Operand {
-    insert(module.makeUnionDiscriminator(x, at: _site!))!
+    insert(module.makeUnionDiscriminator(x, at: currentSource!))!
   }
 
   fileprivate mutating func _union_switch(case discriminator: Operand, of u: UnionType, _ targets: UnionSwitch.Targets) {
-    insert(module.makeUnionSwitch(over: discriminator, of: u, toOneOf: targets, at: _site!))
+    insert(module.makeUnionSwitch(over: discriminator, of: u, toOneOf: targets, at: currentSource!))
   }
 
 }
