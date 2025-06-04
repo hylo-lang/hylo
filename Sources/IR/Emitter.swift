@@ -722,7 +722,7 @@ struct Emitter {
   }
 
   /// Inserts the IR for initializing the stored parts of `receiver`, which stores a record,
-  /// consuming `argument` at `site`.
+  /// consuming `argument`.
   private mutating func _emitMoveInitRecordParts(
     of receiver: Operand, consuming argument: Operand
   ) {
@@ -746,7 +746,7 @@ struct Emitter {
   }
 
   /// Inserts the IR for initializing the payload of `receiver`, which stores a union container,
-  /// consuming `argument` at `site`.
+  /// consuming `argument`.
   private mutating func _emitMoveInitUnionPayload(
     of receiver: Operand, consuming argument: Operand
   ) {
@@ -782,7 +782,7 @@ struct Emitter {
   }
 
   /// Inserts the IR for initializing the payload of `receiver`, which stores a union containing
-  /// a `payload`, consuming `argument` at `site`.
+  /// a `payload`, consuming `argument`.
   ///
   /// - Requires: the type of `storage` is a union containing a `payload`.
   private mutating func _emitMoveInitUnionPayload(
@@ -853,8 +853,9 @@ struct Emitter {
     }
   }
 
-  /// Declares `d` in the current module and returns its corresponding identifier, calls `action`
-  /// to generate its implementation if it should be emitted the current module.
+  /// Declares `d` in the current module and returns its corresponding
+  /// identifier, calling `action` to generate its implementation if
+  /// it should be emitted the current module.
   @discardableResult
   private mutating func withPrologue(
     of d: SynthesizedFunctionDecl,
@@ -899,7 +900,7 @@ struct Emitter {
     }
   }
 
-  /// Inserts the IR for copying `source`, which stores a union container, to `target` at `site`.
+  /// Inserts the IR for copying `source`, which stores a union container, to `target`.
   private mutating func _emitCopyUnionPayload(
     from source: Operand, to target: Operand
   ) {
@@ -933,8 +934,8 @@ struct Emitter {
     insertionPoint = .end(of: tail)
   }
 
-  /// Inserts the IR for copying `source`, which stores a union containing a `payload`, to `target`
-  /// at `site`.
+  /// Inserts the IR for copying `source`, which stores a union
+  /// containing a `payload`, to `target`.
   private mutating func _emitCopyUnionPayload(
     from source: Operand, containing payload: AnyType, to target: Operand
   ) {
@@ -2196,7 +2197,7 @@ struct Emitter {
     }
   }
 
-  /// Emits the IR of a call to `f` with given `arguments` at `site`.
+  /// Emits the IR of a call to `f` with given `arguments`.
   private mutating func _emit(apply f: BuiltinFunction, to arguments: [LabeledArgument]) -> Operand {
     switch f {
     case .addressOf:
@@ -2317,7 +2318,7 @@ struct Emitter {
     }
   }
 
-  /// Returns the value of a reference to `b`, which is bound to `receiver` at `site`.
+  /// Returns the value of a reference to `b`, which is bound to `receiver`.
   ///
   /// If `b` requests only one capability, the returned callee is a direct function reference to
   /// the corresponding variant. Otherwise, it is `b` unchanged. The returned capture is an access
@@ -2448,8 +2449,9 @@ struct Emitter {
     return (success: insertionBlock!, failure: failure)
   }
 
-  /// If `d` declares stored bindings, inserts the IR for allocating their storage and returns a
-  /// a rreference to that storage. Otherwise, returns `nil`.
+  /// If `d` declares stored bindings, inserts the IR for allocating
+  /// their storage and returns a the address of that
+  /// storage. Otherwise, returns `nil`.
   private mutating func emitAllocation(binding d: BindingDecl.ID) -> Operand? {
     if program[d].pattern.introducer.value.isConsuming {
       _lowering(d) { $0._alloc_stack($0.program[d].type) }
@@ -2558,8 +2560,8 @@ struct Emitter {
     return x2
   }
 
-  /// If `s` has a remote type, returns the result of an instruction exposing the captured access.
-  /// Otherwise, returns `s` as is.
+  /// If `s` has a remote type, returns the result of an instruction exposing the captured access;
+  /// otherwise, returns `s`.
   private mutating func _unwrapCapture(_ s: Operand) -> Operand {
     if module.type(of: s).ast.base is RemoteType {
       return _open_capture(s)
@@ -2831,7 +2833,7 @@ struct Emitter {
     }
   }
 
-  /// Inserts the IR for `r` used a lvalue at `site`.
+  /// Inserts the IR for `r` used a lvalue.
   private mutating func _emitLValue(reference r: DeclReference) -> Operand {
     switch r {
     case .direct(let d, _):
@@ -2966,7 +2968,7 @@ struct Emitter {
     }
   }
 
-  /// Inserts IR for move-initializing/assigning `storage` with `value` at `site`.
+  /// Inserts IR for move-initializing/assigning `storage` with `value`.
   ///
   /// The value of `semantics` defines the type of move to emit:
   /// - `.set` emits move-initialization.
@@ -3014,7 +3016,7 @@ struct Emitter {
     }
   }
 
-  /// Inserts IR for move-initializing/assigning `storage` with built-in `value` at `site`.
+  /// Inserts IR for move-initializing/assigning `storage` with built-in `value`.
   private mutating func _emitMoveBuiltIn(_ value: Operand, to storage: Operand) {
     // Built-in are always stored.
     let x0 = _access(.set, from: storage)
@@ -3025,7 +3027,7 @@ struct Emitter {
     _end_access(x0)
   }
 
-  /// Inserts IR for move-initializing/assigning `storage` with `value` at `site` using `movable`
+  /// Inserts IR for move-initializing/assigning `storage` with `value` using `movable`
   /// to locate the implementations of these operations.
   ///
   /// The value of `semantics` defines the type of move to emit:
@@ -3053,7 +3055,7 @@ struct Emitter {
 
   // MARK: Copy
 
-  /// Inserts IR for copying `source` to `target` at `site`.
+  /// Inserts IR for copying `source` to `target`.
   private mutating func _emitCopy(
     _ source: Operand, to target: Operand
   ) {
@@ -3074,7 +3076,7 @@ struct Emitter {
     _emitCopy(source, to: target, withCopyableConformance: copyable)
   }
 
-  /// Inserts IR for copying `source` to `target` at `site` using `copyable` to locate the
+  /// Inserts IR for copying `source` to `target` using `copyable` to locate the
   /// implementation of the copy operation.
   private mutating func _emitCopy(
     _ source: Operand, to target: Operand,
