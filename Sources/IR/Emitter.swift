@@ -3674,7 +3674,7 @@ extension Emitter {
   }
 
   /// The conditions described by the `mark_state` instruction.
-  enum InitializationState {
+  fileprivate enum InitializationState {
     /// The operand is initialized.
     case initialized
 
@@ -3683,30 +3683,34 @@ extension Emitter {
   }
 
   /// The ways of opening described by the `open_union` instruction.
-  enum OpenUnionOption {
+  fileprivate enum OpenUnionOption {
     /// The input operand is uninitialized.
     case forInitialization
 
     /// The input operand is already initialized.
     case notForInitialization
   }
+
 }
 
-  mutating func _mark_state(_ x: InitializationState, _ op: Operand?) {
+/// Instruction inserters.
+extension Emitter {
+
+  fileprivate mutating func _mark_state(_ x: InitializationState, _ op: Operand?) {
     insert(module.makeMarkState(op!, initialized: x == .initialized, at: _site!))
   }
 
-  mutating func _call_ffi<T: TypeProtocol>(_ foreignName: String, on arguments: [Operand], returning returnType: T) -> Operand {
+  fileprivate mutating func _call_ffi<T: TypeProtocol>(_ foreignName: String, on arguments: [Operand], returning returnType: T) -> Operand {
     insert(
       module.makeCallFFI(
         returning: .object(returnType), applying: foreignName, to: arguments, at: _site!))!
   }
 
-  mutating func _unreachable() {
+  fileprivate mutating func _unreachable() {
     insert(module.makeUnreachable(at: _site!))
   }
 
-  mutating func _return() {
+  fileprivate mutating func _return() {
     insert(module.makeReturn(at: _site!))
   }
 
