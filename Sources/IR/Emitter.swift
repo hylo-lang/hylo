@@ -34,7 +34,11 @@ struct Emitter {
   //
   // - Methods of the form `_emitXXX(optionalLabel: something ...)`
   //   should only be entered in the context of a call to
-  //   `_lowering(something) { ... }`.
+  //   `_lowering(something) { ... }`.  They may be documented
+  //   entirely in terms of a returned operand value, omitting the
+  //   fact that they emit the code to compute that operand.  You can
+  //   think of them as compound pseudo-instruction generators like
+  //   those described in the previous bullet.
   //
   // - `_emitMemberFunctionCallee` and its helpers are currently an
   //   exception to the previous bullet; for some reason they don't
