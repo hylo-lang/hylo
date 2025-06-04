@@ -3636,22 +3636,36 @@ extension Diagnostic {
 
 extension Emitter {
 
-  mutating func _lowering<ID: NodeIDProtocol, R>(_ x: ID, _ body: (inout Emitter)->R) -> R {
+  /// Calls `body(&self)` with `_site` (the source location for
+  /// generated instructions) set to the source location of `x`,
+  /// returning the result.
+  mutating func _lowering<ASTNode: NodeIDProtocol, R>(_ x: ASTNode, _ body: (inout Emitter)->R) -> R {
     _lowering(at: ast[x].site, body)
   }
 
+  /// Calls `body(&self)` with `_site` (the source location for
+  /// generated instructions) set to the source location of `x`,
+  /// returning the result.
   mutating func _lowering<T, R>(_ x: SourceRepresentable<T>, _ body: (inout Emitter)->R) -> R {
     _lowering(at: x.site, body)
   }
 
+  /// Calls `body(&self)` with `_site` (the source location for
+  /// generated instructions) set to the source location where `x`
+  /// begins, returning the result.
   mutating func _lowering<ID: NodeIDProtocol, R>(before x: ID, _ body: (inout Emitter)->R) -> R {
     _lowering(at: .empty(at: ast[x].site.start), body)
   }
 
+  /// Calls `body(&self)` with `_site` (the source location for
+  /// generated instructions) set to the source location where `x`
+  /// ends, returning the result.
   mutating func _lowering<ID: NodeIDProtocol, R>(after x: ID, _ body: (inout Emitter)->R) -> R {
     _lowering(at: .empty(at: ast[x].site.end), body)
   }
 
+  /// Calls `body(&self)` with `_site` (the source location for
+  /// generated instructions) set to `x`, returning the result.
   mutating func _lowering<R>(at x: SourceRange, _ body: (inout Emitter)->R) -> R {
     let savedSite = _site
     defer { _site = savedSite }
@@ -3659,13 +3673,24 @@ extension Emitter {
     return body(&self)
   }
 
+  /// The conditions described by the `mark_state` instruction.
   enum InitializationState {
-    case uninitialized, initialized
+    /// The operand is initialized.
+    case initialized
+
+    /// The operand is not initialized.
+    case uninitialized
   }
 
+  /// The ways of opening described by the `open_union` instruction.
   enum OpenUnionOption {
-    case notForInitialization, forInitialization
+    /// The input operand is uninitialized.
+    case forInitialization
+
+    /// The input operand is already initialized.
+    case notForInitialization
   }
+}
 
   mutating func _mark_state(_ x: InitializationState, _ op: Operand?) {
     insert(module.makeMarkState(op!, initialized: x == .initialized, at: _site!))
