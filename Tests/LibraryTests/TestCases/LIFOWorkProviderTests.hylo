@@ -19,13 +19,6 @@ type TestTask: Deinitializable {
     return mutable_pointer[to: &base].copy()
   }
 
-  // public fun infix== (_ task: TaskPointer) -> Bool {
-  //   return pointer[to: &base] == Pointer<TaskBase>(task)
-  // }
-  // public fun infix!= (_ task: TaskPointer) -> Bool {
-  //   return pointer[to: &base] != Pointer<TaskBase>(task)
-  // }
-
 }
 
 public conformance TestTask: Movable {

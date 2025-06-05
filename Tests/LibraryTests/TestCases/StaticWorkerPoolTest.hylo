@@ -159,7 +159,7 @@ fun test_execution_can_park_and_unpark_workers() {
     pause()
   }
   for var i in 0 ..< 4 {
-    pool.unpark(index: i)
+    pool.on_task_added()
   }
   pause()
 
@@ -191,7 +191,7 @@ fun test_one_unparked_worker_is_enough_to_complete_work() {
     // Wait for the workers to park.
     pause()
   }
-  pool.unpark(index: 0)
+  pool.on_task_added()
   pause()
 
   // Wait for all work items to finish.

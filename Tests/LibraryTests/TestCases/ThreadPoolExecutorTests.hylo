@@ -1,5 +1,25 @@
 //- compileAndRun expecting: .success
 
+/// A work item that tracks when its executed.
+type SimpleWorkItem: Deinitializable {
+
+  var task: TaskBase
+  public var executed: Bool
+
+  public init() {
+    &self.executed = false
+    TaskBase.`init`(self: &self.task, executing: fun[] (_ task: TaskPointer) -> Void {
+      let my_task = PointerToMutable<Self>(type_punning: task)
+      &(my_task.unsafe[].executed) = true
+    })
+  }
+
+  public fun as_task() inout -> TaskPointer {
+    return mutable_pointer[to: &self.task].copy()
+  }
+
+}
+
 fun test_can_create_executor() {
   var executor = ThreadPoolExecutor(size: 4)
   executor.await()
@@ -15,9 +35,69 @@ fun test_can_get_available_parallelism() {
   e10.await()
 }
 
+fun test_can_execute_a_task() {
+  var work_item = SimpleWorkItem()
+  var executor = ThreadPoolExecutor(size: 4)
+  executor.enqueue(work_item.as_task())
+  executor.await()
+  precondition(work_item.executed, "Work item was not executed.")
+  // TODO: not always succeeds, why?
+}
+
+fun test_can_execute_multiple_tasks() {
+  var tasks = BoundedArray<SimpleWorkItem>(count: 100, initialized_with: fun (_ i: Int, _ element: set SimpleWorkItem) -> Void {
+    SimpleWorkItem.`init`(self: &element)
+  })
+  var executor = ThreadPoolExecutor(size: 4)
+
+  for sink let i in 0 ..< 100 {
+    executor.enqueue(tasks[i].as_task())
+  }
+
+  executor.await()
+
+  for sink let i in 0 ..< 100 {
+    precondition(tasks[i].executed, "Work item was not executed.")
+  }
+}
+
+fun test_extracting_tasks_while_executing() {
+  var tasks = BoundedArray<SimpleWorkItem>(count: 100, initialized_with: fun (_ i: Int, _ element: set SimpleWorkItem) -> Void {
+    SimpleWorkItem.`init`(self: &element)
+  })
+  var executor = ThreadPoolExecutor(size: 4)
+  var num_extracted = 0
+
+  // Enqueue all tasks.
+  for sink let i in 0 ..< 100 {
+    executor.enqueue(tasks[i].as_task())
+  }
+  // Try extracting the odd tasks.
+  for sink let i in 0 ..< 50 {
+    if executor.extract(tasks[i * 2 + 1].as_task()) {
+      &num_extracted += 1
+    }
+  }
+
+  executor.await()
+
+  // Check how many tasks were executed.
+  var num_executed = 0
+  for sink let i in 0 ..< 100 {
+    if tasks[i].executed {
+      &num_executed += 1
+    }
+  }
+  precondition(num_executed >= 50, "Not enough tasks executed.")
+  precondition(num_executed + num_extracted == 100, "Executed + extracted tasks do not match total count.")
+}
+
 public fun main() {
   #if os(Linux) || os(macOS)
     test_can_create_executor()
     test_can_get_available_parallelism()
+    test_can_execute_a_task()
+    test_can_execute_multiple_tasks()
+    test_extracting_tasks_while_executing()
   #endif
 }

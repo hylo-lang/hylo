@@ -24,15 +24,15 @@ public type ThreadPoolExecutor: Movable, Deinitializable {
   }
 
   /// Enqueues `task` to be executed threads in `self`.
-  public fun enqueue(_ task: TaskPointer) {
-    // TODO
+  public fun enqueue(_ task: sink TaskPointer) inout {
+    work_provider.add_task(&task)
+    workers.on_task_added()
   }
 
   /// If `task` did not start executing yet, it will be removed from the queue.
   /// Returns `true` if the task was removed from the queue.
-  public fun extract(_ task: TaskPointer) -> Bool {
-    // TODO
-    return false
+  public fun extract(_ task: sink TaskPointer) inout -> Bool {
+    work_provider.remove_task(&task)
   }
 
   /// Awaits for all the tasks to complete, and closes the executor.

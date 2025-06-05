@@ -78,7 +78,8 @@ public type WorkerThread<W: WorkProvider>: Deinitializable {
   }
 
   /// Signals the worker thread to exit STATE_PARKED and enter STATE_RUNNING.
-  public fun unpark() inout {
+  /// Returns `true` if the thread was parked and successfully unparked.
+  public fun unpark() inout -> Bool {
     // If we were in the PARKED state, change the state to RUNNING.
     let r = atomic_cmpxchg_acquire_relaxed_i32(
       &data.state,
@@ -88,7 +89,9 @@ public type WorkerThread<W: WorkProvider>: Deinitializable {
     if r.0 {
       // The thread was parked, so we need to wake it up.
       futex_wake(futex: &data.state, threads_to_wake: 1)
+      return true
     }
+    return false
   }
 
   /// Awaits for the worker thread to complete.
@@ -104,6 +107,8 @@ public type StaticWorkerPool<W: WorkProvider>: Movable, Deinitializable {
   var work_provider: PointerToMutable<W>
   /// The worker threads in the pool.
   var threads: BoundedArray<WorkerThread<W>>
+  /// Index of the thread that should be unparked next.
+  var thread_to_unpark: UInt32
 
   /// Initializes `self` with `n` worker threads, using `work_provider` as a work provider.
   public init(size n: Int, work_provider: PointerToMutable<W>) {
@@ -111,6 +116,7 @@ public type StaticWorkerPool<W: WorkProvider>: Movable, Deinitializable {
     &self.threads = .new(count: n, initialized_with: fun (_ i: Int, _ thread: set WorkerThread<W>) -> Void {
       WorkerThread<W>.init_self(&thread, i, work_from: work_provider)
     })
+    &self.thread_to_unpark = 0
   }
 
   // TODO (#1688): We should not have this; instead users should explicitly call `await()`.
@@ -124,9 +130,16 @@ public type StaticWorkerPool<W: WorkProvider>: Movable, Deinitializable {
     return threads.count()
   }
 
-  /// Unparks the worker thread at `index`, if that thread is parked.
-  public fun unpark(index: Int) inout {
-    &threads[index].unpark()
+  /// Called when a task was added to the work provider, so that we may unpark a worker thread to process it.
+  public fun on_task_added() inout {
+    let start_index = Int(truncating_or_extending: atomic_add_relaxed_i32(&thread_to_unpark, 1))
+    var i = start_index.copy()
+    while i < start_index + threads.count() {
+      if &threads[i % threads.count()].unpark() {
+        return
+      }
+      &i += 1
+    }
   }
 
   /// Awaits for all the threads to complete.
