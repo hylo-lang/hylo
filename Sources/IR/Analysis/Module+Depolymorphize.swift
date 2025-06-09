@@ -305,7 +305,9 @@ extension Module {
       var log = DiagnosticSet()
       Emitter.withInstance(insertingIn: &self, reportingDiagnosticsTo: &log) { (e) in
         e.insertionPoint = .end(of: entry)
-        e.emitStore(int: w, to: .register(s), at: insertionSite)
+        e.lowering(at: insertionSite) { e in
+          e._emitStore(int: w, to: .register(s))
+        }
       }
       assert(log.isEmpty)
 

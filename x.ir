@@ -1,0 +1,73 @@
+// x.main
+// /tmp/x.hylo:1.1-7:2
+external fun FunctionDecl(1507330)() -> {} {
+b0(%b0#0 : &{}):
+  %i0.0: &Bool = alloc_stack Bool
+  %i0.1: &i1 = subfield_view %i0.0, 0
+  %i0.2: &i1 = access [set] %i0.1
+  store i1(0x1), %i0.2
+  end_access %i0.2
+  %i0.5: &i1 = subfield_view %i0.0, 0
+  %i0.6: &i1 = access [sink] %i0.5
+  %i0.7: i1 = load %i0.6
+  end_access %i0.6
+  dealloc_stack %i0.0
+  cond_branch %i0.7, b2, b1
+b1():
+  branch b3
+b2():
+  %i2.0: &Int = alloc_stack Int
+  %i2.1: &word = subfield_view %i2.0, 0
+  %i2.2: &word = access [set] %i2.1
+  store i64(0x0), %i2.2
+  branch b4
+b3():
+  mark_state initialized %b0#0
+  return
+b4():
+  %i4.0: &Bool = alloc_stack Bool
+  %i4.1: &Int = alloc_stack Int
+  %i4.2: &word = subfield_view %i4.1, 0
+  %i4.3: &word = access [set] %i4.2
+  store i64(0x0), %i4.3
+  %i4.5: &Int = access [let] %i4.1
+  %i4.6: &Int = access [let] %i2.0
+  %i4.7: &Int = access [let] %i4.6
+  %i4.8: &Bool = access [set] %i4.0
+  call @FunctionDecl(285474816)(%i4.7, %i4.5) to %i4.8
+  end_access %i4.8
+  %i4.11: &i1 = subfield_view %i4.0, 0
+  %i4.12: &i1 = access [sink] %i4.11
+  %i4.13: i1 = load %i4.12
+  end_access %i4.12
+  dealloc_stack %i4.1
+  dealloc_stack %i4.0
+  cond_branch %i4.13, b6, b5
+b5():
+  %i5.0: &{} = alloc_stack {}
+  %i5.1: &Int = alloc_stack Int
+  %i5.2: &word = subfield_view %i5.1, 0
+  %i5.3: &word = access [set] %i5.2
+  store i64(0x1), %i5.3
+  %i5.5: &Int = access [let] %i5.1
+  %i5.6: &Int = access [inout] %i2.0
+  %i5.7: &Int = access [inout] %i5.6
+  %i5.8: &{} = access [set] %i5.0
+  call @FunctionDecl(295567360)(%i5.7, %i5.5) to %i5.8
+  end_access %i5.8
+  mark_state deinitialized %i5.0
+  dealloc_stack %i5.1
+  dealloc_stack %i5.0
+  dealloc_stack %i2.0
+  branch b3
+b6():
+  branch b5
+}
+
+// Hylo.infix-=
+// /Users/dave/src/hylo/.build/arm64-apple-macosx/release/Hylo_StandardLibrary.bundle/Sources/Core/Numbers/Integers/Int.hylo:132.3-134:4
+external fun FunctionDecl(295567360)(inout Int, let Int) -> {}
+
+// Hylo.infix==
+// /Users/dave/src/hylo/.build/arm64-apple-macosx/release/Hylo_StandardLibrary.bundle/Sources/Core/Numbers/Integers/Int.hylo:77.3-79:4
+external fun FunctionDecl(285474816)(let Int, let Int) -> Bool

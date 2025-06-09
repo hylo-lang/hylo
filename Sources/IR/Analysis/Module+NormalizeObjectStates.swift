@@ -507,7 +507,7 @@ extension Module {
       return successor(of: i)
     }
 
-    /// Updates `context` to mark all objects at `source`, which is an `access [.set]`, as having
+    /// Updates `context` to mark all objects at `source`, which is an `access .set`, as having
     /// been fully initialized.
     func initialize(_ source: Operand, in context: inout Context) {
       assert(self[source.instruction!].isAccess(.set), "bad source")
@@ -516,7 +516,7 @@ extension Module {
       }
     }
 
-    /// Updates `context` to mark all objects at `source`, which is an `access [.sink]`, as having
+    /// Updates `context` to mark all objects at `source`, which is an `access .sink`, as having
     /// been consumed by `consumer`.
     func sink(_ source: Operand, with consumer: InstructionID, in context: inout Context) {
       assert(self[source.instruction!].isAccess(.sink), "bad source")
@@ -738,8 +738,10 @@ extension Module {
     for path in initializedSubfields {
       Emitter.withInstance(insertingIn: &self, reportingDiagnosticsTo: &log) { (e) in
         e.insertionPoint = .before(i)
-        let s = e.emitSubfieldView(root, at: path, at: site)
-        e.emitDeinit(s, at: site)
+        e.lowering(at: site) { e in
+          let s = e._subfield_view(root, at: path)
+          e._emitDeinit(s)
+        }
       }
     }
   }
@@ -753,7 +755,9 @@ extension Module {
   ) {
     Emitter.withInstance(insertingIn: &self, reportingDiagnosticsTo: &log) { (e) in
       e.insertionPoint = .before(i)
-      e.emitDeinitParts(of: whole, at: site)
+      e.lowering(at: site) { e in
+        e._emitDeinitParts(of: whole)
+      }
     }
   }
 

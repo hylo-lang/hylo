@@ -1,0 +1,77 @@
+-*- mode: compilation; default-directory: "/media/psf/host-home/src/hylo/" -*-
+Compilation started at Tue May 20 18:27:06
+
+cmake --build ~/scratch/hylo-cmake-build/ && ctest --output-on-failure --timeout 200 --parallel --test-dir ~/scratch/hylo-cmake-build/
+[0/2] Re-checking globbed directories...
+ninja: no work to do.
+Test project /home/parallels/scratch/hylo-cmake-build
+      Start 26: EndToEndTests_TestCases_2
+      Start 28: EndToEndTests_TestCases_4
+      Start 27: EndToEndTests_TestCases_3
+      Start 25: EndToEndTests_TestCases_1
+      Start 31: LibraryTests_TestCases_0
+      Start 24: EndToEndTests_TestCases_0
+      Start 32: LibraryTests_TestCases_1
+      Start  2: DriverTests
+      Start 29: EndToEndTests_TestCases_Concurrency
+      Start  3: ManglingTests
+ 1/32 Test  #3: ManglingTests .........................   Passed   13.09 sec
+      Start  4: HyloTests
+ 2/32 Test  #4: HyloTests .............................   Passed   12.81 sec
+      Start 23: EndToEndTests
+ 3/32 Test #23: EndToEndTests .........................   Passed   12.84 sec
+      Start 12: HyloTests_TestCases_TypeChecking_0
+ 4/32 Test #29: EndToEndTests_TestCases_Concurrency ...   Passed   41.63 sec
+      Start 20: HyloTests_TestCases_TypeChecking_8
+ 5/32 Test #12: HyloTests_TestCases_TypeChecking_0 ....   Passed    6.13 sec
+      Start  9: HyloTests_TestCases_Parsing_0
+ 6/32 Test #20: HyloTests_TestCases_TypeChecking_8 ....   Passed    6.71 sec
+      Start 21: HyloTests_TestCases_TypeChecking_9
+ 7/32 Test  #9: HyloTests_TestCases_Parsing_0 .........   Passed    6.26 sec
+      Start 14: HyloTests_TestCases_TypeChecking_2
+ 8/32 Test #21: HyloTests_TestCases_TypeChecking_9 ....   Passed    7.32 sec
+      Start 11: HyloTests_TestCases_Parsing_2
+ 9/32 Test #14: HyloTests_TestCases_TypeChecking_2 ....   Passed    6.85 sec
+      Start 18: HyloTests_TestCases_TypeChecking_6
+10/32 Test #11: HyloTests_TestCases_Parsing_2 .........   Passed    6.87 sec
+      Start  8: HyloTests_TestCases_Lowering_3
+11/32 Test #18: HyloTests_TestCases_TypeChecking_6 ....   Passed    6.09 sec
+      Start  6: HyloTests_TestCases_Lowering_1
+12/32 Test  #8: HyloTests_TestCases_Lowering_3 ........   Passed    8.01 sec
+      Start  7: HyloTests_TestCases_Lowering_2
+13/32 Test  #2: DriverTests ...........................   Passed   72.00 sec
+      Start  5: HyloTests_TestCases_Lowering_0
+14/32 Test  #6: HyloTests_TestCases_Lowering_1 ........   Passed    8.36 sec
+      Start 15: HyloTests_TestCases_TypeChecking_3
+15/32 Test  #7: HyloTests_TestCases_Lowering_2 ........   Passed    7.41 sec
+      Start 16: HyloTests_TestCases_TypeChecking_4
+16/32 Test #15: HyloTests_TestCases_TypeChecking_3 ....   Passed    6.95 sec
+      Start 22: HyloTests_TestCases_TypeChecking_10
+17/32 Test  #5: HyloTests_TestCases_Lowering_0 ........   Passed    7.75 sec
+      Start 19: HyloTests_TestCases_TypeChecking_7
+18/32 Test #16: HyloTests_TestCases_TypeChecking_4 ....   Passed    7.50 sec
+      Start 17: HyloTests_TestCases_TypeChecking_5
+19/32 Test #22: HyloTests_TestCases_TypeChecking_10 ...   Passed    6.48 sec
+      Start 13: HyloTests_TestCases_TypeChecking_1
+20/32 Test #19: HyloTests_TestCases_TypeChecking_7 ....   Passed    7.11 sec
+      Start 10: HyloTests_TestCases_Parsing_1
+21/32 Test #17: HyloTests_TestCases_TypeChecking_5 ....   Passed    6.97 sec
+      Start  1: UtilsTests
+22/32 Test #13: HyloTests_TestCases_TypeChecking_1 ....   Passed    6.70 sec
+      Start 30: LibraryTests
+23/32 Test #30: LibraryTests ..........................   Passed    0.01 sec
+24/32 Test  #1: UtilsTests ............................   Passed    0.27 sec
+25/32 Test #10: HyloTests_TestCases_Parsing_1 .........   Passed    6.85 sec
+26/32 Test #32: LibraryTests_TestCases_1 ..............   Passed  103.95 sec
+27/32 Test #31: LibraryTests_TestCases_0 ..............   Passed  113.46 sec
+28/32 Test #27: EndToEndTests_TestCases_3 .............   Passed  118.93 sec
+29/32 Test #25: EndToEndTests_TestCases_1 .............   Passed  120.08 sec
+30/32 Test #24: EndToEndTests_TestCases_0 .............   Passed  122.02 sec
+31/32 Test #26: EndToEndTests_TestCases_2 .............   Passed  134.25 sec
+32/32 Test #28: EndToEndTests_TestCases_4 .............   Passed  135.34 sec
+
+100% tests passed, 0 tests failed out of 32
+
+Total Test time (real) = 135.34 sec
+
+Compilation finished at Tue May 20 18:29:22, duration 0:02:16
