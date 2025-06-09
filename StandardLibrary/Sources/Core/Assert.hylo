@@ -66,6 +66,7 @@ private let backtrace_depth = 20
 /// Prints the backtrace to the standard error (if OS supports it).
 fun print_backtrace() {
   #if os(Linux) || os(macOS)
+  #if !feature(freestanding)
     print("Backtrace:")
     var buffer: Array<MemoryAddress> = .new(count: backtrace_depth, initialized_with: fun(_ i: Int) -> MemoryAddress {
       return .null()
@@ -76,6 +77,7 @@ fun print_backtrace() {
         backtrace_symbols_fd(p, size, 2) // write to stderr
       })
     }
+  #endif
   #endif
 }
 
