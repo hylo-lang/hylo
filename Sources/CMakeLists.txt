@@ -38,6 +38,9 @@ add_hylo_library(CodeGenLLVM
   DEPENDENCIES FrontEnd IR Utils SwiftyLLVM
   PATH CodeGen/LLVM)
 
+add_hylo_library(Interpreter
+  DEPENDENCIES FrontEnd IR Utils Collections)
+
 add_hylo_library(Utils
   DEPENDENCIES BigInt DequeModule Algorithms)
 
