@@ -33,6 +33,7 @@ public enum BuiltinType: TypeProtocol {
 
   /// `true` iff `self` is `.i` or `.word`.
   public var isInteger: Bool {
+    checkInvariant()
     switch self {
     case .i, .word:
       return true
@@ -41,13 +42,22 @@ public enum BuiltinType: TypeProtocol {
     }
   }
 
-  public var flags: ValueFlags { .init() }
+  public var flags: ValueFlags {
+    checkInvariant()
+    return .init()
+  }
 
+  public func checkInvariant() {
+    if case .i(let w) = self {
+      assert(w > 0 && w.nonzeroBitCount == 1, "Bit width \(w) must be a power of 2")
+    }
+  }
 }
 
 extension BuiltinType: CustomStringConvertible {
 
   public var description: String {
+    checkInvariant()
     switch self {
     case .i(let bitWidth):
       return "i\(bitWidth)"
@@ -91,8 +101,8 @@ extension BuiltinType: LosslessStringConvertible {
 
     case _ where description.starts(with: "i"):
       if let bitWidth = Int(description.dropFirst()) {
-        precondition(bitWidth > 0, "invalid bit width")
         self = .i(bitWidth)
+        checkInvariant()
       } else {
         return nil
       }
