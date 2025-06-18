@@ -11,6 +11,7 @@ public type Pointer<Pointee>: Regular {
   /// - Requires: `self` is the address of an object of type `Pointee` and its storage
   ///   is accessed only through this projection during the projection's lifetime.
   public subscript unsafe(): Pointee {
+    precondition(self != .null(), "dereferencing null pointer")
     yield base as* (remote let Pointee)
   }
 
