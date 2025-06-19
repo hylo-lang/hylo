@@ -2,7 +2,7 @@
 public type Pointer<Pointee>: Regular {
 
   /// The raw bits of the address.
-  internal var base: Builtin.ptr
+  internal let base: Builtin.ptr
 
   internal memberwise init
 

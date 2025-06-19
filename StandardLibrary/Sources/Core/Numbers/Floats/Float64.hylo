@@ -1,5 +1,5 @@
 /// A double-precision, floating-point value.
-public type Float64 {
+public type Float64 : Regular, Equatable {
 
   internal var value: Builtin.float64
 
@@ -98,6 +98,12 @@ public type Float64 {
     Bool(value: Builtin.fcmp_uge_float64(value, other.value))
   }
 
+  /// The mathematical constant pi (π), approximately equal to 3.14159.
+  public static fun pi() -> Self {
+    3.14159
+  }
+
+  
   /// Returns `true` if `self` is equal to `other`; returns `false` otherwise.
   public fun infix== (_ other: Self) -> Bool {
     Bool(value: Builtin.fcmp_ueq_float64(value, other.value))
@@ -106,11 +112,6 @@ public type Float64 {
   /// Returns `true` if `self` is not equal to `other`; returns `false` otherwise.
   public fun infix!= (_ other: Self) -> Bool {
     Bool(value: Builtin.fcmp_une_float64(value, other.value))
-  }
-
-  /// The mathematical constant pi (π), approximately equal to 3.14159.
-  public static fun pi() -> Self {
-    3.14159
   }
 
 }
@@ -123,8 +124,30 @@ public conformance Float64: Deinitializable {}
 
 public conformance Float64: Copyable {
 
+  /// Returns a copy of `self`.
   public fun copy() -> Self {
     Float64(value: value)
+  }
+
+}
+
+public conformance Float64: Hashable {
+
+  public fun hash(into hasher: inout Hasher) {
+    &hasher.combine(i64: 0) // todo fix
+  }
+
+}
+public conformance Float64: ForeignConvertible {
+
+  public typealias ForeignRepresentation = Builtin.float64
+
+  public init(foreign_value: sink Builtin.float64) {
+    &self.value = foreign_value
+  }
+
+  public fun foreign_value() -> Builtin.float64 {
+    value
   }
 
 }

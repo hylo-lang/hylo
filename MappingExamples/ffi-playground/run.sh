@@ -1,0 +1,1 @@
+./compile-and-run-something.sh mylibrary.c main.hylo

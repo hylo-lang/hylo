@@ -1,0 +1,16 @@
+type A : Deinitializable {
+    let a: Int
+
+    public memberwise init
+}
+
+conformance A : Equatable {
+}
+
+public fun main() {
+    if A(a: 2) == A(a: 2) {
+        print("Equal")
+    } else {
+        print("Not equal")
+    }
+}

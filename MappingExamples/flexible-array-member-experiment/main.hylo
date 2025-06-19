@@ -1,0 +1,74 @@
+type FAMStruct{
+    public var count: Int64
+
+    public property data: PointerToMutable<Int32> {
+        inout { 
+            // get pointer to count, offset it by 8 bytes (size of Int64)
+            yield PointerToMutable(type_punning: mutable_pointer[to: &self.count].advance(by: 1))
+        }
+    }
+}
+
+
+@ffi("create_fam")
+fun c_create_fam(count: Int64) -> PointerToMutable<FAMStruct>
+
+@ffi("free_fam")
+fun c_free_fam(_ fam: PointerToMutable<FAMStruct>)
+
+
+@ffi("read_at")
+fun c_read_at(_ fam: PointerToMutable<FAMStruct>, _ index: Int64) -> Int32
+
+@ffi("write_at")
+fun c_write_at(_ fam: PointerToMutable<FAMStruct>, _ index: Int64, _ value: Int32) -> Int32
+
+@ffi("get_count")
+fun c_get_count(_ fam: PointerToMutable<FAMStruct>) -> Int64
+
+
+
+
+fun print_fam(_ fam: PointerToMutable<FAMStruct>) {
+    let count = c_get_count(fam)
+    print("Count: ")
+    print(Int(truncating_or_extending: count))
+    var i = 0 as Int64
+    while i < count {
+        let value = c_read_at(fam, i)
+        print(Int(truncating_or_extending: i))
+        print(Int(truncating_or_extending: value))
+        print("")
+        &i += 1
+    }
+}
+
+public fun main() {
+    print("C version")
+    var fam = c_create_fam(count: 4)
+
+    print_fam(fam)
+
+    _ = c_write_at(fam, 0, 40)
+    _ = c_write_at(fam, 3, 43)
+    print_fam(fam)
+
+    c_free_fam(fam)
+
+    print("Hylo version")
+    var fam_hylo = c_create_fam(count: 4)
+
+
+    inout famm: PointerToMutable<Int32> = &fam_hylo.unsafe[].data
+    &famm.unsafe[] = 40
+
+    var other : PointerToMutable<Int32> = famm.advance(by: 3)
+    &other.unsafe[] = 43
+
+    print_fam(fam_hylo)
+    c_free_fam(fam_hylo)
+    print("Done")
+
+
+}
+

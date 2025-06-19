@@ -1,0 +1,231 @@
+
+subscript bytes<T>(representing value: T): PointerToBuffer<Int8> {
+    let {
+        yield pointer_to_bytes[of: value]
+    }
+}
+
+public extension PointerToBuffer {
+    public subscript(_ i: Int): Pointee {
+        let {
+            precondition(i >= 0 && i < count, "Cannot access end position")
+            yield start.advance(by: i).unsafe[]
+        }
+    }
+}
+
+/// A C union type stores its data in a raw byte array, and we expose computed properties
+/// to access the individual members.
+///
+/// @repr(.C)
+type MyCUnion : Deinitializable {
+    internal var storage: Array<Int8> /// This should actually be a statically sized Buffer, but it's not yet implemented in the compiler. 
+    
+    private fun set_from(bytes: PointerToBuffer<Int8>) inout {
+        precondition(bytes.count <= storage.count(), "Bytes count exceeds storage capacity")
+        var i = 0
+        while i < bytes.count {
+            &storage[i] = bytes[i].copy()
+            &i += 1
+        }
+    }
+    private static fun create_storage() -> Array<Int8> {
+        .new(
+            count: max[MemoryLayout<Int32>.size(), MemoryLayout<Int>.size()], 
+            initialized_with: fun [](_ i) -> Int8 { 0 }
+        )
+    }
+
+    public init(a: Int32) {
+        &storage = create_storage()
+        &set_from(bytes: bytes[representing: a])
+    }
+
+    public init(b: Int) {
+        &storage = create_storage()
+        &set_from(bytes: bytes[representing: b])
+    }
+
+    public property a: Int32 {
+        let {
+            Pointer<Int32>(type_punning: storage.contiguous_storage).unsafe[]
+        }
+        inout {
+            var a = 0 as Int32
+            yield &a
+            &set_from(bytes: bytes[representing: a])
+        }
+    }
+
+    public property b: Int {
+        let {
+            Pointer<Int>(type_punning: storage.contiguous_storage).unsafe[]
+        }
+        inout {
+            var b = 0 as Int
+            yield &b
+            &set_from(bytes: bytes[representing: b])
+        }
+    }
+}
+
+
+/// Structs with union members need to reproject the union members
+/// because unions don't create their own scope in C.
+/// @repr(.C)
+type CompositeType : Deinitializable {
+    internal var __unnamed_union_member_1: MyCUnion
+    public var other_member: Int32
+
+    public init(_ u1: MyCUnion, other_member: Int32) {
+        &__unnamed_union_member_1 = u1
+        &other_member = other_member
+    }
+
+    public property a: Int32 {
+        let {
+            yield __unnamed_union_member_1.a
+        }
+        inout {
+            yield &__unnamed_union_member_1.a
+        }
+    }
+
+    public property b: Int {
+        let {
+            yield __unnamed_union_member_1.b
+        }
+        inout {
+            yield &__unnamed_union_member_1.b
+        }
+    }
+}
+
+public fun main() {
+    var my_518 = MyCUnion(a: Int32(512 + 6))
+    precondition(my_518.storage.count() == 8, "Storage size should match Int32 size")
+    precondition(my_518.storage[0] == Int8(6), "First byte should be 6")
+    precondition(my_518.storage[1] == Int8(2), "Second byte should be 2")
+    precondition(my_518.storage[2] == Int8(0), "Third byte should be 0")
+    precondition(my_518.storage[3] == Int8(0), "Fourth byte should be 0")
+
+    precondition(my_518.a == Int32(518), "Value of a should match the original Int32 value")
+
+    // Change to a different value `a`
+    &my_518.a = Int32(truncating_or_extending: 1 << 31 - 1)
+    precondition(my_518.storage.count() == 8, "Storage size should match Int32 size")
+    precondition(my_518.storage[0] == Int8(255), "First byte should be 255")
+    precondition(my_518.storage[1] == Int8(255), "Second byte should be 255")
+    precondition(my_518.storage[2] == Int8(255), "Third byte should be 255")
+    precondition(my_518.storage[3] == Int8(127), "Fourth byte should be 127")
+    precondition(my_518.a == Int32(truncating_or_extending: 1 << 31 - 1), "Value of a should match the original Int32 value")
+
+
+    // Change to a different value `b`
+    &my_518.b = Int(truncating_or_extending: 1 << 40)
+    precondition(my_518.storage.count() == 8, "Storage size should match Int size")
+    precondition(my_518.storage[0] == Int8(0), "First byte should be 0")
+    precondition(my_518.storage[1] == Int8(0), "Second byte should be 0")
+    precondition(my_518.storage[2] == Int8(0), "Third byte should be 0")
+    precondition(my_518.storage[3] == Int8(0), "Fourth byte should be 0")
+    precondition(my_518.storage[4] == Int8(0), "Fifth byte should be 0")
+    precondition(my_518.storage[5] == Int8(1), "Sixth byte should be 0")
+    precondition(my_518.storage[6] == Int8(0), "Seventh byte should be 0")
+    precondition(my_518.storage[7] == Int8(0), "Eighth byte should be 0")
+    precondition(my_518.b == 1 << 40, "Value of b should match the original Int value")
+
+
+    var my_b = MyCUnion(b: Int(truncating_or_extending: 1 << 40))
+    precondition(my_b.storage.count() == 8, "Storage size should match Int32 size")
+
+    precondition(my_b.storage[0] == Int8(0), "First byte should be 0")
+    precondition(my_b.storage[1] == Int8(0), "Second byte should be 0")
+    precondition(my_b.storage[2] == Int8(0), "Third byte should be 0")
+    precondition(my_b.storage[3] == Int8(0), "Fourth byte should be 0")
+    precondition(my_b.storage[4] == Int8(0), "Fifth byte should be 0")
+    precondition(my_b.storage[5] == Int8(1), "Sixth byte should be 1")
+    precondition(my_b.storage[6] == Int8(0), "Seventh byte should be 0")
+    precondition(my_b.storage[7] == Int8(0), "Eighth byte should be 0")
+    precondition(my_b.b == Int(truncating_or_extending: 1 << 40), "Value of b should match the original Int value")
+
+    // Change to a different value `a`
+    &my_b.a = Int32(truncating_or_extending: 1 << 31 - 1)
+    precondition(my_b.storage.count() == 8, "Storage size should match Int32 size")
+    precondition(my_b.storage[0] == Int8(255), "First byte should be 255")
+    precondition(my_b.storage[1] == Int8(255), "Second byte should be 255")
+    precondition(my_b.storage[2] == Int8(255), "Third byte should be 255")
+    precondition(my_b.storage[3] == Int8(127), "Fourth byte should be 127")
+    precondition(my_b.a == Int32(truncating_or_extending: 1 << 31 - 1), "Value of a should match the original Int32 value")
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    var smy_518 = CompositeType(.new(a: Int32(512 + 6)), other_member: Int32(42))
+    precondition(smy_518.__unnamed_union_member_1.storage.count() == 8, "Storage size should match Int32 size")
+    precondition(smy_518.__unnamed_union_member_1.storage[0] == Int8(6), "First byte should be 6")
+    precondition(smy_518.__unnamed_union_member_1.storage[1] == Int8(2), "Second byte should be 2")
+    precondition(smy_518.__unnamed_union_member_1.storage[2] == Int8(0), "Third byte should be 0")
+    precondition(smy_518.__unnamed_union_member_1.storage[3] == Int8(0), "Fourth byte should be 0")
+
+    precondition(smy_518.a == Int32(518), "Value of a should match the original Int32 value")
+
+    // Change to a different value `a`
+    &smy_518.a = Int32(truncating_or_extending: 1 << 31 - 1)
+    precondition(smy_518.__unnamed_union_member_1.storage.count() == 8, "Storage size should match Int32 size")
+    precondition(smy_518.__unnamed_union_member_1.storage[0] == Int8(255), "First byte should be 255")
+    precondition(smy_518.__unnamed_union_member_1.storage[1] == Int8(255), "Second byte should be 255")
+    precondition(smy_518.__unnamed_union_member_1.storage[2] == Int8(255), "Third byte should be 255")
+    precondition(smy_518.__unnamed_union_member_1.storage[3] == Int8(127), "Fourth byte should be 127")
+    precondition(smy_518.a == Int32(truncating_or_extending: 1 << 31 - 1), "Value of a should match the original Int32 value")
+
+
+    // Change to a different value `b`
+    &smy_518.b = Int(truncating_or_extending: 1 << 40)
+    precondition(smy_518.__unnamed_union_member_1.storage.count() == 8, "Storage size should match Int size")
+    precondition(smy_518.__unnamed_union_member_1.storage[0] == Int8(0), "First byte should be 0")
+    precondition(smy_518.__unnamed_union_member_1.storage[1] == Int8(0), "Second byte should be 0")
+    precondition(smy_518.__unnamed_union_member_1.storage[2] == Int8(0), "Third byte should be 0")
+    precondition(smy_518.__unnamed_union_member_1.storage[3] == Int8(0), "Fourth byte should be 0")
+    precondition(smy_518.__unnamed_union_member_1.storage[4] == Int8(0), "Fifth byte should be 0")
+    precondition(smy_518.__unnamed_union_member_1.storage[5] == Int8(1), "Sixth byte should be 0")
+    precondition(smy_518.__unnamed_union_member_1.storage[6] == Int8(0), "Seventh byte should be 0")
+    precondition(smy_518.__unnamed_union_member_1.storage[7] == Int8(0), "Eighth byte should be 0")
+    precondition(smy_518.b == 1 << 40, "Value of b should match the original Int value")
+
+
+    var smy_b = CompositeType(.new(b: Int(truncating_or_extending: 1 << 40)), other_member: Int32(42))
+    precondition(smy_b.__unnamed_union_member_1.storage.count() == 8, "Storage size should match Int32 size")
+
+    precondition(smy_b.__unnamed_union_member_1.storage[0] == Int8(0), "First byte should be 0")
+    precondition(smy_b.__unnamed_union_member_1.storage[1] == Int8(0), "Second byte should be 0")
+    precondition(smy_b.__unnamed_union_member_1.storage[2] == Int8(0), "Third byte should be 0")
+    precondition(smy_b.__unnamed_union_member_1.storage[3] == Int8(0), "Fourth byte should be 0")
+    precondition(smy_b.__unnamed_union_member_1.storage[4] == Int8(0), "Fifth byte should be 0")
+    precondition(smy_b.__unnamed_union_member_1.storage[5] == Int8(1), "Sixth byte should be 1")
+    precondition(smy_b.__unnamed_union_member_1.storage[6] == Int8(0), "Seventh byte should be 0")
+    precondition(smy_b.__unnamed_union_member_1.storage[7] == Int8(0), "Eighth byte should be 0")
+    precondition(smy_b.b == Int(truncating_or_extending: 1 << 40), "Value of b should match the original Int value")
+
+    // Change to a different value `a`
+    &smy_b.a = Int32(truncating_or_extending: 1 << 31 - 1)
+    precondition(smy_b.__unnamed_union_member_1.storage.count() == 8, "Storage size should match Int32 size")
+    precondition(smy_b.__unnamed_union_member_1.storage[0] == Int8(255), "First byte should be 255")
+    precondition(smy_b.__unnamed_union_member_1.storage[1] == Int8(255), "Second byte should be 255")
+    precondition(smy_b.__unnamed_union_member_1.storage[2] == Int8(255), "Third byte should be 255")
+    precondition(smy_b.__unnamed_union_member_1.storage[3] == Int8(127), "Fourth byte should be 127")
+    precondition(smy_b.a == Int32(truncating_or_extending: 1 << 31 - 1), "Value of a should match the original Int32 value")
+
+    print("success")
+}

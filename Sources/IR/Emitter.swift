@@ -2720,8 +2720,10 @@ struct Emitter {
     precondition(t.isAddress)
 
     let foreignConvertible = ast.core.foreignConvertible.type
-    let foreignConvertibleConformance = program.conformance(
-      of: t.ast, to: foreignConvertible, exposedTo: insertionScope!)!
+    guard let foreignConvertibleConformance = program.conformance(
+      of: t.ast, to: foreignConvertible, exposedTo: insertionScope!) else {
+        fatalError("Cannot convert \(t) to foreign representation at \(site)")
+      }
     let r = ast.requirements("foreign_value", in: foreignConvertible.decl)[0]
 
     // TODO: Handle cases where the foreign representation of `t` is not built-in.

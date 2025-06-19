@@ -1,5 +1,7 @@
 //- typeCheck expecting: .failure
 
 public fun main() {
-  var x: Int[true] //! diagnostic expected type 'Int' but found 'Bool'
+  var x = [2,3] //! diagnostic expected type 'Int' but found 'Bool'
+
+  let y: Int = x[0]
 }

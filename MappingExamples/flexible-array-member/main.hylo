@@ -1,0 +1,112 @@
+type FAMStruct{
+    public var count: Int64
+    var random: UInt8
+
+    property data_mut: PointerToMutable<Int32> {
+        inout { 
+            // get the pointer after the size of the object (padding is not included here since it is only part of the stride)
+            yield PointerToMutable(type_punning: mutable_pointer[to: &self].advance(by: 1))
+        }
+    }
+
+    property data: Pointer<Int32> {
+        let {
+            // get the pointer after the size of the object (padding is not included here since it is only part of the stride)
+            yield Pointer(type_punning: pointer[to: &self].advance(by: 1))
+        }
+    }
+
+    public subscript(_ index: Int): Int32 {
+        let {
+            precondition(index >= 0 && index < Int(truncating_or_extending: self.count), "Index out of bounds")
+            yield self.data.advance(by: index).unsafe[]
+        }
+        inout {
+            precondition(index >= 0 && index < Int(truncating_or_extending: self.count), "Index out of bounds")
+            yield self.data_mut.advance(by: index).unsafe[]
+        }
+    }
+}
+
+type OwnedFAMStruct : Deinitializable {
+    var pointee: PointerToMutable<FAMStruct>
+
+    public init(count: Int64) {
+        &self.pointee = c_create_fam(count: count)
+    }
+
+    public fun deinit() {
+        c_free_fam(self.pointee)
+    }
+
+    public subscript(_ index: Int): Int32 {
+        let {
+            let fam = self.pointee.unsafe[]
+            yield fam[index]
+        }
+        inout {
+            inout fam = self.pointee.unsafe[]
+            yield &fam[index]
+        }
+    }
+
+    public property count: Int {
+        let {
+            yield Int(truncating_or_extending: self.pointee.unsafe[].count)
+        }
+    }
+}
+
+public fun main() {
+    var hylo_fam = OwnedFAMStruct(count: 4)
+
+    &hylo_fam[0] = 10
+    &hylo_fam[1] = 20
+    &hylo_fam[2] = 30
+    &hylo_fam[3] = 40
+
+    print("Hylo FAM:")
+
+    var i = 0
+    while i < hylo_fam.count {
+        print(i)
+        print(Int(truncating_or_extending: hylo_fam[i]))
+        print("")
+
+        &i += 1
+    }
+}
+
+
+
+@ffi("create_fam")
+fun c_create_fam(count: Int64) -> PointerToMutable<FAMStruct>
+
+@ffi("free_fam")
+fun c_free_fam(_ fam: PointerToMutable<FAMStruct>)
+
+
+@ffi("read_at")
+fun c_read_at(_ fam: PointerToMutable<FAMStruct>, _ index: Int64) -> Int32
+
+@ffi("write_at")
+fun c_write_at(_ fam: PointerToMutable<FAMStruct>, _ index: Int64, _ value: Int32) -> Int32
+
+@ffi("get_count")
+fun c_get_count(_ fam: PointerToMutable<FAMStruct>) -> Int64
+
+
+
+fun print_fam(_ fam: PointerToMutable<FAMStruct>) {
+    let count = c_get_count(fam)
+    print("Count: ")
+    print(Int(truncating_or_extending: count))
+    var i = 0 as Int64
+    while i < count {
+        let value = c_read_at(fam, i)
+        print(Int(truncating_or_extending: i))
+        print(Int(truncating_or_extending: value))
+        print("")
+        &i += 1
+    }
+}

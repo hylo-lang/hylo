@@ -1,0 +1,13 @@
+
+fun use(_ f: [](Int, Int) -> Int) -> Int {
+    f(1, 2)
+}
+
+
+public fun main() {
+    let f2 = fun [](_ a: Int, _ b: Int) -> Int {
+        a + b
+    }
+    let result: Int = use(f2)
+    print(result)
+}

@@ -1,0 +1,127 @@
+// typedef union{
+//     int32_t a;
+//     size_t b;
+// } MyUnion;
+
+
+// Bug in the emitter, this doesn't work:
+// extension Array where Element == Int8 {
+//     public init<T>(representing value: T) {
+//         let size = MemoryLayout<T>.size()
+//         &self = Array<Int8>(count: size, initialized_with: fun (_ i) { 0 as Int8 })
+
+//         // let bytes_of_value = pointer_to_bytes[of: value]
+
+//         // var i = 0
+//         // while i < size {
+//         //     &self[i] = bytes_of_value.start.advance(by: i).unsafe[].copy()
+//         //     &i += 1
+//         // }
+//     }
+// }
+
+fun make_array<T>(representing value: T) -> Array<Int8> {
+    let size = MemoryLayout<T>.size()
+    var arr = Array<Int8>(count: size, initialized_with: fun (_ i) { 0 as Int8 })
+
+    let bytes_of_value = pointer_to_bytes[of: value]
+
+    var i = 0
+    while i < size {
+        &arr[i] = bytes_of_value.start.advance(by: i).unsafe[].copy()
+        &i += 1
+    }
+    return arr
+}
+
+// @repr(.C)
+type CUnion : Deinitializable {
+    internal var storage: Array<Int8> // 8 bytes todo make it Int8[8]
+
+    public init(a: Int32) {
+        &storage = make_array(representing: a)
+    }
+
+    public init(b: Int) {
+        &storage = make_array(representing: b)
+    }
+
+    public fun change_to(a: Int32) inout {
+        &storage = make_array(representing: a)
+    }
+
+    public fun change_to(b: Int) inout {
+        &storage = make_array(representing: b)
+    }
+
+    public property a: Int32 {
+        let { 
+            Pointer<Int32>(type_punning: storage.contiguous_storage).unsafe[]
+        }
+    }
+
+    public property b: Int {
+        let {
+            Pointer<Int>(type_punning: storage.contiguous_storage).unsafe[]
+        }
+    }
+}
+
+public fun main() {
+    var my_518 = CUnion(a: Int32(512 + 6))
+    precondition(my_518.storage.count() == 4, "Storage size should match Int32 size")
+    precondition(my_518.storage[0] == Int8(6), "First byte should be 6")
+    precondition(my_518.storage[1] == Int8(2), "Second byte should be 2")
+    precondition(my_518.storage[2] == Int8(0), "Third byte should be 0")
+    precondition(my_518.storage[3] == Int8(0), "Fourth byte should be 0")
+
+    precondition(my_518.a == Int32(518), "Value of a should match the original Int32 value")
+
+    // Change to a different value `a`
+    &my_518.change_to(a: Int32(truncating_or_extending: 1 << 31 - 1))
+    precondition(my_518.storage.count() == MemoryLayout<Int32>.size(), "Storage size should match Int32 size")
+    precondition(my_518.storage[0] == Int8(255), "First byte should be 255")
+    precondition(my_518.storage[1] == Int8(255), "Second byte should be 255")
+    precondition(my_518.storage[2] == Int8(255), "Third byte should be 255")
+    precondition(my_518.storage[3] == Int8(127), "Fourth byte should be 127")
+    precondition(my_518.a == Int32(truncating_or_extending: 1 << 31 - 1), "Value of a should match the original Int32 value")
+
+
+    // // Change to a different value `b`
+    &my_518.change_to(b: Int(truncating_or_extending: 1 << 40))
+    precondition(my_518.storage.count() == 8, "Storage size should match Int size")
+    precondition(my_518.storage[0] == Int8(0), "First byte should be 0")
+    precondition(my_518.storage[1] == Int8(0), "Second byte should be 0")
+    precondition(my_518.storage[2] == Int8(0), "Third byte should be 0")
+    precondition(my_518.storage[3] == Int8(0), "Fourth byte should be 0")
+    precondition(my_518.storage[4] == Int8(0), "Fifth byte should be 0")
+    precondition(my_518.storage[5] == Int8(1), "Sixth byte should be 0")
+    precondition(my_518.storage[6] == Int8(0), "Seventh byte should be 0")
+    precondition(my_518.storage[7] == Int8(0), "Eighth byte should be 0")
+    precondition(my_518.b == 1 << 40, "Value of b should match the original Int value")
+
+
+    var my_b = CUnion(b: Int(truncating_or_extending: 1 << 40))
+    precondition(my_b.storage.count() == MemoryLayout<Int>.size(), "Storage size should match Int32 size")
+
+    precondition(my_b.storage[0] == Int8(0), "First byte should be 0")
+    precondition(my_b.storage[1] == Int8(0), "Second byte should be 0")
+    precondition(my_b.storage[2] == Int8(0), "Third byte should be 0")
+    precondition(my_b.storage[3] == Int8(0), "Fourth byte should be 0")
+    precondition(my_b.storage[4] == Int8(0), "Fifth byte should be 0")
+    precondition(my_b.storage[5] == Int8(1), "Sixth byte should be 1")
+    precondition(my_b.storage[6] == Int8(0), "Seventh byte should be 0")
+    precondition(my_b.storage[7] == Int8(0), "Eighth byte should be 0")
+    precondition(my_b.b == Int(truncating_or_extending: 1 << 40), "Value of b should match the original Int value")
+
+    // Change to a different value `a`
+    &my_b.change_to(a: Int32(truncating_or_extending: 1 << 31 - 1))
+    precondition(my_b.storage.count() == MemoryLayout<Int32>.size(), "Storage size should match Int32 size")
+    precondition(my_b.storage[0] == Int8(255), "First byte should be 255")
+    precondition(my_b.storage[1] == Int8(255), "Second byte should be 255")
+    precondition(my_b.storage[2] == Int8(255), "Third byte should be 255")
+    precondition(my_b.storage[3] == Int8(127), "Fourth byte should be 127")
+    precondition(my_b.a == Int32(truncating_or_extending: 1 << 31 - 1), "Value of a should match the original Int32 value")
+    
+    print("success")
+}

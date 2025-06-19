@@ -1,0 +1,75 @@
+// FFI declaration for a C function
+// that takes two `int32_t`s and returns an `int32_t`
+@conv(C) @extern fun add(_ a: Int32, _ b: Int32) -> Int32
+
+// Calling a C function
+fun test_calling_a_C_function() {
+    precondition(add(3, 4) == 7)
+}
+
+// Calling a C function pointer
+fun test_calling_a_C_function_pointer() {
+    let addRef: @conv(C) [](Int32, Int32) -> Int32 = add(_:_:)
+    precondition(addRef(1, 2) == 3)
+}
+
+
+
+
+
+// A Hylo function
+fun sub(_ a: Int32, _ b: Int32) -> Int32 {
+    return add(-a, b)
+}
+
+// FFI declaration for a C function taking a function pointer and two `int32_t`s
+@conv(C) @extern fun apply_in_c(_ a: Int32, 
+                                _ b: Int32,
+                                _ f: @conv(C) [](Int32, Int32) -> Int32
+                               ) -> Int32
+
+fun test_passing_c_function_to_c() {
+    let result = apply_in_c(1, 2, add(_:_:)) // note, add is a C function
+    precondition(result == 3)
+}
+
+fun test_passing_c_function_pointer_to_c() {
+    let addRef: @conv(C) [](Int32, Int32) -> Int32 = add(_:_:) // note, addRef is a pointer to a C function
+    let result = apply_in_c(1, 2, addRef)
+    precondition(result == 3)
+}
+
+fun test_passing_hylo_function_to_c() {
+    let result = apply_in_c(1, 2, sub(_:_:)) // note, sub is a Hylo function
+    precondition(result == -1)
+
+    // Under the hood, a function is emitted that wraps the Hylo function,
+    // can be called from C and inside it calls the Hylo function.
+    // todo: figure out how to do this
+}
+
+// same as above but using an explicit function pointer type
+fun test_passing_hylo_function_pointer_to_c() {
+    let subRef: [](Int32, Int32) -> Int32 = sub(_:_:)
+    // note, subRef is a pointer to a Hylo function
+
+    let result = apply_in_c(1, 2, subRef) // implicitly converted to a C calling convention function
+    precondition(result == -1)
+}
+
+
+
+
+// Remember, we can call a C function directly from Hylo, as we know its calling convention is C
+fun test_calling_a_C_function() {
+    precondition(add(3, 4) == 7)
+}
+
+// FFI declararation for a C function that returns a function pointer
+@conv(C) @extern fun get_add_function() -> (@conv(C) [](Int32, Int32) -> Int32)
+
+// But we can also call a C function pointer as long as we know its calling convention
+fun test_calling_c_function_ptr() {
+    let addRef: @conv(C) [](Int32, Int32) -> Int32 = get_add_function()
+    precondition(addRef(1, 2) == 3)
+}

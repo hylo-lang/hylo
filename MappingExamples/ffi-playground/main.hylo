@@ -1,0 +1,38 @@
+
+@ffi("fst")
+fun fst(_ x: CChar, _ y: CChar) -> CChar
+
+@ffi("snd")
+fun snd(_ x: CChar, _ y: CChar) -> CChar
+
+@ffi("hello")
+fun hello(_ x: CUChar) -> CUChar
+
+@ffi("hash")
+fun hash(_ a: CLong, _ b: CChar,_ c: CInt,_ d: CShort,_ e: CLongLong,_ f: CULong, _ g: CSChar) -> CLongLong
+
+@ffi("using_float")
+fun using_float(_ x: Float64, _ y: Float64, _ z: Float64, _ p1: Float64, _ p2: Float64, _ p3: Float64, _ p4: Float64, _ p5: Float64, _ p6: Float64, _ p7: Float64, _ p8: Float64, _ p9: Float64, _ p10: Float64) -> Float64
+
+@ffi("print_float")
+fun print_float(_ x: Float64) -> Void
+
+
+public fun main() {
+    // print(Int(fromC: hash(1, 2, 3, 4, 5, 6, 7)))
+    // print(Int(fromC: hash(6, 5, 4, 3, 2, 1, 0)))
+    // print(Int(fromC: hash(0, 0, 0, 0, 0, 0, 0)))
+    // print(Int(fromC: hash(-1, -1, -1, -1, -1, 1, -1)))
+    // print(Int(fromC: hash(-2147483647, -127, -32767, -32767, -9223372036854775807, 4294967295, -128)))
+
+    // let a = (1, 2, hello: 3, 4, 5, 6, 7, 8, 9, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29)
+    // print(a.0)
+    // print(a.1)
+    // print(type(of: a))
+
+    print_float(using_float(1.0, 2.0, 3,4,5,6,7,8,9,10,11,12,13))
+
+    print(42)
+    
+}
+

@@ -1,0 +1,17 @@
+type S : Deinitializable {
+    public var a: Int
+
+    public memberwise init
+
+    public fun increment() inout {
+        &self.a += 1
+    }
+}
+
+public fun main() {
+    var s = S(a: 5)
+    print(s.a) // Should print 5
+    &s.increment()
+    print(s.a) // Should print 6
+    
+}
