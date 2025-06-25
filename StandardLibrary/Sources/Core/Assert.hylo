@@ -71,12 +71,10 @@ fun print_backtrace() {
     var buffer = Array<MemoryAddress>(count: backtrace_depth, initialized_with: fun(_ i: Int) -> MemoryAddress {
       return .null()
     })
-    {
-      &buffer.with_mutable_contiguous_storage(fun (_ p: PointerToMutable<MemoryAddress>) -> Void {
-        var size = backtrace(p, C.int(truncating_or_extending: backtrace_depth))
-        backtrace_symbols_fd(p, size, 2) // write to stderr
-      })
-    }
+    &buffer.with_mutable_contiguous_storage(fun (_ p: PointerToMutable<MemoryAddress>) -> Void {
+      var size = backtrace(p, C.int(truncating_or_extending: backtrace_depth))
+      backtrace_symbols_fd(p, size, 2) // write to stderr
+    })
   #endif
   #endif
 }
