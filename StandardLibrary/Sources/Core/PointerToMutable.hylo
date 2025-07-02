@@ -11,17 +11,11 @@ public type PointerToMutable<Pointee>: Regular {
   /// - Requires: the address stores an object of type Pointee.
   public subscript unsafe(): Pointee {
     /// - Requires: nothing mutates the value's storage during this projection's lifetime.
-    let {
-      precondition(self != .null(), "dereferencing null pointer")
-      yield base as* (remote let Pointee)
-    }
+    let { yield base as* (remote let Pointee) }
 
     /// - Requires: the value is mutable, and nothing accesses its
     ///   storage except through this projection during its lifetime.
-    inout {
-      precondition(self != .null(), "dereferencing null pointer")
-      yield &(base as* (remote let Pointee))
-    }
+    inout { yield &(base as* (remote let Pointee)) }
   }
 
   /// Creates an instance with mutable access to the memory pointed to by `p`.
