@@ -216,7 +216,7 @@ You can also get in touch with the community by joining our [Slack][join-slack] 
 European time.
 
 [join-slack]: https://join.slack.com/t/val-qs97696/shared_invite/zt-1z3dsblrq-y4qXfEE6wr6uMEJSN9uFyg
-[join-zoom]: https://unige.zoom.us/j/63321463694?pwd=L0VuY3QwUEx5K3BaRWIyMjArdkhEQT09
+[join-zoom]: https://unige.zoom.us/j/66489601602?pwd=z8jMbhAcbxeZBy9js6YTKOIyfSeRrd.1
 
 ## License
 
