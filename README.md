@@ -212,7 +212,7 @@ We welcome contributions to Hylo.
 Please read through [CONTRIBUTING.md](CONTRIBUTING.md) for details on how to get started.
 
 You can also get in touch with the community by joining our [Slack][join-slack] or one of our [Zoom Meetings][join-zoom]
-(ID: 633 2146 3694, Passcode: 409180) on Tuesdays and Thursdays, 13:00-13:30 Pacific time or 22:00-22:30 Central
+(ID: 664 8960 1602, Passcode: 853241) on Tuesdays and Thursdays, 13:00-13:30 Pacific time or 22:00-22:30 Central
 European time.
 
 [join-slack]: https://join.slack.com/t/val-qs97696/shared_invite/zt-1z3dsblrq-y4qXfEE6wr6uMEJSN9uFyg
