@@ -51,7 +51,7 @@ let package = Package(
       url: "https://github.com/tothambrus11/BigInt.git",
       branch: "swift6"),
     .package(
-      url: "https://github.com/tothambrus11/Swifty-LLVM",
+      url: "https://github.com/hylo-lang/Swifty-LLVM",
       branch: "swift-601"),
     .package(
       url: "https://github.com/apple/swift-format",

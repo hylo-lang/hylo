@@ -1,5 +1,5 @@
 {
-  "originHash" : "3fa65eeeb8ec5b6e83ba4ed96eaedebf49c9aa835fffb033e426e9941f6a7621",
+  "originHash" : "e8f93fb87293bec2bca3eeccd7c7dc425f7d7c5002034689a13e65635f56d7ba",
   "pins" : [
     {
       "identity" : "bigint",
@@ -87,17 +87,17 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-tools-support-core.git",
       "state" : {
-        "revision" : "b464fcd8d884e599e3202d9bd1eee29a9e504069",
-        "version" : "0.7.2"
+        "revision" : "e8fbc8b05a155f311b862178d92d043afb216fe3",
+        "version" : "0.7.3"
       }
     },
     {
       "identity" : "swifty-llvm",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/tothambrus11/Swifty-LLVM",
+      "location" : "https://github.com/hylo-lang/Swifty-LLVM",
       "state" : {
         "branch" : "swift-601",
-        "revision" : "2da639f614593303c4f053367b981ad966a9e76f"
+        "revision" : "428f7b9abcac484f0ae7d83d62ccca10431014b5"
       }
     },
     {
