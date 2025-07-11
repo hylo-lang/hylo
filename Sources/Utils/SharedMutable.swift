@@ -18,20 +18,23 @@ public final class SharedMutable<SharedValue: Sendable>: @unchecked Sendable {
   }
 
   /// Returns the result of thread-safely applying `f` to the wrapped instance.
-  public func read<R>(applying f: @Sendable (SharedValue) throws -> R) rethrows -> R {
+  public func read<R>(applying f: (SharedValue) throws -> R) rethrows -> R {
     try mutex.sync {
       try f(storage)
     }
   }
 
   /// Returns the result of thread-safely applying `modification` to the wrapped instance.
-  ///
-  /// - Requires: `modification` does not mutate any existing state.
-  /// - Warning: Swift silently creates mutable captures in closures! If `modification` mutates
-  ///   anything other than its local variables, you can create data races and undefined behavior.
   public func modify<R>(applying modification: @Sendable (inout SharedValue) throws -> R) rethrows -> R {
     try mutex.sync {
       try modification(&storage)
+    }
+  }
+
+  /// Returns the result of thread-safely applying `f` to the wrapped instance, providing mutable environment to the function.
+  public func modify<R, E>(withState state: inout E, applying f: (inout E, inout SharedValue) throws -> R) rethrows -> R {
+    try mutex.sync {
+      try f(&state, &storage)
     }
   }
 

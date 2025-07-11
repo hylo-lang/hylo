@@ -37,7 +37,7 @@ struct Solution: Sendable {
   private(set) var diagnostics: DiagnosticSet
 
   /// The constraints that could not be solved.
-  private(set) var stale: [Constraint]
+  private(set) var stale: [Constraint & Sendable]
 
   /// Creates an empty solution.
   init() {
@@ -53,7 +53,7 @@ struct Solution: Sendable {
     callOperands: [CallID: [ArgumentResolutionResult]],
     penalties: Int,
     diagnostics: DiagnosticSet,
-    stale: [Constraint]
+    stale: [Constraint & Sendable]
   ) {
     self.substitutions = substitutions
     self.bindings = bindings

@@ -11,7 +11,7 @@ import XCTest
   public struct XCTIssue: Sendable {
 
     /// Constants that indicate types of test failures.
-    public enum IssueType: Int {
+    public enum IssueType: Int, Sendable {
 
       /// A test failure due to a failed test assertion or related API.
       case assertionFailure
@@ -44,13 +44,13 @@ import XCTest
 
   /// An object that contains a file URL and line number that represents a distinct location in
   /// source code.
-  public final class XCTSourceCodeLocation: Hashable {
+  public final class XCTSourceCodeLocation: Hashable, Sendable {
 
     /// A file URL that represents the file-system location of the source code file.
-    public var fileURL: URL
+    public let fileURL: URL
 
     /// An integer that represents a line of code in a source code file.
-    public var lineNumber: Int
+    public let lineNumber: Int
 
     /// Initializes a new instance with a file URL and a line number.
     public init(fileURL: URL, lineNumber: Int) {

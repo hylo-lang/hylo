@@ -150,7 +150,7 @@ struct TypeChecker: Sendable {
   mutating func canonical(
     _ arguments: GenericArguments, in scopeOfUse: AnyScopeID
   ) -> GenericArguments {
-    arguments.mapValues({ canonical($0, in: scopeOfUse) })
+    arguments.mapValues(with: &self, { state, v in state.canonical(v, in: scopeOfUse) })
   }
 
   /// Returns `true` iff `t` and `u` are semantically equivalent in `scopeOfUse`.
@@ -1540,8 +1540,8 @@ struct TypeChecker: Sendable {
     ///
     /// Conformances at file scope are exposed in the whole module. Other conformances are exposed
     /// in their containing scope.
-    let scopeOfExposition = read(scopeOfDefinition) { (s) in
-      (s.kind == TranslationUnit.self) ? program[s].scope : s
+    let scopeOfExposition = read(scopeOfDefinition, withState: &self) { (state, scope) in
+      (scope.kind == TranslationUnit.self) ? state.program[scope].scope : scope
     }
 
     /// The type for which conformance to `trait` is being checked.
@@ -1836,8 +1836,11 @@ struct TypeChecker: Sendable {
   /// - Note: This method doesn't write to the shared cache.
   private mutating func insertConformance(_ c: Conformance) {
     var traitToConformance = cache.local.conformances[c.model, default: [:]]
-    let inserted = modify(&traitToConformance[c.concept, default: []]) { (s) in
-      if !s.contains(where: { program.areOverlapping($0.scope, c.scope) }) {
+    let inserted = modify(&traitToConformance[c.concept, default: []], withState: &self) {
+      (me, s) in
+      if !s.contains(
+        withState: &me, where: { me, scope in me.program.areOverlapping(scope.scope, c.scope) })
+      {
         let i = s.insert(c).inserted
         assert(i)
         return true
@@ -3642,7 +3645,11 @@ struct TypeChecker: Sendable {
     let n = program[c].name
     let s = AnyScopeID(d)
     var candidates = lookup(unqualified: n.value.stem, in: program[c].scope)
-    candidates.removeAll(where: { isCaptured(referenceTo: $0, occurringIn: s) })
+    candidates.removeAll(
+      withState: &self,
+      where: { me, candidate in
+        return me.isCaptured(referenceTo: candidate, occurringIn: s)
+      })
     if candidates.isEmpty { return nil }
 
     guard let pick = candidates.uniqueElement else {
@@ -6775,15 +6782,15 @@ struct TypeChecker: Sendable {
     /// incremented, unless `ignoreSharedCache` is `true`.
     ///
     /// `merge` asserts that the update is monotonic.
-    mutating func write<V>(
+    mutating func write<V: Sendable>(
       _ value: V, at path: WritableKeyPath<TypedProgram, V>,
       ignoringSharedCache ignoreSharedCache: Bool = false,
-      mergingWith merge: @escaping (inout V, V) -> Void
+      mergingWith merge: @Sendable @escaping (inout V, V) -> Void
     ) {
       local.write(value, at: path, mergingWith: merge)
 
       if shared != nil {
-        func update(
+        @Sendable func update(
           _ value: Any, at path: PartialKeyPath<TypedProgram>, in program: inout TypedProgram
         ) {
           let p = path as! WritableKeyPath<TypedProgram, V>
@@ -6803,7 +6810,7 @@ struct TypeChecker: Sendable {
     /// After the call, `self.local[keyPath: path] == value`. If `self.shared` isn't `nil`, the
     /// update is recorded for the next synchronization round and `self.earlyUpdateCount` is
     /// incremented, unless `ignoreSharedCache` is `true`.
-    mutating func write<V>(
+    mutating func write<V: Sendable>(
       _ value: V, at path: WritableKeyPath<TypedProgram, V>,
       ignoringSharedCache ignoreSharedCache: Bool = false
     ) where V: Monotonic {
@@ -6823,9 +6830,10 @@ struct TypeChecker: Sendable {
 
     /// Applies all pending updates to the shared instance.
     fileprivate mutating func synchronize() {
-      shared?.modify { (p) in
-        for u in pendingUpdates {
-          u.apply(local[keyPath: u.pathToUpdate], u.pathToUpdate, &p)
+
+      shared?.modify(withState: &self) { (cache, p) in
+        for u in cache.pendingUpdates {
+          u.apply(cache.local[keyPath: u.pathToUpdate], u.pathToUpdate, &p)
         }
       }
       pendingUpdates.removeAll(keepingCapacity: true)
@@ -6833,12 +6841,11 @@ struct TypeChecker: Sendable {
     }
 
   }
-
   /// A synchronization update to perform on a shared instance.
-  private struct SynchronizationUpdate: Hashable {
+  private struct SynchronizationUpdate: Hashable, Sendable {
 
     /// A closure that accepts a `path` in `instance` and a `value` to write.
-    typealias Apply = (
+    typealias Apply = @Sendable (
       _ value: Any,
       _ path: PartialKeyPath<TypedProgram>,
       _ instance: inout TypedProgram
@@ -6869,6 +6876,8 @@ struct TypeChecker: Sendable {
   }
 
 }
+
+extension PartialKeyPath: @unchecked @retroactive Sendable {}
 
 /// An AST visitation callback that collects recursive references to specific declarations.
 private struct RecursiveReferenceRecognizer: ASTWalkObserver {

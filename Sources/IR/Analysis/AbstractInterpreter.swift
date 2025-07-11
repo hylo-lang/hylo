@@ -1,6 +1,6 @@
 import DequeModule
 
-struct AbstractInterpreter<Domain: AbstractDomain>: Sendable {
+struct AbstractInterpreter<Domain: AbstractDomain & Sendable>: Sendable {
 
   /// An abstract interpretation context.
   typealias Context = AbstractContext<Domain>

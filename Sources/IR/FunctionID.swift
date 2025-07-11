@@ -7,7 +7,7 @@ extension Function {
   public struct ID: Hashable, Sendable {
 
     /// The value of a function IR identity.
-    public enum Value: Hashable {
+    public enum Value: Hashable, Sendable {
 
       /// The identity of a lowered function, initializer, method variant, or subscript variant.
       case lowered(AnyDeclID)

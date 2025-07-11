@@ -2,7 +2,7 @@
 public struct ConditionalCompilationStmt: Stmt, Sendable {
 
   /// A comparison test for semantic version.
-  public enum VersionComparison: Codable, Equatable {
+  public enum VersionComparison: Codable, Equatable, Sendable {
 
     /// Represents "_ >= payload".
     case greaterOrEqual(SemanticVersion)
@@ -23,7 +23,7 @@ public struct ConditionalCompilationStmt: Stmt, Sendable {
   }
 
   /// A condition in a conditional compilation statement.
-  public indirect enum Condition: Codable, Equatable {
+  public indirect enum Condition: Codable, Equatable, Sendable {
 
     /// Always holds.
     case `true`

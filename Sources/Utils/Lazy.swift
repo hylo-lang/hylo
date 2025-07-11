@@ -95,3 +95,6 @@ public struct LazyThrowing<T: Sendable> {
   }
 
 }
+
+extension Lazy: Sendable where T: Sendable {}
+extension LazyThrowing: Sendable where T: Sendable {}

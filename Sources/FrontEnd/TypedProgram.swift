@@ -63,8 +63,8 @@ public struct TypedProgram: Sendable {
     annotating base: ScopedProgram,
     inParallel typeCheckingIsParallel: Bool = false,
     reportingDiagnosticsTo log: inout DiagnosticSet,
-    tracingInferenceIf shouldTraceInference: ((AnyNodeID, TypedProgram) -> Bool)? = nil,
-    loggingRequirementSystemIf shouldLogRequirements: ((AnyDeclID, TypedProgram) -> Bool)? = nil
+    tracingInferenceIf shouldTraceInference: (@Sendable (AnyNodeID, TypedProgram) -> Bool)? = nil,
+    loggingRequirementSystemIf shouldLogRequirements: (@Sendable (AnyDeclID, TypedProgram) -> Bool)? = nil
   ) throws {
     let instanceUnderConstruction = SharedMutable(TypedProgram(partiallyFormedFrom: base))
 
@@ -88,11 +88,14 @@ public struct TypedProgram: Sendable {
       }
     }
 
-    self = try instanceUnderConstruction.read {
+    self = try instanceUnderConstruction.read { p in
+      let tracingInferenceIf = typeCheckingIsParallel ? nil : shouldTraceInference
+      let loggingRequirementSystemIf = typeCheckingIsParallel ? nil : shouldLogRequirements
+      
       var checker = TypeChecker(
-        constructing: $0,
-        tracingInferenceIf: typeCheckingIsParallel ? nil : shouldTraceInference,
-        loggingRequirementSystemIf: typeCheckingIsParallel ? nil : shouldLogRequirements)
+        constructing: p,
+        tracingInferenceIf: tracingInferenceIf,
+        loggingRequirementSystemIf: loggingRequirementSystemIf)
       checker.checkAllDeclarations()
 
       log.formUnion(checker.diagnostics)
@@ -109,8 +112,8 @@ public struct TypedProgram: Sendable {
   ///     `true` if a trace of type inference should be logged on the console for that node.
   public func loadModule(
     reportingDiagnosticsTo log: inout DiagnosticSet,
-    tracingInferenceIf shouldTraceInference: ((AnyNodeID, TypedProgram) -> Bool)? = nil,
-    loggingRequirementSystemIf shouldLogRequirements: ((AnyDeclID, TypedProgram) -> Bool)? = nil,
+    tracingInferenceIf shouldTraceInference: (@Sendable (AnyNodeID, TypedProgram) -> Bool)? = nil,
+    loggingRequirementSystemIf shouldLogRequirements: (@Sendable (AnyDeclID, TypedProgram) -> Bool)? = nil,
     creatingContentsWith make: AST.ModuleLoader
   ) throws -> (Self, ModuleDecl.ID) {
     let (p, m) = try base.loadModule(reportingDiagnosticsTo: &log, creatingContentsWith: make)
@@ -143,8 +146,8 @@ public struct TypedProgram: Sendable {
       _ sources: [TranslationUnit.ID],
       withCheckerIdentifiedBy checkerIdentifier: UInt8,
       collaborativelyConstructing instanceUnderConstruction: SharedMutable<TypedProgram>,
-      tracingInferenceIf shouldTraceInference: ((AnyNodeID, TypedProgram) -> Bool)?,
-      loggingRequirementSystemIf shouldLogRequirements: ((AnyDeclID, TypedProgram) -> Bool)?
+      tracingInferenceIf shouldTraceInference: (@Sendable (AnyNodeID, TypedProgram) -> Bool)?,
+      loggingRequirementSystemIf shouldLogRequirements: (@Sendable (AnyDeclID, TypedProgram) -> Bool)?
     ) {
       self.sources = sources
       self.checker = TypeChecker(
@@ -604,9 +607,9 @@ public struct TypedProgram: Sendable {
   ///
   /// - Parameter merge: A closure that merges `value` into the value currently stored at `path`,
   ///   guaranteeing that the result of the merge is a refinement.
-  mutating func write<V: Sendable>(
+  mutating func write<V>(
     _ value: V, at path: WritableKeyPath<Self, V>,
-    mergingWith merge: @Sendable (inout V, V) -> Void
+    mergingWith merge: (inout V, V) -> Void
   ) {
     modify(&self[keyPath: path], { (u) in merge(&u, value) })
   }

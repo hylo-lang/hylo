@@ -8,7 +8,7 @@ public enum Operand: Sendable {
   case parameter(Block.ID, Int)
 
   /// A constant value.
-  case constant(any Constant)
+  case constant(any Constant & Sendable)
 
   /// The void constant.
   public static let void: Operand = .constant(VoidConstant())

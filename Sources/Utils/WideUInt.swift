@@ -25,6 +25,7 @@ public struct WideUInt: Sendable {
 
 }
 
+// todo extension WideUInt: UnsignedInteger {}
 extension WideUInt: Hashable {}
 
 extension WideUInt: Comparable {

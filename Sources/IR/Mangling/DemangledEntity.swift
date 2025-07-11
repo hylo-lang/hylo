@@ -2,7 +2,7 @@ import FrontEnd
 import Utils
 
 /// The payload of a `DemangledSymbol.entity`.
-public struct DemangledEntity: Hashable {
+public struct DemangledEntity: Hashable, Sendable {
 
   /// The qualification of the symbol, if any.
   public let qualification: DemangledQualification?

@@ -1,7 +1,7 @@
 import FrontEnd
 
 /// Marks this execution path as unreachable, causing a fatal error otherwise.
-public struct Unreachable: Terminator {
+public struct Unreachable: Terminator, Sendable {
 
   /// The site of the code corresponding to that instruction.
   public var site: SourceRange

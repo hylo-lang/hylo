@@ -1,5 +1,5 @@
 /// A term in a rewriting system.
-protocol RewritingTerm: Equatable, Collection where Index == Int, Element: Hashable {
+protocol RewritingTerm: Equatable, Sendable, Collection where Index == Int, Element: Hashable & Sendable, SubSequence: Sendable {
 
   /// Creates a term with the given symbols.
   init<S: Sequence<Element>>(_ s: S)

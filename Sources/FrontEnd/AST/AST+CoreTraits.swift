@@ -1,5 +1,5 @@
 /// The description of a core trait that has been loaded in an AST.
-public protocol CoreTraitDescription: Codable {
+public protocol CoreTraitDescription: Codable, Sendable {
 
   /// The identifier of the trait declaration in the AST.
   var decl: TraitDecl.ID { get }

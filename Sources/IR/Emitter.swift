@@ -119,7 +119,7 @@ struct Emitter: Sendable {
   ///
   /// - Requires: `self.insertionPoint` refers to the end of a block.
   @discardableResult
-  private mutating func insert<I: Instruction>(_ newInstruction: I) -> Operand? {
+  private mutating func insert<I: Instruction & Sendable>(_ newInstruction: I) -> Operand? {
     let i = module.insert(newInstruction, at: insertionPoint!)
     return module.result(of: i)
   }
@@ -863,7 +863,7 @@ struct Emitter: Sendable {
   @discardableResult
   private mutating func withPrologue(
     of d: SynthesizedFunctionDecl,
-    _ action: (inout Self, _ entry: Block.ID) -> Void
+    _ action: @Sendable (inout Self, _ entry: Block.ID) -> Void
   ) -> Function.ID {
     withClearContext { (me) in
       let f = me.module.demandDeclaration(lowering: d)
@@ -2660,7 +2660,7 @@ struct Emitter: Sendable {
 
   /// Traps on this execution path because of un unexpected coercion from `lhs` to `rhs`.
   private func unexpectedCoercion(
-    from lhs: AnyType, to rhs: AnyType, file: StaticString = #file, line: UInt = #line
+    from lhs: AnyType, to rhs: AnyType, file: StaticString = #filePath, line: UInt = #line
   ) -> Never {
     fatalError("unexpected coercion from '\(lhs)' to '\(rhs)'", file: file, line: line)
   }

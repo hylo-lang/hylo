@@ -1,7 +1,7 @@
 import FrontEnd
 
 /// Unsafely sets the initialization state of storage.
-public struct MarkState: Instruction {
+public struct MarkState: Instruction, Sendable {
 
   /// The storage whose initialization state is updated.
   public private(set) var storage: Operand

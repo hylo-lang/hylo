@@ -1,7 +1,7 @@
 import FrontEnd
 
 /// Stores `object` at the specified location.
-public struct Store: Instruction {
+public struct Store: Instruction, Sendable {
 
   /// The object to store.
   public private(set) var object: Operand

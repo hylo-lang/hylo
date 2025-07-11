@@ -1,7 +1,7 @@
 import FrontEnd
 
 /// A return instruction.
-public struct Return: Terminator {
+public struct Return: Terminator, Sendable {
 
   /// The site of the code corresponding to that instruction.
   public let site: SourceRange

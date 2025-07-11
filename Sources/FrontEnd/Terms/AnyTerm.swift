@@ -1,7 +1,7 @@
 import Utils
 
 /// A box wrapping a term.
-private protocol TermBox {
+private protocol TermBox: Sendable {
 
   /// Hashes the salient parts of the wrapped value into `hasher`.
   func hash(into hasher: inout Hasher)
@@ -19,7 +19,7 @@ private protocol TermBox {
 }
 
 /// A box wrapping an instance of `Base`.
-private struct ConcreteTermBox<Base: TermProtocol>: TermBox, Sendable {
+private struct ConcreteTermBox<Base: TermProtocol & Sendable>: TermBox, Sendable {
 
   /// The value wrapped by this instance.
   let base: Base
@@ -54,7 +54,7 @@ public struct AnyTerm: Sendable {
   /// Creates a type-erased container wrapping the given instance.
   ///
   /// - Parameter base: A type to wrap.
-  public init<T: TermProtocol>(_ base: T) {
+  public init<T: TermProtocol & Sendable>(_ base: T) {
     if let t = base as? AnyTerm {
       self.wrapped = t.wrapped
     } else {

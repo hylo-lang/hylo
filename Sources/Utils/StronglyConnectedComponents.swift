@@ -79,3 +79,5 @@ public struct StronglyConnectedComponents<Vertex: Hashable> {
   }
 
 }
+
+extension StronglyConnectedComponents: Sendable where Vertex: Sendable {}

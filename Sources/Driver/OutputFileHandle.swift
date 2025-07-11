@@ -19,4 +19,5 @@ struct OutputFileHandle: TextOutputStream, Sendable {
 }
 
 /// An instance whose writes are directed to the standard error stream.
+@MainActor
 var standardError = OutputFileHandle(.standardError)

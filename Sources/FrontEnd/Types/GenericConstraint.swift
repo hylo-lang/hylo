@@ -2,7 +2,7 @@
 public struct GenericConstraint: Hashable, Sendable {
 
   /// The value of a generic constraint.
-  public enum Value: Hashable {
+  public enum Value: Hashable, Sendable {
 
     /// A constraint specifying that `lhs` is equal to `rhs`, defined at `site`.
     case equality(_ lhs: AnyType, _ rhs: AnyType)

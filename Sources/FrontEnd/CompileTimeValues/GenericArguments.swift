@@ -64,8 +64,21 @@ public struct GenericArguments: Hashable, Sendable {
   }
 
   /// Returns a new map containing the keys of `self` with the values transformed `transform`.
-  public func mapValues(_ transform: @Sendable (Value) throws -> Value) rethrows -> Self {
-    try .init(contents: contents.mapValues(transform))
+  public func mapValues(_ transform: (Value) throws -> Value) rethrows -> Self {
+    .init(contents: try contents.mapValues(transform))
+  }
+
+  /// Returns a new map containing the keys of `self` with the values transformed `transform`, providing mutable state.
+  public func mapValues<State>(
+    with state: inout State,
+    _ transform: (inout State, Value) throws -> Value
+  ) rethrows -> Self {
+    var newContents: Contents = [:]
+    newContents.reserveCapacity(contents.count)
+    for (key, value) in contents {
+      newContents[key] = try transform(&state, value)
+    }
+    return Self(contents: newContents)
   }
 
   /// Returns `self` merged with `other`, applying `combine` to determine the value of any
@@ -93,7 +106,7 @@ public struct GenericArguments: Hashable, Sendable {
   }
 
   /// An empty instance.
-  public static var empty: Self = .init()
+  public static let empty: Self = .init()
 
 }
 

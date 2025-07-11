@@ -13,7 +13,7 @@ public struct NoLabel: Hashable, Sendable {
 /// - Note: Use `DirectedGraph<V, NoLabel>` rather than `DirectedGraph<V, Void>` to implement an
 ///   unlabeled graph. Unlike `Void`, `NoLabel` conforms to `Equatable`, allowing the graph itself
 ///   to be `Equatable`.
-public struct DirectedGraph<Vertex: Hashable & Sendable, Label: Sendable> {
+public struct DirectedGraph<Vertex: Hashable & Sendable, Label: Sendable>: Sendable {
 
   /// A collection with the outgoing edges of a vertex.
   public typealias OutgoingEdges = [Vertex: Label]

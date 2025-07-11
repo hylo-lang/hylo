@@ -1,7 +1,7 @@
 import FrontEnd
 
 /// Allocates memory on the stack.
-public struct AllocStack: Instruction {
+public struct AllocStack: Instruction, Sendable {
 
   /// The type for which storage is allocated.
   public let allocatedType: AnyType

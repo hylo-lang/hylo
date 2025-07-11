@@ -4,6 +4,9 @@ import IR
 import SwiftyLLVM
 import Utils
 
+extension SwiftyLLVM.TargetMachine : @retroactive @unchecked Sendable {} // todo sendable
+extension SwiftyLLVM.Module : @retroactive @unchecked Sendable {} // todo sendable
+
 /// A Hylo program transpiled to LLVM.
 public struct LLVMProgram: Sendable {
 
