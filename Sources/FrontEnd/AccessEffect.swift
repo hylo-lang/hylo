@@ -1,5 +1,5 @@
 /// An access effect, specifying how a parameter, receiver, or remote part is accessed.
-public enum AccessEffect: UInt8, Codable {
+public enum AccessEffect: UInt8, Codable, Sendable {
 
   /// Value is accessed immutably.
   case `let` = 1

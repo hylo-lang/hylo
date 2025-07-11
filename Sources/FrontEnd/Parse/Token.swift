@@ -1,8 +1,8 @@
 /// A terminal symbol of the syntactic grammar.
-public struct Token {
+public struct Token: Sendable {
 
   /// The kind of a token.
-  public enum Kind: Int {
+  public enum Kind: Int, Sendable {
 
     // Errors
     case invalid = 0

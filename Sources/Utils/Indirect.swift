@@ -2,7 +2,7 @@
 public struct Indirect<T> {
 
   /// The out of line storage of an `Indirect` value.
-  private class Storage {
+  fileprivate class Storage {
 
     /// The payload of an `Indirect` value.
     var payload: T
@@ -37,6 +37,8 @@ public struct Indirect<T> {
   }
 
 }
+
+extension Indirect: @unchecked Sendable where T: Sendable {}
 
 extension Indirect: Equatable where T: Equatable {
 

@@ -1,5 +1,5 @@
 /// A type that tokenize a source file.
-public struct Lexer: IteratorProtocol, Sequence {
+public struct Lexer: IteratorProtocol, Sequence, Sendable {
 
   /// The Hylo source being tokenized.
   public let sourceCode: SourceFile

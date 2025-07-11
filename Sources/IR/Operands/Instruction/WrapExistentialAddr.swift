@@ -2,7 +2,7 @@ import FrontEnd
 import Utils
 
 /// Creates existential container wrapping the address of a witness.
-public struct WrapExistentialAddr: Instruction {
+public struct WrapExistentialAddr: Instruction, Sendable {
 
   /// The address wrapped in the existential container.
   public private(set) var witness: Operand

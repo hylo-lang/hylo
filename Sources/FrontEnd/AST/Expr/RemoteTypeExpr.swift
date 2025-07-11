@@ -1,5 +1,5 @@
 /// The type expression of a remote type (e.g., `remote let Int`).
-public struct RemoteTypeExpr: Expr {
+public struct RemoteTypeExpr: Expr, Sendable {
 
   /// The site from which `self` was parsed.
   public let site: SourceRange

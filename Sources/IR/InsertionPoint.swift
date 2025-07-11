@@ -1,5 +1,5 @@
 /// Where an instruction should be inserted in a basic block.
-enum InsertionPoint {
+enum InsertionPoint: Sendable {
 
   /// The start of a basic block.
   case start(of: Block.ID)

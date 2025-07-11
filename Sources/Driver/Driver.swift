@@ -7,10 +7,11 @@ import StandardLibrary
 import SwiftyLLVM
 import Utils
 
+@MainActor
 public struct Driver: ParsableCommand {
 
   /// A validation error that includes the command's full help message.
-  private struct ValidationErrorWithHelp: Error, CustomStringConvertible {
+  private struct ValidationErrorWithHelp: Error, CustomStringConvertible, Sendable {
 
     var message: String
 
@@ -29,7 +30,7 @@ public struct Driver: ParsableCommand {
   }
 
   /// The type of the output files to generate.
-  private enum OutputType: String, ExpressibleByArgument {
+  private enum OutputType: String, ExpressibleByArgument, Sendable {
 
     /// AST before type-checking.
     case rawAST = "raw-ast"
@@ -51,7 +52,7 @@ public struct Driver: ParsableCommand {
   }
 
   /// The result of a compiler invocation.
-  public struct CompilationResult {
+  public struct CompilationResult: Sendable {
 
     /// The exit status of the compiler.
     public let status: ExitCode

@@ -1,6 +1,6 @@
 import Foundation
 
-struct OutputFileHandle: TextOutputStream {
+struct OutputFileHandle: TextOutputStream, Sendable {
 
   private let base: FileHandle
 
@@ -19,4 +19,5 @@ struct OutputFileHandle: TextOutputStream {
 }
 
 /// An instance whose writes are directed to the standard error stream.
+@MainActor
 var standardError = OutputFileHandle(.standardError)

@@ -6,7 +6,7 @@ import Utils
 /// - Note: A method named with a leading underscore are meant be called only by the method with
 ///   the same name but without that leading underscore. The former typically implement the actual
 ///   computation of a value that is memoized by the latter.
-struct TypeChecker {
+struct TypeChecker: Sendable {
 
   /// The diagnostics of the type errors.
   private(set) var diagnostics = DiagnosticSet()
@@ -22,11 +22,11 @@ struct TypeChecker {
 
   /// A closure that accepts a node with its containing program and returns `true` if a trace of
   /// type inference should be logged on the console for that node.
-  private let shouldTraceInference: ((AnyNodeID, TypedProgram) -> Bool)?
+  private let shouldTraceInference: (@Sendable (AnyNodeID, TypedProgram) -> Bool)?
 
   /// A closure that accepts a generic declaration with its containing program and returns `true`
   /// if the requirement system of its environment should be logged on the console.
-  private let shouldLogRequirementSystem: ((AnyDeclID, TypedProgram) -> Bool)?
+  private let shouldLogRequirementSystem: (@Sendable (AnyDeclID, TypedProgram) -> Bool)?
 
   /// The local copy of the program being type checked.
   var program: TypedProgram {
@@ -44,8 +44,8 @@ struct TypeChecker {
   /// Creates an instance for constructing `instanceUnderConstruction`.
   init(
     constructing instanceUnderConstruction: TypedProgram,
-    tracingInferenceIf shouldTraceInference: ((AnyNodeID, TypedProgram) -> Bool)?,
-    loggingRequirementSystemIf shouldLogRequirements: ((AnyDeclID, TypedProgram) -> Bool)?
+    tracingInferenceIf shouldTraceInference: (@Sendable (AnyNodeID, TypedProgram) -> Bool)?,
+    loggingRequirementSystemIf shouldLogRequirements: (@Sendable (AnyDeclID, TypedProgram) -> Bool)?
   ) {
     self.identifier = 0
     self.cache = Cache(local: instanceUnderConstruction)
@@ -60,8 +60,8 @@ struct TypeChecker {
   init(
     _ identifier: UInt8,
     collaborativelyConstructing instanceUnderConstruction: SharedMutable<TypedProgram>,
-    tracingInferenceIf shouldTraceInference: ((AnyNodeID, TypedProgram) -> Bool)?,
-    loggingRequirementSystemIf shouldLogRequirements: ((AnyDeclID, TypedProgram) -> Bool)?
+    tracingInferenceIf shouldTraceInference: (@Sendable (AnyNodeID, TypedProgram) -> Bool)?,
+    loggingRequirementSystemIf shouldLogRequirements: (@Sendable (AnyDeclID, TypedProgram) -> Bool)?
   ) {
     self.identifier = identifier
     self.nextFreshVariableIdentifier = UInt64(identifier) << 56
@@ -150,7 +150,7 @@ struct TypeChecker {
   mutating func canonical(
     _ arguments: GenericArguments, in scopeOfUse: AnyScopeID
   ) -> GenericArguments {
-    arguments.mapValues({ canonical($0, in: scopeOfUse) })
+    arguments.mapValues(with: &self, { state, v in state.canonical(v, in: scopeOfUse) })
   }
 
   /// Returns `true` iff `t` and `u` are semantically equivalent in `scopeOfUse`.
@@ -1540,8 +1540,8 @@ struct TypeChecker {
     ///
     /// Conformances at file scope are exposed in the whole module. Other conformances are exposed
     /// in their containing scope.
-    let scopeOfExposition = read(scopeOfDefinition) { (s) in
-      (s.kind == TranslationUnit.self) ? program[s].scope : s
+    let scopeOfExposition = read(scopeOfDefinition, withState: &self) { (state, scope) in
+      (scope.kind == TranslationUnit.self) ? state.program[scope].scope : scope
     }
 
     /// The type for which conformance to `trait` is being checked.
@@ -1599,7 +1599,8 @@ struct TypeChecker {
       return (
         type: canonical(expectedType(of: m), in: scopeOfDefinition),
         name: program.name(of: m)!,
-        parameters: genericParameters(introducedBy: m))
+        parameters: genericParameters(introducedBy: m)
+      )
     }
 
     /// Returns the type of `m` viewed as a member of `model` through its conformance to `trait`.
@@ -1685,8 +1686,7 @@ struct TypeChecker {
       of requirement: AnyDeclID, withAPI expectedAPI: API
     ) -> SynthesizedFunctionDecl? {
       let scopeOfImplementation = AnyScopeID(origin.source)!
-      if
-        let k = program.ast.synthesizedKind(of: requirement),
+      if let k = program.ast.synthesizedKind(of: requirement),
         canSynthesizeConformance(model, to: trait, in: scopeOfImplementation)
       {
         let t = ArrowType(expectedAPI.type)!
@@ -1836,8 +1836,11 @@ struct TypeChecker {
   /// - Note: This method doesn't write to the shared cache.
   private mutating func insertConformance(_ c: Conformance) {
     var traitToConformance = cache.local.conformances[c.model, default: [:]]
-    let inserted = modify(&traitToConformance[c.concept, default: []]) { (s) in
-      if !s.contains(where: { program.areOverlapping($0.scope, c.scope) }) {
+    let inserted = modify(&traitToConformance[c.concept, default: []], withState: &self) {
+      (me, s) in
+      if !s.contains(
+        withState: &me, where: { me, scope in me.program.areOverlapping(scope.scope, c.scope) })
+      {
         let i = s.insert(c).inserted
         assert(i)
         return true
@@ -3642,7 +3645,11 @@ struct TypeChecker {
     let n = program[c].name
     let s = AnyScopeID(d)
     var candidates = lookup(unqualified: n.value.stem, in: program[c].scope)
-    candidates.removeAll(where: { isCaptured(referenceTo: $0, occurringIn: s) })
+    candidates.removeAll(
+      withState: &self,
+      where: { me, candidate in
+        return me.isCaptured(referenceTo: candidate, occurringIn: s)
+      })
     if candidates.isEmpty { return nil }
 
     guard let pick = candidates.uniqueElement else {
@@ -4396,8 +4403,7 @@ struct TypeChecker {
     }
 
     // If the match is a trait member, specialize its receiver.
-    if
-      d.kind != AssociatedTypeDecl.self,
+    if d.kind != AssociatedTypeDecl.self,
       let t = traitDeclaring(d),
       let r = context?.type ?? resolveReceiverMetatype(in: scopeOfUse)?.instance
     {
@@ -4533,8 +4539,7 @@ struct TypeChecker {
     reportingDiagnosticsAt diagnosticSite: SourceRange
   ) -> AnyType {
     let lens = traitDeclaring(d)!
-    if
-      let c = demandConformance(of: domain, to: lens, exposedTo: scopeOfUse),
+    if let c = demandConformance(of: domain, to: lens, exposedTo: scopeOfUse),
       let i = c.implementations[d]?.decl
     {
       return uncheckedType(of: i)
@@ -5591,7 +5596,7 @@ struct TypeChecker {
     }
 
     // Create the necessary constraints to let the solver resolve the remaining components.
-    for i in (0 ..< unresolved.count).reversed() {
+    for i in (0..<unresolved.count).reversed() {
       let memberType = ^freshVariable()
       obligations.insert(
         MemberConstraint(
@@ -6589,7 +6594,7 @@ struct TypeChecker {
     let bb = bases(of: b)
 
     if ab.unordered.count > bb.unordered.count {
-      return .descending // !!! .ascending in Slava's work
+      return .descending  // !!! .ascending in Slava's work
     } else if ab.unordered.count == bb.unordered.count {
       return .init(between: a.decl.rawValue, and: b.decl.rawValue)
     } else {
@@ -6654,7 +6659,7 @@ struct TypeChecker {
   // MARK: Caching
 
   /// A possibly shared instance of a typed program.
-  struct Cache {
+  struct Cache: Sendable {
 
     /// A lookup table.
     typealias LookupTable = [String: Set<AnyDeclID>]
@@ -6777,15 +6782,15 @@ struct TypeChecker {
     /// incremented, unless `ignoreSharedCache` is `true`.
     ///
     /// `merge` asserts that the update is monotonic.
-    mutating func write<V>(
+    mutating func write<V: Sendable>(
       _ value: V, at path: WritableKeyPath<TypedProgram, V>,
       ignoringSharedCache ignoreSharedCache: Bool = false,
-      mergingWith merge: @escaping (inout V, V) -> Void
+      mergingWith merge: @Sendable @escaping (inout V, V) -> Void
     ) {
       local.write(value, at: path, mergingWith: merge)
 
       if shared != nil {
-        func update(
+        @Sendable func update(
           _ value: Any, at path: PartialKeyPath<TypedProgram>, in program: inout TypedProgram
         ) {
           let p = path as! WritableKeyPath<TypedProgram, V>
@@ -6805,7 +6810,7 @@ struct TypeChecker {
     /// After the call, `self.local[keyPath: path] == value`. If `self.shared` isn't `nil`, the
     /// update is recorded for the next synchronization round and `self.earlyUpdateCount` is
     /// incremented, unless `ignoreSharedCache` is `true`.
-    mutating func write<V>(
+    mutating func write<V: Sendable>(
       _ value: V, at path: WritableKeyPath<TypedProgram, V>,
       ignoringSharedCache ignoreSharedCache: Bool = false
     ) where V: Monotonic {
@@ -6825,9 +6830,10 @@ struct TypeChecker {
 
     /// Applies all pending updates to the shared instance.
     fileprivate mutating func synchronize() {
-      shared?.modify { (p) in
-        for u in pendingUpdates {
-          u.apply(local[keyPath: u.pathToUpdate], u.pathToUpdate, &p)
+
+      shared?.modify(withState: &self) { (cache, p) in
+        for u in cache.pendingUpdates {
+          u.apply(cache.local[keyPath: u.pathToUpdate], u.pathToUpdate, &p)
         }
       }
       pendingUpdates.removeAll(keepingCapacity: true)
@@ -6835,12 +6841,11 @@ struct TypeChecker {
     }
 
   }
-
   /// A synchronization update to perform on a shared instance.
-  private struct SynchronizationUpdate: Hashable {
+  private struct SynchronizationUpdate: Hashable, Sendable {
 
     /// A closure that accepts a `path` in `instance` and a `value` to write.
-    typealias Apply = (
+    typealias Apply = @Sendable (
       _ value: Any,
       _ path: PartialKeyPath<TypedProgram>,
       _ instance: inout TypedProgram
@@ -6871,6 +6876,8 @@ struct TypeChecker {
   }
 
 }
+
+extension PartialKeyPath: @unchecked @retroactive Sendable {}
 
 /// An AST visitation callback that collects recursive references to specific declarations.
 private struct RecursiveReferenceRecognizer: ASTWalkObserver {

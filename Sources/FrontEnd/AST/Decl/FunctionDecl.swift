@@ -1,7 +1,7 @@
 import Utils
 
 /// A function declaration.
-public struct FunctionDecl: CapturingDecl, ExposableDecl, GenericDecl {
+public struct FunctionDecl: CapturingDecl, ExposableDecl, GenericDecl, Sendable {
 
   public static let constructDescription = "function declaration"
 
@@ -136,7 +136,7 @@ public struct FunctionDecl: CapturingDecl, ExposableDecl, GenericDecl {
 extension FunctionDecl {
 
   /// A set of properties about the API described by a function declaration.
-  public struct APIFlags: OptionSet, Codable, RawRepresentable {
+  public struct APIFlags: OptionSet, Codable, RawRepresentable, Sendable {
 
     public typealias RawValue = UInt8
 

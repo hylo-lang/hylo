@@ -1,8 +1,8 @@
 /// A name denoting an object.
-public struct NameExpr: Expr {
+public struct NameExpr: Expr, Sendable {
 
   /// A name's qualification.
-  public enum Domain: Codable, Hashable {
+  public enum Domain: Codable, Hashable, Sendable {
 
     /// Unqualified as in `bar`.
     case none

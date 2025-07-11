@@ -1,7 +1,7 @@
 import Utils
 
 /// A type expressed with an arrow.
-public struct ArrowType: TypeProtocol {
+public struct ArrowType: TypeProtocol, Sendable {
 
   /// The effect of the arrow's call operator.
   public let receiverEffect: AccessEffect

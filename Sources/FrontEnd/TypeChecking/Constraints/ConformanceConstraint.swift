@@ -1,7 +1,7 @@
 import Utils
 
 /// A constraint `L : T` specifying that `L` conforms to trait `T`.
-struct ConformanceConstraint: Constraint, Hashable {
+struct ConformanceConstraint: Constraint, Hashable, Sendable {
 
   /// The type that must conform to `concept`.
   private(set) var model: AnyType

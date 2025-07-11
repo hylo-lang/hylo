@@ -1,7 +1,7 @@
 import Utils
 
 /// A constraint `L.i == R` stating that `L` is a tuple type whose `i`-th element has type `R`.
-struct TupleMemberConstraint: Constraint, Hashable {
+struct TupleMemberConstraint: Constraint, Hashable, Sendable {
 
   /// The base type of the left operand.
   private(set) var subject: AnyType

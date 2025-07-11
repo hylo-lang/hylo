@@ -1,5 +1,5 @@
 /// The platform on which the compiler or interpreter is running.
-public enum Host {
+public enum Host: Sendable {
 
   /// The name of the environment variable containing the executable search path.
   public static let pathEnvironmentVariable =

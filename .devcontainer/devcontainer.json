@@ -3,16 +3,16 @@
     "build": {
         "dockerfile": "Dockerfile",
         "args": {
-            "SWIFT_VERSION" : "5.10",
+            "SWIFT_VERSION" : "6.1",
             "HYLO_LLVM_BUILD_TYPE": "${localEnv:HYLO_LLVM_BUILD_TYPE:MinSizeRel}"
         }
     },
     "features": {
         "ghcr.io/devcontainers/features/common-utils:2": {
             "installZsh": "false",
-            "username": "vscode",
-            "userUid": "1000",
-            "userGid": "1000",
+            "username": "ubuntu",
+            "userUid": "automatic",
+            "userGid": "automatic",
             "upgradePackages": "false"
         },
         "ghcr.io/devcontainers/features/git:1": {
@@ -36,7 +36,7 @@
             },
             // Add the IDs of extensions you want installed when the container is created.
             "extensions": [
-                "sswg.swift-lang"
+                "swiftlang.swift-vscode"
             ]
         }
     },
@@ -46,9 +46,9 @@
         "HYLO_LLVM_BUILD_TYPE": "${localEnv:HYLO_LLVM_BUILD_TYPE:MinSizeRel}"
     },
     "remoteEnv": {
-        "PATH": "/opt/llvm-${containerEnv:HYLO_LLVM_BUILD_TYPE}/bin:${containerEnv:PATH}"
+        "PATH": "/python-venv/bin:/opt/llvm-${containerEnv:HYLO_LLVM_BUILD_TYPE}/bin:${containerEnv:PATH}"
     },
     // "postCreateCommand": "sudo ./.devcontainer/postCreateCommand.sh",
     // Set `remoteUser` to `root` to connect as root instead. More info: https://aka.ms/vscode-remote/containers/non-root.
-    "remoteUser": "vscode"
+    "remoteUser": "ubuntu"
 }

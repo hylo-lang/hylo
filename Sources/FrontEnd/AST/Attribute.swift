@@ -1,8 +1,8 @@
 /// An attribute.
-public struct Attribute: Codable {
+public struct Attribute: Codable, Sendable {
 
   /// An attribute argument.
-  public struct Argument: Codable {
+  public struct Argument: Codable, Sendable {
 
     /// The value of the argument.
     public let value: AnyExprID

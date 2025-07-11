@@ -1,5 +1,5 @@
 /// A do-while loop.
-public struct DoWhileStmt: Stmt {
+public struct DoWhileStmt: Stmt, Sendable {
 
   public let site: SourceRange
 

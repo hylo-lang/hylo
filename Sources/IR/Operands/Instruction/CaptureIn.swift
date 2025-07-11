@@ -7,7 +7,7 @@ import Utils
 /// - The provenances of `target` contain a single `alloc_stack`.
 /// - A `capture ... in` is post-dominated by at least one `release_captures` on the storage in
 ///   which it has stored an access.
-public struct CaptureIn: Instruction {
+public struct CaptureIn: Instruction, Sendable {
 
   /// The operands of the instruction.
   public private(set) var operands: [Operand]

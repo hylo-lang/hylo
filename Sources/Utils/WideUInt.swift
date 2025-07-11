@@ -1,7 +1,7 @@
 import BigInt
 
 /// An unsigned integer with an arbitrary, but fixed, bit width.
-public struct WideUInt {
+public struct WideUInt: Sendable {
 
   /// The underlying value.
   ///
@@ -25,6 +25,7 @@ public struct WideUInt {
 
 }
 
+// todo extension WideUInt: UnsignedInteger {}
 extension WideUInt: Hashable {}
 
 extension WideUInt: Comparable {

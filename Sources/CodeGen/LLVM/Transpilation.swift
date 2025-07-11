@@ -63,8 +63,12 @@ fileprivate extension SwiftyLLVM.FloatingPointPredicate {
 
 }
 
+extension SwiftyLLVM.GlobalVariable : @retroactive @unchecked Sendable {} // todo sendable
+extension SwiftyLLVM.Instruction : @retroactive @unchecked Sendable {} // todo sendable
+extension SwiftyLLVM.FunctionType : @retroactive @unchecked Sendable {} // todo sendable
+
 /// The state of a compilation from Hylo IR to LLVM IR.
-struct CodeGenerationContext {
+struct CodeGenerationContext: Sendable {
 
   /// The program containing the `module`.
   let ir: IR.Program
@@ -1808,7 +1812,7 @@ extension SwiftyLLVM.Module {
       let captures = StructType(context.ir.llvm(hyloType.environment, in: &self))!
 
       // Following elements constitute the environment.
-      var environment: [SwiftyLLVM.IRValue] = []
+      var environment: [SwiftyLLVM.IRValue & Sendable] = []
       for (i, c) in hyloType.captures.enumerated() {
         var x = insertGetStructElementPointer(
           of: e, typed: captures, index: i, at: insertionPoint)
@@ -1874,16 +1878,16 @@ extension LLVMProgram: CustomStringConvertible {
 }
 
 /// The contents of an arrow.
-private struct ArrowContents {
+private struct ArrowContents: Sendable {
 
   /// A pointer to the underlying thin function.
-  let function: SwiftyLLVM.IRValue
+  let function: SwiftyLLVM.IRValue & Sendable
 
   /// The type `function`.
-  let type: SwiftyLLVM.IRType
+  let type: SwiftyLLVM.IRType & Sendable
 
   /// The arrow's environment.
-  let environment: [SwiftyLLVM.IRValue]
+  let environment: [SwiftyLLVM.IRValue & Sendable]
 
 }
 

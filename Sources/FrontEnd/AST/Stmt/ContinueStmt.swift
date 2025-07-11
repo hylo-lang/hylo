@@ -1,5 +1,5 @@
 /// A continue statement.
-public struct ContinueStmt: Stmt {
+public struct ContinueStmt: Stmt, Sendable {
 
   public let site: SourceRange
 

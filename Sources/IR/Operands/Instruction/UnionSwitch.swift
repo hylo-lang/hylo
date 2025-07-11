@@ -2,7 +2,7 @@ import FrontEnd
 import OrderedCollections
 
 /// Branches to one of several basic blocks based on the discriminator of a union.
-public struct UnionSwitch: Terminator {
+public struct UnionSwitch: Terminator, Sendable {
 
   /// The type of a map from payload type to its target.
   public typealias Targets = OrderedDictionary<AnyType, Block.ID>

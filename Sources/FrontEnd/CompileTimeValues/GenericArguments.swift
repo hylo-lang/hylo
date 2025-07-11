@@ -2,7 +2,7 @@ import OrderedCollections
 import Utils
 
 /// A map from generic parameter to its argument.
-public struct GenericArguments: Hashable {
+public struct GenericArguments: Hashable, Sendable {
 
   /// A key in this map.
   public typealias Key = GenericParameterDecl.ID
@@ -65,7 +65,20 @@ public struct GenericArguments: Hashable {
 
   /// Returns a new map containing the keys of `self` with the values transformed `transform`.
   public func mapValues(_ transform: (Value) throws -> Value) rethrows -> Self {
-    try .init(contents: contents.mapValues(transform))
+    .init(contents: try contents.mapValues(transform))
+  }
+
+  /// Returns a new map containing the keys of `self` with the values transformed `transform`, providing mutable state.
+  public func mapValues<State>(
+    with state: inout State,
+    _ transform: (inout State, Value) throws -> Value
+  ) rethrows -> Self {
+    var newContents: Contents = [:]
+    newContents.reserveCapacity(contents.count)
+    for (key, value) in contents {
+      newContents[key] = try transform(&state, value)
+    }
+    return Self(contents: newContents)
   }
 
   /// Returns `self` merged with `other`, applying `combine` to determine the value of any
@@ -93,7 +106,7 @@ public struct GenericArguments: Hashable {
   }
 
   /// An empty instance.
-  public static var empty: Self = .init()
+  public static let empty: Self = .init()
 
 }
 

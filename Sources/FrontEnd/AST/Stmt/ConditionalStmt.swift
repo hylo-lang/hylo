@@ -2,7 +2,7 @@
 ///
 /// Unlike a `ConditionalExpr`, the branches of a conditional statement are represented by brace
 /// statements. Further, a conditional statement might not have a failure branch.
-public struct ConditionalStmt: Stmt, LexicalScope {
+public struct ConditionalStmt: Stmt, LexicalScope, Sendable {
 
   public let site: SourceRange
 
