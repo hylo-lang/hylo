@@ -4,7 +4,7 @@ import Dispatch
 ///
 /// - Warning: The shared value has reference semantics; it's up to the programmer to ensure that
 /// the value only used monotonically.
-public final class SharedMutable<SharedValue> {
+public final class SharedMutable<SharedValue: Sendable>: @unchecked Sendable {
 
   /// The synchronization mechanism that makes `self` threadsafe.
   private let mutex = DispatchQueue(label: "org.hylo-lang.\(SharedValue.self)")

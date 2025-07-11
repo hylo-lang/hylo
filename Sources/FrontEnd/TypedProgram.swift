@@ -604,7 +604,7 @@ public struct TypedProgram: Sendable {
   ///
   /// - Parameter merge: A closure that merges `value` into the value currently stored at `path`,
   ///   guaranteeing that the result of the merge is a refinement.
-  mutating func write<V>(
+  mutating func write<V: Sendable>(
     _ value: V, at path: WritableKeyPath<Self, V>,
     mergingWith merge: @Sendable (inout V, V) -> Void
   ) {

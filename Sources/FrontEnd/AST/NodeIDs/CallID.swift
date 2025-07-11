@@ -1,5 +1,5 @@
 /// The identity of a call expression.
-public enum CallID: Hashable {
+public enum CallID: Hashable, Sendable {
 
   case ast(AnyExprID)
 

@@ -25,7 +25,7 @@ private protocol TypeBox {
 }
 
 /// A box wrapping an instance of `Base`.
-private struct ConcreteTypeBox<Base: TypeProtocol>: TypeBox, Sendable {
+private struct ConcreteTypeBox<Base: TypeProtocol & Sendable>: TypeBox, Sendable {
 
   /// The value wrapped by this instance.
   let base: Base
@@ -74,7 +74,7 @@ public struct AnyType: Sendable {
   public static func builtin(_ type: BuiltinType) -> AnyType { ^type }
 
   /// The value wrapped by this instance.
-  private var wrapped: TypeBox
+  private var wrapped: TypeBox & Sendable
 
   /// Creates a type-erased container wrapping the given instance.
   ///
