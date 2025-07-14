@@ -1,7 +1,7 @@
 import FrontEnd
 
 /// Accesses the value passed to a generic parameter.
-public struct GenericParameter: Instruction {
+public struct GenericParameter: Instruction, Sendable {
 
   /// The parameter whose value is accessed.
   public let parameter: GenericParameterDecl.ID

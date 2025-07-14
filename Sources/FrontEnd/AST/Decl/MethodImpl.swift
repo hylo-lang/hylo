@@ -1,7 +1,7 @@
 /// The declaration of a method implementation.
 ///
 /// Instances of this type represent individual variant inside a method declaration.
-public struct MethodImpl: BundleImpl, LexicalScope {
+public struct MethodImpl: BundleImpl, LexicalScope, Sendable {
 
   public static let constructDescription = "method variant declaration"
 

@@ -1,5 +1,5 @@
 /// An object in an abstract interpreter.
-struct AbstractObject<Domain: AbstractDomain>: Equatable {
+struct AbstractObject<Domain: AbstractDomain & Sendable>: Equatable, Sendable {
 
   /// The abstract layout of the object.
   let layout: AbstractTypeLayout
@@ -17,6 +17,15 @@ struct AbstractObject<Domain: AbstractDomain>: Equatable {
   ///
   /// - Requires: `i` is a valid index in `layout`.
   mutating func withSubobject<T>(_ offset: Int, _ action: (inout AbstractObject) -> T) -> T {
+    if layout.properties.isEmpty {
+      print("empty layout of type: \(layout.type)")
+      if layout.type.description.contains("(14)") {
+        print("type14")
+      }
+      // print("properties: \(layout.properties)")
+      // print("layout: \(layout)")
+      
+    }
     precondition(layout.properties.count > 0)
 
     var parts: [Value]
@@ -56,7 +65,7 @@ struct AbstractObject<Domain: AbstractDomain>: Equatable {
   }
 
   /// The value of an abstract object.
-  enum Value: Equatable {
+  enum Value: Equatable, Sendable {
 
     /// An object whose parts all have the same value.
     case full(Domain)

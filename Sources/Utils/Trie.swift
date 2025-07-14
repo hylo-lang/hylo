@@ -1,8 +1,8 @@
 /// A trie (a.k.a. prefix tree).
-public struct Trie<Key: Collection, Value> where Key.Element: Hashable {
+public struct Trie<Key: Collection & Sendable, Value: Sendable>: Sendable where Key.Element: Hashable & Sendable {
 
   /// A node representing either one of the strings in a trie or a prefix thereof.
-  fileprivate struct Node {
+  fileprivate struct Node: Sendable {
 
     /// The identifier of a node in a trie.
     typealias Identifier = Int
@@ -53,7 +53,7 @@ public struct Trie<Key: Collection, Value> where Key.Element: Hashable {
   /// If `key` is fully contained in one of the keys in `self`, then `i` is `key.endIndex` and `n`
   /// is the result of `self[prefix: key]`. If `key` shares no prefix with any of the keys stored
   /// in `self`, then `i` is `key.startIndex` and `n` is equal to `self`.
-  public func longestPrefix<K: Collection>(
+  public func longestPrefix<K: Collection & Sendable>(
     startingWith key: K
   ) -> (trie: SubTrie<Key, Value>, position: K.Index) where K.Element == Key.Element {
     SubTrie(base: self, root: 0).longestPrefix(startingWith: key)
@@ -117,7 +117,7 @@ public struct Trie<Key: Collection, Value> where Key.Element: Hashable {
 
   /// Returns a sub-trie mapping the keys prefixed by `key` to their corresponding value in `self`,
   /// or `nil` if `self` contains no key starting with by `key`.
-  public subscript<K: Collection>(
+  public subscript<K: Collection & Sendable>(
     prefix key: K
   ) -> SubTrie<Key, Value>? where K.Element == Key.Element {
     SubTrie(base: self, root: 0)[prefix: key]
@@ -297,7 +297,7 @@ extension Trie: CustomStringConvertible {
 }
 
 /// A part of a trie.
-public struct SubTrie<Key: Collection, Value> where Key.Element: Hashable {
+public struct SubTrie<Key: Collection & Sendable, Value: Sendable>: Sendable where Key.Element: Hashable & Sendable {
 
   /// The type of a trie projected by an instance of `Self`.
   public typealias Base = Trie<Key, Value>
@@ -325,7 +325,7 @@ public struct SubTrie<Key: Collection, Value> where Key.Element: Hashable {
   }
 
   /// Accesses the value associated with `key`.
-  public subscript<K: Collection>(key: K) -> Value? where K.Element == Key.Element {
+  public subscript<K: Collection & Sendable>(key: K) -> Value? where K.Element == Key.Element {
     _read {
       if let n = base.find(key, from: root) {
         yield base.nodes[n].value
@@ -337,7 +337,7 @@ public struct SubTrie<Key: Collection, Value> where Key.Element: Hashable {
 
   /// Returns a sub-trie mapping the keys prefixed by `key` to their corresponding value in `self`,
   /// or `nil` if `self` contains no key starting with by `key`.
-  public subscript<K: Collection>(prefix key: K) -> SubTrie? where K.Element == Key.Element {
+  public subscript<K: Collection & Sendable>(prefix key: K) -> SubTrie? where K.Element == Key.Element {
     if let n = base.find(key, from: root) {
       return .init(base: base, root: n)
     } else {
@@ -348,7 +348,7 @@ public struct SubTrie<Key: Collection, Value> where Key.Element: Hashable {
   /// Returns a pair `(n, i)` such that `key[..<i]` is the longest key prefix contained in `self`
   /// and `n` is a sub-trie mapping the keys prefixed by `key[..<i]` to their corresponding value
   /// in `self`.
-  public func longestPrefix<K: Collection>(
+  public func longestPrefix<K: Collection & Sendable>(
     startingWith key: K
   ) -> (trie: SubTrie<Key, Value>, position: K.Index) where K.Element == Key.Element {
     let (n, i) = base.longestPrefix(startingWith: key, from: root)

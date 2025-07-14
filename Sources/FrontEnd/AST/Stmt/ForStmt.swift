@@ -1,5 +1,5 @@
 /// A for loop.
-public struct ForStmt: Stmt, LexicalScope {
+public struct ForStmt: Stmt, LexicalScope, Sendable {
   public let site: SourceRange
 
   /// The site of the `for` introducer.

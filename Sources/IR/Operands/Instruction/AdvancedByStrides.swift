@@ -4,7 +4,7 @@ import FrontEnd
 ///
 /// The stride of a type is the number of bytes from the start of an instance to the start of the
 /// next when stored in contiguous memory.
-public struct AdvancedByStrides: Instruction {
+public struct AdvancedByStrides: Instruction, Sendable {
 
   /// The address to be advanced.
   public private(set) var base: Operand

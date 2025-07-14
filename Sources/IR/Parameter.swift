@@ -1,7 +1,7 @@
 import FrontEnd
 
 /// The possibly synthetic declaration of a parameter to a Hylo IR function.
-public struct Parameter {
+public struct Parameter: Sendable {
 
   /// The declaration of the parameter, if any.
   ///

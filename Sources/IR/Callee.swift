@@ -1,7 +1,7 @@
 import FrontEnd
 
 /// The callee of a function call in the IR.
-enum Callee {
+enum Callee: Sendable {
 
   /// A direct reference to a function, initializer, or method implementation.
   case direct(FunctionReference)

@@ -1,7 +1,7 @@
 import FrontEnd
 
 /// A load instruction.
-public struct Load: Instruction {
+public struct Load: Instruction, Sendable {
 
   /// The type of the object being loaded.
   public let objectType: IR.`Type`

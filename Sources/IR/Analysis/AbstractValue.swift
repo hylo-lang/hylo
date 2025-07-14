@@ -2,7 +2,7 @@ import FrontEnd
 import Utils
 
 /// The value of a register in an abstract interpreter.
-enum AbstractValue<Domain: AbstractDomain>: Equatable {
+enum AbstractValue<Domain: AbstractDomain & Sendable>: Equatable, Sendable {
 
   /// A non-empty set of locations.
   case locations(Set<AbstractLocation>)

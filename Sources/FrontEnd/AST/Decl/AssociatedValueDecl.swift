@@ -1,5 +1,5 @@
 /// An associated value declaration.
-public struct AssociatedValueDecl: SingleEntityDecl {
+public struct AssociatedValueDecl: SingleEntityDecl, Sendable {
 
   public static let constructDescription = "associated value declaration"
 

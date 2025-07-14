@@ -1,5 +1,5 @@
 /// A sequence of lexical scopes, from inner to outer.
-public struct LexicalScopeSequence: IteratorProtocol, Sequence {
+public struct LexicalScopeSequence: IteratorProtocol, Sequence, Sendable {
 
   public typealias Element = AnyScopeID
 

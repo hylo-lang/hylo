@@ -1,5 +1,5 @@
 /// An expression statement.
-public struct ExprStmt: Stmt {
+public struct ExprStmt: Stmt, Sendable {
 
   public let site: SourceRange
 

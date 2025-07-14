@@ -1,7 +1,7 @@
 import Utils
 
 /// The type of a parameter in an arrow, method, or subscript type.
-public struct ParameterType: TypeProtocol {
+public struct ParameterType: TypeProtocol, Sendable {
 
   /// The passing convention of the parameter.
   public let access: AccessEffect

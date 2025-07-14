@@ -1,7 +1,7 @@
 import Utils
 
 /// The overarching type of a subscript declaration.
-public struct SubscriptType: TypeProtocol {
+public struct SubscriptType: TypeProtocol, Sendable {
 
   /// Indicates whether the subscript denotes a computed property.
   public let isProperty: Bool

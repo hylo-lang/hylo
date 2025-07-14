@@ -1,5 +1,5 @@
 /// A brace statement (a.k.a. a code block).
-public struct BraceStmt: Stmt, LexicalScope {
+public struct BraceStmt: Stmt, LexicalScope, Sendable {
 
   public let site: SourceRange
 

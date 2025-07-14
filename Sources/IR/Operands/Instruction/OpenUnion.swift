@@ -1,7 +1,7 @@
 import FrontEnd
 
 /// Projects the address of a union payload, viewed as an instance of a given type.
-public struct OpenUnion: RegionEntry {
+public struct OpenUnion: RegionEntry, Sendable {
 
   public typealias Exit = CloseUnion
 

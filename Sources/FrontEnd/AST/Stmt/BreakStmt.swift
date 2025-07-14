@@ -1,5 +1,5 @@
 /// A break statement.
-public struct BreakStmt: Stmt {
+public struct BreakStmt: Stmt, Sendable {
 
   public let site: SourceRange
 

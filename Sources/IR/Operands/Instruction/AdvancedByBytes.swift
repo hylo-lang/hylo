@@ -1,7 +1,7 @@
 import FrontEnd
 
 /// Computes a `source` address value advanced by `offset` bytes.
-public struct AdvancedByBytes: Instruction {
+public struct AdvancedByBytes: Instruction, Sendable {
 
   /// The value of a pointer to be advanced.
   public private(set) var base: Operand

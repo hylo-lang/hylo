@@ -1,5 +1,5 @@
 /// The type of the value stored in an existential type.
-public struct WitnessType: TypeProtocol {
+public struct WitnessType: TypeProtocol, Sendable {
 
   /// The existential type wrapping this witness.
   public let container: ExistentialType

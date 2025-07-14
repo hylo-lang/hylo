@@ -1,7 +1,7 @@
 import Utils
 
 /// A trait type.
-public struct TraitType: TypeProtocol {
+public struct TraitType: TypeProtocol, Sendable {
 
   /// The declaration that introduces the trait.
   public let decl: TraitDecl.ID

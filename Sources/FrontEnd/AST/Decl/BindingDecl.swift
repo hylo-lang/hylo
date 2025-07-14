@@ -1,5 +1,5 @@
 /// A binding declaration.
-public struct BindingDecl: ExposableDecl {
+public struct BindingDecl: ExposableDecl, Sendable {
 
   public static let constructDescription = "binding declaration"
 

@@ -1,5 +1,5 @@
 /// An operator declaration.
-public struct OperatorDecl: ExposableDecl {
+public struct OperatorDecl: ExposableDecl, Sendable {
 
   public static let constructDescription = "operator declaration"
 

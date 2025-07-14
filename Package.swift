@@ -45,14 +45,14 @@ let package = Package(
       url: "https://github.com/apple/swift-algorithms.git",
       from: "1.2.1"),
     .package(
-      url: "https://github.com/hylo-lang/Durian.git",
-      from: "1.2.0"),
+      url: "https://github.com/tothambrus11/Durian.git",
+      branch: "swift6"),
     .package(
       url: "https://github.com/tothambrus11/BigInt.git",
       branch: "swift6"),
     .package(
       url: "https://github.com/hylo-lang/Swifty-LLVM",
-      branch: "swift-601"),
+      revision: "7992d8dcc6527a3f6525a6b2b06cb31a33e11748"),
     .package(
       url: "https://github.com/apple/swift-format",
       from: "508.0.1"),
@@ -139,8 +139,7 @@ let package = Package(
 
     .plugin(
       name: "TestGeneratorPlugin", capability: .buildTool(),
-      // Workaround for SPM bug; see PortableBuildToolPlugin.swift
-      dependencies: osIsWindows ? [] : ["GenerateHyloFileTests"]),
+      dependencies: ["GenerateHyloFileTests"]),
 
     .executableTarget(
       name: "GenerateHyloFileTests",

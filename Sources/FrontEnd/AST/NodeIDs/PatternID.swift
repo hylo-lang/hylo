@@ -6,7 +6,7 @@ public protocol PatternID: NodeIDProtocol {}
 extension NodeID: PatternID where Subject: Pattern {}
 
 /// The type-erased ID of a pattern.
-public struct AnyPatternID: PatternID {
+public struct AnyPatternID: PatternID, Sendable {
 
   /// The underlying type-erased ID.
   let base: AnyNodeID

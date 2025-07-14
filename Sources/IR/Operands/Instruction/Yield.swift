@@ -1,7 +1,7 @@
 import FrontEnd
 
 /// Projects the address of an object.
-public struct Yield: Instruction {
+public struct Yield: Instruction, Sendable {
 
   /// The capability being projected.
   public let capability: AccessEffect

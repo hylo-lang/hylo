@@ -1,5 +1,5 @@
 /// A while loop.
-public struct WhileStmt: Stmt, LexicalScope {
+public struct WhileStmt: Stmt, LexicalScope, Sendable {
 
   public let site: SourceRange
 

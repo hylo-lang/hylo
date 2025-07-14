@@ -5,10 +5,10 @@ import Utils
 ///
 /// A basic blocks is sequence of instructions free of conditional control flow. It may also accept
 /// arguments representing values that are notionally defined before its first instruction.
-public struct Block {
+public struct Block: Sendable {
 
   /// A collection of instructions with stable identities.
-  public typealias Instructions = DoublyLinkedList<Instruction>
+  public typealias Instructions = DoublyLinkedList<Instruction & Sendable>
 
   /// The innermost lexical scope corresponding to the block's instructions.
   public let scope: AnyScopeID
@@ -22,7 +22,7 @@ public struct Block {
   /// Accesses the instruction at `address`.
   ///
   /// - Requires: `address` must be a valid address in `self`.
-  public subscript(_ address: Instructions.Address) -> Instruction {
+  public subscript(_ address: Instructions.Address) -> Instruction & Sendable {
     get { instructions[address] }
     set { instructions[address] = newValue }
   }

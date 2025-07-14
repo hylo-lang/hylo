@@ -1,5 +1,5 @@
 /// The type of a subscript implementation.
-public struct SubscriptImplType: TypeProtocol {
+public struct SubscriptImplType: TypeProtocol, Sendable {
 
   /// Indicates whether the subscript denotes a computed property.
   public let isProperty: Bool

@@ -1,5 +1,5 @@
 /// A conditional expression.
-public struct ConditionalExpr: Expr, LexicalScope {
+public struct ConditionalExpr: Expr, LexicalScope, Sendable {
 
   public let site: SourceRange
 

@@ -1,7 +1,7 @@
 import Utils
 
 /// A protocol describing the API of a Hylo type.
-public protocol TypeProtocol: Hashable {
+public protocol TypeProtocol: Hashable, Sendable {
 
   /// Properties about the representation of `self`.
   var flags: ValueFlags { get }

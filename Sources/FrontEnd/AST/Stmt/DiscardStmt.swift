@@ -1,5 +1,5 @@
 /// A discard statement.
-public struct DiscardStmt: Stmt {
+public struct DiscardStmt: Stmt, Sendable {
 
   public let site: SourceRange
 

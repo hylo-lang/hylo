@@ -2,7 +2,7 @@ import FrontEnd
 import Utils
 
 /// Exposes a captured access.
-public struct OpenCapture: RegionEntry {
+public struct OpenCapture: RegionEntry, Sendable {
 
   public typealias Exit = CloseCapture
 

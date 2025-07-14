@@ -8,7 +8,7 @@ import Utils
 /// A lowered module is a collection of IR functions and a collection of constant IR values, which
 /// represent nominal types, traits, and global bindings. These entities may not necessarily have
 /// a definition. When they don't, they denote a declaration known to be defined in another module.
-public struct Module {
+public struct Module: Sendable {
 
   /// Unique identifier of a module within a program.
   public typealias ID = ModuleDecl.ID
@@ -76,13 +76,13 @@ public struct Module {
   }
 
   /// Accesses the given instruction.
-  public subscript(i: InstructionID) -> Instruction {
+  public subscript(i: InstructionID) -> Instruction & Sendable {
     _read { yield functions[i.function]!.blocks[i.block].instructions[i.address] }
     _modify { yield &functions[i.function]![i.block].instructions[i.address] }
   }
 
   /// Accesses the instruction denoted by `o` if it is `.register`; returns `nil` otherwise.
-  public subscript(o: Operand) -> Instruction? {
+  public subscript(o: Operand) -> (Instruction & Sendable)? {
     if case .register(let i) = o {
       return self[i]
     } else {
@@ -790,7 +790,7 @@ public struct Module {
   /// `self[old] == new`.
   ///
   /// - Requires: `new` produces results with the same types as `old`.
-  mutating func replace<I: Instruction>(_ old: InstructionID, with new: I) {
+  mutating func replace<I: Instruction & Sendable>(_ old: InstructionID, with new: I) {
     precondition(self[old].result == new.result)
     removeUsesMadeBy(old)
     _ = insert(new) { (m, i) in
@@ -826,7 +826,7 @@ public struct Module {
   /// Inserts `newInstruction` at `boundary` and returns its identity.
   @discardableResult
   mutating func insert(
-    _ newInstruction: Instruction, at boundary: InsertionPoint
+    _ newInstruction: Instruction & Sendable, at boundary: InsertionPoint
   ) -> InstructionID {
     switch boundary {
     case .start(let b):
@@ -842,7 +842,7 @@ public struct Module {
 
   /// Adds `newInstruction` at the start of `block` and returns its identity.
   @discardableResult
-  mutating func prepend(_ newInstruction: Instruction, to block: Block.ID) -> InstructionID {
+  mutating func prepend(_ newInstruction: Instruction & Sendable, to block: Block.ID) -> InstructionID {
     precondition(!(newInstruction is Terminator), "terminator must appear last in a block")
     return insert(newInstruction) { (m, i) in
       InstructionID(block, m[block].instructions.prepend(newInstruction))
@@ -851,7 +851,7 @@ public struct Module {
 
   /// Adds `newInstruction` at the end of `block` and returns its identity.
   @discardableResult
-  mutating func append(_ newInstruction: Instruction, to block: Block.ID) -> InstructionID {
+  mutating func append(_ newInstruction: Instruction & Sendable, to block: Block.ID) -> InstructionID {
     precondition(!(self[block].instructions.last is Terminator), "insertion after terminator")
     return insert(newInstruction) { (m, i) in
       InstructionID(block, m[block].instructions.append(newInstruction))
@@ -864,7 +864,7 @@ public struct Module {
   /// "past the end" position to append at the end of a block.
   @discardableResult
   mutating func insert(
-    _ newInstruction: Instruction, at position: InstructionIndex
+    _ newInstruction: Instruction & Sendable, at position: InstructionIndex
   ) -> InstructionID {
     precondition(!(newInstruction is Terminator), "terminator must appear last in a block")
     return insert(newInstruction) { (m, i) in
@@ -877,7 +877,7 @@ public struct Module {
   /// Inserts `newInstruction` before `successor` and returns its identity.
   @discardableResult
   mutating func insert(
-    _ newInstruction: Instruction, before successor: InstructionID
+    _ newInstruction: Instruction & Sendable, before successor: InstructionID
   ) -> InstructionID {
     precondition(!(newInstruction is Terminator), "terminator must appear last in a block")
     return insert(newInstruction) { (m, i) in
@@ -890,7 +890,7 @@ public struct Module {
   /// Inserts `newInstruction` after `predecessor` and returns its identity.
   @discardableResult
   mutating func insert(
-    _ newInstruction: Instruction, after predecessor: InstructionID
+    _ newInstruction: Instruction & Sendable, after predecessor: InstructionID
   ) -> InstructionID {
     precondition(!(instruction(after: predecessor) is Terminator), "insertion after terminator")
     return insert(newInstruction) { (m, i) in
@@ -902,7 +902,7 @@ public struct Module {
 
   /// Inserts `newInstruction` with `impl` and returns its identity.
   private mutating func insert(
-    _ newInstruction: Instruction, with impl: (inout Self, Instruction) -> InstructionID
+    _ newInstruction: Instruction & Sendable, with impl: (inout Self, Instruction & Sendable) -> InstructionID
   ) -> InstructionID {
     // Insert the instruction.
     let user = impl(&self, newInstruction)

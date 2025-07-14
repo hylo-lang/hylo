@@ -1,7 +1,7 @@
 import Utils
 
 /// A nominal product type.
-public struct ProductType: TypeProtocol {
+public struct ProductType: TypeProtocol, Sendable {
 
   /// The declaration that introduces the type.
   public let decl: ProductTypeDecl.ID

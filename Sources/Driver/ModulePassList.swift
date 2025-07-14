@@ -2,7 +2,7 @@ import ArgumentParser
 import IR
 
 /// A list of IR module passes.
-struct ModulePassList: ExpressibleByArgument {
+struct ModulePassList: ExpressibleByArgument, Sendable {
 
   /// The elements in the list.
   let elements: [IR.ModulePass]

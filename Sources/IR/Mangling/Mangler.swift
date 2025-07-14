@@ -2,7 +2,7 @@ import FrontEnd
 import Utils
 
 /// Hylo's mangling algorithm.
-struct Mangler {
+struct Mangler: Sendable {
 
   /// The type of the stream to which data is written.
   typealias Output = String
@@ -440,7 +440,7 @@ struct Mangler {
   mutating func append(term symbol: AnyTerm, to output: inout Output) {
     switch symbol.base {
     case let t as ConcreteTerm:
-      let v = (t.value as? Int) ?? UNIMPLEMENTED()
+      let v = (t.value.anyHashable as? Int) ?? UNIMPLEMENTED()
       append(integer: v, to: &output)
     case let t as GenericTermParameter:
       append(decl: t.decl, to: &output)

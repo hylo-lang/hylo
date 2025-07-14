@@ -1,7 +1,7 @@
 import FrontEnd
 
 /// Invokes the built-in function `callee`, passing `operands` as the argument list.
-public struct CallBuiltinFunction: Instruction {
+public struct CallBuiltinFunction: Instruction, Sendable {
 
   /// The function to be invoked.
   public let callee: BuiltinFunction

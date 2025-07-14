@@ -1,5 +1,5 @@
 /// A return statement.
-public struct ReturnStmt: Stmt {
+public struct ReturnStmt: Stmt, Sendable {
 
   public let site: SourceRange
 

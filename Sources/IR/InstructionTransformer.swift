@@ -264,7 +264,7 @@ extension IR.Program {
   }
 
   /// Inserts the result of `makeInstruction` at `p`, which is in `m`.
-  private mutating func insert<T: Instruction>(
+  private mutating func insert<T: Instruction & Sendable>(
     at p: InsertionPoint, in m: Module.ID, _ makeInstruction: (inout Module) -> T
   ) -> InstructionID {
     modify(&modules[m]!) { (x) in

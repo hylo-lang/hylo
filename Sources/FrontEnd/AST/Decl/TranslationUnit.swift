@@ -1,5 +1,5 @@
 /// A collection of declarations at the top-level of a source file.
-public struct TranslationUnit: Node, LexicalScope {
+public struct TranslationUnit: Node, LexicalScope, Sendable {
 
   public let site: SourceRange
 

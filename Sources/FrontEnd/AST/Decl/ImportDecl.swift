@@ -1,5 +1,5 @@
 /// An import declaration.
-public struct ImportDecl: SingleEntityDecl {
+public struct ImportDecl: SingleEntityDecl, Sendable {
 
   public static let constructDescription = "import declaration"
 

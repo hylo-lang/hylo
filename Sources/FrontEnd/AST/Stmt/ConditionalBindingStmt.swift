@@ -1,5 +1,5 @@
 /// A binding to a pattern that breaks control flow if the scrutinee doesn't match.
-public struct ConditionalBindingStmt: Stmt {
+public struct ConditionalBindingStmt: Stmt, Sendable {
 
   public let site: SourceRange
 

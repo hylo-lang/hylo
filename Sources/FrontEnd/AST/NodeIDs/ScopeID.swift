@@ -6,7 +6,7 @@ public protocol ScopeID: NodeIDProtocol {}
 extension NodeID: ScopeID where Subject: LexicalScope {}
 
 /// The type-erased ID of a node outlining a lexical scope.
-public struct AnyScopeID: ScopeID {
+public struct AnyScopeID: ScopeID, Sendable {
 
   /// The underlying type-erased ID.
   let base: AnyNodeID

@@ -1,5 +1,5 @@
 /// A yield statement.
-public struct YieldStmt: Stmt {
+public struct YieldStmt: Stmt, Sendable {
 
   public let site: SourceRange
 

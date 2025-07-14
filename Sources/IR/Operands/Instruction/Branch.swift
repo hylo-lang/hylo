@@ -1,7 +1,7 @@
 import FrontEnd
 
 /// Branches unconditionally to the start of a basic block.
-public struct Branch: Terminator {
+public struct Branch: Terminator, Sendable {
 
   /// The target of the branch.
   public private(set) var target: Block.ID

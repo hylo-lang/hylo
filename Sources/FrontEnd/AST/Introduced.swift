@@ -1,5 +1,5 @@
 /// A node and the site of its introducer in program sources.
-public struct Introduced<T: NodeIDProtocol>: Codable {
+public struct Introduced<T: NodeIDProtocol & Sendable>: Codable, Sendable {
 
   /// The site of `value`'s introducer.
   public let introducerSite: SourceRange

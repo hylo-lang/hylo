@@ -1,7 +1,7 @@
 import FrontEnd
 
 /// Branches to one of several basic blocks.
-public struct Switch: Terminator {
+public struct Switch: Terminator, Sendable {
 
   /// An index in `successors` expressed as a built-in integer value.
   public private(set) var index: Operand

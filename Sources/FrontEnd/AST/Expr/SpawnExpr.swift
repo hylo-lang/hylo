@@ -1,5 +1,5 @@
 /// An expression ran in a future.
-public struct SpawnExpr: Expr {
+public struct SpawnExpr: Expr, Sendable {
 
   public let site: SourceRange
 

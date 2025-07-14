@@ -1,7 +1,7 @@
 import FrontEnd
 
 /// Projects a value.
-public struct Project: RegionEntry {
+public struct Project: RegionEntry, Sendable {
 
   public typealias Exit = EndProject
 

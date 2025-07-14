@@ -45,7 +45,7 @@ extension DeclID {
 extension NodeID: DeclID where Subject: Decl {}
 
 /// The type-erased ID of a declaration.
-public struct AnyDeclID: DeclID {
+public struct AnyDeclID: DeclID, Sendable {
 
   /// The underlying type-erased ID.
   let base: AnyNodeID

@@ -1,5 +1,5 @@
 /// A type denoting the ID of a node.
-public protocol NodeIDProtocol: Hashable, Codable, CustomStringConvertible {
+public protocol NodeIDProtocol: Hashable, Codable, CustomStringConvertible, Sendable {
 
   /// The raw value of the ID.
   var rawValue: NodeRawIdentity { get }
@@ -31,7 +31,7 @@ public protocol ConcreteNodeID: NodeIDProtocol {
 }
 
 /// The type of a node ID's raw value.
-public struct NodeRawIdentity: Hashable, Codable {
+public struct NodeRawIdentity: Hashable, Codable, Sendable {
 
   public let bits: UInt64
 
@@ -69,7 +69,7 @@ extension NodeRawIdentity: CustomStringConvertible {
 }
 
 /// The ID of a node in an AST.
-public struct NodeID<Subject: Node>: ConcreteNodeID {
+public struct NodeID<Subject: Node>: ConcreteNodeID, Sendable {
 
   public let rawValue: NodeRawIdentity
 

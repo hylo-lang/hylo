@@ -7,7 +7,7 @@ typealias RequirementSystem = RewritingSystem<RequirementTerm>
 typealias RequirementRule = RewritingRule<RequirementTerm>
 
 /// A term corresponding to a type or trait in a generic requirement.
-struct RequirementTerm: RewritingTerm {
+struct RequirementTerm: RewritingTerm, Sendable {
 
   /// The parts of the term.
   let symbols: [RequirementSymbol]

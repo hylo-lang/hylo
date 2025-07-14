@@ -1,8 +1,8 @@
 /// A sequence of binary operations.
-public struct SequenceExpr: Expr {
+public struct SequenceExpr: Expr, Sendable {
 
   /// The operator and right operand in an unfolded sequence of infix expressions.
-  public struct TailElement: Codable {
+  public struct TailElement: Codable, Sendable {
 
     /// The operator.
     public var `operator`: NameExpr.ID

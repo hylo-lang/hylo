@@ -1,7 +1,7 @@
 import Utils
 
 /// A data structure representing a scoped Hylo program ready to be type checked.
-public struct ScopedProgram: Program {
+public struct ScopedProgram: Program, Sendable {
 
   public let ast: AST
 
@@ -62,7 +62,7 @@ public struct ScopedProgram: Program {
 }
 
 /// The state of the visitor building scope relationships.
-private struct ScopeVisitor: ASTWalkObserver {
+private struct ScopeVisitor: ASTWalkObserver, Sendable {
 
   /// A map from node to the innermost scope that contains it.
   var nodeToScope: ASTProperty<AnyScopeID>

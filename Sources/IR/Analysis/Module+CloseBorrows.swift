@@ -64,7 +64,7 @@ extension Module {
   /// appropriate lifetiem closer instruction.
   ///
   /// No instruction is inserted at after already existing lifetime closers for `i`.
-  private mutating func insertClose<T: LifetimeCloser>(
+  private mutating func insertClose<T: LifetimeCloser & Sendable>(
     _ i: InstructionID, atBoundariesOf region: Lifetime,
     makingInstructionWith make: (inout Self, SourceRange) -> T
   ) {

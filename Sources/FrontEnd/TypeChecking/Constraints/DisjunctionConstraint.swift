@@ -1,7 +1,7 @@
 import Utils
 
 /// A disjunction of two or more constraint sets.
-struct DisjunctionConstraint: DisjunctiveConstraintProtocol, Hashable {
+struct DisjunctionConstraint: DisjunctiveConstraintProtocol, Hashable, Sendable {
 
   /// The different choices in this disjunction.
   private(set) var choices: [Predicate]
@@ -29,7 +29,7 @@ struct DisjunctionConstraint: DisjunctiveConstraintProtocol, Hashable {
   }
 
   /// A collection of constraints in a disjunction.
-  struct Predicate: DisjunctiveConstraintTerm, Hashable {
+  struct Predicate: DisjunctiveConstraintTerm, Hashable, Sendable {
 
     /// The constraints associated with this choice.
     let constraints: ConstraintSet

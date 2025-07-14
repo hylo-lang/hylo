@@ -2,7 +2,7 @@ import FrontEnd
 import Utils
 
 /// Releases accesses captures in an allocation.
-public struct ReleaseCaptures: Instruction {
+public struct ReleaseCaptures: Instruction, Sendable {
 
   /// The operands of the instruction.
   public private(set) var operands: [Operand]

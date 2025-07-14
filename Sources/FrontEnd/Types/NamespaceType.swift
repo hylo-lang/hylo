@@ -1,7 +1,7 @@
 import Utils
 
 /// The type of a namespace declaration.
-public struct NamespaceType: TypeProtocol {
+public struct NamespaceType: TypeProtocol, Sendable {
 
   /// The declaration that introduces the namespace.
   public let decl: NamespaceDecl.ID

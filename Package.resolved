@@ -1,5 +1,5 @@
 {
-  "originHash" : "fe0426676d0fa0823ff1839b0ace946f466aa7834247c038c31c2495a609efef",
+  "originHash" : "152e523aa945bd9a994262a0b0f11eed69bc29ae430cf4bb3738b260562a969b",
   "pins" : [
     {
       "identity" : "bigint",
@@ -13,10 +13,10 @@
     {
       "identity" : "durian",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/hylo-lang/Durian.git",
+      "location" : "https://github.com/tothambrus11/Durian.git",
       "state" : {
-        "revision" : "16e6096fab2f87fdd29e3c0968951e55f64ff79e",
-        "version" : "1.2.1"
+        "branch" : "swift6",
+        "revision" : "4cb4b4b0504c46164583cc98ba90a9216c68cfcb"
       }
     },
     {
@@ -94,10 +94,9 @@
     {
       "identity" : "swifty-llvm",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/tothambrus11/Swifty-LLVM",
+      "location" : "https://github.com/hylo-lang/Swifty-LLVM",
       "state" : {
-        "branch" : "swift-601",
-        "revision" : "2da639f614593303c4f053367b981ad966a9e76f"
+        "revision" : "7992d8dcc6527a3f6525a6b2b06cb31a33e11748"
       }
     },
     {

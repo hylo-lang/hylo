@@ -1,5 +1,5 @@
 /// A module declaration.
-public struct ModuleDecl: SingleEntityDecl, LexicalScope {
+public struct ModuleDecl: SingleEntityDecl, LexicalScope, Sendable {
 
   public static let constructDescription = "module declaration"
 

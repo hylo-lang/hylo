@@ -1,7 +1,7 @@
 import FrontEnd
 
 /// The abstract layout of a type, describing the relative offsets of its stored properties.
-public struct AbstractTypeLayout {
+public struct AbstractTypeLayout: Sendable {
 
   /// The name and type of a stored property.
   public typealias StoredProperty = (name: String?, type: AnyType)
@@ -20,6 +20,13 @@ public struct AbstractTypeLayout {
     self.program = p
     self.type = ^t
     self.properties = program.storage(of: self.type)
+
+    if properties.isEmpty {
+      print("empty here: \(type)")
+      if type.description.contains("(14)") {
+        print("type14") // this causes the crash later at AbstractObject.swift:29
+      }
+    }
   }
 
   /// Accesses the layout of the stored property at given `offset`.

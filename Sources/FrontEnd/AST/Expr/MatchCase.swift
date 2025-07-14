@@ -1,7 +1,7 @@
 /// A case in a match expression.
-public struct MatchCase: Node, LexicalScope {
+public struct MatchCase: Node, LexicalScope, Sendable {
 
-  public enum Body: Codable {
+  public enum Body: Codable, Sendable {
 
     /// An expression body.
     case expr(AnyExprID)

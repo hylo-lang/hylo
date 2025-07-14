@@ -1,5 +1,5 @@
 /// A function call.
-public struct FunctionCallExpr: Expr {
+public struct FunctionCallExpr: Expr, Sendable {
 
   public let site: SourceRange
 
