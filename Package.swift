@@ -52,7 +52,7 @@ let package = Package(
       branch: "swift6"),
     .package(
       url: "https://github.com/hylo-lang/Swifty-LLVM",
-      revision: "7992d8dcc6527a3f6525a6b2b06cb31a33e11748"),
+      revision: "7e9f0df06f70080ca61999c412745111d079cf6d"),
     .package(
       url: "https://github.com/apple/swift-format",
       from: "508.0.1"),

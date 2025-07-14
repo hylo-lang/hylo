@@ -36,7 +36,8 @@
             },
             // Add the IDs of extensions you want installed when the container is created.
             "extensions": [
-                "swiftlang.swift-vscode"
+                "swiftlang.swift-vscode",
+                "hylo.hylo-vscode"
             ]
         }
     },
@@ -46,7 +47,8 @@
         "HYLO_LLVM_BUILD_TYPE": "${localEnv:HYLO_LLVM_BUILD_TYPE:MinSizeRel}"
     },
     "remoteEnv": {
-        "PATH": "/python-venv/bin:/opt/llvm-${containerEnv:HYLO_LLVM_BUILD_TYPE}/bin:${containerEnv:PATH}"
+        "PATH": "/python-venv/bin:/opt/llvm-${containerEnv:HYLO_LLVM_BUILD_TYPE}/bin:${containerEnv:PATH}",
+        "HYLO_USE_BUILTIN_STDLIB": "true"
     },
     // "postCreateCommand": "sudo ./.devcontainer/postCreateCommand.sh",
     // Set `remoteUser` to `root` to connect as root instead. More info: https://aka.ms/vscode-remote/containers/non-root.

@@ -1,133 +1,133 @@
+// Disable concurrency related stuff because they rely on buffers.
+// /// A unique identifier for a running thread.
+// ///
+// /// This is an abstraction over the thread ID for the underlying operating system.
+// public type ThreadId: Regular {
 
-/// A unique identifier for a running thread.
-///
-/// This is an abstraction over the thread ID for the underlying operating system.
-public type ThreadId: Regular {
+//   /// The underlying thread ID, as seen by the operating system.
+//   var id: pthread_t
 
-  /// The underlying thread ID, as seen by the operating system.
-  var id: pthread_t
+//   /// Initializes `self` with the given operating system thread ID.
+//   // TODO: usable from inline; needs to be internal
+//   public init(os_value: pthread_t) {
+//     &id = .new(truncating_or_extending: os_value)
+//   }
 
-  /// Initializes `self` with the given operating system thread ID.
-  // TODO: usable from inline; needs to be internal
-  public init(os_value: pthread_t) {
-    &id = .new(truncating_or_extending: os_value)
-  }
+//   /// Returns `self` as a numeric value.
+//   public fun numeric_value() -> UInt64 {
+//     UInt64(truncating_or_extending: id)
+//   }
 
-  /// Returns `self` as a numeric value.
-  public fun numeric_value() -> UInt64 {
-    UInt64(truncating_or_extending: id)
-  }
+// }
 
-}
+// /// Handler for a thread that is being executed.
+// ///
+// /// This allows the caller to wait for the thread to complete. The caller needs to ensure that the
+// /// thread joins before the handler is destroyed.
+// ///
+// /// The thread starts with an argument of type `A` (mutable or not), which needs to be alive for
+// /// the whole duration of this object.
+// ///
+// /// TODO: return type should be generic
+// public type ThreadCompletion<A>: SemiRegular {
 
-/// Handler for a thread that is being executed.
-///
-/// This allows the caller to wait for the thread to complete. The caller needs to ensure that the
-/// thread joins before the handler is destroyed.
-///
-/// The thread starts with an argument of type `A` (mutable or not), which needs to be alive for
-/// the whole duration of this object.
-///
-/// TODO: return type should be generic
-public type ThreadCompletion<A>: SemiRegular {
+//   /// The underlying thread object, as seen by the operating system.
+//   var thread: OSThread
 
-  /// The underlying thread object, as seen by the operating system.
-  var thread: OSThread
+//   /// Starts a new OS thread with `stack` bytes of stack space, executing `f`, and passing the value `a` as an argument.
+//   ///
+//   /// - Requires: `stack >= 0`.
+//   internal init(stack: Int, executing f: sink []() -> Void) {
+//     precondition(stack >= 0, "Stack size must be non-negative.")
+//     &self.thread = OSThread.spawn_thread(
+//       stack: stack.copy(),
+//       executing: ThreadFunction(&f),
+//       with_argument: .null())
+//   }
 
-  /// Starts a new OS thread with `stack` bytes of stack space, executing `f`, and passing the value `a` as an argument.
-  ///
-  /// - Requires: `stack >= 0`.
-  internal init(stack: Int, executing f: sink []() -> Void) {
-    precondition(stack >= 0, "Stack size must be non-negative.")
-    &self.thread = OSThread.spawn_thread(
-      stack: stack.copy(),
-      executing: ThreadFunction(&f),
-      with_argument: .null())
-  }
+//   /// Starts a new OS thread with `stack` bytes of stack space, executing `f`, and passing the value `a` as an argument.
+//   ///
+//   /// - Requires: `stack >= 0`.
+//   internal init(stack: Int, executing f: sink [](A) -> Void, with_argument a: Pointer<A>) {
+//     precondition(stack >= 0, "Stack size must be non-negative.")
+//     &self.thread = OSThread.spawn_thread(
+//       stack: stack.copy(),
+//       executing: ThreadFunction(&f),
+//       with_argument: MemoryAddress(type_punning: PointerToMutable<A>(adding_mutation_to: a)))
+//   }
 
-  /// Starts a new OS thread with `stack` bytes of stack space, executing `f`, and passing the value `a` as an argument.
-  ///
-  /// - Requires: `stack >= 0`.
-  internal init(stack: Int, executing f: sink [](A) -> Void, with_argument a: Pointer<A>) {
-    precondition(stack >= 0, "Stack size must be non-negative.")
-    &self.thread = OSThread.spawn_thread(
-      stack: stack.copy(),
-      executing: ThreadFunction(&f),
-      with_argument: MemoryAddress(type_punning: PointerToMutable<A>(adding_mutation_to: a)))
-  }
+//   /// Starts a new OS thread with `stack` bytes of stack space, executing `f`, and passing the inout value `a` as an argument.
+//   ///
+//   /// - Requires: `stack >= 0`.
+//   internal init(stack: Int, executing f: sink [](inout A) -> Void, with_inout_argument a: PointerToMutable<A>) {
+//     precondition(stack >= 0, "Stack size must be non-negative.")
+//     &self.thread = OSThread.spawn_thread(
+//       stack: stack.copy(),
+//       executing: ThreadFunction(&f),
+//       with_argument: MemoryAddress(type_punning: a))
+//   }
 
-  /// Starts a new OS thread with `stack` bytes of stack space, executing `f`, and passing the inout value `a` as an argument.
-  ///
-  /// - Requires: `stack >= 0`.
-  internal init(stack: Int, executing f: sink [](inout A) -> Void, with_inout_argument a: PointerToMutable<A>) {
-    precondition(stack >= 0, "Stack size must be non-negative.")
-    &self.thread = OSThread.spawn_thread(
-      stack: stack.copy(),
-      executing: ThreadFunction(&f),
-      with_argument: MemoryAddress(type_punning: a))
-  }
+//   /// Returns the unique identifier for the thread.
+//   public fun thread_id() -> ThreadId {
+//     .new(os_value: thread.id())
+//   }
 
-  /// Returns the unique identifier for the thread.
-  public fun thread_id() -> ThreadId {
-    .new(os_value: thread.id())
-  }
+//   /// Awaits for the thread to complete
+//   public fun await() sink {
+//     &thread.join()
+//   }
 
-  /// Awaits for the thread to complete
-  public fun await() sink {
-    &thread.join()
-  }
+// }
 
-}
+// /// Creates a new thread that will execute `f` with no arguments.
+// public fun spawn_thread(executing f: sink []() -> Void) -> ThreadCompletion<Void> {
+//   .new(stack: 0, executing: f)
+// }
 
-/// Creates a new thread that will execute `f` with no arguments.
-public fun spawn_thread(executing f: sink []() -> Void) -> ThreadCompletion<Void> {
-  .new(stack: 0, executing: f)
-}
+// /// Creates a new thread that will execute `f` with argument `a`.
+// public fun spawn_thread<A>(executing f: sink [](A) -> Void, with_argument a: Pointer<A>) -> ThreadCompletion<A> {
+//   .new(stack: 0, executing: f, with_argument: a)
+// }
 
-/// Creates a new thread that will execute `f` with argument `a`.
-public fun spawn_thread<A>(executing f: sink [](A) -> Void, with_argument a: Pointer<A>) -> ThreadCompletion<A> {
-  .new(stack: 0, executing: f, with_argument: a)
-}
+// /// Creates a new thread that will execute `f` with inout argument `a`.
+// public fun spawn_thread<A>(executing f: sink [](inout A) -> Void, with_inout_argument a: PointerToMutable<A>) -> ThreadCompletion<A> {
+//   .new(stack: 0, executing: f, with_inout_argument: a)
+// }
 
-/// Creates a new thread that will execute `f` with inout argument `a`.
-public fun spawn_thread<A>(executing f: sink [](inout A) -> Void, with_inout_argument a: PointerToMutable<A>) -> ThreadCompletion<A> {
-  .new(stack: 0, executing: f, with_inout_argument: a)
-}
+// /// Creates a new thread that will execute `f` with no arguments, using a stack size of `stack_size`.
+// ///
+// /// - Requires: `stack >= 0`.
+// public fun spawn_thread(stack_size: Int, executing f: sink []() -> Void) -> ThreadCompletion<Void> {
+//   .new(stack: stack_size, executing: f)
+// }
 
-/// Creates a new thread that will execute `f` with no arguments, using a stack size of `stack_size`.
-///
-/// - Requires: `stack >= 0`.
-public fun spawn_thread(stack_size: Int, executing f: sink []() -> Void) -> ThreadCompletion<Void> {
-  .new(stack: stack_size, executing: f)
-}
+// /// Creates a new thread that will execute `f` with argument `a`, using a stack size of `stack_size`.
+// ///
+// /// - Requires: `stack >= 0`.
+// public fun spawn_thread<A>(stack_size: Int, executing f: sink [](A) -> Void, with_argument a: Pointer<A>) -> ThreadCompletion<A> {
+//   .new(stack: stack_size, executing: f, with_argument: a)
+// }
 
-/// Creates a new thread that will execute `f` with argument `a`, using a stack size of `stack_size`.
-///
-/// - Requires: `stack >= 0`.
-public fun spawn_thread<A>(stack_size: Int, executing f: sink [](A) -> Void, with_argument a: Pointer<A>) -> ThreadCompletion<A> {
-  .new(stack: stack_size, executing: f, with_argument: a)
-}
+// /// Creates a new thread that will execute `f` with inout argument `a`, using a stack size of `stack_size`.
+// ///
+// /// - Requires: `stack >= 0`.
+// public fun spawn_thread<A>(stack_size: Int, executing f: sink [](inout A) -> Void, with_inout_argument a: PointerToMutable<A>) -> ThreadCompletion<A> {
+//   .new(stack: stack_size, executing: f, with_inout_argument: a)
+// }
 
-/// Creates a new thread that will execute `f` with inout argument `a`, using a stack size of `stack_size`.
-///
-/// - Requires: `stack >= 0`.
-public fun spawn_thread<A>(stack_size: Int, executing f: sink [](inout A) -> Void, with_inout_argument a: PointerToMutable<A>) -> ThreadCompletion<A> {
-  .new(stack: stack_size, executing: f, with_inout_argument: a)
-}
+// /// Returns the unique identifier for the current thread.
+// public fun current_thread_id() -> ThreadId {
+//   .new(os_value: pthread_self())
+// }
 
-/// Returns the unique identifier for the current thread.
-public fun current_thread_id() -> ThreadId {
-  .new(os_value: pthread_self())
-}
+// /// Yields the current execution time slice to the operating system.
+// public fun yield_now() {
+//   OSThread.yield_now()
+// }
 
-/// Yields the current execution time slice to the operating system.
-public fun yield_now() {
-  OSThread.yield_now()
-}
-
-/// Returns the available parallelism on the system.
-///
-/// In case we cannot find the number of processors, we return `0`.
-public fun available_parallelism() -> Int {
-  OSThread.available_parallelism()
-}
+// /// Returns the available parallelism on the system.
+// ///
+// /// In case we cannot find the number of processors, we return `0`.
+// public fun available_parallelism() -> Int {
+//   OSThread.available_parallelism()
+// }

@@ -1,14 +1,14 @@
+// Disable concurrency related stuff because they rely on buffers.
+// /// Spawns a computation and returns a future that can be used to await its completion.
+// ///
+// /// The future cannot escape the current scope.
+// public fun spawn_<E: Movable & Deinitializable>(_ f: sink [E]() -> Int) -> Future<E> {
+//   Future<E>(f)
+// }
 
-/// Spawns a computation and returns a future that can be used to await its completion.
-///
-/// The future cannot escape the current scope.
-public fun spawn_<E: Movable & Deinitializable>(_ f: sink [E]() -> Int) -> Future<E> {
-  Future<E>(f)
-}
-
-/// Spawns a computation and returns a future that can be used to await its completion.
-///
-/// The future can escape the current scope.
-public fun escaping_spawn_<E: Movable & Deinitializable>(_ f: sink [E]() -> Int) -> EscapingFuture<E> {
-  EscapingFuture<E>(f)
-}
+// /// Spawns a computation and returns a future that can be used to await its completion.
+// ///
+// /// The future can escape the current scope.
+// public fun escaping_spawn_<E: Movable & Deinitializable>(_ f: sink [E]() -> Int) -> EscapingFuture<E> {
+//   EscapingFuture<E>(f)
+// }

@@ -13,3 +13,9 @@ public struct AnyHashableAndSendable: @unchecked Sendable, Hashable, Equatable {
         anyHashable.hash(into: &hasher)
     }
 }
+
+extension AnyHashableAndSendable: CustomStringConvertible {
+    public var description: String {
+        return String(describing: anyHashable.base)
+    }
+}

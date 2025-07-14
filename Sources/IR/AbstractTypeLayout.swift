@@ -22,7 +22,6 @@ public struct AbstractTypeLayout: Sendable {
     self.properties = program.storage(of: self.type)
 
     if properties.isEmpty {
-      print("empty here: \(type)")
       if type.description.contains("(14)") {
         print("type14") // this causes the crash later at AbstractObject.swift:29
       }

@@ -19,9 +19,6 @@ struct AbstractObject<Domain: AbstractDomain & Sendable>: Equatable, Sendable {
   mutating func withSubobject<T>(_ offset: Int, _ action: (inout AbstractObject) -> T) -> T {
     if layout.properties.isEmpty {
       print("empty layout of type: \(layout.type)")
-      if layout.type.description.contains("(14)") {
-        print("type14")
-      }
       // print("properties: \(layout.properties)")
       // print("layout: \(layout)")
       
