@@ -1,13 +1,13 @@
 {
-  "originHash" : "d7ea6f32b72a8cafdd9d50639b7b9ba7bf414ee2f1f0aaa4fb856fb32ba28031",
+  "originHash" : "34013e6348f1f3e53cedea916aa04de97503ca831987c609a0090eb7db335d34",
   "pins" : [
     {
       "identity" : "bigint",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/tothambrus11/BigInt.git",
       "state" : {
-        "branch" : "swift6",
-        "revision" : "e97764c8099deaf392e12e273083ffdf2b439365"
+        "branch" : "master",
+        "revision" : "cf6b92f61042a36734fc646e59f55ea0d5599751"
       }
     },
     {

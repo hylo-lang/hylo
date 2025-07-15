@@ -180,15 +180,16 @@ jobs:
             cmake_generator: Xcode
 
         include:
-          - HYLO_LLVM_BUILD_RELEASE: 20250603-162600
+          - HYLO_LLVM_BUILD_RELEASE: 20250617-222524
           - HYLO_LLVM_BUILD_TYPE: MinSizeRel
           - HYLO_LLVM_DOWNLOAD_URL: https://github.com/hylo-lang/llvm-build/releases/download
-          - HYLO_LLVM_VERSION: '17.0.6'
+          - HYLO_LLVM_VERSION: '20.1.6'
           - llvm_package_suffix: .tar.zst
           - unpackage_command: tar -x --zstd -f
           # https://github.com/apple/swift/issues/72121
           - windows_only: '# WINDOWS ONLY:'
           - use_spm: true
+          - use_cmake: false
           - triple_cpu: x86_64
 
           - os: windows-latest
@@ -258,6 +259,7 @@ jobs:
         shell: bash
 
       - name: Set up latest CMake and Ninja
+        if: ${{ matrix.use_cmake }}
         uses: lukka/get-cmake@latest
         with:
           cmakeVersion: latestrc
@@ -273,6 +275,7 @@ jobs:
           ${{ matrix.unpackage_command }} ${{ env.llvm_package_basename }}${{ matrix.llvm_package_suffix }}
 
       - name: Configure (CMake)
+        if: ${{ matrix.use_cmake }}
         # We explicitly point to swiftc in the PATH because otherwise CMake picks up the one in XCode.
         run: >-
           cmake -G '${{ matrix.cmake_generator }}' -S . -B .cmake-build
@@ -283,9 +286,11 @@ jobs:
         working-directory: hylo
 
       - name: Build (CMake)
+        if: ${{ matrix.use_cmake }}
         run: cmake --build hylo/.cmake-build ${{ matrix.cmake_generator == 'Xcode' && format('--config {0}', matrix.cmake_build_type) || '' }}
 
       - name: Test (CMake)
+        if: ${{ matrix.use_cmake }}
         run: ctest --output-on-failure --parallel --test-dir hylo/.cmake-build ${{ matrix.cmake_generator == 'Xcode' && format('-C {0}', matrix.cmake_build_type) || '' }}
 
       - if: ${{ matrix.use_spm }}
@@ -343,4 +348,5 @@ jobs:
         working-directory: hylo
 
       - name: Output compiler version
+        if: ${{ matrix.use_cmake }}
         run: cmake --build hylo/.cmake-build --target output_compiler_version -- --quiet&
