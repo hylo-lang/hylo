@@ -1,0 +1,11 @@
+//- lowerToFinishedIR expecting: .failure
+
+public type A: Deinitializable {
+
+  public property p: Int {
+    for sink let i in 0 ..< 10 {
+      yield i //! diagnostic yields cannot be part of loops
+    }
+  } //! diagnostic not all paths of the projection contain a yield
+
+}
