@@ -286,6 +286,9 @@ public struct Driver: ParsableCommand {
 
     var ir = try lower(program: program, reportingDiagnosticsTo: &log)
 
+    logVerbose("begin expandProjections pass.\n")
+    ir.expandProjections()
+
     if outputType == .ir || outputType == .rawIR {
       let m = ir.modules[sourceModule]!
       try m.description.write(to: irFile(productName), atomically: true, encoding: .utf8)

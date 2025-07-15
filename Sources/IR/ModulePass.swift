@@ -5,4 +5,6 @@ public enum ModulePass: String {
 
   case inline
 
+  case expandProjections
+
 }

@@ -21,6 +21,12 @@ extension Function {
       /// The identity of a monomorphized function.
       indirect case monomorphized(base: ID, arguments: GenericArguments)
 
+      /// The identity of a ramp function generated for a projection.
+      indirect case projectionRamp(base: ID)
+
+      /// The identity of a slide function generated for a projection.
+      indirect case projectionSlide(base: ID)
+
     }
 
     /// The value of this identity.
@@ -55,6 +61,16 @@ extension Function {
       precondition(!arguments.isEmpty)
       precondition(arguments.allSatisfy(\.value.isCanonical))
       self.value = .monomorphized(base: base, arguments: arguments)
+    }
+
+    /// Creates the identity of the ramp created for projection `base`.
+    init(projectionRamp base: Function.ID) {
+      self.value = .projectionRamp(base: base)
+    }
+
+    /// Creates the identity of the slide created for projection `base`.
+    init(projectionSlide base: Function.ID) {
+      self.value = .projectionSlide(base: base)
     }
 
     /// `true` if `self` is the identity of a synthesized function.
@@ -92,6 +108,10 @@ extension Function.ID: CustomStringConvertible {
       return "\(b).existentialized"
     case .monomorphized(let b, let a):
       return "<\(list: a.values)>(\(b))"
+    case .projectionRamp(let b):
+      return "\(b).ramp"
+    case .projectionSlide(let b):
+      return "\(b).slide"
     }
   }
 
