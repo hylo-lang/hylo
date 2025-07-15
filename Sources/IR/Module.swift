@@ -34,6 +34,9 @@ public struct Module {
   /// The functions in the module.
   public private(set) var functions: [Function.ID: Function] = [:]
 
+  /// The skeletons of all the projections in the module.
+  internal var projectionSkeletons: [ Function.ID: ProjectionSkeleton ]
+
   /// The module's entry function, if any.
   ///
   /// An entry function is the lowered form of a program's entry point, that is the `main` function
@@ -51,6 +54,7 @@ public struct Module {
   ) throws {
     self.program = p
     self.id = m
+    self.projectionSkeletons = [:]
 
     Emitter.withInstance(insertingIn: &self, reportingDiagnosticsTo: &log) { (e) in
       e.incorporateTopLevelDeclarations()
@@ -211,7 +215,8 @@ public struct Module {
     }
   }
 
-  /// Returns `true` iff `lhs` is sequenced before `rhs`.
+  /// Returns `true` iff `lhs` is sequenced before `rhs` on all paths leading to `rhs`.
+  /// See: https://en.wikipedia.org/wiki/Dominator_(graph_theory)
   func dominates(_ lhs: InstructionID, _ rhs: InstructionID) -> Bool {
     if lhs.function != rhs.function { return false }
 
@@ -224,6 +229,21 @@ public struct Module {
     // Slow path: use the dominator tree.
     let d = DominatorTree(function: lhs.function, cfg: self[lhs.function].cfg(), in: self)
     return d.dominates(lhs.block, rhs.block)
+  }
+
+  /// Returns `true` iff `lhs` is sequenced before `rhs` on at least one path.
+  func precedes(_ lhs: InstructionID, _ rhs: InstructionID) -> Bool {
+    if lhs.function != rhs.function { return false }
+
+    // Fast path: both instructions are in the same block.
+    if lhs.block == rhs.block {
+      let sequence = functions[lhs.function]![lhs.block].instructions
+      return lhs.address.precedes(rhs.address, in: sequence)
+    }
+
+    // Slow path: use the control flow graph.
+    let cfg = self[lhs.function].cfg()
+    return cfg.paths(to: rhs.block, from: lhs.block).count > 0
   }
 
   /// Returns `true` if `i` is a deinitializer.
@@ -276,6 +296,7 @@ public struct Module {
     try run({ closeBorrows(in: $0, diagnostics: &log) })
     try run({ normalizeObjectStates(in: $0, diagnostics: &log) })
     try run({ ensureExclusivity(in: $0, diagnostics: &log) })
+    try run({ analyzeProjection($0, reportingDiagnosticsTo: &log) })
 
     try generateSyntheticImplementations(reportingDiagnosticsTo: &log)
   }

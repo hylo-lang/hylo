@@ -1,0 +1,10 @@
+//- lowerToFinishedIR expecting: .failure
+
+public type A: Deinitializable {
+
+  public property p: Int { //! diagnostic multiple yields on the same path
+    yield 1
+    yield 2
+  }
+
+}
