@@ -382,14 +382,16 @@ struct Mangler {
   }
 
   /// Writes the mangled representation of `s` to `output`.
-  private mutating func append(projectionRamp s: Function.ID, to output: inout Output
+  private mutating func append(
+    projectionRamp s: Function.ID, to output: inout Output
   ) {
     append(operator: .projectionRampFunctionDecl, to: &output)
     append(function: s, to: &output)
   }
 
   /// Writes the mangled representation of `s` to `output`.
-  private mutating func append(projectionSlide s: Function.ID, to output: inout Output
+  private mutating func append(
+    projectionSlide s: Function.ID, to output: inout Output
   ) {
     append(operator: .projectionSlideFunctionDecl, to: &output)
     append(function: s, to: &output)
