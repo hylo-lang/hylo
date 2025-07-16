@@ -286,19 +286,25 @@ public struct Driver: ParsableCommand {
 
     var ir = try lower(program: program, reportingDiagnosticsTo: &log)
 
-    logVerbose("begin expandProjections pass.\n")
+    if outputType == .rawIR {
+      let m = ir.modules[sourceModule]!
+      try m.description.write(to: irFile(productName), atomically: true, encoding: .utf8)
+      return
+    }
+
+    logVerbose("begin expand projections pass.\n")
     ir.expandProjections()
 
-    if outputType == .ir || outputType == .rawIR {
+    logVerbose("begin depolymorphization pass.\n")
+    ir.depolymorphize()
+
+    if outputType == .ir {
       let m = ir.modules[sourceModule]!
       try m.description.write(to: irFile(productName), atomically: true, encoding: .utf8)
       return
     }
 
     // LLVM
-
-    logVerbose("begin depolymorphization pass.\n")
-    ir.depolymorphize()
 
     logVerbose("create LLVM target machine.\n")
     #if os(Windows)
