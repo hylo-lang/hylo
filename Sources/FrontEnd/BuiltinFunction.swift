@@ -1645,11 +1645,13 @@ private func take<T: RawRepresentable>(
 }
 
 /// Returns a built-in type parsed from `stream`.
+@Sendable
 private func builtinType(_ stream: inout ArraySlice<Substring>) -> BuiltinType? {
   stream.popFirst().flatMap(BuiltinType.init(_:))
 }
 
 /// Returns the longest sequence of floating-point math flags that can be parsed from `stream`.
+@Sendable
 private func mathFlags(_ stream: inout ArraySlice<Substring>) -> BuiltinFunction.MathFlags {
   var result: BuiltinFunction.MathFlags = []
   while let x = stream.first {
@@ -1661,6 +1663,7 @@ private func mathFlags(_ stream: inout ArraySlice<Substring>) -> BuiltinFunction
 }
 
 /// Returns an overflow behavior parsed from `stream` or `.ignore` if none can be parsed.
+@Sendable
 private func overflowBehavior(
   _ stream: inout ArraySlice<Substring>
 ) -> OverflowBehavior {

@@ -2,7 +2,7 @@ import Driver
 import FrontEnd
 import IR
 import Utils
-import XCTest
+@preconcurrency import XCTest
 
 extension Diagnostic {
 
@@ -61,6 +61,7 @@ extension XCTestCase {
   ///   - processAndCheck: applies some compilation phases to `file`, updating `diagnostics`
   ///     with any generated diagnostics, then checks `annotationsToCheck` against the results,
   ///     returning corresponding test failures. Throws an `Error` if any phases failed.
+  @MainActor
   private func checkAnnotations(
     in hyloToTest: SourceFile,
     checkingAnnotationCommands checkedCommands: Set<String> = [],
