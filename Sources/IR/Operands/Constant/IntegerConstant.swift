@@ -1,10 +1,6 @@
 import FrontEnd
 import Utils
 
-// DWA: This conformance belongs in WideUInt.swift, but is here pending
-// https://github.com/apple/swift/issues/62498.
-extension WideUInt: UnsignedInteger {}
-
 /// An unsigned integer Hylo IR constant.
 public struct IntegerConstant: Constant, Hashable {
 

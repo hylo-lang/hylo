@@ -61,7 +61,6 @@ extension XCTestCase {
   ///   - processAndCheck: applies some compilation phases to `file`, updating `diagnostics`
   ///     with any generated diagnostics, then checks `annotationsToCheck` against the results,
   ///     returning corresponding test failures. Throws an `Error` if any phases failed.
-  @MainActor
   private func checkAnnotations(
     in hyloToTest: SourceFile,
     checkingAnnotationCommands checkedCommands: Set<String> = [],
@@ -110,7 +109,6 @@ extension XCTestCase {
   ///   - expectSuccess: true if an error from `process` represents a test failure, false if the
   ///     lack of an error represents a test failure; nil if that information is to be derived
   ///     from the contents of the file.
-  @MainActor
   private func checkAnnotatedHyloFileDiagnostics(
     inFileAt hyloFilePath: String,
     expecting expectation: ExpectedTestOutcome,
