@@ -267,6 +267,18 @@ jobs:
       - name: Set SDK Path # for issue about not finding tgmath
         if: ${{ runner.os == 'macOS' }}
         run: export SDKROOT=$(xcrun --show-sdk-path)
+      - name: Check for tgmath.h
+        if: ${{ runner.os == 'macOS' }}
+        run: |
+          if [ ! -f "$(xcrun --show-sdk-path)/usr/include/tgmath.h" ]; then
+            echo "tgmath.h not found in SDK"
+            exit 1
+          fi
+
+      - name: Ensure Xcode Command Line Tools are installed
+        if: ${{ runner.os == 'macOS' }}
+        run: |
+          xcode-select --install || true
 
       - name: Configure (CMake)
         if: ${{ matrix.use_cmake }}
