@@ -387,6 +387,12 @@ public struct Driver: ParsableCommand {
     }
 
     var ir = IR.Program(syntax: program, modules: loweredModules)
+
+    if outputType != .rawIR {
+      // Mandatory passes at the Program level.
+      ir.expandProjections()
+    }
+
     if let t = transforms {
       for p in t.elements { ir.applyPass(p) }
     }

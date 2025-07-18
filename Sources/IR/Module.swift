@@ -257,6 +257,8 @@ public struct Module {
       return isDeinit(j)
     case .synthesized(let d):
       return d.kind == .deinitialize
+    case .projectionRamp(_), .projectionSlide(_):
+      return false
     }
   }
 

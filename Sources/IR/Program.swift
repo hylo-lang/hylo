@@ -36,6 +36,8 @@ public struct Program: FrontEnd.Program {
       depolymorphize()
     case .inline:
       inlineCalls(where: .hasNoControlFlow)
+    case .expandProjections:
+      expandProjections()
     }
   }
 
@@ -50,6 +52,10 @@ public struct Program: FrontEnd.Program {
       return module(defining: i)
     case .synthesized(let d):
       return base.module(containing: d.scope)
+    case .projectionRamp(let b):
+      return module(defining: b)
+    case .projectionSlide(let b):
+      return module(defining: b)
     }
   }
 
