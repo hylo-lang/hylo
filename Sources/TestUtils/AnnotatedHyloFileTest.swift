@@ -110,6 +110,7 @@ extension XCTestCase {
   ///   - expectSuccess: true if an error from `process` represents a test failure, false if the
   ///     lack of an error represents a test failure; nil if that information is to be derived
   ///     from the contents of the file.
+  @MainActor
   private func checkAnnotatedHyloFileDiagnostics(
     inFileAt hyloFilePath: String,
     expecting expectation: ExpectedTestOutcome,
