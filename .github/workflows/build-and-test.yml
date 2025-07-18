@@ -165,13 +165,14 @@ jobs:
 
   native:
     needs: determine-version
-    name: "Native: ${{ matrix.os }}/${{ matrix.spm_configuration }}/${{ matrix.cmake_generator }}"
+    name: "Native: ${{ matrix.os }}/${{ matrix.spm_configuration }}/${{ matrix.cmake_generator }}/${{ (matrix.use_cmake && 'CMake') || 'SPM' }}"
     strategy:
       fail-fast: false
       matrix:
         os: [macos-14, ubuntu-latest, windows-latest]
         spm_configuration: [debug, release]
         cmake_generator: [Ninja, Xcode]
+        use_cmake: [true, false]
 
         exclude:
           - os: ubuntu-latest
@@ -188,8 +189,7 @@ jobs:
           - unpackage_command: tar -x --zstd -f
           # https://github.com/apple/swift/issues/72121
           - windows_only: '# WINDOWS ONLY:'
-          - use_spm: true
-          - use_cmake: false
+          
           - triple_cpu: x86_64
 
           - os: windows-latest
@@ -199,7 +199,6 @@ jobs:
             windows_only: ''
 
           - os: windows-latest
-            use_spm: true
 
           - os: macos-14
             triple_suffix: apple-darwin24.1.0
@@ -214,7 +213,12 @@ jobs:
             cmake_build_type: Release
 
           - cmake_generator: Xcode
+
+          - use_cmake: true
             use_spm: false
+
+          - use_cmake: false
+            use_spm: true
 
     runs-on: ${{ matrix.os }}
     env:
@@ -233,26 +237,22 @@ jobs:
         working-directory: hylo
         run: ./Tools/set-hc-version.sh ${{ needs.determine-version.outputs.version }}
         shell: bash
-      - name: Import Swift GPG Key (Ubuntu Only) # until fix arrives for https://github.com/SwiftyLab/setup-swift/issues/388
-        if: runner.os == 'Linux'
-        run: gpg --keyserver hkp://keyserver.ubuntu.com --recv-keys '52BB 7E3D E28A 71BE 22EC 05FF EF80 A866 B47A 981F'
-      - name: Set up swift (non-Windows)
-        if: ${{ runner.os != 'Windows' }}
+
+      - name: Set up LLVM
+        uses: hylo-lang/get-llvm@v0.1.1
+
+      - name: Set up swift
         uses: SwiftyLab/setup-swift@latest
         with:
           swift-version: ${{ env.swift-version }}
 
-      - uses: compnerd/gha-setup-vsdevenv@main
+      - name: Set up Visual Studio Development Environment (Windows)
+        if: ${{ runner.os == 'Windows' }}
+        uses: compnerd/gha-setup-vsdevenv@main
         with:
           winsdk: "10.0.22621.0" # Workaround for this: https://forums.swift.org/t/swiftpm-plugin-doesnt-work-with-the-latest-visual-studio-version/78183/14
           # TL;DR: The Windows SDK had a change in 10.0.26100.0 that the Swift compiler didn't account for.
           # The Swift compiler team is aware of the issue and they are going to release a fix some time.
-      - name: Set up swift (Windows)
-        if: ${{ runner.os == 'Windows' }}
-        uses: compnerd/gha-setup-swift@v0.2.2
-        with:
-          branch: swift-${{ env.swift-version }}-release
-          tag: ${{ env.swift-version }}-RELEASE
 
       - name: Verify swift version
         run: swift --version && swift --version | grep -q ${{ env.swift-version }}
@@ -263,16 +263,6 @@ jobs:
         uses: lukka/get-cmake@latest
         with:
           cmakeVersion: latestrc
-
-      - name: Install LLVM
-        # 7z doesn't support decompressing from a stream or we'd do this all as one statement. Maybe
-        # we should find a way to use zstd on windows.
-        run: >-
-          curl --no-progress-meter -L -O
-          -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}"
-          ${{ env.llvm_url_prefix }}/${{ env.llvm_package_basename }}${{ matrix.llvm_package_suffix }}
-
-          ${{ matrix.unpackage_command }} ${{ env.llvm_package_basename }}${{ matrix.llvm_package_suffix }}
 
       - name: Configure (CMake)
         if: ${{ matrix.use_cmake }}
@@ -292,19 +282,6 @@ jobs:
       - name: Test (CMake)
         if: ${{ matrix.use_cmake }}
         run: ctest --output-on-failure --parallel --test-dir hylo/.cmake-build ${{ matrix.cmake_generator == 'Xcode' && format('-C {0}', matrix.cmake_build_type) || '' }}
-
-      - if: ${{ matrix.use_spm }}
-        name: Create LLVM pkgconfig file and make it findable
-        run: >-
-          set -ex -o pipefail
-
-          mkdir pkg-config
-
-          PATH="${{ github.workspace }}/${{ env.llvm_package_basename }}/bin:$PATH"
-            hylo/Tools/make-pkgconfig.sh pkg-config/llvm.pc
-
-          echo 'PKG_CONFIG_PATH=${{ github.workspace }}/pkg-config' >> "$GITHUB_ENV"
-        shell: bash
 
       - if: ${{ matrix.use_spm }}
         # Workaround for https://github.com/actions/cache/issues/1541
