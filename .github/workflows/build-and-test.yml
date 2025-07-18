@@ -270,13 +270,12 @@ jobs:
 
       - name: Configure (CMake)
         if: ${{ matrix.use_cmake }}
-        # We explicitly point to swiftc in the PATH because otherwise CMake picks up the one in XCode.
         run: >-
           cmake -G '${{ matrix.cmake_generator }}' -S . -B .cmake-build
           ${{ matrix.cmake_generator != 'Xcode' && format('-DCMAKE_BUILD_TYPE={0}', matrix.cmake_build_type) || '' }}
           -DBUILD_TESTING=YES
           -DLLVM_DIR=${{ github.workspace }}/${{ env.llvm_package_basename }}/lib/cmake/llvm
-          ${{ runner.os == 'macOS' && '-DCMAKE_Swift_COMPILER=swiftc -DCMAKE_OSX_SYSROOT=$(xcrun --show-sdk-path)' || '' }}
+          ${{ runner.os == 'macOS' && '-DCMAKE_Swift_COMPILER=$(xcrun -f swiftc) -DCMAKE_OSX_SYSROOT=$(xcrun --show-sdk-path)' || '' }}      
         working-directory: hylo
 
       - name: Build (CMake)
