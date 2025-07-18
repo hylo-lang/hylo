@@ -286,25 +286,16 @@ public struct Driver: ParsableCommand {
 
     var ir = try lower(program: program, reportingDiagnosticsTo: &log)
 
-    if outputType == .rawIR {
-      let m = ir.modules[sourceModule]!
-      try m.description.write(to: irFile(productName), atomically: true, encoding: .utf8)
-      return
-    }
-
-    logVerbose("begin expand projections pass.\n")
-    ir.expandProjections()
-
-    logVerbose("begin depolymorphization pass.\n")
-    ir.depolymorphize()
-
-    if outputType == .ir {
+    if outputType == .ir || outputType == .rawIR {
       let m = ir.modules[sourceModule]!
       try m.description.write(to: irFile(productName), atomically: true, encoding: .utf8)
       return
     }
 
     // LLVM
+
+    logVerbose("begin depolymorphization pass.\n")
+    ir.depolymorphize()
 
     logVerbose("create LLVM target machine.\n")
     #if os(Windows)
@@ -396,6 +387,12 @@ public struct Driver: ParsableCommand {
     }
 
     var ir = IR.Program(syntax: program, modules: loweredModules)
+
+    if outputType != .rawIR {
+      // Mandatory passes at the Program level.
+      ir.expandProjections()
+    }
+
     if let t = transforms {
       for p in t.elements { ir.applyPass(p) }
     }
