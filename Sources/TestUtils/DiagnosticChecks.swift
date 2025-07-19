@@ -25,13 +25,13 @@ extension XCTestCase {
   /// Reports any diagnostics in `s` as XCTest issues.
   public func checkEmpty(_ s: DiagnosticSet) {
     for d in s.elements {
-      record(XCTIssue(.error("unexpected diagnostic: '\(d.message)'", at: d.site, notes: d.notes)))
+      record(XCTIssueHylo(.error("unexpected diagnostic: '\(d.message)'", at: d.site, notes: d.notes)))
     }
   }
 
 }
 
-extension XCTIssue {
+extension XCTIssueHylo {
 
   /// Creates an instance from a diagnostic.
   public init(_ d: Diagnostic) {
@@ -39,12 +39,12 @@ extension XCTIssue {
       type: .assertionFailure,
       compactDescription: d.message,
       sourceCodeContext:
-        .init(location: XCTSourceCodeLocation.init(d.site.start)))
+        .init(location: XCTSourceCodeLocationHylo.init(d.site.start)))
   }
 
 }
 
-extension XCTSourceCodeLocation {
+extension XCTSourceCodeLocationHylo {
 
   /// Creates an instance from a location in a Hylo source file.
   fileprivate convenience init(_ l: SourcePosition) {

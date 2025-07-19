@@ -29,3 +29,8 @@ extension IntegerConstant: CustomStringConvertible {
   }
 
 }
+
+// DWA: This conformance belongs in WideUInt.swift, but is here pending
+// https://github.com/apple/swift/issues/62498. (from IntegerConstant.swift)
+// This was still an issue as of 2025-07-20 - the precondition failed as mentioned in https://github.com/swiftlang/swift/issues/62498#issuecomment-2617256646
+extension WideUInt: UnsignedInteger {}

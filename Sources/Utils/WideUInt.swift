@@ -183,8 +183,3 @@ extension BigUInt {
   }
 
 }
-
-
-// DWA: This conformance belongs in WideUInt.swift, but is here pending
-// https://github.com/apple/swift/issues/62498. (from IntegerConstant.swift)
-extension WideUInt: UnsignedInteger {} // todo check
