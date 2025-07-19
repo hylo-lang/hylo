@@ -73,9 +73,10 @@ import XCTest
   public struct XCTContext: Sendable {
 
     /// Creates and runs an activity with the provided block of code.
+    @MainActor
     public static func runActivity<Result>(
       named debugName: String,
-      block: (XCTActivity) throws -> Result
+      block: @MainActor (XCTActivity) throws -> Result
     ) rethrows -> Result {
       try block(XCTActivity(debugName: debugName))
     }

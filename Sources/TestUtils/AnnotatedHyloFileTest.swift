@@ -38,6 +38,17 @@ public enum ExpectedTestOutcome: Sendable {
 
 }
 
+extension XCTContext {
+
+  // Same as `XCTContext.runActivity(named:block:)`, but without the `@MainActor` requirement.
+  public static func runActivityNonIsolated<Result>(
+    named debugName: String,
+    block: (XCTActivity) throws -> Result
+  ) rethrows -> Result {
+    try block(XCTActivity(debugName: debugName))
+  }
+
+}
 extension XCTestCase {
 
   /// The effects of running the `processAndCheck` parameter to `checkAnnotatedHyloFiles`.
@@ -80,7 +91,7 @@ extension XCTestCase {
     var diagnostics = DiagnosticSet()
     var thrownError: Error? = nil
 
-    let failures = XCTContext.runActivity(
+    let failures = XCTContext.runActivityNonIsolated(
       named: hyloToTest.baseName,
       block: { activity in
         let r = Result { try processAndCheck(hyloToTest, processingAnnotations, &diagnostics) }
