@@ -49,7 +49,7 @@ let package = Package(
       branch: "swift6"),
     .package(
       url: "https://github.com/tothambrus11/BigInt.git",
-      branch: "master"),
+      revision: "cf6b92f61042a36734fc646e59f55ea0d5599751"),
     .package(
       url: "https://github.com/hylo-lang/Swifty-LLVM",
       revision: "7ac212f5b31f83c75832d62c582b127735a1d505"),

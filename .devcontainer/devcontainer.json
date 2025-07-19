@@ -48,6 +48,7 @@
     },
     "remoteEnv": {
         "PATH": "/python-venv/bin:/opt/llvm-${containerEnv:HYLO_LLVM_BUILD_TYPE}/bin:${containerEnv:PATH}",
+        "PKG_CONFIG_PATH": "/opt/llvm-${containerEnv:HYLO_LLVM_BUILD_TYPE}/pkgconfig:${containerEnv:PKG_CONFIG_PATH}",
         "HYLO_USE_BUILTIN_STDLIB": "true"
     },
     // "postCreateCommand": "sudo ./.devcontainer/postCreateCommand.sh",
