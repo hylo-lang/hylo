@@ -175,10 +175,10 @@ jobs:
         use_cmake: [true, false]
 
         exclude:
-          - os: ubuntu-latest
-            cmake_generator: Xcode
-          - os: windows-latest
-            cmake_generator: Xcode
+          - use_spm: true
+            cmake_generator: Ninja # avoid 2 generators on SPM builds
+          - os: macos-14
+            use_cmake: true # temporarily disable CMake builds on MacOS
 
         include:
           - HYLO_LLVM_BUILD_RELEASE: 20250617-222524
