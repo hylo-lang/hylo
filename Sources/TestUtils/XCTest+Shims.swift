@@ -4,7 +4,7 @@ import XCTest
 /// swift-corelibs-xctest API. See https://github.com/apple/swift-corelibs-xctest/issues/348
 
 /// Don't modify this part, it's meant to replicate the exact Swift API:
-#if !macOS
+#if !os(macOS) && !os(iOS) && !os(tvOS) && !os(watchOS)
 
 /// An object that represents a test failure.
 public struct XCTIssue: Sendable {
