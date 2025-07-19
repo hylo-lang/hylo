@@ -175,7 +175,7 @@ jobs:
         use_cmake: [true, false]
 
         exclude:
-          - use_spm: true
+          - use_cmake: false
             cmake_generator: Ninja # avoid 2 generators on SPM builds
           - os: macos-14
             use_cmake: true # temporarily disable CMake builds on MacOS
