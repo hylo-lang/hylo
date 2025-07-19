@@ -46,7 +46,7 @@ import XCTest
 public struct TestAnnotation: Hashable {
 
   /// The line location of this annotation.
-  let location: XCTSourceCodeLocationHylo
+  let location: XCTSourceCodeLocation
 
   /// The command.
   let command: String
@@ -198,8 +198,8 @@ public struct TestAnnotation: Hashable {
   }
 
   /// Returns a test failure with the given message, at the expected line of this annotation.
-  func failure(_ message: String) -> XCTIssueHylo {
-    XCTIssueHylo(
+  func failure(_ message: String) -> XCTIssue {
+    XCTIssue(
       type: .assertionFailure, compactDescription: message,
       sourceCodeContext: .init(location: location))
   }
