@@ -257,7 +257,7 @@ jobs:
 
   native-cmake:
     needs: determine-version
-    name: "Native: ${{ matrix.exact-os }}/CMake/${{ matrix.config }}/${{ matrix.cmake-generator }}"
+    name: "Native: ${{ matrix.exact-os }}/CMake/${{ matrix.cmake-build-type }}/${{ matrix.cmake-generator }}"
     strategy:
       fail-fast: false
       matrix:
@@ -274,17 +274,6 @@ jobs:
           - exact-os: windows-2025
             cmake-generator: Xcode
 
-        include:
-          # Define the more generic OS name for each exact OS version
-          - exact-os: macos-14
-            os: macOS
-
-          - exact-os: ubuntu-24.04
-            os: Linux
-
-          - exact-os: windows-2025
-            os: Windows
-
     runs-on: ${{ matrix.exact-os }}
     steps:
       - name: Checkout
@@ -300,7 +289,7 @@ jobs:
         shell: bash
 
       - name: Set up LLVM
-        uses: hylo-lang/get-llvm@v0.1.1
+        uses: hylo-lang/get-llvm@v0.1.2
 
       - name: Set up Swift
         uses: SwiftyLab/setup-swift@latest
@@ -325,7 +314,7 @@ jobs:
           cmake -G '${{ matrix.cmake-generator }}' -S . -B .cmake-build
           ${{ matrix.cmake-generator != 'Xcode' && format('-DCMAKE_BUILD_TYPE={0}', matrix.cmake-build-type) || '' }}
           -DBUILD_TESTING=YES
-          -DLLVM_DIR=${{ env.LLVM_DIR }}/lib/cmake/llvm
+          -DLLVM_DIR=${{ env.LLVM_DIR }}
           ${{ runner.os == 'macOS' && '-DCMAKE_Swift_COMPILER=$(xcrun -f swiftc) -DCMAKE_OSX_SYSROOT=$(xcrun --show-sdk-path)' || '' }}
         working-directory: hylo
 
