@@ -183,7 +183,7 @@ jobs:
           # https://github.com/apple/swift/issues/72121
           - windows_only: '# WINDOWS ONLY:'
 
-          - os: Windows
+          - exact-os: Windows
             windows_only: ''
 
     runs-on: ${{ matrix.exact-os }}
