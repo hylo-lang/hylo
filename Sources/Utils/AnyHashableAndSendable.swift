@@ -16,6 +16,6 @@ public struct AnyHashableAndSendable: @unchecked Sendable, Hashable, Equatable {
 
 extension AnyHashableAndSendable: CustomStringConvertible {
     public var description: String {
-        return String(describing: anyHashable.base)
+        return "AnyHashableAndSendable(\(anyHashable.base))"
     }
 }
