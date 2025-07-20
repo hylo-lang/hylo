@@ -179,13 +179,6 @@ jobs:
         exact-os: [macos-14, ubuntu-24.04, windows-2025]
         config: [debug, release]
 
-        include:
-          # https://github.com/apple/swift/issues/72121
-          - windows_only: '# WINDOWS ONLY:'
-
-          - exact-os: Windows
-            windows_only: ''
-
     runs-on: ${{ matrix.exact-os }}
     steps:
       - name: Checkout
@@ -244,14 +237,17 @@ jobs:
       - name: Build
         run: |
           swift build -c ${{ matrix.config }} ${{ env.spm-build-options }} --build-tests
-          ${{ matrix.windows_only }} if (-not $?) { swift build ${{ env.spm-build-options }} --target BuildToolDependencies }
-
+          if (-not $?) { swift build ${{ env.spm-build-options }} --target BuildToolDependencies } 
+        # Reason for second line: https://github.com/apple/swift/issues/72121
+        shell: pwsh
         working-directory: hylo
 
       - name: Test
         run: |
           swift test --skip-build -c ${{ matrix.config }} ${{ env.spm-build-options }} ${{ env.spm-test-options }}
-          ${{ matrix.windows_only }} if (-not $?) { swift test -c ${{ matrix.config }} ${{ env.spm-test-options }} }
+          if (-not $?) { swift test -c ${{ matrix.config }} ${{ env.spm-test-options }} }
+        # Reason for second line: https://github.com/apple/swift/issues/72121
+        shell: pwsh
         working-directory: hylo
 
 
