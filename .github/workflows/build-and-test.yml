@@ -181,6 +181,23 @@ jobs:
         cmake-generator: [Ninja, Xcode, none]
         config: [debug, release]
 
+        exclude:
+          # SPM builds don't need a CMake generator.
+          - build-system: spm
+            cmake-generator: Xcode
+          - build-system: spm
+            cmake-generator: Ninja
+
+          # Exclude Xcode for non-macOS platforms
+          - exact-os: ubuntu-24.04
+            cmake-generator: Xcode
+          - exact-os: windows-2025
+            cmake-generator: Xcode
+
+          # Temporarily disable CMake builds on macOS because of some compilation issues regarding tgmath.h used by the Algorithms library transitively.
+          - exact-os: macos-14
+            build-system: cmake
+
         include:
           # Define the more generic OS name for each exact OS version
           - exact-os: macos-14
@@ -201,22 +218,6 @@ jobs:
           - config: release
             cmake-build-type: Release
 
-        exclude:
-          # SPM builds don't need a CMake generator.
-          - build-system: spm
-            cmake-generator: Xcode
-          - build-system: spm
-            cmake-generator: Ninja
-
-          # Exclude Xcode for non-macOS platforms
-          - os: Linux
-            cmake-generator: Xcode
-          - os: Windows
-            cmake-generator: Xcode
-
-          # Temporarily disable CMake builds on macOS because of some compilation issues regarding tgmath.h used by the Algorithms library transitively.
-          - os: macOS
-            build-system: cmake
 
     runs-on: ${{ matrix.exact-os }}
     steps:
