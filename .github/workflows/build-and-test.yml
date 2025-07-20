@@ -188,6 +188,10 @@ jobs:
           - build-system: spm
             cmake-generator: Ninja
 
+          # CMake builds need a CMake generator.
+          - build-system: cmake
+            cmake-generator: none
+
           # Exclude Xcode for non-macOS platforms
           - exact-os: ubuntu-24.04
             cmake-generator: Xcode
