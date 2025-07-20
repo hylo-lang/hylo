@@ -170,64 +170,21 @@ jobs:
           runCmd: .build/${{ matrix.config }}/hc --version
           push: never
 
-  native:
+  native-spm:
     needs: determine-version
-    name: "Native: ${{ matrix.os }}/${{ matrix.build-system }}/${{ matrix.config }}${{ matrix.build-system == 'cmake' && format('/{0}', matrix.cmake-generator) || '' }}"
+    name: "Native: ${{ matrix.exact-os }}/SPM/${{ matrix.config }}"
     strategy:
       fail-fast: false
       matrix:
         exact-os: [macos-14, ubuntu-24.04, windows-2025]
-        build-system: [spm, cmake]
-        cmake-generator: [Ninja, Xcode, none]
         config: [debug, release]
 
-        exclude:
-          # SPM builds don't need a CMake generator.
-          - build-system: spm
-            cmake-generator: Xcode
-
-          - build-system: spm
-            cmake-generator: Ninja
-
-          # CMake builds need a CMake generator.
-          - build-system: cmake
-            cmake-generator: none
-
-          # Exclude Xcode for non-macOS platforms
-          - exact-os: ubuntu-24.04
-            cmake-generator: Xcode
-
-          - exact-os: windows-2025
-            cmake-generator: Xcode
-
-          # Temporarily disable CMake builds on macOS because of some compilation issues regarding tgmath.h used by the Algorithms library transitively.
-          - exact-os: macos-14
-            build-system: cmake
-
         include:
-          # Define the more generic OS name for each exact OS version
-          - exact-os: macos-14
-            os: macOS
-
-          - exact-os: ubuntu-24.04
-            os: Linux
-
-          - exact-os: windows-2025
-            os: Windows
-
           # https://github.com/apple/swift/issues/72121
           - windows_only: '# WINDOWS ONLY:'
 
           - os: Windows
             windows_only: ''
-
-          # map config to cmake build type
-          - config: debug
-            cmake-build-type: Debug
-
-          - config: release
-            cmake-build-type: Release
-
 
     runs-on: ${{ matrix.exact-os }}
     steps:
@@ -252,48 +209,14 @@ jobs:
           swift-version: ${{ env.swift-version }} # already verifies Swift version
 
       - name: Set up Visual Studio Development Environment (Windows)
-        if: ${{ matrix.os == 'Windows' }}
+        if: ${{ runner.os == 'Windows' }}
         uses: compnerd/gha-setup-vsdevenv@main
         with:
           winsdk: "10.0.22621.0" # Workaround for this: https://forums.swift.org/t/swiftpm-plugin-doesnt-work-with-the-latest-visual-studio-version/78183/14
           # TL;DR: The Windows SDK had a change in 10.0.26100.0 that the Swift compiler didn't account for.
           # The Swift compiler team is aware of the issue and they are going to release a fix some time.
 
-
-
-      # CMAKE BASED BUILD =================================================================
-      - name: Set up latest CMake and Ninja
-        if: ${{ matrix.build-system == 'cmake' }}
-        uses: lukka/get-cmake@latest
-        with:
-          cmakeVersion: latestrc
-
-      - name: Configure (CMake)
-        if: ${{ matrix.build-system == 'cmake' }}
-        run: >-
-          cmake -G '${{ matrix.cmake-generator }}' -S . -B .cmake-build
-          ${{ matrix.cmake-generator != 'Xcode' && format('-DCMAKE_BUILD_TYPE={0}', matrix.cmake-build-type) || '' }}
-          -DBUILD_TESTING=YES
-          -DLLVM_DIR=${{ env.LLVM_DIR }}/lib/cmake/llvm
-          ${{ matrix.os == 'macOS' && '-DCMAKE_Swift_COMPILER=$(xcrun -f swiftc) -DCMAKE_OSX_SYSROOT=$(xcrun --show-sdk-path)' || '' }}
-        working-directory: hylo
-
-      - name: Build (CMake)
-        if: ${{ matrix.build-system == 'cmake' }}
-        run: cmake --build hylo/.cmake-build ${{ matrix.cmake-generator == 'Xcode' && format('--config {0}', matrix.cmake-build-type) || '' }}
-
-      - name: Test (CMake)
-        if: ${{ matrix.build-system == 'cmake' }}
-        run: ctest --output-on-failure --parallel --test-dir hylo/.cmake-build ${{ matrix.cmake-generator == 'Xcode' && format('-C {0}', matrix.cmake-build-type) || '' }}
-
-      - name: Output compiler version
-        if: ${{ matrix.build-system == 'cmake' }}
-        run: cmake --build hylo/.cmake-build --target output_compiler_version -- --quiet&
-
-
-      # SPM BASED BUILD ===================================================================
       - name: SPM cache setup
-        if: ${{ matrix.build-system == 'spm' }}
         # Workaround for https://github.com/actions/cache/issues/1541
         uses: actions/cache@v4.2.2
         with:
@@ -302,13 +225,13 @@ jobs:
           restore-keys: |
             ${{ matrix.exact-os }}-${{ matrix.config }}-spm-
 
-      - name: Build support library (SPM on Windows)
-        if: ${{ matrix.build-system == 'spm' && matrix.os == 'Windows' }}
+      - name: Build support library (Only for SPM on Windows)
+        if: ${{ runner.os == 'Windows' }}
         run: clang -c ./StandardLibrary/Sources/LibC.c -o HyloLibC.lib
         working-directory: hylo
 
       - name: Build the dependencies of build tools
-        if: ${{ matrix.build-system == 'spm' && matrix.os == 'Windows' }}
+        if: ${{ runner.os == 'Windows' }}
         run: |
           echo 'SPM_BUILD_TOOL_SUPPORT_NO_REENTRANT_BUILD=1' >> $env:GITHUB_ENV
           swift build ${{ env.spm-build-options }} --target BuildToolDependencies
@@ -318,17 +241,99 @@ jobs:
           }
         working-directory: hylo
 
-      - if: ${{ matrix.build-system == 'spm' }}
-        name: Build
+      - name: Build
         run: |
           swift build -c ${{ matrix.config }} ${{ env.spm-build-options }} --build-tests
           ${{ matrix.windows_only }} if (-not $?) { swift build ${{ env.spm-build-options }} --target BuildToolDependencies }
 
         working-directory: hylo
 
-      - if: ${{ matrix.build-system == 'spm' }}
-        name: Test
+      - name: Test
         run: |
           swift test --skip-build -c ${{ matrix.config }} ${{ env.spm-build-options }} ${{ env.spm-test-options }}
           ${{ matrix.windows_only }} if (-not $?) { swift test -c ${{ matrix.config }} ${{ env.spm-test-options }} }
         working-directory: hylo
+
+
+  native-cmake:
+    needs: determine-version
+    name: "Native: ${{ matrix.exact-os }}/CMake/${{ matrix.config }}/${{ matrix.cmake-generator }}"
+    strategy:
+      fail-fast: false
+      matrix:
+        # Temporarily disable CMake builds on macOS because of some compilation issues regarding tgmath.h used by the Algorithms library transitively.
+        exact-os: [ubuntu-24.04, windows-2025] # macos-14
+        cmake-generator: [Ninja, Xcode]
+        cmake-build-type: [Debug, Release]
+
+        exclude:
+          # Exclude Xcode for non-macOS platforms
+          - exact-os: ubuntu-24.04
+            cmake-generator: Xcode
+
+          - exact-os: windows-2025
+            cmake-generator: Xcode
+
+        include:
+          # Define the more generic OS name for each exact OS version
+          - exact-os: macos-14
+            os: macOS
+
+          - exact-os: ubuntu-24.04
+            os: Linux
+
+          - exact-os: windows-2025
+            os: Windows
+
+    runs-on: ${{ matrix.exact-os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+          show-progress: false
+          path: hylo
+
+      - name: Set compiler version
+        working-directory: hylo
+        run: ./Tools/set-hc-version.sh ${{ needs.determine-version.outputs.version }}
+        shell: bash
+
+      - name: Set up LLVM
+        uses: hylo-lang/get-llvm@v0.1.1
+
+      - name: Set up Swift
+        uses: SwiftyLab/setup-swift@latest
+        with:
+          swift-version: ${{ env.swift-version }} # already verifies Swift version
+
+      - name: Set up Visual Studio Development Environment (Windows)
+        if: ${{ runner.os == 'Windows' }}
+        uses: compnerd/gha-setup-vsdevenv@main
+        with:
+          winsdk: "10.0.22621.0" # Workaround for this: https://forums.swift.org/t/swiftpm-plugin-doesnt-work-with-the-latest-visual-studio-version/78183/14
+          # TL;DR: The Windows SDK had a change in 10.0.26100.0 that the Swift compiler didn't account for.
+          # The Swift compiler team is aware of the issue and they are going to release a fix some time.
+
+      - name: Set up latest CMake and Ninja
+        uses: lukka/get-cmake@latest
+        with:
+          cmakeVersion: latestrc
+
+      - name: CMake Configure
+        run: >-
+          cmake -G '${{ matrix.cmake-generator }}' -S . -B .cmake-build
+          ${{ matrix.cmake-generator != 'Xcode' && format('-DCMAKE_BUILD_TYPE={0}', matrix.cmake-build-type) || '' }}
+          -DBUILD_TESTING=YES
+          -DLLVM_DIR=${{ env.LLVM_DIR }}/lib/cmake/llvm
+          ${{ runner.os == 'macOS' && '-DCMAKE_Swift_COMPILER=$(xcrun -f swiftc) -DCMAKE_OSX_SYSROOT=$(xcrun --show-sdk-path)' || '' }}
+        working-directory: hylo
+
+      - name: Build
+        run: cmake --build hylo/.cmake-build ${{ matrix.cmake-generator == 'Xcode' && format('--config {0}', matrix.cmake-build-type) || '' }}
+
+      - name: Test
+        run: ctest --output-on-failure --parallel --test-dir hylo/.cmake-build ${{ matrix.cmake-generator == 'Xcode' && format('-C {0}', matrix.cmake-build-type) || '' }}
+
+      - name: Output compiler version
+        run: cmake --build hylo/.cmake-build --target output_compiler_version -- --quiet&
