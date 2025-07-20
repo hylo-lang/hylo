@@ -185,6 +185,7 @@ jobs:
           # SPM builds don't need a CMake generator.
           - build-system: spm
             cmake-generator: Xcode
+
           - build-system: spm
             cmake-generator: Ninja
 
@@ -195,6 +196,7 @@ jobs:
           # Exclude Xcode for non-macOS platforms
           - exact-os: ubuntu-24.04
             cmake-generator: Xcode
+
           - exact-os: windows-2025
             cmake-generator: Xcode
 
@@ -206,19 +208,23 @@ jobs:
           # Define the more generic OS name for each exact OS version
           - exact-os: macos-14
             os: macOS
+
           - exact-os: ubuntu-24.04
             os: Linux
+
           - exact-os: windows-2025
             os: Windows
 
           # https://github.com/apple/swift/issues/72121
           - windows_only: '# WINDOWS ONLY:'
+
           - os: Windows
             windows_only: ''
 
           # map config to cmake build type
           - config: debug
             cmake-build-type: Debug
+
           - config: release
             cmake-build-type: Release
 
