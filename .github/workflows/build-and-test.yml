@@ -137,7 +137,7 @@ jobs:
         uses: devcontainers/ci@v0.3
         with: # todo make pipe fail if first command fails
           runCmd: |
-            llvm-cov --version
+            /usr/bin/llvm-cov --version
             swift test -c ${{ matrix.config }} ${{ env.spm-build-options }} ${{ env.spm-test-options }} ${{ matrix.more-spm-test-options }}
           push: never
 
@@ -153,7 +153,7 @@ jobs:
               bin_params+=("-object" "${o}")
             done
             # Note: on mac using llvm-cov from Xcode might require a leading xcrun.
-            llvm-cov export -format="lcov" -instr-profile "$(swift test -c ${{ matrix.config }} --show-codecov-path | xargs dirname)"/default.profdata "${bin_params[@]}" > info.lcov
+            /usr/bin/llvm-cov export -format="lcov" -instr-profile "$(swift test -c ${{ matrix.config }} --show-codecov-path | xargs dirname)"/default.profdata "${bin_params[@]}" > info.lcov
           push: never
 
       - name: Upload coverage reports to Codecov
