@@ -1,10 +1,10 @@
 {
-  "originHash" : "7359bbc23bdd03fea9dafa01d7c634767105ced111d13183c77c9cb12fcf6315",
+  "originHash" : "441d422a81095802c81c939d8b99aba119908b41e3bd567823a5c8a3c38ecb0d",
   "pins" : [
     {
       "identity" : "bigint",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/tothambrus11/BigInt.git",
+      "location" : "https://github.com/hylo-lang/BigInt/",
       "state" : {
         "revision" : "cf6b92f61042a36734fc646e59f55ea0d5599751"
       }
@@ -12,10 +12,9 @@
     {
       "identity" : "durian",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/tothambrus11/Durian.git",
+      "location" : "https://github.com/hylo-lang/Durian.git",
       "state" : {
-        "branch" : "swift6",
-        "revision" : "4cb4b4b0504c46164583cc98ba90a9216c68cfcb"
+        "revision" : "61d0681cafb43f595477b62b4cd5baf8bdfafe41"
       }
     },
     {
@@ -41,8 +40,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-argument-parser.git",
       "state" : {
-        "revision" : "41982a3656a71c768319979febd796c6fd111d5c",
-        "version" : "1.5.0"
+        "revision" : "309a47b2b1d9b5e991f36961c983ecec72275be3",
+        "version" : "1.6.1"
       }
     },
     {
@@ -50,8 +49,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-collections.git",
       "state" : {
-        "revision" : "671108c96644956dddcd89dd59c203dcdb36cec7",
-        "version" : "1.1.4"
+        "revision" : "c1805596154bb3a265fd91b8ac0c4433b4348fb0",
+        "version" : "1.2.0"
       }
     },
     {

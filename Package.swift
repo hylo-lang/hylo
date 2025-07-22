@@ -37,18 +37,18 @@ let package = Package(
   dependencies: [
     .package(
       url: "https://github.com/apple/swift-argument-parser.git",
-      from: "1.5.0"),
+      from: "1.6.1"),
     .package(
       url: "https://github.com/apple/swift-collections.git",
-      from: "1.1.4"),
+      from: "1.2.0"),
     .package(
       url: "https://github.com/apple/swift-algorithms.git",
       from: "1.2.1"),
     .package(
-      url: "https://github.com/tothambrus11/Durian.git",
-      branch: "swift6"),
+      url: "https://github.com/hylo-lang/Durian.git",
+      revision: "61d0681cafb43f595477b62b4cd5baf8bdfafe41"),
     .package(
-      url: "https://github.com/tothambrus11/BigInt.git",
+      url: "https://github.com/hylo-lang/BigInt.git",
       revision: "cf6b92f61042a36734fc646e59f55ea0d5599751"),
     .package(
       url: "https://github.com/hylo-lang/Swifty-LLVM",
