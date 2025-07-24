@@ -1,8 +1,8 @@
 /// An arrow type expression.
-public struct ArrowTypeExpr: Expr {
+public struct ArrowTypeExpr: Expr, Sendable {
 
   /// A parameter in an arrow type expression.
-  public struct Parameter: Codable {
+  public struct Parameter: Codable, Sendable {
 
     /// The label of the parameter.
     public var label: SourceRepresentable<Identifier>?

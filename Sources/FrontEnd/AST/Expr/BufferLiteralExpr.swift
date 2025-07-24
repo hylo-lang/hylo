@@ -1,5 +1,5 @@
 /// A buffer literal expression.
-public struct BufferLiteralExpr: Expr {
+public struct BufferLiteralExpr: Expr, Sendable {
 
   public let site: SourceRange
 

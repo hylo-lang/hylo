@@ -1,5 +1,5 @@
 /// A static argument or an argument to a function or subscript call.
-public struct LabeledArgument: Codable {
+public struct LabeledArgument: Codable, Sendable {
 
   /// The label of the argument, if any.
   public let label: SourceRepresentable<Identifier>?

@@ -2,7 +2,7 @@ import FrontEnd
 import Utils
 
 /// A Hylo IR instruction.
-public protocol Instruction: CustomStringConvertible {
+public protocol Instruction: CustomStringConvertible, Sendable {
 
   /// The type of the instruction's result, if any.
   var result: IR.`Type`? { get }

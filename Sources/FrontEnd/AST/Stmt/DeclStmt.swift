@@ -1,5 +1,5 @@
 /// A declaration statement.
-public struct DeclStmt: Stmt {
+public struct DeclStmt: Stmt, Sendable {
 
   public let site: SourceRange
 

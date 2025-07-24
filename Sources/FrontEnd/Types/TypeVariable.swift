@@ -1,7 +1,7 @@
 import Utils
 
 /// A type variable.
-public struct TypeVariable: TypeProtocol {
+public struct TypeVariable: TypeProtocol, Sendable {
 
   /// The identifier of the variable.
   public let rawValue: UInt64

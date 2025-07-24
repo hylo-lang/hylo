@@ -1,5 +1,5 @@
 /// A value computed at compile-time.
-public enum CompileTimeValue: Hashable {
+public enum CompileTimeValue: Hashable, Sendable {
 
   /// A type.
   case type(AnyType)

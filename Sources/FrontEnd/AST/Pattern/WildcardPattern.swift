@@ -1,5 +1,5 @@
 /// A wildcard pattern.
-public struct WildcardPattern: Pattern {
+public struct WildcardPattern: Pattern, Sendable {
 
   public let site: SourceRange
 

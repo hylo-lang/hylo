@@ -5,7 +5,7 @@ import Utils
 /// A command-line tool that generates XCTest cases for a list of annotated ".hylo" files as part
 /// of our build process.
 @main
-struct GenerateHyloFileTests: ParsableCommand {
+struct GenerateHyloFileTests: ParsableCommand, Sendable {
 
   @Option(
     name: [.customShort("o")],
@@ -26,7 +26,7 @@ struct GenerateHyloFileTests: ParsableCommand {
   /// Returns the Swift source of the test function for the Hylo program at `source`, which is the
   /// URL of a single source file or the root directory of a module.
   func swiftFunctionTesting(hyloProgramAt source: URL) throws -> String {
-    let firstLine = try String(contentsOf: source).prefix { !$0.isNewline }
+    let firstLine = try String(contentsOf: source, encoding: .utf8).prefix { !$0.isNewline }
     let parsed = try firstLine.parsedAsFirstLineOfAnnotatedHyloFileTest()
     let testID = source.deletingPathExtension().lastPathComponent.asSwiftIdentifier
 
@@ -154,7 +154,7 @@ fileprivate enum TestMethod: String {
 }
 
 /// An argument of a test runner.
-fileprivate struct TestArgument: CustomStringConvertible {
+fileprivate struct TestArgument: CustomStringConvertible, Sendable {
 
   /// The label of an argument.
   enum Label: String {
@@ -192,7 +192,7 @@ fileprivate struct TestArgument: CustomStringConvertible {
 }
 
 /// Information necessary to generate a test case.
-private struct TestDescription {
+private struct TestDescription: Sendable {
 
   /// The name of the method implementing the logic of the test runner.
   let methodName: TestMethod
@@ -203,7 +203,7 @@ private struct TestDescription {
 }
 
 /// A failure to parse the first line of an annotated Hylo file.
-struct FirstLineError: Error {
+struct FirstLineError: Error, Sendable {
   /// Creates an instance whose detailed description is `details`.
   init(_ details: String) { self.details = details }
 

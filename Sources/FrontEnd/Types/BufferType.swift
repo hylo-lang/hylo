@@ -1,5 +1,5 @@
 /// The type of a buffer.
-public struct BufferType: TypeProtocol {
+public struct BufferType: TypeProtocol, Sendable {
 
   /// The type of the buffer's elements.
   public let element: AnyType

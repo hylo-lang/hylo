@@ -1,8 +1,8 @@
 /// An explicit cast expression.
-public struct CastExpr: Expr {
+public struct CastExpr: Expr, Sendable {
 
   /// The direction of a cast expression w.r.t. the type lattice.
-  public enum Direction: Codable {
+  public enum Direction: Codable, Sendable {
 
     /// An upcast.
     case up

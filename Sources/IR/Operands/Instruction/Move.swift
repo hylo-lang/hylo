@@ -1,7 +1,7 @@
 import FrontEnd
 
 /// Initializes or assigns storage with a value.
-public struct Move: Instruction {
+public struct Move: Instruction, Sendable {
 
   /// The value moved into `target`.
   public private(set) var object: Operand

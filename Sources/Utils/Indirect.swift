@@ -1,11 +1,14 @@
+import Foundation
+
 /// A wrapper type allocating `T` out-of-line.
 public struct Indirect<T> {
 
   /// The out of line storage of an `Indirect` value.
-  private class Storage {
+  fileprivate class Storage {
 
     /// The payload of an `Indirect` value.
     var payload: T
+    let lock = NSLock()
 
     /// Creates an instance wrapping `payload`.
     init(payload: T) {
@@ -24,24 +27,40 @@ public struct Indirect<T> {
 
   /// Accesses the wrapped value.
   public var value: T {
-    _read { yield storage.payload }
+    _read {
+      storage.lock.lock()
+      defer { storage.lock.unlock() }
+      yield storage.payload
+    }
     _modify {
-      if isKnownUniquelyReferenced(&storage) {
-        yield &storage.payload
-      } else {
-        var s = storage.payload
-        yield &s
-        storage = .init(payload: s)
+      if !isKnownUniquelyReferenced(&storage) {
+        // Perform a copy-on-write.
+        storage.lock.lock()
+        let p = storage.payload
+        storage.lock.unlock()
+        storage = .init(payload: p)
       }
+
+      storage.lock.lock()
+      defer { storage.lock.unlock() }
+      yield &storage.payload
     }
   }
 
 }
 
+extension Indirect: @unchecked Sendable where T: Sendable {}
+
 extension Indirect: Equatable where T: Equatable {
 
   public static func == (l: Self, r: Self) -> Bool {
-    (l.storage === r.storage) || (l.storage.payload == r.storage.payload)
+    if l.storage === r.storage { return true }
+
+    l.storage.lock.lock()
+    defer { l.storage.lock.unlock() }
+    r.storage.lock.lock()
+    defer { r.storage.lock.unlock() }
+    return l.storage.payload == r.storage.payload
   }
 
 }
@@ -49,6 +68,8 @@ extension Indirect: Equatable where T: Equatable {
 extension Indirect: Hashable where T: Hashable {
 
   public func hash(into hasher: inout Hasher) {
+    storage.lock.lock()
+    defer { storage.lock.unlock() }
     hasher.combine(storage.payload)
   }
 
@@ -57,7 +78,11 @@ extension Indirect: Hashable where T: Hashable {
 extension Indirect: Comparable where T: Comparable {
 
   public static func < (l: Self, r: Self) -> Bool {
-    l.storage.payload < r.storage.payload
+    l.storage.lock.lock()
+    defer { l.storage.lock.unlock() }
+    r.storage.lock.lock()
+    defer { r.storage.lock.unlock() }
+    return l.storage.payload < r.storage.payload
   }
 
 }
@@ -65,7 +90,9 @@ extension Indirect: Comparable where T: Comparable {
 extension Indirect: CustomStringConvertible where T: CustomStringConvertible {
 
   public var description: String {
-    storage.payload.description
+    storage.lock.lock()
+    defer { storage.lock.unlock() }
+    return storage.payload.description
   }
 
 }

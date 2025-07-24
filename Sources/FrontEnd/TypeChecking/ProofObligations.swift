@@ -1,5 +1,5 @@
 /// A set of formulae to be proven for type checking a declaration, expression, or pattern.
-struct ProofObligations {
+struct ProofObligations: Sendable {
 
   /// The scope in which this set is defined.
   let scope: AnyScopeID
