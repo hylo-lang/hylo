@@ -1,12 +1,12 @@
 {
-  "originHash" : "441d422a81095802c81c939d8b99aba119908b41e3bd567823a5c8a3c38ecb0d",
+  "originHash" : "a486870bc05b94c47145f79c6e0a6dfc82adb1cfcafba0a67e844b27e950c446",
   "pins" : [
     {
       "identity" : "bigint",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/hylo-lang/BigInt/",
+      "location" : "https://github.com/attaswift/BigInt",
       "state" : {
-        "revision" : "cf6b92f61042a36734fc646e59f55ea0d5599751"
+        "revision" : "e07e00fa1fd435143a2dcf8b7eec9a7710b2fdfe"
       }
     },
     {
