@@ -1,0 +1,99 @@
+% # This is a template for PlatformAtomics.hylo file.
+% # Generate it by running the following command, from the root of the repository:
+% # python3 Tools/gyb.py StandardLibrary/Sources/LowLevel/Threading/PlatformAtomics.hylo.gyb -o StandardLibrary/Sources/LowLevel/Threading/PlatformAtomics.hylo --line-directive=
+
+% from HyloAtomics import *
+
+% for (type, builtin, rmw_ops) in numeric_types:
+///////////////////////////////////////////////////////////////////////////////
+// MARK: ${type}PlatformAtomic
+
+/// An atomic representation of ${type}.
+public type ${type}PlatformAtomic: Regular {
+
+  /// The underlying value, for which we expose atomic operations.
+  internal let value: ${type}
+
+  public memberwise init
+
+  /// Initializes `self` with the zero value.
+  public init() {
+    &self.value = ${type}(value: Builtin.zeroinitializer_${builtin}())
+  }
+
+  public typealias Value = ${type}
+
+}
+
+public conformance ${type}PlatformAtomic: IntegerPlatformAtomic {
+
+  public fun load(ordering: AtomicLoadOrdering) -> Value {
+% for (hylo_ordering, native_ordering, value) in load_orderings:
+    if /*ordering == AtomicLoadOrdering.${hylo_ordering}*/ ordering.value == ${value} {
+      return Value(value: Builtin.atomic_load_${native_ordering}_${builtin}(Builtin.address(of: self.value.value)))
+    }
+% end
+    trap()
+  }
+
+  public fun store(_ value: sink Value, ordering: AtomicStoreOrdering) inout {
+% for (hylo_ordering, native_ordering, value) in store_orderings:
+    if /*ordering == AtomicStoreOrdering.${hylo_ordering}*/ ordering.value == ${value} {
+      Builtin.atomic_store_${native_ordering}_${builtin}(Builtin.address(of: self.value.value), value.value)
+      return
+    }
+% end
+    trap()
+  }
+
+  public fun compare_and_exchange(expected: sink Value, desired: sink Value, success_ordering: AtomicUpdateOrdering, failure_ordering: AtomicLoadOrdering) inout -> {exchanged: Bool, original: Value} {
+% for (hylo_s_ordering, native_s_ordering, s_value) in update_orderings:
+    if /*success_ordering == AtomicUpdateOrdering.${hylo_s_ordering}*/ success_ordering.value == ${s_value} {
+% for (hylo_f_ordering, native_f_ordering, f_value) in load_orderings:
+      if /*failure_ordering == AtomicLoadOrdering.${hylo_f_ordering}*/ failure_ordering.value == ${f_value} {
+        let r = Builtin.atomic_cmpxchg_${native_s_ordering}_${native_f_ordering}_${builtin}(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+% end
+    }
+% end
+    trap()
+  }
+
+  public fun weak_compare_and_exchange(expected: sink Value, desired: sink Value, success_ordering: AtomicUpdateOrdering, failure_ordering: AtomicLoadOrdering) inout -> {exchanged: Bool, original: Value} {
+% for (hylo_s_ordering, native_s_ordering, s_value) in update_orderings:
+    if /*success_ordering == AtomicUpdateOrdering.${hylo_s_ordering}*/ success_ordering.value == ${s_value} {
+% for (hylo_f_ordering, native_f_ordering, f_value) in load_orderings:
+      if /*failure_ordering == AtomicLoadOrdering.${hylo_f_ordering}*/ failure_ordering.value == ${f_value} {
+        let r = Builtin.atomic_cmpxchgweak_${native_s_ordering}_${native_f_ordering}_${builtin}(Builtin.address(of: self.value.value), expected.value, desired.value)
+        return (exchanged: Bool(value: r.1), original: Value(value: r.0))
+      }
+% end
+    }
+% end
+    trap()
+  }
+
+  public fun exchange(desired: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+% for (hylo_ordering, native_ordering, value) in update_orderings:
+    if /*ordering == AtomicUpdateOrdering.${hylo_ordering}*/ ordering.value == ${value} {
+      return Value(value: Builtin.atomic_swap_${native_ordering}_${builtin}(Builtin.address(of: self.value.value), desired.value))
+    }
+% end
+    trap()
+  }
+
+% for oper in rmw_ops:
+  public fun ${ops_to_hylo[oper]}(_ value: sink Value, ordering: AtomicUpdateOrdering) inout -> Value {
+% for (hylo_ordering, native_ordering, value) in update_orderings:
+    if /*ordering == AtomicUpdateOrdering.${hylo_ordering}*/ ordering.value == ${value} {
+      return Value(value: Builtin.atomic_${oper}_${native_ordering}_${builtin}(Builtin.address(of: self.value.value), value.value))
+    }
+% end
+    trap()
+  }
+% end
+
+}
+
+% end
