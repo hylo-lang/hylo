@@ -94,7 +94,7 @@ extension Module {
     // al.'s "Computing Liveness Sets for SSA-Form Programs".
 
     // Find all blocks in which the operand is being used.
-    var occurrences = uses[operand, default: []].reduce(
+    var occurrences = self[site.function].uses[operand, default: []].reduce(
       into: Set<Function.Blocks.Address>(),
       { (blocks, use) in blocks.insert(use.user.block) })
 
