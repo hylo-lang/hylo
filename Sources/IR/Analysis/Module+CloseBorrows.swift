@@ -29,7 +29,9 @@ extension Module {
         if let decl = s.binding {
           log.insert(.warning(unusedBinding: program.ast[decl].baseName, at: s.site))
         }
-        removeInstruction(i)
+        modifyIR(of: i.function) { (w) in
+          w.removeInstruction(i)
+        }
         return
       }
 
@@ -76,14 +78,18 @@ extension Module {
           continue
         }
         let s = make(&self, self[u].site)
-        insert(s, after: u)
+        modifyIR(of: u.function) { (w) in
+          w.insert(s, at: .after(u))
+        }
 
       case .start(let b):
         let site = instructions(in: b).first.map(default: self[i].site) {
           SourceRange.empty(at: self[$0].site.start)
         }
         let s = make(&self, site)
-        insert(s, at: boundary)
+        modifyIR(of: b.function) { (w) in
+          w.insert(s, at: boundary)
+        }
 
       default:
         unreachable()

@@ -18,7 +18,9 @@ extension Module {
 
     var arguments = Array(s.arguments)
     let r = makeAccess([k], from: arguments[0], at: s.site)
-    arguments[0] = .register(insert(r, before: i))
+    arguments[0] = .register(modifyIR(of: i.function) { (w) in
+      w.insert(r, at: .before(i))
+    })
 
     let b = Block.ID(containing: i)
     let f = FunctionReference(
@@ -26,7 +28,9 @@ extension Module {
 
     let reified = makeCall(
       applying: .constant(f), to: arguments, writingResultTo: s.output, at: s.site)
-    replace(i, with: reified)
+    modifyIR(of: i.function) { (w) in
+      w.replace(i, with: reified)
+    }
   }
 
 }

@@ -118,7 +118,9 @@ extension IR.Program {
       }
 
     case let s as ConstantString:
-      return modules[n]!.insert(s, at: p)
+      return modules[n]!.modifyIR(of: p.block.function) { (w) in
+        w.insert(s, at: p)
+      }
 
     case let s as DeallocStack:
       let x0 = t.transform(s.location, in: &self)
@@ -139,10 +141,14 @@ extension IR.Program {
       }
 
     case let s as GenericParameter:
-      return modules[n]!.insert(s, at: p)
+      return modules[n]!.modifyIR(of: p.block.function) { (w) in
+        w.insert(s, at: p)
+      }
 
     case let s as GlobalAddr:
-      return modules[n]!.insert(s, at: p)
+      return modules[n]!.modifyIR(of: p.block.function) { (w) in
+        w.insert(s, at: p)
+      }
 
     case let s as CallBuiltinFunction:
       let x0 = t.transform(s.operands, in: &self)
@@ -211,7 +217,9 @@ extension IR.Program {
       }
 
     case let s as Return:
-      return modules[n]!.insert(s, at: p)
+      return modules[n]!.modifyIR(of: p.block.function) { (w) in
+        w.insert(s, at: p)
+      }
 
     case let s as Store:
       let x0 = t.transform(s.object, in: &self)
@@ -250,7 +258,9 @@ extension IR.Program {
       }
 
     case let s as Unreachable:
-      return modules[n]!.insert(s, at: p)
+      return modules[n]!.modifyIR(of: p.block.function) { (w) in
+        w.insert(s, at: p)
+      }
 
     case let s as Yield:
       let x0 = t.transform(s.projection, in: &self)
@@ -269,7 +279,9 @@ extension IR.Program {
   ) -> InstructionID {
     modify(&modules[m]!) { (x) in
       let s = makeInstruction(&x)
-      return x.insert(s, at: p)
+      return x.modifyIR(of: p.block.function) { (w) in
+        w.insert(s, at: p)
+      }
     }
   }
 
