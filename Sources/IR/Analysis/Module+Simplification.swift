@@ -26,12 +26,19 @@ extension Module {
       return instruction(after: i)
     }
 
-    for u in allUses(of: i) where self[u.user] is EndAccess {
-      removeInstruction(u.user)
+    let uses = allUses(of: i).filter({ self[$0.user] is EndAccess })
+    modifyIR(of: i.function) { (w) in
+      for u in uses {
+        w.removeInstruction(u.user)
+      }
+      w.replaceUses(of: .register(i), with: s.source, in: i.function)
     }
-    replaceUses(of: .register(i), with: s.source, in: i.function)
 
-    defer { removeInstruction(i) }
+    defer {
+      modifyIR(of: i.function) { (w) in
+        w.removeInstruction(i)
+      }
+    }
     return instruction(after: i)
   }
 

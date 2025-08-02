@@ -41,7 +41,7 @@ struct AbstractInterpreter<Domain: AbstractDomain> {
   ) {
     self.subject = f
     self.cfg = m[f].cfg()
-    self.dominatorTree = DominatorTree(function: f, cfg: cfg, in: m)
+    self.dominatorTree = DominatorTree(function: m[f], cfg: cfg)
     self.state = [m[f].entry!: (sources: [], before: entryContext, after: Context())]
     self.work = Deque(dominatorTree.bfs.dropFirst())
     self.done = []
@@ -52,8 +52,7 @@ struct AbstractInterpreter<Domain: AbstractDomain> {
   /// Call this method to update the control-flow information used by this instance to guide
   /// abstract interpretation.
   mutating func recomputeControlFlow(_ m: Module) {
-    cfg = m[subject].cfg()
-    dominatorTree = .init(function: subject, cfg: cfg, in: m)
+    dominatorTree = .init(function: m[subject])
   }
 
   /// Removes `b` from the work list.
