@@ -226,10 +226,10 @@ public struct IRWriter {
     }
   }
 
-  /// Returns the uses of all the registers assigned by `i`.
-  private func allUses(of i: InstructionID) -> [Use] {
-    result(of: i).map(default: [], { ir.uses[$0, default: []] })
-  }
+  // /// Returns the uses of all the registers assigned by `i`.
+  // private func allUses(of i: InstructionID) -> [Use] {
+  //   result(of: i).map(default: [], { ir.uses[$0, default: []] })
+  // }
 
   /// Removes `i` from the def-use chains of its operands.
   private mutating func removeUsesMadeBy(_ i: InstructionID) {
@@ -238,54 +238,14 @@ public struct IRWriter {
     }
   }
 
-  /// Returns the IDs of the blocks in `f`.
-  ///
-  /// The first element of the returned collection is the function's entry; other elements are in
-  /// no particular order.
-  func blocks(
-    in f: Function.ID
-  ) -> LazyMapSequence<Function.Blocks.Indices, Block.ID> {
-    ir.blocks.indices.lazy.map({ .init(f, $0.address) })
-  }
+}
 
-  /// Returns the IDs of the instructions in `b`, in order.
-  func instructions(
-    in b: Block.ID
-  ) -> LazyMapSequence<Block.Instructions.Indices, InstructionID> {
-    self[b].instructions.indices.lazy.map({ .init(b.function, b.address, $0.address) })
-  }
+extension IRWriter: IRInspector {
 
-  /// Returns the ID the instruction before `i`.
-  func instruction(before i: InstructionID) -> InstructionID? {
-    ir[i.block].instructions.address(before: i.address)
-      .map({ InstructionID(i.function, i.block, $0) })
-  }
-
-  /// Returns the ID the instruction after `i`.
-  func instruction(after i: InstructionID) -> InstructionID? {
-    ir[i.block].instructions.address(after: i.address)
-      .map({ InstructionID(i.function, i.block, $0) })
-  }
-
-  /// Returns the register assigned by `i`, if any.
-  func result(of i: InstructionID) -> Operand? {
-    if self[i].result != nil {
-      return .register(i)
-    } else {
-      return nil
-    }
-  }
-
-  /// Returns the type of `operand`.
-  func type(of operand: Operand) -> IR.`Type` {
-    switch operand {
-    case .register(let i):
-      return ir[i.block][i.address].result!
-    case .parameter(let b, let n):
-      return ir[b.address].inputs[n]
-    case .constant(let c):
-      return c.type
-    }
+  /// Returns the IR of the function denoted by `f`.
+  public func ir(for f: Function.ID) -> Function {
+    precondition(f == function, "accessing the wrong function")
+    return ir
   }
 
 }
