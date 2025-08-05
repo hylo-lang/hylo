@@ -76,6 +76,8 @@ public struct Driver: ParsableCommand, Sendable {
     /// The generated diagnostics.
     public let diagnostics: DiagnosticSet
 
+    /// The lowered program, if the process got that far.
+    public let ir: IR.Program?
   }
 
   public static let configuration = CommandConfiguration(commandName: "hc")
@@ -205,11 +207,11 @@ public struct Driver: ParsableCommand, Sendable {
 
     // Execute the command.
     var log = DiagnosticSet()
-    try log.capturingErrors { (ds) in
+    let ir = try log.capturingErrors { (ds) in
       try cli.executeCommand(extending: baseProgram, reportingDiagnosticsTo: &ds)
     }
     let status = log.containsError ? ExitCode.failure : ExitCode.success
-    return .init(status: status, output: output, diagnostics: log)
+    return .init(status: status, output: output, diagnostics: log, ir: ir ?? nil)
   }
 
   /// Executes the command.
@@ -218,7 +220,7 @@ public struct Driver: ParsableCommand, Sendable {
     let status: ExitCode
 
     do {
-      try log.capturingErrors { (ds) in
+      _ = try log.capturingErrors { (ds) in
         try executeCommand(reportingDiagnosticsTo: &ds)
       }
       status = log.containsError ? ExitCode.failure : ExitCode.success
@@ -244,10 +246,10 @@ public struct Driver: ParsableCommand, Sendable {
   public func executeCommand(
     extending baseProgram: TypedProgram? = nil,
     reportingDiagnosticsTo log: inout DiagnosticSet
-  ) throws {
+  ) throws -> IR.Program? {
     if version {
       standardError.write("\(hcVersion)\n")
-      return
+      return nil
     }
 
     guard !inputs.isEmpty else {
@@ -268,7 +270,7 @@ public struct Driver: ParsableCommand, Sendable {
         withBuiltinModuleAccess: importBuiltinModule,
         reportingDiagnosticsTo: &log)
       try write(a, to: astFile(productName))
-      return
+      return nil
     }
 
     // Type checking
@@ -310,7 +312,7 @@ public struct Driver: ParsableCommand, Sendable {
     if outputType == .ir || outputType == .rawIR {
       let m = ir.modules[sourceModule]!
       try m.description.write(to: irFile(productName), atomically: true, encoding: .utf8)
-      return
+      return ir
     }
 
     // LLVM
@@ -341,7 +343,7 @@ public struct Driver: ParsableCommand, Sendable {
       let m = llvmProgram.llvmModules[sourceModule]!
       logVerbose("writing LLVM output.")
       try m.description.write(to: llvmFile(productName), atomically: true, encoding: .utf8)
-      return
+      return ir
     }
 
     // Intel ASM
@@ -349,7 +351,7 @@ public struct Driver: ParsableCommand, Sendable {
     if outputType == .intelAsm {
       try llvmProgram.llvmModules[sourceModule]!.write(
         .assembly, for: target, to: intelASMFile(productName).fileSystemPath)
-      return
+      return ir
     }
 
     // Executables
@@ -370,6 +372,8 @@ public struct Driver: ParsableCommand, Sendable {
       _ = (objectFiles, binaryPath)
       UNIMPLEMENTED()
     #endif
+
+    return ir
   }
 
   /// Logs `m` to the standard error iff `verbose` is `true`.
