@@ -1,6 +1,7 @@
 import Driver
 import TestUtils
 import XCTest
+import Interpreter
 
 final class ExecutionTests: XCTestCase {
 
