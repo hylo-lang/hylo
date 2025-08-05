@@ -7,7 +7,7 @@ import Utils
 /// Unlike an identity, an index is not *stable*: inserting or removing instructions from the containing
 /// block may invalidate existing indices.
 ///
-/// - SeeAlso: `InstructionID`
+/// - SeeAlso: `AbsoluteInstructionID`
 public struct InstructionIndex: Hashable {
 
   /// The function containing the instruction.

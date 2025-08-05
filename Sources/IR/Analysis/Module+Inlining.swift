@@ -21,7 +21,7 @@ extension IR.Program {
   public mutating func inlineCalls(
     in f: Function.ID, definedIn m: Module.ID, where shouldInline: InliningPredicate
   ) {
-    var work: [InstructionID] = []
+    var work: [AbsoluteInstructionID] = []
     for b in modules[m]!.blocks(in: f) {
       for i in modules[m]!.instructions(in: b) {
         if modules[m]![i] is Call {
@@ -45,7 +45,7 @@ extension IR.Program {
   /// of inlining. For example, if `i` is a call to F, the functions called by F are not inlined.
   /// Likewise, if F is recursive, only one level of recursion is inlined.
   private mutating func inline(
-    functionCall i: InstructionID, definedIn m: Module.ID, if shouldInline: InliningPredicate
+    functionCall i: AbsoluteInstructionID, definedIn m: Module.ID, if shouldInline: InliningPredicate
   ) -> Bool {
     let s = modules[m]![i] as! Call
 

@@ -12,7 +12,7 @@ extension Module {
     }
   }
 
-  private mutating func reify(callBundle i: InstructionID) {
+  private mutating func reify(callBundle i: AbsoluteInstructionID) {
     let s = self[i] as! CallBundle
     let k = s.capabilities.weakest!
 

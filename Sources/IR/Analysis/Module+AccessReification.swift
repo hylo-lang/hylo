@@ -37,7 +37,7 @@ extension Module {
   ///
   /// - Requires: `f` is in `self`.
   public mutating func reifyAccesses(in f: Function.ID, diagnostics: inout DiagnosticSet) {
-    var work: Deque<InstructionID> = []
+    var work: Deque<AbsoluteInstructionID> = []
     for i in blocks(in: f).map(instructions(in:)).joined() {
       guard let s = self[i] as? ReifiableAccess else { continue }
 
@@ -100,7 +100,7 @@ extension Module {
   }
 
   /// Calls `action` on the uses of a capability of the access at the origin of `i`.
-  private func forEachClient(of i: InstructionID, _ action: (Use) -> Void) {
+  private func forEachClient(of i: AbsoluteInstructionID, _ action: (Use) -> Void) {
     for u in allUses(of: i) {
       if self[u.user].isTransparentOffset {
         forEachClient(of: u.user, action)
@@ -112,7 +112,7 @@ extension Module {
 
   /// Replaces the uses of `i` with uses of an instruction providing the same access but only
   /// with capability `k`.
-  private mutating func reify(_ i: InstructionID, as k: AccessEffect) {
+  private mutating func reify(_ i: AbsoluteInstructionID, as k: AccessEffect) {
     switch self[i] {
     case is Access:
       reify(access: i, as: k)
@@ -124,7 +124,7 @@ extension Module {
   }
 
   /// Narrows the capabilities requested by `i`, which is an `access` instruction, to just `k`.
-  private mutating func reify(access i: InstructionID, as k: AccessEffect) {
+  private mutating func reify(access i: AbsoluteInstructionID, as k: AccessEffect) {
     let s = self[i] as! Access
     assert(s.capabilities.contains(k))
 
@@ -135,7 +135,7 @@ extension Module {
     replace(i, with: reified)
   }
 
-  private mutating func reify(projectBundle i: InstructionID, as k: AccessEffect) {
+  private mutating func reify(projectBundle i: AbsoluteInstructionID, as k: AccessEffect) {
     let s = self[i] as! ProjectBundle
     assert(s.capabilities.contains(k))
 

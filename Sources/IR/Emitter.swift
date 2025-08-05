@@ -2954,7 +2954,7 @@ struct Emitter {
   /// taking the place of `i`.
   ///
   /// After the call, `insertionPoint` set to `nil`.
-  mutating func replaceMove(_ i: InstructionID, with semantics: AccessEffect) -> InstructionID {
+  mutating func replaceMove(_ i: AbsoluteInstructionID, with semantics: AccessEffect) -> AbsoluteInstructionID {
     let s = module[i] as! Move
     let predecessor = module.instruction(before: i)
 

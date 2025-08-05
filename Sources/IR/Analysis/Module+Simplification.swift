@@ -17,7 +17,7 @@ extension Module {
   /// An access is redundant if its source is another access requesting the same capability. When
   /// that occurs, instructions closing the redundant access can be removed and uses be replaced by
   /// uses of its source.
-  private mutating func eliminateRedundantAccess(_ i: InstructionID) -> InstructionID? {
+  private mutating func eliminateRedundantAccess(_ i: AbsoluteInstructionID) -> AbsoluteInstructionID? {
     guard
       let s = self[i] as? Access,
       let r = self[s.source] as? Access,

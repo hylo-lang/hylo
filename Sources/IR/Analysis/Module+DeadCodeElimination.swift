@@ -13,14 +13,14 @@ extension Module {
 
   /// Removes the instructions if `f` that have no user.
   private mutating func removeUnusedDefinitions(from f: Function.ID) {
-    var s = Set<InstructionID>()
+    var s = Set<AbsoluteInstructionID>()
     removeUnused(blocks(in: f).map(instructions(in:)).joined(), keepingTrackIn: &s)
   }
 
   /// Removes the instructions in `definitions` that have no user, accumulating the IDs of removed
   /// elements in `removed`.
-  private mutating func removeUnused<S: Sequence<InstructionID>>(
-    _ definitions: S, keepingTrackIn removed: inout Set<InstructionID>
+  private mutating func removeUnused<S: Sequence<AbsoluteInstructionID>>(
+    _ definitions: S, keepingTrackIn removed: inout Set<AbsoluteInstructionID>
   ) {
     for i in definitions where !removed.contains(i) {
       if allUses(of: i).isEmpty && isRemovableWhenUnused(i) {
@@ -70,7 +70,7 @@ extension Module {
   }
 
   /// Returns `true` iff `i` never returns control flow.
-  private func returnsNever(_ i: InstructionID) -> Bool {
+  private func returnsNever(_ i: AbsoluteInstructionID) -> Bool {
     switch self[i] {
     case is Call:
       return type(of: (self[i] as! Call).output).ast.isNever
@@ -82,7 +82,7 @@ extension Module {
   }
 
   /// Returns `true` iff `i` can be removed if it has no use.
-  private func isRemovableWhenUnused(_ i: InstructionID) -> Bool {
+  private func isRemovableWhenUnused(_ i: AbsoluteInstructionID) -> Bool {
     switch self[i] {
     case let s as Access:
       return s.binding == nil

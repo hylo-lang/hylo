@@ -665,7 +665,7 @@ extension SwiftyLLVM.Module {
     /// Projection calls is transpiled as coroutine calls, producing a slide and a frame pointer in
     /// addition to the projected value. These values are stored here so that `register` can be a
     /// one-to-one mapping from Hylo registers to LLVM registers.
-    var byproduct: [IR.InstructionID: (slide: SwiftyLLVM.IRValue, frame: SwiftyLLVM.IRValue)] = [:]
+    var byproduct: [IR.AbsoluteInstructionID: (slide: SwiftyLLVM.IRValue, frame: SwiftyLLVM.IRValue)] = [:]
 
     /// The address of the function's frame if `f` is a subscript, or `nil` otherwise.
     let frame: SwiftyLLVM.IRValue?
@@ -703,7 +703,7 @@ extension SwiftyLLVM.Module {
     insertBr(to: block[.init(f, entry)]!, at: endOf(prologue))
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insert(_ i: IR.InstructionID) {
+    func insert(_ i: IR.AbsoluteInstructionID) {
       switch context.source[i] {
       case is IR.AddressToPointer:
         insert(addressToPointer: i)
@@ -781,13 +781,13 @@ extension SwiftyLLVM.Module {
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insert(addressToPointer i: IR.InstructionID) {
+    func insert(addressToPointer i: IR.AbsoluteInstructionID) {
       let s = context.source[i] as! AddressToPointer
       register[.register(i)] = llvm(s.source)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insert(advancedByBytes i: IR.InstructionID) {
+    func insert(advancedByBytes i: IR.AbsoluteInstructionID) {
       let s = context.source[i] as! AdvancedByBytes
 
       let base = llvm(s.base)
@@ -797,7 +797,7 @@ extension SwiftyLLVM.Module {
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insert(advancedByStrides i: IR.InstructionID) {
+    func insert(advancedByStrides i: IR.AbsoluteInstructionID) {
       let s = context.source[i] as! AdvancedByStrides
 
       let base = llvm(s.base)
@@ -809,7 +809,7 @@ extension SwiftyLLVM.Module {
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insert(allocStack i: IR.InstructionID) {
+    func insert(allocStack i: IR.AbsoluteInstructionID) {
       let s = context.source[i] as! AllocStack
       let t = context.ir.llvm(s.allocatedType, in: &self)
       if layout.storageSize(of: t) == 0 {
@@ -820,19 +820,19 @@ extension SwiftyLLVM.Module {
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insert(access i: IR.InstructionID) {
+    func insert(access i: IR.AbsoluteInstructionID) {
       let s = context.source[i] as! Access
       register[.register(i)] = llvm(s.source)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insert(branch i: IR.InstructionID) {
+    func insert(branch i: IR.AbsoluteInstructionID) {
       let s = context.source[i] as! Branch
       insertBr(to: block[s.target]!, at: insertionPoint)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insert(call i: IR.InstructionID) {
+    func insert(call i: IR.AbsoluteInstructionID) {
       let s = context.source[i] as! Call
       var arguments: [SwiftyLLVM.IRValue] = []
 
@@ -847,7 +847,7 @@ extension SwiftyLLVM.Module {
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insert(callFFI i: IR.InstructionID) {
+    func insert(callFFI i: IR.AbsoluteInstructionID) {
       let s = context.source[i] as! CallFFI
       let parameters = s.operands.map { (o) in
         context.ir.llvm(context.source.type(of: o).ast, in: &self)
@@ -866,13 +866,13 @@ extension SwiftyLLVM.Module {
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insert(captureIn i: IR.InstructionID) {
+    func insert(captureIn i: IR.AbsoluteInstructionID) {
       let s = context.source[i] as! CaptureIn
       insertStore(llvm(s.source), to: llvm(s.target), at: insertionPoint)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insert(closeUnion i: IR.InstructionID) {
+    func insert(closeUnion i: IR.AbsoluteInstructionID) {
       let s = context.source[i] as! CloseUnion
       let open = context.source[s.start.instruction!] as! OpenUnion
 
@@ -890,7 +890,7 @@ extension SwiftyLLVM.Module {
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insert(constantString i: IR.InstructionID) {
+    func insert(constantString i: IR.AbsoluteInstructionID) {
       let s = context.source[i] as! ConstantString
       let count = s.value.count
 
@@ -935,7 +935,7 @@ extension SwiftyLLVM.Module {
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insert(condBranch i: IR.InstructionID) {
+    func insert(condBranch i: IR.AbsoluteInstructionID) {
       let s = context.source[i] as! CondBranch
       let c = llvm(s.condition)
       insertCondBr(
@@ -944,7 +944,7 @@ extension SwiftyLLVM.Module {
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insert(endProjection i: IR.InstructionID) {
+    func insert(endProjection i: IR.AbsoluteInstructionID) {
       let s = context.source[i] as! EndProject
       let start = s.start.instruction!
       assert(context.source[start] is Project)
@@ -955,7 +955,7 @@ extension SwiftyLLVM.Module {
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insert(globalAddr i: IR.InstructionID) {
+    func insert(globalAddr i: IR.AbsoluteInstructionID) {
       let s = context.source[i] as! IR.GlobalAddr
       let n = context.ir.base.mangled(s.binding)
       let a = declareFunction(n, .init(from: [], to: ptr, in: &self))
@@ -963,7 +963,7 @@ extension SwiftyLLVM.Module {
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insert(subfieldView i: IR.InstructionID) {
+    func insert(subfieldView i: IR.AbsoluteInstructionID) {
       let s = context.source[i] as! SubfieldView
 
       let base = llvm(s.recordAddress)
@@ -975,7 +975,7 @@ extension SwiftyLLVM.Module {
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insert(llvm i: IR.InstructionID) {
+    func insert(llvm i: IR.AbsoluteInstructionID) {
       let s = context.source[i] as! IR.CallBuiltinFunction
       switch s.callee {
       case .add(let p, _):
@@ -1574,7 +1574,7 @@ extension SwiftyLLVM.Module {
     }
 
     /// Inserts the transpilation of `i`, which is an `oper`, using `ordering` at `insertionPoint`.
-    func insert(atomicRMW oper: AtomicRMWBinOp, ordering: AtomicOrdering, for i: IR.InstructionID) {
+    func insert(atomicRMW oper: AtomicRMWBinOp, ordering: AtomicOrdering, for i: IR.AbsoluteInstructionID) {
       let s = context.source[i] as! IR.CallBuiltinFunction
       let target = llvm(s.operands[0])
       let value = llvm(s.operands[1])
@@ -1583,7 +1583,7 @@ extension SwiftyLLVM.Module {
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insertAtomicCompareExchange(successOrdering: AtomicOrdering, failureOrdering: AtomicOrdering, weak: Bool, for i: IR.InstructionID) {
+    func insertAtomicCompareExchange(successOrdering: AtomicOrdering, failureOrdering: AtomicOrdering, weak: Bool, for i: IR.AbsoluteInstructionID) {
       let s = context.source[i] as! IR.CallBuiltinFunction
       let target = llvm(s.operands[0])
       let old = llvm(s.operands[1])
@@ -1601,13 +1601,13 @@ extension SwiftyLLVM.Module {
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insertAtomicFence(_ ordering: AtomicOrdering, singleThread: Bool, for i: IR.InstructionID) {
+    func insertAtomicFence(_ ordering: AtomicOrdering, singleThread: Bool, for i: IR.AbsoluteInstructionID) {
       insertFence(ordering, singleThread: singleThread, at: insertionPoint)
       register[.register(i)] = ptr.null
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insert(load i: IR.InstructionID) {
+    func insert(load i: IR.AbsoluteInstructionID) {
       let s = context.source[i] as! Load
       let t = context.ir.llvm(s.objectType.ast, in: &self)
       let source = llvm(s.source)
@@ -1615,7 +1615,7 @@ extension SwiftyLLVM.Module {
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insert(memoryCopy i: IR.InstructionID) {
+    func insert(memoryCopy i: IR.AbsoluteInstructionID) {
       let s = context.source[i] as! MemoryCopy
 
       let memcpy = SwiftyLLVM.Function(
@@ -1630,13 +1630,13 @@ extension SwiftyLLVM.Module {
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insert(openCapture i: IR.InstructionID) {
+    func insert(openCapture i: IR.AbsoluteInstructionID) {
       let s = context.source[i] as! OpenCapture
       register[.register(i)] = insertLoad(ptr, from: llvm(s.source), at: insertionPoint)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insert(openUnion i: IR.InstructionID) {
+    func insert(openUnion i: IR.AbsoluteInstructionID) {
       let s = context.source[i] as! OpenUnion
       let t = UnionType(context.source.type(of: s.container).ast)!
 
@@ -1648,13 +1648,13 @@ extension SwiftyLLVM.Module {
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insert(pointerToAddress i: IR.InstructionID) {
+    func insert(pointerToAddress i: IR.AbsoluteInstructionID) {
       let s = context.source[i] as! IR.PointerToAddress
       register[.register(i)] = llvm(s.source)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insert(project i: IR.InstructionID) {
+    func insert(project i: IR.AbsoluteInstructionID) {
       let s = context.source[i] as! IR.Project
 
       // %0 = alloca [8 x i8], align 8
@@ -1688,7 +1688,7 @@ extension SwiftyLLVM.Module {
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insert(return i: IR.InstructionID) {
+    func insert(return i: IR.AbsoluteInstructionID) {
       if context.source[f].isSubscript {
         _ = insertCall(
           SwiftyLLVM.Function(intrinsic(named: Intrinsic.llvm.coro.end)!)!,
@@ -1701,7 +1701,7 @@ extension SwiftyLLVM.Module {
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insert(store i: IR.InstructionID) {
+    func insert(store i: IR.AbsoluteInstructionID) {
       let s = context.source[i] as! IR.Store
       let v = llvm(s.object)
       if layout.storageSize(of: v.type) > 0 {
@@ -1710,7 +1710,7 @@ extension SwiftyLLVM.Module {
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insert(switch i: IR.InstructionID) {
+    func insert(switch i: IR.AbsoluteInstructionID) {
       let s = context.source[i] as! Switch
 
       let branches = s.successors.enumerated().map { (value, destination) in
@@ -1725,13 +1725,13 @@ extension SwiftyLLVM.Module {
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insert(unionDiscriminator i: IR.InstructionID) {
+    func insert(unionDiscriminator i: IR.AbsoluteInstructionID) {
       let s = context.source[i] as! UnionDiscriminator
       register[.register(i)] = discriminator(s.container)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insert(unionSwitch i: IR.InstructionID) {
+    func insert(unionSwitch i: IR.AbsoluteInstructionID) {
       let s = context.source[i] as! UnionSwitch
 
       if let (_, b) = s.targets.elements.uniqueElement {
@@ -1751,12 +1751,12 @@ extension SwiftyLLVM.Module {
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insert(unreachable i: IR.InstructionID) {
+    func insert(unreachable i: IR.AbsoluteInstructionID) {
       insertUnreachable(at: insertionPoint)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insert(wrapAddr i: IR.InstructionID) {
+    func insert(wrapAddr i: IR.AbsoluteInstructionID) {
       let s = context.source[i] as! IR.WrapExistentialAddr
       let t = containerType()
       let a = insertAlloca(t, atEntryOf: transpilation)
@@ -1765,7 +1765,7 @@ extension SwiftyLLVM.Module {
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insert(yield i: IR.InstructionID) {
+    func insert(yield i: IR.AbsoluteInstructionID) {
       let s = context.source[i] as! IR.Yield
       let p = llvm(s.projection)
 

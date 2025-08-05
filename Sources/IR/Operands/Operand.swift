@@ -2,7 +2,7 @@
 public enum Operand {
 
   /// The result of `instruction`.
-  case register(InstructionID)
+  case register(AbsoluteInstructionID)
 
   /// The `index`-th parameter of `block`.
   case parameter(Block.ID, Int)
@@ -41,7 +41,7 @@ public enum Operand {
   }
 
   /// The ID of the instruction that produces this operand, if any.
-  public var instruction: InstructionID? {
+  public var instruction: AbsoluteInstructionID? {
     switch self {
     case .register(let instruction):
       return instruction

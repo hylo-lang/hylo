@@ -8,10 +8,10 @@ enum InsertionPoint {
   case end(of: Block.ID)
 
   /// Before another instruction.
-  case before(InstructionID)
+  case before(AbsoluteInstructionID)
 
   /// After another instruction.
-  case after(InstructionID)
+  case after(AbsoluteInstructionID)
 
   /// The block in which this insertion point falls.
   var block: Block.ID {

@@ -19,7 +19,7 @@ extension Module {
     machine.fixedPoint { (b, context) in
       var pc = self[f][b].instructions.firstAddress
       while let a = pc {
-        let user = InstructionID(f, b, a)
+        let user = AbsoluteInstructionID(f, b, a)
 
         switch self[f][b].instructions[a] {
         case is Access:
@@ -101,12 +101,12 @@ extension Module {
     }
 
     /// Returns the successor of `i`, if any.
-    func successor(of i: InstructionID) -> PC? {
+    func successor(of i: AbsoluteInstructionID) -> PC? {
       self[i.function][i.block].instructions.address(after: i.address)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(access i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(access i: AbsoluteInstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! Access
       precondition(s.source.constant == nil, "source is a constant")
 
@@ -141,13 +141,13 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(addressToPointer i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(addressToPointer i: AbsoluteInstructionID, in context: inout Context) -> PC? {
       initializeRegister(createdBy: i, in: &context)
       return successor(of: i)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(allocStack i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(allocStack i: AbsoluteInstructionID, in context: inout Context) -> PC? {
       // A stack leak may occur if this instruction is in a loop.
       let l = AbstractLocation.root(.register(i))
       precondition(context.memory[l] == nil, "stack leak")
@@ -156,7 +156,7 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(advancedByBytes i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(advancedByBytes i: AbsoluteInstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! AdvancedByBytes
       consume(s.base, with: i, at: s.site, in: &context)
       consume(s.byteOffset, with: i, at: s.site, in: &context)
@@ -165,7 +165,7 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(advancedByStrides i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(advancedByStrides i: AbsoluteInstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! AdvancedByStrides
 
       // Operand must a location.
@@ -182,7 +182,7 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(call i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(call i: AbsoluteInstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! Call
       let f = s.callee
       let callee = ArrowType(type(of: f).ast)!
@@ -217,7 +217,7 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(callFFI i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(callFFI i: AbsoluteInstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! CallFFI
       for a in s.operands {
         consume(a, with: i, at: s.site, in: &context)
@@ -227,14 +227,14 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(captureIn i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(captureIn i: AbsoluteInstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! CaptureIn
       initialize(s.target, in: &context)
       return successor(of: i)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(closeCapture i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(closeCapture i: AbsoluteInstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! CloseCapture
       let l = context.locals[s.start]!.unwrapLocations()!.uniqueElement!
       let projection = context.withObject(at: l, { $0 })
@@ -262,7 +262,7 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(closeUnion i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(closeUnion i: AbsoluteInstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! CloseUnion
       let payload = context.locals[s.start]!.unwrapLocations()!.uniqueElement!
 
@@ -283,20 +283,20 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(condBranch i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(condBranch i: AbsoluteInstructionID, in context: inout Context) -> PC? {
       let branch = self[i] as! CondBranch
       consume(branch.condition, with: i, at: branch.site, in: &context)
       return successor(of: i)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(constantString i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(constantString i: AbsoluteInstructionID, in context: inout Context) -> PC? {
       initializeRegister(createdBy: i, in: &context)
       return successor(of: i)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(deallocStack i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(deallocStack i: AbsoluteInstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! DeallocStack
       let l = context.locals[s.location]!.unwrapLocations()!.uniqueElement!
 
@@ -311,7 +311,7 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(endProject i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(endProject i: AbsoluteInstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! EndProject
       let r = self[s.start.instruction!] as! Project
 
@@ -323,26 +323,26 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(genericParameter i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(genericParameter i: AbsoluteInstructionID, in context: inout Context) -> PC? {
       context.declareStorage(assignedTo: i, in: self, initially: .initialized)
       return successor(of: i)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(globalAddr i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(globalAddr i: AbsoluteInstructionID, in context: inout Context) -> PC? {
       context.declareStorage(assignedTo: i, in: self, initially: .initialized)
       return successor(of: i)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(callBuiltin i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(callBuiltin i: AbsoluteInstructionID, in context: inout Context) -> PC? {
       // TODO: Check that operands are initialized.
       initializeRegister(createdBy: i, in: &context)
       return successor(of: i)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(load i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(load i: AbsoluteInstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! Load
       sink(s.source, with: i, in: &context)
       initializeRegister(createdBy: i, in: &context)
@@ -350,7 +350,7 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(markState i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(markState i: AbsoluteInstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! MarkState
 
       // Built-in values are never consumed.
@@ -369,14 +369,14 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(memoryCopy i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(memoryCopy i: AbsoluteInstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! MemoryCopy
       initialize(s.target, in: &context)
       return successor(of: i)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(move i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(move i: AbsoluteInstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! Move
       let k: AccessEffect = context.isStaticallyInitialized(s.target) ? .inout : .set
       let n = Emitter.withInstance(insertingIn: &self, reportingDiagnosticsTo: &diagnostics) {
@@ -386,7 +386,7 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(openCapture i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(openCapture i: AbsoluteInstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! OpenCapture
       let t = RemoteType(self.type(of: s.source).ast)!
       initializeRegister(createdBy: i, projecting: t, in: &context)
@@ -394,7 +394,7 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(openUnion i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(openUnion i: AbsoluteInstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! OpenUnion
       let l = AbstractLocation.root(.register(i))
       precondition(context.memory[l] == nil, "overlapping accesses to union payload")
@@ -412,7 +412,7 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(pointerToAddress i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(pointerToAddress i: AbsoluteInstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! PointerToAddress
       consume(s.source, with: i, at: s.site, in: &context)
       initializeRegister(createdBy: i, projecting: s.target, in: &context)
@@ -420,7 +420,7 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(project i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(project i: AbsoluteInstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! Project
 
       // TODO: Process arguments
@@ -430,7 +430,7 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(return i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(return i: AbsoluteInstructionID, in context: inout Context) -> PC? {
       // Make sure that all non-sink parameters are initialized on exit.
       let entry = entry(of: f)!
       for (k, p) in self[f].inputs.enumerated() {
@@ -455,7 +455,7 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(store i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(store i: AbsoluteInstructionID, in context: inout Context) -> PC? {
       let store = self[i] as! Store
       consume(store.object, with: i, at: store.site, in: &context)
       initialize(store.target, in: &context)
@@ -463,7 +463,7 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(subfieldView i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(subfieldView i: AbsoluteInstructionID, in context: inout Context) -> PC? {
       let addr = self[i] as! SubfieldView
 
       // Operand must a location.
@@ -483,13 +483,13 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(unionDiscriminator i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(unionDiscriminator i: AbsoluteInstructionID, in context: inout Context) -> PC? {
       initializeRegister(createdBy: i, in: &context)
       return successor(of: i)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(wrapExistentialAddr i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(wrapExistentialAddr i: AbsoluteInstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! WrapExistentialAddr
       if case .constant = s.witness {
         // Operand is a constant.
@@ -501,7 +501,7 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(yield i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(yield i: AbsoluteInstructionID, in context: inout Context) -> PC? {
       let s = self[i] as! Yield
       assert(self[s.projection.instruction!].isAccess(s.capability))
       return successor(of: i)
@@ -518,7 +518,7 @@ extension Module {
 
     /// Updates `context` to mark all objects at `source`, which is an `access .sink`, as having
     /// been consumed by `consumer`.
-    func sink(_ source: Operand, with consumer: InstructionID, in context: inout Context) {
+    func sink(_ source: Operand, with consumer: AbsoluteInstructionID, in context: inout Context) {
       assert(self[source.instruction!].isAccess(.sink), "bad source")
 
       // Built-in values are copied implicitly.
@@ -532,7 +532,7 @@ extension Module {
     /// Updates the state of the `o` in `context` to mark it has been consumed by `consumer` at
     /// `site` or reports a diagnostic explaining why `o` can't be consumed.
     func consume(
-      _ o: Operand, with consumer: InstructionID, at site: SourceRange, in context: inout Context
+      _ o: Operand, with consumer: AbsoluteInstructionID, at site: SourceRange, in context: inout Context
     ) {
       // Constant values are synthesized on demand. Built-ins are never consumed.
       if case .constant = o { return }
@@ -572,7 +572,7 @@ extension Module {
     /// before instruction `i` if it isn't, reporting diagnostics at `site`.
     func ensureUninitializedOnExit(
       _ p: Operand, in context: inout Context,
-      insertingDeinitializationBefore i: InstructionID,
+      insertingDeinitializationBefore i: AbsoluteInstructionID,
       reportingDiagnosticsAt site: SourceRange
     ) {
       context.withObject(at: .root(p), { (o) in
@@ -618,7 +618,7 @@ extension Module {
     /// the latter requirement.
     func finalize(
       region start: Operand, projecting access: AccessEffect, from sources: Set<AbstractLocation>,
-      exitedWith exit: InstructionID,
+      exitedWith exit: AbsoluteInstructionID,
       in context: inout Context
     ) {
       // Skip the instruction if an error occurred upstream.
@@ -709,7 +709,7 @@ extension Module {
   }
 
   /// Assigns a fully initialized object to the virtual register defined by `i` in `context`.
-  private func initializeRegister(createdBy i: InstructionID, in context: inout Context) {
+  private func initializeRegister(createdBy i: AbsoluteInstructionID, in context: inout Context) {
     if let t = self[i].result {
       context.locals[.register(i)] = .object(
         .init(layout: .init(of: t.ast, definedIn: program), value: .full(.initialized)))
@@ -719,7 +719,7 @@ extension Module {
   /// Assigns the virtual register defined by `i` to the location of the storage projected by `i`,
   /// using `t` to set the initial state of that storage.
   private func initializeRegister(
-    createdBy i: InstructionID, projecting t: RemoteType, in context: inout Context
+    createdBy i: AbsoluteInstructionID, projecting t: RemoteType, in context: inout Context
   ) {
     let l = AbstractLocation.root(.register(i))
     context.memory[l] = .init(
@@ -731,7 +731,7 @@ extension Module {
   /// Inserts IR for the deinitialization of `root` at given `initializedSubfields` before
   /// instruction `i`, anchoring instructions to `site`.
   private mutating func insertDeinit(
-    _ root: Operand, at initializedSubfields: [RecordPath], before i: InstructionID,
+    _ root: Operand, at initializedSubfields: [RecordPath], before i: AbsoluteInstructionID,
     anchoringInstructionsTo site: SourceRange,
     reportingDiagnosticsTo log: inout DiagnosticSet
   ) {
@@ -749,7 +749,7 @@ extension Module {
   /// Inserts ID for the deinitialization of `whole`'s parts before instruction `i`, anchoring
   /// new instructions to `site`.
   private mutating func insertDeinitParts(
-    of whole: Operand, before i: InstructionID,
+    of whole: Operand, before i: AbsoluteInstructionID,
     anchoringInstructionsTo site: SourceRange,
     reportingDiagnosticsTo log: inout DiagnosticSet
   ) {
@@ -813,7 +813,7 @@ private typealias Contexts = [Function.Blocks.Address: (before: Context, after: 
 private enum State: AbstractDomain {
 
   /// A set of consumers.
-  typealias Consumers = Set<InstructionID>
+  typealias Consumers = Set<AbsoluteInstructionID>
 
   /// Object is initialized.
   case initialized

@@ -3,7 +3,7 @@ import Utils
 /// The stable identity of an instruction in its module.
 ///
 /// - SeeAlso: `InstructionIndex`
-public struct InstructionID: Hashable {
+public struct AbsoluteInstructionID: Hashable {
 
   /// The function containing the instruction.
   public let function: Function.ID
@@ -34,7 +34,7 @@ public struct InstructionID: Hashable {
 
 }
 
-extension InstructionID: CustomStringConvertible {
+extension AbsoluteInstructionID: CustomStringConvertible {
 
   public var description: String { "i\(block).\(address)" }
 

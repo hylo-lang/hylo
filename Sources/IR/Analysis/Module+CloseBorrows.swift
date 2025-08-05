@@ -18,7 +18,7 @@ extension Module {
   /// If `i` is `access` or `project`, make sure it is post-dominated by respectively `end_borrow`
   /// or `end_project`, inserting new instructions as necessary; does nothing otherwise.
   private mutating func close(
-    _ i: InstructionID, in f: Function.ID, reportingDiagnosticsTo log: inout DiagnosticSet
+    _ i: AbsoluteInstructionID, in f: Function.ID, reportingDiagnosticsTo log: inout DiagnosticSet
   ) {
     switch self[i] {
     case let s as Access:
@@ -65,7 +65,7 @@ extension Module {
   ///
   /// No instruction is inserted at after already existing lifetime closers for `i`.
   private mutating func insertClose<T: LifetimeCloser>(
-    _ i: InstructionID, atBoundariesOf region: Lifetime,
+    _ i: AbsoluteInstructionID, atBoundariesOf region: Lifetime,
     makingInstructionWith make: (inout Self, SourceRange) -> T
   ) {
     for boundary in region.upperBoundaries {

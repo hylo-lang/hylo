@@ -53,7 +53,7 @@ extension IR.Program {
   /// depolymorphized version of its callee.
   ///
   /// - Requires: `i` identifies a `CallInstruction`
-  private mutating func depolymorphize(call i: InstructionID, definedIn m: Module.ID) {
+  private mutating func depolymorphize(call i: AbsoluteInstructionID, definedIn m: Module.ID) {
     let s = modules[m]![i] as! Call
     guard
       let callee = s.callee.constant as? FunctionReference,
@@ -73,7 +73,7 @@ extension IR.Program {
   /// a depolymorphized version of its callee.
   ///
   /// - Requires: `i` identifies a `ProjectInstruction`
-  private mutating func depolymorphize(project i: InstructionID, definedIn m: Module.ID) {
+  private mutating func depolymorphize(project i: AbsoluteInstructionID, definedIn m: Module.ID) {
     let s = modules[m]![i] as! Project
     guard !s.specialization.isEmpty else { return }
 
@@ -151,7 +151,7 @@ extension IR.Program {
       let t = rewrittenBlock[s]!
 
       for a in modules[source]![s].instructions.addresses {
-        let i = InstructionID(s, a)
+        let i = AbsoluteInstructionID(s, a)
         switch modules[source]![i] {
         case is GenericParameter:
           rewrite(genericParameter: i, to: t)
@@ -166,7 +166,7 @@ extension IR.Program {
     return result
 
     /// Rewrites `i`, which is in `source`, at the end of `b`, which is in `target`.
-    func rewrite(_ i: InstructionID, to b: Block.ID) {
+    func rewrite(_ i: AbsoluteInstructionID, to b: Block.ID) {
       let j = self.rewrite(
         i, from: source, transformedBy: &monomorphizer,
         at: .end(of: b), in: target)
@@ -174,13 +174,13 @@ extension IR.Program {
     }
 
     /// Rewrites `i`, which is in `source`, at the end of `b`, which is in `target`.
-    func rewrite(genericParameter i: InstructionID, to b: Block.ID) {
+    func rewrite(genericParameter i: AbsoluteInstructionID, to b: Block.ID) {
       let s = modules[source]![i] as! GenericParameter
       monomorphizer.rewrittenInstruction[i] = monomorphizer.rewrittenGenericValue[s.parameter]!
     }
 
     /// Rewrites `i`, which is in `source`, at the end of `b`, which is in `target`.
-    func rewrite(return i: InstructionID, to b: Block.ID) {
+    func rewrite(return i: AbsoluteInstructionID, to b: Block.ID) {
       let s = modules[source]![i] as! Return
       let j = modify(&modules[target]!) { (m) in
         for i in rewrittenGenericValue.values.reversed() {
@@ -287,11 +287,11 @@ extension Module {
   fileprivate mutating func defineGenericValueArguments(
     _ specialization: GenericArguments,
     in monomorphized: Function.ID
-  ) -> OrderedDictionary<GenericParameterDecl.ID, InstructionID> {
+  ) -> OrderedDictionary<GenericParameterDecl.ID, AbsoluteInstructionID> {
     let insertionSite = SourceRange.empty(at: self[monomorphized].site.start)
     let entry = Block.ID(monomorphized, self[monomorphized].entry!)
 
-    var genericValues = OrderedDictionary<GenericParameterDecl.ID, InstructionID>()
+    var genericValues = OrderedDictionary<GenericParameterDecl.ID, AbsoluteInstructionID>()
 
     for (k, v) in specialization {
       if v.asType != nil { continue }
@@ -333,13 +333,13 @@ private struct Monomorphizer: InstructionTransformer {
   /// Generic value parameters are rewritten as local variables initialized at the beginning of
   /// the monomorphized function. Generic value arguments don't require deinitialization. Their
   /// local storage is deallocated before each rewritten return instruction.
-  let rewrittenGenericValue: OrderedDictionary<GenericParameterDecl.ID, InstructionID>
+  let rewrittenGenericValue: OrderedDictionary<GenericParameterDecl.ID, AbsoluteInstructionID>
 
   /// A map from basic block in `source` to its corresponding block in `result`.
   let rewrittenBlock: [Block.ID: Block.ID]
 
   /// A map from instruction in `source` to its corresponding instruction in `result`.
-  var rewrittenInstruction: [InstructionID: InstructionID] = [:]
+  var rewrittenInstruction: [AbsoluteInstructionID: AbsoluteInstructionID] = [:]
 
   /// Returns the canonical, monomorphized form of `t`.
   func transform(_ t: AnyType, in ir: inout IR.Program) -> AnyType {
