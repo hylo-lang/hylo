@@ -57,7 +57,7 @@ struct Emitter {
   private var loops = LoopIDs()
 
   /// For each block, the state of `frames` where the block was first entered.
-  private var stackOnEntry: [ Block.ID: Stack ] = [:]
+  private var stackOnEntry: [ Block.AbsoluteID: Stack ] = [:]
 
   /// Where new instructions are inserted.
   var insertionPoint: InsertionPoint?
@@ -76,7 +76,7 @@ struct Emitter {
   }
 
   /// The basic block in which new instructions are currently inserted.
-  private var insertionBlock: Block.ID? {
+  private var insertionBlock: Block.AbsoluteID? {
     insertionPoint?.block
   }
 
@@ -105,13 +105,13 @@ struct Emitter {
   }
 
   /// Appends a new basic block at the end of `self.insertionFunction`, defined in s.
-  private mutating func appendBlock<T: ScopeID>(in s: T) -> Block.ID {
+  private mutating func appendBlock<T: ScopeID>(in s: T) -> Block.AbsoluteID {
     module.appendBlock(in: s, to: insertionFunction!)
   }
 
   /// Appends a new basic block at the end of `self.insertionFunction`, defined in the same scope
   /// as `self.insertionBlock`.
-  private mutating func appendBlock() -> Block.ID {
+  private mutating func appendBlock() -> Block.AbsoluteID {
     appendBlock(in: insertionScope!)
   }
 
@@ -241,7 +241,7 @@ struct Emitter {
   }
 
   /// Returns the frame enclosing the body of `d`, whose entry block is `entry`.
-  private func outermostFrame(of d: FunctionDecl.ID, entering entry: Block.ID) -> Frame {
+  private func outermostFrame(of d: FunctionDecl.ID, entering entry: Block.AbsoluteID) -> Frame {
     var locals = DeclProperty<Operand>()
 
     for (i, c) in program.captures(of: d).enumerated() {
@@ -863,7 +863,7 @@ struct Emitter {
   @discardableResult
   private mutating func withPrologue(
     of d: SynthesizedFunctionDecl,
-    _ action: (inout Self, _ entry: Block.ID) -> Void
+    _ action: (inout Self, _ entry: Block.AbsoluteID) -> Void
   ) -> Function.ID {
     withClearContext { (me) in
       let f = me.module.demandDeclaration(lowering: d)
@@ -2421,7 +2421,7 @@ struct Emitter {
   /// in `scope`.
   private mutating func emitTest(
     condition: [ConditionItem], in scope: AnyScopeID
-  ) -> (success: Block.ID, failure: Block.ID) {
+  ) -> (success: Block.AbsoluteID, failure: Block.AbsoluteID) {
     // Allocate storage for all the declarations in the condition before branching so that all
     // `dealloc_stack` are dominated by their corresponding `alloc_stack`.
     var allocations: [Operand?] = []
@@ -2482,9 +2482,9 @@ struct Emitter {
   private mutating func emitConditionalNarrowing(
     _ d: BindingDecl.ID,
     movingConsumedValuesTo storage: Operand?,
-    branchingOnFailureTo failure: Block.ID,
+    branchingOnFailureTo failure: Block.AbsoluteID,
     in scope: AnyScopeID
-  ) -> Block.ID {
+  ) -> Block.AbsoluteID {
     let lhsType = canonical(program[d].type)
     let rhs = emitLValue(ast[d].initializer!)
     let lhs = ast[d].pattern
@@ -2511,9 +2511,9 @@ struct Emitter {
   private mutating func emitUnionNarrowing(
     from rhs: Operand, to lhs: BindingPattern.ID, typed lhsType: AnyType,
     movingConsumedValuesTo storage: Operand?,
-    branchingOnFailureTo failure: Block.ID,
+    branchingOnFailureTo failure: Block.AbsoluteID,
     in scope: AnyScopeID
-  ) -> Block.ID {
+  ) -> Block.AbsoluteID {
     let rhsType = UnionType(module.type(of: rhs).ast)!
     precondition(rhsType.elements.contains(lhsType), "recursive narrowing is unimplemented")
 
@@ -3469,7 +3469,7 @@ struct Emitter {
   }
 
   /// Inserts a `cond_branch` instruction that jumps to `targetIfTrue` if `condition` is true or `targetIfFalse` otherwise.
-  mutating func _cond_branch(if condition: Operand, then targetIfTrue: Block.ID, else targetIfFalse: Block.ID) {
+  mutating func _cond_branch(if condition: Operand, then targetIfTrue: Block.AbsoluteID, else targetIfFalse: Block.AbsoluteID) {
     checkEntryStack(targetIfTrue)
     checkEntryStack(targetIfFalse)
     insert(module.makeCondBranch(if: condition, then: targetIfTrue, else: targetIfFalse, at: currentSource))
@@ -3567,7 +3567,7 @@ extension Emitter {
     let depth: Int
 
     /// The block to which control flow jumps when it exits the loop.
-    let exit: Block.ID
+    let exit: Block.AbsoluteID
 
   }
 
@@ -3580,7 +3580,7 @@ extension Emitter {
   ///
   /// This test is used to ensure that all points branching to a block
   /// have consistent stack allocations.
-  fileprivate mutating func checkEntryStack(_ b: Block.ID) {
+  fileprivate mutating func checkEntryStack(_ b: Block.AbsoluteID) {
     modify(&stackOnEntry[b]) { x in
       if let y = x {
         assert(y.hasSameAllocations(as: frames))
@@ -3724,7 +3724,7 @@ extension Emitter {
     _ = insert(module.makeYield(c, a, at: currentSource))
   }
 
-  fileprivate mutating func _branch(to x: Block.ID) {
+  fileprivate mutating func _branch(to x: Block.AbsoluteID) {
     checkEntryStack(x)
     _ = insert(module.makeBranch(to: x, at: currentSource))
   }

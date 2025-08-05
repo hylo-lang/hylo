@@ -655,7 +655,7 @@ extension SwiftyLLVM.Module {
     var insertionPoint: SwiftyLLVM.InsertionPoint!
 
     /// A map from Hylo IR basic block to its LLVM counterpart.
-    var block: [IR.Block.ID: SwiftyLLVM.BasicBlock] = [:]
+    var block: [IR.Block.AbsoluteID: SwiftyLLVM.BasicBlock] = [:]
 
     /// A map from Hylo IR register to its LLVM counterpart.
     var register: [IR.Operand: SwiftyLLVM.IRValue] = [:]

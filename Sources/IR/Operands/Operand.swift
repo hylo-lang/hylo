@@ -5,7 +5,7 @@ public enum Operand {
   case register(AbsoluteInstructionID)
 
   /// The `index`-th parameter of `block`.
-  case parameter(Block.ID, Int)
+  case parameter(Block.AbsoluteID, Int)
 
   /// A constant value.
   case constant(any Constant)
@@ -29,10 +29,10 @@ public enum Operand {
   }
 
   /// The ID of the block in which the operand is defined, if any.
-  public var block: Block.ID? {
+  public var block: Block.AbsoluteID? {
     switch self {
     case .register(let instruction):
-      return Block.ID(instruction.function, instruction.block)
+      return Block.AbsoluteID(instruction.function, instruction.block)
     case .parameter(let block, _):
       return block
     case .constant(_):

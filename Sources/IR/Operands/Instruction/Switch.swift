@@ -7,13 +7,13 @@ public struct Switch: Terminator {
   public private(set) var index: Operand
 
   /// The possible targets of the instruction.
-  public private(set) var successors: [Block.ID]
+  public private(set) var successors: [Block.AbsoluteID]
 
   /// The site of the code corresponding to that instruction.
   public let site: SourceRange
 
   /// Creates an instance with the given properties.
-  fileprivate init(index: Operand, successors: [Block.ID], site: SourceRange) {
+  fileprivate init(index: Operand, successors: [Block.AbsoluteID], site: SourceRange) {
     self.index = index
     self.successors = successors
     self.site = site
@@ -28,7 +28,7 @@ public struct Switch: Terminator {
     index = new
   }
 
-  mutating func replaceSuccessor(_ old: Block.ID, with new: Block.ID) -> Bool {
+  mutating func replaceSuccessor(_ old: Block.AbsoluteID, with new: Block.AbsoluteID) -> Bool {
     precondition(new.function == successors[0].function)
     for i in 0 ..< successors.count {
       if successors[i] == old {
@@ -56,7 +56,7 @@ extension Module {
   /// - Requires: `i` is a valid index in `successors`, expressed as a built-in integer, and
   ///   `successors` is not empty.
   func makeSwitch(
-    on index: Operand, toOneOf successors: [Block.ID], at site: SourceRange
+    on index: Operand, toOneOf successors: [Block.AbsoluteID], at site: SourceRange
   ) -> Switch {
     let t = type(of: index)
     precondition(t.isObject && t.ast.isBuiltinInteger)

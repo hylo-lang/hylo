@@ -70,7 +70,7 @@ public struct Module {
   }
 
   /// Accesses the given block.
-  public subscript(b: Block.ID) -> Block {
+  public subscript(b: Block.AbsoluteID) -> Block {
     _read { yield functions[b.function]!.blocks[b.address] }
     _modify { yield &functions[b.function]![b.address] }
   }
@@ -170,13 +170,13 @@ public struct Module {
   /// no particular order.
   public func blocks(
     in f: Function.ID
-  ) -> LazyMapSequence<Function.Blocks.Indices, Block.ID> {
+  ) -> LazyMapSequence<Function.Blocks.Indices, Block.AbsoluteID> {
     self[f].blocks.indices.lazy.map({ .init(f, $0.address) })
   }
 
   /// Returns the IDs of the instructions in `b`, in order.
   public func instructions(
-    in b: Block.ID
+    in b: Block.AbsoluteID
   ) -> LazyMapSequence<Block.Instructions.Indices, AbsoluteInstructionID> {
     self[b].instructions.indices.lazy.map({ .init(b.function, b.address, $0.address) })
   }
@@ -194,7 +194,7 @@ public struct Module {
   }
 
   /// Returns the global identity of `block`'s terminator, if it exists.
-  func terminator(of block: Block.ID) -> AbsoluteInstructionID? {
+  func terminator(of block: Block.AbsoluteID) -> AbsoluteInstructionID? {
     if let a = functions[block.function]!.blocks[block.address].instructions.lastAddress {
       return AbsoluteInstructionID(block, a)
     } else {
@@ -724,8 +724,8 @@ public struct Module {
   /// Returns the entry of `f`.
   ///
   /// - Requires: `f` is declared in `self`.
-  public func entry(of f: Function.ID) -> Block.ID? {
-    functions[f]!.entry.map({ Block.ID(f, $0) })
+  public func entry(of f: Function.ID) -> Block.AbsoluteID? {
+    functions[f]!.entry.map({ Block.AbsoluteID(f, $0) })
   }
 
   /// Returns the operand representing the return value of `f`.
@@ -744,7 +744,7 @@ public struct Module {
   ///
   /// - Requires: `f` is declared in `self` and doesn't have an entry block.
   @discardableResult
-  mutating func appendEntry<T: ScopeID>(in scope: T, to f: Function.ID) -> Block.ID {
+  mutating func appendEntry<T: ScopeID>(in scope: T, to f: Function.ID) -> Block.AbsoluteID {
     let ir = functions[f]!
     assert(ir.blocks.isEmpty)
 
@@ -766,16 +766,16 @@ public struct Module {
     in scope: T,
     taking parameters: [IR.`Type`] = [],
     to f: Function.ID
-  ) -> Block.ID {
+  ) -> Block.AbsoluteID {
     let a = functions[f]!.appendBlock(in: scope, taking: parameters)
-    return Block.ID(f, a)
+    return Block.AbsoluteID(f, a)
   }
 
   /// Removes `block` and updates def-use chains.
   ///
   /// - Requires: No instruction in `block` is used by an instruction outside of `block`.
   @discardableResult
-  mutating func removeBlock(_ block: Block.ID) -> Block {
+  mutating func removeBlock(_ block: Block.AbsoluteID) -> Block {
     for i in instructions(in: block) {
       precondition(allUses(of: i).allSatisfy({ $0.user.block == block.address }))
       removeUsesMadeBy(i)
@@ -842,7 +842,7 @@ public struct Module {
 
   /// Adds `newInstruction` at the start of `block` and returns its identity.
   @discardableResult
-  mutating func prepend(_ newInstruction: Instruction, to block: Block.ID) -> AbsoluteInstructionID {
+  mutating func prepend(_ newInstruction: Instruction, to block: Block.AbsoluteID) -> AbsoluteInstructionID {
     precondition(!(newInstruction is Terminator), "terminator must appear last in a block")
     return insert(newInstruction) { (m, i) in
       AbsoluteInstructionID(block, m[block].instructions.prepend(newInstruction))
@@ -851,7 +851,7 @@ public struct Module {
 
   /// Adds `newInstruction` at the end of `block` and returns its identity.
   @discardableResult
-  mutating func append(_ newInstruction: Instruction, to block: Block.ID) -> AbsoluteInstructionID {
+  mutating func append(_ newInstruction: Instruction, to block: Block.AbsoluteID) -> AbsoluteInstructionID {
     precondition(!(self[block].instructions.last is Terminator), "insertion after terminator")
     return insert(newInstruction) { (m, i) in
       AbsoluteInstructionID(block, m[block].instructions.append(newInstruction))

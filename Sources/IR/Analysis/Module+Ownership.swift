@@ -328,7 +328,7 @@ extension Module {
     let function = self[f]
     var result = Context()
 
-    let entry = Block.ID(f, function.entry!)
+    let entry = Block.AbsoluteID(f, function.entry!)
     addParameter(.set, function.output, of: entry, at: function.inputs.count, in: &result)
     for i in function.inputs.indices {
       addParameter(function.inputs[i].type, of: entry, at: i, in: &result)
@@ -340,7 +340,7 @@ extension Module {
   /// Configure in `context` the initial state of the parameter at `position` in `entry`, which
   /// has type `t`.
   private func addParameter(
-    _ t: ParameterType, of entry: Block.ID, at position: Int,
+    _ t: ParameterType, of entry: Block.AbsoluteID, at position: Int,
     in context: inout Context
   ) {
     addParameter(t.access, t.bareType, of: entry, at: position, in: &context)
@@ -349,7 +349,7 @@ extension Module {
   /// Configure in `context` the initial state of the parameter at `position` in `entry`, which
   /// has type `t` passed with capability `k`.
   private func addParameter(
-    _ k: AccessEffect, _ t: AnyType, of entry: Block.ID, at position: Int,
+    _ k: AccessEffect, _ t: AnyType, of entry: Block.AbsoluteID, at position: Int,
     in context: inout Context
   ) {
     let l = AbstractTypeLayout(of: t, definedIn: program)

@@ -127,14 +127,14 @@ extension IR.Program {
     }
 
     let source = module(defining: f)
-    var rewrittenBlock: [Block.ID: Block.ID] = [:]
+    var rewrittenBlock: [Block.AbsoluteID: Block.AbsoluteID] = [:]
     for b in modules[source]![f].blocks.addresses {
-      let s = Block.ID(f, b)
+      let s = Block.AbsoluteID(f, b)
       let inputs = modules[source]![s].inputs.map { (t) in
         monomorphize(t, for: z, usedIn: scopeOfUse)
       }
       let t = modules[target]![result].appendBlock(in: modules[source]![s].scope, taking: inputs)
-      rewrittenBlock[s] = Block.ID(result, t)
+      rewrittenBlock[s] = Block.AbsoluteID(result, t)
     }
 
     let rewrittenGenericValue = modules[target]!.defineGenericValueArguments(z, in: result)
@@ -147,7 +147,7 @@ extension IR.Program {
     let cfg = modules[source]![f].cfg()
     let sourceBlocks = DominatorTree(function: f, cfg: cfg, in: modules[source]!).bfs
     for b in sourceBlocks {
-      let s = Block.ID(f, b)
+      let s = Block.AbsoluteID(f, b)
       let t = rewrittenBlock[s]!
 
       for a in modules[source]![s].instructions.addresses {
@@ -166,7 +166,7 @@ extension IR.Program {
     return result
 
     /// Rewrites `i`, which is in `source`, at the end of `b`, which is in `target`.
-    func rewrite(_ i: AbsoluteInstructionID, to b: Block.ID) {
+    func rewrite(_ i: AbsoluteInstructionID, to b: Block.AbsoluteID) {
       let j = self.rewrite(
         i, from: source, transformedBy: &monomorphizer,
         at: .end(of: b), in: target)
@@ -174,13 +174,13 @@ extension IR.Program {
     }
 
     /// Rewrites `i`, which is in `source`, at the end of `b`, which is in `target`.
-    func rewrite(genericParameter i: AbsoluteInstructionID, to b: Block.ID) {
+    func rewrite(genericParameter i: AbsoluteInstructionID, to b: Block.AbsoluteID) {
       let s = modules[source]![i] as! GenericParameter
       monomorphizer.rewrittenInstruction[i] = monomorphizer.rewrittenGenericValue[s.parameter]!
     }
 
     /// Rewrites `i`, which is in `source`, at the end of `b`, which is in `target`.
-    func rewrite(return i: AbsoluteInstructionID, to b: Block.ID) {
+    func rewrite(return i: AbsoluteInstructionID, to b: Block.AbsoluteID) {
       let s = modules[source]![i] as! Return
       let j = modify(&modules[target]!) { (m) in
         for i in rewrittenGenericValue.values.reversed() {
@@ -289,7 +289,7 @@ extension Module {
     in monomorphized: Function.ID
   ) -> OrderedDictionary<GenericParameterDecl.ID, AbsoluteInstructionID> {
     let insertionSite = SourceRange.empty(at: self[monomorphized].site.start)
-    let entry = Block.ID(monomorphized, self[monomorphized].entry!)
+    let entry = Block.AbsoluteID(monomorphized, self[monomorphized].entry!)
 
     var genericValues = OrderedDictionary<GenericParameterDecl.ID, AbsoluteInstructionID>()
 
@@ -336,7 +336,7 @@ private struct Monomorphizer: InstructionTransformer {
   let rewrittenGenericValue: OrderedDictionary<GenericParameterDecl.ID, AbsoluteInstructionID>
 
   /// A map from basic block in `source` to its corresponding block in `result`.
-  let rewrittenBlock: [Block.ID: Block.ID]
+  let rewrittenBlock: [Block.AbsoluteID: Block.AbsoluteID]
 
   /// A map from instruction in `source` to its corresponding instruction in `result`.
   var rewrittenInstruction: [AbsoluteInstructionID: AbsoluteInstructionID] = [:]
@@ -359,7 +359,7 @@ private struct Monomorphizer: InstructionTransformer {
   }
 
   /// Returns a monomorphized copy of `b`.
-  func transform(_ b: Block.ID, in ir: inout IR.Program) -> Block.ID {
+  func transform(_ b: Block.AbsoluteID, in ir: inout IR.Program) -> Block.AbsoluteID {
     rewrittenBlock[b]!
   }
 

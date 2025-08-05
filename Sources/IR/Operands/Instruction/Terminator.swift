@@ -2,13 +2,13 @@
 protocol Terminator: Instruction {
 
   /// The basic blocks to which control flow may transfer.
-  var successors: [Block.ID] { get }
+  var successors: [Block.AbsoluteID] { get }
 
   /// Replaces `old` with `new` and returns `true` if `old` is successor of `self`; returns `false`
   /// otherwise.
   ///
   /// - Requires: `new` takes the same parameters as `old`.
   @discardableResult
-  mutating func replaceSuccessor(_ old: Block.ID, with new: Block.ID) -> Bool
+  mutating func replaceSuccessor(_ old: Block.AbsoluteID, with new: Block.AbsoluteID) -> Bool
 
 }

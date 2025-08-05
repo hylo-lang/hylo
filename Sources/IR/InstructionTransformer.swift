@@ -11,7 +11,7 @@ protocol InstructionTransformer {
   func transform(_ o: Operand, in ir: inout IR.Program) -> Operand
 
   /// Returns a transformed copy of `b` for use in `ir`.
-  func transform(_ b: Block.ID, in ir: inout IR.Program) -> Block.ID
+  func transform(_ b: Block.AbsoluteID, in ir: inout IR.Program) -> Block.AbsoluteID
 
 }
 

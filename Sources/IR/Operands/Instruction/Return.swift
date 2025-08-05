@@ -11,13 +11,13 @@ public struct Return: Terminator {
     self.site = site
   }
 
-  public var successors: [Block.ID] { [] }
+  public var successors: [Block.AbsoluteID] { [] }
 
   public mutating func replaceOperand(at i: Int, with new: Operand) {
     preconditionFailure()
   }
 
-  func replaceSuccessor(_ old: Block.ID, with new: Block.ID) -> Bool {
+  func replaceSuccessor(_ old: Block.AbsoluteID, with new: Block.AbsoluteID) -> Bool {
     false
   }
 

@@ -5,7 +5,7 @@ import OrderedCollections
 public struct UnionSwitch: Terminator {
 
   /// The type of a map from payload type to its target.
-  public typealias Targets = OrderedDictionary<AnyType, Block.ID>
+  public typealias Targets = OrderedDictionary<AnyType, Block.AbsoluteID>
 
   /// The discriminator of the union container over which the instruction switches.
   public private(set) var discriminator: Operand
@@ -33,7 +33,7 @@ public struct UnionSwitch: Terminator {
     [discriminator]
   }
 
-  public var successors: [Block.ID] {
+  public var successors: [Block.AbsoluteID] {
     Array(targets.values)
   }
 
@@ -42,7 +42,7 @@ public struct UnionSwitch: Terminator {
     discriminator = new
   }
 
-  mutating func replaceSuccessor(_ old: Block.ID, with new: Block.ID) -> Bool {
+  mutating func replaceSuccessor(_ old: Block.AbsoluteID, with new: Block.AbsoluteID) -> Bool {
     precondition(new.function == successors[0].function)
     for (t, b) in targets {
       if b == old { targets[t] = b; return true }

@@ -2,10 +2,10 @@
 enum InsertionPoint {
 
   /// The start of a basic block.
-  case start(of: Block.ID)
+  case start(of: Block.AbsoluteID)
 
   /// The end of a basic block.
-  case end(of: Block.ID)
+  case end(of: Block.AbsoluteID)
 
   /// Before another instruction.
   case before(AbsoluteInstructionID)
@@ -14,7 +14,7 @@ enum InsertionPoint {
   case after(AbsoluteInstructionID)
 
   /// The block in which this insertion point falls.
-  var block: Block.ID {
+  var block: Block.AbsoluteID {
     switch self {
     case .start(let b):
       return b

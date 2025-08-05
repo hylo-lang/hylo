@@ -88,7 +88,7 @@ extension Module {
   ///
   /// The live-range `L` of an operand `x` in a function `f` is the minimal lifetime such that for
   /// for all instructions `i` in `f`, if `i` uses `x` then `i` is in `L`.
-  func liveRange(of operand: Operand, definedIn site: Block.ID) -> Lifetime {
+  func liveRange(of operand: Operand, definedIn site: Block.AbsoluteID) -> Lifetime {
 
     // This implementation is a variant of Appel's path exploration algorithm found in Brandner et
     // al.'s "Computing Liveness Sets for SSA-Form Programs".
@@ -137,7 +137,7 @@ extension Module {
         coverage[block] = .liveOut
         successors.formUnion(cfg.successors(of: block))
       case (true, false):
-        let id = Block.ID(site.function, block)
+        let id = Block.AbsoluteID(site.function, block)
         coverage[block] = .liveIn(lastUse: lastUse(of: operand, in: id))
       case (false, false):
         continue
@@ -200,7 +200,7 @@ extension Module {
   }
 
   /// Returns the last use of `operand` in `block`.
-  private func lastUse(of operand: Operand, in block: Block.ID) -> Use? {
+  private func lastUse(of operand: Operand, in block: Block.AbsoluteID) -> Use? {
     let instructions = functions[block.function]![block.address].instructions
     for i in instructions.indices.reversed() {
       if let operandIndex = instructions[i].operands.lastIndex(of: operand) {

@@ -3,7 +3,7 @@ import Utils
 extension Block {
 
   /// The ID of a basic block.
-  public struct ID: Hashable {
+  public struct AbsoluteID: Hashable {
 
     /// The ID of the function containing the block.
     public var function: Function.ID
@@ -43,7 +43,7 @@ extension Block {
 
 }
 
-extension Block.ID: CustomStringConvertible {
+extension Block.AbsoluteID: CustomStringConvertible {
 
   public var description: String { "b\(address)" }
 

@@ -74,7 +74,7 @@ extension IR.Program {
 
     // Simplest case: the inlined function has no control flow.
     if modules[source]![callee.function].blocks.count == 1 {
-      let e = Block.ID(callee.function, modules[source]![callee.function].entry!)
+      let e = Block.AbsoluteID(callee.function, modules[source]![callee.function].entry!)
 
       translation.rewrittenOperand[.parameter(e, s.arguments.count)] = s.output
       for (n, o) in s.arguments.enumerated() {
@@ -100,7 +100,7 @@ extension IR.Program {
 private struct InliningTranslation: InstructionTransformer {
 
   /// A map from basic block to its rewritten form in the inlined function.
-  let rewrittenBlock: [Block.ID: Block.ID]
+  let rewrittenBlock: [Block.AbsoluteID: Block.AbsoluteID]
 
   /// A map from operand to its rewritten form in the inlined function.
   var rewrittenOperand: [Operand: Operand] = [:]
@@ -116,7 +116,7 @@ private struct InliningTranslation: InstructionTransformer {
   }
 
   /// Returns a transformed copy of `b` for use in `ir`.
-  func transform(_ b: Block.ID, in ir: inout IR.Program) -> Block.ID {
+  func transform(_ b: Block.AbsoluteID, in ir: inout IR.Program) -> Block.AbsoluteID {
     rewrittenBlock[b]!
   }
 
