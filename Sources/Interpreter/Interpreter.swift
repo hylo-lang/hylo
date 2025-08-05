@@ -74,6 +74,7 @@ public struct Interpreter {
 
   /// Executes a single instruction.
   public mutating func step() throws {
+    print(currentInstruction)
     switch currentInstruction {
     case is Access:
       // No effect on program state
@@ -164,7 +165,7 @@ public struct Interpreter {
       isRunning = false
     }
     else {
-      advanceProgramCounter()
+      try advanceProgramCounter()
     }
   }
 
@@ -180,14 +181,19 @@ public struct Interpreter {
   }
 
   /// Moves the program counter to the next instruction.
-  mutating func advanceProgramCounter() {
+  mutating func advanceProgramCounter() throws {
     let b = program.modules[programCounter.module]!
       .functions[programCounter.instructionInModule.function]!
       .blocks[programCounter.instructionInModule.block].instructions
+    guard let a = b.address(after: programCounter.instructionInModule.address) else {
+      throw IRError()
+    }
     programCounter.instructionInModule = InstructionID(
       programCounter.instructionInModule.function,
       programCounter.instructionInModule.block,
-      b.address(after: programCounter.instructionInModule.address)!)
+      a)
   }
 
 }
+
+struct IRError: Error {}
