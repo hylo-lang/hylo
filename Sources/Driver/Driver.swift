@@ -50,6 +50,20 @@ public struct Driver: ParsableCommand {
     case binary = "binary"
   }
 
+  /// The phase of compilation after which to stop.
+  private enum LastCompilationPhase: String, ExpressibleByArgument {
+
+    /// When the program has been type-checked.
+    case typeChecking = "type-checking"
+
+    /// When the program has been lowered to IR.
+    case lowering = "lowering"
+
+    /// When some form of the program has been written to disk.
+    case emitting = "emitting"
+
+  }
+
   /// The result of a compiler invocation.
   public struct CompilationResult {
 
@@ -90,10 +104,13 @@ public struct Driver: ParsableCommand {
     help: "Parallelize the type checker")
   private var experimentalParallelTypeChecking: Bool = false
 
-  @Flag(
-    name: [.customLong("typecheck")],
-    help: "Type-check the input file(s).")
-  private var typeCheckOnly: Bool = false
+  @Option(
+    name: [.customLong("last-phase")],
+    help: ArgumentHelp(
+      "The last phase of compilation before the driver exits",
+      valueName: "output-type"))
+  private var lastCompilationPhase: LastCompilationPhase = .emitting
+
 
   @Option(
     name: [.customLong("trace-inference")],
@@ -280,11 +297,13 @@ public struct Driver: ParsableCommand {
         reportingDiagnosticsTo: &log)
     }
 
-    if typeCheckOnly { return }
+    if lastCompilationPhase == .typeChecking { return nil }
 
     // IR
 
     var ir = try lower(program: program, reportingDiagnosticsTo: &log)
+
+    if lastCompilationPhase == .lowering { return ir }
 
     if outputType == .ir || outputType == .rawIR {
       let m = ir.modules[sourceModule]!
