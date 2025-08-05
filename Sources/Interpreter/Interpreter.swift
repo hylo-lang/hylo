@@ -31,7 +31,7 @@ struct StackFrame {
 }
 
 /// A virtual machine that executes Hylo's in-memory IR representation.
-struct Interpreter {
+public struct Interpreter {
 
   /// The program to be executed.
   private let program: IR.Program
@@ -44,6 +44,13 @@ struct Interpreter {
 
   /// Identity of the next instruction to be executed.
   private var programCounter: CodePointer
+
+  /// True iff the program is still running.
+  public private(set) var isRunning: Bool = true
+
+  public private(set) var standardOutput: String = ""
+
+  public private(set) var standardError: String = ""
 
   /// An instance executing `p`.
   ///
@@ -153,8 +160,12 @@ struct Interpreter {
     default:
       fatalError("Interpreter: unimplemented instruction")
     }
-
-    advanceProgramCounter()
+    if stack.isEmpty {
+      isRunning = false
+    }
+    else {
+      advanceProgramCounter()
+    }
   }
 
   /// The instruction at which the program counter points.
