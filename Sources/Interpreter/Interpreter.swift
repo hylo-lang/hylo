@@ -1,3 +1,4 @@
+import Foundation
 import FrontEnd
 import Collections
 import IR
@@ -12,32 +13,104 @@ struct CodePointer {
 /// The local variables, parameters, and return address for a function
 /// call.
 struct StackFrame {
+  /// An identifier by which we can look up a frame in a given
+  /// Stack.
+  // We could just use the frame's index on the stack but we'd like
+  // to be able to rigorously detect invalid addresses.
+  typealias ID = UUID
 
   /// The results of instructions.
-  var registers: [InstructionID: Any]
+  var registers: [InstructionID: Any] = [:]
 
   /// The program counter to which execution should return when
   /// popping this frame.
   var returnAddress: CodePointer
 
+  /// This frame's unique identifier throughout time.
+  let id = ID()
+
+  /// The allocations in this stack frame.
+  var allocations: [StackAllocation] = []
+  var allocationIDToIndex: [UUID: Int] = [:]
+
+  mutating func allocate(_ t: TypeLayout) -> Stack.Address {
+    let a = StackAllocation(t)
+    allocationIDToIndex[a.id] = allocations.count
+    allocations.append(a)
+    return Stack.Address(memoryLayout: t, frame: id, allocation: a.id, byteOffset: 0)
+  }
+
+  mutating func deallocate(_ a: Stack.Address) {
+    precondition(
+      a.allocation == allocations.last!.id,
+      "The latest allocation that has not been deallocated must be deallocated first.")
+    precondition(a.frame == id, "Can't deallocate address from a different frame.")
+    precondition(a.byteOffset == 0, "Can't deallocate the memory of a subobject.")
+    precondition(
+      a.memoryLayout.type == allocations.last!.structure.type,
+      "Deallocating using address of the wrong type; perhaps this is a subobject?")
+    allocations.removeLast()
+  }
+
 }
 
 struct StackAllocation {
+  typealias ID = UUID
+
   let storage: [UInt8]
   let baseOffset: Int
   let size: Int
+  let structure: TypeLayout
+  let id = ID()
 
-  init(_ layout: TypeLayout.Bytes) {
-    size = layout.size
-    storage = .init(repeating: 0, count: max(0, size + layout.alignment - 1))
+  init(_ structure: TypeLayout) {
+    size = structure.bytes.size
+    storage = .init(repeating: 0, count: max(0, size + structure.bytes.alignment - 1))
     baseOffset = size == 0 ? 0 : storage.withUnsafeBytes {
       let b = UInt(bitPattern: $0.baseAddress!)
-      return Int(b.rounded(upToNearestMultipleOf: UInt(layout.alignment)) - b)
+      return Int(b.rounded(upToNearestMultipleOf: UInt(structure.bytes.alignment)) - b)
     }
+    self.structure = structure
   }
 
   func withUnsafeBytes<R>(_ body: (UnsafeRawBufferPointer)->R) -> R {
     storage.withUnsafeBytes { b in body(.init(rebasing: b[baseOffset..<baseOffset+size])) }
+  }
+}
+
+struct Stack {
+  /// Local variables, parameters, and return addresses.
+  public fileprivate(set) var frames: [StackFrame] = []
+
+  /// A mapping from the `id`s of stack frames to their index in the stack.
+  private var frameIDToIndex: [StackFrame.ID: Int] = [:]
+
+  /// Accesses the given frame.
+  subscript(id: StackFrame.ID) -> StackFrame {
+    get { frames[frameIDToIndex[id]!] }
+    _modify {
+      yield &frames[frameIDToIndex[id]!]
+    }
+  }
+
+  /// Adds a new frame on top with the given `returnAddress`.
+  mutating func push(returnAddress: CodePointer) {
+    let f = StackFrame(returnAddress: returnAddress)
+    frameIDToIndex[f.id] = frames.count
+    frames.append(f)
+  }
+
+  /// Removes the top frame and returns its `returnAddress`.
+  mutating func pop() -> CodePointer {
+    defer { frames.removeLast() }
+    return frames.last!.returnAddress
+  }
+
+  struct Address {
+    let memoryLayout: TypeLayout
+    let frame: StackFrame.ID
+    let allocation: StackAllocation.ID
+    let byteOffset: Int
   }
 }
 
@@ -51,7 +124,10 @@ public struct Interpreter {
   private var memory = Heap()
 
   /// Local variables, parameters, and return addresses.
-  private var stack: [StackFrame]
+  private var stack = Stack()
+
+  /// A mapping from the `id`s of stack frames to their index in the stack.
+  private var frameIDToIndex: [StackFrame.ID: Int] = [:]
 
   /// Identity of the next instruction to be executed.
   private var programCounter: CodePointer
@@ -66,9 +142,9 @@ public struct Interpreter {
   private var typeLayout: TypeLayoutCache
 
   private var topOfStack: StackFrame {
-    get { stack.last! }
+    get { stack.frames.last! }
     _modify {
-      yield &stack[stack.count - 1]
+      yield &stack.frames[stack.frames.count - 1]
     }
   }
 
@@ -89,13 +165,18 @@ public struct Interpreter {
 
     // The return address of the bottom-most frame will never be used,
     // so we fill it with something arbitrary.
-    stack = [StackFrame(registers: [:], returnAddress: programCounter)]
+    stack.push(returnAddress: programCounter)
     typeLayout = .init(typesIn: p.base, for: UnrealABI())
+  }
+
+  private var currentRegister: Any? {
+    get { topOfStack.registers[programCounter.instructionInModule]! }
+    set { topOfStack.registers[programCounter.instructionInModule] = newValue }
   }
 
   /// Executes a single instruction.
   public mutating func step() throws {
-    print(currentInstruction)
+    print("\(currentInstruction.site.gnuStandardText): \(currentInstruction)")
     switch currentInstruction {
     case is Access:
       // No effect on program state
@@ -108,8 +189,7 @@ public struct Interpreter {
       _ = x
 
     case let x as AllocStack:
-      topOfStack.registers[programCounter.instructionInModule]
-        = StackAllocation(typeLayout[x.allocatedType].bytes)
+      currentRegister = StackAllocation(typeLayout[x.allocatedType])
 
     case let x as Branch:
       _ = x
@@ -130,7 +210,7 @@ public struct Interpreter {
     case let x as CondBranch:
       _ = x
     case let x as ConstantString:
-      _ = x
+      currentRegister = x.value
     case let x as DeallocStack:
       _ = x
     case is EndAccess:
@@ -185,7 +265,7 @@ public struct Interpreter {
     default:
       fatalError("Interpreter: unimplemented instruction")
     }
-    if stack.isEmpty {
+    if stack.frames.isEmpty {
       isRunning = false
     }
     else {
