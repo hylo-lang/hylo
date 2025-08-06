@@ -9,25 +9,36 @@ struct CodePointer {
 
 }
 
-/// The result value of an instruction.
-struct Register {
-
-  let type: IR.`Type`
-  let value: Any
-
-}
-
 /// The local variables, parameters, and return address for a function
 /// call.
 struct StackFrame {
 
   /// The results of instructions.
-  var registers: Array<Register>
+  var registers: [InstructionID: Any]
 
   /// The program counter to which execution should return when
   /// popping this frame.
   var returnAddress: CodePointer
 
+}
+
+struct StackAllocation {
+  let storage: [UInt8]
+  let baseOffset: Int
+  let size: Int
+
+  init(_ layout: TypeLayout.Bytes) {
+    size = layout.size
+    storage = .init(repeating: 0, count: max(0, size + layout.alignment - 1))
+    baseOffset = size == 0 ? 0 : storage.withUnsafeBytes {
+      let b = UInt(bitPattern: $0.baseAddress!)
+      return Int(b.rounded(upToNearestMultipleOf: UInt(layout.alignment)) - b)
+    }
+  }
+
+  func withUnsafeBytes<R>(_ body: (UnsafeRawBufferPointer)->R) -> R {
+    storage.withUnsafeBytes { b in body(.init(rebasing: b[baseOffset..<baseOffset+size])) }
+  }
 }
 
 /// A virtual machine that executes Hylo's in-memory IR representation.
@@ -52,6 +63,15 @@ public struct Interpreter {
 
   public private(set) var standardError: String = ""
 
+  private var typeLayout: TypeLayoutCache
+
+  private var topOfStack: StackFrame {
+    get { stack.last! }
+    _modify {
+      yield &stack[stack.count - 1]
+    }
+  }
+
   /// An instance executing `p`.
   ///
   /// - Precondition: `p.entry != nil`
@@ -69,7 +89,8 @@ public struct Interpreter {
 
     // The return address of the bottom-most frame will never be used,
     // so we fill it with something arbitrary.
-    stack = [StackFrame(registers: [], returnAddress: programCounter)]
+    stack = [StackFrame(registers: [:], returnAddress: programCounter)]
+    typeLayout = .init(typesIn: p.base, for: UnrealABI())
   }
 
   /// Executes a single instruction.
@@ -85,8 +106,11 @@ public struct Interpreter {
       _ = x
     case let x as AdvancedByStrides:
       _ = x
+
     case let x as AllocStack:
-      _ = x
+      topOfStack.registers[programCounter.instructionInModule]
+        = StackAllocation(typeLayout[x.allocatedType].bytes)
+
     case let x as Branch:
       _ = x
     case let x as Call:
