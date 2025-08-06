@@ -8,7 +8,12 @@ struct TypeLayoutCache {
   let abi: any TargetABI
 
   private typealias Storage = [AnyType: TypeLayout]
-  private var storage: Storage
+  private var storage: Storage = [:]
+
+  init(typesIn p: TypedProgram, for abi: any TargetABI) {
+    self.p = p
+    self.abi = abi
+  }
 
   subscript(_ t: AnyType) -> TypeLayout {
     mutating get {
@@ -57,6 +62,12 @@ struct TypeLayoutCache {
   }
 
   private mutating func concretized(_ l: AbstractTypeLayout) -> TypeLayout {
+    if l.properties.isEmpty {
+      return TypeLayout(
+        bytes: .init(alignment: 0, size: 0), type: l.type,
+        components: [], isUnionLayout: false
+      )
+    }
     let f = l.properties.first!
     var b = self[f.type].bytes
     var components: [TypeLayout.Component] = [(name: f.label ?? "0", type: f.type, offset: 0)]
