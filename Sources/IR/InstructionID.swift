@@ -26,6 +26,12 @@ public struct InstructionID: Hashable {
     self.address = address
   }
 
+  /// Creates an instance from an absolute instruction ID.
+  public init(_ i: AbsoluteInstructionID) {
+    self.block = i.block
+    self.address = i.address
+  }
+
 }
 
 extension InstructionID: CustomStringConvertible {

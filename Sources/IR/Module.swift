@@ -70,9 +70,21 @@ public struct Module {
   }
 
   /// Accesses the given block.
+  public subscript(b: Block.ID, in f: Function.ID) -> Block {
+    _read { yield functions[f]!.blocks[b.address] }
+    _modify { yield &functions[f]![b.address] }
+  }
+
+  /// Accesses the given block.
   public subscript(b: Block.AbsoluteID) -> Block {
     _read { yield functions[b.function]!.blocks[b.address] }
     _modify { yield &functions[b.function]![b.address] }
+  }
+
+  /// Accesses the given instruction.
+  public subscript(i: InstructionID, in f: Function.ID) -> Instruction {
+    _read { yield functions[f]!.blocks[i.block].instructions[i.address] }
+    _modify { yield &functions[f]![i.block].instructions[i.address] }
   }
 
   /// Accesses the given instruction.

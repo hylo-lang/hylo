@@ -39,6 +39,18 @@ public struct Function {
     _modify { yield &blocks[address] }
   }
 
+  /// Accesses the block identified by `b`.
+  public subscript(b: Block.ID) -> Block {
+    _read { yield blocks[b.address] }
+    _modify { yield &blocks[b.address] }
+  }
+
+  /// Accesses the instruction identified by `i`.
+  public subscript(i: InstructionID) -> Instruction {
+    _read { yield blocks[i.block].instructions[i.address] }
+    _modify { yield &blocks[i.block].instructions[i.address] }
+  }
+
   /// `true` iff the function takes generic parameters.
   public var isGeneric: Bool {
     !genericParameters.isEmpty

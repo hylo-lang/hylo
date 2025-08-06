@@ -32,6 +32,13 @@ public struct AbsoluteInstructionID: Hashable {
     self.address = address
   }
 
+  /// Creates an instance with the given properties.
+  public init(_ function: Function.ID, _ i: InstructionID) {
+    self.function = function
+    self.block = i.block
+    self.address = i.address
+  }
+
 }
 
 extension AbsoluteInstructionID: CustomStringConvertible {
