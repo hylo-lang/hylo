@@ -39,9 +39,9 @@ extension IR.Program {
       for i in modules[m]!.instructions(in: b) {
         switch modules[m]![i] {
         case is Call:
-          depolymorphize(call: i, definedIn: m)
+          depolymorphize(call: InstructionID(i), from:f, definedIn: m)
         case is Project:
-          depolymorphize(project: i, definedIn: m)
+          depolymorphize(project: InstructionID(i), from:f, definedIn: m)
         default:
           continue
         }
@@ -53,8 +53,8 @@ extension IR.Program {
   /// depolymorphized version of its callee.
   ///
   /// - Requires: `i` identifies a `CallInstruction`
-  private mutating func depolymorphize(call i: AbsoluteInstructionID, definedIn m: Module.ID) {
-    let s = modules[m]![i] as! Call
+  private mutating func depolymorphize(call i: InstructionID, from f: Function.ID, definedIn m: Module.ID) {
+    let s = modules[m]![i, in: f] as! Call
     guard
       let callee = s.callee.constant as? FunctionReference,
       !callee.specialization.isEmpty
@@ -62,28 +62,28 @@ extension IR.Program {
 
     // TODO: Use existentialization unless the function is inlinable
 
-    let g = monomorphize(callee, usedIn: modules[m]!.scope(containing: i))
+    let g = monomorphize(callee, usedIn: modules[m]!.scope(containing: i, in: f))
     let r = FunctionReference(to: g, in: modules[m]!)
     let new = modules[m]!.makeCall(
       applying: .constant(r), to: Array(s.arguments), writingResultTo: s.output, at: s.site)
-    modules[m]!.replace(i, with: new)
+    modules[m]!.replace(i, with: new, in: f)
   }
 
   /// Iff `i` is the projection through a generic subscript, replaces it by an instruction applying
   /// a depolymorphized version of its callee.
   ///
   /// - Requires: `i` identifies a `ProjectInstruction`
-  private mutating func depolymorphize(project i: AbsoluteInstructionID, definedIn m: Module.ID) {
-    let s = modules[m]![i] as! Project
+  private mutating func depolymorphize(project i: InstructionID, from f: Function.ID, definedIn m: Module.ID) {
+    let s = modules[m]![i, in: f] as! Project
     guard !s.specialization.isEmpty else { return }
 
     // TODO: Use existentialization unless the subscript is inlinable
 
-    let z = base.canonical(s.specialization, in: modules[m]!.scope(containing: i))
-    let g = monomorphize(s.callee, for: z, usedIn: modules[m]!.scope(containing: i))
+    let z = base.canonical(s.specialization, in: modules[m]!.scope(containing: i, in: f))
+    let g = monomorphize(s.callee, for: z, usedIn: modules[m]!.scope(containing: i, in: f))
     let new = modules[m]!.makeProject(
       s.projection, applying: g, specializedBy: .empty, to: s.operands, at: s.site)
-    modules[m]!.replace(i, with: new)
+    modules[m]!.replace(i, with: new, in: f)
   }
 
   /// Returns a depolymorphized copy of `base` in which parametric parameters have been notionally
@@ -139,7 +139,7 @@ extension IR.Program {
 
     let rewrittenGenericValue = modules[target]!.defineGenericValueArguments(z, in: result)
     var monomorphizer = Monomorphizer(
-      specialization: z, scopeOfUse: scopeOfUse,
+      target: result, specialization: z, scopeOfUse: scopeOfUse,
       rewrittenGenericValue: rewrittenGenericValue, rewrittenBlock: rewrittenBlock)
 
     // Iterate over the basic blocks of the source function in a way that guarantees we always
@@ -151,14 +151,14 @@ extension IR.Program {
       let t = rewrittenBlock[s]!
 
       for a in modules[source]![s].instructions.addresses {
-        let i = AbsoluteInstructionID(s, a)
-        switch modules[source]![i] {
+        let i = InstructionID(b, a)
+        switch modules[source]![i, in: f] {
         case is GenericParameter:
-          rewrite(genericParameter: i, to: t)
+          rewrite(genericParameter: i, to: t, in: f)
         case is Return:
-          rewrite(return: i, to: t)
+          rewrite(return: i, to: t, in: f)
         default:
-          rewrite(i, to: t)
+          rewrite(i, to: t, in: f)
         }
       }
     }
@@ -166,29 +166,29 @@ extension IR.Program {
     return result
 
     /// Rewrites `i`, which is in `source`, at the end of `b`, which is in `target`.
-    func rewrite(_ i: AbsoluteInstructionID, to b: Block.AbsoluteID) {
+    func rewrite(_ i: InstructionID, to b: Block.AbsoluteID, in f: Function.ID) {
       let j = self.rewrite(
-        i, from: source, transformedBy: &monomorphizer,
+        AbsoluteInstructionID(f, i), from: source, transformedBy: &monomorphizer,
         at: .end(of: b), in: target)
-      monomorphizer.rewrittenInstruction[i] = j
+      monomorphizer.rewrittenInstruction[i] = InstructionID(j)
     }
 
     /// Rewrites `i`, which is in `source`, at the end of `b`, which is in `target`.
-    func rewrite(genericParameter i: AbsoluteInstructionID, to b: Block.AbsoluteID) {
-      let s = modules[source]![i] as! GenericParameter
+    func rewrite(genericParameter i: InstructionID, to b: Block.AbsoluteID, in f: Function.ID) {
+      let s = modules[source]![i, in: f] as! GenericParameter
       monomorphizer.rewrittenInstruction[i] = monomorphizer.rewrittenGenericValue[s.parameter]!
     }
 
     /// Rewrites `i`, which is in `source`, at the end of `b`, which is in `target`.
-    func rewrite(return i: AbsoluteInstructionID, to b: Block.AbsoluteID) {
-      let s = modules[source]![i] as! Return
+    func rewrite(return i: InstructionID, to b: Block.AbsoluteID, in f: Function.ID) {
+      let s = modules[source]![i, in: f] as! Return
       let j = modify(&modules[target]!) { (m) in
         for i in rewrittenGenericValue.values.reversed() {
-          m.append(m.makeDeallocStack(for: .register(i), at: s.site), to: b)
+          m.append(m.makeDeallocStack(for: .register(AbsoluteInstructionID(result, i)), at: s.site), to: b)
         }
         return m.append(m.makeReturn(at: s.site), to: b)
       }
-      monomorphizer.rewrittenInstruction[i] = j
+      monomorphizer.rewrittenInstruction[i] = InstructionID(j)
     }
   }
 
@@ -287,11 +287,11 @@ extension Module {
   fileprivate mutating func defineGenericValueArguments(
     _ specialization: GenericArguments,
     in monomorphized: Function.ID
-  ) -> OrderedDictionary<GenericParameterDecl.ID, AbsoluteInstructionID> {
+  ) -> OrderedDictionary<GenericParameterDecl.ID, InstructionID> {
     let insertionSite = SourceRange.empty(at: self[monomorphized].site.start)
     let entry = Block.AbsoluteID(monomorphized, self[monomorphized].entry!)
 
-    var genericValues = OrderedDictionary<GenericParameterDecl.ID, AbsoluteInstructionID>()
+    var genericValues = OrderedDictionary<GenericParameterDecl.ID, InstructionID>()
 
     for (k, v) in specialization {
       if v.asType != nil { continue }
@@ -311,7 +311,7 @@ extension Module {
       }
       assert(log.isEmpty)
 
-      genericValues[k] = s
+      genericValues[k] = InstructionID(s)
     }
 
     return genericValues
@@ -321,6 +321,9 @@ extension Module {
 
 /// The monomorphization of a function.
 private struct Monomorphizer: InstructionTransformer {
+
+  /// The target function.
+  let target: Function.ID
 
   /// The arguments for which instructions are monomorphized.
   let specialization: GenericArguments
@@ -333,13 +336,13 @@ private struct Monomorphizer: InstructionTransformer {
   /// Generic value parameters are rewritten as local variables initialized at the beginning of
   /// the monomorphized function. Generic value arguments don't require deinitialization. Their
   /// local storage is deallocated before each rewritten return instruction.
-  let rewrittenGenericValue: OrderedDictionary<GenericParameterDecl.ID, AbsoluteInstructionID>
+  let rewrittenGenericValue: OrderedDictionary<GenericParameterDecl.ID, InstructionID>
 
   /// A map from basic block in `source` to its corresponding block in `result`.
   let rewrittenBlock: [Block.AbsoluteID: Block.AbsoluteID]
 
   /// A map from instruction in `source` to its corresponding instruction in `result`.
-  var rewrittenInstruction: [AbsoluteInstructionID: AbsoluteInstructionID] = [:]
+  var rewrittenInstruction: [InstructionID: InstructionID] = [:]
 
   /// Returns the canonical, monomorphized form of `t`.
   func transform(_ t: AnyType, in ir: inout IR.Program) -> AnyType {
@@ -354,7 +357,7 @@ private struct Monomorphizer: InstructionTransformer {
     case .parameter(let b, let i):
       return .parameter(rewrittenBlock[b]!, i)
     case .register(let s):
-      return .register(rewrittenInstruction[s]!)
+      return .register(AbsoluteInstructionID(target, rewrittenInstruction[InstructionID(s)]!))
     }
   }
 
