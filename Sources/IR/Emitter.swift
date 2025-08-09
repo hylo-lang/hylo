@@ -2954,21 +2954,21 @@ struct Emitter {
   /// taking the place of `i`.
   ///
   /// After the call, `insertionPoint` set to `nil`.
-  mutating func replaceMove(_ i: AbsoluteInstructionID, with semantics: AccessEffect) -> AbsoluteInstructionID {
-    let s = module[i] as! Move
-    let predecessor = module.instruction(before: i)
+  mutating func replaceMove(_ i: InstructionID, in f: Function.ID, with semantics: AccessEffect) -> InstructionID {
+    let s = module[i, in: f] as! Move
+    let predecessor = module.instruction(before: i, in: f)
 
-    insertionPoint = .before(i)
+    insertionPoint = .before(AbsoluteInstructionID(f, i))
     lowering(at: s.site) {
       $0._emitMove(semantics, s.object, to: s.target, withMovableConformance: s.movable)
     }
-    module.removeInstruction(i)
+    module.removeInstruction(i, in: f)
 
     if let p = predecessor {
-      return module.instruction(after: p)!
+      return module.instruction(after: p, in: f)!
     } else {
       let b = insertionBlock!
-      return .init(b, module[b].instructions.firstAddress!)
+      return .init(b.address, module[b].instructions.firstAddress!)
     }
   }
 

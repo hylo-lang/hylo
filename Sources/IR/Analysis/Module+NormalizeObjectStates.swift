@@ -380,7 +380,7 @@ extension Module {
       let s = self[i, in: f] as! Move
       let k: AccessEffect = context.isStaticallyInitialized(s.target) ? .inout : .set
       let n = Emitter.withInstance(insertingIn: &self, reportingDiagnosticsTo: &diagnostics) {
-        $0.replaceMove(AbsoluteInstructionID(f, i), with: k)
+        $0.replaceMove(i, in: f, with: k)
       }
       return n.address
     }

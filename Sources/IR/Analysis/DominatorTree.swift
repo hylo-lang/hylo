@@ -105,10 +105,10 @@ struct DominatorTree {
   /// Returns `true` if the instruction identified by `definition` dominates `use`.
   ///
   /// - Requires: `definition` and `use` reside in the function associated with the true.
-  func dominates(definition: AbsoluteInstructionID, use: Use, in module: Module) -> Bool {
+  func dominates(definition: InstructionID, use: Use, in module: Module) -> Bool {
     // If `definition` is in the same block as `use`, check which comes first.
     if definition.block == use.user.block {
-      for i in module[definition.function][definition.block].instructions.indices {
+      for i in module[use.user.function][definition.block].instructions.indices {
         if i.address == definition.address {
           return true
         }
