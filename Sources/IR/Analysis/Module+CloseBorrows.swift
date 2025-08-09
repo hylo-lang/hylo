@@ -10,7 +10,7 @@ extension Module {
   public mutating func closeBorrows(in f: Function.ID, diagnostics: inout DiagnosticSet) {
     for blockToProcess in blocks(in: f) {
       for i in instructions(in: blockToProcess) {
-        close(i, in: f, reportingDiagnosticsTo: &diagnostics)
+        close(InstructionID(i), in: f, reportingDiagnosticsTo: &diagnostics)
       }
     }
   }
@@ -18,41 +18,41 @@ extension Module {
   /// If `i` is `access` or `project`, make sure it is post-dominated by respectively `end_borrow`
   /// or `end_project`, inserting new instructions as necessary; does nothing otherwise.
   private mutating func close(
-    _ i: AbsoluteInstructionID, in f: Function.ID, reportingDiagnosticsTo log: inout DiagnosticSet
+    _ i: InstructionID, in f: Function.ID, reportingDiagnosticsTo log: inout DiagnosticSet
   ) {
-    switch self[i] {
+    switch self[i, in: f] {
     case let s as Access:
-      let region = extendedLiveRange(of: .register(i))
+      let region = extendedLiveRange(of: .register(AbsoluteInstructionID(f, i)))
 
       // Delete the borrow if it's never used.
       if region.isEmpty {
         if let decl = s.binding {
           log.insert(.warning(unusedBinding: program.ast[decl].baseName, at: s.site))
         }
-        removeInstruction(i)
+        removeInstruction(i, in: f)
         return
       }
 
-      insertClose(i, atBoundariesOf: region) { (this, site) in
-        this.makeEndAccess(.register(i), at: site)
+      insertClose(i, in: f, atBoundariesOf: region) { (this, site) in
+        this.makeEndAccess(.register(AbsoluteInstructionID(f, i)), at: site)
       }
 
     case is OpenCapture:
-      let region = extendedLiveRange(of: .register(i))
-      insertClose(i, atBoundariesOf: region) { (this, site) in
-        this.makeCloseCapture(.register(i), at: site)
+      let region = extendedLiveRange(of: .register(AbsoluteInstructionID(f, i)))
+      insertClose(i, in: f, atBoundariesOf: region) { (this, site) in
+        this.makeCloseCapture(.register(AbsoluteInstructionID(f, i)), at: site)
       }
 
     case is OpenUnion:
-      let region = extendedLiveRange(of: .register(i))
-      insertClose(i, atBoundariesOf: region) { (this, site) in
-        this.makeCloseUnion(.register(i), at: site)
+      let region = extendedLiveRange(of: .register(AbsoluteInstructionID(f, i)))
+      insertClose(i, in: f, atBoundariesOf: region) { (this, site) in
+        this.makeCloseUnion(.register(AbsoluteInstructionID(f, i)), at: site)
       }
 
     case is Project:
-      let region = extendedLiveRange(of: .register(i))
-      insertClose(i, atBoundariesOf: region) { (this, site) in
-        this.makeEndProject(.register(i), at: site)
+      let region = extendedLiveRange(of: .register(AbsoluteInstructionID(f, i)))
+      insertClose(i, in: f, atBoundariesOf: region) { (this, site) in
+        this.makeEndProject(.register(AbsoluteInstructionID(f, i)), at: site)
       }
 
     default:
@@ -65,21 +65,21 @@ extension Module {
   ///
   /// No instruction is inserted at after already existing lifetime closers for `i`.
   private mutating func insertClose<T: LifetimeCloser>(
-    _ i: AbsoluteInstructionID, atBoundariesOf region: Lifetime,
+    _ i: InstructionID, in f: Function.ID, atBoundariesOf region: Lifetime,
     makingInstructionWith make: (inout Self, SourceRange) -> T
   ) {
     for boundary in region.upperBoundaries {
       switch boundary {
       case .after(let u):
         // Skip the insertion if the last user already closes the borrow.
-        if let e = self[u] as? T, e.start.instruction == i {
+        if let e = self[u] as? T, e.start.instruction == AbsoluteInstructionID(f, i) {
           continue
         }
         let s = make(&self, self[u].site)
         insert(s, after: u)
 
       case .start(let b):
-        let site = instructions(in: b).first.map(default: self[i].site) {
+        let site = instructions(in: b).first.map(default: self[i, in: f].site) {
           SourceRange.empty(at: self[$0].site.start)
         }
         let s = make(&self, site)

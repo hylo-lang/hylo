@@ -8,25 +8,25 @@ extension Module {
   /// - Requires: `f` is in `self`.
   public mutating func reifyCallsToBundles(in f: Function.ID, diagnostics: inout DiagnosticSet) {
     for i in blocks(in: f).map(instructions(in:)).joined() where self[i] is CallBundle {
-      reify(callBundle: i)
+      reify(callBundle: InstructionID(i), in: f)
     }
   }
 
-  private mutating func reify(callBundle i: AbsoluteInstructionID) {
-    let s = self[i] as! CallBundle
+  private mutating func reify(callBundle i: InstructionID, in f: Function.ID) {
+    let s = self[i, in: f] as! CallBundle
     let k = s.capabilities.weakest!
 
     var arguments = Array(s.arguments)
     let r = makeAccess([k], from: arguments[0], at: s.site)
-    arguments[0] = .register(insert(r, before: i))
+    arguments[0] = .register(insert(r, before: i, in: f))
 
-    let b = Block.AbsoluteID(containing: i)
-    let f = FunctionReference(
-      to: s.variants[k]!, in: self, specializedBy: s.bundle.arguments, in: self[b].scope)
+    let b = Block.ID(containing: i)
+    let ff = FunctionReference(
+      to: s.variants[k]!, in: self, specializedBy: s.bundle.arguments, in: self[b, in: f].scope)
 
     let reified = makeCall(
-      applying: .constant(f), to: arguments, writingResultTo: s.output, at: s.site)
-    replace(i, with: reified)
+      applying: .constant(ff), to: arguments, writingResultTo: s.output, at: s.site)
+    replace(i, with: reified, in: f)
   }
 
 }

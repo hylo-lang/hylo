@@ -101,7 +101,7 @@ extension Module {
 
   /// Calls `action` on the uses of a capability of the access at the origin of `i`.
   private func forEachClient(of i: InstructionID, in f: Function.ID, _ action: (Use) -> Void) {
-    for u in allUses(of: AbsoluteInstructionID(f, i)) {
+    for u in allUses(of: i, in: f) {
       if self[u.user].isTransparentOffset {
         forEachClient(of: InstructionID(u.user), in: f, action)
       } else {
@@ -132,7 +132,7 @@ extension Module {
     if s.capabilities == [k] { return }
 
     let reified = makeAccess([k], from: s.source, correspondingTo: s.binding, at: s.site)
-    replace(AbsoluteInstructionID(f, i), with: reified)
+    replace(i, with: reified, in: f)
   }
 
   private mutating func reify(projectBundle i: InstructionID, as k: AccessEffect, in f: Function.ID)
@@ -144,13 +144,13 @@ extension Module {
     var arguments = s.operands
     for a in arguments.indices where s.parameters[a].access == .yielded {
       let b = makeAccess([k], from: arguments[a], at: s.site)
-      arguments[a] = .register(insert(b, before: AbsoluteInstructionID(f, i)))
+      arguments[a] = .register(insert(b, before: i, in: f))
     }
 
     let o = RemoteType(k, s.projection)
     let reified = makeProject(
       o, applying: s.variants[k]!, specializedBy: s.bundle.arguments, to: arguments, at: s.site)
-    replace(AbsoluteInstructionID(f, i), with: reified)
+    replace(i, with: reified, in: f)
   }
 
 }

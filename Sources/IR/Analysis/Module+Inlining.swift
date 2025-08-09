@@ -21,17 +21,17 @@ extension IR.Program {
   public mutating func inlineCalls(
     in f: Function.ID, definedIn m: Module.ID, where shouldInline: InliningPredicate
   ) {
-    var work: [AbsoluteInstructionID] = []
+    var work: [InstructionID] = []
     for b in modules[m]!.blocks(in: f) {
-      for i in modules[m]!.instructions(in: b) {
-        if modules[m]![i] is Call {
+      for i in modules[m]!.instructions(in: b).map(InstructionID.init) {
+        if modules[m]![i, in: f] is Call {
           work.append(i)
         }
       }
     }
 
     while let i = work.popLast() {
-      _ = inline(functionCall: i, definedIn: m, if: shouldInline)
+      _ = inline(functionCall: i, from: f, definedIn: m, if: shouldInline)
     }
   }
 
@@ -45,9 +45,9 @@ extension IR.Program {
   /// of inlining. For example, if `i` is a call to F, the functions called by F are not inlined.
   /// Likewise, if F is recursive, only one level of recursion is inlined.
   private mutating func inline(
-    functionCall i: AbsoluteInstructionID, definedIn m: Module.ID, if shouldInline: InliningPredicate
+    functionCall i: InstructionID, from f: Function.ID, definedIn m: Module.ID, if shouldInline: InliningPredicate
   ) -> Bool {
-    let s = modules[m]![i] as! Call
+    let s = modules[m]![i, in: f] as! Call
 
     // Can't inline the call if the callee isn't a function reference.
     guard let callee = s.callee.constant as? FunctionReference else {
@@ -83,11 +83,11 @@ extension IR.Program {
 
       for j in modules[source]!.instructions(in: e) {
         if modules[source]![j] is Terminator { break }
-        let k = self.rewrite(j, from: source, transformedBy: &translation, at: .before(i), in: m)
+        let k = self.rewrite(j, from: source, transformedBy: &translation, at: .before(AbsoluteInstructionID(f, i)), in: m)
         translation.rewrittenOperand[.register(j)] = .register(k)
       }
 
-      modules[m]!.removeInstruction(i)
+      modules[m]!.removeInstruction(i, in: f)
       return true
     }
 

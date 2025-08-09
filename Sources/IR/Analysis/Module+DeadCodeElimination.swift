@@ -13,20 +13,20 @@ extension Module {
 
   /// Removes the instructions if `f` that have no user.
   private mutating func removeUnusedDefinitions(from f: Function.ID) {
-    var s = Set<AbsoluteInstructionID>()
-    removeUnused(blocks(in: f).map(instructions(in:)).joined(), keepingTrackIn: &s)
+    var s = Set<InstructionID>()
+    removeUnused(blocks(in: f).map(instructions(in:)).joined().map(InstructionID.init), keepingTrackIn: &s, in: f)
   }
 
   /// Removes the instructions in `definitions` that have no user, accumulating the IDs of removed
   /// elements in `removed`.
-  private mutating func removeUnused<S: Sequence<AbsoluteInstructionID>>(
-    _ definitions: S, keepingTrackIn removed: inout Set<AbsoluteInstructionID>
+  private mutating func removeUnused<S: Sequence<InstructionID>>(
+    _ definitions: S, keepingTrackIn removed: inout Set<InstructionID>, in f: Function.ID
   ) {
     for i in definitions where !removed.contains(i) {
-      if allUses(of: i).isEmpty && isRemovableWhenUnused(i) {
+      if allUses(of: i, in: f).isEmpty && isRemovableWhenUnused(i, in: f) {
         removed.insert(i)
-        removeUnused(self[i].operands.compactMap(\.instruction), keepingTrackIn: &removed)
-        removeInstruction(i)
+        removeUnused(self[i, in: f].operands.compactMap(\.instruction).map(InstructionID.init), keepingTrackIn: &removed, in: f)
+        removeInstruction(i, in: f)
       }
     }
   }
@@ -62,7 +62,7 @@ extension Module {
   /// Removes the code after calls returning `Never` from `f`.
   private mutating func removeCodeAfterCallsReturningNever(from f: Function.ID) {
     for b in blocks(in: f) {
-      if let i = instructions(in: b).first(where: returnsNever) {
+      if let i = instructions(in: b).first(where: { returnsNever(InstructionID($0), in: f) }) {
         removeAllInstructions(after: i)
         insert(makeUnreachable(at: self[i].site), at: .after(i))
       }
@@ -70,20 +70,20 @@ extension Module {
   }
 
   /// Returns `true` iff `i` never returns control flow.
-  private func returnsNever(_ i: AbsoluteInstructionID) -> Bool {
-    switch self[i] {
+  private func returnsNever(_ i: InstructionID, in f: Function.ID) -> Bool {
+    switch self[i, in: f] {
     case is Call:
-      return type(of: (self[i] as! Call).output).ast.isNever
+      return type(of: (self[i, in: f] as! Call).output).ast.isNever
     case is CallFFI:
-      return (self[i] as! CallFFI).returnType.ast.isNever
+      return (self[i, in: f] as! CallFFI).returnType.ast.isNever
     default:
       return false
     }
   }
 
   /// Returns `true` iff `i` can be removed if it has no use.
-  private func isRemovableWhenUnused(_ i: AbsoluteInstructionID) -> Bool {
-    switch self[i] {
+  private func isRemovableWhenUnused(_ i: InstructionID, in f: Function.ID) -> Bool {
+    switch self[i, in: f] {
     case let s as Access:
       return s.binding == nil
     case is CallFFI:

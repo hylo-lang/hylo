@@ -176,6 +176,11 @@ public struct Module {
     functions[i.function]![i.block].scope
   }
 
+  /// Returns the scope in which `i` is used.
+  public func scope(containing i: InstructionID, in f: Function.ID) -> AnyScopeID {
+    functions[f]![i.block].scope
+  }
+
   /// Returns the IDs of the blocks in `f`.
   ///
   /// The first element of the returned collection is the function's entry; other elements are in
@@ -194,11 +199,22 @@ public struct Module {
   }
 
   /// Returns the ID the instruction before `i`.
+  func instruction(before i: InstructionID, in f: Function.ID) -> InstructionID? {
+    functions[f]![i.block].instructions.address(before: i.address)
+      .map({ InstructionID(i.block, $0) })
+  }
+
+  /// Returns the ID the instruction before `i`.
   func instruction(before i: AbsoluteInstructionID) -> AbsoluteInstructionID? {
     functions[i.function]![i.block].instructions.address(before: i.address)
       .map({ AbsoluteInstructionID(i.function, i.block, $0) })
   }
 
+  /// Returns the ID the instruction after `i`.
+  func instruction(after i: InstructionID, in f: Function.ID) -> InstructionID? {
+    functions[f]![i.block].instructions.address(after: i.address)
+      .map({ InstructionID(i.block, $0) })
+  }
   /// Returns the ID the instruction after `i`.
   func instruction(after i: AbsoluteInstructionID) -> AbsoluteInstructionID? {
     functions[i.function]![i.block].instructions.address(after: i.address)
@@ -811,6 +827,22 @@ public struct Module {
     }
   }
 
+  /// Swaps `old` by `new`.
+  ///
+  /// `old` is removed and the def-use chains are updated so that the uses made by `old` are
+  /// replaced by the uses made by `new` and all uses of `old` refer to `new`. After the call,
+  /// `self[old] == new`.
+  ///
+  /// - Requires: `new` produces results with the same types as `old`.
+  mutating func replace<I: Instruction>(_ old: InstructionID, with new: I, in f: Function.ID) {
+    precondition(self[old, in: f].result == new.result)
+    removeUsesMadeBy(AbsoluteInstructionID(f, old))
+    _ = insert(new) { (m, i) in
+      m[old, in: f] = i
+      return AbsoluteInstructionID(f, old)
+    }
+  }
+
   /// Swaps all uses of `old` in `f` by `new` and updates the def-use chains.
   ///
   /// - Requires: `new` as the same type as `old`. `f` is in `self`.
@@ -899,6 +931,19 @@ public struct Module {
     }
   }
 
+  /// Inserts `newInstruction` before `successor` and returns its identity.
+  @discardableResult
+  mutating func insert(
+    _ newInstruction: Instruction, before successor: InstructionID, in f: Function.ID
+  ) -> AbsoluteInstructionID {
+    precondition(!(newInstruction is Terminator), "terminator must appear last in a block")
+    return insert(newInstruction) { (m, i) in
+      let address = m.functions[f]![successor.block].instructions
+        .insert(newInstruction, before: successor.address)
+      return AbsoluteInstructionID(f, successor.block, address)
+    }
+  }
+
   /// Inserts `newInstruction` after `predecessor` and returns its identity.
   @discardableResult
   mutating func insert(
@@ -936,6 +981,15 @@ public struct Module {
     self[i.function][i.block].instructions.remove(at: i.address)
   }
 
+  /// Removes instruction `i` and updates def-use chains.
+  ///
+  /// - Requires: The result of `i` have no users.
+  mutating func removeInstruction(_ i: InstructionID, in f: Function.ID) {
+    precondition(result(of: AbsoluteInstructionID(f, i)).map(default: true, { uses[$0, default: []].isEmpty }))
+    removeUsesMadeBy(AbsoluteInstructionID(f, i))
+    self[f][i.block].instructions.remove(at: i.address)
+  }
+
   /// Removes all instructions after `i` in its containing block and updates def-use chains.
   ///
   /// - Requires: Let `S` be the set of removed instructions, all users of a result of `j` in `S`
@@ -949,6 +1003,11 @@ public struct Module {
   /// Returns the uses of all the registers assigned by `i`.
   func allUses(of i: AbsoluteInstructionID) -> [Use] {
     result(of: i).map(default: [], { uses[$0, default: []] })
+  }
+
+  /// Returns the uses of all the registers assigned by `i`.
+  func allUses(of i: InstructionID, in f: Function.ID) -> [Use] {
+    result(of: AbsoluteInstructionID(f, i)).map(default: [], { uses[$0, default: []] })
   }
 
   /// Removes `i` from the def-use chains of its operands.
