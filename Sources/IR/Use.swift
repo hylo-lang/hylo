@@ -2,7 +2,7 @@
 public struct Use: Hashable {
 
   /// The ID of the user that contains this use.
-  public let user: AbsoluteInstructionID
+  public let user: InstructionID
 
   /// The index of this use in `user`'s operands.
   public let index: Int

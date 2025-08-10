@@ -26,8 +26,8 @@ extension Module {
       return instruction(after: i, in: f)
     }
 
-    for u in allUses(of: i, in: f) where self[u.user] is EndAccess {
-      removeInstruction(u.user)
+    for u in allUses(of: i, in: f) where self[u.user, in: f] is EndAccess {
+      removeInstruction(u.user, in: f)
     }
     replaceUses(of: .register(AbsoluteInstructionID(f, i)), with: s.source, in: f)
 

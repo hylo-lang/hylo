@@ -822,7 +822,7 @@ public struct Module {
   mutating func removeBlock(_ block: Block.AbsoluteID) -> Block {
     for i in instructions(in: block) {
       precondition(allUses(of: i).allSatisfy({ $0.user.block == block.address }))
-      removeUsesMadeBy(i)
+      removeUsesMadeBy(InstructionID(i), in: block.function)
     }
     return functions[block.function]!.removeBlock(block.address)
   }
@@ -836,7 +836,7 @@ public struct Module {
   /// - Requires: `new` produces results with the same types as `old`.
   mutating func replace<I: Instruction>(_ old: AbsoluteInstructionID, with new: I) {
     precondition(self[old].result == new.result)
-    removeUsesMadeBy(old)
+    removeUsesMadeBy(InstructionID(old), in: old.function)
     _ = insert(new) { (m, i) in
       m[old] = i
       return old
@@ -852,7 +852,7 @@ public struct Module {
   /// - Requires: `new` produces results with the same types as `old`.
   mutating func replace<I: Instruction>(_ old: InstructionID, with new: I, in f: Function.ID) {
     precondition(self[old, in: f].result == new.result)
-    removeUsesMadeBy(AbsoluteInstructionID(f, old))
+    removeUsesMadeBy(old, in: f)
     _ = insert(new) { (m, i) in
       m[old, in: f] = i
       return AbsoluteInstructionID(f, old)
@@ -870,9 +870,9 @@ public struct Module {
     var newUses = uses[new] ?? []
 
     var end = oldUses.count
-    for i in oldUses.indices.reversed() where oldUses[i].user.function == f {
+    for i in oldUses.indices.reversed() {
       let u = oldUses[i]
-      self[u.user].replaceOperand(at: u.index, with: new)
+      self[u.user, in: f].replaceOperand(at: u.index, with: new)
       newUses.append(u)
       end -= 1
       oldUses.swapAt(i, end)
@@ -1021,7 +1021,7 @@ public struct Module {
 
     // Update the def-use chains.
     for i in 0 ..< newInstruction.operands.count {
-      uses[newInstruction.operands[i], default: []].append(Use(user: user, index: i))
+      uses[newInstruction.operands[i], default: []].append(Use(user: InstructionID(user), index: i))
     }
 
     return user
@@ -1032,7 +1032,7 @@ public struct Module {
   /// - Requires: The result of `i` have no users.
   mutating func removeInstruction(_ i: AbsoluteInstructionID) {
     precondition(result(of: i).map(default: true, { uses[$0, default: []].isEmpty }))
-    removeUsesMadeBy(i)
+    removeUsesMadeBy(InstructionID(i), in: i.function)
     self[i.function][i.block].instructions.remove(at: i.address)
   }
 
@@ -1041,7 +1041,7 @@ public struct Module {
   /// - Requires: The result of `i` have no users.
   mutating func removeInstruction(_ i: InstructionID, in f: Function.ID) {
     precondition(result(of: AbsoluteInstructionID(f, i)).map(default: true, { uses[$0, default: []].isEmpty }))
-    removeUsesMadeBy(AbsoluteInstructionID(f, i))
+    removeUsesMadeBy(i, in: f)
     self[f][i.block].instructions.remove(at: i.address)
   }
 
@@ -1076,8 +1076,8 @@ public struct Module {
   }
 
   /// Removes `i` from the def-use chains of its operands.
-  private mutating func removeUsesMadeBy(_ i: AbsoluteInstructionID) {
-    for o in self[i].operands {
+  private mutating func removeUsesMadeBy(_ i: InstructionID, in f: Function.ID) {
+    for o in self[i, in: f].operands {
       uses[o]?.removeAll(where: { $0.user == i })
     }
   }

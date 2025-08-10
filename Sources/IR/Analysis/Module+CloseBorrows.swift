@@ -108,16 +108,16 @@ extension Module {
 
     // Extend the lifetime with that of its borrows.
     for use in uses {
-      switch self[use.user] {
+      switch self[use.user, in: definition.function!] {
       case is LifetimeExtender:
-        if let o = result(of: use.user) {
+        if let o = result(of: use.user, in: definition.function!) {
           r = extend(lifetime: r, toCover: extendedLiveRange(of: o))
         }
 
       case let s as CaptureIn where use.index == 0:
         let p = provenances(s.target).uniqueElement!
         guard self[p] is AllocStack else { UNIMPLEMENTED() }
-        let u = self.uses[p, default: []].first(where: { self[$0.user] is ReleaseCaptures })!
+        let u = self.uses[p, default: []].first(where: { self[$0.user, in: definition.function!] is ReleaseCaptures })!
         return extend(lifetime: r, toInclude: u)
 
       default:

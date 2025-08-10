@@ -71,9 +71,9 @@ struct Lifetime {
     coverage.lazy.compactMap { (b, c) -> InsertionPoint? in
       switch c {
       case .liveIn(let use):
-        return use.map({ .after(InstructionID($0.user)) }) ?? .start(of: Block.ID(b))
+        return use.map({ .after($0.user) }) ?? .start(of: Block.ID(b))
       case .closed(let use):
-        return use.map({ .after(InstructionID($0.user)) }) ?? .after(InstructionID(operand.instruction!))
+        return use.map({ .after($0.user) }) ?? .after(InstructionID(operand.instruction!))
       case .liveInAndOut, .liveOut:
         return nil
       }
@@ -156,14 +156,12 @@ extension Module {
   ///
   /// - Requires: The definition of `l` dominates `u`.
   func extend(lifetime l: Lifetime, toInclude u: Use) -> Lifetime {
-    precondition(l.operand.function! == u.user.function)
-
     var coverage = l.coverage
     switch coverage[u.user.block] {
     case .closed(let lastUser):
-      coverage[u.user.block] = .closed(lastUse: last(lastUser, u))
+      coverage[u.user.block] = .closed(lastUse: last(lastUser, u, in: l.operand.function!))
     case .liveIn(let lastUser):
-      coverage[u.user.block] = .liveIn(lastUse: last(lastUser, u))
+      coverage[u.user.block] = .liveIn(lastUse: last(lastUser, u, in: l.operand.function!))
     default:
       break
     }
@@ -187,13 +185,13 @@ extension Module {
       case (.liveOut, _), (_, .liveOut):
         return .liveOut
       case (.liveIn(let lhs), .liveIn(let rhs)):
-        return .liveIn(lastUse: last(lhs, rhs))
+        return .liveIn(lastUse: last(lhs, rhs, in: left.operand.function!))
       case (.liveIn(let lhs), .closed(let rhs)):
-        return .liveIn(lastUse: last(lhs, rhs))
+        return .liveIn(lastUse: last(lhs, rhs, in: left.operand.function!))
       case (.closed(let lhs), .liveIn(let rhs)):
-        return .liveIn(lastUse: last(lhs, rhs))
+        return .liveIn(lastUse: last(lhs, rhs, in: left.operand.function!))
       case (.closed(let lhs), .closed(let rhs)):
-        return .closed(lastUse: last(lhs, rhs))
+        return .closed(lastUse: last(lhs, rhs, in: left.operand.function!))
       }
     }
     return .init(operand: left.operand, coverage: coverage)
@@ -205,7 +203,7 @@ extension Module {
     for i in instructions.indices.reversed() {
       if let operandIndex = instructions[i].operands.lastIndex(of: operand) {
         return Use(
-          user: AbsoluteInstructionID(block.function, block.address, i.address),
+          user: InstructionID(block.address, i.address),
           index: operandIndex)
       }
     }
@@ -215,7 +213,7 @@ extension Module {
   }
 
   /// Returns the use that executes last.
-  private func last(_ lhs: Use?, _ rhs: Use?) -> Use? {
+  private func last(_ lhs: Use?, _ rhs: Use?, in f: Function.ID) -> Use? {
     guard let lhs = lhs else { return rhs }
     guard let rhs = rhs else { return lhs }
 
@@ -223,7 +221,7 @@ extension Module {
       return lhs.index < rhs.index ? rhs : lhs
     }
 
-    let block = functions[lhs.user.function]![lhs.user.block]
+    let block = functions[f]![lhs.user.block]
     if lhs.user.address.precedes(rhs.user.address, in: block.instructions) {
       return rhs
     } else {

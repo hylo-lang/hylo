@@ -63,7 +63,7 @@ extension Module {
       var upper = AccessEffect.let
 
       forEachClient(of: i, in: f) { (u) in
-        let rs = requests(u)
+        let rs = requests(u, in: f)
         if let w = rs.weakest { lower = max(w, lower) }
         upper = rs.strongest(including: upper)
       }
@@ -78,8 +78,8 @@ extension Module {
     }
   }
 
-  private func requests(_ u: Use) -> AccessEffectSet {
-    switch self[u.user] {
+  private func requests(_ u: Use, in f: Function.ID) -> AccessEffectSet {
+    switch self[u.user, in: f] {
     case let t as Access:
       return t.capabilities
     case is Load:
@@ -87,14 +87,14 @@ extension Module {
     case is Move:
       return u.index == 0 ? .sink : .inout
     case is ProjectBundle:
-      return requests(projectBundle: u)
+      return requests(projectBundle: u, in: f)
     default:
       return []
     }
   }
 
-  private func requests(projectBundle u: Use) -> AccessEffectSet {
-    let s = self[u.user] as! ProjectBundle
+  private func requests(projectBundle u: Use, in f: Function.ID) -> AccessEffectSet {
+    let s = self[u.user, in: f] as! ProjectBundle
     let t = s.parameters[u.index]
     return (t.access == .yielded) ? s.capabilities : [t.access]
   }
@@ -102,8 +102,8 @@ extension Module {
   /// Calls `action` on the uses of a capability of the access at the origin of `i`.
   private func forEachClient(of i: InstructionID, in f: Function.ID, _ action: (Use) -> Void) {
     for u in allUses(of: i, in: f) {
-      if self[u.user].isTransparentOffset {
-        forEachClient(of: InstructionID(u.user), in: f, action)
+      if self[u.user, in: f].isTransparentOffset {
+        forEachClient(of: u.user, in: f, action)
       } else {
         action(u)
       }
