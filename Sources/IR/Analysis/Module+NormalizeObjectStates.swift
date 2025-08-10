@@ -740,7 +740,8 @@ extension Module {
   ) {
     for path in initializedSubfields {
       Emitter.withInstance(insertingIn: &self, reportingDiagnosticsTo: &log) { (e) in
-        e.insertionPoint = .before(AbsoluteInstructionID(f, i))
+        e.insertionFunction = f
+        e.insertionPoint = .before(i)
         e.lowering(at: site) { e in
           let s = e._subfield_view(root, at: path)
           e._emitDeinit(s)
@@ -758,7 +759,8 @@ extension Module {
     reportingDiagnosticsTo log: inout DiagnosticSet
   ) {
     Emitter.withInstance(insertingIn: &self, reportingDiagnosticsTo: &log) { (e) in
-      e.insertionPoint = .before(AbsoluteInstructionID(f, i))
+      e.insertionFunction = f
+      e.insertionPoint = .before(i)
       e.lowering(at: site) { e in
         e._emitDeinitParts(of: whole)
       }

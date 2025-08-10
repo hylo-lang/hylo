@@ -169,7 +169,7 @@ extension IR.Program {
     func rewrite(_ i: InstructionID, to b: Block.AbsoluteID, in f: Function.ID) {
       let j = self.rewrite(
         AbsoluteInstructionID(f, i), from: source, transformedBy: &monomorphizer,
-        at: .end(of: b), in: target)
+        at: .end(of: Block.ID(b)), targeting: b.function, in: target)
       monomorphizer.rewrittenInstruction[i] = InstructionID(j)
     }
 
@@ -289,7 +289,7 @@ extension Module {
     in monomorphized: Function.ID
   ) -> OrderedDictionary<GenericParameterDecl.ID, InstructionID> {
     let insertionSite = SourceRange.empty(at: self[monomorphized].site.start)
-    let entry = Block.AbsoluteID(monomorphized, self[monomorphized].entry!)
+    let entry = Block.ID(self[monomorphized].entry!)
 
     var genericValues = OrderedDictionary<GenericParameterDecl.ID, InstructionID>()
 
@@ -300,18 +300,19 @@ extension Module {
         UNIMPLEMENTED("arbitrary compile-time values")
       }
 
-      let s = append(makeAllocStack(^program.ast.coreType("Int")!, at: insertionSite), to: entry)
+      let s = append(makeAllocStack(^program.ast.coreType("Int")!, at: insertionSite), to: entry, in: monomorphized)
 
       var log = DiagnosticSet()
       Emitter.withInstance(insertingIn: &self, reportingDiagnosticsTo: &log) { (e) in
+        e.insertionFunction = monomorphized
         e.insertionPoint = .end(of: entry)
         e.lowering(at: insertionSite) { e in
-          e._emitStore(int: w, to: .register(s))
+          e._emitStore(int: w, to: .register(AbsoluteInstructionID(monomorphized, s)))
         }
       }
       assert(log.isEmpty)
 
-      genericValues[k] = InstructionID(s)
+      genericValues[k] = s
     }
 
     return genericValues

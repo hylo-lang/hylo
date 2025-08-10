@@ -71,9 +71,9 @@ struct Lifetime {
     coverage.lazy.compactMap { (b, c) -> InsertionPoint? in
       switch c {
       case .liveIn(let use):
-        return use.map({ .after($0.user) }) ?? .start(of: .init(operand.function!, b))
+        return use.map({ .after(InstructionID($0.user)) }) ?? .start(of: Block.ID(b))
       case .closed(let use):
-        return use.map({ .after($0.user) }) ?? .after(operand.instruction!)
+        return use.map({ .after(InstructionID($0.user)) }) ?? .after(InstructionID(operand.instruction!))
       case .liveInAndOut, .liveOut:
         return nil
       }

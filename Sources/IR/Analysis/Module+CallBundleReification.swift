@@ -18,7 +18,7 @@ extension Module {
 
     var arguments = Array(s.arguments)
     let r = makeAccess([k], from: arguments[0], at: s.site)
-    arguments[0] = .register(insert(r, before: i, in: f))
+    arguments[0] = .register(AbsoluteInstructionID(f, insert(r, before: i, in: f)))
 
     let b = Block.ID(containing: i)
     let ff = FunctionReference(

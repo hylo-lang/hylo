@@ -62,6 +62,9 @@ struct Emitter {
   /// Where new instructions are inserted.
   var insertionPoint: InsertionPoint?
 
+  /// The function containing the current insertion block.
+  var insertionFunction: Function.ID?
+
   /// The source code associated with instructions to be inserted.
   var currentSource: SourceRange
 
@@ -76,18 +79,13 @@ struct Emitter {
   }
 
   /// The basic block in which new instructions are currently inserted.
-  private var insertionBlock: Block.AbsoluteID? {
+  private var insertionBlock: Block.ID? {
     insertionPoint?.block
-  }
-
-  /// The function containing the current insertion block.
-  private var insertionFunction: Function.ID? {
-    insertionBlock?.function
   }
 
   /// The scope corresponding to the current insertion block.
   private var insertionScope: AnyScopeID? {
-    insertionBlock.map({ module[$0].scope })
+    insertionBlock.map({ module[$0, in: insertionFunction!].scope })
   }
 
   /// The address of the return value in the current function, if any.
@@ -120,8 +118,8 @@ struct Emitter {
   /// - Requires: `self.insertionPoint` refers to the end of a block.
   @discardableResult
   private mutating func insert<I: Instruction>(_ newInstruction: I) -> Operand? {
-    let i = module.insert(newInstruction, at: insertionPoint!)
-    return module.result(of: i)
+    let i = module.insert(newInstruction, at: insertionPoint!, in: insertionFunction!)
+    return module.result(of: i, in: insertionFunction!)
   }
 
   // MARK: Top-level entry points
@@ -219,11 +217,12 @@ struct Emitter {
       if ast[d].isForeignInterface { lower(ffi: d) }
       return f
     }
+    insertionFunction = f
 
     // Configure the emitter context.
     let entry = module.appendEntry(in: program.scopeContainingBody(of: d)!, to: f)
     let bodyFrame = outermostFrame(of: d, entering: entry)
-    self.insertionPoint = .end(of: entry)
+    self.insertionPoint = .end(of: Block.ID(entry))
 
     // Emit the body.
     switch b {
@@ -282,11 +281,12 @@ struct Emitter {
   /// Inserts the IR for calling `d`, which is a foreign function interface.
   private mutating func lower(ffi d: FunctionDecl.ID) {
     let f = module.demandDeclaration(lowering: d)
+    insertionFunction = f
 
     // Configure the emitter context.
     let entry = module.appendEntry(in: d, to: f)
 
-    self.insertionPoint = .end(of: entry)
+    self.insertionPoint = .end(of: Block.ID(entry))
     self.frames.push()
     defer {
       self.frames.pop()
@@ -331,6 +331,7 @@ struct Emitter {
     // Nothing to do for memberwise initializer.
     if ast[d].isMemberwise { return }
     let f = module.demandDeclaration(lowering: d)
+    insertionFunction = f
 
     // Create the function entry.
     let entry = module.appendEntry(in: ast[d].body!, to: f)
@@ -343,7 +344,7 @@ struct Emitter {
     }
 
     // Emit the body.
-    insertionPoint = .end(of: entry)
+    insertionPoint = .end(of: Block.ID(entry))
     let returnSite = within(Frame(locals: locals)) {
       $0.siteOfReturn(lowering: $0.ast[d].body!, whichReturns: .void)
     }
@@ -372,6 +373,7 @@ struct Emitter {
   private mutating func lower(methodImpl d: MethodImpl.ID) {
     let f = module.demandDeclaration(lowering: d)
     guard let b = ast[d].body else { return }
+    insertionFunction = f
 
     // Create the function entry.
     let entry = module.appendEntry(in: program.scopeContainingBody(of: d)!, to: f)
@@ -386,7 +388,7 @@ struct Emitter {
     }
 
     // Emit the body.
-    self.insertionPoint = .end(of: entry)
+    self.insertionPoint = .end(of: Block.ID(entry))
     switch b {
     case .block(let s):
       let returnSite = within(Frame(locals: parameters)) {
@@ -413,6 +415,7 @@ struct Emitter {
   private mutating func lower(subscriptImpl d: SubscriptImpl.ID) {
     let f = module.demandDeclaration(lowering: d)
     guard let b = ast[d].body else { return }
+    insertionFunction = f
 
     // Create the function entry.
     let entry = module.appendEntry(in: program.scopeContainingBody(of: d)!, to: f)
@@ -447,7 +450,7 @@ struct Emitter {
     }
 
     // Emit the body.
-    self.insertionPoint = .end(of: entry)
+    self.insertionPoint = .end(of: Block.ID(entry))
     switch b {
     case .block(let s):
       lower(body: s, of: d, in: Frame(locals: locals))
@@ -777,12 +780,12 @@ struct Emitter {
 
     let tail = appendBlock()
     for (u, b) in targets {
-      insertionPoint = .end(of: b)
+      insertionPoint = .end(of: Block.ID(b))
       _emitMoveInitUnionPayload(of: receiver, consuming: argument, containing: u)
       _branch(to: tail)
     }
 
-    insertionPoint = .end(of: tail)
+    insertionPoint = .end(of: Block.ID(tail))
   }
 
   /// Inserts the IR for initializing the payload of `receiver`, which stores a union containing
@@ -868,8 +871,9 @@ struct Emitter {
     withClearContext { (me) in
       let f = me.module.demandDeclaration(lowering: d)
       if me.shouldEmitBody(of: d, loweredTo: f) {
+        me.insertionFunction = f
         let entry = me.module.appendEntry(in: d.scope, to: f)
-        me.insertionPoint = .end(of: entry)
+        me.insertionPoint = .end(of: Block.ID(entry))
         me.frames.push()
 
         let savedSite = me.currentSource
@@ -930,12 +934,12 @@ struct Emitter {
 
     let tail = appendBlock()
     for (u, b) in targets {
-      insertionPoint = .end(of: b)
+      insertionPoint = .end(of: Block.ID(b))
       _emitCopyUnionPayload(from: source, containing: u, to: target)
       _branch(to: tail)
     }
 
-    insertionPoint = .end(of: tail)
+    insertionPoint = .end(of: Block.ID(tail))
   }
 
   /// Inserts the IR for copying `source`, which stores a union
@@ -973,9 +977,10 @@ struct Emitter {
   private mutating func lower(syntheticAutoclosure d: SynthesizedFunctionDecl) -> Function.ID {
     guard case .autoclosure(let argument) = d.kind else { unreachable() }
     let f = module.demandDeclaration(lowering: d)
+    insertionFunction = f
     let entry = module.appendEntry(in: d.scope, to: f)
 
-    insertionPoint = .end(of: entry)
+    insertionPoint = .end(of: Block.ID(entry))
     self.frames.push()
     defer {
       self.frames.pop()
@@ -1051,12 +1056,13 @@ struct Emitter {
     let savedFrames = frames
     defer { frames = savedFrames }
     let innermost = loops.last!
+    let f = insertionFunction!
     lowering(s) { me in
       while me.frames.depth > innermost.depth {
         me._emitDeallocTopFrame()
         me.frames.pop()
       }
-      me._branch(to: innermost.exit)
+      me._branch(to: Block.AbsoluteID(f, innermost.exit))
     }
   }
 
@@ -1158,13 +1164,13 @@ struct Emitter {
       ast[s].binding, movingConsumedValuesTo: storage,
       branchingOnFailureTo: fail, in: insertionScope!)
 
-    insertionPoint = .end(of: fail)
+    insertionPoint = .end(of: Block.ID(fail))
     let flow = emit(braceStmt: ast[s].fallback)
     emitControlFlow(flow) { me in
       me.lowering(me.ast[s].fallback) { $0._unreachable() }
     }
 
-    insertionPoint = .end(of: next)
+    insertionPoint = .end(of: Block.ID(next))
     return .next
   }
 
@@ -1182,7 +1188,7 @@ struct Emitter {
       me.insertionPoint = .end(of: secondBranch)
       guard let failure = me.ast[s].failure else {
         me._branch(to: tail)
-        me.insertionPoint = .end(of: tail)
+        me.insertionPoint = .end(of: Block.ID(tail))
         return .next
       }
 
@@ -1191,7 +1197,7 @@ struct Emitter {
         me._branch(to: tail)
       }
 
-      me.insertionPoint = .end(of: tail)
+      me.insertionPoint = .end(of: Block.ID(tail))
       return .next
     }
   }
@@ -1215,11 +1221,11 @@ struct Emitter {
   private mutating func _emit(doWhileStmt s: DoWhileStmt.ID) -> ControlFlow {
     let body = appendBlock(in: ast[s].body)
     let exit = appendBlock(in: ast[s].body)
-    loops.append(LoopID(depth: frames.depth, exit: exit))
+    loops.append(LoopID(depth: frames.depth, exit: Block.ID(exit)))
     defer { loops.removeLast() }
 
     lowering(before: s) { $0._branch(to: body) }
-    insertionPoint = .end(of: body)
+    insertionPoint = .end(of: Block.ID(body))
 
     // We're not using `emit(braceStmt:into:)` because we need to evaluate the loop condition
     // before exiting the scope.
@@ -1246,7 +1252,7 @@ struct Emitter {
     frames.pop()
 
     _cond_branch(if: c, then: body, else: exit)
-    insertionPoint = .end(of: exit)
+    insertionPoint = .end(of: Block.ID(exit))
     return .next
   }
 
@@ -1287,12 +1293,12 @@ struct Emitter {
     // The remainder of the program, after the loop.
     let exit = appendBlock()
 
-    loops.append(LoopID(depth: frames.depth, exit: exit))
+    loops.append(LoopID(depth: frames.depth, exit: Block.ID(exit)))
     defer { loops.removeLast() }
 
     lowering(at: introducer) { me in
       me._branch(to: head)
-      me.insertionPoint = .end(of: head)
+      me.insertionPoint = .end(of: Block.ID(head))
 
       let x0 = me._access(.inout, from: domain)
       me._emitApply(witness.next, to: [x0], writingResultTo: element)
@@ -1307,7 +1313,7 @@ struct Emitter {
     // TODO: Filter
     precondition(ast[s].filter == nil, "loop filters are not implemented")
 
-    insertionPoint = .end(of: next)
+    insertionPoint = .end(of: Block.ID(next))
     // TODO: check this currentSource control logic.
     lowering(at: introducer) { me in
       let flow = me.emit(braceStmt: me.ast[s].body)
@@ -1316,7 +1322,7 @@ struct Emitter {
       }
     }
 
-    insertionPoint = .end(of: exit)
+    insertionPoint = .end(of: Block.ID(exit))
     return .next
   }
 
@@ -1353,12 +1359,12 @@ struct Emitter {
       // The remainder of the program, after the loop.
       let exit = me.appendBlock()
 
-      me.loops.append(LoopID(depth: me.frames.depth, exit: exit))
+      me.loops.append(LoopID(depth: me.frames.depth, exit: Block.ID(exit)))
       defer { me.loops.removeLast() }
 
       me._branch(to: head)
 
-      me.insertionPoint = .end(of: head)
+      me.insertionPoint = .end(of: Block.ID(head))
       let x0 = me._access(.let, from: currentPosition)
       let x1 = me._access(.let, from: endPosition)
       me._emitApply(.constant(equal), to: [x0, x1], writingResultTo: quit)
@@ -1367,7 +1373,7 @@ struct Emitter {
       let x2 = me._emitLoadBuiltinBool(quit)
       me._cond_branch(if: x2, then: exit, else: enter)
 
-      me.insertionPoint = .end(of: enter)
+      me.insertionPoint = .end(of: Block.ID(enter))
       let x6 = me._access(.let, from: domain)
       let x7 = me._access(.let, from: currentPosition)
 
@@ -1391,7 +1397,7 @@ struct Emitter {
         me.lowering(after: me.program[s].body) { $0._branch(to: tail) }
       }
 
-      me.insertionPoint = .end(of: tail)
+      me.insertionPoint = .end(of: Block.ID(tail))
       let x3 = me._alloc_stack(collectionWitness.position)
       let x4 = me._access(.let, from: domain)
       let x5 = me._access(.let, from: currentPosition)
@@ -1402,7 +1408,7 @@ struct Emitter {
       me._dealloc_stack(x3)
       me._branch(to: head)
 
-      me.insertionPoint = .end(of: exit)
+      me.insertionPoint = .end(of: Block.ID(exit))
     }
     return .next
   }
@@ -1447,7 +1453,7 @@ struct Emitter {
     lowering(before: s) { $0._branch(to: head) }
 
     // Test the conditions.
-    insertionPoint = .end(of: head)
+    insertionPoint = .end(of: Block.ID(head))
     let (body, exit) = emitTest(condition: ast[s].condition, in: AnyScopeID(s))
 
     // Add the current loop to the emitter context.
@@ -1652,7 +1658,7 @@ struct Emitter {
     insertionPoint = .end(of: failure)
     within(Frame()) { $0.emitStore(value: $0.ast[e].failure.value, to: storage) }
     _branch(to: tail)
-    insertionPoint = .end(of: tail)
+    insertionPoint = .end(of: Block.ID(tail))
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
@@ -2421,7 +2427,7 @@ struct Emitter {
   /// in `scope`.
   private mutating func emitTest(
     condition: [ConditionItem], in scope: AnyScopeID
-  ) -> (success: Block.AbsoluteID, failure: Block.AbsoluteID) {
+  ) -> (success: Block.ID, failure: Block.ID) {
     // Allocate storage for all the declarations in the condition before branching so that all
     // `dealloc_stack` are dominated by their corresponding `alloc_stack`.
     var allocations: [Operand?] = []
@@ -2439,18 +2445,18 @@ struct Emitter {
         lowering(e) {
           $0._cond_branch(if: test, then: next, else: failure)
         }
-        insertionPoint = .end(of: next)
+        insertionPoint = .end(of: Block.ID(next))
 
       case .decl(let d):
         let next = emitConditionalNarrowing(
           d, movingConsumedValuesTo: allocations[nextAllocation],
           branchingOnFailureTo: failure, in: scope)
-        insertionPoint = .end(of: next)
+        insertionPoint = .end(of: Block.ID(next))
         nextAllocation += 1
       }
     }
 
-    return (success: insertionBlock!, failure: failure)
+    return (success: insertionBlock!, failure: Block.ID(failure))
   }
 
   /// If `d` declares stored bindings, inserts the IR for allocating
@@ -2525,7 +2531,7 @@ struct Emitter {
     lowering(lhs) { me in
       me._emitUnionSwitch(on: rhs, toOneOf: targets)
 
-      me.insertionPoint = .end(of: next)
+      me.insertionPoint = .end(of: Block.ID(next))
 
       if let target = storage {
         let x0 = me._access(.sink, from: rhs)
@@ -2956,9 +2962,10 @@ struct Emitter {
   /// After the call, `insertionPoint` set to `nil`.
   mutating func replaceMove(_ i: InstructionID, in f: Function.ID, with semantics: AccessEffect) -> InstructionID {
     let s = module[i, in: f] as! Move
+    insertionFunction = f
     let predecessor = module.instruction(before: i, in: f)
 
-    insertionPoint = .before(AbsoluteInstructionID(f, i))
+    insertionPoint = .before(i)
     lowering(at: s.site) {
       $0._emitMove(semantics, s.object, to: s.target, withMovableConformance: s.movable)
     }
@@ -2968,7 +2975,7 @@ struct Emitter {
       return module.instruction(after: p, in: f)!
     } else {
       let b = insertionBlock!
-      return .init(b.address, module[b].instructions.firstAddress!)
+      return .init(b.address, module[b, in: f].instructions.firstAddress!)
     }
   }
 
@@ -3207,12 +3214,12 @@ struct Emitter {
 
     let tail = appendBlock()
     for (u, b) in targets {
-      insertionPoint = .end(of: b)
+      insertionPoint = .end(of: Block.ID(b))
       _emitDeinitUnionPayload(of: storage, containing: u)
       _branch(to: tail)
     }
 
-    insertionPoint = .end(of: tail)
+    insertionPoint = .end(of: Block.ID(tail))
   }
 
   /// If `storage`, which stores a union container holding a `payload`, is deinitializable in
@@ -3271,12 +3278,12 @@ struct Emitter {
       parts = parts.dropFirst()
       if parts.isEmpty {
         _branch(to: tail)
-        insertionPoint = .end(of: tail)
+        insertionPoint = .end(of: Block.ID(tail))
       } else {
         let x2 = _emitLoadBuiltinBool(target)
         let next = appendBlock()
         _cond_branch(if: x2, then: next, else: tail)
-        insertionPoint = .end(of: next)
+        insertionPoint = .end(of: Block.ID(next))
       }
     }
   }
@@ -3307,10 +3314,10 @@ struct Emitter {
     let x0 = _call_builtin(.icmp(.eq, .discriminator), [dl, dr])
     _cond_branch(if: x0, then: same, else: fail)
 
-    insertionPoint = .end(of: same)
+    insertionPoint = .end(of: Block.ID(same))
     _emitUnionSwitch(on: lhs, toOneOf: targets)
     for (u, b) in targets {
-      insertionPoint = .end(of: b)
+      insertionPoint = .end(of: Block.ID(b))
       let y0 = _open_union(lhs, as: u)
       let y1 = _open_union(rhs, as: u)
       _emitStoreEquality(y0, y1, to: target)
@@ -3320,12 +3327,12 @@ struct Emitter {
     }
 
     // The failure block writes `false` to the return storage.
-    insertionPoint = .end(of: fail)
+    insertionPoint = .end(of: Block.ID(fail))
     _emitStore(boolean: false, to: target)
     _branch(to: tail)
 
     // The tail block represents the continuation.
-    insertionPoint = .end(of: tail)
+    insertionPoint = .end(of: Block.ID(tail))
   }
 
   // MARK: Helpers
@@ -3450,16 +3457,19 @@ struct Emitter {
   /// Returns the result of calling `action` on a copy of `self` whose insertion block and frames
   /// are clear.
   private mutating func withClearContext<T>(_ action: (inout Self) throws -> T) rethrows -> T {
+    var ff: Function.ID? = nil
     var p: InsertionPoint? = nil
     var f = Stack()
     var l = LoopIDs()
     var s = program[module.id].site
 
+    swap(&ff, &insertionFunction)
     swap(&p, &insertionPoint)
     swap(&f, &frames)
     swap(&l, &loops)
     swap(&s, &currentSource)
     defer {
+      swap(&ff, &insertionFunction)
       swap(&p, &insertionPoint)
       swap(&f, &frames)
       swap(&l, &loops)
@@ -3567,7 +3577,7 @@ extension Emitter {
     let depth: Int
 
     /// The block to which control flow jumps when it exits the loop.
-    let exit: Block.AbsoluteID
+    let exit: Block.ID
 
   }
 

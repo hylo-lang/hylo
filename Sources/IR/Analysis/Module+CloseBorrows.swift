@@ -72,18 +72,18 @@ extension Module {
       switch boundary {
       case .after(let u):
         // Skip the insertion if the last user already closes the borrow.
-        if let e = self[u] as? T, e.start.instruction == AbsoluteInstructionID(f, i) {
+        if let e = self[u, in: f] as? T, e.start.instruction == AbsoluteInstructionID(f, i) {
           continue
         }
-        let s = make(&self, self[u].site)
-        insert(s, after: u)
+        let s = make(&self, self[u, in: f].site)
+        insert(s, after: u, in: f)
 
       case .start(let b):
-        let site = instructions(in: b).first.map(default: self[i, in: f].site) {
-          SourceRange.empty(at: self[$0].site.start)
+        let site = instructions(in: b, of: f).first.map(default: self[i, in: f].site) {
+          SourceRange.empty(at: self[$0, in: f].site.start)
         }
         let s = make(&self, site)
-        insert(s, at: boundary)
+        insert(s, at: boundary, in: f)
 
       default:
         unreachable()

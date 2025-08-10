@@ -83,7 +83,7 @@ extension IR.Program {
 
       for j in modules[source]!.instructions(in: e) {
         if modules[source]![j] is Terminator { break }
-        let k = self.rewrite(j, from: source, transformedBy: &translation, at: .before(AbsoluteInstructionID(f, i)), in: m)
+        let k = self.rewrite(j, from: source, transformedBy: &translation, at: .before(i), targeting: f, in: m)
         translation.rewrittenOperand[.register(j)] = .register(k)
       }
 

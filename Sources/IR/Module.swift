@@ -193,6 +193,13 @@ public struct Module {
 
   /// Returns the IDs of the instructions in `b`, in order.
   public func instructions(
+    in b: Block.ID, of f: Function.ID
+  ) -> LazyMapSequence<Block.Instructions.Indices, InstructionID> {
+    self[b, in: f].instructions.indices.lazy.map({ .init(b.address, $0.address) })
+  }
+
+  /// Returns the IDs of the instructions in `b`, in order.
+  public func instructions(
     in b: Block.AbsoluteID
   ) -> LazyMapSequence<Block.Instructions.Indices, AbsoluteInstructionID> {
     self[b].instructions.indices.lazy.map({ .init(b.function, b.address, $0.address) })
@@ -225,6 +232,15 @@ public struct Module {
   func terminator(of block: Block.AbsoluteID) -> AbsoluteInstructionID? {
     if let a = functions[block.function]!.blocks[block.address].instructions.lastAddress {
       return AbsoluteInstructionID(block, a)
+    } else {
+      return nil
+    }
+  }
+
+  /// Returns the register asssigned by `i`, if any.
+  func result(of i: InstructionID, in f: Function.ID) -> Operand? {
+    if self[i, in: f].result != nil {
+      return .register(AbsoluteInstructionID(f, i))
     } else {
       return nil
     }
@@ -870,18 +886,27 @@ public struct Module {
   /// Inserts `newInstruction` at `boundary` and returns its identity.
   @discardableResult
   mutating func insert(
-    _ newInstruction: Instruction, at boundary: InsertionPoint
-  ) -> AbsoluteInstructionID {
+    _ newInstruction: Instruction, at boundary: InsertionPoint, in f: Function.ID
+  ) -> InstructionID {
     switch boundary {
     case .start(let b):
-      return prepend(newInstruction, to: b)
+      return prepend(newInstruction, to: b, in: f)
     case .end(let b):
-      return append(newInstruction, to: b)
+      return append(newInstruction, to: b, in: f)
     case .before(let i):
-      return insert(newInstruction, before: i)
+      return insert(newInstruction, before: i, in: f)
     case .after(let i):
-      return insert(newInstruction, after: i)
+      return insert(newInstruction, after: i, in: f)
     }
+  }
+
+  /// Adds `newInstruction` at the start of `block` and returns its identity.
+  @discardableResult
+  mutating func prepend(_ newInstruction: Instruction, to block: Block.ID, in f: Function.ID) -> InstructionID {
+    precondition(!(newInstruction is Terminator), "terminator must appear last in a block")
+    return InstructionID(insert(newInstruction) { (m, i) in
+      AbsoluteInstructionID(f, block.address, m[block, in: f].instructions.prepend(newInstruction))
+    })
   }
 
   /// Adds `newInstruction` at the start of `block` and returns its identity.
@@ -891,6 +916,23 @@ public struct Module {
     return insert(newInstruction) { (m, i) in
       AbsoluteInstructionID(block, m[block].instructions.prepend(newInstruction))
     }
+  }
+
+  /// Adds `newInstruction` at the end of `block` and returns its identity.
+  @discardableResult
+  mutating func append(_ newInstruction: Instruction, to block: Block.ID, in f: Function.ID) -> InstructionID {
+    if (self[block, in: f].instructions.last is Terminator) {
+      print("ERROR: precondition failed in append(_:to:in:)")
+      print("  function: \(f), block: \(block)")
+      for i in self[block, in: f].instructions {
+        print("  instruction: \(i)")
+      }
+      print("  new instruction: \(newInstruction)")
+    }
+    precondition(!(self[block, in: f].instructions.last is Terminator), "insertion after terminator")
+    return InstructionID(insert(newInstruction) { (m, i) in
+      AbsoluteInstructionID(f, block.address, m[block, in: f].instructions.append(newInstruction))
+    })
   }
 
   /// Adds `newInstruction` at the end of `block` and returns its identity.
@@ -935,13 +977,26 @@ public struct Module {
   @discardableResult
   mutating func insert(
     _ newInstruction: Instruction, before successor: InstructionID, in f: Function.ID
-  ) -> AbsoluteInstructionID {
+  ) -> InstructionID {
     precondition(!(newInstruction is Terminator), "terminator must appear last in a block")
-    return insert(newInstruction) { (m, i) in
+    return InstructionID(insert(newInstruction) { (m, i) in
       let address = m.functions[f]![successor.block].instructions
         .insert(newInstruction, before: successor.address)
       return AbsoluteInstructionID(f, successor.block, address)
-    }
+    })
+  }
+
+  /// Inserts `newInstruction` after `predecessor` and returns its identity.
+  @discardableResult
+  mutating func insert(
+    _ newInstruction: Instruction, after predecessor: InstructionID, in f: Function.ID
+  ) -> InstructionID {
+    precondition(!(instruction(after: predecessor, in: f) is Terminator), "insertion after terminator")
+    return InstructionID(insert(newInstruction) { (m, i) in
+      let address = m.functions[f]![predecessor.block].instructions
+        .insert(newInstruction, after: predecessor.address)
+      return AbsoluteInstructionID(f, predecessor.block, address)
+    })
   }
 
   /// Inserts `newInstruction` after `predecessor` and returns its identity.
@@ -988,6 +1043,16 @@ public struct Module {
     precondition(result(of: AbsoluteInstructionID(f, i)).map(default: true, { uses[$0, default: []].isEmpty }))
     removeUsesMadeBy(AbsoluteInstructionID(f, i))
     self[f][i.block].instructions.remove(at: i.address)
+  }
+
+  /// Removes all instructions after `i` in its containing block and updates def-use chains.
+  ///
+  /// - Requires: Let `S` be the set of removed instructions, all users of a result of `j` in `S`
+  ///   are also in `S`.
+  mutating func removeAllInstructions(after i: InstructionID, in f: Function.ID) {
+    while let a = self[f][i.block].instructions.lastAddress, a != i.address {
+      removeInstruction(.init(i.block, a), in: f)
+    }
   }
 
   /// Removes all instructions after `i` in its containing block and updates def-use chains.

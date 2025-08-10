@@ -62,9 +62,9 @@ extension Module {
   /// Removes the code after calls returning `Never` from `f`.
   private mutating func removeCodeAfterCallsReturningNever(from f: Function.ID) {
     for b in blocks(in: f) {
-      if let i = instructions(in: b).first(where: { returnsNever(InstructionID($0), in: f) }) {
-        removeAllInstructions(after: i)
-        insert(makeUnreachable(at: self[i].site), at: .after(i))
+      if let i = instructions(in: Block.ID(b), of: f).first(where: { returnsNever($0, in: f) }) {
+        removeAllInstructions(after: i, in: f)
+        insert(makeUnreachable(at: self[i, in: f].site), at: .after(i), in: f)
       }
     }
   }

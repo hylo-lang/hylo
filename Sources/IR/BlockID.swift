@@ -13,6 +13,11 @@ extension Block {
       self.address = address
     }
 
+    /// Creates an instance with the given address.
+    public init(_ b: Block.AbsoluteID) {
+      self.address = b.address
+    }
+
     /// Creates an instance denoting the block containing `i`.
     public init(containing i: InstructionID) {
       self.address = i.block
