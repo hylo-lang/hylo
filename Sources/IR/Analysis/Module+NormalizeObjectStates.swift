@@ -184,16 +184,16 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(call i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i, in: f] as! Call
-      let f = s.callee
-      let callee = ArrowType(type(of: f).ast)!
+      let ff = s.callee
+      let callee = ArrowType(type(of: ff, in: f).ast)!
 
       // Evaluate the callee.
 
       switch callee.receiverEffect {
       case .let:
-        assert(f.isConstant || self[f.instruction!].isAccess(callee.receiverEffect))
+        assert(ff.isConstant || self[ff.instruction!].isAccess(callee.receiverEffect))
       case .inout:
-        assert(self[f.instruction!].isAccess(callee.receiverEffect))
+        assert(self[ff.instruction!].isAccess(callee.receiverEffect))
       default:
         UNIMPLEMENTED()
       }
@@ -240,7 +240,7 @@ extension Module {
       let projection = context.withObject(at: l, { $0 })
 
       let start = self[s.start.instruction!] as! OpenCapture
-      let t = RemoteType(self.type(of: start.source).ast)!
+      let t = RemoteType(self.type(of: start.source, in: f).ast)!
 
       switch t.access {
       case .let, .inout, .set:
@@ -354,7 +354,7 @@ extension Module {
       let s = self[i, in: f] as! MarkState
 
       // Built-in values are never consumed.
-      let isBuiltin = type(of: s.storage).ast.isBuiltin
+      let isBuiltin = type(of: s.storage, in: f).ast.isBuiltin
 
       context.forEachObject(at: s.storage) { (o) in
         if s.initialized {
@@ -388,7 +388,7 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(openCapture i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i, in: f] as! OpenCapture
-      let t = RemoteType(self.type(of: s.source).ast)!
+      let t = RemoteType(self.type(of: s.source, in: f).ast)!
       initializeRegister(createdBy: i, projecting: t, from: f, in: &context)
       return successor(of: i)
     }
@@ -522,7 +522,7 @@ extension Module {
       assert(self[source.instruction!].isAccess(.sink), "bad source")
 
       // Built-in values are copied implicitly.
-      if !type(of: source).ast.isBuiltin {
+      if !type(of: source, in: f).ast.isBuiltin {
         context.forEachObject(at: source) { (o) in
           o.value = .full(.consumed(by: [consumer]))
         }
@@ -536,7 +536,7 @@ extension Module {
     ) {
       // Constant values are synthesized on demand. Built-ins are never consumed.
       if case .constant = o { return }
-      if type(of: o).ast.isBuiltin { return }
+      if type(of: o, in: f).ast.isBuiltin { return }
 
       var v = context.locals[o]!.unwrapObject()!
       if v.value == .full(.initialized) {

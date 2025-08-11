@@ -34,25 +34,25 @@ extension Module {
       }
 
       insertClose(i, in: f, atBoundariesOf: region) { (this, site) in
-        this.makeEndAccess(.register(AbsoluteInstructionID(f, i)), at: site)
+        this.makeEndAccess(.register(AbsoluteInstructionID(f, i)), in: f, at: site)
       }
 
     case is OpenCapture:
       let region = extendedLiveRange(of: .register(AbsoluteInstructionID(f, i)))
       insertClose(i, in: f, atBoundariesOf: region) { (this, site) in
-        this.makeCloseCapture(.register(AbsoluteInstructionID(f, i)), at: site)
+        this.makeCloseCapture(.register(AbsoluteInstructionID(f, i)), in: f, at: site)
       }
 
     case is OpenUnion:
       let region = extendedLiveRange(of: .register(AbsoluteInstructionID(f, i)))
       insertClose(i, in: f, atBoundariesOf: region) { (this, site) in
-        this.makeCloseUnion(.register(AbsoluteInstructionID(f, i)), at: site)
+        this.makeCloseUnion(.register(AbsoluteInstructionID(f, i)), in: f, at: site)
       }
 
     case is Project:
       let region = extendedLiveRange(of: .register(AbsoluteInstructionID(f, i)))
       insertClose(i, in: f, atBoundariesOf: region) { (this, site) in
-        this.makeEndProject(.register(AbsoluteInstructionID(f, i)), at: site)
+        this.makeEndProject(.register(AbsoluteInstructionID(f, i)), in: f, at: site)
       }
 
     default:
@@ -115,7 +115,7 @@ extension Module {
         }
 
       case let s as CaptureIn where use.index == 0:
-        let p = provenances(s.target).uniqueElement!
+        let p = provenances(s.target, in: definition.function!).uniqueElement!
         guard self[p] is AllocStack else { UNIMPLEMENTED() }
         let u = self.uses[p, default: []].first(where: { self[$0.user, in: definition.function!] is ReleaseCaptures })!
         return extend(lifetime: r, toInclude: u)

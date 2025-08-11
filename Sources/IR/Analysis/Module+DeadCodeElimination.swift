@@ -73,7 +73,7 @@ extension Module {
   private func returnsNever(_ i: InstructionID, in f: Function.ID) -> Bool {
     switch self[i, in: f] {
     case is Call:
-      return type(of: (self[i, in: f] as! Call).output).ast.isNever
+      return type(of: (self[i, in: f] as! Call).output, in: f).ast.isNever
     case is CallFFI:
       return (self[i, in: f] as! CallFFI).returnType.ast.isNever
     default:

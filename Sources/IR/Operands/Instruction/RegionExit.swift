@@ -47,7 +47,7 @@ extension Module {
 
   /// Creates a region exit anchored at `site` marking an exit of the regions started by `start`.
   func makeRegionExit<Entry: RegionEntry>(
-    _ start: Operand, at anchor: SourceRange
+    _ start: Operand, in f: Function.ID, at anchor: SourceRange
   ) -> RegionExit<Entry> {
     precondition(start.instruction.map({ self[$0] is Entry }) ?? false)
     return .init(start: start, site: anchor)

@@ -67,12 +67,12 @@ extension Module {
   ///   - arguments: The arguments of the call; one for each input of `callee`'s type.
   func makeCall(
     applying callee: Operand, to arguments: [Operand], writingResultTo output: Operand,
-    at site: SourceRange
+    in f: Function.ID, at site: SourceRange
   ) -> Call {
-    let t = ArrowType(type(of: callee).ast)!.strippingEnvironment
+    let t = ArrowType(type(of: callee, in: f).ast)!.strippingEnvironment
     precondition(t.inputs.count == arguments.count)
     precondition(arguments.allSatisfy({ self[$0] is Access }))
-    precondition(isBorrowSet(output))
+    precondition(isBorrowSet(output, in: f))
 
     return .init(callee: callee, output: output, arguments: arguments, site: site)
   }

@@ -75,9 +75,9 @@ extension Module {
   /// - Requires: `targets` has a key defined for each of `union`.
   func makeUnionSwitch(
     over discriminator: Operand, of union: UnionType, toOneOf targets: UnionSwitch.Targets,
-    at site: SourceRange
+    in f: Function.ID, at site: SourceRange
   ) -> UnionSwitch {
-    let t = type(of: discriminator)
+    let t = type(of: discriminator, in: f)
     precondition(t.isObject && t.ast.isBuiltinInteger)
     precondition(union.elements.allSatisfy({ (e) in targets[e] != nil }))
     return .init(discriminator: discriminator, union: union, targets: targets, site: site)

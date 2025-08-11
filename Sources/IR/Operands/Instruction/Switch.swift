@@ -56,9 +56,9 @@ extension Module {
   /// - Requires: `i` is a valid index in `successors`, expressed as a built-in integer, and
   ///   `successors` is not empty.
   func makeSwitch(
-    on index: Operand, toOneOf successors: [Block.AbsoluteID], at site: SourceRange
+    on index: Operand, toOneOf successors: [Block.AbsoluteID], in f: Function.ID, at site: SourceRange
   ) -> Switch {
-    let t = type(of: index)
+    let t = type(of: index, in: f)
     precondition(t.isObject && t.ast.isBuiltinInteger)
     precondition(!successors.isEmpty)
 

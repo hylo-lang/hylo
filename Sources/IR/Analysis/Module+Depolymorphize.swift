@@ -65,7 +65,7 @@ extension IR.Program {
     let g = monomorphize(callee, usedIn: modules[m]!.scope(containing: i, in: f))
     let r = FunctionReference(to: g, in: modules[m]!)
     let new = modules[m]!.makeCall(
-      applying: .constant(r), to: Array(s.arguments), writingResultTo: s.output, at: s.site)
+      applying: .constant(r), to: Array(s.arguments), writingResultTo: s.output, in: f, at: s.site)
     modules[m]!.replace(i, with: new, in: f)
   }
 
@@ -184,7 +184,7 @@ extension IR.Program {
       let s = modules[source]![i, in: f] as! Return
       let j = modify(&modules[target]!) { (m) in
         for i in rewrittenGenericValue.values.reversed() {
-          m.append(m.makeDeallocStack(for: .register(AbsoluteInstructionID(result, i)), at: s.site), to: b)
+          m.append(m.makeDeallocStack(for: .register(AbsoluteInstructionID(result, i)), in: f, at: s.site), to: b)
         }
         return m.append(m.makeReturn(at: s.site), to: b)
       }

@@ -29,7 +29,7 @@ extension Module {
 
   /// Creates a `release_capture` anchored at `site` that releases the accesses previously captured
   /// in `container`.
-  func makeReleaseCapture(_ container: Operand, at site: SourceRange) -> ReleaseCaptures {
+  func makeReleaseCapture(_ container: Operand, in f: Function.ID, at site: SourceRange) -> ReleaseCaptures {
     precondition(container.instruction.map({ self[$0] is AllocStack }) ?? false)
     return .init(container: container, site: site)
   }

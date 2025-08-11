@@ -131,7 +131,7 @@ extension Module {
     // Nothing to do if the request set is already a singleton.
     if s.capabilities == [k] { return }
 
-    let reified = makeAccess([k], from: s.source, correspondingTo: s.binding, at: s.site)
+    let reified = makeAccess([k], from: s.source, correspondingTo: s.binding, in: f, at: s.site)
     replace(i, with: reified, in: f)
   }
 
@@ -143,7 +143,7 @@ extension Module {
     // Generate the proper instructions to prepare the projection's arguments.
     var arguments = s.operands
     for a in arguments.indices where s.parameters[a].access == .yielded {
-      let b = makeAccess([k], from: arguments[a], at: s.site)
+      let b = makeAccess([k], from: arguments[a], in: f, at: s.site)
       arguments[a] = .register(AbsoluteInstructionID(f, insert(b, before: i, in: f)))
     }
 

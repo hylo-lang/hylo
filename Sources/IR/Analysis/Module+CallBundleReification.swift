@@ -17,7 +17,7 @@ extension Module {
     let k = s.capabilities.weakest!
 
     var arguments = Array(s.arguments)
-    let r = makeAccess([k], from: arguments[0], at: s.site)
+    let r = makeAccess([k], from: arguments[0], in: f, at: s.site)
     arguments[0] = .register(AbsoluteInstructionID(f, insert(r, before: i, in: f)))
 
     let b = Block.ID(containing: i)
@@ -25,7 +25,7 @@ extension Module {
       to: s.variants[k]!, in: self, specializedBy: s.bundle.arguments, in: self[b, in: f].scope)
 
     let reified = makeCall(
-      applying: .constant(ff), to: arguments, writingResultTo: s.output, at: s.site)
+      applying: .constant(ff), to: arguments, writingResultTo: s.output, in: f, at: s.site)
     replace(i, with: reified, in: f)
   }
 

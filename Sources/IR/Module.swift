@@ -103,22 +103,21 @@ public struct Module {
   }
 
   /// Returns the type of `operand`.
-  public func type(of operand: Operand) -> IR.`Type` {
+  public func type(of operand: Operand, in f: Function.ID) -> IR.`Type` {
     switch operand {
     case .register(let i):
-      return functions[i.function]![i.block][i.address].result!
+      return functions[f]![i.block][i.address].result!
     case .parameter(let b, let n):
-      return functions[b.function]![b.address].inputs[n]
+      return functions[f]![b.address].inputs[n]
     case .constant(let c):
       return c.type
     }
   }
 
   /// Returns `true` iff cannot be used to modify or update a value.
-  public func isBoundImmutably(_ p: Operand) -> Bool {
+  public func isBoundImmutably(_ p: Operand, in f: Function.ID) -> Bool {
     switch p {
     case .parameter(let e, let i):
-      let f = e.function
       return (entry(of: f) == e) && (passingConvention(parameter: i, of: f) == .let)
     case .constant:
       return false
@@ -133,11 +132,11 @@ public struct Module {
     case is AllocStack:
       return false
     case let s as AdvancedByBytes:
-      return isBoundImmutably(s.base)
+      return isBoundImmutably(s.base, in: i.function)
     case let s as AdvancedByStrides:
-      return isBoundImmutably(s.base)
+      return isBoundImmutably(s.base, in: i.function)
     case let s as Access:
-      return isBoundImmutably(s.source)
+      return isBoundImmutably(s.source, in: i.function)
     case let s as OpenCapture:
       return s.isAccess(.let)
     case is OpenUnion:
@@ -147,18 +146,18 @@ public struct Module {
     case let s as Project:
       return s.projection.access == .let
     case let s as SubfieldView:
-      return isBoundImmutably(s.recordAddress)
+      return isBoundImmutably(s.recordAddress, in: i.function)
     case let s as WrapExistentialAddr:
-      return isBoundImmutably(s.witness)
+      return isBoundImmutably(s.witness, in: i.function)
     default:
       return true
     }
   }
 
   /// If `p` is a function parameter, returns its passing convention. Otherwise, returns `nil`.
-  public func passingConvention(of p: Operand) -> AccessEffect? {
-    if case .parameter(let e, let i) = p, (entry(of: e.function) == e) {
-      return passingConvention(parameter: i, of: e.function)
+  public func passingConvention(of p: Operand, in f: Function.ID) -> AccessEffect? {
+    if case .parameter(let e, let i) = p, (entry(of: f) == e) {
+      return passingConvention(parameter: i, of: f)
     } else {
       return nil
     }
@@ -864,7 +863,7 @@ public struct Module {
   /// - Requires: `new` as the same type as `old`. `f` is in `self`.
   mutating func replaceUses(of old: Operand, with new: Operand, in f: Function.ID) {
     precondition(old != new)
-    precondition(type(of: old) == type(of: new))
+    precondition(type(of: old, in: f) == type(of: new, in: f))
 
     guard var oldUses = uses[old], !oldUses.isEmpty else { return }
     var newUses = uses[new] ?? []
@@ -1088,35 +1087,35 @@ public struct Module {
   /// They form a set because an address computed by a projection depends on that projection's
   /// arguments and because an address defined as a parameter of a basic block with multiple
   /// predecessors depends on that bock's arguments.
-  func provenances(_ a: Operand) -> Set<Operand> {
+  func provenances(_ a: Operand, in f: Function.ID) -> Set<Operand> {
     // TODO: Block arguments
     guard let i = a.instruction else { return [a] }
 
     switch self[i] {
     case let s as AdvancedByBytes:
-      return provenances(s.base)
+      return provenances(s.base, in: f)
     case let s as Access:
-      return provenances(s.source)
+      return provenances(s.source, in: f)
     case let s as Project:
       return s.operands.reduce(into: []) { (p, o) in
-        if type(of: o).isAddress { p.formUnion(provenances(o)) }
+        if type(of: o, in: f).isAddress { p.formUnion(provenances(o, in: f)) }
       }
     case let s as SubfieldView:
-      return provenances(s.recordAddress)
+      return provenances(s.recordAddress, in: f)
     case let s as WrapExistentialAddr:
-      return provenances(s.witness)
+      return provenances(s.witness, in: f)
     default:
       return [a]
     }
   }
 
   /// Returns `true` if `o` can be sunken.
-  func isSink(_ o: Operand) -> Bool {
-    provenances(o).allSatisfy { (p) -> Bool in
+  func isSink(_ o: Operand, in f: Function.ID) -> Bool {
+    provenances(o, in: f).allSatisfy { (p) -> Bool in
       switch p {
       case .parameter(let e, let i):
-        if entry(of: e.function) == e {
-          return self[e.function].inputs[i].type.access == .sink
+        if entry(of: f) == e {
+          return self[f].inputs[i].type.access == .sink
         } else {
           return false
         }
@@ -1138,7 +1137,7 @@ public struct Module {
   }
 
   /// Returns `true` iff `o` is an `access [set]` instruction.
-  func isBorrowSet(_ o: Operand) -> Bool {
+  func isBorrowSet(_ o: Operand, in f: Function.ID) -> Bool {
     guard
       let i = o.instruction,
       let s = self[i] as? Access

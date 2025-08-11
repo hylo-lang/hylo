@@ -801,7 +801,7 @@ extension SwiftyLLVM.Module {
       let s = context.source[i, in: f] as! AdvancedByStrides
 
       let base = llvm(s.base)
-      let baseType = context.ir.llvm(context.source.type(of: s.base).ast, in: &self)
+      let baseType = context.ir.llvm(context.source.type(of: s.base, in: f).ast, in: &self)
       let indices = [i32.constant(0), i32.constant(s.offset)]
       let v = insertGetElementPointerInBounds(
         of: base, typed: baseType, indices: indices, at: insertionPoint)
@@ -850,7 +850,7 @@ extension SwiftyLLVM.Module {
     func insert(callFFI i: IR.InstructionID) {
       let s = context.source[i, in: f] as! CallFFI
       let parameters = s.operands.map { (o) in
-        context.ir.llvm(context.source.type(of: o).ast, in: &self)
+        context.ir.llvm(context.source.type(of: o, in: f).ast, in: &self)
       }
 
       let returnType: SwiftyLLVM.IRType
@@ -877,7 +877,7 @@ extension SwiftyLLVM.Module {
       let open = context.source[s.start.instruction!] as! OpenUnion
 
       // TODO: Memoize somehow
-      let t = UnionType(context.source.type(of: open.container).ast)!
+      let t = UnionType(context.source.type(of: open.container, in: f).ast)!
       let e = context.ir.base.discriminatorToElement(in: t)
       let n = e.firstIndex(of: open.payloadType)!
 
@@ -967,7 +967,7 @@ extension SwiftyLLVM.Module {
       let s = context.source[i, in: f] as! SubfieldView
 
       let base = llvm(s.recordAddress)
-      let baseType = context.ir.llvm(context.source.type(of: s.recordAddress).ast, in: &self)
+      let baseType = context.ir.llvm(context.source.type(of: s.recordAddress, in: f).ast, in: &self)
       let indices = [i32.constant(0)] + s.subfield.map({ i32.constant(UInt64($0)) })
       let v = insertGetElementPointerInBounds(
         of: base, typed: baseType, indices: indices, at: insertionPoint)
@@ -1624,7 +1624,7 @@ extension SwiftyLLVM.Module {
       let target = llvm(s.target)
 
       let l = ConcreteTypeLayout(
-        of: context.source.type(of: s.source).ast, definedIn: context.ir, forUseIn: &self)
+        of: context.source.type(of: s.source, in: f).ast, definedIn: context.ir, forUseIn: &self)
       let byteCount = i32.constant(l.size)
       _ = insertCall(memcpy, on: [target, source, byteCount, i1.zero], at: insertionPoint)
     }
@@ -1638,7 +1638,7 @@ extension SwiftyLLVM.Module {
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(openUnion i: IR.InstructionID) {
       let s = context.source[i, in: f] as! OpenUnion
-      let t = UnionType(context.source.type(of: s.container).ast)!
+      let t = UnionType(context.source.type(of: s.container, in: f).ast)!
 
       let baseType = context.ir.llvm(unionType: t, in: &self)
       let container = llvm(s.container)
@@ -1665,7 +1665,7 @@ extension SwiftyLLVM.Module {
       // All arguments are passed by reference.
       var arguments: [SwiftyLLVM.IRValue] = [x0]
       for a in s.operands {
-        if context.source.type(of: a).isObject {
+        if context.source.type(of: a, in: f).isObject {
           let t = context.ir.llvm(s.result!.ast, in: &self)
           let l = insertAlloca(t, atEntryOf: transpilation)
           insertStore(llvm(a), to: l, at: insertionPoint)
@@ -1794,7 +1794,7 @@ extension SwiftyLLVM.Module {
       }
 
       // `s` is an arrow.
-      let hyloType = ArrowType(context.source.type(of: s).ast)!
+      let hyloType = ArrowType(context.source.type(of: s, in: f).ast)!
       let llvmType = StructType(context.ir.llvm(hyloType, in: &self))!
       let lambda = llvm(s)
 
@@ -1836,7 +1836,7 @@ extension SwiftyLLVM.Module {
 
     /// Returns the value of `container`'s discriminator.
     func discriminator(_ container: IR.Operand) -> SwiftyLLVM.Instruction {
-      let union = UnionType(context.source.type(of: container).ast)!
+      let union = UnionType(context.source.type(of: container, in: f).ast)!
       let baseType = context.ir.llvm(unionType: union, in: &self)
       let container = llvm(container)
       let indices = [i32.constant(0), i32.constant(1)]

@@ -35,9 +35,9 @@ extension Module {
   /// Creates a `union_discriminator` anchored at `site` that returns the discriminator of the
   /// element stored in `container`.
   func makeUnionDiscriminator(
-    _ container: Operand, at site: SourceRange
+    _ container: Operand, in f: Function.ID, at site: SourceRange
   ) -> UnionDiscriminator {
-    precondition(type(of: container).isAddress)
+    precondition(type(of: container, in: f).isAddress)
     return .init(container: container, site: site)
   }
 

@@ -59,7 +59,7 @@ extension Module {
   ///   - arguments: The arguments of the call.
   func makeCallFFI(
     returning returnType: IR.`Type`, applying callee: String, to arguments: [Operand],
-    at site: SourceRange
+    in f: Function.ID, at site: SourceRange
   ) -> CallFFI {
     precondition(returnType.isObject)
     precondition(arguments.allSatisfy({ self[$0] is Load }))
