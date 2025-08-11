@@ -71,7 +71,7 @@ extension Module {
   ) -> Call {
     let t = ArrowType(type(of: callee, in: f).ast)!.strippingEnvironment
     precondition(t.inputs.count == arguments.count)
-    precondition(arguments.allSatisfy({ self[$0] is Access }))
+    precondition(arguments.allSatisfy({ self[$0, in: f] is Access }))
     precondition(isBorrowSet(output, in: f))
 
     return .init(callee: callee, output: output, arguments: arguments, site: site)

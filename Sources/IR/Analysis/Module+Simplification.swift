@@ -20,7 +20,7 @@ extension Module {
   private mutating func eliminateRedundantAccess(_ i: InstructionID, in f: Function.ID) -> InstructionID? {
     guard
       let s = self[i, in: f] as? Access,
-      let r = self[s.source] as? Access,
+      let r = self[s.source, in: f] as? Access,
       s.capabilities == r.capabilities, s.binding == nil
     else {
       return instruction(after: i, in: f)

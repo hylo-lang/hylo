@@ -94,9 +94,9 @@ public struct Module {
   }
 
   /// Accesses the instruction denoted by `o` if it is `.register`; returns `nil` otherwise.
-  public subscript(o: Operand) -> Instruction? {
+  public subscript(o: Operand, in f: Function.ID) -> Instruction? {
     if case .register(let i) = o {
-      return self[i]
+      return self[InstructionID(i), in: f]
     } else {
       return nil
     }

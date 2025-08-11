@@ -22,7 +22,7 @@ extension Module {
   ) {
     switch self[i, in: f] {
     case let s as Access:
-      let region = extendedLiveRange(of: .register(AbsoluteInstructionID(f, i)))
+      let region = extendedLiveRange(of: .register(AbsoluteInstructionID(f, i)), in: f)
 
       // Delete the borrow if it's never used.
       if region.isEmpty {
@@ -38,19 +38,19 @@ extension Module {
       }
 
     case is OpenCapture:
-      let region = extendedLiveRange(of: .register(AbsoluteInstructionID(f, i)))
+      let region = extendedLiveRange(of: .register(AbsoluteInstructionID(f, i)), in: f)
       insertClose(i, in: f, atBoundariesOf: region) { (this, site) in
         this.makeCloseCapture(.register(AbsoluteInstructionID(f, i)), in: f, at: site)
       }
 
     case is OpenUnion:
-      let region = extendedLiveRange(of: .register(AbsoluteInstructionID(f, i)))
+      let region = extendedLiveRange(of: .register(AbsoluteInstructionID(f, i)), in: f)
       insertClose(i, in: f, atBoundariesOf: region) { (this, site) in
         this.makeCloseUnion(.register(AbsoluteInstructionID(f, i)), in: f, at: site)
       }
 
     case is Project:
-      let region = extendedLiveRange(of: .register(AbsoluteInstructionID(f, i)))
+      let region = extendedLiveRange(of: .register(AbsoluteInstructionID(f, i)), in: f)
       insertClose(i, in: f, atBoundariesOf: region) { (this, site) in
         this.makeEndProject(.register(AbsoluteInstructionID(f, i)), in: f, at: site)
       }
@@ -99,7 +99,7 @@ extension Module {
   /// `d` is its live-range merged with the extended live-ranges of the definitions extending `d`.
   ///
   /// - Note: The definition of an operand `o` isn't part of `o`'s lifetime.
-  private func extendedLiveRange(of definition: Operand) -> Lifetime {
+  private func extendedLiveRange(of definition: Operand, in f: Function.ID) -> Lifetime {
     // Nothing to do if the operand has no use.
     guard let uses = self.uses[definition] else { return Lifetime(operand: definition) }
 
@@ -108,17 +108,17 @@ extension Module {
 
     // Extend the lifetime with that of its borrows.
     for use in uses {
-      switch self[use.user, in: definition.function!] {
+      switch self[use.user, in: f] {
       case is LifetimeExtender:
-        if let o = result(of: use.user, in: definition.function!) {
-          r = extend(lifetime: r, toCover: extendedLiveRange(of: o))
+        if let o = result(of: use.user, in: f) {
+          r = extend(lifetime: r, toCover: extendedLiveRange(of: o, in: f), in: f)
         }
 
       case let s as CaptureIn where use.index == 0:
-        let p = provenances(s.target, in: definition.function!).uniqueElement!
-        guard self[p] is AllocStack else { UNIMPLEMENTED() }
-        let u = self.uses[p, default: []].first(where: { self[$0.user, in: definition.function!] is ReleaseCaptures })!
-        return extend(lifetime: r, toInclude: u)
+        let p = provenances(s.target, in: f).uniqueElement!
+        guard self[p, in: f] is AllocStack else { UNIMPLEMENTED() }
+        let u = self.uses[p, default: []].first(where: { self[$0.user, in: f] is ReleaseCaptures })!
+        return extend(lifetime: r, toInclude: u, in: f)
 
       default:
         continue

@@ -155,13 +155,13 @@ extension Module {
   /// Returns `l` in which `i` has been inserted.
   ///
   /// - Requires: The definition of `l` dominates `u`.
-  func extend(lifetime l: Lifetime, toInclude u: Use) -> Lifetime {
+  func extend(lifetime l: Lifetime, toInclude u: Use, in f: Function.ID) -> Lifetime {
     var coverage = l.coverage
     switch coverage[u.user.block] {
     case .closed(let lastUser):
-      coverage[u.user.block] = .closed(lastUse: last(lastUser, u, in: l.operand.function!))
+      coverage[u.user.block] = .closed(lastUse: last(lastUser, u, in: f))
     case .liveIn(let lastUser):
-      coverage[u.user.block] = .liveIn(lastUse: last(lastUser, u, in: l.operand.function!))
+      coverage[u.user.block] = .liveIn(lastUse: last(lastUser, u, in: f))
     default:
       break
     }
@@ -173,9 +173,7 @@ extension Module {
   ///
   /// - Requires: `left` and `right` are defined in the same function, which is in `self`. The
   ///   operand for which `right` is defined must be in `left`.
-  func extend(lifetime left: Lifetime, toCover right: Lifetime) -> Lifetime {
-    precondition(left.operand.function! == right.operand.function!)
-
+  func extend(lifetime left: Lifetime, toCover right: Lifetime, in f: Function.ID) -> Lifetime {
     let coverage = left.coverage.merging(right.coverage) { (a, b) in
       switch (a, b) {
       case (.liveOut, .liveIn), (.liveIn, .liveOut):
@@ -185,13 +183,13 @@ extension Module {
       case (.liveOut, _), (_, .liveOut):
         return .liveOut
       case (.liveIn(let lhs), .liveIn(let rhs)):
-        return .liveIn(lastUse: last(lhs, rhs, in: left.operand.function!))
+        return .liveIn(lastUse: last(lhs, rhs, in: f))
       case (.liveIn(let lhs), .closed(let rhs)):
-        return .liveIn(lastUse: last(lhs, rhs, in: left.operand.function!))
+        return .liveIn(lastUse: last(lhs, rhs, in: f))
       case (.closed(let lhs), .liveIn(let rhs)):
-        return .liveIn(lastUse: last(lhs, rhs, in: left.operand.function!))
+        return .liveIn(lastUse: last(lhs, rhs, in: f))
       case (.closed(let lhs), .closed(let rhs)):
-        return .closed(lastUse: last(lhs, rhs, in: left.operand.function!))
+        return .closed(lastUse: last(lhs, rhs, in: f))
       }
     }
     return .init(operand: left.operand, coverage: coverage)

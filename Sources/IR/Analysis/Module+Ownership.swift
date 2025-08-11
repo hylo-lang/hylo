@@ -80,7 +80,7 @@ extension Module {
         }
       }
 
-      let former = reborrowedSource(s)
+      let former = reborrowedSource(s, in: f)
       var hasConflict = false
       context.forEachObject(at: s.source) { (o) in
         // We can always create new borrows if there aren't any.
@@ -197,7 +197,7 @@ extension Module {
       // case the ended borrow was a reborrow.
       let borrower = end.start.instruction!
       let start = self[borrower] as! Access
-      let former = reborrowedSource(start)
+      let former = reborrowedSource(start, in: f)
       context.forEachObject(at: end.start) { (o) in
         if !o.value.removeBorrower(InstructionID(borrower)) { return }
         if let s = former {
@@ -381,8 +381,8 @@ extension Module {
   }
 
   /// Returns the borrowed instruction from which `b` reborrows, if any.
-  private func reborrowedSource(_ b: Access) -> InstructionID? {
-    if let s = accessSource(b.source).instruction, self[s] is Access {
+  private func reborrowedSource(_ b: Access, in f: Function.ID) -> InstructionID? {
+    if let s = accessSource(b.source, in: f).instruction, self[s] is Access {
       return InstructionID(s)
     } else {
       return nil
@@ -392,18 +392,18 @@ extension Module {
   /// Returns the source of the access denoted by `o`.
   ///
   /// - Requires: `o` denotes a location.
-  private func accessSource(_ o: Operand) -> Operand {
-    switch self[o] {
+  private func accessSource(_ o: Operand, in f: Function.ID) -> Operand {
+    switch self[o, in: f] {
     case let a as AdvancedByBytes:
-      return accessSource(a.base)
+      return accessSource(a.base, in: f)
     case let a as OpenCapture:
-      return accessSource(a.source)
+      return accessSource(a.source, in: f)
     case let a as OpenUnion:
-      return accessSource(a.container)
+      return accessSource(a.container, in: f)
     case let a as SubfieldView:
-      return accessSource(a.recordAddress)
+      return accessSource(a.recordAddress, in: f)
     case let a as WrapExistentialAddr:
-      return accessSource(a.witness)
+      return accessSource(a.witness, in: f)
     default:
       return o
     }

@@ -84,7 +84,7 @@ extension Module {
     let t = MethodType(
       program.canonicalType(of: m.bundle, specializedBy: m.arguments, in: scopeOfUse))!
     precondition((t.inputs.count + 1) == a.count)
-    precondition(a.allSatisfy({ self[$0] is Access }))
+    precondition(a.allSatisfy({ self[$0, in: f] is Access }))
     precondition(isBorrowSet(o, in: f))
 
     return .init(bundle: m, bundleType: t, variants: variants, output: o, arguments: a, site: site)

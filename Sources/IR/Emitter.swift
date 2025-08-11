@@ -1972,7 +1972,7 @@ struct Emitter {
   private mutating func _emitStore(
     access a: Operand, to storage: Operand
   ) {
-    guard let s = module.provenances(storage, in: insertionFunction!).uniqueElement, module[s] is AllocStack else {
+    guard let s = module.provenances(storage, in: insertionFunction!).uniqueElement, module[s, in: insertionFunction!] is AllocStack else {
       report(.error(cannotCaptureAccessAt: currentSource))
       return
     }
@@ -3404,7 +3404,7 @@ struct Emitter {
   ) -> Operand {
     if subfield.isEmpty { return recordAddress }
 
-    if let r = module[recordAddress] as? SubfieldView {
+    if let r = module[recordAddress, in: insertionFunction!] as? SubfieldView {
       let p = r.subfield + subfield
       let s = module.makeSubfieldView(of: r.recordAddress, subfield: p, in: insertionFunction!, at: currentSource)
       return insert(s)!
