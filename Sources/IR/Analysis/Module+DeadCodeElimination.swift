@@ -25,7 +25,7 @@ extension Module {
     for i in definitions where !removed.contains(i) {
       if allUses(of: i, in: f).isEmpty && isRemovableWhenUnused(i, in: f) {
         removed.insert(i)
-        removeUnused(self[i, in: f].operands.compactMap(\.instruction).map(InstructionID.init), keepingTrackIn: &removed, in: f)
+        removeUnused(self[i, in: f].operands.compactMap(\.instruction), keepingTrackIn: &removed, in: f)
         removeInstruction(i, in: f)
       }
     }

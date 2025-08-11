@@ -191,9 +191,9 @@ extension Module {
 
       switch callee.receiverEffect {
       case .let:
-        assert(ff.isConstant || self[ff.instruction!].isAccess(callee.receiverEffect))
+        assert(ff.isConstant || self[ff.instruction!, in: f].isAccess(callee.receiverEffect))
       case .inout:
-        assert(self[ff.instruction!].isAccess(callee.receiverEffect))
+        assert(self[ff.instruction!, in: f].isAccess(callee.receiverEffect))
       default:
         UNIMPLEMENTED()
       }
@@ -206,7 +206,7 @@ extension Module {
         case .sink:
           sink(a, with: i, in: &context)
         case let request:
-          assert(self[a.instruction!].isAccess(request))
+          assert(self[a.instruction!, in: f].isAccess(request))
         }
       }
 
@@ -239,7 +239,7 @@ extension Module {
       let l = context.locals[s.start]!.unwrapLocations()!.uniqueElement!
       let projection = context.withObject(at: l, { $0 })
 
-      let start = self[s.start.instruction!] as! OpenCapture
+      let start = self[s.start.instruction!, in: f] as! OpenCapture
       let t = RemoteType(self.type(of: start.source, in: f).ast)!
 
       switch t.access {
@@ -273,7 +273,7 @@ extension Module {
       }
 
       // Copy the state of the payload to set the state of the container.
-      let start = self[s.start.instruction!] as! OpenUnion
+      let start = self[s.start.instruction!, in: f] as! OpenUnion
       context.forEachObject(at: start.container) { (o) in
         o.value = .full(payloadInitializationState)
       }
@@ -313,7 +313,7 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(endProject i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i, in: f] as! EndProject
-      let r = self[s.start.instruction!] as! Project
+      let r = self[s.start.instruction!, in: f] as! Project
 
       // TODO: Process projection arguments
       finalize(
@@ -503,14 +503,14 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(yield i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i, in: f] as! Yield
-      assert(self[s.projection.instruction!].isAccess(s.capability))
+      assert(self[s.projection.instruction!, in: f].isAccess(s.capability))
       return successor(of: i)
     }
 
     /// Updates `context` to mark all objects at `source`, which is an `access .set`, as having
     /// been fully initialized.
     func initialize(_ source: Operand, in context: inout Context) {
-      assert(self[source.instruction!].isAccess(.set), "bad source")
+      assert(self[source.instruction!, in: f].isAccess(.set), "bad source")
       context.forEachObject(at: source) { (o) in
         o.value = .full(.initialized)
       }
@@ -519,7 +519,7 @@ extension Module {
     /// Updates `context` to mark all objects at `source`, which is an `access .sink`, as having
     /// been consumed by `consumer`.
     func sink(_ source: Operand, with consumer: InstructionID, in context: inout Context) {
-      assert(self[source.instruction!].isAccess(.sink), "bad source")
+      assert(self[source.instruction!, in: f].isAccess(.sink), "bad source")
 
       // Built-in values are copied implicitly.
       if !type(of: source, in: f).ast.isBuiltin {

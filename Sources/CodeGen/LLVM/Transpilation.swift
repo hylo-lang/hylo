@@ -874,7 +874,7 @@ extension SwiftyLLVM.Module {
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(closeUnion i: IR.InstructionID) {
       let s = context.source[i, in: f] as! CloseUnion
-      let open = context.source[s.start.instruction!] as! OpenUnion
+      let open = context.source[s.start.instruction!, in: f] as! OpenUnion
 
       // TODO: Memoize somehow
       let t = UnionType(context.source.type(of: open.container, in: f).ast)!
@@ -947,10 +947,10 @@ extension SwiftyLLVM.Module {
     func insert(endProjection i: IR.InstructionID) {
       let s = context.source[i, in: f] as! EndProject
       let start = s.start.instruction!
-      assert(context.source[start] is Project)
+      assert(context.source[start, in: f] is Project)
 
       let t = SwiftyLLVM.FunctionType(from: [ptr, i1], to: void, in: &self)
-      let p = byproduct[InstructionID(start)]!
+      let p = byproduct[start]!
       _ = insertCall(p.slide, typed: t, on: [p.frame, i1.zero], at: insertionPoint)
     }
 

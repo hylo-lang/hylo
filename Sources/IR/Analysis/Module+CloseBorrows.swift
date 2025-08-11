@@ -72,7 +72,7 @@ extension Module {
       switch boundary {
       case .after(let u):
         // Skip the insertion if the last user already closes the borrow.
-        if let e = self[u, in: f] as? T, e.start.instruction == AbsoluteInstructionID(f, i) {
+        if let e = self[u, in: f] as? T, e.start.instruction == i {
           continue
         }
         let s = make(&self, self[u, in: f].site)
@@ -104,7 +104,7 @@ extension Module {
     guard let uses = self.uses[definition] else { return Lifetime(operand: definition) }
 
     // Compute the live-range of the definition.
-    var r = liveRange(of: definition, definedIn: definition.block!)
+    var r = liveRange(of: definition, definedIn: Block.AbsoluteID(f, definition.block!))
 
     // Extend the lifetime with that of its borrows.
     for use in uses {

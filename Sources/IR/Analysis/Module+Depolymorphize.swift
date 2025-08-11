@@ -184,7 +184,7 @@ extension IR.Program {
       let s = modules[source]![i, in: f] as! Return
       let j = modify(&modules[target]!) { (m) in
         for i in rewrittenGenericValue.values.reversed() {
-          m.append(m.makeDeallocStack(for: .register(AbsoluteInstructionID(result, i)), in: f, at: s.site), to: b)
+          m.append(m.makeDeallocStack(for: .register(AbsoluteInstructionID(result, i)), in: result, at: s.site), to: b)
         }
         return m.append(m.makeReturn(at: s.site), to: b)
       }

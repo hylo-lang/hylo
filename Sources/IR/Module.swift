@@ -1091,7 +1091,7 @@ public struct Module {
     // TODO: Block arguments
     guard let i = a.instruction else { return [a] }
 
-    switch self[i] {
+    switch self[i, in: f] {
     case let s as AdvancedByBytes:
       return provenances(s.base, in: f)
     case let s as Access:
@@ -1140,7 +1140,7 @@ public struct Module {
   func isBorrowSet(_ o: Operand, in f: Function.ID) -> Bool {
     guard
       let i = o.instruction,
-      let s = self[i] as? Access
+      let s = self[i, in: f] as? Access
     else { return false }
     return s.capabilities == .set
   }

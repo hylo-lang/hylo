@@ -73,7 +73,7 @@ struct Lifetime {
       case .liveIn(let use):
         return use.map({ .after($0.user) }) ?? .start(of: Block.ID(b))
       case .closed(let use):
-        return use.map({ .after($0.user) }) ?? .after(InstructionID(operand.instruction!))
+        return use.map({ .after($0.user) }) ?? .after(operand.instruction!)
       case .liveInAndOut, .liveOut:
         return nil
       }

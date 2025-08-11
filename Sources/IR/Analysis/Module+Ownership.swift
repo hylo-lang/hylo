@@ -168,7 +168,7 @@ extension Module {
       }
 
       // Copy the state of the payload to set the state of the container.
-      let start = self[s.start.instruction!] as! OpenUnion
+      let start = self[s.start.instruction!, in: f] as! OpenUnion
       context.forEachObject(at: start.container) { (o) in
         o.value = .full(payloadInitializationState)
       }
@@ -196,10 +196,10 @@ extension Module {
       // Remove the ended borrow from the objects' borrowers, putting the borrowed source back in
       // case the ended borrow was a reborrow.
       let borrower = end.start.instruction!
-      let start = self[borrower] as! Access
+      let start = self[borrower, in: f] as! Access
       let former = reborrowedSource(start, in: f)
       context.forEachObject(at: end.start) { (o) in
-        if !o.value.removeBorrower(InstructionID(borrower)) { return }
+        if !o.value.removeBorrower(borrower) { return }
         if let s = former {
           switch start.capabilities.uniqueElement! {
           case .let:
@@ -216,7 +216,7 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(endProject i: InstructionID, from f: Function.ID, in context: inout Context) {
       let s = self[i, in: f] as! EndProject
-      let r = self[s.start.instruction!] as! Project
+      let r = self[s.start.instruction!, in: f] as! Project
       finalize(region: s.start, projecting: r.projection.access, exitedWith: i, in: &context)
     }
 
@@ -236,7 +236,7 @@ extension Module {
 
       // Simply share the ownership state of the capture container.
       let source = s.source.instruction!
-      context.locals[.register(AbsoluteInstructionID(f, i))] = context.locals[.register(source)]
+      context.locals[.register(AbsoluteInstructionID(f, i))] = context.locals[.register(AbsoluteInstructionID(f, source))]
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
@@ -382,8 +382,8 @@ extension Module {
 
   /// Returns the borrowed instruction from which `b` reborrows, if any.
   private func reborrowedSource(_ b: Access, in f: Function.ID) -> InstructionID? {
-    if let s = accessSource(b.source, in: f).instruction, self[s] is Access {
-      return InstructionID(s)
+    if let s = accessSource(b.source, in: f).instruction, self[s, in: f] is Access {
+      return s
     } else {
       return nil
     }
