@@ -28,6 +28,9 @@ public struct Function {
   /// The blocks in the function.
   public private(set) var blocks: Blocks
 
+  /// The def-use chains of the values in this module.
+  public var uses: [Operand: [Use]] = [:]
+
   /// The entry of the function.
   public var entry: Blocks.Address? { blocks.firstAddress }
 

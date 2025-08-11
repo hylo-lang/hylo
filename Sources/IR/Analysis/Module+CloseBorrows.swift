@@ -101,7 +101,7 @@ extension Module {
   /// - Note: The definition of an operand `o` isn't part of `o`'s lifetime.
   private func extendedLiveRange(of definition: Operand, in f: Function.ID) -> Lifetime {
     // Nothing to do if the operand has no use.
-    guard let uses = self.uses[definition] else { return Lifetime(operand: definition) }
+    guard let uses = self[f].uses[definition] else { return Lifetime(operand: definition) }
 
     // Compute the live-range of the definition.
     var r = liveRange(of: definition, definedIn: Block.AbsoluteID(f, definition.block!))
@@ -117,7 +117,7 @@ extension Module {
       case let s as CaptureIn where use.index == 0:
         let p = provenances(s.target, in: f).uniqueElement!
         guard self[p, in: f] is AllocStack else { UNIMPLEMENTED() }
-        let u = self.uses[p, default: []].first(where: { self[$0.user, in: f] is ReleaseCaptures })!
+        let u = self[f].uses[p, default: []].first(where: { self[$0.user, in: f] is ReleaseCaptures })!
         return extend(lifetime: r, toInclude: u, in: f)
 
       default:

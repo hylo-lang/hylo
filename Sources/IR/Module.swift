@@ -19,9 +19,6 @@ public struct Module {
   /// The module's identifier.
   public let id: ID
 
-  /// The def-use chains of the values in this module.
-  public private(set) var uses: [Operand: [Use]] = [:]
-
   /// The nominal product types defined in the module.
   public private(set) var productTypes: [ProductType] = []
 
@@ -865,8 +862,8 @@ public struct Module {
     precondition(old != new)
     precondition(type(of: old, in: f) == type(of: new, in: f))
 
-    guard var oldUses = uses[old], !oldUses.isEmpty else { return }
-    var newUses = uses[new] ?? []
+    guard var oldUses = self[f].uses[old], !oldUses.isEmpty else { return }
+    var newUses = self[f].uses[new] ?? []
 
     var end = oldUses.count
     for i in oldUses.indices.reversed() {
@@ -878,8 +875,8 @@ public struct Module {
     }
     oldUses.removeSubrange(end...)
 
-    uses[old] = oldUses
-    uses[new] = newUses
+    self[f].uses[old] = oldUses
+    self[f].uses[new] = newUses
   }
 
   /// Inserts `newInstruction` at `boundary` and returns its identity.
@@ -1020,7 +1017,7 @@ public struct Module {
 
     // Update the def-use chains.
     for i in 0 ..< newInstruction.operands.count {
-      uses[newInstruction.operands[i], default: []].append(Use(user: InstructionID(user), index: i))
+      self[user.function].uses[newInstruction.operands[i], default: []].append(Use(user: InstructionID(user), index: i))
     }
 
     return user
@@ -1030,7 +1027,7 @@ public struct Module {
   ///
   /// - Requires: The result of `i` have no users.
   mutating func removeInstruction(_ i: AbsoluteInstructionID) {
-    precondition(result(of: i).map(default: true, { uses[$0, default: []].isEmpty }))
+    precondition(result(of: i).map(default: true, { self[i.function].uses[$0, default: []].isEmpty }))
     removeUsesMadeBy(InstructionID(i), in: i.function)
     self[i.function][i.block].instructions.remove(at: i.address)
   }
@@ -1039,7 +1036,7 @@ public struct Module {
   ///
   /// - Requires: The result of `i` have no users.
   mutating func removeInstruction(_ i: InstructionID, in f: Function.ID) {
-    precondition(result(of: AbsoluteInstructionID(f, i)).map(default: true, { uses[$0, default: []].isEmpty }))
+    precondition(result(of: AbsoluteInstructionID(f, i)).map(default: true, { self[f].uses[$0, default: []].isEmpty }))
     removeUsesMadeBy(i, in: f)
     self[f][i.block].instructions.remove(at: i.address)
   }
@@ -1066,18 +1063,18 @@ public struct Module {
 
   /// Returns the uses of all the registers assigned by `i`.
   func allUses(of i: AbsoluteInstructionID) -> [Use] {
-    result(of: i).map(default: [], { uses[$0, default: []] })
+    result(of: i).map(default: [], { self[i.function].uses[$0, default: []] })
   }
 
   /// Returns the uses of all the registers assigned by `i`.
   func allUses(of i: InstructionID, in f: Function.ID) -> [Use] {
-    result(of: AbsoluteInstructionID(f, i)).map(default: [], { uses[$0, default: []] })
+    result(of: AbsoluteInstructionID(f, i)).map(default: [], { self[f].uses[$0, default: []] })
   }
 
   /// Removes `i` from the def-use chains of its operands.
   private mutating func removeUsesMadeBy(_ i: InstructionID, in f: Function.ID) {
     for o in self[i, in: f].operands {
-      uses[o]?.removeAll(where: { $0.user == i })
+      self[f].uses[o]?.removeAll(where: { $0.user == i })
     }
   }
 
