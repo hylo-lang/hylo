@@ -129,7 +129,7 @@ extension Module {
 
       // Don't set the locals if an error occurred to avoid cascading errors downstream.
       if !hasConflict {
-        context.locals[.register(AbsoluteInstructionID(f, i))] = context.locals[s.source]!
+        context.locals[.register(i)] = context.locals[s.source]!
       }
     }
 
@@ -148,7 +148,7 @@ extension Module {
       }
 
       let newLocations = base.unwrapLocations()!.map({ $0.appending([s.offset]) })
-      context.locals[.register(AbsoluteInstructionID(f, i))] = .locations(Set(newLocations))
+      context.locals[.register(i)] = .locations(Set(newLocations))
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
@@ -236,13 +236,13 @@ extension Module {
 
       // Simply share the ownership state of the capture container.
       let source = s.source.instruction!
-      context.locals[.register(AbsoluteInstructionID(f, i))] = context.locals[.register(AbsoluteInstructionID(f, source))]
+      context.locals[.register(i)] = context.locals[.register(source)]
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(openUnion i: InstructionID, from f: Function.ID, in context: inout Context) {
       let s = self[i, in: f] as! OpenUnion
-      let l = AbstractLocation.root(.register(AbsoluteInstructionID(f, i)))
+      let l = AbstractLocation.root(.register(i))
       precondition(context.memory[l] == nil, "projection leak")
 
       // Operand must be a location.
@@ -253,18 +253,18 @@ extension Module {
       let t = AbstractTypeLayout(of: s.payloadType, definedIn: program)
 
       context.memory[l] = .init(layout: t, value: o.value)
-      context.locals[.register(AbsoluteInstructionID(f, i))] = .locations([l])
+      context.locals[.register(i)] = .locations([l])
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(pointerToAddress i: InstructionID, from f: Function.ID, in context: inout Context) {
       let s = self[i, in: f] as! PointerToAddress
-      let l = AbstractLocation.root(.register(AbsoluteInstructionID(f, i)))
+      let l = AbstractLocation.root(.register(i))
 
       context.memory[l] = .init(
         layout: AbstractTypeLayout(of: s.target.bareType, definedIn: program),
         value: .full(.unique))
-      context.locals[.register(AbsoluteInstructionID(f, i))] = .locations([l])
+      context.locals[.register(i)] = .locations([l])
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
@@ -294,7 +294,7 @@ extension Module {
       }
 
       let newLocations = base.unwrapLocations()!.map({ $0.appending(s.subfield) })
-      context.locals[.register(AbsoluteInstructionID(f, i))] = .locations(Set(newLocations))
+      context.locals[.register(i)] = .locations(Set(newLocations))
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
@@ -305,7 +305,7 @@ extension Module {
         UNIMPLEMENTED()
       }
 
-      context.locals[.register(AbsoluteInstructionID(f, i))] = context.locals[s.witness]
+      context.locals[.register(i)] = context.locals[s.witness]
     }
 
     /// Checks that the state of the object projected in the region defined at `start` and exited
@@ -353,7 +353,7 @@ extension Module {
     in context: inout Context
   ) {
     let l = AbstractTypeLayout(of: t, definedIn: program)
-    let p = Operand.parameter(entry, position)
+    let p = Operand.parameter(Block.ID(entry), position)
 
     switch k {
     case .let, .inout, .set, .sink:
@@ -371,13 +371,13 @@ extension Module {
   private func initializeRegister(
     createdBy i: InstructionID, from f: Function.ID, projecting t: RemoteType, in context: inout Context
   ) {
-    let l = AbstractLocation.root(.register(AbsoluteInstructionID(f, i)))
+    let l = AbstractLocation.root(.register(i))
     precondition(context.memory[l] == nil, "projection leak")
 
     context.memory[l] = .init(
       layout: AbstractTypeLayout(of: t.bareType, definedIn: program),
       value: .full(.unique))
-    context.locals[.register(AbsoluteInstructionID(f, i))] = .locations([l])
+    context.locals[.register(i)] = .locations([l])
   }
 
   /// Returns the borrowed instruction from which `b` reborrows, if any.

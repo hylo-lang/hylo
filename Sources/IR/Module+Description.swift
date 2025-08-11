@@ -56,14 +56,14 @@ extension Module: TextOutputStreamable {
       output.write("\(i)(")
       output.write(
         self[i].inputs.enumerated().lazy
-          .map({ (j, t) in "\(Operand.parameter(i, j)) : \(t)" })
+          .map({ (j, t) in "\(Operand.parameter(Block.ID(i), j)) : \(t)" })
           .joined(separator: ", "))
       output.write("):\n")
 
       for j in instructions(in: i) {
         output.write("  ")
         if let t = self[j].result {
-          output.write("\(Operand.register(j)): \(t) = ")
+          output.write("\(Operand.register(InstructionID(j))): \(t) = ")
         }
         output.write("\(self[j])\n")
       }

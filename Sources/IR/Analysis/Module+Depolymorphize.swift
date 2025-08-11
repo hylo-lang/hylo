@@ -139,7 +139,7 @@ extension IR.Program {
 
     let rewrittenGenericValue = modules[target]!.defineGenericValueArguments(z, in: result)
     var monomorphizer = Monomorphizer(
-      target: result, specialization: z, scopeOfUse: scopeOfUse,
+      source: f, target: result, specialization: z, scopeOfUse: scopeOfUse,
       rewrittenGenericValue: rewrittenGenericValue, rewrittenBlock: rewrittenBlock)
 
     // Iterate over the basic blocks of the source function in a way that guarantees we always
@@ -184,7 +184,7 @@ extension IR.Program {
       let s = modules[source]![i, in: f] as! Return
       let j = modify(&modules[target]!) { (m) in
         for i in rewrittenGenericValue.values.reversed() {
-          m.append(m.makeDeallocStack(for: .register(AbsoluteInstructionID(result, i)), in: result, at: s.site), to: b)
+          m.append(m.makeDeallocStack(for: .register(i), in: result, at: s.site), to: b)
         }
         return m.append(m.makeReturn(at: s.site), to: b)
       }
@@ -307,7 +307,7 @@ extension Module {
         e.insertionFunction = monomorphized
         e.insertionPoint = .end(of: entry)
         e.lowering(at: insertionSite) { e in
-          e._emitStore(int: w, to: .register(AbsoluteInstructionID(monomorphized, s)))
+          e._emitStore(int: w, to: .register(s))
         }
       }
       assert(log.isEmpty)
@@ -322,6 +322,9 @@ extension Module {
 
 /// The monomorphization of a function.
 private struct Monomorphizer: InstructionTransformer {
+
+  /// The source function.
+  let source: Function.ID
 
   /// The target function.
   let target: Function.ID
@@ -356,9 +359,9 @@ private struct Monomorphizer: InstructionTransformer {
     case .constant(let c):
       return .constant(transform(c, in: &ir))
     case .parameter(let b, let i):
-      return .parameter(rewrittenBlock[b]!, i)
+      return .parameter(Block.ID(rewrittenBlock[Block.AbsoluteID(source, b)]!), i)
     case .register(let s):
-      return .register(AbsoluteInstructionID(target, rewrittenInstruction[InstructionID(s)]!))
+      return .register(rewrittenInstruction[s]!)
     }
   }
 

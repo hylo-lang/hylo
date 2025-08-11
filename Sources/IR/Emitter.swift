@@ -91,7 +91,7 @@ struct Emitter {
   /// The address of the return value in the current function, if any.
   private var returnValue: Operand? {
     if let f = insertionFunction, let b = module.entry(of: f), !module[f].isSubscript {
-      return .parameter(b, module[f].inputs.count)
+      return .parameter(Block.ID(b), module[f].inputs.count)
     } else {
       return nil
     }
@@ -244,12 +244,12 @@ struct Emitter {
     var locals = DeclProperty<Operand>()
 
     for (i, c) in program.captures(of: d).enumerated() {
-      locals[c] = .parameter(entry, i)
+      locals[c] = .parameter(Block.ID(entry), i)
     }
 
     let captureCount = locals.count
     for (i, p) in ast[d].parameters.enumerated() {
-      locals[p] = .parameter(entry, i + captureCount)
+      locals[p] = .parameter(Block.ID(entry), i + captureCount)
     }
 
     return Frame(locals: locals)
@@ -298,7 +298,7 @@ struct Emitter {
       // Convert Hylo arguments to their foreign representation. Note that the last parameter of the
       // entry is the address of the FFI's return value.
       let arguments = me.module[entry].inputs.indices.dropLast().map {
-        me._emitConvertToForeign(.parameter(entry, $0))
+        me._emitConvertToForeign(.parameter(Block.ID(entry), $0))
       }
 
       // Return type must be foreign convertible unless it is `Void` or `Never`.
@@ -338,9 +338,9 @@ struct Emitter {
 
     // Configure the locals.
     var locals = DeclProperty<Operand>()
-    locals[ast[d].receiver] = .parameter(entry, 0)
+    locals[ast[d].receiver] = .parameter(Block.ID(entry), 0)
     for (i, p) in ast[d].parameters.enumerated() {
-      locals[p] = .parameter(entry, i + 1)
+      locals[p] = .parameter(Block.ID(entry), i + 1)
     }
 
     // Emit the body.
@@ -350,7 +350,7 @@ struct Emitter {
     }
 
     // If the object is empty, simply mark it initialized.
-    let r = module.type(of: .parameter(entry, 0), in: f).ast
+    let r = module.type(of: .parameter(Block.ID(entry), 0), in: f).ast
     let l = AbstractTypeLayout(of: r, definedIn: program)
 
     if l.properties.isEmpty {
@@ -380,11 +380,11 @@ struct Emitter {
 
     // Configure the locals.
     var parameters = DeclProperty<Operand>()
-    parameters[ast[d].receiver] = .parameter(entry, 0)
+    parameters[ast[d].receiver] = .parameter(Block.ID(entry), 0)
 
     let bundle = MethodDecl.ID(program[d].scope)!
     for (i, p) in ast[bundle].parameters.enumerated() {
-      parameters[p] = .parameter(entry, i + 1)
+      parameters[p] = .parameter(Block.ID(entry), i + 1)
     }
 
     // Emit the body.
@@ -429,24 +429,24 @@ struct Emitter {
 
     // Explicit captures appear first.
     for (i, c) in explicit.enumerated() {
-      locals[c] = .parameter(entry, i)
+      locals[c] = .parameter(Block.ID(entry), i)
     }
 
     // Implicit captures appear next.
     for (i, c) in implicit.enumerated() {
-      locals[c.decl] = .parameter(entry, i + explicit.count)
+      locals[c.decl] = .parameter(Block.ID(entry), i + explicit.count)
     }
 
     // Receiver appears next.
     var captureCount = explicit.count + implicit.count
     if let r = ast[d].receiver {
-      locals[r] = .parameter(entry, captureCount)
+      locals[r] = .parameter(Block.ID(entry), captureCount)
       captureCount += 1
     }
 
     // Explicit parameters appear last.
     for (i, p) in ast[bundle].parameters.enumerated() {
-      locals[p] = .parameter(entry, i + captureCount)
+      locals[p] = .parameter(Block.ID(entry), i + captureCount)
     }
 
     // Emit the body.
@@ -700,7 +700,7 @@ struct Emitter {
   private mutating func lower(syntheticDeinit d: SynthesizedFunctionDecl) {
     withPrologue(of: d) { (me, entry) in
       // The receiver is a sink parameter representing the object to deinitialize.
-      let receiver = Operand.parameter(entry, 0)
+      let receiver = Operand.parameter(Block.ID(entry), 0)
       me._emitDeinitParts(of: receiver)
 
       me._mark_state(.initialized, me.returnValue)
@@ -712,8 +712,8 @@ struct Emitter {
   /// Inserts the IR for `d`, which is a synthetic move initialization method.
   private mutating func lower(syntheticMoveInit d: SynthesizedFunctionDecl) {
     withPrologue(of: d) { (me, entry) in
-      let receiver = Operand.parameter(entry, 0)
-      let argument = Operand.parameter(entry, 1)
+      let receiver = Operand.parameter(Block.ID(entry), 0)
+      let argument = Operand.parameter(Block.ID(entry), 1)
       let object = me.module.type(of: receiver, in: me.insertionFunction!).ast
 
       if object.hasRecordLayout {
@@ -808,8 +808,8 @@ struct Emitter {
   /// Inserts the IR for `d`, which is a synthetic move initialization method.
   private mutating func lower(syntheticMoveAssign d: SynthesizedFunctionDecl) {
     withPrologue(of: d) { (me, entry) in
-      let receiver = Operand.parameter(entry, 0)
-      let argument = Operand.parameter(entry, 1)
+      let receiver = Operand.parameter(Block.ID(entry), 0)
+      let argument = Operand.parameter(Block.ID(entry), 1)
 
       // Deinitialize the receiver.
       me._emitDeinit(receiver)
@@ -825,8 +825,8 @@ struct Emitter {
   /// Inserts the IR for `d`, which is a synthetic copy method.
   private mutating func lower(syntheticCopy d: SynthesizedFunctionDecl) {
     withPrologue(of: d) { (me, entry) in
-      let source = Operand.parameter(entry, 0)
-      let target = Operand.parameter(entry, 1)
+      let source = Operand.parameter(Block.ID(entry), 0)
+      let target = Operand.parameter(Block.ID(entry), 1)
       let object = me.module.type(of: source, in: me.insertionFunction!).ast
 
       if object.hasRecordLayout {
@@ -843,8 +843,8 @@ struct Emitter {
   /// Inserts the ID for `d`, which is an equality operator.
   private mutating func lower(syntheticEqual d: SynthesizedFunctionDecl) {
     withPrologue(of: d) { (me, entry) in
-      let lhs = Operand.parameter(entry, 0)
-      let rhs = Operand.parameter(entry, 1)
+      let lhs = Operand.parameter(Block.ID(entry), 0)
+      let rhs = Operand.parameter(Block.ID(entry), 1)
       let t = me.module.type(of: lhs, in: me.insertionFunction!).ast
 
       if t.hasRecordLayout {
@@ -959,7 +959,7 @@ struct Emitter {
   @discardableResult
   private mutating func lower(globalBindingInitializer d: SynthesizedFunctionDecl) -> Function.ID {
     withPrologue(of: d) { (me, entry) in
-      let storage = Operand.parameter(entry, 0)
+      let storage = Operand.parameter(Block.ID(entry), 0)
       guard case .globalInitialization(let binding) = d.kind else { unreachable() }
 
       let initializer = me.program[binding].initializer!

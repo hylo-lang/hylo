@@ -93,7 +93,7 @@ public struct Module {
   /// Accesses the instruction denoted by `o` if it is `.register`; returns `nil` otherwise.
   public subscript(o: Operand, in f: Function.ID) -> Instruction? {
     if case .register(let i) = o {
-      return self[InstructionID(i), in: f]
+      return self[i, in: f]
     } else {
       return nil
     }
@@ -115,11 +115,11 @@ public struct Module {
   public func isBoundImmutably(_ p: Operand, in f: Function.ID) -> Bool {
     switch p {
     case .parameter(let e, let i):
-      return (entry(of: f) == e) && (passingConvention(parameter: i, of: f) == .let)
+      return (entry(of: f) == Block.AbsoluteID(f, e)) && (passingConvention(parameter: i, of: f) == .let)
     case .constant:
       return false
     case .register(let i):
-      return isBoundImmutably(register: i)
+      return isBoundImmutably(register: AbsoluteInstructionID(f, i))
     }
   }
 
@@ -153,7 +153,7 @@ public struct Module {
 
   /// If `p` is a function parameter, returns its passing convention. Otherwise, returns `nil`.
   public func passingConvention(of p: Operand, in f: Function.ID) -> AccessEffect? {
-    if case .parameter(let e, let i) = p, (entry(of: f) == e) {
+    if case .parameter(let e, let i) = p, (entry(of: f) == Block.AbsoluteID(f, e)) {
       return passingConvention(parameter: i, of: f)
     } else {
       return nil
@@ -236,7 +236,7 @@ public struct Module {
   /// Returns the register asssigned by `i`, if any.
   func result(of i: InstructionID, in f: Function.ID) -> Operand? {
     if self[i, in: f].result != nil {
-      return .register(AbsoluteInstructionID(f, i))
+      return .register(i)
     } else {
       return nil
     }
@@ -245,7 +245,7 @@ public struct Module {
   /// Returns the register asssigned by `i`, if any.
   func result(of i: AbsoluteInstructionID) -> Operand? {
     if self[i].result != nil {
-      return .register(i)
+      return .register(InstructionID(i))
     } else {
       return nil
     }
@@ -774,7 +774,7 @@ public struct Module {
   public func returnValue(of f: Function.ID) -> Operand? {
     let i = functions[f]!
     if !i.isSubscript, let e = entry(of: f) {
-      return Operand.parameter(e, i.inputs.count)
+      return Operand.parameter(Block.ID(e), i.inputs.count)
     } else {
       return nil
     }
@@ -1111,14 +1111,14 @@ public struct Module {
     provenances(o, in: f).allSatisfy { (p) -> Bool in
       switch p {
       case .parameter(let e, let i):
-        if entry(of: f) == e {
+        if entry(of: f) == Block.AbsoluteID(f, e) {
           return self[f].inputs[i].type.access == .sink
         } else {
           return false
         }
 
       case .register(let i):
-        switch self[i] {
+        switch self[i, in: f] {
         case let s as ProjectBundle:
           return s.capabilities.contains(.sink)
         case let s as Project:

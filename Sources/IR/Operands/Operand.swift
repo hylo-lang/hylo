@@ -2,10 +2,10 @@
 public enum Operand {
 
   /// The result of `instruction`.
-  case register(AbsoluteInstructionID)
+  case register(InstructionID)
 
   /// The `index`-th parameter of `block`.
-  case parameter(Block.AbsoluteID, Int)
+  case parameter(Block.ID, Int)
 
   /// A constant value.
   case constant(any Constant)
@@ -29,7 +29,7 @@ public enum Operand {
     case .register(let instruction):
       return Block.ID(instruction.block)
     case .parameter(let block, _):
-      return Block.ID(block)
+      return block
     case .constant(_):
       return nil
     }
@@ -39,7 +39,7 @@ public enum Operand {
   public var instruction: InstructionID? {
     switch self {
     case .register(let instruction):
-      return InstructionID(instruction)
+      return instruction
     default:
       return nil
     }

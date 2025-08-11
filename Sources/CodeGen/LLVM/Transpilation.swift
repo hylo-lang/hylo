@@ -684,7 +684,7 @@ extension SwiftyLLVM.Module {
     }
 
     for i in context.source[context.source.entry(of: f)!].inputs.indices {
-      let o = Operand.parameter(.init(f, entry), i)
+      let o = Operand.parameter(.init(entry), i)
       let s = transpilation.parameters[parameterOffset + i]
       register[o] = s
     }
@@ -783,7 +783,7 @@ extension SwiftyLLVM.Module {
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(addressToPointer i: IR.InstructionID) {
       let s = context.source[i, in: f] as! AddressToPointer
-      register[.register(AbsoluteInstructionID(f, i))] = llvm(s.source)
+      register[.register(i)] = llvm(s.source)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
@@ -793,7 +793,7 @@ extension SwiftyLLVM.Module {
       let base = llvm(s.base)
       let v = insertGetElementPointerInBounds(
         of: base, typed: ptr, indices: [llvm(s.byteOffset)], at: insertionPoint)
-      register[.register(AbsoluteInstructionID(f, i))] = v
+      register[.register(i)] = v
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
@@ -805,7 +805,7 @@ extension SwiftyLLVM.Module {
       let indices = [i32.constant(0), i32.constant(s.offset)]
       let v = insertGetElementPointerInBounds(
         of: base, typed: baseType, indices: indices, at: insertionPoint)
-      register[.register(AbsoluteInstructionID(f, i))] = v
+      register[.register(i)] = v
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
@@ -813,16 +813,16 @@ extension SwiftyLLVM.Module {
       let s = context.source[i, in: f] as! AllocStack
       let t = context.ir.llvm(s.allocatedType, in: &self)
       if layout.storageSize(of: t) == 0 {
-        register[.register(AbsoluteInstructionID(f, i))] = ptr.null
+        register[.register(i)] = ptr.null
       } else {
-        register[.register(AbsoluteInstructionID(f, i))] = insertAlloca(t, atEntryOf: transpilation)
+        register[.register(i)] = insertAlloca(t, atEntryOf: transpilation)
       }
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(access i: IR.InstructionID) {
       let s = context.source[i, in: f] as! Access
-      register[.register(AbsoluteInstructionID(f, i))] = llvm(s.source)
+      register[.register(i)] = llvm(s.source)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
@@ -862,7 +862,7 @@ extension SwiftyLLVM.Module {
 
       let callee = declareFunction(s.callee, .init(from: parameters, to: returnType, in: &self))
       let arguments = s.operands.map({ llvm($0) })
-      register[.register(AbsoluteInstructionID(f, i))] = insertCall(callee, on: arguments, at: insertionPoint)
+      register[.register(i)] = insertCall(callee, on: arguments, at: insertionPoint)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
@@ -902,14 +902,14 @@ extension SwiftyLLVM.Module {
             rebasing: buffer.assumingMemoryBound(to: UInt8.self)[1...])
           _ = payload.initialize(from: s.value)
         }
-        register[.register(AbsoluteInstructionID(f, i))] = i64.constant(units)
+        register[.register(i)] = i64.constant(units)
       }
 
       // Contents has already been incorporated in the module.
       else if let storage = context.strings[s.value] {
         let x0 = insertPtrToInt(storage, to: i64, at: insertionPoint)
         let x1 = insertBitwiseOr(x0, i64(0b11), at: insertionPoint)
-        register[.register(AbsoluteInstructionID(f, i))] = x1
+        register[.register(i)] = x1
       }
 
       // Contents require new out-of-line storage.
@@ -930,7 +930,7 @@ extension SwiftyLLVM.Module {
 
         let x0 = insertPtrToInt(storage, to: i64, at: insertionPoint)
         let x1 = insertBitwiseOr(x0, i64(0b11), at: insertionPoint)
-        register[.register(AbsoluteInstructionID(f, i))] = x1
+        register[.register(i)] = x1
       }
     }
 
@@ -959,7 +959,7 @@ extension SwiftyLLVM.Module {
       let s = context.source[i, in: f] as! IR.GlobalAddr
       let n = context.ir.base.mangled(s.binding)
       let a = declareFunction(n, .init(from: [], to: ptr, in: &self))
-      register[.register(AbsoluteInstructionID(f, i))] = insertCall(a, on: [], at: insertionPoint)
+      register[.register(i)] = insertCall(a, on: [], at: insertionPoint)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
@@ -971,7 +971,7 @@ extension SwiftyLLVM.Module {
       let indices = [i32.constant(0)] + s.subfield.map({ i32.constant(UInt64($0)) })
       let v = insertGetElementPointerInBounds(
         of: base, typed: baseType, indices: indices, at: insertionPoint)
-      register[.register(AbsoluteInstructionID(f, i))] = v
+      register[.register(i)] = v
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
@@ -981,52 +981,52 @@ extension SwiftyLLVM.Module {
       case .add(let p, _):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
-        register[.register(AbsoluteInstructionID(f, i))] = insertAdd(overflow: .init(p), l, r, at: insertionPoint)
+        register[.register(i)] = insertAdd(overflow: .init(p), l, r, at: insertionPoint)
 
       case .sub(let p, _):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
-        register[.register(AbsoluteInstructionID(f, i))] = insertSub(overflow: .init(p), l, r, at: insertionPoint)
+        register[.register(i)] = insertSub(overflow: .init(p), l, r, at: insertionPoint)
 
       case .mul(let p, _):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
-        register[.register(AbsoluteInstructionID(f, i))] = insertMul(overflow: .init(p), l, r, at: insertionPoint)
+        register[.register(i)] = insertMul(overflow: .init(p), l, r, at: insertionPoint)
 
       case .shl:
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
-        register[.register(AbsoluteInstructionID(f, i))] = insertShl(l, r, at: insertionPoint)
+        register[.register(i)] = insertShl(l, r, at: insertionPoint)
 
       case .lshr:
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
-        register[.register(AbsoluteInstructionID(f, i))] = insertLShr(l, r, at: insertionPoint)
+        register[.register(i)] = insertLShr(l, r, at: insertionPoint)
 
       case .ashr:
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
-        register[.register(AbsoluteInstructionID(f, i))] = insertAShr(l, r, at: insertionPoint)
+        register[.register(i)] = insertAShr(l, r, at: insertionPoint)
 
       case .sdiv(let e, _):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
-        register[.register(AbsoluteInstructionID(f, i))] = insertSignedDiv(exact: e, l, r, at: insertionPoint)
+        register[.register(i)] = insertSignedDiv(exact: e, l, r, at: insertionPoint)
 
       case .udiv(let e, _):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
-        register[.register(AbsoluteInstructionID(f, i))] = insertUnsignedDiv(exact: e, l, r, at: insertionPoint)
+        register[.register(i)] = insertUnsignedDiv(exact: e, l, r, at: insertionPoint)
 
       case .srem:
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
-        register[.register(AbsoluteInstructionID(f, i))] = insertSignedRem(l, r, at: insertionPoint)
+        register[.register(i)] = insertSignedRem(l, r, at: insertionPoint)
 
       case .urem:
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
-        register[.register(AbsoluteInstructionID(f, i))] = insertUnsignedRem(l, r, at: insertionPoint)
+        register[.register(i)] = insertUnsignedRem(l, r, at: insertionPoint)
 
       case .signedAdditionWithOverflow(let t):
         let l = llvm(s.operands[0])
@@ -1034,7 +1034,7 @@ extension SwiftyLLVM.Module {
         let ff = intrinsic(
           named: Intrinsic.llvm.sadd.with.overflow,
           for: [context.ir.llvm(builtinType: t, in: &self)])!
-        register[.register(AbsoluteInstructionID(f, i))] = insertCall(
+        register[.register(i)] = insertCall(
           SwiftyLLVM.Function(ff)!, on: [l, r], at: insertionPoint)
 
       case .unsignedAdditionWithOverflow(let t):
@@ -1043,7 +1043,7 @@ extension SwiftyLLVM.Module {
         let ff = intrinsic(
           named: Intrinsic.llvm.uadd.with.overflow,
           for: [context.ir.llvm(builtinType: t, in: &self)])!
-        register[.register(AbsoluteInstructionID(f, i))] = insertCall(
+        register[.register(i)] = insertCall(
           SwiftyLLVM.Function(ff)!, on: [l, r], at: insertionPoint)
 
       case .signedSubtractionWithOverflow(let t):
@@ -1052,7 +1052,7 @@ extension SwiftyLLVM.Module {
         let ff = intrinsic(
           named: Intrinsic.llvm.ssub.with.overflow,
           for: [context.ir.llvm(builtinType: t, in: &self)])!
-        register[.register(AbsoluteInstructionID(f, i))] = insertCall(
+        register[.register(i)] = insertCall(
           SwiftyLLVM.Function(ff)!, on: [l, r], at: insertionPoint)
 
       case .unsignedSubtractionWithOverflow(let t):
@@ -1061,7 +1061,7 @@ extension SwiftyLLVM.Module {
         let ff = intrinsic(
           named: Intrinsic.llvm.usub.with.overflow,
           for: [context.ir.llvm(builtinType: t, in: &self)])!
-        register[.register(AbsoluteInstructionID(f, i))] = insertCall(
+        register[.register(i)] = insertCall(
           SwiftyLLVM.Function(ff)!, on: [l, r], at: insertionPoint)
 
       case .signedMultiplicationWithOverflow(let t):
@@ -1070,7 +1070,7 @@ extension SwiftyLLVM.Module {
         let ff = intrinsic(
           named: Intrinsic.llvm.smul.with.overflow,
           for: [context.ir.llvm(builtinType: t, in: &self)])!
-        register[.register(AbsoluteInstructionID(f, i))] = insertCall(
+        register[.register(i)] = insertCall(
           SwiftyLLVM.Function(ff)!, on: [l, r], at: insertionPoint)
 
       case .unsignedMultiplicationWithOverflow(let t):
@@ -1079,94 +1079,94 @@ extension SwiftyLLVM.Module {
         let ff = intrinsic(
           named: Intrinsic.llvm.umul.with.overflow,
           for: [context.ir.llvm(builtinType: t, in: &self)])!
-        register[.register(AbsoluteInstructionID(f, i))] = insertCall(
+        register[.register(i)] = insertCall(
           SwiftyLLVM.Function(ff)!, on: [l, r], at: insertionPoint)
 
       case .icmp(let p, _):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
-        register[.register(AbsoluteInstructionID(f, i))] = insertIntegerComparison(.init(p), l, r, at: insertionPoint)
+        register[.register(i)] = insertIntegerComparison(.init(p), l, r, at: insertionPoint)
 
       case .and(_):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
-        register[.register(AbsoluteInstructionID(f, i))] = insertBitwiseAnd(l, r, at: insertionPoint)
+        register[.register(i)] = insertBitwiseAnd(l, r, at: insertionPoint)
 
       case .or(_):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
-        register[.register(AbsoluteInstructionID(f, i))] = insertBitwiseOr(l, r, at: insertionPoint)
+        register[.register(i)] = insertBitwiseOr(l, r, at: insertionPoint)
 
       case .xor(_):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
-        register[.register(AbsoluteInstructionID(f, i))] = insertBitwiseXor(l, r, at: insertionPoint)
+        register[.register(i)] = insertBitwiseXor(l, r, at: insertionPoint)
 
       case .trunc(_, let t):
         let target = context.ir.llvm(builtinType: t, in: &self)
         let source = llvm(s.operands[0])
-        register[.register(AbsoluteInstructionID(f, i))] = insertTrunc(source, to: target, at: insertionPoint)
+        register[.register(i)] = insertTrunc(source, to: target, at: insertionPoint)
 
       case .zext(_, let t):
         let target = context.ir.llvm(builtinType: t, in: &self)
         let source = llvm(s.operands[0])
-        register[.register(AbsoluteInstructionID(f, i))] = insertZeroExtend(source, to: target, at: insertionPoint)
+        register[.register(i)] = insertZeroExtend(source, to: target, at: insertionPoint)
 
       case .sext(_, let t):
         let target = context.ir.llvm(builtinType: t, in: &self)
         let source = llvm(s.operands[0])
-        register[.register(AbsoluteInstructionID(f, i))] = insertSignExtend(source, to: target, at: insertionPoint)
+        register[.register(i)] = insertSignExtend(source, to: target, at: insertionPoint)
 
       case .inttoptr(_):
         let source = llvm(s.operands[0])
-        register[.register(AbsoluteInstructionID(f, i))] = insertIntToPtr(source, at: insertionPoint)
+        register[.register(i)] = insertIntToPtr(source, at: insertionPoint)
 
       case .ptrtoint(let t):
         let target = context.ir.llvm(builtinType: t, in: &self)
         let source = llvm(s.operands[0])
-        register[.register(AbsoluteInstructionID(f, i))] = insertPtrToInt(source, to: target, at: insertionPoint)
+        register[.register(i)] = insertPtrToInt(source, to: target, at: insertionPoint)
 
       case .fadd:
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
-        register[.register(AbsoluteInstructionID(f, i))] = insertFAdd(l, r, at: insertionPoint)
+        register[.register(i)] = insertFAdd(l, r, at: insertionPoint)
 
       case .fsub:
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
-        register[.register(AbsoluteInstructionID(f, i))] = insertFSub(l, r, at: insertionPoint)
+        register[.register(i)] = insertFSub(l, r, at: insertionPoint)
 
       case .fmul:
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
-        register[.register(AbsoluteInstructionID(f, i))] = insertFMul(l, r, at: insertionPoint)
+        register[.register(i)] = insertFMul(l, r, at: insertionPoint)
 
       case .fdiv:
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
-        register[.register(AbsoluteInstructionID(f, i))] = insertFDiv(l, r, at: insertionPoint)
+        register[.register(i)] = insertFDiv(l, r, at: insertionPoint)
 
       case .frem:
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
-        register[.register(AbsoluteInstructionID(f, i))] = insertFRem(l, r, at: insertionPoint)
+        register[.register(i)] = insertFRem(l, r, at: insertionPoint)
 
       case .fcmp(_, let p, _):
         let l = llvm(s.operands[0])
         let r = llvm(s.operands[1])
-        register[.register(AbsoluteInstructionID(f, i))] = insertFloatingPointComparison(.init(p), l, r, at: insertionPoint)
+        register[.register(i)] = insertFloatingPointComparison(.init(p), l, r, at: insertionPoint)
 
       case .fptrunc(_, let t):
         let target = context.ir.llvm(builtinType: t, in: &self)
         let source = llvm(s.operands[0])
-        register[.register(AbsoluteInstructionID(f, i))] = insertFPTrunc(source, to: target, at: insertionPoint)
+        register[.register(i)] = insertFPTrunc(source, to: target, at: insertionPoint)
 
       case .ctpop(let t):
         let source = llvm(s.operands[0])
         let ff = intrinsic(
           named: Intrinsic.llvm.ctpop,
           for: [context.ir.llvm(builtinType: t, in: &self)])!
-        register[.register(AbsoluteInstructionID(f, i))] = insertCall(
+        register[.register(i)] = insertCall(
           SwiftyLLVM.Function(ff)!, on: [source], at: insertionPoint)
 
       case .ctlz(let t):
@@ -1174,7 +1174,7 @@ extension SwiftyLLVM.Module {
         let ff = intrinsic(
           named: Intrinsic.llvm.ctlz,
           for: [context.ir.llvm(builtinType: t, in: &self)])!
-        register[.register(AbsoluteInstructionID(f, i))] = insertCall(
+        register[.register(i)] = insertCall(
           SwiftyLLVM.Function(ff)!, on: [source, i1.zero], at: insertionPoint)
 
       case .cttz(let t):
@@ -1182,35 +1182,35 @@ extension SwiftyLLVM.Module {
         let ff = intrinsic(
           named: Intrinsic.llvm.cttz,
           for: [context.ir.llvm(builtinType: t, in: &self)])!
-        register[.register(AbsoluteInstructionID(f, i))] = insertCall(
+        register[.register(i)] = insertCall(
           SwiftyLLVM.Function(ff)!, on: [source, i1.zero], at: insertionPoint)
 
       case .zeroinitializer(let t):
-        register[.register(AbsoluteInstructionID(f, i))] = context.ir.llvm(builtinType: t, in: &self).null
+        register[.register(i)] = context.ir.llvm(builtinType: t, in: &self).null
 
       case .advancedByBytes:
         let base = llvm(s.operands[0])
         let byteOffset = llvm(s.operands[1])
-        register[.register(AbsoluteInstructionID(f, i))] = insertGetElementPointerInBounds(
+        register[.register(i)] = insertGetElementPointerInBounds(
           of: base, typed: i8, indices: [byteOffset], at: insertionPoint)
 
       case .atomic_load_relaxed:
         let source = llvm(s.operands[0])
         let l = insertLoad(ptr, from: source, at: insertionPoint)
         setOrdering(.monotonic, for: l)
-        register[.register(AbsoluteInstructionID(f, i))] = l
+        register[.register(i)] = l
 
       case .atomic_load_acquire:
         let source = llvm(s.operands[0])
         let l = insertLoad(ptr, from: source, at: insertionPoint)
         setOrdering(.acquire, for: l)
-        register[.register(AbsoluteInstructionID(f, i))] = l
+        register[.register(i)] = l
 
       case .atomic_load_seqcst:
         let source = llvm(s.operands[0])
         let l = insertLoad(ptr, from: source, at: insertionPoint)
         setOrdering(.sequentiallyConsistent, for: l)
-        register[.register(AbsoluteInstructionID(f, i))] = l
+        register[.register(i)] = l
 
       case .atomic_store_relaxed:
         let target = llvm(s.operands[0])
@@ -1579,7 +1579,7 @@ extension SwiftyLLVM.Module {
       let target = llvm(s.operands[0])
       let value = llvm(s.operands[1])
       let o = insertAtomicRMW(target, operation: oper, value: value, ordering: ordering, singleThread: false, at: insertionPoint)
-      register[.register(AbsoluteInstructionID(f, i))] = o
+      register[.register(i)] = o
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
@@ -1597,13 +1597,13 @@ extension SwiftyLLVM.Module {
         weak: weak,
         singleThread: false,
         at: insertionPoint)
-      register[.register(AbsoluteInstructionID(f, i))] = o
+      register[.register(i)] = o
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insertAtomicFence(_ ordering: AtomicOrdering, singleThread: Bool, for i: IR.InstructionID) {
       insertFence(ordering, singleThread: singleThread, at: insertionPoint)
-      register[.register(AbsoluteInstructionID(f, i))] = ptr.null
+      register[.register(i)] = ptr.null
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
@@ -1611,7 +1611,7 @@ extension SwiftyLLVM.Module {
       let s = context.source[i, in: f] as! Load
       let t = context.ir.llvm(s.objectType.ast, in: &self)
       let source = llvm(s.source)
-      register[.register(AbsoluteInstructionID(f, i))] = insertLoad(t, from: source, at: insertionPoint)
+      register[.register(i)] = insertLoad(t, from: source, at: insertionPoint)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
@@ -1632,7 +1632,7 @@ extension SwiftyLLVM.Module {
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(openCapture i: IR.InstructionID) {
       let s = context.source[i, in: f] as! OpenCapture
-      register[.register(AbsoluteInstructionID(f, i))] = insertLoad(ptr, from: llvm(s.source), at: insertionPoint)
+      register[.register(i)] = insertLoad(ptr, from: llvm(s.source), at: insertionPoint)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
@@ -1643,14 +1643,14 @@ extension SwiftyLLVM.Module {
       let baseType = context.ir.llvm(unionType: t, in: &self)
       let container = llvm(s.container)
       let indices = [i32.constant(0), i32.constant(0)]
-      register[.register(AbsoluteInstructionID(f, i))] = insertGetElementPointerInBounds(
+      register[.register(i)] = insertGetElementPointerInBounds(
         of: container, typed: baseType, indices: indices, at: insertionPoint)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(pointerToAddress i: IR.InstructionID) {
       let s = context.source[i, in: f] as! IR.PointerToAddress
-      register[.register(AbsoluteInstructionID(f, i))] = llvm(s.source)
+      register[.register(i)] = llvm(s.source)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
@@ -1683,7 +1683,7 @@ extension SwiftyLLVM.Module {
       // %2 = call {ptr, ptr} %1(...)
       let x2 = insertCall(x1, typed: ff.valueType, on: arguments, at: insertionPoint)
 
-      register[.register(AbsoluteInstructionID(f, i))] = insertExtractValue(from: x2, at: 1, at: insertionPoint)
+      register[.register(i)] = insertExtractValue(from: x2, at: 1, at: insertionPoint)
       byproduct[i] = (slide: insertExtractValue(from: x2, at: 0, at: insertionPoint), frame: x0)
     }
 
@@ -1727,7 +1727,7 @@ extension SwiftyLLVM.Module {
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(unionDiscriminator i: IR.InstructionID) {
       let s = context.source[i, in: f] as! UnionDiscriminator
-      register[.register(AbsoluteInstructionID(f, i))] = discriminator(s.container)
+      register[.register(i)] = discriminator(s.container)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
@@ -1761,7 +1761,7 @@ extension SwiftyLLVM.Module {
       let t = containerType()
       let a = insertAlloca(t, atEntryOf: transpilation)
       insertStore(container(witness: s.witness, table: s.table), to: a, at: insertionPoint)
-      register[.register(AbsoluteInstructionID(f, i))] = a
+      register[.register(i)] = a
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.

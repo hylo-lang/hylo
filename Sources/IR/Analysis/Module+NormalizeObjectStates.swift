@@ -136,7 +136,7 @@ extension Module {
         unreachable()
       }
 
-      context.locals[.register(AbsoluteInstructionID(f, i))] = context.locals[s.source]
+      context.locals[.register(i)] = context.locals[s.source]
       return successor(of: i)
     }
 
@@ -149,7 +149,7 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(allocStack i: InstructionID, in context: inout Context) -> PC? {
       // A stack leak may occur if this instruction is in a loop.
-      let l = AbstractLocation.root(.register(AbsoluteInstructionID(f, i)))
+      let l = AbstractLocation.root(.register(i))
       precondition(context.memory[l] == nil, "stack leak")
       context.declareStorage(assignedTo: i, from: f, in: self, initially: .uninitialized)
       return successor(of: i)
@@ -177,7 +177,7 @@ extension Module {
         locations = context.locals[s.base]!.unwrapLocations()!.map({ $0.appending([s.offset]) })
       }
 
-      context.locals[.register(AbsoluteInstructionID(f, i))] = .locations(Set(locations))
+      context.locals[.register(i)] = .locations(Set(locations))
       return successor(of: i)
     }
 
@@ -396,7 +396,7 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(openUnion i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i, in: f] as! OpenUnion
-      let l = AbstractLocation.root(.register(AbsoluteInstructionID(f, i)))
+      let l = AbstractLocation.root(.register(i))
       precondition(context.memory[l] == nil, "overlapping accesses to union payload")
 
       // Operand must be a location.
@@ -407,7 +407,7 @@ extension Module {
       let t = AbstractTypeLayout(of: s.payloadType, definedIn: program)
 
       context.memory[l] = .init(layout: t, value: o.value)
-      context.locals[.register(AbsoluteInstructionID(f, i))] = .locations([l])
+      context.locals[.register(i)] = .locations([l])
       return successor(of: i)
     }
 
@@ -434,7 +434,7 @@ extension Module {
       // Make sure that all non-sink parameters are initialized on exit.
       let entry = entry(of: f)!
       for (k, p) in self[f].inputs.enumerated() {
-        let source = Operand.parameter(entry, k)
+        let source = Operand.parameter(Block.ID(entry), k)
         if p.type.access == .sink {
           ensureUninitializedOnExit(
             source, in: &context, insertingDeinitializationBefore: i, in: f,
@@ -478,7 +478,7 @@ extension Module {
           })
       }
 
-      context.locals[.register(AbsoluteInstructionID(f, i))] = .locations(Set(locations))
+      context.locals[.register(i)] = .locations(Set(locations))
       return successor(of: i)
     }
 
@@ -496,7 +496,7 @@ extension Module {
         UNIMPLEMENTED()
       }
 
-      context.locals[.register(AbsoluteInstructionID(f, i))] = context.locals[s.witness]
+      context.locals[.register(i)] = context.locals[s.witness]
       return successor(of: i)
     }
 
@@ -691,7 +691,7 @@ extension Module {
     in context: inout Context
   ) {
     let l = AbstractTypeLayout(of: t, definedIn: program)
-    let p = Operand.parameter(entry, position)
+    let p = Operand.parameter(Block.ID(entry), position)
 
     switch k {
     case .let, .inout, .sink:
@@ -713,7 +713,7 @@ extension Module {
   private func initializeRegister(
     createdBy i: InstructionID, from f: Function.ID, in context: inout Context) {
     if let t = self[i, in: f].result {
-      context.locals[.register(AbsoluteInstructionID(f, i))] = .object(
+      context.locals[.register(i)] = .object(
         .init(layout: .init(of: t.ast, definedIn: program), value: .full(.initialized)))
     }
   }
@@ -723,11 +723,11 @@ extension Module {
   private func initializeRegister(
     createdBy i: InstructionID, projecting t: RemoteType, from f: Function.ID, in context: inout Context
   ) {
-    let l = AbstractLocation.root(.register(AbsoluteInstructionID(f, i)))
+    let l = AbstractLocation.root(.register(i))
     context.memory[l] = .init(
       layout: AbstractTypeLayout(of: t.bareType, definedIn: program),
       value: .full(t.access == .set ? .uninitialized : .initialized))
-    context.locals[.register(AbsoluteInstructionID(f, i))] = .locations([l])
+    context.locals[.register(i)] = .locations([l])
   }
 
   /// Inserts IR for the deinitialization of `root` at given `initializedSubfields` before

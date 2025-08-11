@@ -144,7 +144,7 @@ extension Module {
     var arguments = s.operands
     for a in arguments.indices where s.parameters[a].access == .yielded {
       let b = makeAccess([k], from: arguments[a], in: f, at: s.site)
-      arguments[a] = .register(AbsoluteInstructionID(f, insert(b, before: i, in: f)))
+      arguments[a] = .register(insert(b, before: i, in: f))
     }
 
     let o = RemoteType(k, s.projection)

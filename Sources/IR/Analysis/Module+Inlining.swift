@@ -76,15 +76,15 @@ extension IR.Program {
     if modules[source]![callee.function].blocks.count == 1 {
       let e = Block.AbsoluteID(callee.function, modules[source]![callee.function].entry!)
 
-      translation.rewrittenOperand[.parameter(e, s.arguments.count)] = s.output
+      translation.rewrittenOperand[.parameter(Block.ID(e), s.arguments.count)] = s.output
       for (n, o) in s.arguments.enumerated() {
-        translation.rewrittenOperand[.parameter(e, n)] = o
+        translation.rewrittenOperand[.parameter(Block.ID(e), n)] = o
       }
 
       for j in modules[source]!.instructions(in: e) {
         if modules[source]![j] is Terminator { break }
         let k = self.rewrite(j, from: source, transformedBy: &translation, at: .before(i), targeting: f, in: m)
-        translation.rewrittenOperand[.register(j)] = .register(k)
+        translation.rewrittenOperand[.register(InstructionID(j))] = .register(InstructionID(k))
       }
 
       modules[m]!.removeInstruction(i, in: f)

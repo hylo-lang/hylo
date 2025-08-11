@@ -22,7 +22,7 @@ extension Module {
   ) {
     switch self[i, in: f] {
     case let s as Access:
-      let region = extendedLiveRange(of: .register(AbsoluteInstructionID(f, i)), in: f)
+      let region = extendedLiveRange(of: .register(i), in: f)
 
       // Delete the borrow if it's never used.
       if region.isEmpty {
@@ -34,25 +34,25 @@ extension Module {
       }
 
       insertClose(i, in: f, atBoundariesOf: region) { (this, site) in
-        this.makeEndAccess(.register(AbsoluteInstructionID(f, i)), in: f, at: site)
+        this.makeEndAccess(.register(i), in: f, at: site)
       }
 
     case is OpenCapture:
-      let region = extendedLiveRange(of: .register(AbsoluteInstructionID(f, i)), in: f)
+      let region = extendedLiveRange(of: .register(i), in: f)
       insertClose(i, in: f, atBoundariesOf: region) { (this, site) in
-        this.makeCloseCapture(.register(AbsoluteInstructionID(f, i)), in: f, at: site)
+        this.makeCloseCapture(.register(i), in: f, at: site)
       }
 
     case is OpenUnion:
-      let region = extendedLiveRange(of: .register(AbsoluteInstructionID(f, i)), in: f)
+      let region = extendedLiveRange(of: .register(i), in: f)
       insertClose(i, in: f, atBoundariesOf: region) { (this, site) in
-        this.makeCloseUnion(.register(AbsoluteInstructionID(f, i)), in: f, at: site)
+        this.makeCloseUnion(.register(i), in: f, at: site)
       }
 
     case is Project:
-      let region = extendedLiveRange(of: .register(AbsoluteInstructionID(f, i)), in: f)
+      let region = extendedLiveRange(of: .register(i), in: f)
       insertClose(i, in: f, atBoundariesOf: region) { (this, site) in
-        this.makeEndProject(.register(AbsoluteInstructionID(f, i)), in: f, at: site)
+        this.makeEndProject(.register(i), in: f, at: site)
       }
 
     default:

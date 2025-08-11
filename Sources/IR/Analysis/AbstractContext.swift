@@ -72,11 +72,11 @@ struct AbstractContext<Domain: AbstractDomain>: Equatable {
   mutating func declareStorage(
     assignedTo i: InstructionID, from f: Function.ID, in m: Module, initially initialState: Domain
   ) {
-    let t = m.type(of: .register(AbsoluteInstructionID(f, i)), in: f).ast
+    let t = m.type(of: .register(i), in: f).ast
     let l = AbstractTypeLayout(of: t, definedIn: m.program)
-    let a = AbstractLocation.root(.register(AbsoluteInstructionID(f, i)))
+    let a = AbstractLocation.root(.register(i))
     memory[a] = .init(layout: l, value: .full(initialState))
-    locals[.register(AbsoluteInstructionID(f, i))] = .locations([a])
+    locals[.register(i)] = .locations([a])
   }
 
 }

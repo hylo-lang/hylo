@@ -29,7 +29,7 @@ extension Module {
     for u in allUses(of: i, in: f) where self[u.user, in: f] is EndAccess {
       removeInstruction(u.user, in: f)
     }
-    replaceUses(of: .register(AbsoluteInstructionID(f, i)), with: s.source, in: f)
+    replaceUses(of: .register(i), with: s.source, in: f)
 
     defer { removeInstruction(i, in: f) }
     return instruction(after: i, in: f)
