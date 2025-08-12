@@ -921,22 +921,6 @@ public struct Module {
     })
   }
 
-  /// Inserts `newInstruction` at `position` and returns its identity.
-  ///
-  /// The instruction is inserted before the instruction currently at `position`. You can pass a
-  /// "past the end" position to append at the end of a block.
-  @discardableResult
-  mutating func insert(
-    _ newInstruction: Instruction, at position: InstructionIndex
-  ) -> AbsoluteInstructionID {
-    precondition(!(newInstruction is Terminator), "terminator must appear last in a block")
-    return insert(newInstruction) { (m, i) in
-      let address = m.functions[position.function]![position.block].instructions
-        .insert(newInstruction, at: position.index)
-      return AbsoluteInstructionID(position.function, position.block, address)
-    }
-  }
-
   /// Inserts `newInstruction` before `successor` and returns its identity.
   @discardableResult
   mutating func insert(

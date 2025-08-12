@@ -2,7 +2,7 @@ import Utils
 
 /// The stable identity of an instruction in its function.
 ///
-/// - SeeAlso: `AbsoluteInstructionID`, `InstructionIndex`
+/// - SeeAlso: `AbsoluteInstructionID`
 public struct InstructionID: Hashable {
 
   /// The block containing the instruction.
