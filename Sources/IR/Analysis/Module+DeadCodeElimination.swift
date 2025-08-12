@@ -14,7 +14,7 @@ extension Module {
   /// Removes the instructions if `f` that have no user.
   private mutating func removeUnusedDefinitions(from f: Function.ID) {
     var s = Set<InstructionID>()
-    removeUnused(blocks(in: f).map(instructions(in:)).joined().map(InstructionID.init), keepingTrackIn: &s, in: f)
+    removeUnused(instructions(in: f), keepingTrackIn: &s, in: f)
   }
 
   /// Removes the instructions in `definitions` that have no user, accumulating the IDs of removed
@@ -48,7 +48,7 @@ extension Module {
       var i = 0
       while i < e {
         if cfg.predecessors(of: work[i]).isEmpty {
-          removeBlock(.init(f, work[i]))
+          removeBlock(Block.ID(work[i]), from: f)
           work.swapAt(i, e - 1)
           changed = true
           e -= 1
@@ -62,7 +62,7 @@ extension Module {
   /// Removes the code after calls returning `Never` from `f`.
   private mutating func removeCodeAfterCallsReturningNever(from f: Function.ID) {
     for b in blocks(in: f) {
-      if let i = instructions(in: Block.ID(b), of: f).first(where: { returnsNever($0, in: f) }) {
+      if let i = instructions(in: b, of: f).first(where: { returnsNever($0, in: f) }) {
         removeAllInstructions(after: i, in: f)
         insert(makeUnreachable(at: self[i, in: f].site), at: .after(i), in: f)
       }

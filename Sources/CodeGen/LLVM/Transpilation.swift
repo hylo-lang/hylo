@@ -683,20 +683,20 @@ extension SwiftyLLVM.Module {
       frame = nil
     }
 
-    for i in context.source[context.source.entry(of: f)!].inputs.indices {
+    for i in context.source[context.source.entry(of: f)!, in: f].inputs.indices {
       let o = Operand.parameter(.init(entry), i)
       let s = transpilation.parameters[parameterOffset + i]
       register[o] = s
     }
 
     for b in context.source.blocks(in: f) {
-      block[Block.ID(b)] = appendBlock(named: b.description, to: transpilation)
+      block[b] = appendBlock(named: b.description, to: transpilation)
     }
 
     for b in context.source.blocks(in: f) {
-      insertionPoint = endOf(block[Block.ID(b)]!)
-      for i in context.source.instructions(in: b) {
-        insert(InstructionID(i))
+      insertionPoint = endOf(block[b]!)
+      for i in context.source.instructions(in: b, of: f) {
+        insert(i)
       }
     }
 

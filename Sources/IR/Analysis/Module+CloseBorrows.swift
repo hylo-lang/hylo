@@ -8,10 +8,8 @@ extension Module {
   ///
   /// - Requires: `self` is has gone through access reification. `f` is in `self`.
   public mutating func closeBorrows(in f: Function.ID, diagnostics: inout DiagnosticSet) {
-    for blockToProcess in blocks(in: f) {
-      for i in instructions(in: blockToProcess) {
-        close(InstructionID(i), in: f, reportingDiagnosticsTo: &diagnostics)
-      }
+    for i in instructions(in: f) {
+      close(i, in: f, reportingDiagnosticsTo: &diagnostics)
     }
   }
 

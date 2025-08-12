@@ -434,7 +434,7 @@ extension Module {
       // Make sure that all non-sink parameters are initialized on exit.
       let entry = entry(of: f)!
       for (k, p) in self[f].inputs.enumerated() {
-        let source = Operand.parameter(Block.ID(entry), k)
+        let source = Operand.parameter(entry, k)
         if p.type.access == .sink {
           ensureUninitializedOnExit(
             source, in: &context, insertingDeinitializationBefore: i, in: f,

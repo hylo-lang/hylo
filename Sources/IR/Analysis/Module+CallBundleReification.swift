@@ -7,8 +7,8 @@ extension Module {
   ///
   /// - Requires: `f` is in `self`.
   public mutating func reifyCallsToBundles(in f: Function.ID, diagnostics: inout DiagnosticSet) {
-    for i in blocks(in: f).map(instructions(in:)).joined() where self[i] is CallBundle {
-      reify(callBundle: InstructionID(i), in: f)
+    for i in instructions(in: f) where self[i, in: f] is CallBundle {
+      reify(callBundle: i, in: f)
     }
   }
 

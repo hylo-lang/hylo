@@ -33,18 +33,16 @@ extension Block {
       InstructionID(address, instructionAddress)
     }
 
-    // TODO (LucTeo): Revisit this.
-
     /// The ID of the `index`-th parameter of the block.
-    // public func parameter(_ index: Int) -> Operand {
-    //   .parameter(self, index)
-    // }
+    public func parameter(_ index: Int) -> Operand {
+      .parameter(self, index)
+    }
 
     /// The operand denoting the result of the instruction at `instructionAddress` in the block
     /// identified by `self`.
-    // public func result(at instructionAddress: Block.Instructions.Address) -> Operand {
-    //   .register(appending(instructionAddress))
-    // }
+    public func result(at instructionAddress: Block.Instructions.Address) -> Operand {
+      .register(appending(instructionAddress))
+    }
 
   }
 

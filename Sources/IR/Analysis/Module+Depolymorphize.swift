@@ -35,16 +35,14 @@ extension IR.Program {
   /// Replaces uses of parametric types and functions in `f` with their monomorphic or existential
   /// counterparts.
   private mutating func depolymorphize(_ f: Function.ID, definedIn m: Module.ID) {
-    for b in modules[m]!.blocks(in: f) {
-      for i in modules[m]!.instructions(in: b) {
-        switch modules[m]![i] {
-        case is Call:
-          depolymorphize(call: InstructionID(i), from:f, definedIn: m)
-        case is Project:
-          depolymorphize(project: InstructionID(i), from:f, definedIn: m)
-        default:
-          continue
-        }
+    for i in modules[m]!.instructions(in: f) {
+      switch modules[m]![i, in: f] {
+      case is Call:
+        depolymorphize(call: i, from:f, definedIn: m)
+      case is Project:
+        depolymorphize(project: i, from:f, definedIn: m)
+      default:
+        continue
       }
     }
   }
@@ -184,11 +182,11 @@ extension IR.Program {
       let s = modules[source]![i, in: f] as! Return
       let j = modify(&modules[target]!) { (m) in
         for i in rewrittenGenericValue.values.reversed() {
-          m.append(m.makeDeallocStack(for: .register(i), in: result, at: s.site), to: Block.AbsoluteID(result, b))
+          m.append(m.makeDeallocStack(for: .register(i), in: result, at: s.site), to: b, in: result)
         }
-        return m.append(m.makeReturn(at: s.site), to: Block.AbsoluteID(result, b))
+        return m.append(m.makeReturn(at: s.site), to: b, in: result)
       }
-      monomorphizer.rewrittenInstruction[i] = InstructionID(j)
+      monomorphizer.rewrittenInstruction[i] = j
     }
   }
 

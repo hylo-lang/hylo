@@ -72,12 +72,6 @@ public struct Module {
     _modify { yield &functions[f]![b.address] }
   }
 
-  /// Accesses the given block.
-  public subscript(b: Block.AbsoluteID) -> Block {
-    _read { yield functions[b.function]!.blocks[b.address] }
-    _modify { yield &functions[b.function]![b.address] }
-  }
-
   /// Accesses the given instruction.
   public subscript(i: InstructionID, in f: Function.ID) -> Instruction {
     _read { yield functions[f]!.blocks[i.block].instructions[i.address] }
@@ -115,7 +109,7 @@ public struct Module {
   public func isBoundImmutably(_ p: Operand, in f: Function.ID) -> Bool {
     switch p {
     case .parameter(let e, let i):
-      return (entry(of: f) == Block.AbsoluteID(f, e)) && (passingConvention(parameter: i, of: f) == .let)
+      return (entry(of: f) == e) && (passingConvention(parameter: i, of: f) == .let)
     case .constant:
       return false
     case .register(let i):
@@ -153,7 +147,7 @@ public struct Module {
 
   /// If `p` is a function parameter, returns its passing convention. Otherwise, returns `nil`.
   public func passingConvention(of p: Operand, in f: Function.ID) -> AccessEffect? {
-    if case .parameter(let e, let i) = p, (entry(of: f) == Block.AbsoluteID(f, e)) {
+    if case .parameter(let e, let i) = p, entry(of: f) == e {
       return passingConvention(parameter: i, of: f)
     } else {
       return nil
@@ -183,8 +177,8 @@ public struct Module {
   /// no particular order.
   public func blocks(
     in f: Function.ID
-  ) -> LazyMapSequence<Function.Blocks.Indices, Block.AbsoluteID> {
-    self[f].blocks.indices.lazy.map({ .init(f, $0.address) })
+  ) -> LazyMapSequence<Function.Blocks.Indices, Block.ID> {
+    self[f].blocks.indices.lazy.map({ .init($0.address) })
   }
 
   /// Returns the IDs of the instructions in `b`, in order.
@@ -194,11 +188,16 @@ public struct Module {
     self[b, in: f].instructions.indices.lazy.map({ .init(b.address, $0.address) })
   }
 
-  /// Returns the IDs of the instructions in `b`, in order.
-  public func instructions(
-    in b: Block.AbsoluteID
-  ) -> LazyMapSequence<Block.Instructions.Indices, AbsoluteInstructionID> {
-    self[b].instructions.indices.lazy.map({ .init(b.function, b.address, $0.address) })
+  /// Returns the IDs of the instructions in `f`, from all the blocks.
+  public func instructions(in f: Function.ID) -> LazySequence<
+    FlattenSequence<
+      LazyMapSequence<
+        LazySequence<DefaultIndices<Function.Blocks>>.Elements,
+        LazyMapSequence<Block.Instructions.Indices, InstructionID>
+      >
+    >
+  > {
+    self[f].blocks.indices.lazy.flatMap({ self.instructions(in: Block.ID($0.address), of: f) })
   }
 
   /// Returns the ID the instruction before `i`.
@@ -225,9 +224,9 @@ public struct Module {
   }
 
   /// Returns the global identity of `block`'s terminator, if it exists.
-  func terminator(of block: Block.AbsoluteID) -> AbsoluteInstructionID? {
-    if let a = functions[block.function]!.blocks[block.address].instructions.lastAddress {
-      return AbsoluteInstructionID(block, a)
+  func terminator(of block: Block.ID, in f: Function.ID) -> InstructionID? {
+    if let a = functions[f]!.blocks[block.address].instructions.lastAddress {
+      return InstructionID(block, a)
     } else {
       return nil
     }
@@ -764,8 +763,8 @@ public struct Module {
   /// Returns the entry of `f`.
   ///
   /// - Requires: `f` is declared in `self`.
-  public func entry(of f: Function.ID) -> Block.AbsoluteID? {
-    functions[f]!.entry.map({ Block.AbsoluteID(f, $0) })
+  public func entry(of f: Function.ID) -> Block.ID? {
+    functions[f]!.entry.map({ Block.ID($0) })
   }
 
   /// Returns the operand representing the return value of `f`.
@@ -774,7 +773,7 @@ public struct Module {
   public func returnValue(of f: Function.ID) -> Operand? {
     let i = functions[f]!
     if !i.isSubscript, let e = entry(of: f) {
-      return Operand.parameter(Block.ID(e), i.inputs.count)
+      return Operand.parameter(e, i.inputs.count)
     } else {
       return nil
     }
@@ -784,7 +783,7 @@ public struct Module {
   ///
   /// - Requires: `f` is declared in `self` and doesn't have an entry block.
   @discardableResult
-  mutating func appendEntry<T: ScopeID>(in scope: T, to f: Function.ID) -> Block.AbsoluteID {
+  mutating func appendEntry<T: ScopeID>(in scope: T, to f: Function.ID) -> Block.ID {
     let ir = functions[f]!
     assert(ir.blocks.isEmpty)
 
@@ -806,21 +805,21 @@ public struct Module {
     in scope: T,
     taking parameters: [IR.`Type`] = [],
     to f: Function.ID
-  ) -> Block.AbsoluteID {
+  ) -> Block.ID {
     let a = functions[f]!.appendBlock(in: scope, taking: parameters)
-    return Block.AbsoluteID(f, a)
+    return Block.ID(a)
   }
 
   /// Removes `block` and updates def-use chains.
   ///
   /// - Requires: No instruction in `block` is used by an instruction outside of `block`.
   @discardableResult
-  mutating func removeBlock(_ block: Block.AbsoluteID) -> Block {
-    for i in instructions(in: block) {
-      precondition(allUses(of: i).allSatisfy({ $0.user.block == block.address }))
-      removeUsesMadeBy(InstructionID(i), in: block.function)
+  mutating func removeBlock(_ block: Block.ID, from f: Function.ID) -> Block {
+    for i in instructions(in: block, of: f) {
+      precondition(allUses(of: i, in: f).allSatisfy({ $0.user.block == block.address }))
+      removeUsesMadeBy(i, in: f)
     }
-    return functions[block.function]!.removeBlock(block.address)
+    return functions[f]!.removeBlock(block.address)
   }
 
   /// Swaps `old` by `new`.
@@ -905,15 +904,6 @@ public struct Module {
     })
   }
 
-  /// Adds `newInstruction` at the start of `block` and returns its identity.
-  @discardableResult
-  mutating func prepend(_ newInstruction: Instruction, to block: Block.AbsoluteID) -> AbsoluteInstructionID {
-    precondition(!(newInstruction is Terminator), "terminator must appear last in a block")
-    return insert(newInstruction) { (m, i) in
-      AbsoluteInstructionID(block, m[block].instructions.prepend(newInstruction))
-    }
-  }
-
   /// Adds `newInstruction` at the end of `block` and returns its identity.
   @discardableResult
   mutating func append(_ newInstruction: Instruction, to block: Block.ID, in f: Function.ID) -> InstructionID {
@@ -929,15 +919,6 @@ public struct Module {
     return InstructionID(insert(newInstruction) { (m, i) in
       AbsoluteInstructionID(f, block.address, m[block, in: f].instructions.append(newInstruction))
     })
-  }
-
-  /// Adds `newInstruction` at the end of `block` and returns its identity.
-  @discardableResult
-  mutating func append(_ newInstruction: Instruction, to block: Block.AbsoluteID) -> AbsoluteInstructionID {
-    precondition(!(self[block].instructions.last is Terminator), "insertion after terminator")
-    return insert(newInstruction) { (m, i) in
-      AbsoluteInstructionID(block, m[block].instructions.append(newInstruction))
-    }
   }
 
   /// Inserts `newInstruction` at `position` and returns its identity.
@@ -1111,7 +1092,7 @@ public struct Module {
     provenances(o, in: f).allSatisfy { (p) -> Bool in
       switch p {
       case .parameter(let e, let i):
-        if entry(of: f) == Block.AbsoluteID(f, e) {
+        if entry(of: f) == e {
           return self[f].inputs[i].type.access == .sink
         } else {
           return false
