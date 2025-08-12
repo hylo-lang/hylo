@@ -34,9 +34,9 @@ extension Module {
   ///
   /// - Requires: `source` is a `let`-capable access and `target` is a `set`-capable access.
   ///   `source` and `target` have the same type.
-  func makeMemoryCopy(_ source: Operand, _ target: Operand, at site: SourceRange) -> MemoryCopy {
-    let s = self.type(of: source)
-    precondition(s.isAddress && (s == self.type(of: target)))
+  func makeMemoryCopy(_ source: Operand, _ target: Operand, in f: Function.ID, at site: SourceRange) -> MemoryCopy {
+    let s = self.type(of: source, in: f)
+    precondition(s.isAddress && (s == self.type(of: target, in: f)))
     return .init(source: source, target: target, site: site)
   }
 

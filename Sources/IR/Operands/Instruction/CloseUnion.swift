@@ -7,8 +7,8 @@ extension Module {
 
   /// Creates an `close_union` anchored at `site` that ends an access to the payload of a union
   /// opened previously by `start`.
-  func makeCloseUnion(_ start: Operand, at site: SourceRange) -> CloseUnion {
-    makeRegionExit(start, at: site)
+  func makeCloseUnion(_ start: Operand, in f: Function.ID, at site: SourceRange) -> CloseUnion {
+    makeRegionExit(start, in: f, at: site)
   }
 
 }
