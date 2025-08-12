@@ -655,7 +655,7 @@ extension SwiftyLLVM.Module {
     var insertionPoint: SwiftyLLVM.InsertionPoint!
 
     /// A map from Hylo IR basic block to its LLVM counterpart.
-    var block: [IR.Block.AbsoluteID: SwiftyLLVM.BasicBlock] = [:]
+    var block: [IR.Block.ID: SwiftyLLVM.BasicBlock] = [:]
 
     /// A map from Hylo IR register to its LLVM counterpart.
     var register: [IR.Operand: SwiftyLLVM.IRValue] = [:]
@@ -690,17 +690,17 @@ extension SwiftyLLVM.Module {
     }
 
     for b in context.source.blocks(in: f) {
-      block[b] = appendBlock(named: b.description, to: transpilation)
+      block[Block.ID(b)] = appendBlock(named: b.description, to: transpilation)
     }
 
     for b in context.source.blocks(in: f) {
-      insertionPoint = endOf(block[b]!)
+      insertionPoint = endOf(block[Block.ID(b)]!)
       for i in context.source.instructions(in: b) {
         insert(InstructionID(i))
       }
     }
 
-    insertBr(to: block[.init(f, entry)]!, at: endOf(prologue))
+    insertBr(to: block[.init(entry)]!, at: endOf(prologue))
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(_ i: IR.InstructionID) {
@@ -828,7 +828,7 @@ extension SwiftyLLVM.Module {
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(branch i: IR.InstructionID) {
       let s = context.source[i, in: f] as! Branch
-      insertBr(to: block[s.target]!, at: insertionPoint)
+      insertBr(to: block[Block.ID(s.target)]!, at: insertionPoint)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
@@ -939,7 +939,7 @@ extension SwiftyLLVM.Module {
       let s = context.source[i, in: f] as! CondBranch
       let c = llvm(s.condition)
       insertCondBr(
-        if: c, then: block[s.targetIfTrue]!, else: block[s.targetIfFalse]!,
+        if: c, then: block[Block.ID(s.targetIfTrue)]!, else: block[Block.ID(s.targetIfFalse)]!,
         at: insertionPoint)
     }
 
@@ -1714,7 +1714,7 @@ extension SwiftyLLVM.Module {
       let s = context.source[i, in: f] as! Switch
 
       let branches = s.successors.enumerated().map { (value, destination) in
-        (word().constant(UInt64(value)), block[destination]!)
+        (word().constant(UInt64(value)), block[Block.ID(destination)]!)
       }
 
       // The last branch is the "default".
@@ -1735,11 +1735,11 @@ extension SwiftyLLVM.Module {
       let s = context.source[i, in: f] as! UnionSwitch
 
       if let (_, b) = s.targets.elements.uniqueElement {
-        insertBr(to: block[b]!, at: insertionPoint)
+        insertBr(to: block[Block.ID(b)]!, at: insertionPoint)
       } else {
         let e = context.ir.base.discriminatorToElement(in: s.union)
         let branches = s.targets.map { (t, b) in
-          (word().constant(e.firstIndex(of: t)!), block[b]!)
+          (word().constant(e.firstIndex(of: t)!), block[Block.ID(b)]!)
         }
 
         // The last branch is the "default".

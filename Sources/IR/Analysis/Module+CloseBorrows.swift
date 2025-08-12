@@ -104,7 +104,7 @@ extension Module {
     guard let uses = self[f].uses[definition] else { return Lifetime(operand: definition) }
 
     // Compute the live-range of the definition.
-    var r = liveRange(of: definition, definedIn: Block.AbsoluteID(f, definition.block!))
+    var r = liveRange(of: definition, definedIn: definition.block!, from: f)
 
     // Extend the lifetime with that of its borrows.
     for use in uses {
