@@ -258,7 +258,7 @@ jobs:
       fail-fast: false
       matrix:
         # Temporarily disable CMake builds on macOS because of some compilation issues regarding tgmath.h used by the Algorithms library transitively.
-        exact-os: [ubuntu-24.04, windows-2025] # macos-14
+        exact-os: [ubuntu-24.04, windows-2025, macos-14] # macos-14
         cmake-generator: [Ninja, Xcode]
         cmake-build-type: [Debug, Release]
 
