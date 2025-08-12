@@ -166,9 +166,9 @@ extension IR.Program {
     /// Rewrites `i`, which is in `source`, at the end of `b`, which is in `target`.
     func rewrite(_ i: InstructionID, to b: Block.ID) {
       let j = self.rewrite(
-        AbsoluteInstructionID(f, i), from: source, transformedBy: &monomorphizer,
+        i, in: f, from: source, transformedBy: &monomorphizer,
         at: .end(of: b), targeting: result, in: target)
-      monomorphizer.rewrittenInstruction[i] = InstructionID(j)
+      monomorphizer.rewrittenInstruction[i] = j
     }
 
     /// Rewrites `i`, which is in `source`, at the end of `b`, which is in `target`.
@@ -364,8 +364,8 @@ private struct Monomorphizer: InstructionTransformer {
   }
 
   /// Returns a monomorphized copy of `b`.
-  func transform(_ b: Block.AbsoluteID, in ir: inout IR.Program) -> Block.AbsoluteID {
-    Block.AbsoluteID(target, rewrittenBlock[Block.ID(b)]!)
+  func transform(_ b: Block.ID, in ir: inout IR.Program) -> Block.ID {
+    rewrittenBlock[b]!
   }
 
   /// Returns a monomorphized copy of `c`.
