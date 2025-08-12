@@ -23,11 +23,6 @@ extension Block {
       self.address = i.block
     }
 
-    /// Creates an instance denoting the block containing `i`.
-    public init(containing i: AbsoluteInstructionID) {
-      self.address = i.block
-    }
-
     /// The ID of the instruction at `instructionAddress` in the block identified by `self`.
     public func appending(_ instructionAddress: Block.Instructions.Address) -> InstructionID {
       InstructionID(address, instructionAddress)

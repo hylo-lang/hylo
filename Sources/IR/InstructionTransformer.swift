@@ -37,7 +37,7 @@ extension IR.Program {
     _ i: AbsoluteInstructionID, from m: Module.ID, transformedBy t: inout T,
     at p: InsertionPoint, targeting f: Function.ID, in n: Module.ID
   ) -> AbsoluteInstructionID {
-    switch modules[m]![i] {
+    switch modules[m]![InstructionID(i), in: i.function] {
     case let s as Access:
       let x0 = t.transform(s.source, in: &self)
       return AbsoluteInstructionID(i.function, insert(at: p, in: f, in: n) { (target) in
@@ -192,7 +192,7 @@ extension IR.Program {
     case let s as Project:
       let r = FunctionReference(
         to: s.callee, in: modules[m]!,
-        specializedBy: s.specialization, in: modules[m]!.scope(containing: i))
+        specializedBy: s.specialization, in: modules[m]!.scope(containing: InstructionID(i), in: i.function))
       let oldCallee = Operand.constant(r)
       let newCallee = t.transform(oldCallee, in: &self).constant as! FunctionReference
 
