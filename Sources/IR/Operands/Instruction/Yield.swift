@@ -23,14 +23,14 @@ public struct Yield: Instruction {
     [projection]
   }
 
-  public var successors: [Block.AbsoluteID] { [] }
+  public var successors: [Block.ID] { [] }
 
   public mutating func replaceOperand(at i: Int, with new: Operand) {
     precondition(i == 0)
     projection = new
   }
 
-  func replaceSuccessor(_ old: Block.AbsoluteID, _ new: Block.AbsoluteID) -> Bool {
+  func replaceSuccessor(_ old: Block.ID, _ new: Block.ID) -> Bool {
     false
   }
 

@@ -70,9 +70,9 @@ extension IR.Program {
       })
 
     case let s as Branch:
-      let x0 = t.transform(s.target, in: &self)
+      let x0 = t.transform(Block.AbsoluteID(i.function, s.target), in: &self)
       return AbsoluteInstructionID(i.function, insert(at: p, in: f, in: n) { (target) in
-        target.makeBranch(to: x0, at: s.site)
+        target.makeBranch(to: Block.ID(x0), at: s.site)
       })
 
     case let s as Call:
@@ -111,10 +111,10 @@ extension IR.Program {
 
     case let s as CondBranch:
       let x0 = t.transform(s.condition, in: &self)
-      let x1 = t.transform(s.targetIfTrue, in: &self)
-      let x2 = t.transform(s.targetIfFalse, in: &self)
+      let x1 = t.transform(Block.AbsoluteID(i.function, s.targetIfTrue), in: &self)
+      let x2 = t.transform(Block.AbsoluteID(i.function, s.targetIfFalse), in: &self)
       return AbsoluteInstructionID(i.function, insert(at: p, in: f, in: n) { (target) in
-        target.makeCondBranch(if: x0, then: x1, else: x2, in: f, at: s.site)
+        target.makeCondBranch(if: x0, then: Block.ID(x1), else: Block.ID(x2), in: f, at: s.site)
       })
 
     case let s as ConstantString:
@@ -228,7 +228,7 @@ extension IR.Program {
 
     case let s as Switch:
       let x0 = t.transform(s.index, in: &self)
-      let x1 = s.successors.map({ (b) in t.transform(b, in: &self) })
+      let x1 = s.successors.map({ (b) in t.transform(Block.AbsoluteID(i.function, b), in: &self) }).map(Block.ID.init)
       return AbsoluteInstructionID(i.function, insert(at: p, in: f, in: n) { (target) in
         target.makeSwitch(on: x0, toOneOf: x1, in: f, at: s.site)
       })
@@ -243,7 +243,7 @@ extension IR.Program {
       let x0 = t.transform(s.discriminator, in: &self)
       let x1 = UnionType(t.transform(^s.union, in: &self))!
       let x2 = s.targets.reduce(into: UnionSwitch.Targets()) { (d, kv) in
-        _ = d[t.transform(kv.key, in: &self)].setIfNil(t.transform(kv.value, in: &self))
+        _ = d[t.transform(kv.key, in: &self)].setIfNil(Block.ID(t.transform(Block.AbsoluteID(i.function, kv.value), in: &self)))
       }
       return AbsoluteInstructionID(i.function, insert(at: p, in: f, in: n) { (target) in
         target.makeUnionSwitch(over: x0, of: x1, toOneOf: x2, in: f, at: s.site)

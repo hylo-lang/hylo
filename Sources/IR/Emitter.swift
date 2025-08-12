@@ -103,13 +103,13 @@ struct Emitter {
   }
 
   /// Appends a new basic block at the end of `self.insertionFunction`, defined in s.
-  private mutating func appendBlock<T: ScopeID>(in s: T) -> Block.AbsoluteID {
-    module.appendBlock(in: s, to: insertionFunction!)
+  private mutating func appendBlock<T: ScopeID>(in s: T) -> Block.ID {
+    Block.ID(module.appendBlock(in: s, to: insertionFunction!))
   }
 
   /// Appends a new basic block at the end of `self.insertionFunction`, defined in the same scope
   /// as `self.insertionBlock`.
-  private mutating func appendBlock() -> Block.AbsoluteID {
+  private mutating func appendBlock() -> Block.ID {
     appendBlock(in: insertionScope!)
   }
 
@@ -221,7 +221,7 @@ struct Emitter {
 
     // Configure the emitter context.
     let entry = module.appendEntry(in: program.scopeContainingBody(of: d)!, to: f)
-    let bodyFrame = outermostFrame(of: d, entering: entry)
+    let bodyFrame = outermostFrame(of: d, entering: Block.ID(entry))
     self.insertionPoint = .end(of: Block.ID(entry))
 
     // Emit the body.
@@ -240,16 +240,16 @@ struct Emitter {
   }
 
   /// Returns the frame enclosing the body of `d`, whose entry block is `entry`.
-  private func outermostFrame(of d: FunctionDecl.ID, entering entry: Block.AbsoluteID) -> Frame {
+  private func outermostFrame(of d: FunctionDecl.ID, entering entry: Block.ID) -> Frame {
     var locals = DeclProperty<Operand>()
 
     for (i, c) in program.captures(of: d).enumerated() {
-      locals[c] = .parameter(Block.ID(entry), i)
+      locals[c] = .parameter(entry, i)
     }
 
     let captureCount = locals.count
     for (i, p) in ast[d].parameters.enumerated() {
-      locals[p] = .parameter(Block.ID(entry), i + captureCount)
+      locals[p] = .parameter(entry, i + captureCount)
     }
 
     return Frame(locals: locals)
@@ -780,12 +780,12 @@ struct Emitter {
 
     let tail = appendBlock()
     for (u, b) in targets {
-      insertionPoint = .end(of: Block.ID(b))
+      insertionPoint = .end(of: b)
       _emitMoveInitUnionPayload(of: receiver, consuming: argument, containing: u)
       _branch(to: tail)
     }
 
-    insertionPoint = .end(of: Block.ID(tail))
+    insertionPoint = .end(of: tail)
   }
 
   /// Inserts the IR for initializing the payload of `receiver`, which stores a union containing
@@ -934,12 +934,12 @@ struct Emitter {
 
     let tail = appendBlock()
     for (u, b) in targets {
-      insertionPoint = .end(of: Block.ID(b))
+      insertionPoint = .end(of: b)
       _emitCopyUnionPayload(from: source, containing: u, to: target)
       _branch(to: tail)
     }
 
-    insertionPoint = .end(of: Block.ID(tail))
+    insertionPoint = .end(of: tail)
   }
 
   /// Inserts the IR for copying `source`, which stores a union
@@ -1056,13 +1056,12 @@ struct Emitter {
     let savedFrames = frames
     defer { frames = savedFrames }
     let innermost = loops.last!
-    let f = insertionFunction!
     lowering(s) { me in
       while me.frames.depth > innermost.depth {
         me._emitDeallocTopFrame()
         me.frames.pop()
       }
-      me._branch(to: Block.AbsoluteID(f, innermost.exit))
+      me._branch(to: innermost.exit)
     }
   }
 
@@ -1164,13 +1163,13 @@ struct Emitter {
       ast[s].binding, movingConsumedValuesTo: storage,
       branchingOnFailureTo: fail, in: insertionScope!)
 
-    insertionPoint = .end(of: Block.ID(fail))
+    insertionPoint = .end(of: fail)
     let flow = emit(braceStmt: ast[s].fallback)
     emitControlFlow(flow) { me in
       me.lowering(me.ast[s].fallback) { $0._unreachable() }
     }
 
-    insertionPoint = .end(of: Block.ID(next))
+    insertionPoint = .end(of: next)
     return .next
   }
 
@@ -1188,7 +1187,7 @@ struct Emitter {
       me.insertionPoint = .end(of: secondBranch)
       guard let failure = me.ast[s].failure else {
         me._branch(to: tail)
-        me.insertionPoint = .end(of: Block.ID(tail))
+        me.insertionPoint = .end(of: tail)
         return .next
       }
 
@@ -1197,7 +1196,7 @@ struct Emitter {
         me._branch(to: tail)
       }
 
-      me.insertionPoint = .end(of: Block.ID(tail))
+      me.insertionPoint = .end(of: tail)
       return .next
     }
   }
@@ -1221,11 +1220,11 @@ struct Emitter {
   private mutating func _emit(doWhileStmt s: DoWhileStmt.ID) -> ControlFlow {
     let body = appendBlock(in: ast[s].body)
     let exit = appendBlock(in: ast[s].body)
-    loops.append(LoopID(depth: frames.depth, exit: Block.ID(exit)))
+    loops.append(LoopID(depth: frames.depth, exit: exit))
     defer { loops.removeLast() }
 
     lowering(before: s) { $0._branch(to: body) }
-    insertionPoint = .end(of: Block.ID(body))
+    insertionPoint = .end(of: body)
 
     // We're not using `emit(braceStmt:into:)` because we need to evaluate the loop condition
     // before exiting the scope.
@@ -1252,7 +1251,7 @@ struct Emitter {
     frames.pop()
 
     _cond_branch(if: c, then: body, else: exit)
-    insertionPoint = .end(of: Block.ID(exit))
+    insertionPoint = .end(of: exit)
     return .next
   }
 
@@ -1293,12 +1292,12 @@ struct Emitter {
     // The remainder of the program, after the loop.
     let exit = appendBlock()
 
-    loops.append(LoopID(depth: frames.depth, exit: Block.ID(exit)))
+    loops.append(LoopID(depth: frames.depth, exit: exit))
     defer { loops.removeLast() }
 
     lowering(at: introducer) { me in
       me._branch(to: head)
-      me.insertionPoint = .end(of: Block.ID(head))
+      me.insertionPoint = .end(of: head)
 
       let x0 = me._access(.inout, from: domain)
       me._emitApply(witness.next, to: [x0], writingResultTo: element)
@@ -1313,7 +1312,7 @@ struct Emitter {
     // TODO: Filter
     precondition(ast[s].filter == nil, "loop filters are not implemented")
 
-    insertionPoint = .end(of: Block.ID(next))
+    insertionPoint = .end(of: next)
     // TODO: check this currentSource control logic.
     lowering(at: introducer) { me in
       let flow = me.emit(braceStmt: me.ast[s].body)
@@ -1322,7 +1321,7 @@ struct Emitter {
       }
     }
 
-    insertionPoint = .end(of: Block.ID(exit))
+    insertionPoint = .end(of: exit)
     return .next
   }
 
@@ -1359,12 +1358,12 @@ struct Emitter {
       // The remainder of the program, after the loop.
       let exit = me.appendBlock()
 
-      me.loops.append(LoopID(depth: me.frames.depth, exit: Block.ID(exit)))
+      me.loops.append(LoopID(depth: me.frames.depth, exit: exit))
       defer { me.loops.removeLast() }
 
       me._branch(to: head)
 
-      me.insertionPoint = .end(of: Block.ID(head))
+      me.insertionPoint = .end(of: head)
       let x0 = me._access(.let, from: currentPosition)
       let x1 = me._access(.let, from: endPosition)
       me._emitApply(.constant(equal), to: [x0, x1], writingResultTo: quit)
@@ -1373,7 +1372,7 @@ struct Emitter {
       let x2 = me._emitLoadBuiltinBool(quit)
       me._cond_branch(if: x2, then: exit, else: enter)
 
-      me.insertionPoint = .end(of: Block.ID(enter))
+      me.insertionPoint = .end(of: enter)
       let x6 = me._access(.let, from: domain)
       let x7 = me._access(.let, from: currentPosition)
 
@@ -1397,7 +1396,7 @@ struct Emitter {
         me.lowering(after: me.program[s].body) { $0._branch(to: tail) }
       }
 
-      me.insertionPoint = .end(of: Block.ID(tail))
+      me.insertionPoint = .end(of: tail)
       let x3 = me._alloc_stack(collectionWitness.position)
       let x4 = me._access(.let, from: domain)
       let x5 = me._access(.let, from: currentPosition)
@@ -1408,7 +1407,7 @@ struct Emitter {
       me._dealloc_stack(x3)
       me._branch(to: head)
 
-      me.insertionPoint = .end(of: Block.ID(exit))
+      me.insertionPoint = .end(of: exit)
     }
     return .next
   }
@@ -1453,7 +1452,7 @@ struct Emitter {
     lowering(before: s) { $0._branch(to: head) }
 
     // Test the conditions.
-    insertionPoint = .end(of: Block.ID(head))
+    insertionPoint = .end(of: head)
     let (body, exit) = emitTest(condition: ast[s].condition, in: AnyScopeID(s))
 
     // Add the current loop to the emitter context.
@@ -1658,7 +1657,7 @@ struct Emitter {
     insertionPoint = .end(of: failure)
     within(Frame()) { $0.emitStore(value: $0.ast[e].failure.value, to: storage) }
     _branch(to: tail)
-    insertionPoint = .end(of: Block.ID(tail))
+    insertionPoint = .end(of: tail)
   }
 
   /// Inserts the IR for storing the value of `e` to `storage`.
@@ -2435,7 +2434,7 @@ struct Emitter {
       allocations.append(emitAllocation(binding: d))
     }
 
-    let failure = module.appendBlock(in: scope, to: insertionFunction!)
+    let failure = Block.ID(module.appendBlock(in: scope, to: insertionFunction!))
     var nextAllocation = 0
     for item in condition {
       switch item {
@@ -2445,18 +2444,18 @@ struct Emitter {
         lowering(e) {
           $0._cond_branch(if: test, then: next, else: failure)
         }
-        insertionPoint = .end(of: Block.ID(next))
+        insertionPoint = .end(of: next)
 
       case .decl(let d):
         let next = emitConditionalNarrowing(
           d, movingConsumedValuesTo: allocations[nextAllocation],
           branchingOnFailureTo: failure, in: scope)
-        insertionPoint = .end(of: Block.ID(next))
+        insertionPoint = .end(of: next)
         nextAllocation += 1
       }
     }
 
-    return (success: insertionBlock!, failure: Block.ID(failure))
+    return (success: insertionBlock!, failure: failure)
   }
 
   /// If `d` declares stored bindings, inserts the IR for allocating
@@ -2488,9 +2487,9 @@ struct Emitter {
   private mutating func emitConditionalNarrowing(
     _ d: BindingDecl.ID,
     movingConsumedValuesTo storage: Operand?,
-    branchingOnFailureTo failure: Block.AbsoluteID,
+    branchingOnFailureTo failure: Block.ID,
     in scope: AnyScopeID
-  ) -> Block.AbsoluteID {
+  ) -> Block.ID {
     let lhsType = canonical(program[d].type)
     let rhs = emitLValue(ast[d].initializer!)
     let lhs = ast[d].pattern
@@ -2517,9 +2516,9 @@ struct Emitter {
   private mutating func emitUnionNarrowing(
     from rhs: Operand, to lhs: BindingPattern.ID, typed lhsType: AnyType,
     movingConsumedValuesTo storage: Operand?,
-    branchingOnFailureTo failure: Block.AbsoluteID,
+    branchingOnFailureTo failure: Block.ID,
     in scope: AnyScopeID
-  ) -> Block.AbsoluteID {
+  ) -> Block.ID {
     let rhsType = UnionType(module.type(of: rhs, in: insertionFunction!).ast)!
     precondition(rhsType.elements.contains(lhsType), "recursive narrowing is unimplemented")
 
@@ -2531,7 +2530,7 @@ struct Emitter {
     lowering(lhs) { me in
       me._emitUnionSwitch(on: rhs, toOneOf: targets)
 
-      me.insertionPoint = .end(of: Block.ID(next))
+      me.insertionPoint = .end(of: next)
 
       if let target = storage {
         let x0 = me._access(.sink, from: rhs)
@@ -3214,12 +3213,12 @@ struct Emitter {
 
     let tail = appendBlock()
     for (u, b) in targets {
-      insertionPoint = .end(of: Block.ID(b))
+      insertionPoint = .end(of: b)
       _emitDeinitUnionPayload(of: storage, containing: u)
       _branch(to: tail)
     }
 
-    insertionPoint = .end(of: Block.ID(tail))
+    insertionPoint = .end(of: tail)
   }
 
   /// If `storage`, which stores a union container holding a `payload`, is deinitializable in
@@ -3278,12 +3277,12 @@ struct Emitter {
       parts = parts.dropFirst()
       if parts.isEmpty {
         _branch(to: tail)
-        insertionPoint = .end(of: Block.ID(tail))
+        insertionPoint = .end(of: tail)
       } else {
         let x2 = _emitLoadBuiltinBool(target)
         let next = appendBlock()
         _cond_branch(if: x2, then: next, else: tail)
-        insertionPoint = .end(of: Block.ID(next))
+        insertionPoint = .end(of: next)
       }
     }
   }
@@ -3314,10 +3313,10 @@ struct Emitter {
     let x0 = _call_builtin(.icmp(.eq, .discriminator), [dl, dr])
     _cond_branch(if: x0, then: same, else: fail)
 
-    insertionPoint = .end(of: Block.ID(same))
+    insertionPoint = .end(of: same)
     _emitUnionSwitch(on: lhs, toOneOf: targets)
     for (u, b) in targets {
-      insertionPoint = .end(of: Block.ID(b))
+      insertionPoint = .end(of: b)
       let y0 = _open_union(lhs, as: u)
       let y1 = _open_union(rhs, as: u)
       _emitStoreEquality(y0, y1, to: target)
@@ -3327,12 +3326,12 @@ struct Emitter {
     }
 
     // The failure block writes `false` to the return storage.
-    insertionPoint = .end(of: Block.ID(fail))
+    insertionPoint = .end(of: fail)
     _emitStore(boolean: false, to: target)
     _branch(to: tail)
 
     // The tail block represents the continuation.
-    insertionPoint = .end(of: Block.ID(tail))
+    insertionPoint = .end(of: tail)
   }
 
   // MARK: Helpers
@@ -3479,7 +3478,7 @@ struct Emitter {
   }
 
   /// Inserts a `cond_branch` instruction that jumps to `targetIfTrue` if `condition` is true or `targetIfFalse` otherwise.
-  mutating func _cond_branch(if condition: Operand, then targetIfTrue: Block.AbsoluteID, else targetIfFalse: Block.AbsoluteID) {
+  mutating func _cond_branch(if condition: Operand, then targetIfTrue: Block.ID, else targetIfFalse: Block.ID) {
     checkEntryStack(targetIfTrue)
     checkEntryStack(targetIfFalse)
     insert(module.makeCondBranch(if: condition, then: targetIfTrue, else: targetIfFalse, in: insertionFunction!, at: currentSource))
@@ -3590,8 +3589,8 @@ extension Emitter {
   ///
   /// This test is used to ensure that all points branching to a block
   /// have consistent stack allocations.
-  fileprivate mutating func checkEntryStack(_ b: Block.AbsoluteID) {
-    modify(&stackOnEntry[b]) { x in
+  fileprivate mutating func checkEntryStack(_ b: Block.ID) {
+    modify(&stackOnEntry[Block.AbsoluteID(insertionFunction!, b)]) { x in
       if let y = x {
         assert(y.hasSameAllocations(as: frames))
       }
@@ -3734,7 +3733,7 @@ extension Emitter {
     _ = insert(module.makeYield(c, a, in: insertionFunction!, at: currentSource))
   }
 
-  fileprivate mutating func _branch(to x: Block.AbsoluteID) {
+  fileprivate mutating func _branch(to x: Block.ID) {
     checkEntryStack(x)
     _ = insert(module.makeBranch(to: x, at: currentSource))
   }

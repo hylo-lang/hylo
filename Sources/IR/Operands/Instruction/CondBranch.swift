@@ -7,10 +7,10 @@ public struct CondBranch: Terminator {
   public private(set) var condition: Operand
 
   /// The target of the branch if `condition` is true.
-  public private(set) var targetIfTrue: Block.AbsoluteID
+  public private(set) var targetIfTrue: Block.ID
 
   /// The target of the branch if `condition` is false.
-  public private(set) var targetIfFalse: Block.AbsoluteID
+  public private(set) var targetIfFalse: Block.ID
 
   /// The site of the code corresponding to that instruction.
   public let site: SourceRange
@@ -18,8 +18,8 @@ public struct CondBranch: Terminator {
   /// Creates an instance with the given properties.
   fileprivate init(
     condition: Operand,
-    targetIfTrue: Block.AbsoluteID,
-    targetIfFalse: Block.AbsoluteID,
+    targetIfTrue: Block.ID,
+    targetIfFalse: Block.ID,
     site: SourceRange
   ) {
     self.condition = condition
@@ -32,15 +32,14 @@ public struct CondBranch: Terminator {
     [condition]
   }
 
-  public var successors: [Block.AbsoluteID] { [targetIfTrue, targetIfFalse] }
+  public var successors: [Block.ID] { [targetIfTrue, targetIfFalse] }
 
   public mutating func replaceOperand(at i: Int, with new: Operand) {
     precondition(i == 0)
     condition = new
   }
 
-  mutating func replaceSuccessor(_ old: Block.AbsoluteID, with new: Block.AbsoluteID) -> Bool {
-    precondition(new.function == targetIfTrue.function)
+  mutating func replaceSuccessor(_ old: Block.ID, with new: Block.ID) -> Bool {
     if targetIfTrue == old {
       targetIfTrue = new
       return true
@@ -74,8 +73,8 @@ extension Module {
   ///   - targetIfFalse: The block in which control flow jumps if `condition` is false.
   func makeCondBranch(
     if condition: Operand,
-    then targetIfTrue: Block.AbsoluteID,
-    else targetIfFalse: Block.AbsoluteID,
+    then targetIfTrue: Block.ID,
+    else targetIfFalse: Block.ID,
     in f: Function.ID,
     at site: SourceRange
   ) -> CondBranch {

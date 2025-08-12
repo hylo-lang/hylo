@@ -4,25 +4,24 @@ import FrontEnd
 public struct Branch: Terminator {
 
   /// The target of the branch.
-  public private(set) var target: Block.AbsoluteID
+  public private(set) var target: Block.ID
 
   /// The site of the code corresponding to that instruction.
   public let site: SourceRange
 
   /// Creates an instance with the given properties.
-  fileprivate init(target: Block.AbsoluteID, site: SourceRange) {
+  fileprivate init(target: Block.ID, site: SourceRange) {
     self.target = target
     self.site = site
   }
 
-  public var successors: [Block.AbsoluteID] { [target] }
+  public var successors: [Block.ID] { [target] }
 
   public mutating func replaceOperand(at i: Int, with new: Operand) {
     preconditionFailure()
   }
 
-  mutating func replaceSuccessor(_ old: Block.AbsoluteID, with new: Block.AbsoluteID) -> Bool {
-    precondition(new.function == target.function)
+  mutating func replaceSuccessor(_ old: Block.ID, with new: Block.ID) -> Bool {
     if target == old {
       target = new
       return true
@@ -47,7 +46,7 @@ extension Module {
   ///
   /// - Parameters:
   ///   - target: The block in which control flow jumps.
-  func makeBranch(to target: Block.AbsoluteID, at anchor: SourceRange) -> Branch {
+  func makeBranch(to target: Block.ID, at anchor: SourceRange) -> Branch {
     .init(target: target, site: anchor)
   }
 

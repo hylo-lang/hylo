@@ -828,7 +828,7 @@ extension SwiftyLLVM.Module {
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(branch i: IR.InstructionID) {
       let s = context.source[i, in: f] as! Branch
-      insertBr(to: block[Block.ID(s.target)]!, at: insertionPoint)
+      insertBr(to: block[s.target]!, at: insertionPoint)
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
@@ -939,7 +939,7 @@ extension SwiftyLLVM.Module {
       let s = context.source[i, in: f] as! CondBranch
       let c = llvm(s.condition)
       insertCondBr(
-        if: c, then: block[Block.ID(s.targetIfTrue)]!, else: block[Block.ID(s.targetIfFalse)]!,
+        if: c, then: block[s.targetIfTrue]!, else: block[s.targetIfFalse]!,
         at: insertionPoint)
     }
 
@@ -1714,7 +1714,7 @@ extension SwiftyLLVM.Module {
       let s = context.source[i, in: f] as! Switch
 
       let branches = s.successors.enumerated().map { (value, destination) in
-        (word().constant(UInt64(value)), block[Block.ID(destination)]!)
+        (word().constant(UInt64(value)), block[destination]!)
       }
 
       // The last branch is the "default".
@@ -1735,11 +1735,11 @@ extension SwiftyLLVM.Module {
       let s = context.source[i, in: f] as! UnionSwitch
 
       if let (_, b) = s.targets.elements.uniqueElement {
-        insertBr(to: block[Block.ID(b)]!, at: insertionPoint)
+        insertBr(to: block[b]!, at: insertionPoint)
       } else {
         let e = context.ir.base.discriminatorToElement(in: s.union)
         let branches = s.targets.map { (t, b) in
-          (word().constant(e.firstIndex(of: t)!), block[Block.ID(b)]!)
+          (word().constant(e.firstIndex(of: t)!), block[b]!)
         }
 
         // The last branch is the "default".
