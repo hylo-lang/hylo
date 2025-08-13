@@ -3,6 +3,7 @@
 #
 cmake_minimum_required(VERSION 3.30)
 set(CMAKE_OSX_DEPLOYMENT_TARGET 14.0)
+set(CMAKE_Swift_LANGUAGE_VERSION 6)
 
 project(Hylo
   VERSION 0.1.0
@@ -14,7 +15,6 @@ enable_testing()
 include(CTest)
 
 list(PREPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/modules)
-set(CMAKE_Swift_LANGUAGE_VERSION 5)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ${BUILD_SHARED_LIBS}) # Needed?
 set(CMAKE_Swift_COMPILE_OPTIONS
