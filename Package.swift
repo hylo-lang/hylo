@@ -49,7 +49,7 @@ let package = Package(
       revision: "61d0681cafb43f595477b62b4cd5baf8bdfafe41"),
     .package(
       url: "https://github.com/attaswift/BigInt",
-      revision: "e07e00fa1fd435143a2dcf8b7eec9a7710b2fdfe"),
+      from: "5.7.0"),
     .package(
       url: "https://github.com/hylo-lang/Swifty-LLVM",
       revision: "7ac212f5b31f83c75832d62c582b127735a1d505"),
