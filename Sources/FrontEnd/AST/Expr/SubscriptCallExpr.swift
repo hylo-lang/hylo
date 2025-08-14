@@ -1,5 +1,5 @@
 /// A subscript call.
-public struct SubscriptCallExpr: Expr {
+public struct SubscriptCallExpr: Expr, Sendable {
 
   public let site: SourceRange
 

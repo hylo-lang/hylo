@@ -1,7 +1,7 @@
 import FrontEnd
 
 /// Projects a value from a subscript bundle.
-public struct ProjectBundle: Instruction {
+public struct ProjectBundle: Instruction, Sendable {
 
   /// The subscript bundle implementing the projections.
   public let bundle: BundleReference<SubscriptDecl>

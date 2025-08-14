@@ -1,7 +1,7 @@
 import FrontEnd
 
 /// Copies the memory representation of the value stored `source` to `target`.
-public struct MemoryCopy: Instruction {
+public struct MemoryCopy: Instruction, Sendable {
 
   /// The operands of the instruction.
   public private(set) var operands: [Operand]

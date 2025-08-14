@@ -1,5 +1,5 @@
 /// A constraint that consists of an arbitrary expression that must evaluate to `true`.
-struct PredicateConstraint: Constraint, Hashable {
+struct PredicateConstraint: Constraint, Hashable, Sendable {
 
   /// The expression of the constraint.
   let expr: AnyExprID

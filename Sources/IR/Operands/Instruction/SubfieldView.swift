@@ -3,7 +3,7 @@ import FrontEnd
 /// Computes the address of storage for a field or sub-field of a record, given the record's address.
 ///
 /// Does not access memory.
-public struct SubfieldView: Instruction {
+public struct SubfieldView: Instruction, Sendable {
 
   /// The address of the whole record.
   public private(set) var recordAddress: Operand

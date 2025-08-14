@@ -1,5 +1,5 @@
 /// A (nominal) product type declaration.
-public struct ProductTypeDecl: ConformanceSource, GenericDecl, SingleEntityDecl {
+public struct ProductTypeDecl: ConformanceSource, GenericDecl, SingleEntityDecl, Sendable {
 
   public static let constructDescription = "product type declaration"
 

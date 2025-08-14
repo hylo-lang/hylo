@@ -1,8 +1,8 @@
 /// A solution returned by a constraint solver.
-struct Solution {
+struct Solution: Sendable {
 
   /// The score of a solution.
-  struct Score: Comparable {
+  struct Score: Comparable, Sendable {
 
     /// The number of errors encountered by the solver.
     var errorCount: Int
@@ -37,7 +37,7 @@ struct Solution {
   private(set) var diagnostics: DiagnosticSet
 
   /// The constraints that could not be solved.
-  private(set) var stale: [Constraint]
+  private(set) var stale: [Constraint & Sendable]
 
   /// Creates an empty solution.
   init() {
@@ -53,7 +53,7 @@ struct Solution {
     callOperands: [CallID: [ArgumentResolutionResult]],
     penalties: Int,
     diagnostics: DiagnosticSet,
-    stale: [Constraint]
+    stale: [Constraint & Sendable]
   ) {
     self.substitutions = substitutions
     self.bindings = bindings

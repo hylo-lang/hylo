@@ -1,5 +1,5 @@
 /// A namespace declaration.
-public struct NamespaceDecl: ExposableDecl, SingleEntityDecl, LexicalScope {
+public struct NamespaceDecl: ExposableDecl, SingleEntityDecl, LexicalScope, Sendable {
 
   public static let constructDescription = "namespace declaration"
 

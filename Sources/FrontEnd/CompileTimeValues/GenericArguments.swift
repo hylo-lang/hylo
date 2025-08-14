@@ -2,7 +2,7 @@ import OrderedCollections
 import Utils
 
 /// A map from generic parameter to its argument.
-public struct GenericArguments: Hashable {
+public struct GenericArguments: Hashable, Sendable {
 
   /// A key in this map.
   public typealias Key = GenericParameterDecl.ID
@@ -93,7 +93,7 @@ public struct GenericArguments: Hashable {
   }
 
   /// An empty instance.
-  public static var empty: Self = .init()
+  public static let empty: Self = .init()
 
 }
 

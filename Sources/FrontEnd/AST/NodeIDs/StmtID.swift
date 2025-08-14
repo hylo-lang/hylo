@@ -6,7 +6,7 @@ public protocol StmtID: NodeIDProtocol {}
 extension NodeID: StmtID where Subject: Stmt {}
 
 /// The type-erased ID of a statement.
-public struct AnyStmtID: StmtID {
+public struct AnyStmtID: StmtID, Sendable {
 
   /// The underlying type-erased ID.
   let base: AnyNodeID

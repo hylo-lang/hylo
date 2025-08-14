@@ -1,11 +1,11 @@
 /// A subscript declaration.
-public struct SubscriptDecl: BundleDecl, CapturingDecl, GenericDecl {
+public struct SubscriptDecl: BundleDecl, CapturingDecl, GenericDecl, Sendable {
 
   public static let constructDescription = "subscript declaration"
 
   public typealias Variant = SubscriptImpl
 
-  public enum Introducer: Codable {
+  public enum Introducer: Codable, Sendable {
 
     /// The standard subscript introducer.
     case `subscript`

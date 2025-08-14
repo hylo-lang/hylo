@@ -1,5 +1,5 @@
 /// The capture of an access on a value.
-public struct CaptureExpr: Expr {
+public struct CaptureExpr: Expr, Sendable {
 
   /// The site from which `self` was parsed.
   public let site: SourceRange

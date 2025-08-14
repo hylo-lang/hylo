@@ -1,5 +1,5 @@
 /// A built-in type.
-public enum BuiltinType: TypeProtocol {
+public enum BuiltinType: TypeProtocol, Sendable {
 
   /// A built-in integer type.
   ///

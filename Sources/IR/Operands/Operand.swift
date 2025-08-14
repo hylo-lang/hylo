@@ -1,5 +1,5 @@
 /// An instruction operand.
-public enum Operand {
+public enum Operand: Sendable {
 
   /// The result of `instruction`.
   case register(InstructionID)
@@ -8,7 +8,7 @@ public enum Operand {
   case parameter(Block.ID, Int)
 
   /// A constant value.
-  case constant(any Constant)
+  case constant(any Constant & Sendable)
 
   /// The void constant.
   public static let void: Operand = .constant(VoidConstant())

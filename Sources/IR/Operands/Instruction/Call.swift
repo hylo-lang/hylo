@@ -5,7 +5,7 @@ import Utils
 ///
 /// `callee` must have a lambda type; the type of the instruction must be the same as output type
 /// of the callee. `operands` must contain as many operands as the callee's type.
-public struct Call: Instruction {
+public struct Call: Instruction, Sendable {
 
   /// The callee, the return storage, and arguments of the call.
   public private(set) var operands: [Operand]

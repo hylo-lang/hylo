@@ -1,10 +1,10 @@
 import Utils
 
 /// The demangled description of a synthesized function.
-public struct DemangledSynthesizedFunction: Hashable {
+public struct DemangledSynthesizedFunction: Hashable, Sendable {
 
   /// The kind of a synthesized declaration.
-  public indirect enum Kind: Hashable {
+  public indirect enum Kind: Hashable, Sendable {
 
     /// A deinitializer.
     case deinitialize

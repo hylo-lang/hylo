@@ -1,5 +1,5 @@
 /// A variable declaration associated with a name in a binding declaration.
-public struct VarDecl: SingleEntityDecl {
+public struct VarDecl: SingleEntityDecl, Sendable {
 
   public static let constructDescription = "variable declaration"
 

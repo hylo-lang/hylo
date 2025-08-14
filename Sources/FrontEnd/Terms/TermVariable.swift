@@ -1,7 +1,7 @@
 import Utils
 
 /// A term variable.
-public struct TermVariable: TermProtocol {
+public struct TermVariable: TermProtocol, Sendable {
 
   /// The identifier of the variable.
   public let rawValue: UInt64
