@@ -705,11 +705,7 @@ public struct Module {
   /// - Requires: No instruction in `block` is used by an instruction outside of `block`.
   @discardableResult
   mutating func removeBlock(_ block: Block.ID, from f: Function.ID) -> Block {
-    for i in instructions(in: block, of: f) {
-      precondition(allUses(of: i, in: f).allSatisfy({ $0.user.block == block.address }))
-      removeUsesMadeBy(i, in: f)
-    }
-    return functions[f]!.removeBlock(block)
+    functions[f]!.removeBlock(block)
   }
 
   /// Swaps `old` by `new`.
@@ -720,36 +716,14 @@ public struct Module {
   ///
   /// - Requires: `new` produces results with the same types as `old`.
   mutating func replace<I: Instruction>(_ old: InstructionID, with new: I, in f: Function.ID) {
-    precondition(self[old, in: f].result == new.result)
-    removeUsesMadeBy(old, in: f)
-    _ = insert(new, in: f) { (m, i) in
-      m[old, in: f] = i
-      return old
-    }
+    functions[f]!.replace(old, with: new)
   }
 
   /// Swaps all uses of `old` in `f` by `new` and updates the def-use chains.
   ///
   /// - Requires: `new` as the same type as `old`. `f` is in `self`.
   mutating func replaceUses(of old: Operand, with new: Operand, in f: Function.ID) {
-    precondition(old != new)
-    precondition(type(of: old, in: f) == type(of: new, in: f))
-
-    guard var oldUses = self[f].uses[old], !oldUses.isEmpty else { return }
-    var newUses = self[f].uses[new] ?? []
-
-    var end = oldUses.count
-    for i in oldUses.indices.reversed() {
-      let u = oldUses[i]
-      self[u.user, in: f].replaceOperand(at: u.index, with: new)
-      newUses.append(u)
-      end -= 1
-      oldUses.swapAt(i, end)
-    }
-    oldUses.removeSubrange(end...)
-
-    self[f].uses[old] = oldUses
-    self[f].uses[new] = newUses
+    functions[f]!.replaceUses(of: old, with: new)
   }
 
   /// Inserts `newInstruction` at `boundary` and returns its identity.
@@ -757,42 +731,13 @@ public struct Module {
   mutating func insert(
     _ newInstruction: Instruction, at boundary: InsertionPoint, in f: Function.ID
   ) -> InstructionID {
-    switch boundary {
-    case .start(let b):
-      return prepend(newInstruction, to: b, in: f)
-    case .end(let b):
-      return append(newInstruction, to: b, in: f)
-    case .before(let i):
-      return insert(newInstruction, before: i, in: f)
-    case .after(let i):
-      return insert(newInstruction, after: i, in: f)
-    }
-  }
-
-  /// Adds `newInstruction` at the start of `block` and returns its identity.
-  @discardableResult
-  mutating func prepend(_ newInstruction: Instruction, to block: Block.ID, in f: Function.ID) -> InstructionID {
-    precondition(!(newInstruction is Terminator), "terminator must appear last in a block")
-    return insert(newInstruction, in: f) { (m, i) in
-      InstructionID(block.address, m[block, in: f].instructions.prepend(newInstruction))
-    }
+    functions[f]!.insert(newInstruction, at: boundary)
   }
 
   /// Adds `newInstruction` at the end of `block` and returns its identity.
   @discardableResult
   mutating func append(_ newInstruction: Instruction, to block: Block.ID, in f: Function.ID) -> InstructionID {
-    if (self[block, in: f].instructions.last is Terminator) {
-      print("ERROR: precondition failed in append(_:to:in:)")
-      print("  function: \(f), block: \(block)")
-      for i in self[block, in: f].instructions {
-        print("  instruction: \(i)")
-      }
-      print("  new instruction: \(newInstruction)")
-    }
-    precondition(!(self[block, in: f].instructions.last is Terminator), "insertion after terminator")
-    return insert(newInstruction, in: f) { (m, i) in
-      InstructionID(block.address, m[block, in: f].instructions.append(newInstruction))
-    }
+    functions[f]!.insert(newInstruction, at: .end(of: block))
   }
 
   /// Inserts `newInstruction` before `successor` and returns its identity.
@@ -800,12 +745,7 @@ public struct Module {
   mutating func insert(
     _ newInstruction: Instruction, before successor: InstructionID, in f: Function.ID
   ) -> InstructionID {
-    precondition(!(newInstruction is Terminator), "terminator must appear last in a block")
-    return insert(newInstruction, in: f) { (m, i) in
-      let address = m.functions[f]![successor.block].instructions
-        .insert(newInstruction, before: successor.address)
-      return InstructionID(successor.block, address)
-    }
+    functions[f]!.insert(newInstruction, at: .before(successor))
   }
 
   /// Inserts `newInstruction` after `predecessor` and returns its identity.
@@ -813,37 +753,14 @@ public struct Module {
   mutating func insert(
     _ newInstruction: Instruction, after predecessor: InstructionID, in f: Function.ID
   ) -> InstructionID {
-    precondition(!(instruction(after: predecessor, in: f) is Terminator), "insertion after terminator")
-    return insert(newInstruction, in: f) { (m, i) in
-      let address = m.functions[f]![predecessor.block].instructions
-        .insert(newInstruction, after: predecessor.address)
-      return InstructionID(predecessor.block, address)
-    }
-  }
-
-  /// Inserts `newInstruction` with `impl` and returns its identity.
-  private mutating func insert(
-    _ newInstruction: Instruction, in f: Function.ID,
-    with impl: (inout Self, Instruction) -> InstructionID
-  ) -> InstructionID {
-    // Insert the instruction.
-    let user = impl(&self, newInstruction)
-
-    // Update the def-use chains.
-    for i in 0 ..< newInstruction.operands.count {
-      self[f].uses[newInstruction.operands[i], default: []].append(Use(user: user, index: i))
-    }
-
-    return user
+    functions[f]!.insert(newInstruction, at: .after(predecessor))
   }
 
   /// Removes instruction `i` and updates def-use chains.
   ///
   /// - Requires: The result of `i` have no users.
   mutating func removeInstruction(_ i: InstructionID, in f: Function.ID) {
-    precondition(result(of: i, in: f).map(default: true, { self[f].uses[$0, default: []].isEmpty }))
-    removeUsesMadeBy(i, in: f)
-    self[f][i.block].instructions.remove(at: i.address)
+    functions[f]!.removeInstruction(i)
   }
 
   /// Removes all instructions after `i` in its containing block and updates def-use chains.
@@ -851,21 +768,12 @@ public struct Module {
   /// - Requires: Let `S` be the set of removed instructions, all users of a result of `j` in `S`
   ///   are also in `S`.
   mutating func removeAllInstructions(after i: InstructionID, in f: Function.ID) {
-    while let a = self[f][i.block].instructions.lastAddress, a != i.address {
-      removeInstruction(.init(i.block, a), in: f)
-    }
+    functions[f]!.removeAllInstructions(after: i)
   }
 
   /// Returns the uses of all the registers assigned by `i`.
   func allUses(of i: InstructionID, in f: Function.ID) -> [Use] {
     functions[f]!.allUses(of: i)
-  }
-
-  /// Removes `i` from the def-use chains of its operands.
-  private mutating func removeUsesMadeBy(_ i: InstructionID, in f: Function.ID) {
-    for o in self[i, in: f].operands {
-      self[f].uses[o]?.removeAll(where: { $0.user == i })
-    }
   }
 
   /// Returns the operands from which the address denoted by `a` derives.
