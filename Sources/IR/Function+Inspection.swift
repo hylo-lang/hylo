@@ -24,7 +24,7 @@ extension Function {
   ///
   /// The first element of the returned collection is the function's entry; other elements are in
   /// no particular order.
-  public func blockIDs() -> LazyMapSequence<Function.Blocks.Indices, Block.ID> {
+  public var blockIDs: LazyMapSequence<Function.Blocks.Indices, Block.ID> {
     blocks.indices.lazy.map({ .init($0.address) })
   }
 
