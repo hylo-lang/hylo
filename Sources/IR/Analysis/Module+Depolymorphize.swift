@@ -181,9 +181,9 @@ extension IR.Program {
       let s = modules[source]![i, in: f] as! Return
       let j = modify(&modules[target]!) { (m) in
         for i in rewrittenGenericValue.values.reversed() {
-          m.append(m.makeDeallocStack(for: .register(i), in: result, at: s.site), to: b, in: result)
+          m[result].insert(m.makeDeallocStack(for: .register(i), in: result, at: s.site), at: .end(of: b))
         }
-        return m.append(m.makeReturn(at: s.site), to: b, in: result)
+        return m[result].insert(m.makeReturn(at: s.site), at: .end(of: b))
       }
       monomorphizer.rewrittenInstruction[i] = j
     }
@@ -297,7 +297,7 @@ extension Module {
         UNIMPLEMENTED("arbitrary compile-time values")
       }
 
-      let s = append(makeAllocStack(^program.ast.coreType("Int")!, at: insertionSite), to: entry, in: monomorphized)
+      let s = self[monomorphized].insert(makeAllocStack(^program.ast.coreType("Int")!, at: insertionSite), at: .end(of: entry))
 
       var log = DiagnosticSet()
       Emitter.withInstance(insertingIn: &self, reportingDiagnosticsTo: &log) { (e) in

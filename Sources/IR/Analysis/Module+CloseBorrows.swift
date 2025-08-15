@@ -74,14 +74,14 @@ extension Module {
           continue
         }
         let s = make(&self, self[u, in: f].site)
-        insert(s, after: u, in: f)
+        self[f].insert(s, at: boundary)
 
       case .start(let b):
         let site = instructions(in: b, of: f).first.map(default: self[i, in: f].site) {
           SourceRange.empty(at: self[$0, in: f].site.start)
         }
         let s = make(&self, site)
-        insert(s, at: boundary, in: f)
+        self[f].insert(s, at: boundary)
 
       default:
         unreachable()

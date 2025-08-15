@@ -118,7 +118,7 @@ struct Emitter {
   /// - Requires: `self.insertionPoint` refers to the end of a block.
   @discardableResult
   private mutating func insert<I: Instruction>(_ newInstruction: I) -> Operand? {
-    let i = module.insert(newInstruction, at: insertionPoint!, in: insertionFunction!)
+    let i = module[insertionFunction!].insert(newInstruction, at: insertionPoint!)
     return module.result(of: i, in: insertionFunction!)
   }
 

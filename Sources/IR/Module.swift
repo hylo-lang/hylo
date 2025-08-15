@@ -726,36 +726,6 @@ public struct Module {
     functions[f]!.replaceUses(of: old, with: new)
   }
 
-  /// Inserts `newInstruction` at `boundary` and returns its identity.
-  @discardableResult
-  mutating func insert(
-    _ newInstruction: Instruction, at boundary: InsertionPoint, in f: Function.ID
-  ) -> InstructionID {
-    functions[f]!.insert(newInstruction, at: boundary)
-  }
-
-  /// Adds `newInstruction` at the end of `block` and returns its identity.
-  @discardableResult
-  mutating func append(_ newInstruction: Instruction, to block: Block.ID, in f: Function.ID) -> InstructionID {
-    functions[f]!.insert(newInstruction, at: .end(of: block))
-  }
-
-  /// Inserts `newInstruction` before `successor` and returns its identity.
-  @discardableResult
-  mutating func insert(
-    _ newInstruction: Instruction, before successor: InstructionID, in f: Function.ID
-  ) -> InstructionID {
-    functions[f]!.insert(newInstruction, at: .before(successor))
-  }
-
-  /// Inserts `newInstruction` after `predecessor` and returns its identity.
-  @discardableResult
-  mutating func insert(
-    _ newInstruction: Instruction, after predecessor: InstructionID, in f: Function.ID
-  ) -> InstructionID {
-    functions[f]!.insert(newInstruction, at: .after(predecessor))
-  }
-
   /// Removes instruction `i` and updates def-use chains.
   ///
   /// - Requires: The result of `i` have no users.
