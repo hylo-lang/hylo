@@ -24,10 +24,15 @@ struct DominatorTree {
 
   /// Creates the dominator tree of `f`, which is in `m`, using the given `cfg`.
   init(function f: Function.ID, cfg: ControlFlowGraph, in m: Module) {
+    self.init(function: m[f], cfg: cfg)
+  }
+
+  /// Creates the dominator tree of `f`, using the given `cfg`.
+  init(function f: Function, cfg: ControlFlowGraph) {
     // The following is an implementation of Cooper et al.'s fast dominance iterative algorithm
     // (see "A Simple, Fast Dominance Algorithm", 2001). First, build any spanning tree rooted at
     // the function's entry.
-    var t = SpanningTree(of: cfg, rootedAt: m[f].entry!)
+    var t = SpanningTree(of: cfg, rootedAt: f.entry!)
 
     // Then, until a fixed point is reached, for each block `v` that has a predecessor `u` that
     // isn't `v`'s parent in the tree, assign `v`'s parent to the least common ancestor of `u` and
@@ -35,7 +40,7 @@ struct DominatorTree {
     var changed = true
     while changed {
       changed = false
-      for v in m[f].blocks.addresses {
+      for v in f.blocks.addresses {
         for u in cfg.predecessors(of: v) where t.parent(v) != u {
           let lca = t.lowestCommonAncestor(u, t.parent(v)!)
           if lca != t.parent(v) {
@@ -47,7 +52,7 @@ struct DominatorTree {
     }
 
     // The resulting tree encodes the immediate dominators.
-    root = m[f].entry!
+    root = f.entry!
     immediateDominators = t.parents
   }
 
