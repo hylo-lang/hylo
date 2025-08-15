@@ -20,6 +20,15 @@ extension Function {
     !genericParameters.isEmpty
   }
 
+  /// Returns the operand representing the return value of `self`.
+  public var returnValue: Operand? {
+    if !isSubscript, let e = entry {
+      return Operand.parameter(e, inputs.count)
+    } else {
+      return nil
+    }
+  }
+
   /// Returns the IDs of the blocks in `self`.
   ///
   /// The first element of the returned collection is the function's entry; other elements are in
@@ -69,15 +78,6 @@ extension Function {
   func terminator(of block: Block.ID) -> InstructionID? {
     if let a = self[block].instructions.lastAddress {
       return InstructionID(block, a)
-    } else {
-      return nil
-    }
-  }
-
-  /// Returns the operand representing the return value of `self`.
-  public func returnValue() -> Operand? {
-    if !isSubscript, let e = entry {
-      return Operand.parameter(e, inputs.count)
     } else {
       return nil
     }
