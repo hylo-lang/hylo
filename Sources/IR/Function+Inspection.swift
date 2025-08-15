@@ -37,6 +37,18 @@ extension Function {
     blocks.indices.lazy.map({ .init($0.address) })
   }
 
+  /// Returns the IDs of the instructions in `self`, from all the blocks.
+  public var instructions: LazySequence<
+    FlattenSequence<
+      LazyMapSequence<
+        LazySequence<DefaultIndices<Function.Blocks>>.Elements,
+        LazyMapSequence<Block.Instructions.Indices, InstructionID>
+      >
+    >
+  > {
+    blocks.indices.lazy.flatMap({ instructions(in: Block.ID($0.address)) })
+  }
+
   /// Returns the IDs of the instructions in `b`, in order.
   public func instructions(
     in b: Block.ID
