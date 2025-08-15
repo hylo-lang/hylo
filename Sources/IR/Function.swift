@@ -26,13 +26,10 @@ public struct Function {
   public let output: AnyType
 
   /// The blocks in the function.
-  public private(set) var blocks: Blocks
+  public var blocks: Blocks
 
   /// The def-use chains of the values in this module.
   public var uses: [Operand: [Use]] = [:]
-
-  /// The entry of the function.
-  public var entry: Blocks.Address? { blocks.firstAddress }
 
   /// Accesses the basic block at `address`.
   ///
@@ -52,27 +49,6 @@ public struct Function {
   public subscript(i: InstructionID) -> Instruction {
     _read { yield blocks[i.block].instructions[i.address] }
     _modify { yield &blocks[i.block].instructions[i.address] }
-  }
-
-  /// `true` iff the function takes generic parameters.
-  public var isGeneric: Bool {
-    !genericParameters.isEmpty
-  }
-
-  /// Appends to `self` a basic block in `scope` that accepts `parameters`, returning its address.
-  ///
-  /// The new block will become the function's entry if `self` contains no block before
-  /// `appendBlock` is called.
-  mutating func appendBlock<T: ScopeID>(
-    in scope: T, taking parameters: [IR.`Type`]
-  ) -> Blocks.Address {
-    blocks.append(Block(scope: AnyScopeID(scope), inputs: parameters))
-  }
-
-  /// Removes the block at `address`.
-  @discardableResult
-  mutating func removeBlock(_ address: Blocks.Address) -> Block {
-    blocks.remove(at: address)
   }
 
   /// Returns the control flow graph of `self`.
