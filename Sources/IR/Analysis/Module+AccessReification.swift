@@ -38,7 +38,7 @@ extension Module {
   /// - Requires: `f` is in `self`.
   public mutating func reifyAccesses(in f: Function.ID, diagnostics: inout DiagnosticSet) {
     var work: Deque<InstructionID> = []
-    for i in instructions(in: f) {
+    for i in self[f].instructions {
       guard let s = self[i, in: f] as? ReifiableAccess else { continue }
 
       // Fast path if the request set is already a singleton.
@@ -101,7 +101,7 @@ extension Module {
 
   /// Calls `action` on the uses of a capability of the access at the origin of `i`.
   private func forEachClient(of i: InstructionID, in f: Function.ID, _ action: (Use) -> Void) {
-    for u in allUses(of: i, in: f) {
+    for u in self[f].allUses(of: i) {
       if self[u.user, in: f].isTransparentOffset {
         forEachClient(of: u.user, in: f, action)
       } else {

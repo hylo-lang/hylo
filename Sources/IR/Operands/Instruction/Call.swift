@@ -69,10 +69,10 @@ extension Module {
     applying callee: Operand, to arguments: [Operand], writingResultTo output: Operand,
     in f: Function.ID, at site: SourceRange
   ) -> Call {
-    let t = ArrowType(type(of: callee, in: f).ast)!.strippingEnvironment
+    let t = ArrowType(self[f].type(of: callee).ast)!.strippingEnvironment
     precondition(t.inputs.count == arguments.count)
     precondition(arguments.allSatisfy({ self[$0, in: f] is Access }))
-    precondition(isBorrowSet(output, in: f))
+    precondition(self[f].isBorrowSet(output))
 
     return .init(callee: callee, output: output, arguments: arguments, site: site)
   }

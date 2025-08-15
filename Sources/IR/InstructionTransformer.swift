@@ -192,7 +192,7 @@ extension IR.Program {
     case let s as Project:
       let r = FunctionReference(
         to: s.callee, in: modules[m]!,
-        specializedBy: s.specialization, in: modules[m]!.scope(containing: i, in: f))
+        specializedBy: s.specialization, in: modules[m]![f].scope(containing: i))
       let oldCallee = Operand.constant(r)
       let newCallee = t.transform(oldCallee, in: &self).constant as! FunctionReference
 

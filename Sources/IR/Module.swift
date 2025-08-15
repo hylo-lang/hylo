@@ -87,80 +87,6 @@ public struct Module {
     }
   }
 
-  /// Returns the type of `operand`.
-  public func type(of operand: Operand, in f: Function.ID) -> IR.`Type` {
-    functions[f]!.type(of: operand)
-  }
-
-  /// Returns `true` iff cannot be used to modify or update a value.
-  public func isBoundImmutably(_ p: Operand, in f: Function.ID) -> Bool {
-    functions[f]!.isBoundImmutably(p)
-  }
-
-  /// Returns `true` iff the result of `i` cannot be used to modify or update a value.
-  public func isBoundImmutably(register i: InstructionID, in f: Function.ID) -> Bool {
-    functions[f]!.isBoundImmutably(register: i)
-  }
-
-  /// If `p` is a function parameter, returns its passing convention. Otherwise, returns `nil`.
-  public func passingConvention(of p: Operand, in f: Function.ID) -> AccessEffect? {
-    functions[f]!.passingConvention(of: p)
-  }
-
-  /// Returns the passing convention of the `i`-th parameter of `f`.
-  public func passingConvention(parameter i: Int, of f: Function.ID) -> AccessEffect {
-    functions[f]!.passingConvention(parameter: i)
-  }
-
-  /// Returns the scope in which `i` is used.
-  public func scope(containing i: InstructionID, in f: Function.ID) -> AnyScopeID {
-    functions[f]!.scope(containing: i)
-  }
-
-  /// Returns the IDs of the blocks in `f`.
-  ///
-  /// The first element of the returned collection is the function's entry; other elements are in
-  /// no particular order.
-  public func blocks(
-    in f: Function.ID
-  ) -> LazyMapSequence<Function.Blocks.Indices, Block.ID> {
-    functions[f]!.blockIDs
-  }
-
-  /// Returns the IDs of the instructions in `b`, in order.
-  public func instructions(
-    in b: Block.ID, of f: Function.ID
-  ) -> LazyMapSequence<Block.Instructions.Indices, InstructionID> {
-    functions[f]!.instructions(in: b)
-  }
-
-  /// Returns the IDs of the instructions in `f`, from all the blocks.
-  public func instructions(in f: Function.ID) -> LazySequence<
-    FlattenSequence<
-      LazyMapSequence<
-        LazySequence<DefaultIndices<Function.Blocks>>.Elements,
-        LazyMapSequence<Block.Instructions.Indices, InstructionID>
-      >
-    >
-  > {
-    functions[f]!.instructions
-  }
-
-  /// Returns the ID the instruction before `i`.
-  func instruction(before i: InstructionID, in f: Function.ID) -> InstructionID? {
-    functions[f]!.instruction(before: i)
-  }
-
-  /// Returns the ID the instruction after `i`.
-  func instruction(after i: InstructionID, in f: Function.ID) -> InstructionID? {
-    functions[f]!.instruction(after: i)
-  }
-
-  /// Returns the register asssigned by `i`, if any.
-  func result(of i: InstructionID, in f: Function.ID) -> Operand? {
-    functions[f]!.result(of: i)
-  }
-
   /// Returns `true` if `i` is a deinitializer.
   public func isDeinit(_ i: Function.ID) -> Bool {
     switch i.value {
@@ -654,45 +580,6 @@ public struct Module {
       result[p] = .type(^u)
     }
     return result
-  }
-
-  /// Returns the entry of `f`.
-  ///
-  /// - Requires: `f` is declared in `self`.
-  public func entry(of f: Function.ID) -> Block.ID? {
-    functions[f]!.entry
-  }
-
-  /// Returns the operand representing the return value of `f`.
-  ///
-  /// - Requires: `f` is declared in `self`.
-  public func returnValue(of f: Function.ID) -> Operand? {
-    functions[f]!.returnValue
-  }
-
-  /// Returns the uses of all the registers assigned by `i`.
-  func allUses(of i: InstructionID, in f: Function.ID) -> [Use] {
-    functions[f]!.allUses(of: i)
-  }
-
-  /// Returns the operands from which the address denoted by `a` derives.
-  ///
-  /// The (static) provenances of an address denote the original operands from which it derives.
-  /// They form a set because an address computed by a projection depends on that projection's
-  /// arguments and because an address defined as a parameter of a basic block with multiple
-  /// predecessors depends on that bock's arguments.
-  func provenances(_ a: Operand, in f: Function.ID) -> Set<Operand> {
-    functions[f]!.provenances(a)
-  }
-
-  /// Returns `true` if `o` can be sunken.
-  func isSink(_ o: Operand, in f: Function.ID) -> Bool {
-    functions[f]!.isSink(o)
-  }
-
-  /// Returns `true` iff `o` is an `access [set]` instruction.
-  func isBorrowSet(_ o: Operand, in f: Function.ID) -> Bool {
-    functions[f]!.isBorrowSet(o)
   }
 
 }

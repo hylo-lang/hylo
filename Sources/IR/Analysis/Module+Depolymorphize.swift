@@ -35,7 +35,7 @@ extension IR.Program {
   /// Replaces uses of parametric types and functions in `f` with their monomorphic or existential
   /// counterparts.
   private mutating func depolymorphize(_ f: Function.ID, definedIn m: Module.ID) {
-    for i in modules[m]!.instructions(in: f) {
+    for i in modules[m]![f].instructions {
       switch modules[m]![i, in: f] {
       case is Call:
         depolymorphize(call: i, from:f, definedIn: m)
@@ -60,7 +60,7 @@ extension IR.Program {
 
     // TODO: Use existentialization unless the function is inlinable
 
-    let g = monomorphize(callee, usedIn: modules[m]!.scope(containing: i, in: f))
+    let g = monomorphize(callee, usedIn: modules[m]![f].scope(containing: i))
     let r = FunctionReference(to: g, in: modules[m]!)
     let new = modules[m]!.makeCall(
       applying: .constant(r), to: Array(s.arguments), writingResultTo: s.output, in: f, at: s.site)
@@ -77,8 +77,8 @@ extension IR.Program {
 
     // TODO: Use existentialization unless the subscript is inlinable
 
-    let z = base.canonical(s.specialization, in: modules[m]!.scope(containing: i, in: f))
-    let g = monomorphize(s.callee, for: z, usedIn: modules[m]!.scope(containing: i, in: f))
+    let z = base.canonical(s.specialization, in: modules[m]![f].scope(containing: i))
+    let g = monomorphize(s.callee, for: z, usedIn: modules[m]![f].scope(containing: i))
     let new = modules[m]!.makeProject(
       s.projection, applying: g, specializedBy: .empty, to: s.operands, at: s.site)
     modules[m]![f].replace(i, with: new)

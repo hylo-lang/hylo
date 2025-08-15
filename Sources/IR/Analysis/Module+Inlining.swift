@@ -22,7 +22,7 @@ extension IR.Program {
     in f: Function.ID, definedIn m: Module.ID, where shouldInline: InliningPredicate
   ) {
     var work: [InstructionID] = []
-    for i in modules[m]!.instructions(in: f) {
+    for i in modules[m]![f].instructions {
       if modules[m]![i, in: f] is Call {
         work.append(i)
       }
@@ -79,7 +79,7 @@ extension IR.Program {
         translation.rewrittenOperand[.parameter(e, n)] = o
       }
 
-      for j in modules[source]!.instructions(in: e, of: callee.function) {
+      for j in modules[source]![callee.function].instructions(in: e) {
         if modules[source]![j, in: callee.function] is Terminator { break }
         let k = self.rewrite(j, in: callee.function, from: source, transformedBy: &translation, at: .before(i), targeting: f, in: m)
         translation.rewrittenOperand[.register(j)] = .register(k)
