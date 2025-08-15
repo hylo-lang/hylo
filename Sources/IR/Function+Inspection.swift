@@ -15,6 +15,11 @@ extension Function {
   /// The entry of the function.
   public var entry: Block.ID? { blocks.firstAddress.map(Block.ID.init) }
 
+  /// `true` iff the function takes generic parameters.
+  public var isGeneric: Bool {
+    !genericParameters.isEmpty
+  }
+
   /// Returns the IDs of the blocks in `self`.
   ///
   /// The first element of the returned collection is the function's entry; other elements are in

@@ -51,11 +51,6 @@ public struct Function {
     _modify { yield &blocks[i.block].instructions[i.address] }
   }
 
-  /// `true` iff the function takes generic parameters.
-  public var isGeneric: Bool {
-    !genericParameters.isEmpty
-  }
-
   /// Appends to `self` a basic block in `scope` that accepts `parameters`, returning its address.
   ///
   /// The new block will become the function's entry if `self` contains no block before
