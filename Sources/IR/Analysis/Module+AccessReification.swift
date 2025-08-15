@@ -132,7 +132,7 @@ extension Module {
     if s.capabilities == [k] { return }
 
     let reified = makeAccess([k], from: s.source, correspondingTo: s.binding, in: f, at: s.site)
-    replace(i, with: reified, in: f)
+    self[f].replace(i, with: reified)
   }
 
   private mutating func reify(projectBundle i: InstructionID, as k: AccessEffect, in f: Function.ID)
@@ -150,7 +150,7 @@ extension Module {
     let o = RemoteType(k, s.projection)
     let reified = makeProject(
       o, applying: s.variants[k]!, specializedBy: s.bundle.arguments, to: arguments, at: s.site)
-    replace(i, with: reified, in: f)
+    self[f].replace(i, with: reified)
   }
 
 }

@@ -104,7 +104,7 @@ struct Emitter {
 
   /// Appends a new basic block at the end of `self.insertionFunction`, defined in s.
   private mutating func appendBlock<T: ScopeID>(in s: T) -> Block.ID {
-    module.appendBlock(in: s, to: insertionFunction!)
+    module[insertionFunction!].appendBlock(in: s)
   }
 
   /// Appends a new basic block at the end of `self.insertionFunction`, defined in the same scope
@@ -220,7 +220,7 @@ struct Emitter {
     insertionFunction = f
 
     // Configure the emitter context.
-    let entry = module.appendEntry(in: program.scopeContainingBody(of: d)!, to: f)
+    let entry = module[f].appendEntry(in: program.scopeContainingBody(of: d)!)
     let bodyFrame = outermostFrame(of: d, entering: entry)
     self.insertionPoint = .end(of: entry)
 
@@ -284,7 +284,7 @@ struct Emitter {
     insertionFunction = f
 
     // Configure the emitter context.
-    let entry = module.appendEntry(in: d, to: f)
+    let entry = module[f].appendEntry(in: d)
 
     self.insertionPoint = .end(of: entry)
     self.frames.push()
@@ -334,7 +334,7 @@ struct Emitter {
     insertionFunction = f
 
     // Create the function entry.
-    let entry = module.appendEntry(in: ast[d].body!, to: f)
+    let entry = module[f].appendEntry(in: ast[d].body!)
 
     // Configure the locals.
     var locals = DeclProperty<Operand>()
@@ -376,7 +376,7 @@ struct Emitter {
     insertionFunction = f
 
     // Create the function entry.
-    let entry = module.appendEntry(in: program.scopeContainingBody(of: d)!, to: f)
+    let entry = module[f].appendEntry(in: program.scopeContainingBody(of: d)!)
 
     // Configure the locals.
     var parameters = DeclProperty<Operand>()
@@ -418,7 +418,7 @@ struct Emitter {
     insertionFunction = f
 
     // Create the function entry.
-    let entry = module.appendEntry(in: program.scopeContainingBody(of: d)!, to: f)
+    let entry = module[f].appendEntry(in: program.scopeContainingBody(of: d)!)
 
     // Configure the locals.
     var locals = DeclProperty<Operand>()
@@ -872,7 +872,7 @@ struct Emitter {
       let f = me.module.demandDeclaration(lowering: d)
       if me.shouldEmitBody(of: d, loweredTo: f) {
         me.insertionFunction = f
-        let entry = me.module.appendEntry(in: d.scope, to: f)
+        let entry = me.module[f].appendEntry(in: d.scope)
         me.insertionPoint = .end(of: entry)
         me.frames.push()
 
@@ -978,7 +978,7 @@ struct Emitter {
     guard case .autoclosure(let argument) = d.kind else { unreachable() }
     let f = module.demandDeclaration(lowering: d)
     insertionFunction = f
-    let entry = module.appendEntry(in: d.scope, to: f)
+    let entry = module[f].appendEntry(in: d.scope)
 
     insertionPoint = .end(of: entry)
     self.frames.push()
@@ -2434,7 +2434,7 @@ struct Emitter {
       allocations.append(emitAllocation(binding: d))
     }
 
-    let failure = module.appendBlock(in: scope, to: insertionFunction!)
+    let failure = module[insertionFunction!].appendBlock(in: scope)
     var nextAllocation = 0
     for item in condition {
       switch item {
@@ -2968,7 +2968,7 @@ struct Emitter {
     lowering(at: s.site) {
       $0._emitMove(semantics, s.object, to: s.target, withMovableConformance: s.movable)
     }
-    module.removeInstruction(i, in: f)
+    module[f].removeInstruction(i)
 
     if let p = predecessor {
       return module.instruction(after: p, in: f)!

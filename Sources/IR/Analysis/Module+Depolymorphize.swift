@@ -64,7 +64,7 @@ extension IR.Program {
     let r = FunctionReference(to: g, in: modules[m]!)
     let new = modules[m]!.makeCall(
       applying: .constant(r), to: Array(s.arguments), writingResultTo: s.output, in: f, at: s.site)
-    modules[m]!.replace(i, with: new, in: f)
+    modules[m]![f].replace(i, with: new)
   }
 
   /// Iff `i` is the projection through a generic subscript, replaces it by an instruction applying
@@ -81,7 +81,7 @@ extension IR.Program {
     let g = monomorphize(s.callee, for: z, usedIn: modules[m]!.scope(containing: i, in: f))
     let new = modules[m]!.makeProject(
       s.projection, applying: g, specializedBy: .empty, to: s.operands, at: s.site)
-    modules[m]!.replace(i, with: new, in: f)
+    modules[m]![f].replace(i, with: new)
   }
 
   /// Returns a depolymorphized copy of `base` in which parametric parameters have been notionally

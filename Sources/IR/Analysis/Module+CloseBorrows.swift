@@ -27,7 +27,7 @@ extension Module {
         if let decl = s.binding {
           log.insert(.warning(unusedBinding: program.ast[decl].baseName, at: s.site))
         }
-        removeInstruction(i, in: f)
+        self[f].removeInstruction(i)
         return
       }
 

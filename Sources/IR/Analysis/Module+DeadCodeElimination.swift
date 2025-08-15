@@ -26,7 +26,7 @@ extension Module {
       if allUses(of: i, in: f).isEmpty && isRemovableWhenUnused(i, in: f) {
         removed.insert(i)
         removeUnused(self[i, in: f].operands.compactMap(\.instruction), keepingTrackIn: &removed, in: f)
-        removeInstruction(i, in: f)
+        self[f].removeInstruction(i)
       }
     }
   }
@@ -48,7 +48,7 @@ extension Module {
       var i = 0
       while i < e {
         if cfg.predecessors(of: work[i]).isEmpty {
-          removeBlock(Block.ID(work[i]), from: f)
+          self[f].removeBlock(Block.ID(work[i]))
           work.swapAt(i, e - 1)
           changed = true
           e -= 1
@@ -63,7 +63,7 @@ extension Module {
   private mutating func removeCodeAfterCallsReturningNever(from f: Function.ID) {
     for b in blocks(in: f) {
       if let i = instructions(in: b, of: f).first(where: { returnsNever($0, in: f) }) {
-        removeAllInstructions(after: i, in: f)
+        self[f].removeAllInstructions(after: i)
         self[f].insert(makeUnreachable(at: self[i, in: f].site), at: .after(i))
       }
     }

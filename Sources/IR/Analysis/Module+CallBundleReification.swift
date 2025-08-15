@@ -26,7 +26,7 @@ extension Module {
 
     let reified = makeCall(
       applying: .constant(ff), to: arguments, writingResultTo: s.output, in: f, at: s.site)
-    replace(i, with: reified, in: f)
+    self[f].replace(i, with: reified)
   }
 
 }
