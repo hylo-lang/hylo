@@ -12,17 +12,15 @@ extension Function {
     }
   }
 
+  /// The entry of the function.
+  public var entry: Block.ID? { blocks.firstAddress.map(Block.ID.init) }
+
   /// Returns the IDs of the blocks in `self`.
   ///
   /// The first element of the returned collection is the function's entry; other elements are in
   /// no particular order.
   public func blockIDs() -> LazyMapSequence<Function.Blocks.Indices, Block.ID> {
     blocks.indices.lazy.map({ .init($0.address) })
-  }
-
-  /// Returns the entry of `self`.
-  public func entryID() -> Block.ID? {
-    entry.map { Block.ID($0) }
   }
 
   /// Returns the IDs of the instructions in `b`, in order.
@@ -73,7 +71,7 @@ extension Function {
 
   /// Returns the operand representing the return value of `self`.
   public func returnValue() -> Operand? {
-    if !isSubscript, let e = entryID() {
+    if !isSubscript, let e = entry {
       return Operand.parameter(e, inputs.count)
     } else {
       return nil
@@ -105,7 +103,7 @@ extension Function {
   public func isBoundImmutably(_ p: Operand) -> Bool {
     switch p {
     case .parameter(let e, let i):
-      return (entryID() == e) && (passingConvention(parameter: i) == .let)
+      return (entry == e) && (passingConvention(parameter: i) == .let)
     case .constant:
       return false
     case .register(let i):
@@ -143,7 +141,7 @@ extension Function {
 
   /// If `p` is a function parameter, returns its passing convention. Otherwise, returns `nil`.
   public func passingConvention(of p: Operand) -> AccessEffect? {
-    if case .parameter(let e, let i) = p, entryID() == e {
+    if case .parameter(let e, let i) = p, entry == e {
       return passingConvention(parameter: i)
     } else {
       return nil
@@ -194,7 +192,7 @@ extension Function {
     provenances(o).allSatisfy { (p) -> Bool in
       switch p {
       case .parameter(let e, let i):
-        if entryID() == e {
+        if entry == e {
           return inputs[i].type.access == .sink
         } else {
           return false

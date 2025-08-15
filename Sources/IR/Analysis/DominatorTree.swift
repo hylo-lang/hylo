@@ -32,7 +32,7 @@ struct DominatorTree {
     // The following is an implementation of Cooper et al.'s fast dominance iterative algorithm
     // (see "A Simple, Fast Dominance Algorithm", 2001). First, build any spanning tree rooted at
     // the function's entry.
-    var t = SpanningTree(of: cfg, rootedAt: f.entry!)
+    var t = SpanningTree(of: cfg, rootedAt: f.entry!.address)
 
     // Then, until a fixed point is reached, for each block `v` that has a predecessor `u` that
     // isn't `v`'s parent in the tree, assign `v`'s parent to the least common ancestor of `u` and
@@ -52,7 +52,7 @@ struct DominatorTree {
     }
 
     // The resulting tree encodes the immediate dominators.
-    root = f.entry!
+    root = f.entry!.address
     immediateDominators = t.parents
   }
 

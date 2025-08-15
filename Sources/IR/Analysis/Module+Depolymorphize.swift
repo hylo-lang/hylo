@@ -287,7 +287,7 @@ extension Module {
     in monomorphized: Function.ID
   ) -> OrderedDictionary<GenericParameterDecl.ID, InstructionID> {
     let insertionSite = SourceRange.empty(at: self[monomorphized].site.start)
-    let entry = Block.ID(self[monomorphized].entry!)
+    let entry = self[monomorphized].entry!
 
     var genericValues = OrderedDictionary<GenericParameterDecl.ID, InstructionID>()
 

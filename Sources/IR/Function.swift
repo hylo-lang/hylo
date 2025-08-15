@@ -31,9 +31,6 @@ public struct Function {
   /// The def-use chains of the values in this module.
   public var uses: [Operand: [Use]] = [:]
 
-  /// The entry of the function.
-  public var entry: Blocks.Address? { blocks.firstAddress }
-
   /// Accesses the basic block at `address`.
   ///
   /// - Requires: `address` must be a valid address in `self`.

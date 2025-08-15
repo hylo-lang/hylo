@@ -731,7 +731,7 @@ public struct Module {
   ///
   /// - Requires: `f` is declared in `self`.
   public func entry(of f: Function.ID) -> Block.ID? {
-    functions[f]!.entry.map({ Block.ID($0) })
+    functions[f]!.entry
   }
 
   /// Returns the operand representing the return value of `f`.
