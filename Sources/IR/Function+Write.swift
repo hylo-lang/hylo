@@ -10,7 +10,7 @@ extension Function {
   ///
   /// TODO: merge `appendBlock` and `appendEntry`
   mutating func appendBlock<T: ScopeID>(
-    in scope: T, taking parameters: [IR.`Type`]
+    in scope: T, taking parameters: [IR.`Type`] = []
   ) -> Block.ID {
     Block.ID(blocks.append(Block(scope: AnyScopeID(scope), inputs: parameters)))
   }

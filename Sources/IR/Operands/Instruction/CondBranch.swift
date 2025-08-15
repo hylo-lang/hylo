@@ -78,7 +78,7 @@ extension Module {
     in f: Function.ID,
     at site: SourceRange
   ) -> CondBranch {
-    precondition(type(of: condition, in: f) == .object(BuiltinType.i(1)))
+    precondition(self[f].type(of: condition) == .object(BuiltinType.i(1)))
     return .init(
       condition: condition,
       targetIfTrue: targetIfTrue,

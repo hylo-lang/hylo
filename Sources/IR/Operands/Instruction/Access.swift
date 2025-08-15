@@ -77,10 +77,10 @@ extension Module {
     in f: Function.ID, at site: SourceRange
   ) -> Access {
     precondition(!capabilities.isEmpty)
-    precondition(type(of: source, in: f).isAddress)
+    precondition(self[f].type(of: source).isAddress)
     return .init(
       capabilities: capabilities,
-      accessedType: type(of: source, in: f).ast,
+      accessedType: self[f].type(of: source).ast,
       source: source,
       binding: binding,
       site: site)

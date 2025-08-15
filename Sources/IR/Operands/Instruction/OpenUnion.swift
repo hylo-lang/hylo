@@ -74,7 +74,7 @@ extension Module {
     forInitialization isUsedForInitialization: Bool = false,
     in f: Function.ID, at site: SourceRange
   ) -> OpenUnion {
-    precondition(type(of: container, in: f).isAddress)
+    precondition(self[f].type(of: container).isAddress)
     precondition(payload.isCanonical)
     return .init(
       container: container,

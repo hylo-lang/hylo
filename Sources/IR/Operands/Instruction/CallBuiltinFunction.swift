@@ -49,7 +49,7 @@ extension Module {
   ) -> CallBuiltinFunction {
     precondition(
       operands.allSatisfy { (o) in
-        let t = type(of: o, in: f)
+        let t = self[f].type(of: o)
         return t.isObject && (t.ast.base is BuiltinType)
       })
 

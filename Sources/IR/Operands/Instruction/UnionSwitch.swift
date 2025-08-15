@@ -76,7 +76,7 @@ extension Module {
     over discriminator: Operand, of union: UnionType, toOneOf targets: UnionSwitch.Targets,
     in f: Function.ID, at site: SourceRange
   ) -> UnionSwitch {
-    let t = type(of: discriminator, in: f)
+    let t = self[f].type(of: discriminator)
     precondition(t.isObject && t.ast.isBuiltinInteger)
     precondition(union.elements.allSatisfy({ (e) in targets[e] != nil }))
     return .init(discriminator: discriminator, union: union, targets: targets, site: site)

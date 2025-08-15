@@ -43,7 +43,7 @@ extension Module {
   ///     instruction requesting a `sink` capability.
   func makeLoad(_ source: Operand, in f: Function.ID, at site: SourceRange) -> Load {
     precondition(self[source, in: f] is Access)
-    return .init(objectType: .object(type(of: source, in: f).ast), from: source, site: site)
+    return .init(objectType: .object(self[f].type(of: source).ast), from: source, site: site)
   }
 
 }

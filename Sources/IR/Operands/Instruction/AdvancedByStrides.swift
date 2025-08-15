@@ -66,7 +66,7 @@ extension Module {
 
   /// Returns the AST type of `source` iff it is the address of a buffer.
   private func sourceType(_ source: Operand, in f: Function.ID) -> BufferType? {
-    let s = type(of: source, in: f)
+    let s = self[f].type(of: source)
     if s.isAddress {
       return BufferType(s.ast)
     } else {

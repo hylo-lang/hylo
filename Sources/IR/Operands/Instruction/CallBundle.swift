@@ -85,7 +85,7 @@ extension Module {
       program.canonicalType(of: m.bundle, specializedBy: m.arguments, in: scopeOfUse))!
     precondition((t.inputs.count + 1) == a.count)
     precondition(a.allSatisfy({ self[$0, in: f] is Access }))
-    precondition(isBorrowSet(o, in: f))
+    precondition(self[f].isBorrowSet(o))
 
     return .init(bundle: m, bundleType: t, variants: variants, output: o, arguments: a, site: site)
   }

@@ -52,7 +52,7 @@ extension Module: TextOutputStreamable {
     if function.entry == nil { return }
     output.write(" {\n")
 
-    for i in blocks(in: f) {
+    for i in self[f].blockIDs {
       output.write("\(i)(")
       output.write(
         self[i, in: f].inputs.enumerated().lazy
@@ -60,7 +60,7 @@ extension Module: TextOutputStreamable {
           .joined(separator: ", "))
       output.write("):\n")
 
-      for j in instructions(in: i, of: f) {
+      for j in self[f].instructions(in: i) {
         output.write("  ")
         if let t = self[j, in: f].result {
           output.write("\(Operand.register(j)): \(t) = ")
