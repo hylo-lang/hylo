@@ -697,8 +697,7 @@ public struct Module {
     taking parameters: [IR.`Type`] = [],
     to f: Function.ID
   ) -> Block.ID {
-    let a = functions[f]!.appendBlock(in: scope, taking: parameters)
-    return Block.ID(a)
+    functions[f]!.appendBlock(in: scope, taking: parameters)
   }
 
   /// Removes `block` and updates def-use chains.
@@ -710,7 +709,7 @@ public struct Module {
       precondition(allUses(of: i, in: f).allSatisfy({ $0.user.block == block.address }))
       removeUsesMadeBy(i, in: f)
     }
-    return functions[f]!.removeBlock(block.address)
+    return functions[f]!.removeBlock(block)
   }
 
   /// Swaps `old` by `new`.
