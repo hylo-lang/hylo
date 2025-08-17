@@ -38,14 +38,16 @@ extension Function {
   }
 
   /// Returns the IDs of the instructions in `self`, from all the blocks.
-  public var instructions: LazySequence<
-    FlattenSequence<
-      LazyMapSequence<
-        LazySequence<DefaultIndices<Function.Blocks>>.Elements,
-        LazyMapSequence<Block.Instructions.Indices, InstructionID>
+  public var instructions:
+    LazySequence<
+      FlattenSequence<
+        LazyMapSequence<
+          LazySequence<DefaultIndices<Function.Blocks>>.Elements,
+          LazyMapSequence<Block.Instructions.Indices, InstructionID>
+        >
       >
     >
-  > {
+  {
     blocks.indices.lazy.flatMap({ instructions(in: Block.ID($0.address)) })
   }
 
@@ -54,6 +56,11 @@ extension Function {
     in b: Block.ID
   ) -> LazyMapSequence<Block.Instructions.Indices, InstructionID> {
     self[b].instructions.indices.lazy.map({ .init(b.address, $0.address) })
+  }
+
+  /// Returns the ID of the first instruction in `b`, if any.
+  public func firstInstruction(in b: Block.ID) -> InstructionID? {
+    self[b].instructions.firstAddress.map({ InstructionID(b.address, $0) })
   }
 
   /// Returns the ID the instruction before `i`.
@@ -73,7 +80,7 @@ extension Function {
     self[i.block].scope
   }
 
-  /// Returns `true` iff `lhs` is sequenced before `rhs`.
+  /// Returns `true` iff `lhs` is sequenced before `rhs` on all paths leading to `rhs`.
   func dominates(_ lhs: InstructionID, _ rhs: InstructionID) -> Bool {
     // Fast path: both instructions are in the same block.
     if lhs.block == rhs.block {
@@ -84,6 +91,11 @@ extension Function {
     // Slow path: use the dominator tree.
     let d = DominatorTree(function: self, cfg: cfg())
     return d.dominates(lhs.block, rhs.block)
+  }
+
+  /// Returns `true` iff `lhs` is sequenced before `rhs` in the block of `lhs`.
+  public func precedes(_ lhs: InstructionID, _ rhs: InstructionID) -> Bool {
+    return lhs.address.precedes(rhs.address, in: self[lhs.block].instructions)
   }
 
   /// Returns the global identity of `block`'s terminator, if it exists.

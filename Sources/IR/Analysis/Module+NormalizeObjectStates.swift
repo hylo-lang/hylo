@@ -17,11 +17,11 @@ extension Module {
     // Verify that object states are properly initialized/deinitialized in `b` given `context`,
     // updating `self` as necessary and reporting violations in `diagnostics`.
     machine.fixedPoint { (b, context) in
-      var pc = self[f][b].instructions.firstAddress
+      var pc = self[f].firstInstruction(in: Block.ID(b))?.address
       while let a = pc {
         let user = InstructionID(b, a)
 
-        switch self[f][b].instructions[a] {
+        switch self[f][user] {
         case is Access:
           pc = interpret(access: user, in: &context)
         case is AddressToPointer:
@@ -102,7 +102,7 @@ extension Module {
 
     /// Returns the successor of `i`, if any.
     func successor(of i: InstructionID) -> PC? {
-      self[f][i.block].instructions.address(after: i.address)
+      self[f].instruction(after: i)?.address
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.

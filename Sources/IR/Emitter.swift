@@ -2978,8 +2978,7 @@ struct Emitter {
     if let p = predecessor {
       return module[f].instruction(after: p)!
     } else {
-      let b = insertionBlock!
-      return .init(b.address, module[b, in: f].instructions.firstAddress!)
+      return module[f].firstInstruction(in: insertionBlock!)!
     }
   }
 

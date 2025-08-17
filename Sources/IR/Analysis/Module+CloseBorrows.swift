@@ -77,7 +77,7 @@ extension Module {
         self[f].insert(s, at: boundary)
 
       case .start(let b):
-        let site = self[f].instructions(in: b).first.map(default: self[i, in: f].site) {
+        let site = self[f].firstInstruction(in: b).map(default: self[i, in: f].site) {
           SourceRange.empty(at: self[$0, in: f].site.start)
         }
         let s = make(&self, site)

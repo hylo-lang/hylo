@@ -68,14 +68,14 @@ public struct Module {
 
   /// Accesses the given block.
   public subscript(b: Block.ID, in f: Function.ID) -> Block {
-    _read { yield functions[f]!.blocks[b.address] }
-    _modify { yield &functions[f]![b.address] }
+    _read { yield functions[f]![b] }
+    _modify { yield &functions[f]![b] }
   }
 
   /// Accesses the given instruction.
   public subscript(i: InstructionID, in f: Function.ID) -> Instruction {
-    _read { yield functions[f]!.blocks[i.block].instructions[i.address] }
-    _modify { yield &functions[f]![i.block].instructions[i.address] }
+    _read { yield functions[f]![i] }
+    _modify { yield &functions[f]![i] }
   }
 
   /// Accesses the instruction denoted by `o` if it is `.register`; returns `nil` otherwise.
