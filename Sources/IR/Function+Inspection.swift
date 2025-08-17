@@ -38,7 +38,7 @@ extension Function {
   }
 
   /// Returns the IDs of the instructions in `self`, from all the blocks.
-  public var instructions:
+  public var instructionIDs:
     LazySequence<
       FlattenSequence<
         LazyMapSequence<

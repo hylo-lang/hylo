@@ -38,7 +38,7 @@ extension Module {
   /// - Requires: `f` is in `self`.
   public mutating func reifyAccesses(in f: Function.ID, diagnostics: inout DiagnosticSet) {
     var work: Deque<InstructionID> = []
-    for i in self[f].instructions {
+    for i in self[f].instructionIDs {
       guard let s = self[i, in: f] as? ReifiableAccess else { continue }
 
       // Fast path if the request set is already a singleton.

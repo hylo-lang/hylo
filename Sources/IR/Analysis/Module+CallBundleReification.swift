@@ -15,7 +15,7 @@ extension Module {
 extension Function {
 
   fileprivate mutating func reifyCallsToBundles(module m: Module, diagnostics: inout DiagnosticSet) {
-    for i in instructions where self[i] is CallBundle {
+    for i in instructionIDs where self[i] is CallBundle {
       reify(callBundle: i, module: m)
     }
   }
