@@ -6,49 +6,53 @@ extension Module {
   ///
   /// - Requires: `f` is in `self`.
   public mutating func removeDeadCode(in f: Function.ID, diagnostics: inout DiagnosticSet) {
-    removeUnusedDefinitions(from: f)
-    removeCodeAfterCallsReturningNever(from: f)
-    removeUnreachableBlocks(from: f)
+    self[f].removeUnusedDefinitions()
+    self[f].removeCodeAfterCallsReturningNever()
+    self[f].removeUnreachableBlocks()
   }
 
+}
+
+extension Function {
+
   /// Removes the instructions if `f` that have no user.
-  private mutating func removeUnusedDefinitions(from f: Function.ID) {
+  fileprivate mutating func removeUnusedDefinitions() {
     var s = Set<InstructionID>()
-    removeUnused(self[f].instructions, keepingTrackIn: &s, in: f)
+    removeUnused(instructions, keepingTrackIn: &s)
   }
 
   /// Removes the instructions in `definitions` that have no user, accumulating the IDs of removed
   /// elements in `removed`.
   private mutating func removeUnused<S: Sequence<InstructionID>>(
-    _ definitions: S, keepingTrackIn removed: inout Set<InstructionID>, in f: Function.ID
+    _ definitions: S, keepingTrackIn removed: inout Set<InstructionID>
   ) {
     for i in definitions where !removed.contains(i) {
-      if self[f].allUses(of: i).isEmpty && isRemovableWhenUnused(i, in: f) {
+      if allUses(of: i).isEmpty && isRemovableWhenUnused(i) {
         removed.insert(i)
-        removeUnused(self[i, in: f].operands.compactMap(\.instruction), keepingTrackIn: &removed, in: f)
-        self[f].removeInstruction(i)
+        removeUnused(self[i].operands.compactMap(\.instruction), keepingTrackIn: &removed)
+        removeInstruction(i)
       }
     }
   }
 
   /// Removes the basic blocks that have no predecessor from `f`, except its entry.
-  private mutating func removeUnreachableBlocks(from f: Function.ID) {
+  fileprivate mutating func removeUnreachableBlocks() {
     // Nothing to do if there isn't more than one block in the function.
-    if self[f].blocks.count < 2 { return }
+    if blocks.count < 2 { return }
 
     // Process all blocks except the entry.
-    var work = Array(self[f].blocks.addresses.dropFirst())
+    var work = Array(blocks.addresses.dropFirst())
     var e = work.count
     var changed = true
     while changed {
       // CFG is computed the first time and recomputed every time a mutation happened.
-      let cfg = self[f].cfg()
+      let cfg = cfg()
       changed = false
 
       var i = 0
       while i < e {
         if cfg.predecessors(of: work[i]).isEmpty {
-          self[f].removeBlock(Block.ID(work[i]))
+          removeBlock(Block.ID(work[i]))
           work.swapAt(i, e - 1)
           changed = true
           e -= 1
@@ -60,30 +64,30 @@ extension Module {
   }
 
   /// Removes the code after calls returning `Never` from `f`.
-  private mutating func removeCodeAfterCallsReturningNever(from f: Function.ID) {
-    for b in self[f].blockIDs {
-      if let i = self[f].instructions(in: b).first(where: { returnsNever($0, in: f) }) {
-        self[f].removeAllInstructions(after: i)
-        self[f].insert(makeUnreachable(at: self[i, in: f].site), at: .after(i))
+  fileprivate mutating func removeCodeAfterCallsReturningNever() {
+    for b in blockIDs {
+      if let i = instructions(in: b).first(where: { returnsNever($0) }) {
+        removeAllInstructions(after: i)
+        makeUnreachable(at: self[i].site, insertingAt: .after(i))
       }
     }
   }
 
   /// Returns `true` iff `i` never returns control flow.
-  private func returnsNever(_ i: InstructionID, in f: Function.ID) -> Bool {
-    switch self[i, in: f] {
+  private func returnsNever(_ i: InstructionID) -> Bool {
+    switch self[i] {
     case is Call:
-      return self[f].type(of: (self[i, in: f] as! Call).output).ast.isNever
+      return type(of: (self[i] as! Call).output).ast.isNever
     case is CallFFI:
-      return (self[i, in: f] as! CallFFI).returnType.ast.isNever
+      return (self[i] as! CallFFI).returnType.ast.isNever
     default:
       return false
     }
   }
 
   /// Returns `true` iff `i` can be removed if it has no use.
-  private func isRemovableWhenUnused(_ i: InstructionID, in f: Function.ID) -> Bool {
-    switch self[i, in: f] {
+  private func isRemovableWhenUnused(_ i: InstructionID) -> Bool {
+    switch self[i] {
     case let s as Access:
       return s.binding == nil
     case is CallFFI:

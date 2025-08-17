@@ -67,23 +67,34 @@ extension Access: CustomStringConvertible {
 
 }
 
-extension Module {
+extension Function {
 
   /// Creates an `access` anchored at `site` that may take any of `capabilities` from `source`,
   /// optionally associated with a variable declaration in the AST.
   func makeAccess(
     _ capabilities: AccessEffectSet, from source: Operand,
     correspondingTo binding: VarDecl.ID? = nil,
-    in f: Function.ID, at site: SourceRange
+    at site: SourceRange
   ) -> Access {
     precondition(!capabilities.isEmpty)
-    precondition(self[f].type(of: source).isAddress)
+    precondition(type(of: source).isAddress)
     return .init(
       capabilities: capabilities,
-      accessedType: self[f].type(of: source).ast,
+      accessedType: type(of: source).ast,
       source: source,
       binding: binding,
       site: site)
+  }
+
+  /// Creates an `access` anchored at `site` that may take any of `capabilities` from `source`,
+  /// optionally associated with a variable declaration in the AST.
+  mutating func makeAccess(
+    _ capabilities: AccessEffectSet, from source: Operand,
+    correspondingTo binding: VarDecl.ID? = nil,
+    at site: SourceRange,
+    insertingAt p: InsertionPoint
+  ) -> InstructionID {
+    insert(makeAccess(capabilities, from: source, correspondingTo: binding, at: site), at: p)
   }
 
 }

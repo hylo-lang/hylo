@@ -30,15 +30,21 @@ public struct UnionDiscriminator: Instruction {
 
 }
 
-extension Module {
+extension Function {
 
   /// Creates a `union_discriminator` anchored at `site` that returns the discriminator of the
   /// element stored in `container`.
-  func makeUnionDiscriminator(
-    _ container: Operand, in f: Function.ID, at site: SourceRange
-  ) -> UnionDiscriminator {
-    precondition(self[f].type(of: container).isAddress)
+  func makeUnionDiscriminator(_ container: Operand, at site: SourceRange) -> UnionDiscriminator {
+    precondition(type(of: container).isAddress)
     return .init(container: container, site: site)
+  }
+
+  /// Creates a `union_discriminator` anchored at `site` that returns the discriminator of the
+  /// element stored in `container`, inserting it at `p`.
+  mutating func makeUnionDiscriminator(
+    _ container: Operand, at site: SourceRange, insertingAt p: InsertionPoint
+  ) -> InstructionID {
+    insert(makeUnionDiscriminator(container, at: site), at: p)
   }
 
 }

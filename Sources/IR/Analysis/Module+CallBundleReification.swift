@@ -7,26 +7,34 @@ extension Module {
   ///
   /// - Requires: `f` is in `self`.
   public mutating func reifyCallsToBundles(in f: Function.ID, diagnostics: inout DiagnosticSet) {
-    for i in self[f].instructions where self[i, in: f] is CallBundle {
-      reify(callBundle: i, in: f)
+    self[f].reifyCallsToBundles(module: self, diagnostics: &diagnostics)
+  }
+
+}
+
+extension Function {
+
+  fileprivate mutating func reifyCallsToBundles(module m: Module, diagnostics: inout DiagnosticSet) {
+    for i in instructions where self[i] is CallBundle {
+      reify(callBundle: i, module: m)
     }
   }
 
-  private mutating func reify(callBundle i: InstructionID, in f: Function.ID) {
-    let s = self[i, in: f] as! CallBundle
+  private mutating func reify(callBundle i: InstructionID, module m: Module) {
+    let s = self[i] as! CallBundle
     let k = s.capabilities.weakest!
 
     var arguments = Array(s.arguments)
-    let r = makeAccess([k], from: arguments[0], in: f, at: s.site)
-    arguments[0] = .register(self[f].insert(r, at: .before(i)))
+    let r = makeAccess([k], from: arguments[0], at: s.site, insertingAt: .before(i))
+    arguments[0] = .register(r)
 
     let b = Block.ID(containing: i)
     let ff = FunctionReference(
-      to: s.variants[k]!, in: self, specializedBy: s.bundle.arguments, in: self[b, in: f].scope)
+      to: s.variants[k]!, in: m, specializedBy: s.bundle.arguments, in: self[b].scope)
 
     let reified = makeCall(
-      applying: .constant(ff), to: arguments, writingResultTo: s.output, in: f, at: s.site)
-    self[f].replace(i, with: reified)
+      applying: .constant(ff), to: arguments, writingResultTo: s.output, at: s.site)
+    replace(i, with: reified)
   }
 
 }

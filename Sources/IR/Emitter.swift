@@ -78,6 +78,11 @@ struct Emitter {
     program.ast
   }
 
+  /// The `Function` object in which we are currently inserting.
+  private var insertionIR: Function {
+    module[insertionFunction!]
+  }
+
   /// The basic block in which new instructions are currently inserted.
   private var insertionBlock: Block.ID? {
     insertionPoint?.block
@@ -3369,7 +3374,7 @@ struct Emitter {
     // having set up a record of frames and allocations.  When we recompute
     // allocations as on-demand, that will become a non-issue.
     if frames.isEmpty { frames.push() }
-    let s = insert(module.makeAllocStack(canonical(t), at: currentSource))!
+    let s = insert(insertionIR.makeAllocStack(canonical(t), at: currentSource))!
     frames.top.allocs.append((source: s, mayHoldCaptures: false))
     return s
   }
@@ -3393,7 +3398,7 @@ struct Emitter {
     if a.mayHoldCaptures {
       _release_capture(a.source)
     }
-    insert(module.makeDeallocStack(for: source, in: insertionFunction!, at: currentSource))
+    insert(insertionIR.makeDeallocStack(for: source, at: currentSource))
   }
 
   /// Appends the IR for computing the address of the given `subfield` of the record at
@@ -3403,14 +3408,18 @@ struct Emitter {
   ) -> Operand {
     if subfield.isEmpty { return recordAddress }
 
+    var o: Operand
+    var p: RecordPath
     if let r = module[recordAddress, in: insertionFunction!] as? SubfieldView {
-      let p = r.subfield + subfield
-      let s = module.makeSubfieldView(of: r.recordAddress, subfield: p, in: insertionFunction!, at: currentSource)
-      return insert(s)!
+      o = r.recordAddress
+      p = r.subfield + subfield
     } else {
-      let s = module.makeSubfieldView(of: recordAddress, subfield: subfield, in: insertionFunction!, at: currentSource)
-      return insert(s)!
+      o = recordAddress
+      p = subfield
     }
+    let l = AbstractTypeLayout(of: module[insertionFunction!].type(of: o).ast, definedIn: program)
+    let s = insertionIR.makeSubfieldView(of: o, subfield: p, resultType: l[p].type, at: currentSource)
+    return insert(s)!
   }
 
   /// Emits the IR for copying the union discriminator of `container`, which is the address of
@@ -3481,7 +3490,7 @@ struct Emitter {
   mutating func _cond_branch(if condition: Operand, then targetIfTrue: Block.ID, else targetIfFalse: Block.ID) {
     checkEntryStack(targetIfTrue)
     checkEntryStack(targetIfFalse)
-    insert(module.makeCondBranch(if: condition, then: targetIfTrue, else: targetIfFalse, in: insertionFunction!, at: currentSource))
+    insert(insertionIR.makeCondBranch(if: condition, then: targetIfTrue, else: targetIfFalse, at: currentSource))
   }
 
 }
@@ -3702,40 +3711,40 @@ extension Emitter {
 extension Emitter {
 
   fileprivate mutating func _mark_state(_ x: InitializationState, _ op: Operand?) {
-    insert(module.makeMarkState(op!, initialized: x == .initialized, in: insertionFunction!, at: currentSource))
+    insert(insertionIR.makeMarkState(op!, initialized: x == .initialized, at: currentSource))
   }
 
   fileprivate mutating func _call_ffi<T: TypeProtocol>(_ foreignName: String, on arguments: [Operand], returning returnType: T) -> Operand {
     insert(
-      module.makeCallFFI(
-        returning: .object(returnType), applying: foreignName, to: arguments, in: insertionFunction!, at: currentSource))!
+      insertionIR.makeCallFFI(
+        returning: .object(returnType), applying: foreignName, to: arguments, at: currentSource))!
   }
 
   fileprivate mutating func _unreachable() {
-    insert(module.makeUnreachable(at: currentSource))
+    insert(insertionIR.makeUnreachable(at: currentSource))
   }
 
   fileprivate mutating func _return() {
-    insert(module.makeReturn(at: currentSource))
+    insert(insertionIR.makeReturn(at: currentSource))
   }
 
   fileprivate mutating func _access(
     _ capabilities: AccessEffectSet, from s: Operand, correspondingTo binding: VarDecl.ID? = nil
   ) -> Operand {
-    insert(module.makeAccess(capabilities, from: s, correspondingTo: binding, in: insertionFunction!, at: currentSource))!
+    insert(insertionIR.makeAccess(capabilities, from: s, correspondingTo: binding, at: currentSource))!
   }
 
   fileprivate mutating func _end_access(_ x: Operand) {
-    insert(module.makeEndAccess(x, in: insertionFunction!, at: currentSource))
+    insert(insertionIR.makeEndAccess(x, at: currentSource))
   }
 
   fileprivate mutating func _yield(_ c: AccessEffect, _ a: Operand) {
-    _ = insert(module.makeYield(c, a, in: insertionFunction!, at: currentSource))
+    _ = insert(insertionIR.makeYield(c, a, at: currentSource))
   }
 
   fileprivate mutating func _branch(to x: Block.ID) {
     checkEntryStack(x)
-    _ = insert(module.makeBranch(to: x, at: currentSource))
+    _ = insert(insertionIR.makeBranch(to: x, at: currentSource))
   }
 
   fileprivate mutating func _open_union(
@@ -3743,12 +3752,12 @@ extension Emitter {
     _ option: OpenUnionOption = .notForInitialization
   ) -> Operand {
     insert(
-      module.makeOpenUnion(
-        container, as: payload, forInitialization: option == .forInitialization, in: insertionFunction!, at: currentSource))!
+      insertionIR.makeOpenUnion(
+        container, as: payload, forInitialization: option == .forInitialization, at: currentSource))!
   }
 
   fileprivate mutating func _close_union(_ x: Operand  ) {
-    insert(module.makeCloseUnion(x, in: insertionFunction!, at: currentSource))
+    insert(insertionIR.makeCloseUnion(x, at: currentSource))
   }
 
   fileprivate mutating func _project(
@@ -3756,62 +3765,72 @@ extension Emitter {
     to arguments: [Operand]
   ) -> Operand {
     insert(
-      module.makeProject(t, applying: s, specializedBy: z, to: arguments, at: currentSource))!
+      insertionIR.makeProject(t, applying: s, specializedBy: z, to: arguments, at: currentSource))!
   }
 
   fileprivate mutating func _store(_ source: Operand, _ target: Operand) {
-    insert(module.makeStore(source, at: target, in: insertionFunction!, at: currentSource))
+    insert(insertionIR.makeStore(source, at: target, at: currentSource))
   }
 
   /// Inserts a `load` instruction reading from `source`.
   fileprivate mutating func _load(_ source: Operand) -> Operand {
-    insert(module.makeLoad(source, in: insertionFunction!, at: currentSource))!
+    insert(insertionIR.makeLoad(source, at: currentSource))!
   }
 
 
   fileprivate mutating func _address_to_pointer(_ source: Operand) -> Operand {
-    insert(module.makeAddressToPointer(source, at: currentSource))!
+    insert(insertionIR.makeAddressToPointer(source, at: currentSource))!
   }
 
   fileprivate mutating func _call_builtin(
     _ f: BuiltinFunction, _ arguments: [Operand]
   ) -> Operand {
-    insert(module.makeCallBuiltin(applying: f, to: arguments, in: insertionFunction!, at: currentSource))!
+    insert(insertionIR.makeCallBuiltin(applying: f, to: arguments, at: currentSource))!
   }
 
   fileprivate mutating func _project_bundle(
     applying b: BundleReference<SubscriptDecl>, to arguments: [Operand]
   ) -> Operand {
-    insert(
-      module.makeProjectBundle(
-        applying: b, to: arguments, at: currentSource,
+    var variants: [AccessEffect: Function.ID] = [:]
+    for v in program[b.bundle].impls {
+      let i = program[v].introducer.value
+      if b.capabilities.contains(i) {
+        variants[program[v].introducer.value] = module.demandDeclaration(lowering: v)
+      }
+    }
+
+    let t = SubscriptType(
+      program.canonicalType(of: b.bundle, specializedBy: b.arguments, in: insertionScope!))!.pure
+    return insert(
+      insertionIR.makeProjectBundle(
+        applying: b, ofType: t, to: arguments, with: variants, at: currentSource,
         canonicalizingTypesIn: insertionScope!))!
   }
 
   fileprivate mutating func _open_capture(_ s: Operand) -> Operand {
-    insert(module.makeOpenCapture(s, in: insertionFunction!, at: currentSource))!
+    insert(insertionIR.makeOpenCapture(s, at: currentSource))!
   }
 
   fileprivate mutating func _release_capture(_ source: Operand) {
-    insert(module.makeReleaseCapture(source, in: insertionFunction!, at: currentSource))
+    insert(insertionIR.makeReleaseCapture(source, at: currentSource))
   }
 
   fileprivate mutating func _advanced(_ source: Operand, byStrides n: Int) -> Operand {
-    insert(module.makeAdvanced(source, byStrides: n, in: insertionFunction!, at: currentSource))!
+    insert(insertionIR.makeAdvanced(source, byStrides: n, at: currentSource))!
   }
 
   fileprivate mutating func _constant_string(utf8 value: Data) -> Operand {
-    insert(module.makeConstantString(utf8: value, at: currentSource))!
+    insert(insertionIR.makeConstantString(utf8: value, at: currentSource))!
   }
 
   fileprivate mutating func _capture(_ source: Operand, in target: Operand) {
-    insert(module.makeCapture(source, in: target, in: insertionFunction!, at: currentSource))
+    insert(insertionIR.makeCapture(source, in: target, at: currentSource))
   }
 
   fileprivate mutating func _call(
     _ callee: Operand, _ arguments: [Operand], to output: Operand
   ) {
-    insert(module.makeCall(applying: callee, to: arguments, writingResultTo: output, in: insertionFunction!, at: currentSource))
+    insert(insertionIR.makeCall(applying: callee, to: arguments, writingResultTo: output, at: currentSource))
   }
 
   fileprivate mutating func _call_bundle(
@@ -3819,43 +3838,57 @@ extension Emitter {
     to o: Operand,
     scopeOfUse: AnyScopeID
   ) {
-    insert(module.makeCallBundle(
-      applying: m, to: a, writingResultTo: o, in: insertionFunction!, at: currentSource,
+    var variants: [AccessEffect: Function.ID] = [:]
+    for v in program[m.bundle].impls {
+      let i = program[v].introducer.value
+      if m.capabilities.contains(i) {
+        variants[program[v].introducer.value] = module.demandDeclaration(lowering: v)
+      }
+    }
+
+    precondition(variants.count > 1)
+
+    let t = MethodType(
+      program.canonicalType(of: m.bundle, specializedBy: m.arguments, in: scopeOfUse))!
+
+    insert(insertionIR.makeCallBundle(
+      applying: m, ofType: t, to: a, with: variants, writingResultTo: o, at: currentSource,
       canonicalizingTypesIn: scopeOfUse))
   }
 
   fileprivate mutating func _wrap_existential_addr(
     _ witness: Operand, _ table: Operand, as interface: ExistentialType
   ) -> Operand {
-    insert(module.makeWrapExistentialAddr(witness, table, as: interface, in: insertionFunction!, at: currentSource))!
+    insert(insertionIR.makeWrapExistentialAddr(witness, table, as: interface, at: currentSource))!
   }
 
   fileprivate mutating func _pointer_to_address(_ x: Operand, as t: RemoteType) -> Operand {
-    insert(module.makePointerToAddress(x, to: t, at: currentSource))!
+    insert(insertionIR.makePointerToAddress(x, to: t, at: currentSource))!
   }
 
   fileprivate mutating func _generic_parameter(at x: GenericParameterDecl.ID) -> Operand {
-    insert(module.makeGenericParameter(passedTo: x, at: currentSource))!
+    insert(insertionIR.makeGenericParameter(passedTo: x, ofType: program[x].type, at: currentSource))!
   }
 
   fileprivate mutating func _global_addr(at x: BindingDecl.ID) -> Operand {
-    insert(module.makeGlobalAddr(of: x, at: currentSource))!
+    let t = program.canonical(program[x].type, in: program[x].scope)
+    return insert(insertionIR.makeGlobalAddr(of: x, valueType: t, at: currentSource))!
   }
 
   fileprivate mutating func _memory_copy(_ source: Operand, _ target: Operand) {
-    insert(module.makeMemoryCopy(source, target, in: insertionFunction!, at: currentSource))
+    insert(insertionIR.makeMemoryCopy(source, target, at: currentSource))
   }
 
   fileprivate mutating func _move(_ source: Operand, _ target: Operand, via movability: FrontEnd.Conformance) {
-    insert(module.makeMove(source, to: target, usingConformance: movability, in: insertionFunction!, at: currentSource))
+    insert(insertionIR.makeMove(source, to: target, usingConformance: movability, at: currentSource))
   }
 
   fileprivate mutating func _union_discriminator(_ x: Operand) -> Operand {
-    insert(module.makeUnionDiscriminator(x, in: insertionFunction!, at: currentSource))!
+    insert(insertionIR.makeUnionDiscriminator(x, at: currentSource))!
   }
 
   fileprivate mutating func _union_switch(case discriminator: Operand, of u: UnionType, _ targets: UnionSwitch.Targets) {
-    insert(module.makeUnionSwitch(over: discriminator, of: u, toOneOf: targets, in: insertionFunction!, at: currentSource))
+    insert(insertionIR.makeUnionSwitch(over: discriminator, of: u, toOneOf: targets, at: currentSource))
   }
 
 }

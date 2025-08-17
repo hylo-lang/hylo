@@ -37,23 +37,35 @@ extension CallBuiltinFunction: CustomStringConvertible {
 
 }
 
-extension Module {
+extension Function {
 
-  /// Creates an instruction anchored at `site` that applies `f` to `operands`.
+  /// Creates an instruction anchored at `site` that applies `s` to `operands`.
   ///
   /// - Parameters:
-  ///   - f: A built-in function.
+  ///   - s: A built-in function.
   ///   - operands: A collection of built-in objects.
   func makeCallBuiltin(
-    applying s: BuiltinFunction, to operands: [Operand], in f: Function.ID, at site: SourceRange
+    applying s: BuiltinFunction, to operands: [Operand], at site: SourceRange
   ) -> CallBuiltinFunction {
     precondition(
       operands.allSatisfy { (o) in
-        let t = self[f].type(of: o)
+        let t = type(of: o)
         return t.isObject && (t.ast.base is BuiltinType)
       })
 
     return .init(applying: s, to: operands, site: site)
+  }
+
+  /// Creates an instruction anchored at `site` that applies `s` to `operands`, inserting it at `p`.
+  ///
+  /// - Parameters:
+  ///   - s: A built-in function.
+  ///   - operands: A collection of built-in objects.
+  mutating func makeCallBuiltin(
+    applying s: BuiltinFunction, to operands: [Operand], at site: SourceRange,
+    insertingAt p: InsertionPoint
+  ) -> InstructionID {
+    insert(makeCallBuiltin(applying: s, to: operands, at: site), at: p)
   }
 
 }

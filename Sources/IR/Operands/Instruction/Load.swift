@@ -34,16 +34,27 @@ public struct Load: Instruction {
 
 }
 
-extension Module {
+extension Function {
 
   /// Creates a `load` anchored at `site` that loads the object at `source`.
   ///
   /// - Parameters:
   ///   - source: The location from which the object is loaded. Must be the result of an `access`
   ///     instruction requesting a `sink` capability.
-  func makeLoad(_ source: Operand, in f: Function.ID, at site: SourceRange) -> Load {
-    precondition(self[source, in: f] is Access)
-    return .init(objectType: .object(self[f].type(of: source).ast), from: source, site: site)
+  func makeLoad(_ source: Operand, at site: SourceRange) -> Load {
+    precondition(self[source] is Access)
+    return .init(objectType: .object(type(of: source).ast), from: source, site: site)
+  }
+
+  /// Creates a `load` anchored at `site` that loads the object at `source`, inserting it at `p`.
+  ///
+  /// - Parameters:
+  ///   - source: The location from which the object is loaded. Must be the result of an `access`
+  ///     instruction requesting a `sink` capability.
+  mutating func makeLoad(
+    _ source: Operand, at site: SourceRange, insertingAt p: InsertionPoint
+  ) -> InstructionID {
+    insert(makeLoad(source, at: site), at: p)
   }
 
 }

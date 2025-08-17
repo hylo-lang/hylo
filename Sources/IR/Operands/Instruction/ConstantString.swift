@@ -38,12 +38,18 @@ extension ConstantString: CustomStringConvertible {
 
 }
 
-extension Module {
+extension Function {
 
   /// Creates a `constant_string` anchored at `site` that returns a  string with given `value`,
   /// encoded in UTF8.
   func makeConstantString(utf8 value: Data, at site: SourceRange) -> ConstantString {
     .init(value: value, site: site)
+  }
+
+  /// Creates a `constant_string` anchored at `site` that returns a  string with given `value`,
+  /// encoded in UTF8, inserting it at `p`.
+  mutating func makeConstantString(utf8 value: Data, at site: SourceRange, insertingAt p: InsertionPoint) -> InstructionID {
+    insert(makeConstantString(utf8: value, at: site), at: p)
   }
 
 }

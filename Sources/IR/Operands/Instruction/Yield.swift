@@ -36,12 +36,19 @@ public struct Yield: Instruction {
 
 }
 
-extension Module {
+extension Function {
 
   /// Creates a `yield` anchored at `site` that projects `a` with capability `c`.
-  func makeYield(_ c: AccessEffect, _ a: Operand, in f: Function.ID, at site: SourceRange) -> Yield {
-    precondition(self[f].type(of: a).isAddress)
+  func makeYield(_ c: AccessEffect, _ a: Operand, at site: SourceRange) -> Yield {
+    precondition(type(of: a).isAddress)
     return .init(capability: c, projection: a, site: site)
+  }
+
+  /// Creates a `yield` anchored at `site` that projects `a` with capability `c`, inserting it at `p`.
+  mutating func makeYield(
+    _ c: AccessEffect, _ a: Operand, at site: SourceRange, insertingAt p: InsertionPoint
+  ) -> InstructionID {
+    insert(makeYield(c, a, at: site), at: p)
   }
 
 }

@@ -28,11 +28,17 @@ public struct Unreachable: Terminator {
 
 }
 
-extension Module {
+extension Function {
 
   /// Creates an `unreachable` anchored at `site` that marks the execution path unreachable.
   func makeUnreachable(at site: SourceRange) -> Unreachable {
     .init(site: site)
+  }
+
+  /// Creates an `unreachable` anchored at `site` that marks the execution path unreachable, inserting it at `p`.
+  @discardableResult
+  mutating func makeUnreachable(at site: SourceRange, insertingAt p: InsertionPoint) -> InstructionID {
+    insert(makeUnreachable(at: site), at: p)
   }
 
 }

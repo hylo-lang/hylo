@@ -69,32 +69,41 @@ extension ProjectBundle: CustomStringConvertible {
 
 }
 
-extension Module {
+extension Function {
 
-  /// Creates a `project_bundle` anchored at `site` that applies one of the variants defined in `m`
-  /// to arguments `a`, canonicalizing types in `scopeOfUse`.
-  mutating func makeProjectBundle(
-    applying m: BundleReference<SubscriptDecl>, to a: [Operand],
+  /// Creates a `project_bundle` anchored at `site` that applies one of the `variants` defined in `m`,
+  /// of type `t`, to arguments `a`, canonicalizing types in `scopeOfUse`.
+  func makeProjectBundle(
+    applying m: BundleReference<SubscriptDecl>,
+    ofType t: ArrowType,
+    to a: [Operand],
+    with variants: [AccessEffect: Function.ID] = [:],
     at site: SourceRange,
     canonicalizingTypesIn scopeOfUse: AnyScopeID
   ) -> ProjectBundle {
-    var variants: [AccessEffect: Function.ID] = [:]
-    for v in program[m.bundle].impls {
-      let i = program[v].introducer.value
-      if m.capabilities.contains(i) {
-        variants[program[v].introducer.value] = demandDeclaration(lowering: v)
-      }
-    }
     precondition(!variants.isEmpty)
-
-    let t = SubscriptType(
-      program.canonicalType(of: m.bundle, specializedBy: m.arguments, in: scopeOfUse))!.pure
-
     return .init(
       bundle: m, variants: variants,
       parameters: t.inputs.lazy.map({ ParameterType($0.type)! }),
       projection: RemoteType(t.output)!.bareType,
       operands: a, site: site)
+  }
+
+  /// Creates a `project_bundle` anchored at `site` that applies one of the `variants` defined in `m`,
+  /// of type `t`, to arguments `a`, canonicalizing types in `scopeOfUse`, inserting it at `p`.
+  mutating func makeProjectBundle(
+    applying m: BundleReference<SubscriptDecl>,
+    ofType t: ArrowType,
+    to a: [Operand],
+    with variants: [AccessEffect: Function.ID] = [:],
+    at site: SourceRange,
+    canonicalizingTypesIn scopeOfUse: AnyScopeID,
+    insertingAt p: InsertionPoint
+  ) -> InstructionID {
+    insert(
+      makeProjectBundle(
+        applying: m, ofType: t, to: a, with: variants, at: site,
+        canonicalizingTypesIn: scopeOfUse), at: p)
   }
 
 }
