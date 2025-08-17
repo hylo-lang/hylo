@@ -86,7 +86,7 @@ public struct Function: Sendable {
   }
 
   /// The IDs of all instructions.
-  public var instructions: some Collection<InstructionID> {
+  public var instructionIDs: some Collection<InstructionID> {
     blocks.indices.lazy.flatMap({ instructions(in: Block.ID($0.address)) })
   }
 

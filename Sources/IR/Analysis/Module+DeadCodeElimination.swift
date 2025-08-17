@@ -14,7 +14,7 @@ extension Module {
   /// Removes the instructions if `f` that have no user.
   private mutating func removeUnusedDefinitions(from f: Function.ID) {
     var s = Set<InstructionID>()
-    removeUnused(self[f].instructions, keepingTrackIn: &s, in: f)
+    removeUnused(self[f].instructionIDs, keepingTrackIn: &s, in: f)
   }
 
   /// Removes the instructions in `definitions` that have no user, accumulating the IDs of removed
