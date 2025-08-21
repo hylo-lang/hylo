@@ -96,7 +96,8 @@ struct Emitter: Sendable {
 
   /// The scope corresponding to the current insertion block.
   private var insertionScope: AnyScopeID? {
-    insertionBlock.map({ module[$0, in: insertionFunction!].scope })
+    let insertionIR = module[insertionFunction!]
+    return insertionPoint.map({ insertionIR[insertionIR.block(of: $0)!].scope })
   }
 
   /// The address of the return value in the current function, if any.
@@ -2986,7 +2987,7 @@ struct Emitter: Sendable {
     if let p = predecessor {
       return module[f].instruction(after: p)!
     } else {
-      return module[f].firstInstruction(in: insertionBlock!)!
+      return module[f].firstInstruction(in: module[f].block(of: i))!
     }
   }
 

@@ -96,7 +96,7 @@ extension Module {
     // Find all blocks in which the operand is being used.
     var occurrences = functions[f]!.uses[operand, default: []].reduce(
       into: Set<Function.Blocks.Address>(),
-      { (blocks, use) in blocks.insert(use.user.block) })
+      { (blocks, use) in blocks.insert(functions[f]!.block(of: use.user).address) })
 
     // Propagate liveness starting from the blocks in which the operand is being used.
     let cfg = functions[f]!.cfg()
@@ -156,11 +156,11 @@ extension Module {
   /// - Requires: The definition of `l` dominates `u`.
   func extend(lifetime l: Lifetime, toInclude u: Use, in f: Function.ID) -> Lifetime {
     var coverage = l.coverage
-    switch coverage[u.user.block] {
+    switch coverage[functions[f]!.block(of: u.user).address] {
     case .closed(let lastUser):
-      coverage[u.user.block] = .closed(lastUse: last(lastUser, u, in: f))
+      coverage[functions[f]!.block(of: u.user).address] = .closed(lastUse: last(lastUser, u, in: f))
     case .liveIn(let lastUser):
-      coverage[u.user.block] = .liveIn(lastUse: last(lastUser, u, in: f))
+      coverage[functions[f]!.block(of: u.user).address] = .liveIn(lastUse: last(lastUser, u, in: f))
     default:
       break
     }

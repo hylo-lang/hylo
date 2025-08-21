@@ -303,6 +303,25 @@ public struct Function: Sendable {
       .map({ InstructionID(i.block, $0) })
   }
 
+ /// Returns the block corresponding to `i`.
+  func block(of i: InstructionID) -> Block.ID {
+    Block.ID(i.block)
+  }
+
+  /// Returns the block corresponding to `p`.
+  internal func block(of p: InsertionPoint) -> Block.ID? {
+    switch p {
+    case .start(let b):
+      return b
+    case .end(let b):
+      return b
+    case .before(let i):
+      return Block.ID(i.block)
+    case .after(let i):
+      return Block.ID(i.block)
+    }
+  }
+
   /// Returns the scope in which `i` is used.
   public func scope(containing i: InstructionID) -> AnyScopeID {
     self[i.block].scope
