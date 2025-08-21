@@ -28,7 +28,7 @@ extension Function {
     let r = makeAccess([k], from: arguments[0], at: s.site, insertingAt: .before(i))
     arguments[0] = .register(r)
 
-    let b = Block.ID(containing: i)
+    let b = block(of: i)
     let ff = FunctionReference(
       to: s.variants[k]!, in: m, specializedBy: s.bundle.arguments, in: self[b].scope)
 

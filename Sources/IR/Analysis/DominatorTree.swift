@@ -112,12 +112,12 @@ struct DominatorTree {
   /// - Requires: `definition` and `use` reside in the function associated with the true.
   func dominates(definition: InstructionID, use: Use, from f: Function.ID, in module: Module) -> Bool {
     // If `definition` is in the same block as `use`, check which comes first.
-    if definition.block == use.user.block {
+    if module[f].block(of: definition) == module[f].block(of: use.user) {
       return module[f].precedes(definition, use.user)
     }
 
     // Return whether the block containing `definition` dominates the block containing `use`.
-    return dominates(definition.block, use.user.block)
+    return dominates(module[f].block(of: definition).address, module[f].block(of: use.user).address)
   }
 
 }
