@@ -35,7 +35,7 @@ extension Function {
   @discardableResult
   mutating func removeBlock(_ block: Block.ID) -> Block {
     for i in self.instructions(in: block) {
-      precondition(self.allUses(of: i).allSatisfy({ $0.user.block == block.address }))
+      precondition(self.allUses(of: i).allSatisfy({ blockForInstruction[$0.user] == block }))
       removeUsesMadeBy(i)
     }
     return blocks.remove(at: block.address)
@@ -100,8 +100,16 @@ extension Function {
   @discardableResult
   private mutating func prepend(_ newInstruction: Instruction, to block: Block.ID) -> InstructionID
   {
-    precondition(!(newInstruction is Terminator), "terminator must appear last in a block")
-    let i = InstructionID(block, self[block.address].instructions.prepend(newInstruction))
+    var i: InstructionID
+    if self[block].first == nil {
+      i = InstructionID(instructions.append(newInstruction))
+    } else {
+      precondition(!(newInstruction is Terminator), "terminator must appear last in a block")
+      i = InstructionID(
+        instructions.insert(newInstruction, before: self[block].first!.address))
+    }
+    blockForInstruction[i] = block
+    self[block].setFirst(i)
     addUses(for: newInstruction, with: i)
     return i
   }
@@ -109,8 +117,16 @@ extension Function {
   /// Adds `newInstruction` at the end of `block` and returns its identity.
   @discardableResult
   private mutating func append(_ newInstruction: Instruction, to block: Block.ID) -> InstructionID {
-    precondition(!(self[block].instructions.last is Terminator), "insertion after terminator")
-    let i = InstructionID(block, self[block.address].instructions.append(newInstruction))
+    var i: InstructionID
+    if self[block].last == nil {
+      i = InstructionID(instructions.append(newInstruction))
+    } else {
+      precondition(!(self[terminator(of: block)!] is Terminator), "insertion after terminator")
+      i = InstructionID(
+        instructions.insert(newInstruction, after: self[block].last!.address))
+    }
+    blockForInstruction[i] = block
+    self[block].setLast(i)
     addUses(for: newInstruction, with: i)
     return i
   }
@@ -121,9 +137,12 @@ extension Function {
     _ newInstruction: Instruction, before successor: InstructionID
   ) -> InstructionID {
     precondition(!(newInstruction is Terminator), "terminator must appear last in a block")
-    let i = InstructionID(
-      successor.block,
-      self[successor.block].instructions.insert(newInstruction, before: successor.address))
+    let b = blockForInstruction[successor]!
+    let i = InstructionID(instructions.insert(newInstruction, before: successor.address))
+    blockForInstruction[i] = b
+    if self[b].first == successor {
+      self[b].setFirst(i)
+    }
     addUses(for: newInstruction, with: i)
     return i
   }
@@ -133,11 +152,13 @@ extension Function {
   private mutating func insert(
     _ newInstruction: Instruction, after predecessor: InstructionID
   ) -> InstructionID {
-    precondition(
-      !(self.instruction(after: predecessor) is Terminator), "insertion after terminator")
-    let i = InstructionID(
-      predecessor.block,
-      self[predecessor.block].instructions.insert(newInstruction, after: predecessor.address))
+    precondition(!(self[predecessor] is Terminator), "terminator must appear last in a block")
+    let b = blockForInstruction[predecessor]!
+    let i = InstructionID(instructions.insert(newInstruction, after: predecessor.address))
+    blockForInstruction[i] = b
+    if self[b].last == predecessor {
+      self[b].setLast(i)
+    }
     addUses(for: newInstruction, with: i)
     return i
   }
@@ -148,7 +169,23 @@ extension Function {
   mutating func removeInstruction(_ i: InstructionID) {
     precondition(result(of: i).map(default: true, { uses[$0, default: []].isEmpty }))
     removeUsesMadeBy(i)
-    self[i.block].instructions.remove(at: i.address)
+    uses[.register(i)] = nil
+    removeFromBlock(i)
+    instructions.remove(at: i.address)
+  }
+
+  /// Removes `i` from its corresponding block.
+  mutating func removeFromBlock(_ i: InstructionID) {
+    let b = blockForInstruction[i]!
+    blockForInstruction[i] = nil
+    if self[b].first == i && self[b].last == i {
+      self[b].setFirst(nil)
+      self[b].setLast(nil)
+    } else if self[b].first == i {
+      self[b].setFirst(instruction(after: i))
+    } else if self[b].last == i {
+      self[b].setLast(instruction(before: i))
+    }
   }
 
   /// Removes all instructions after `i` in its containing block and updates def-use chains.
@@ -156,8 +193,8 @@ extension Function {
   /// - Requires: Let `S` be the set of removed instructions, all users of a result of `j` in `S`
   ///   are also in `S`.
   mutating func removeAllInstructions(after i: InstructionID) {
-    while let a = self[i.block].instructions.lastAddress, a != i.address {
-      removeInstruction(.init(i.block, a))
+    while let a = self[blockForInstruction[i]!].last, a != i {
+      removeInstruction(a)
     }
   }
 

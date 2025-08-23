@@ -200,7 +200,7 @@ extension Module {
     for i in instructions.reversed() {
       if let operandIndex = self[f][i].operands.lastIndex(of: operand) {
         return Use(
-          user: InstructionID(block, i.address),
+          user: i,
           index: operandIndex)
       }
     }

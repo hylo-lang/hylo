@@ -2967,7 +2967,8 @@ struct Emitter {
   mutating func replaceMove(_ i: InstructionID, in f: Function.ID, with semantics: AccessEffect) -> InstructionID {
     let s = module[i, in: f] as! Move
     insertionFunction = f
-    let predecessor = module[f].instruction(before: i)
+    let b = module[f].block(of: i)
+    let predecessor = module[f].instruction(before: i, in: b)
 
     insertionPoint = .before(i)
     lowering(at: s.site) {
@@ -2976,9 +2977,9 @@ struct Emitter {
     module[f].removeInstruction(i)
 
     if let p = predecessor {
-      return module[f].instruction(after: p)!
+      return module[f].instruction(after: p, in: b)!
     } else {
-      return module[f].firstInstruction(in: module[f].block(of: i))!
+      return module[f].firstInstruction(in: b)!
     }
   }
 

@@ -39,45 +39,64 @@ extension Function {
 
   /// Returns the IDs of the instructions in `self`, from all the blocks.
   public var instructionIDs:
-    LazySequence<
-      FlattenSequence<
-        LazyMapSequence<
-          LazySequence<DefaultIndices<Function.Blocks>>.Elements,
-          LazyMapSequence<Block.Instructions.Indices, InstructionID>
-        >
-      >
+    LazyMapSequence<
+      LazySequence<DoublyLinkedList<any Instruction>.Addresses>.Elements, InstructionID
     >
   {
-    blocks.indices.lazy.flatMap({ instructions(in: Block.ID($0.address)) })
+    instructions.addresses.lazy.map({ InstructionID($0) })
   }
 
   /// Returns the IDs of the instructions in `b`, in order.
   public func instructions(
     in b: Block.ID
-  ) -> LazyMapSequence<Block.Instructions.Indices, InstructionID> {
-    self[b].instructions.indices.lazy.map({ .init(b.address, $0.address) })
+  ) -> some Sequence<InstructionID> {
+    var next = blocks[b.address].first
+    let last = blocks[b.address].last
+    let i = AnyIterator {
+      if let n = next {
+        next = (n != last) ? InstructionID(instructions.address(after: n.address)!) : nil
+        return n
+      } else {
+        return nil
+      }
+    }
+    return i
   }
 
   /// Returns the ID of the first instruction in `b`, if any.
   public func firstInstruction(in b: Block.ID) -> InstructionID? {
-    self[b].instructions.firstAddress.map({ InstructionID(b.address, $0) })
+    self[b].first
   }
 
   /// Returns the ID the instruction before `i`.
+  ///
+  /// Note: this may cross block boundaries.
   func instruction(before i: InstructionID) -> InstructionID? {
-    self[i.block].instructions.address(before: i.address)
-      .map({ InstructionID(i.block, $0) })
+    instructions.address(before: i.address).map({ InstructionID($0) })
+  }
+
+  /// Returns the ID the instruction before `i`.
+  func instruction(before i: InstructionID, in b: Block.ID) -> InstructionID? {
+    if self[b].first == i { return nil }
+    return instructions.address(before: i.address).map({ InstructionID($0) })
   }
 
   /// Returns the ID the instruction after `i`.
+  ///
+  /// Note: this may cross block boundaries.
   func instruction(after i: InstructionID) -> InstructionID? {
-    self[i.block].instructions.address(after: i.address)
-      .map({ InstructionID(i.block, $0) })
+    instructions.address(after: i.address).map({ InstructionID($0) })
+  }
+
+  /// Returns the ID the instruction after `i`, in block `b`.
+  func instruction(after i: InstructionID, in b: Block.ID) -> InstructionID? {
+    if self[b].last == i { return nil }
+    return instructions.address(after: i.address).map({ InstructionID($0) })
   }
 
   /// Returns the block corresponding to `i`.
   func block(of i: InstructionID) -> Block.ID {
-    Block.ID(i.block)
+    blockForInstruction[i]!
   }
 
   /// Returns the block corresponding to `p`.
@@ -88,42 +107,41 @@ extension Function {
     case .end(let b):
       return b
     case .before(let i):
-      return Block.ID(i.block)
+      return blockForInstruction[i]!
     case .after(let i):
-      return Block.ID(i.block)
+      return blockForInstruction[i]!
     }
   }
 
   /// Returns the scope in which `i` is used.
   public func scope(containing i: InstructionID) -> AnyScopeID {
-    self[i.block].scope
+    self[blockForInstruction[i]!].scope
   }
 
   /// Returns `true` iff `lhs` is sequenced before `rhs` on all paths leading to `rhs`.
   func dominates(_ lhs: InstructionID, _ rhs: InstructionID) -> Bool {
     // Fast path: both instructions are in the same block.
-    if lhs.block == rhs.block {
-      let sequence = self[lhs.block].instructions
-      return lhs.address.precedes(rhs.address, in: sequence)
+    if blockForInstruction[lhs]! == blockForInstruction[rhs]! {
+      return lhs.address.precedes(rhs.address, in: instructions)
     }
 
     // Slow path: use the dominator tree.
     let d = DominatorTree(function: self, cfg: cfg())
-    return d.dominates(lhs.block, rhs.block)
+    return d.dominates(blockForInstruction[lhs]!.address, blockForInstruction[rhs]!.address)
   }
 
   /// Returns `true` iff `lhs` is sequenced before `rhs` in the block of `lhs`.
+  /// If `lhs` and `rhs` are in different blocks, this function will return `false`.
   public func precedes(_ lhs: InstructionID, _ rhs: InstructionID) -> Bool {
-    return lhs.address.precedes(rhs.address, in: self[lhs.block].instructions)
+    if blockForInstruction[lhs]! != blockForInstruction[rhs]! {
+      return false
+    }
+    return lhs.address.precedes(rhs.address, in: instructions)
   }
 
   /// Returns the global identity of `block`'s terminator, if it exists.
   func terminator(of block: Block.ID) -> InstructionID? {
-    if let a = self[block].instructions.lastAddress {
-      return InstructionID(block, a)
-    } else {
-      return nil
-    }
+    self[block].last
   }
 
   /// Returns the register assigned by `i`, if any.
@@ -139,7 +157,7 @@ extension Function {
   public func type(of operand: Operand) -> IR.`Type` {
     switch operand {
     case .register(let i):
-      return blocks[i.block][i.address].result!
+      return self[i].result!
     case .parameter(let b, let n):
       return blocks[b.address].inputs[n]
     case .constant(let c):
