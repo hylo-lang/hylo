@@ -33,7 +33,7 @@ public struct Block {
   /// Creates a block for scope `scope` with the given `inputs` and `instructions`.
   public init(
     scope: AnyScopeID,
-    inputs: [IR.`Type`],
+    inputs: [IR.`Type`]
   ) {
     self.scope = scope
     self.inputs = inputs
