@@ -22,7 +22,7 @@ extension IR.Program {
     in f: Function.ID, definedIn m: Module.ID, where shouldInline: InliningPredicate
   ) {
     var work: [InstructionID] = []
-    for i in modules[m]![f].instructions {
+    for i in modules[m]![f].instructionIDs {
       if modules[m]![i, in: f] is Call {
         work.append(i)
       }

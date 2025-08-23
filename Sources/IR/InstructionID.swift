@@ -5,37 +5,24 @@ import Utils
 /// - SeeAlso: `AbsoluteInstructionID`
 public struct InstructionID: Hashable {
 
-  /// The block containing the instruction.
-  public let block: Function.Blocks.Address
-
   /// The identity of the instruction in its block.
-  public let address: Block.Instructions.Address
+  public let address: Function.Instructions.Address
 
   /// Creates an instance with the given properties.
   public init(
-    _ block: Function.Blocks.Address,
-    _ address: Block.Instructions.Address
+    _ address: Function.Instructions.Address
   ) {
-    self.block = block
-    self.address = address
-  }
-
-  /// Creates an instance with the given properties.
-  public init(_ block: Block.ID, _ address: Block.Instructions.Address) {
-    self.block = block.address
     self.address = address
   }
 
   /// Creates an instance from an absolute instruction ID.
   public init(_ i: AbsoluteInstructionID) {
-    self.block = i.block
     self.address = i.address
   }
 
   /// Creates an instance from an absolute instruction ID.
   public init?(_ i: AbsoluteInstructionID?) {
     guard let i = i else { return nil }
-    self.block = i.block
     self.address = i.address
   }
 
@@ -43,6 +30,6 @@ public struct InstructionID: Hashable {
 
 extension InstructionID: CustomStringConvertible {
 
-  public var description: String { "i\(block).\(address)" }
+  public var description: String { "i\(address)" }
 
 }

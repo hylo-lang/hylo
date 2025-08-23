@@ -7,6 +7,9 @@ public struct Function {
   /// A collection of blocks with stable identities.
   public typealias Blocks = DoublyLinkedList<Block>
 
+  /// A collection of instructions with stable identities.
+  public typealias Instructions = DoublyLinkedList<Instruction>
+
   /// `true` iff the function implements a subscript.
   public let isSubscript: Bool
 
@@ -28,6 +31,12 @@ public struct Function {
   /// The blocks in the function.
   public var blocks: Blocks
 
+  /// The instructions in the function.
+  public var instructions: Instructions = []
+
+  /// The block associated with each instruction.
+  internal var blockForInstruction: [InstructionID: Block.ID] = [:]
+
   /// The def-use chains of the values in this module.
   public var uses: [Operand: [Use]] = [:]
 
@@ -47,15 +56,15 @@ public struct Function {
 
   /// Accesses the instruction identified by `i`.
   public subscript(i: InstructionID) -> Instruction {
-    _read { yield blocks[i.block].instructions[i.address] }
-    _modify { yield &blocks[i.block].instructions[i.address] }
+    _read { yield instructions[i.address] }
+    _modify { yield &instructions[i.address] }
   }
 
   /// Returns the control flow graph of `self`.
   func cfg() -> ControlFlowGraph {
     var result = ControlFlowGraph()
     for source in blocks.indices {
-      guard let s = blocks[source.address].instructions.last as? Terminator else { continue }
+      guard let s = self[blocks[source].last!] as? Terminator else { continue }
       for target in s.successors {
         result.define(source.address, predecessorOf: target.address)
       }

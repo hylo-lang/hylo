@@ -18,7 +18,7 @@ extension Function {
   /// Removes the instructions if `f` that have no user.
   fileprivate mutating func removeUnusedDefinitions() {
     var s = Set<InstructionID>()
-    removeUnused(instructions, keepingTrackIn: &s)
+    removeUnused(instructionIDs, keepingTrackIn: &s)
   }
 
   /// Removes the instructions in `definitions` that have no user, accumulating the IDs of removed
