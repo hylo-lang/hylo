@@ -13,20 +13,10 @@ extension Block {
       self.address = address
     }
 
-    /// The ID of the instruction at `instructionAddress` in the block identified by `self`.
-    public func appending(_ instructionAddress: Block.Instructions.Address) -> InstructionID {
-      InstructionID(address, instructionAddress)
-    }
 
     /// The ID of the `index`-th parameter of the block.
     public func parameter(_ index: Int) -> Operand {
       .parameter(self, index)
-    }
-
-    /// The operand denoting the result of the instruction at `instructionAddress` in the block
-    /// identified by `self`.
-    public func result(at instructionAddress: Block.Instructions.Address) -> Operand {
-      .register(appending(instructionAddress))
     }
 
   }
