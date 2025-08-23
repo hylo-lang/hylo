@@ -113,29 +113,22 @@ public struct Function: Sendable {
   }
 
 
-  /// Appends a basic block in `scope` accepting `parameters`, returning its address.
+  /// Appends a basic block in `scope`, returning its address.
   ///
   /// The first block appended becomes the entry point block.
-  ///
-  /// TODO: merge `appendBlock` and `appendEntry`
+  /// The first block takes the parameters of the function; other blocks take no parameters.
   mutating func append<T: ScopeID>(
     in scope: T, taking parameters: [IR.`Type`] = []
   ) -> Block.ID {
-    Block.ID(blocks.append(Block(scope: AnyScopeID(scope), inputs: parameters)))
-  }
-
-  /// Appends to `self` an entry block that is in `scope`, returning its identifier.
-  @discardableResult
-  mutating func appendEntry<T: ScopeID>(in scope: T) -> Block.ID {
-    assert(blocks.isEmpty)
-
-    // In functions, the last parameter of the entry denotes the function's return value.
-    var parameters = inputs.map({ `Type`.address($0.type.bareType) })
-    if !isSubscript {
-      parameters.append(.address(output))
+    // For the entry block we also need parameters.
+    var parameters: [IR.`Type`] = []
+    if blocks.isEmpty {
+      parameters = inputs.map({ `Type`.address($0.type.bareType) })
+      if !isSubscript {
+        parameters.append(.address(output))
+      }
     }
-
-    return append(in: scope, taking: parameters)
+    return Block.ID(blocks.append(Block(scope: AnyScopeID(scope), inputs: parameters)))
   }
 
   /// Removes `block` and updates def-use chains.

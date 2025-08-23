@@ -16,8 +16,8 @@ extension Module {
 
     // Verify that object states are properly initialized/deinitialized in `b` given `context`,
     // updating `self` as necessary and reporting violations in `diagnostics`.
-    machine.fixedPoint { (ba, context) in
-      let b = Block.ID(ba)
+    machine.fixedPoint { (blockAddress, context) in
+      let b = Block.ID(blockAddress)
       var pc = self[f].firstInstruction(in: b)?.address
       while let a = pc {
         let user = InstructionID(a)
