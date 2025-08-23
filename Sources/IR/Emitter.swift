@@ -225,7 +225,7 @@ struct Emitter {
     insertionFunction = f
 
     // Configure the emitter context.
-    let entry = module[f].appendEntry(in: program.scopeContainingBody(of: d)!)
+    let entry = module[f].appendBlock(in: program.scopeContainingBody(of: d)!)
     let bodyFrame = outermostFrame(of: d, entering: entry)
     self.insertionPoint = .end(of: entry)
 
@@ -289,7 +289,7 @@ struct Emitter {
     insertionFunction = f
 
     // Configure the emitter context.
-    let entry = module[f].appendEntry(in: d)
+    let entry = module[f].appendBlock(in: d)
 
     self.insertionPoint = .end(of: entry)
     self.frames.push()
@@ -339,7 +339,7 @@ struct Emitter {
     insertionFunction = f
 
     // Create the function entry.
-    let entry = module[f].appendEntry(in: ast[d].body!)
+    let entry = module[f].appendBlock(in: ast[d].body!)
 
     // Configure the locals.
     var locals = DeclProperty<Operand>()
@@ -381,7 +381,7 @@ struct Emitter {
     insertionFunction = f
 
     // Create the function entry.
-    let entry = module[f].appendEntry(in: program.scopeContainingBody(of: d)!)
+    let entry = module[f].appendBlock(in: program.scopeContainingBody(of: d)!)
 
     // Configure the locals.
     var parameters = DeclProperty<Operand>()
@@ -423,7 +423,7 @@ struct Emitter {
     insertionFunction = f
 
     // Create the function entry.
-    let entry = module[f].appendEntry(in: program.scopeContainingBody(of: d)!)
+    let entry = module[f].appendBlock(in: program.scopeContainingBody(of: d)!)
 
     // Configure the locals.
     var locals = DeclProperty<Operand>()
@@ -877,7 +877,7 @@ struct Emitter {
       let f = me.module.demandDeclaration(lowering: d)
       if me.shouldEmitBody(of: d, loweredTo: f) {
         me.insertionFunction = f
-        let entry = me.module[f].appendEntry(in: d.scope)
+        let entry = me.module[f].appendBlock(in: d.scope)
         me.insertionPoint = .end(of: entry)
         me.frames.push()
 
@@ -983,7 +983,7 @@ struct Emitter {
     guard case .autoclosure(let argument) = d.kind else { unreachable() }
     let f = module.demandDeclaration(lowering: d)
     insertionFunction = f
-    let entry = module[f].appendEntry(in: d.scope)
+    let entry = module[f].appendBlock(in: d.scope)
 
     insertionPoint = .end(of: entry)
     self.frames.push()

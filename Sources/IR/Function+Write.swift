@@ -3,30 +3,20 @@ import Utils
 
 extension Function {
 
-  /// Appends to `self` a basic block in `scope` that accepts `parameters`, returning its address.
+  /// Appends to `self` a basic block in `scope`, returning its address.
   ///
   /// The new block will become the function's entry if `self` contains no block before
-  /// `appendBlock` is called.
-  ///
-  /// TODO: merge `appendBlock` and `appendEntry`
-  mutating func appendBlock<T: ScopeID>(
-    in scope: T, taking parameters: [IR.`Type`] = []
-  ) -> Block.ID {
-    Block.ID(blocks.append(Block(scope: AnyScopeID(scope), inputs: parameters)))
-  }
-
-  /// Appends to `self` an entry block that is in `scope`, returning its identifier.
-  @discardableResult
-  mutating func appendEntry<T: ScopeID>(in scope: T) -> Block.ID {
-    assert(blocks.isEmpty)
-
-    // In functions, the last parameter of the entry denotes the function's return value.
-    var parameters = inputs.map({ `Type`.address($0.type.bareType) })
-    if !isSubscript {
-      parameters.append(.address(output))
+  /// `appendBlock` is called. In this case, it will take the parameters of the function.
+  mutating func appendBlock<T: ScopeID>(in scope: T) -> Block.ID {
+    // For the entry block we also need parameters.
+    var parameters: [IR.`Type`] = []
+    if blocks.isEmpty {
+      parameters = inputs.map({ `Type`.address($0.type.bareType) })
+      if !isSubscript {
+        parameters.append(.address(output))
+      }
     }
-
-    return appendBlock(in: scope, taking: parameters)
+    return Block.ID(blocks.append(Block(scope: AnyScopeID(scope), inputs: parameters)))
   }
 
   /// Removes `block` and updates def-use chains.
