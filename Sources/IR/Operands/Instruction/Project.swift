@@ -1,4 +1,5 @@
 import FrontEnd
+import Utils
 
 /// Projects a value.
 public struct Project: RegionEntry {
@@ -8,13 +9,7 @@ public struct Project: RegionEntry {
   /// The type of the projected value.
   public let projection: RemoteType
 
-  /// The subscript implementing the projection.
-  public let callee: Function.ID
-
-  /// If `callee` is generic, the arguments to its generic parameter.
-  public let specialization: GenericArguments
-
-  /// The arguments of the call.
+  /// The callee + arguments of the call.
   ///
   /// Operands to non-`sink` inputs must be the result of a `borrow` instruction requesting the
   /// same capability as `projection.access` and having no use before `project`.
@@ -23,18 +18,27 @@ public struct Project: RegionEntry {
   /// The site of the code corresponding to that instruction.
   public let site: SourceRange
 
+  /// The callee.
+  public var callee: Operand { operands[0] }
+
+  /// The arguments of the call.
+  public var arguments: ArraySlice<Operand> { operands[1...] }
+
+  /// The function reference to the callee.
+  public var functionReference: FunctionReference {
+    guard case .constant(let c) = callee else { unreachable() }
+    return c as! FunctionReference
+  }
+
   /// Creates an instance with the given properties.
   fileprivate init(
     projection: RemoteType,
-    callee: Function.ID,
-    specialization: GenericArguments,
-    operands: [Operand],
+    callee: Operand,
+    arguments: [Operand],
     site: SourceRange
   ) {
     self.projection = projection
-    self.callee = callee
-    self.specialization = specialization
-    self.operands = operands
+    self.operands = [callee] + arguments
     self.site = site
   }
 
@@ -52,11 +56,7 @@ public struct Project: RegionEntry {
 extension Project: CustomStringConvertible {
 
   public var description: String {
-    if operands.isEmpty {
-      return "project \(callee)"
-    } else {
-      return "project \(callee), \(list: operands)"
-    }
+    return "project \(callee)(\(list: arguments))"
   }
 
 }
@@ -68,18 +68,15 @@ extension Function {
   func makeProject(
     _ t: RemoteType, applying s: FunctionReference, to arguments: [Operand], at site: SourceRange
   ) -> Project {
-    .init(
-      projection: t, callee: s.function, specialization: s.specialization,
-      operands: arguments, site: site)
+    .init(projection: t, callee: .constant(s), arguments: arguments, site: site)
   }
 
   /// Creates a `project` anchored at `site` that projects a value of type `t` by applying `s`,
-  /// which is a lowered subscript, specialized by `z`, on `arguments`.
+  /// which is a reference to a lowered subscript, on `arguments`.
   func makeProject(
-    _ t: RemoteType, applying s: Function.ID, specializedBy z: GenericArguments,
-    to arguments: [Operand], at site: SourceRange
+    _ t: RemoteType, applying s: Operand, to arguments: [Operand], at site: SourceRange
   ) -> Project {
-    .init(projection: t, callee: s, specialization: z, operands: arguments, site: site)
+    .init(projection: t, callee: s, arguments: arguments, site: site)
   }
 
   /// Creates a `project` anchored at `site` that projects a value of type `t` by applying `s`,
@@ -92,12 +89,12 @@ extension Function {
   }
 
   /// Creates a `project` anchored at `site` that projects a value of type `t` by applying `s`,
-  /// which is a lowered subscript, specialized by `z`, on `arguments`, inserting it at `p`.
+  /// which is a reference to a lowered subscript, on `arguments`, inserting it at `p`.
   mutating func makeProject(
-    _ t: RemoteType, applying s: Function.ID, specializedBy z: GenericArguments,
-    to arguments: [Operand], at site: SourceRange, insertingAt p: InsertionPoint
+    _ t: RemoteType, applying s: Operand, to arguments: [Operand], at site: SourceRange,
+    insertingAt p: InsertionPoint
   ) -> InstructionID {
-    insert(makeProject(t, applying: s, specializedBy: z, to: arguments, at: site), at: p)
+    insert(makeProject(t, applying: s, to: arguments, at: site), at: p)
   }
 
 }

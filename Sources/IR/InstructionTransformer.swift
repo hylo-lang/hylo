@@ -146,16 +146,11 @@ extension IR.Program {
       return modules[n]![g].makePointerToAddress(x0, to: x1, at: s.site, insertingAt: p)
 
     case let s as Project:
-      let r = FunctionReference(
-        to: s.callee, in: modules[m]!,
-        specializedBy: s.specialization, in: modules[m]![f].scope(containing: i))
-      let oldCallee = Operand.constant(r)
-      let newCallee = t.transform(oldCallee, in: &self).constant as! FunctionReference
-
       let x0 = RemoteType(t.transform(^s.projection, in: &self))!
-      let x1 = t.transform(s.operands, in: &self)
+      let x1 = t.transform(s.callee, in: &self)
+      let x2 = t.transform(s.arguments, in: &self)
       return modules[n]![g].makeProject(
-        x0, applying: newCallee.function, specializedBy: newCallee.specialization, to: x1,
+        x0, applying: x1, to: x2,
         at: s.site, insertingAt: p
       )
 

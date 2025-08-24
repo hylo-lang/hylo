@@ -3764,8 +3764,9 @@ extension Emitter {
     _ t: RemoteType, applying s: Function.ID, specializedBy z: GenericArguments,
     to arguments: [Operand]
   ) -> Operand {
-    insert(
-      insertionIR.makeProject(t, applying: s, specializedBy: z, to: arguments, at: currentSource))!
+    let r = FunctionReference(to: s, in: module, specializedBy: z, in: insertionScope!)
+    return insert(
+      insertionIR.makeProject(t, applying: r, to: arguments, at: currentSource))!
   }
 
   fileprivate mutating func _store(_ source: Operand, _ target: Operand) {

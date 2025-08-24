@@ -1664,7 +1664,7 @@ extension SwiftyLLVM.Module {
 
       // All arguments are passed by reference.
       var arguments: [SwiftyLLVM.IRValue] = [x0]
-      for a in s.operands {
+      for a in s.arguments {
         if context.source[f].type(of: a).isObject {
           let t = context.ir.llvm(s.result!.ast, in: &self)
           let l = insertAlloca(t, atEntryOf: transpilation)
@@ -1676,7 +1676,7 @@ extension SwiftyLLVM.Module {
       }
 
       // %1 = call ptr @llvm.coro.prepare.retcon(ptr @s)
-      let (_, ff) = declareSubscript(transpiledFrom: s.callee, in: &context)
+      let (_, ff) = declareSubscript(transpiledFrom: s.functionReference.function, in: &context)
       let prepare = intrinsic(named: Intrinsic.llvm.coro.prepare.retcon)!
       let x1 = insertCall(SwiftyLLVM.Function(prepare)!, on: [ff], at: insertionPoint)
 

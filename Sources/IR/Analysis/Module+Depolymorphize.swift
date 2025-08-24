@@ -73,14 +73,18 @@ extension IR.Program {
   /// - Requires: `i` identifies a `ProjectInstruction`
   private mutating func depolymorphize(project i: InstructionID, from f: Function.ID, definedIn m: Module.ID) {
     let s = modules[m]![i, in: f] as! Project
-    guard !s.specialization.isEmpty else { return }
+    let r = s.functionReference
+    guard !r.specialization.isEmpty else { return }
 
     // TODO: Use existentialization unless the subscript is inlinable
 
-    let z = base.canonical(s.specialization, in: modules[m]![f].scope(containing: i))
-    let g = monomorphize(s.callee, for: z, usedIn: modules[m]![f].scope(containing: i))
+    let scope = modules[m]![f].scope(containing: i)
+    let z = base.canonical(r.specialization, in: scope)
+    let g = monomorphize(r.function, for: z, usedIn: scope)
     let new = modules[m]![f].makeProject(
-      s.projection, applying: g, specializedBy: .empty, to: s.operands, at: s.site)
+      s.projection,
+      applying: FunctionReference(to: g, in: modules[m]!, specializedBy: .empty, in: scope),
+      to: Array(s.arguments), at: s.site)
     modules[m]![f].replace(i, with: new)
   }
 
