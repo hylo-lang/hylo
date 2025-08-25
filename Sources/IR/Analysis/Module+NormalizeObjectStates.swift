@@ -184,16 +184,16 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(call i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i, in: f] as! Call
-      let ff = s.callee
-      let callee = ArrowType(type(of: ff, in: f).ast)!
+      let x = s.callee
+      let callee = ArrowType(type(of: x, in: f).ast)!
 
       // Evaluate the callee.
 
       switch callee.receiverEffect {
       case .let:
-        assert(ff.isConstant || self[ff.instruction!, in: f].isAccess(callee.receiverEffect))
+        assert(x.isConstant || self[x.instruction!, in: f].isAccess(callee.receiverEffect))
       case .inout:
-        assert(self[ff.instruction!, in: f].isAccess(callee.receiverEffect))
+        assert(self[x.instruction!, in: f].isAccess(callee.receiverEffect))
       default:
         UNIMPLEMENTED()
       }

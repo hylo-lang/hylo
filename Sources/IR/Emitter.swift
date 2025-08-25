@@ -3456,19 +3456,19 @@ struct Emitter {
   /// Returns the result of calling `action` on a copy of `self` whose insertion block and frames
   /// are clear.
   private mutating func withClearContext<T>(_ action: (inout Self) throws -> T) rethrows -> T {
-    var ff: Function.ID? = nil
+    var x: Function.ID? = nil
     var p: InsertionPoint? = nil
     var f = Stack()
     var l = LoopIDs()
     var s = program[module.id].site
 
-    swap(&ff, &insertionFunction)
+    swap(&x, &insertionFunction)
     swap(&p, &insertionPoint)
     swap(&f, &frames)
     swap(&l, &loops)
     swap(&s, &currentSource)
     defer {
-      swap(&ff, &insertionFunction)
+      swap(&x, &insertionFunction)
       swap(&p, &insertionPoint)
       swap(&f, &frames)
       swap(&l, &loops)
