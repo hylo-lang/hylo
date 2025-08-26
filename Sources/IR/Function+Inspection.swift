@@ -127,7 +127,7 @@ extension Function {
 
     // Slow path: use the dominator tree.
     let d = DominatorTree(function: self, cfg: cfg())
-    return d.dominates(blockForInstruction[lhs]!.address, blockForInstruction[rhs]!.address)
+    return d.dominates(blockForInstruction[lhs]!, blockForInstruction[rhs]!)
   }
 
   /// Returns `true` iff `lhs` is sequenced before `rhs` in the block of `lhs`.

@@ -6,14 +6,14 @@ struct AbstractInterpreter<Domain: AbstractDomain> {
   typealias Context = AbstractContext<Domain>
 
   /// The knowledge of the abstract interpreter about a single block.
-  typealias BlockState = (sources: Set<Function.Blocks.Address>, before: Context, after: Context)
+  typealias BlockState = (sources: Set<Block.ID>, before: Context, after: Context)
 
   /// A map from function block to the context of the abstract interpreter before and after the
   /// evaluation of its instructions.
-  typealias State = [Function.Blocks.Address: BlockState]
+  typealias State = [Block.ID: BlockState]
 
   /// A closure that processes `block` in `context`.
-  typealias Interpret = (_ block: Function.Blocks.Address, _ context: inout Context) -> Void
+  typealias Interpret = (_ block: Block.ID, _ context: inout Context) -> Void
 
   /// The function being interpreted.
   private let subject: Function.ID
@@ -28,10 +28,10 @@ struct AbstractInterpreter<Domain: AbstractDomain> {
   private var state: State = [:]
 
   /// A FILO list of blocks to visit.
-  private var work: Deque<Function.Blocks.Address>
+  private var work: Deque<Block.ID>
 
   /// The set of blocks that no longer need to be visited.
-  private var done: Set<Function.Blocks.Address>
+  private var done: Set<Block.ID>
 
   /// Creates an interpreter analyzing `f` which is in `m`, starting with `entryContext`.
   init(
@@ -41,8 +41,8 @@ struct AbstractInterpreter<Domain: AbstractDomain> {
   ) {
     self.subject = f
     self.cfg = m[f].cfg()
-    self.dominatorTree = DominatorTree(function: f, cfg: cfg, in: m)
-    self.state = [m[f].entry!.address: (sources: [], before: entryContext, after: Context())]
+    self.dominatorTree = DominatorTree(function: m[f], cfg: cfg)
+    self.state = [m[f].entry!: (sources: [], before: entryContext, after: Context())]
     self.work = Deque(dominatorTree.bfs.dropFirst())
     self.done = []
   }
@@ -53,20 +53,20 @@ struct AbstractInterpreter<Domain: AbstractDomain> {
   /// abstract interpretation.
   mutating func recomputeControlFlow(_ m: Module) {
     cfg = m[subject].cfg()
-    dominatorTree = .init(function: subject, cfg: cfg, in: m)
+    dominatorTree = .init(function: m[subject], cfg: cfg)
   }
 
   /// Removes `b` from the work list.
   ///
   /// - Requires: `b` is in the work list.
-  mutating func removeWork(_ b: Function.Blocks.Address) {
+  mutating func removeWork(_ b: Block.ID) {
     work.remove(at: work.firstIndex(of: b)!)
   }
 
   /// Adds `b` to the work list.
   ///
   /// - Requires: `b` is a basic block of the function being analyzed.
-  mutating func addWork(_ b: Function.Blocks.Address) {
+  mutating func addWork(_ b: Block.ID) {
     work.append(b)
     done.remove(b)
   }
@@ -109,7 +109,7 @@ struct AbstractInterpreter<Domain: AbstractDomain> {
   }
 
   /// Returns `true` if `b` has been visited.
-  private func visited(_ b: Function.Blocks.Address) -> Bool {
+  private func visited(_ b: Block.ID) -> Bool {
     state[b] != nil
   }
 
@@ -119,7 +119,7 @@ struct AbstractInterpreter<Domain: AbstractDomain> {
   /// defined its (transitive) predecessors. Because a definition must dominate all its uses, we
   /// can assume the predecessors dominated by `b` don't define variables used in `b`. Hence, `b`
   /// can be visited iff all its predecessors have been visited or are dominated by `b`.
-  private func isVisitable(_ b: Function.Blocks.Address) -> Bool {
+  private func isVisitable(_ b: Block.ID) -> Bool {
     if let d = dominatorTree.immediateDominator(of: b) {
       return visited(d)
         && cfg.predecessors(of: b).allSatisfy({ (p) in
@@ -135,8 +135,8 @@ struct AbstractInterpreter<Domain: AbstractDomain> {
   ///
   /// - Requires: `isVisitable(b)` is `true`
   private func beforeContext(
-    of b: Function.Blocks.Address
-  ) -> (sources: Set<Function.Blocks.Address>, before: Context) {
+    of b: Block.ID
+  ) -> (sources: Set<Block.ID>, before: Context) {
     if b == dominatorTree.root {
       return ([], state[b]!.before)
     }
@@ -147,7 +147,7 @@ struct AbstractInterpreter<Domain: AbstractDomain> {
 
   /// Returns the after-context of `b` by processing it with `interpret` in `initialContext`.
   mutating func afterContext(
-    of b: Function.Blocks.Address,
+    of b: Block.ID,
     in initialContext: Context,
     processingBlockWith interpret: Interpret
   ) -> Context {

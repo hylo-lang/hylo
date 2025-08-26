@@ -63,10 +63,10 @@ public struct Function {
   /// Returns the control flow graph of `self`.
   func cfg() -> ControlFlowGraph {
     var result = ControlFlowGraph()
-    for source in blocks.indices {
-      guard let s = self[blocks[source].last!] as? Terminator else { continue }
+    for source in blockIDs {
+      guard let s = self[blocks[source.address].last!] as? Terminator else { continue }
       for target in s.successors {
-        result.define(source.address, predecessorOf: target.address)
+        result.define(source, predecessorOf: target)
       }
     }
 

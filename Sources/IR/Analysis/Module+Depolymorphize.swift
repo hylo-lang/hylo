@@ -324,12 +324,11 @@ extension Function {
     // Iterate over the basic blocks of the source function in a way that guarantees we always
     // visit definitions before their uses.
     let cfg = m[f].cfg()
-    let sourceBlocks = DominatorTree(function: f, cfg: cfg, in: m).bfs
+    let sourceBlocks = DominatorTree(function: m[f], cfg: cfg).bfs
     for b in sourceBlocks {
-      let s = Block.ID(b)
-      let t = rewrittenBlock[s]!
+      let t = rewrittenBlock[b]!
 
-      for i in m[f].instructions(in: s) {
+      for i in m[f].instructions(in: b) {
         switch m[i, in: f] {
         case is GenericParameter:
           rewrite(genericParameter: i)
