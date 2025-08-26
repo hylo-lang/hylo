@@ -14,7 +14,7 @@ import Utils
 struct DominatorTree {
 
   /// A node in the tree.
-  typealias Node = Function.Blocks.Address
+  typealias Node = Block.ID
 
   /// The root of the tree.
   let root: Node
@@ -27,7 +27,7 @@ struct DominatorTree {
     // The following is an implementation of Cooper et al.'s fast dominance iterative algorithm
     // (see "A Simple, Fast Dominance Algorithm", 2001). First, build any spanning tree rooted at
     // the function's entry.
-    var t = SpanningTree(of: cfg, rootedAt: f.entry!.address)
+    var t = SpanningTree(of: cfg, rootedAt: f.entry!)
 
     // Then, until a fixed point is reached, for each block `v` that has a predecessor `u` that
     // isn't `v`'s parent in the tree, assign `v`'s parent to the least common ancestor of `u` and
@@ -35,9 +35,9 @@ struct DominatorTree {
     var changed = true
     while changed {
       changed = false
-      for v in f.blocks.addresses {
-        for u in cfg.predecessors(of: v) where t.parent(v) != u {
-          let lca = t.lowestCommonAncestor(u, t.parent(v)!)
+      for v in f.blockIDs {
+        for u in cfg.predecessors(of: v.address) where t.parent(v) != Block.ID(u) {
+          let lca = t.lowestCommonAncestor(Block.ID(u), t.parent(v)!)
           if lca != t.parent(v) {
             t.setParent(lca, forChild: v)
             changed = true
@@ -47,7 +47,7 @@ struct DominatorTree {
     }
 
     // The resulting tree encodes the immediate dominators.
-    root = f.entry!.address
+    root = f.entry!
     immediateDominators = t.parents
   }
 
@@ -112,7 +112,7 @@ struct DominatorTree {
     }
 
     // Return whether the block containing `definition` dominates the block containing `use`.
-    return dominates(module[f].block(of: definition).address, module[f].block(of: use.user).address)
+    return dominates(module[f].block(of: definition), module[f].block(of: use.user))
   }
 
 }
@@ -139,7 +139,7 @@ extension DominatorTree: CustomStringConvertible {
 private struct SpanningTree {
 
   /// A node in the tree.
-  typealias Node = Function.Blocks.Address
+  typealias Node = Block.ID
 
   /// A map from node to its parent.
   private(set) var parents: [Node: Node?]
@@ -150,8 +150,8 @@ private struct SpanningTree {
     var work: [(vertex: Node, parent: Node??)] = [(root, .some(nil))]
     while let (v, parent) = work.popLast() {
       parents[v] = parent
-      let children = cfg.successors(of: v).filter({ parents[$0] == nil })
-      work.append(contentsOf: children.map({ ($0, .some(v)) }))
+      let children = cfg.successors(of: v.address).filter({ parents[Block.ID($0)] == nil })
+      work.append(contentsOf: children.map({ (Block.ID($0), .some(v)) }))
     }
   }
 
