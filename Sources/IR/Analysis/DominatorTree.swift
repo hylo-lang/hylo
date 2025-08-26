@@ -22,11 +22,6 @@ struct DominatorTree: Sendable {
   /// The immediate dominators of each basic block.
   private var immediateDominators: [Node: Node?]
 
-  /// Creates the dominator tree of `f`, which is in `m`, using the given `cfg`.
-  init(function f: Function.ID, cfg: ControlFlowGraph, in m: Module) {
-    self.init(function: m[f], cfg: cfg)
-  }
-
   /// Creates the dominator tree of `f`, using the given `cfg`.
   init(function f: Function, cfg: ControlFlowGraph) {
     // The following is an implementation of Cooper et al.'s fast dominance iterative algorithm
