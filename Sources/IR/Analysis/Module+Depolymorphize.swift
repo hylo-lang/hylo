@@ -343,7 +343,7 @@ extension Function {
 
     /// Rewrites `i`, which is in `source`, at the end of `b`, which is in `self`.
     func rewrite(_ i: InstructionID, to b: Block.ID) {
-      let j = self.rewrite(i, in: f, from: m, transformedBy: &t, at: .end(of: b))
+      let j = self.rewrite(i, in: m[f], transformedBy: &t, at: .end(of: b))
       t.rewrittenInstruction[i] = j
     }
 

@@ -31,13 +31,12 @@ extension InstructionTransformer {
 
 extension Function {
 
-  /// Inserts a copy of `i`, which is in `f`/`m`, at `p` inside `self`, transforming its parts with
+  /// Inserts a copy of `i`, which is in `source`, at `p` inside `self`, transforming its parts with
   /// `t` and returning the identifier of the new instruction.
   mutating func rewrite<T: InstructionTransformer>(
-    _ i: InstructionID, in f: Function.ID, from m: Module, transformedBy t: inout T,
-    at p: InsertionPoint
+    _ i: InstructionID, in source: Function, transformedBy t: inout T, at p: InsertionPoint
   ) -> InstructionID {
-    switch m[i, in: f] {
+    switch source[i] {
     case let s as Access:
       let x0 = t.transform(s.source)
       return makeAccess(s.capabilities, from: x0, at: s.site, insertingAt: p)
