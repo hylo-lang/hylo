@@ -406,7 +406,7 @@ public struct Function: Sendable {
 
     // Slow path: use the dominator tree.
     let d = DominatorTree(function: self, cfg: cfg())
-    return d.dominates(blockForInstruction[lhs]!.address, blockForInstruction[rhs]!.address)
+    return d.dominates(blockForInstruction[lhs]!, blockForInstruction[rhs]!)
   }
 
   /// Returns the global identity of `block`'s terminator, if it exists.
