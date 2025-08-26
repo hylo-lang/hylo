@@ -81,7 +81,7 @@ extension IR.Program {
 
       for j in modules[source]![callee.function].instructions(in: e) {
         if modules[source]![j, in: callee.function] is Terminator { break }
-        let k = self.rewrite(j, in: callee.function, from: source, transformedBy: &translation, at: .before(i), targeting: f, in: m)
+        let k = modules[m]![f].rewrite(j, in: callee.function, from: modules[source]!, transformedBy: &translation, at: .before(i))
         translation.rewrittenOperand[.register(j)] = .register(k)
       }
 
@@ -104,17 +104,17 @@ private struct InliningTranslation: InstructionTransformer {
   var rewrittenOperand: [Operand: Operand] = [:]
 
   /// Returns `t`.
-  func transform(_ t: AnyType, in ir: inout Program) -> AnyType {
+  func transform(_ t: AnyType) -> AnyType {
     t
   }
 
   /// Returns a transformed copy of `o` for use in `ir`.
-  func transform(_ o: Operand, in ir: inout IR.Program) -> Operand {
+  func transform(_ o: Operand) -> Operand {
     o.isConstant ? o : rewrittenOperand[o]!
   }
 
   /// Returns a transformed copy of `b` for use in `ir`.
-  func transform(_ b: Block.ID, in ir: inout IR.Program) -> Block.ID {
+  func transform(_ b: Block.ID) -> Block.ID {
     rewrittenBlock[b]!
   }
 

@@ -162,6 +162,7 @@ extension Function {
 
     case let s as SubfieldView:
       o.observe(s.recordAddress)
+      o.observe(s.resultType)
       break
 
     case let s as Switch:

@@ -189,9 +189,9 @@ extension IR.Program {
 
     /// Rewrites `i`, which is in `source`, at the end of `b`, which is in `target`.
     func rewrite(_ i: InstructionID, to b: Block.ID) {
-      let j = self.rewrite(
-        i, in: f, from: source, transformedBy: &monomorphizer,
-        at: .end(of: b), targeting: result, in: target)
+      let j = modules[target]![result].rewrite(
+        i, in: f, from: modules[source]!, transformedBy: &monomorphizer,
+        at: .end(of: b))
       monomorphizer.rewrittenInstruction[i] = j
     }
 
@@ -421,7 +421,7 @@ private struct Monomorphizer: InstructionTransformer {
   var rewrittenInstruction: [InstructionID: InstructionID] = [:]
 
   /// Returns the canonical, monomorphized form of `t`.
-  func transform(_ t: AnyType, in ir: inout IR.Program) -> AnyType {
+  func transform(_ t: AnyType) -> AnyType {
     precondition(
       transformedTypes[t] != nil, "Type \(t) was not transformed; check if it was properly observed"
     )
@@ -429,10 +429,10 @@ private struct Monomorphizer: InstructionTransformer {
   }
 
   /// Returns a monomorphized copy of `o`.
-  func transform(_ o: Operand, in ir: inout IR.Program) -> Operand {
+  func transform(_ o: Operand) -> Operand {
     switch o {
     case .constant(let c):
-      return .constant(transform(c, in: &ir))
+      return .constant(transform(c))
     case .parameter(let b, let i):
       return .parameter(rewrittenBlock[b]!, i)
     case .register(let s):
@@ -441,24 +441,24 @@ private struct Monomorphizer: InstructionTransformer {
   }
 
   /// Returns a monomorphized copy of `b`.
-  func transform(_ b: Block.ID, in ir: inout IR.Program) -> Block.ID {
+  func transform(_ b: Block.ID) -> Block.ID {
     rewrittenBlock[b]!
   }
 
   /// Returns a monomorphized copy of `c`.
-  private func transform(_ c: any Constant, in ir: inout IR.Program) -> any Constant {
+  private func transform(_ c: any Constant) -> any Constant {
     switch c {
     case let r as FunctionReference:
-      return transform(r, in: &ir)
+      return transform(r)
     case let t as MetatypeType:
-      return MetatypeType(transform(^t, in: &ir))!
+      return MetatypeType(transform(^t))!
     default:
       return c
     }
   }
 
   /// Returns a monomorphized copy of `c`.
-  private func transform(_ c: FunctionReference, in ir: inout IR.Program) -> FunctionReference {
+  private func transform(_ c: FunctionReference) -> FunctionReference {
     // Unspecialized references cannot refer to trait members, which are specialized for the
     // implicit `Self` parameter.
     if c.specialization.isEmpty {
