@@ -37,7 +37,7 @@ extension Module {
     if self[f].blocks.count < 2 { return }
 
     // Process all blocks except the entry.
-    var work = Array(self[f].blocks.addresses.dropFirst())
+    var work = Array(self[f].blockIDs.dropFirst())
     var e = work.count
     var changed = true
     while changed {
@@ -48,7 +48,7 @@ extension Module {
       var i = 0
       while i < e {
         if cfg.predecessors(of: work[i]).isEmpty {
-          self[f].remove(Block.ID(work[i]))
+          self[f].remove(work[i])
           work.swapAt(i, e - 1)
           changed = true
           e -= 1
