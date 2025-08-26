@@ -38,9 +38,9 @@ extension IR.Program {
     for i in modules[m]!.instructions(in: f) {
       switch modules[m]![i, in: f] {
       case is Call:
-        depolymorphize(call: i, from:f, definedIn: m)
+        depolymorphize(call: i, from: f, definedIn: m)
       case is Project:
-        depolymorphize(project: i, from:f, definedIn: m)
+        depolymorphize(project: i, from: f, definedIn: m)
       default:
         continue
       }
