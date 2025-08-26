@@ -158,60 +158,19 @@ extension IR.Program {
       rewrittenBlock[b] = modules[target]![result].appendBlock(in: modules[source]![b, in: f].scope)
     }
 
-    let rewrittenGenericValue = modules[target]!.defineGenericValueArguments(z, in: result)
+    // Transform `source`, monomorphizing it, and write the result to `result`.
     var monomorphizer = Monomorphizer(
       scopeOfUse: scopeOfUse,
       transformedTypes: transformedTypes, transformedFunctions: transformedFunctions,
       rewrittenBlock: rewrittenBlock
     )
-
-    // Iterate over the basic blocks of the source function in a way that guarantees we always
-    // visit definitions before their uses.
-    let cfg = modules[source]![f].cfg()
-    let sourceBlocks = DominatorTree(function: f, cfg: cfg, in: modules[source]!).bfs
-    for b in sourceBlocks {
-      let s = Block.ID(b)
-      let t = rewrittenBlock[s]!
-
-      for i in modules[source]![f].instructions(in: s) {
-        switch modules[source]![i, in: f] {
-        case is GenericParameter:
-          rewrite(genericParameter: i)
-        case is Return:
-          rewrite(return: i, to: t)
-        default:
-          rewrite(i, to: t)
-        }
-      }
-    }
+    modules[target]![result].rewrite(
+      f, from: modules[source]!, transformedBy: &monomorphizer,
+      rewrittenBlock: rewrittenBlock,
+      rewrittenGenericValue: modules[target]!.defineGenericValueArguments(z, in: result)
+    )
 
     return result
-
-    /// Rewrites `i`, which is in `source`, at the end of `b`, which is in `target`.
-    func rewrite(_ i: InstructionID, to b: Block.ID) {
-      let j = modules[target]![result].rewrite(
-        i, in: f, from: modules[source]!, transformedBy: &monomorphizer,
-        at: .end(of: b))
-      monomorphizer.rewrittenInstruction[i] = j
-    }
-
-    /// Rewrites `i`, which is in `source`, at the end of `b`, which is in `target`.
-    func rewrite(genericParameter i: InstructionID) {
-      let s = modules[source]![i, in: f] as! GenericParameter
-      monomorphizer.rewrittenInstruction[i] = rewrittenGenericValue[s.parameter]!
-    }
-
-    /// Rewrites `i`, which is in `source`, at the end of `b`, which is in `target`.
-    func rewrite(return i: InstructionID, to b: Block.ID) {
-      let s = modules[source]![i, in: f] as! Return
-      let j = modify(&modules[target]![result]) { (f) in
-        for i in rewrittenGenericValue.values.reversed() {
-          _ = f.makeDeallocStack(for: .register(i), at: s.site, insertingAt: .end(of: b))
-        }
-        return f.makeReturn(at: s.site, insertingAt: .end(of: b))
-      }
-      monomorphizer.rewrittenInstruction[i] = j
-    }
   }
 
   /// Returns a monomorphized copy of `f` specialized by `z` for use in `scopeOfUse`.
@@ -349,6 +308,59 @@ extension Module {
     }
 
     return genericValues
+  }
+
+}
+
+extension Function {
+  /// Inserts a copy of `i`, which is in `source`, inside `self`, transforming its parts with
+  /// `t`, having block correspondences in `rewrittenBlock`, and generic value correspondences in
+  /// `rewrittenGenericValue`.
+  fileprivate mutating func rewrite(
+    _ f: Function.ID, from m: Module, transformedBy t: inout Monomorphizer,
+    rewrittenBlock: [Block.ID: Block.ID],
+    rewrittenGenericValue: OrderedDictionary<GenericParameterDecl.ID, InstructionID>
+  ) {
+    // Iterate over the basic blocks of the source function in a way that guarantees we always
+    // visit definitions before their uses.
+    let cfg = m[f].cfg()
+    let sourceBlocks = DominatorTree(function: f, cfg: cfg, in: m).bfs
+    for b in sourceBlocks {
+      let s = Block.ID(b)
+      let t = rewrittenBlock[s]!
+
+      for i in m[f].instructions(in: s) {
+        switch m[i, in: f] {
+        case is GenericParameter:
+          rewrite(genericParameter: i)
+        case is Return:
+          rewrite(return: i, to: t)
+        default:
+          rewrite(i, to: t)
+        }
+      }
+    }
+
+    /// Rewrites `i`, which is in `source`, at the end of `b`, which is in `self`.
+    func rewrite(_ i: InstructionID, to b: Block.ID) {
+      let j = self.rewrite(i, in: f, from: m, transformedBy: &t, at: .end(of: b))
+      t.rewrittenInstruction[i] = j
+    }
+
+    /// Rewrites `i`, which is in `source`, at the end of `b`, which is in `self`.
+    func rewrite(genericParameter i: InstructionID) {
+      let s = m[i, in: f] as! GenericParameter
+      t.rewrittenInstruction[i] = rewrittenGenericValue[s.parameter]!
+    }
+
+    /// Rewrites `i`, which is in `source`, at the end of `b`, which is in `self`.
+    func rewrite(return i: InstructionID, to b: Block.ID) {
+      let s = m[i, in: f] as! Return
+      for i in rewrittenGenericValue.values.reversed() {
+        _ = makeDeallocStack(for: .register(i), at: s.site, insertingAt: .end(of: b))
+      }
+      t.rewrittenInstruction[i] = makeReturn(at: s.site, insertingAt: .end(of: b))
+    }
   }
 
 }
