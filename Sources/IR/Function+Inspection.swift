@@ -241,7 +241,7 @@ extension Function {
     case let s as Access:
       return provenances(s.source)
     case let s as Project:
-      return s.operands.reduce(into: []) { (p, o) in
+      return s.arguments.reduce(into: []) { (p, o) in
         if type(of: o).isAddress { p.formUnion(provenances(o)) }
       }
     case let s as SubfieldView:

@@ -148,8 +148,12 @@ extension Module {
     }
 
     let o = RemoteType(k, s.projection)
+    let r = FunctionReference(
+      to: s.variants[k]!, in: self, specializedBy: s.bundle.arguments,
+      in: self[f].scope(containing: i)
+    )
     let reified = self[f].makeProject(
-      o, applying: s.variants[k]!, specializedBy: s.bundle.arguments, to: arguments, at: s.site)
+      o, applying: r, to: arguments, at: s.site)
     self[f].replace(i, with: reified)
   }
 
