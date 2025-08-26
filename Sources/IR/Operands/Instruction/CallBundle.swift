@@ -67,6 +67,7 @@ extension Module {
   mutating func makeCallBundle(
     applying m: BundleReference<MethodDecl>, to a: [Operand],
     writingResultTo o: Operand,
+    in f: Function.ID,
     at site: SourceRange,
     canonicalizingTypesIn scopeOfUse: AnyScopeID
   ) -> CallBundle {
@@ -83,8 +84,8 @@ extension Module {
     let t = MethodType(
       program.canonicalType(of: m.bundle, specializedBy: m.arguments, in: scopeOfUse))!
     precondition((t.inputs.count + 1) == a.count)
-    precondition(a.allSatisfy({ self[$0] is Access }))
-    precondition(isBorrowSet(o))
+    precondition(a.allSatisfy({ self[$0, in: f] is Access }))
+    precondition(isBorrowSet(o, in: f))
 
     return .init(bundle: m, bundleType: t, variants: variants, output: o, arguments: a, site: site)
   }
