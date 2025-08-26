@@ -36,8 +36,8 @@ struct DominatorTree {
     while changed {
       changed = false
       for v in f.blockIDs {
-        for u in cfg.predecessors(of: v.address) where t.parent(v) != Block.ID(u) {
-          let lca = t.lowestCommonAncestor(Block.ID(u), t.parent(v)!)
+        for u in cfg.predecessors(of: v) where t.parent(v) != u {
+          let lca = t.lowestCommonAncestor(u, t.parent(v)!)
           if lca != t.parent(v) {
             t.setParent(lca, forChild: v)
             changed = true
@@ -150,8 +150,8 @@ private struct SpanningTree {
     var work: [(vertex: Node, parent: Node??)] = [(root, .some(nil))]
     while let (v, parent) = work.popLast() {
       parents[v] = parent
-      let children = cfg.successors(of: v.address).filter({ parents[Block.ID($0)] == nil })
-      work.append(contentsOf: children.map({ (Block.ID($0), .some(v)) }))
+      let children = cfg.successors(of: v).filter({ parents[$0] == nil })
+      work.append(contentsOf: children.map({ ($0, .some(v)) }))
     }
   }
 

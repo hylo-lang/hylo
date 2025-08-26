@@ -100,7 +100,7 @@ struct AbstractInterpreter<Domain: AbstractDomain> {
         changed = true
       }
 
-      if !changed && (sources.count == cfg.predecessors(of: blockToProcess.address).count) {
+      if !changed && (sources.count == cfg.predecessors(of: blockToProcess).count) {
         done.insert(blockToProcess)
       } else {
         work.append(blockToProcess)
@@ -122,8 +122,8 @@ struct AbstractInterpreter<Domain: AbstractDomain> {
   private func isVisitable(_ b: Block.ID) -> Bool {
     if let d = dominatorTree.immediateDominator(of: b) {
       return visited(d)
-        && cfg.predecessors(of: b.address).allSatisfy({ (p) in
-          visited(Block.ID(p)) || dominatorTree.dominates(b, Block.ID(p))
+        && cfg.predecessors(of: b).allSatisfy({ (p) in
+          visited(p) || dominatorTree.dominates(b, p)
         })
     } else {
       // No predecessor.
@@ -141,7 +141,7 @@ struct AbstractInterpreter<Domain: AbstractDomain> {
       return ([], state[b]!.before)
     }
 
-    let sources = Set(cfg.predecessors(of: b.address).lazy.filter({ state[Block.ID($0)] != nil }).map( Block.ID.init ))
+    let sources = Set(cfg.predecessors(of: b).filter({ state[$0] != nil }))
     return (sources, .init(merging: sources.lazy.map({ state[$0]!.after })))
   }
 

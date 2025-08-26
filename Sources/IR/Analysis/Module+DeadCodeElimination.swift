@@ -41,7 +41,7 @@ extension Function {
     if blocks.count < 2 { return }
 
     // Process all blocks except the entry.
-    var work = Array(blocks.addresses.dropFirst())
+    var work = Array(blockIDs.dropFirst())
     var e = work.count
     var changed = true
     while changed {
@@ -52,7 +52,7 @@ extension Function {
       var i = 0
       while i < e {
         if cfg.predecessors(of: work[i]).isEmpty {
-          removeBlock(Block.ID(work[i]))
+          removeBlock(work[i])
           work.swapAt(i, e - 1)
           changed = true
           e -= 1
