@@ -666,7 +666,7 @@ extension Module {
     let function = self[f]
     var result = Context()
 
-    let entry = Block.ID(function.entry!)
+    let entry = function.entry!
     addParameter(.set, function.output, of: entry, at: function.inputs.count, in: &result)
     for i in function.inputs.indices {
       addParameter(function.inputs[i].type, of: entry, at: i, in: &result)
