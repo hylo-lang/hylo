@@ -169,14 +169,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-14, ubuntu-24.04, windows-2022]
+        os: [macos-14, ubuntu-24.04, windows-2025]
         spm_configuration: [debug, release]
         cmake_generator: [Ninja, Xcode]
 
         exclude:
           - os: ubuntu-24.04
             cmake_generator: Xcode
-          - os: windows-2022
+          - os: windows-2025
             cmake_generator: Xcode
 
         include:
@@ -191,13 +191,13 @@ jobs:
           - use_spm: true
           - triple_cpu: x86_64
 
-          - os: windows-2022
+          - os: windows-2025
             unpackage_command: 7z x -t7z
             llvm_package_suffix: .7z
             triple_suffix: unknown-windows-msvc17
             windows_only: ''
 
-          - os: windows-2022
+          - os: windows-2025
             use_spm: false
 
           - os: macos-14
@@ -234,6 +234,11 @@ jobs:
         run: ./Tools/set-hc-version.sh ${{ needs.determine-version.outputs.version }}
         shell: bash
 
+      - name: Set up Swift
+        uses: SwiftyLab/setup-swift@latest
+        with:
+          swift-version: ${{ env.swift-version }} # already verifies Swift version
+
       - name: Set up Visual Studio Development Environment (Windows)
         if: ${{ runner.os == 'Windows' }}
         uses: compnerd/gha-setup-vsdevenv@main
@@ -241,10 +246,6 @@ jobs:
           winsdk: "10.0.22621.0" # Workaround for this: https://forums.swift.org/t/swiftpm-plugin-doesnt-work-with-the-latest-visual-studio-version/78183/14
           # TL;DR: The Windows SDK had a change in 10.0.26100.0 that the Swift compiler didn't account for.
           # The Swift compiler team is aware of the issue and they are going to release a fix some time.
-      - name: Set up Swift
-        uses: SwiftyLab/setup-swift@latest
-        with:
-          swift-version: ${{ env.swift-version }} # already verifies Swift version
 
       - name: Set up latest CMake and Ninja
         uses: lukka/get-cmake@latest
