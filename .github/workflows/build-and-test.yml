@@ -169,14 +169,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-14, ubuntu-24.04, windows-2025]
+        os: [macos-14, ubuntu-24.04, windows-2022]
         spm_configuration: [debug, release]
         cmake_generator: [Ninja, Xcode]
 
         exclude:
           - os: ubuntu-24.04
             cmake_generator: Xcode
-          - os: windows-2025
+          - os: windows-2022
             cmake_generator: Xcode
 
         include:
@@ -191,13 +191,13 @@ jobs:
           - use_spm: true
           - triple_cpu: x86_64
 
-          - os: windows-2025
+          - os: windows-2022
             unpackage_command: 7z x -t7z
             llvm_package_suffix: .7z
             triple_suffix: unknown-windows-msvc17
             windows_only: ''
 
-          - os: windows-2025
+          - os: windows-2022
             use_spm: false
 
           - os: macos-14
@@ -267,7 +267,7 @@ jobs:
           cmake -G '${{ matrix.cmake_generator }}' -S . -B .cmake-build
           ${{ matrix.cmake_generator != 'Xcode' && format('-DCMAKE_BUILD_TYPE={0}', matrix.cmake_build_type) || '' }}
           -DBUILD_TESTING=YES
-          -DLLVM_DIR=${{ github.workspace }}/${{ env.llvm_package_basename }}/lib/cmake/llvm ${{ runner.os == 'Windows' && '-DCMAKE_Swift_FLAGS="-windows-sdk-version 10.0.22621.0"' || '' }}
+          -DLLVM_DIR=${{ github.workspace }}/${{ env.llvm_package_basename }}/lib/cmake/llvm
           ${{ runner.os == 'macOS' && '-D CMAKE_Swift_COMPILER=swiftc -DCMAKE_OSX_SYSROOT=$(xcrun --show-sdk-path)' || '' }}
         working-directory: hylo
 
