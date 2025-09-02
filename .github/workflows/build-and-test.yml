@@ -49,7 +49,7 @@ env:
 jobs:
   determine-version:
     name: "Determine compiler version from git tag"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       version: ${{ steps.get-tag.outputs.version }}
     steps:
@@ -80,7 +80,7 @@ jobs:
             cmake_build_type: Release
             HYLO_LLVM_BUILD_TYPE: MinSizeRel
 
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
@@ -169,14 +169,14 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-14, ubuntu-latest, windows-latest]
+        os: [macos-14, ubuntu-24.04, windows-2025]
         spm_configuration: [debug, release]
         cmake_generator: [Ninja, Xcode]
 
         exclude:
-          - os: ubuntu-latest
+          - os: ubuntu-24.04
             cmake_generator: Xcode
-          - os: windows-latest
+          - os: windows-2025
             cmake_generator: Xcode
 
         include:
@@ -191,20 +191,20 @@ jobs:
           - use_spm: true
           - triple_cpu: x86_64
 
-          - os: windows-latest
+          - os: windows-2025
             unpackage_command: 7z x -t7z
             llvm_package_suffix: .7z
             triple_suffix: unknown-windows-msvc17
             windows_only: ''
 
-          - os: windows-latest
+          - os: windows-2025
             use_spm: false
 
           - os: macos-14
             triple_suffix: apple-darwin24.1.0
             triple_cpu: arm64
 
-          - os: ubuntu-latest
+          - os: ubuntu-24.04
             triple_suffix: unknown-linux-gnu
 
           - spm_configuration: debug
