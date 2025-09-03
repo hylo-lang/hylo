@@ -40,7 +40,7 @@ struct TypeLayout {
 
   /// The sub-structure of `self`.
   ///
-  /// For product types, info for each stored property.
+  /// For product types, info for each stored property in storage order.
   /// For union types, info for each case when it is active, followed by info for the discriminator.
   /// Empty otherwise (built-in types).
   let components: [Component]
