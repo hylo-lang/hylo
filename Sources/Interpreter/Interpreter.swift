@@ -54,6 +54,29 @@ struct StackFrame {
 
 }
 
+extension UnsafeRawPointer {
+
+  /// Returns the number of bytes from `self` to the nearest address
+  /// aligned to `a`.
+  func offsetToAlignment(_ a: Int) -> Int {
+    let b = UInt(bitPattern: self)
+    return Int(b.rounded(upToNearestMultipleOf: UInt(a)) - b)
+  }
+
+}
+
+extension UnsafeRawBufferPointer {
+
+  /// Returns the number of bytes from the notional base address to
+  /// the nearest address aligned to `a`.
+  ///
+  /// If `self.baseAddress == 0`, returns `0`.
+  func firstOffsetAligned(to a: Int) -> Int {
+    return baseAddress?.offsetToAlignment(a) ?? 0
+  }
+
+}
+
 struct StackAllocation {
   typealias ID = UUID
 
@@ -121,7 +144,7 @@ public struct Interpreter {
   private let program: IR.Program
 
   /// The stack- and dynamically-allocated memory in use by the program.
-  private var memory = Heap()
+  private var memory = Memory()
 
   /// Local variables, parameters, and return addresses.
   private var stack = Stack()
