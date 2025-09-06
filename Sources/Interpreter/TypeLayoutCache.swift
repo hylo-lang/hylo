@@ -56,25 +56,25 @@ struct TypeLayoutCache {
         bytes: l,
         type: ^u,
         components:
-          basis.map { (name: String(describing: $0.type), type: $0.type, offset: payloadOffset) }
-          + [ (name: "discriminator",  type: discriminator, offset: discriminatorOffset) ],
+          basis.map { .init(name: String(describing: $0.type), type: $0.type, offset: payloadOffset) }
+          + [ .init(name: "discriminator",  type: discriminator, offset: discriminatorOffset) ],
         isUnionLayout: true)
   }
 
   private mutating func concretized(_ l: AbstractTypeLayout) -> TypeLayout {
     if l.properties.isEmpty {
       return TypeLayout(
-        bytes: .init(alignment: 0, size: 0), type: l.type,
+        bytes: .init(alignment: 1, size: 0), type: l.type,
         components: [], isUnionLayout: false
       )
     }
     let f = l.properties.first!
     var b = self[f.type].bytes
-    var components: [TypeLayout.Component] = [(name: f.label ?? "0", type: f.type, offset: 0)]
-    for (i, p) in l.properties.enumerated() {
+    var components: [TypeLayout.Component] = [.init(name: f.label ?? "0", type: f.type, offset: 0)]
+    for (i, p) in l.properties.dropFirst().enumerated() {
       let c = self[p.type].bytes
       b = b.appending(c)
-      components.append((name: f.label ?? String(describing: i), type: p.type, offset: b.size - c.size))
+      components.append(.init(name: f.label ?? String(describing: i), type: p.type, offset: b.size - c.size))
     }
     return TypeLayout(bytes: b, type: l.type, components: components, isUnionLayout: false)
   }

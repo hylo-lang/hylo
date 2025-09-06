@@ -3,10 +3,10 @@ import FrontEnd
 
 
 /// The layout of a type in memory, including the positions of its components.
-struct TypeLayout {
+struct TypeLayout: Hashable {
 
   /// Memory layout of a type, without any detail about components.
-  struct Bytes {
+  struct Bytes: Hashable {
     /// The minimum alignment of an instance.  Always a power of 2.
     let alignment: Int
 
@@ -19,9 +19,18 @@ struct TypeLayout {
     }
   }
 
-  /// Types stored in `self` with their names (if any), and byte offsets from the base of this
-  /// type's layout.
-  typealias Component = (name: String?, type: AnyType, offset: Int)
+  /// A (potential, in the case of union types) part of `type` and
+  /// where it is stored in a `type` instance.
+  struct Component: Hashable {
+    /// The name if any (i.e. tuple label or stored property name).
+    let name: String?
+
+    /// The type of the part.
+    let type: AnyType
+
+    /// The byte offset of the part with respect to the layout.
+    let offset: Int
+  }
 
   /// Aggregate layout values of this layout.
   let bytes: Bytes
