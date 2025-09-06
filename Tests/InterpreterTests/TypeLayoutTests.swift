@@ -22,6 +22,16 @@ final class TypeLayoutTests: XCTestCase {
     XCTAssertEqual(i16.size, 2)
     XCTAssertEqual(i16.alignment, 2)
     XCTAssertEqual(i16.components.count, 0)
+
+    let i32 = c[^BuiltinType.i(32)]
+    XCTAssertEqual(i32.size, 4)
+    XCTAssertEqual(i32.alignment, 4)
+    XCTAssertEqual(i32.components.count, 0)
+
+    let i64 = c[^BuiltinType.i(64)]
+    XCTAssertEqual(i64.size, 8)
+    XCTAssertEqual(i64.alignment, 8)
+    XCTAssertEqual(i64.components.count, 0)
   }
 
 }
