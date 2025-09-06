@@ -6,8 +6,8 @@ struct TupleMemberConstraint: Constraint, Hashable {
   /// The base type of the left operand.
   private(set) var subject: AnyType
 
-  /// The index of the element in `subject` that must have type `memberType`.
-  let elementIndex: Int
+  /// The component of `subject` that must have type `memberType`.
+  let component: Int
 
   /// The type of subject's element.
   private(set) var elementType: AnyType
@@ -18,12 +18,12 @@ struct TupleMemberConstraint: Constraint, Hashable {
   /// `memberType` at given `index`.
   init(
     _ tuple: AnyType,
-    at index: Int,
+    component: Int,
     hasType element: AnyType,
     origin: ConstraintOrigin
   ) {
     self.subject = tuple
-    self.elementIndex = index
+    self.component = component
     self.elementType = element
     self.origin = origin
   }
@@ -44,7 +44,7 @@ struct TupleMemberConstraint: Constraint, Hashable {
 extension TupleMemberConstraint: CustomStringConvertible {
 
   var description: String {
-    "\(subject).\(elementIndex) == \(elementType)"
+    "\(subject).\(component) == \(elementType)"
   }
 
 }

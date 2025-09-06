@@ -609,14 +609,14 @@ struct ConstraintSystem {
       return nil
 
     case let t as TupleType:
-      if goal.elementIndex >= t.components.count { break }
-      let e = t.components[goal.elementIndex].type
+      if goal.component >= t.components.count { break }
+      let e = t.components[goal.component].type
       let s = schedule(EqualityConstraint(e, goal.elementType, origin: goal.origin.subordinate()))
       return delegate(to: [s])
 
     case let t as TypeAliasType:
       let c = TupleMemberConstraint(
-        t.aliasee.value, at: goal.elementIndex, hasType: goal.elementType,
+        t.aliasee.value, component: goal.component, hasType: goal.elementType,
         origin: goal.origin.subordinate())
       let s = schedule(c)
       return delegate(to: [s])
@@ -628,7 +628,7 @@ struct ConstraintSystem {
 
     return .failure { (d, m, _) in
       let s = m.reify(goal.subject)
-      d.insert(.error(undefinedName: goal.elementIndex, in: s, at: goal.origin.site))
+      d.insert(.error(undefinedName: goal.component, in: s, at: goal.origin.site))
     }
   }
 

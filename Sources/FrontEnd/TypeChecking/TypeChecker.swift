@@ -5801,7 +5801,7 @@ struct TypeChecker {
     let t = ^freshVariable()
     let i = program[e].index
     obligations.insert(
-      TupleMemberConstraint(s, at: i.value, hasType: t, origin: .init(.member, at: i.site)))
+      TupleMemberConstraint(s, component: i.value, hasType: t, origin: .init(.member, at: i.site)))
     return constrain(e, to: t, in: &obligations)
   }
 
