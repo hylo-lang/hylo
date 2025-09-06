@@ -292,7 +292,7 @@ final class BuiltinFunctionTests: XCTestCase {
   }
 
   func testAtomicCompareExchange() throws {
-    let expectedType = ArrowType(.builtin(.ptr), .builtin(.i(64)), .builtin(.i(64)), to: ^TupleType(types: [.builtin(.i(64)), .builtin(.i(1))]))
+    let expectedType = ArrowType(.builtin(.ptr), .builtin(.i(64)), .builtin(.i(64)), to: ^TupleType([.builtin(.i(64)), .builtin(.i(1))]))
     try assertParse(
       instructions: [
         "atomic_cmpxchg",

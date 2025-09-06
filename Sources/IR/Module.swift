@@ -643,7 +643,7 @@ public struct Module {
   /// Appends to `inputs` the parameters corresponding to the given `captures` passed `effect`,
   /// canonicalizing theirs type in `scopeOfUse`.
   private func appendCaptures(
-    _ captures: [TupleType.Element], passed effect: AccessEffect, to inputs: inout [Parameter],
+    _ captures: [TupleType.Component], passed effect: AccessEffect, to inputs: inout [Parameter],
     canonicalizedIn scopeOfUse: AnyScopeID
   ) {
     inputs.reserveCapacity(captures.count)

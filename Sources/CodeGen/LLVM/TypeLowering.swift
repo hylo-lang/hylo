@@ -107,13 +107,13 @@ extension IR.Program {
   /// - Requires: `t` is representable in LLVM.
   func llvm(tupleType t: TupleType, in module: inout SwiftyLLVM.Module) -> SwiftyLLVM.IRType {
     precondition(t.isCanonical)
-    let fs = llvm(fields: t.elements, in: &module)
+    let fs = llvm(fields: t.components, in: &module)
     return SwiftyLLVM.StructType(fs, in: &module)
   }
 
   /// Rethrns the LLVM forms of `fields` in `module`.
   private func llvm(
-    fields: [TupleType.Element], in module: inout SwiftyLLVM.Module
+    fields: [TupleType.Component], in module: inout SwiftyLLVM.Module
   ) -> [SwiftyLLVM.IRType] {
     fields.map({ (p) in llvm(p.type, in: &module) })
   }

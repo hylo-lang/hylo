@@ -65,7 +65,7 @@ public struct AnyType {
   public static let never = ^UnionType([])
 
   /// Hylo's `Void` type.
-  public static let void = ^TupleType([])
+  public static let void = ^TupleType([] as [AnyType])
 
   /// A shorthand for `^ErrorType()`.
   public static let error = ^ErrorType()
@@ -167,7 +167,7 @@ public struct AnyType {
   public var isBuiltinOrRawTuple: Bool {
     precondition(isCanonical)
     if let b = TupleType(self) {
-      return b.elements.allSatisfy(\.type.isBuiltin)
+      return b.components.allSatisfy(\.type.isBuiltin)
     } else {
       return base is BuiltinType
     }

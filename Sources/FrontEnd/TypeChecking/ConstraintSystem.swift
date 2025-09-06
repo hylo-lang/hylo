@@ -609,8 +609,8 @@ struct ConstraintSystem {
       return nil
 
     case let t as TupleType:
-      if goal.elementIndex >= t.elements.count { break }
-      let e = t.elements[goal.elementIndex].type
+      if goal.elementIndex >= t.components.count { break }
+      let e = t.components[goal.elementIndex].type
       let s = schedule(EqualityConstraint(e, goal.elementType, origin: goal.origin.subordinate()))
       return delegate(to: [s])
 
@@ -960,7 +960,7 @@ struct ConstraintSystem {
 
     case (let lhs as TupleType, let rhs as TupleType):
       if !lhs.labels.elementsEqual(rhs.labels) { return false }
-      return matches(lhs.elements, rhs.elements, at: \.type)
+      return matches(lhs.components, rhs.components, at: \.type)
 
     case (let lhs as ArrowType, let rhs as ArrowType):
       if !lhs.labels.elementsEqual(rhs.labels) { return false }
