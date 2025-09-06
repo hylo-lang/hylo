@@ -45,6 +45,7 @@ fun log_failure_description(_ title: String, _ message: String, in file: String,
       print(title, terminator: ": ")
       print(message)
     }
+    print_backtrace()
   #endif
 }
 
@@ -59,9 +60,40 @@ fun trap() -> Never {
   #endif
 }
 
+/// The size of the backtrace buffer.
+private let backtrace_depth = 20
+
+/// Prints the backtrace to the standard error (if OS supports it).
+fun print_backtrace() {
+  #if os(Linux) || os(macOS)
+  #if !feature(freestanding)
+    print("Backtrace:")
+    var buffer = Array<MemoryAddress>(count: backtrace_depth, initialized_with: fun(_ i: Int) -> MemoryAddress {
+      return .null()
+    })
+    &buffer.with_mutable_contiguous_storage(fun (_ p: PointerToMutable<MemoryAddress>) -> Void {
+      var size = backtrace(p, C.int(truncating_or_extending: backtrace_depth))
+      backtrace_symbols_fd(p, size, 2) // write to stderr
+    })
+  #endif
+  #endif
+}
+
 /// Halts the execution of the program.
 ///
 /// The definition of this function is provided at linking time for use in free-standing mode.
 /// Programs built for a hosted environment must not call it `halt` and use `trap` instead.
 @external("halt")
 fun halt() -> Never
+
+/// Gets the backtrace of the current thread.
+///
+/// See: https://www.gnu.org/software/libc/manual/html_node/Backtraces.html
+@ffi("backtrace")
+fun backtrace(_ buffer: PointerToMutable<MemoryAddress>, _ size: C.int) -> C.int
+
+/// Prints the backtrace at `buffer` to file descriptor `fd`.
+///
+/// See: https://www.gnu.org/software/libc/manual/html_node/Backtraces.html
+@ffi("backtrace_symbols_fd")
+fun backtrace_symbols_fd(_ buffer: PointerToMutable<MemoryAddress>, _ size: C.int, _ fd: C.int)

@@ -8,7 +8,7 @@ Hylo is a programming language that leverages [mutable value semantics](Docs/Imp
 This repository contains the sources of the reference implementation of Hylo.
 Please visit our **[website](https://hylo-lang.org)** to get more information about the language itself.
 
-## Developement/Use Requirements
+## Development/Use Requirements
 
 This project is written in [Swift](https://swift.org) and distributed in the form of a package, built with [Swift Package Manager](https://swift.org/package-manager/).
 You will need Swift 5.9 or higher to build the compiler from sources.
@@ -212,11 +212,11 @@ We welcome contributions to Hylo.
 Please read through [CONTRIBUTING.md](CONTRIBUTING.md) for details on how to get started.
 
 You can also get in touch with the community by joining our [Slack][join-slack] or one of our [Zoom Meetings][join-zoom]
-(ID: 633 2146 3694, Passcode: 409180) on Tuesdays and Thursdays, 13:00-13:30 Pacific time or 22:00-22:30 Central
+(ID: 664 8960 1602, Passcode: 853241) on Tuesdays and Thursdays, 13:00-13:30 Pacific time or 22:00-22:30 Central
 European time.
 
 [join-slack]: https://join.slack.com/t/val-qs97696/shared_invite/zt-1z3dsblrq-y4qXfEE6wr6uMEJSN9uFyg
-[join-zoom]: https://unige.zoom.us/j/63321463694?pwd=L0VuY3QwUEx5K3BaRWIyMjArdkhEQT09
+[join-zoom]: https://unige.zoom.us/j/66489601602?pwd=z8jMbhAcbxeZBy9js6YTKOIyfSeRrd.1
 
 ## License
 
