@@ -49,4 +49,22 @@ final class TypeLayoutTests: XCTestCase {
     XCTAssertEqual(justI8.components, [.init(name: "0", type: ^BuiltinType.i(8), offset: 0)])
   }
 
+  func testPairs() throws {
+    var c = TypeLayoutCache(typesIn: emptyProgram, for: UnrealABI())
+
+    let i8i64 = c[^TupleType(types: [^BuiltinType.i(8), ^BuiltinType.i(64)])]
+    XCTAssertEqual(i8i64.bytes, .init(alignment: 8, size: 16))
+    let i64i8 = c[^TupleType(types: [^BuiltinType.i(64), ^BuiltinType.i(8)])]
+    XCTAssertEqual(i64i8.bytes, .init(alignment: 8, size: 9))
+
+    XCTAssertEqual(
+      i8i64.components,
+      [ .init(name: "0", type: ^BuiltinType.i(8), offset: 0),
+        .init(name: "1", type: ^BuiltinType.i(64), offset: 8)])
+
+    XCTAssertEqual(
+      i64i8.components,
+      [ .init(name: "0", type: ^BuiltinType.i(64), offset: 0),
+        .init(name: "1", type: ^BuiltinType.i(8), offset: 8)])
+  }
 }
