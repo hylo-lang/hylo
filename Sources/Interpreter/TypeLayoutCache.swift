@@ -75,7 +75,7 @@ struct TypeLayoutCache {
       let c = self[p.type].bytes
       b = b.appending(c)
       components.append(
-        .init(name: f.label ?? String(describing: i + 1), type: p.type, offset: b.size - c.size))
+        .init(name: p.label ?? String(describing: i + 1), type: p.type, offset: b.size - c.size))
     }
     return TypeLayout(bytes: b, type: l.type, components: components, isUnionLayout: false)
   }

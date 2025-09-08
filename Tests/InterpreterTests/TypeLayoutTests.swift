@@ -82,4 +82,49 @@ final class TypeLayoutTests: XCTestCase {
       ])
   }
 
+  func testArrow() throws {
+    var c = TypeLayoutCache(typesIn: emptyProgram, for: UnrealABI())
+    let a = c[
+      ^ArrowType(
+        receiverEffect: .set,
+        environment: ^TupleType(types: [^BuiltinType.i(8)]),
+        inputs: [CallableTypeParameter(type: ^BuiltinType.i(16))],
+        output: ^BuiltinType.i(32))]
+
+    XCTAssertEqual(a.bytes, .init(alignment: 8, size: 9))
+    XCTAssertEqual(
+      a.components,
+      [ .init(name: "__f", type: ^BuiltinType.ptr, offset: 0),
+        .init(name: "__e", type: ^TupleType(types: [^BuiltinType.i(8)]), offset: 8)
+      ])
+  }
+
+  func testUnion() throws {
+    var c = TypeLayoutCache(typesIn: emptyProgram, for: UnrealABI())
+    let u = c[^UnionType([^BuiltinType.i(8), ^BuiltinType.i(16)])]
+
+    XCTAssertEqual(u.bytes, .init(alignment: 2, size: 3))
+    XCTAssertEqual(
+      u.components,
+      [ .init(name: "i8", type: ^BuiltinType.i(8), offset: 0),
+        .init(name: "i16", type: ^BuiltinType.i(16), offset: 0),
+        .init(name: "discriminator", type: ^BuiltinType.i(8), offset: 2)
+      ])
+  }
+
+  func testWideUnion() throws {
+    var c = TypeLayoutCache(typesIn: emptyProgram, for: UnrealABI())
+    var components = [^BuiltinType.i(8)]
+    while components.count <= 256 {
+      components.append(^TupleType(types: [components.last!]))
+    }
+
+    let u = c[^UnionType(components)]
+    XCTAssertEqual(u.bytes, .init(alignment: 2, size: 3))
+    XCTAssertEqual(
+      u.components[0], .init(name: "i8", type: ^BuiltinType.i(8), offset: 2))
+    XCTAssertEqual(u.components[1].offset, 2)
+    XCTAssertEqual(u.components.last!, .init(name: "discriminator", type: ^BuiltinType.i(16), offset: 0))
+  }
+
 }
