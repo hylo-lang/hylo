@@ -67,4 +67,19 @@ final class TypeLayoutTests: XCTestCase {
       [ .init(name: "0", type: ^BuiltinType.i(64), offset: 0),
         .init(name: "1", type: ^BuiltinType.i(8), offset: 8)])
   }
+
+  func testTriple() {
+    var c = TypeLayoutCache(typesIn: emptyProgram, for: UnrealABI())
+
+    let i8i16i32 = c[^TupleType(types: [^BuiltinType.i(8), ^BuiltinType.i(16), ^BuiltinType.i(32)])]
+    XCTAssertEqual(i8i16i32.bytes, .init(alignment: 4, size: 8))
+
+    XCTAssertEqual(
+      i8i16i32.components,
+      [ .init(name: "0", type: ^BuiltinType.i(8), offset: 0),
+        .init(name: "1", type: ^BuiltinType.i(16), offset: 2),
+        .init(name: "2", type: ^BuiltinType.i(32), offset: 4),
+      ])
+  }
+
 }
