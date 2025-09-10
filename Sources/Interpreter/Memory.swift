@@ -21,14 +21,33 @@ struct Memory {
     typealias ID = Offset
 
     var storage: Storage
-    var baseOffset: Offset
+    let baseOffset: Offset
+    let size: Int
+
     var initializedRegions: [InitializedRegion] = []
+
+    /// `n` bytes with alignment `m`.
+    public init(_ n: Int, bytesWithAlignment m: Int) {
+      precondition(n >= 0)
+      precondition(m > 0)
+
+      storage = Storage(repeating: 0, count: n)
+      // If we didn't get suitably-aligned storage, allocate enough to
+      // ensure we can find the a suitably-aligned region of the right
+      // size.
+      if storage.withUnsafeBytes({ UInt(bitPattern: $0.baseAddress) % UInt(m) != 0 }) {
+        storage = Storage(repeating: 0, count: n + m - 1)
+      }
+      baseOffset = storage.withUnsafeBytes { $0.firstOffsetAligned(to: m) }
+      size = n
+    }
 
     /// Replaces the initialization records starting at `a` for the
     /// parts of a `t` instance, with the initialization record for a
     /// `t` instance.
     public mutating func finishInitialization(at a: Offset, to t: TypeLayout) {
       precondition(address(a, hasAlignment: t.alignment))
+      precondition(a + t.size <= self.size)
       let i = initializedRegions.partitioningIndex { $0.offset >= a }
       var j = i
 
@@ -57,28 +76,34 @@ struct Memory {
       initializedRegions.replaceSubrange(i..<j, with: CollectionOfOne(.init(offset: a, type: t.type)))
     }
 
-    mutating func withMutableAddress<R>(_ a: Offset, _ body: (UnsafeMutableRawPointer)->R) -> R {
+    mutating func withMutableUnsafeStorage<R>(_ a: Offset, _ body: (UnsafeMutableRawPointer)->R) -> R {
       storage.withUnsafeMutableBytes { p in body(p.baseAddress! + baseOffset + a) }
     }
 
-    func withAddress<R>(_ a: Offset, _ body: (UnsafeRawPointer)->R) -> R {
+    func withUnsafeStorage<R>(_ a: Offset, _ body: (UnsafeRawPointer)->R) -> R {
       storage.withUnsafeBytes { p in body(p.baseAddress! + baseOffset + a) }
     }
 
     /// Returns the unsigned interpretation of the builtin integer value at `a`;
-    func unsignedIntValue(at a: Offset, storedAs t: BuiltinType) -> UInt {
-      switch t {
-      case .i(8): UInt(withAddress(a) { $0.assumingMemoryBound(to: UInt8.self).pointee })
-      case .i(16): UInt(withAddress(a) { $0.assumingMemoryBound(to: UInt16.self).pointee })
-      case .i(32): UInt(withAddress(a) { $0.assumingMemoryBound(to: UInt32.self).pointee })
-      case .i(64): UInt(withAddress(a) { $0.assumingMemoryBound(to: UInt64.self).pointee })
-      default: fatalError("Unrecognized builtin integer type \(t)")
+    private func unsignedIntValue(at a: Offset, storedAs t: BuiltinType) -> UInt {
+      if case .i(let n) = t {
+        return switch n {
+        case 8: UInt(withUnsafeStorage(a) { $0.assumingMemoryBound(to: UInt8.self).pointee })
+        case 16: UInt(withUnsafeStorage(a) { $0.assumingMemoryBound(to: UInt16.self).pointee })
+        case 32: UInt(withUnsafeStorage(a) { $0.assumingMemoryBound(to: UInt32.self).pointee })
+        case 64: UInt(withUnsafeStorage(a) { $0.assumingMemoryBound(to: UInt64.self).pointee })
+        default: fatalError("Unknown builtin integer size \(n)")
+        }
+      } else {
+        fatalError("Unrecognized builtin integer type \(t)")
       }
+
     }
 
-    public func address(_ place: Offset, hasAlignment alignment: Int) -> Bool {
+    /// Returns true if `o` is alinged to an `n` byte boundary.
+    public func address(_ o: Offset, hasAlignment n: Int) -> Bool {
       storage.withUnsafeBytes {
-        UInt(bitPattern: $0.baseAddress! + baseOffset + place) % UInt(alignment) == 0
+        UInt(bitPattern: $0.baseAddress! + baseOffset + o) % UInt(n) == 0
       }
     }
 
@@ -106,7 +131,7 @@ struct Memory {
     }
   }
 
-  struct Address {
+  public struct Address {
     let allocation: Allocation.ID
     let offset: Storage.Index
   }
@@ -114,23 +139,39 @@ struct Memory {
   var allocation: [Allocation.ID: Allocation] = [:]
   var nextAllocation = 0
 
-  mutating func allocate(_ n: Int, bytesAlignedTo alignment: Int) -> Address {
-    precondition(n >= 0)
-    precondition(alignment > 0)
-
-    var s = Storage(repeating: 0, count: n)
-    if s.withUnsafeBytes({ UInt(bitPattern: $0.baseAddress) % UInt(alignment) != 0 }) {
-      s = Storage(repeating: 0, count: n + alignment - 1)
-    }
+  /// Allocates `n` bytes with alignment `m`.
+  public mutating func allocate(_ n: Int, bytesWithAlignment m: Int) -> Address {
     let a = nextAllocation
     nextAllocation += 1
-    allocation[a] = Allocation(storage: s, baseOffset: s.withUnsafeBytes { $0.firstOffsetAligned(to: alignment) })
+    allocation[a] = Allocation(n, bytesWithAlignment: m)
     return .init(allocation: a, offset: 0)
   }
 
-  mutating func deallocate(_ a: Allocation.ID) {
-    precondition(allocation[a] != nil)
-    allocation[a] = nil
+  /// Deallocates the allocated memory starting at `a`.
+  public mutating func deallocate(_ a: Address) {
+    precondition(
+      a.offset == 0,
+      "Cannot deallocate nonzero offset \(a.offset) from beginning of allocation \(a.allocation).")
+    let v = allocation.removeValue(forKey: a.allocation)
+    precondition(v != nil, "Allocation \(a.allocation) already deallocated.")
+  }
+
+  /// Replaces the initialization records starting at `a` for the
+  /// parts of a `t` instance, with the initialization record for a
+  /// `t` instance.
+  public mutating func finishInitialization(at a: Address, to t: TypeLayout) {
+    allocation[a.allocation]!.finishInitialization(at: a.offset, to: t)
+  }
+
+  /// Returns true if `a` is alinged to an `n` byte boundary.
+  public func address(_ a: Address, hasAlignment n: Int) -> Bool {
+    allocation[a.allocation]!.address(a.offset, hasAlignment: n)
+  }
+
+  /// Replaces the initialization record for a `t` instance at `a` with
+  /// the initialization records for any parts of that instance.
+  public mutating func startDeinitialization(at a: Address, of t: TypeLayout) {
+    allocation[a.allocation]!.startDeinitialization(at: a.offset, of: t)
   }
 
 }
