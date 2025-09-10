@@ -37,13 +37,21 @@ extension Module {
   ///
   /// - Requires: `f` is in `self`.
   public mutating func reifyAccesses(in f: Function.ID, diagnostics: inout DiagnosticSet) {
+    self[f].reifyAccesses(module: self, diagnostics: &diagnostics)
+  }
+
+}
+
+extension Function {
+
+  fileprivate mutating func reifyAccesses(module m: Module, diagnostics: inout DiagnosticSet) {
     var work: Deque<InstructionID> = []
-    for i in self[f].instructionIDs {
-      guard let s = self[i, in: f] as? ReifiableAccess else { continue }
+    for i in instructionIDs {
+      guard let s = self[i] as? ReifiableAccess else { continue }
 
       // Fast path if the request set is already a singleton.
       if let k = s.capabilities.uniqueElement {
-        reify(i, as: k, in: f)
+        reify(i, as: k, in: m)
         continue
       }
 
@@ -55,15 +63,15 @@ extension Module {
     }
 
     while let i = work.popFirst() {
-      let s = self[i, in: f] as! ReifiableAccess
+      let s = self[i] as! ReifiableAccess
       let available = s.capabilities
       assert(!available.isSingleton, "access already reified")
 
       var lower = AccessEffect.let
       var upper = AccessEffect.let
 
-      forEachClient(of: i, in: f) { (u) in
-        let rs = requests(u, in: f)
+      forEachClient(of: i) { (u) in
+        let rs = requests(u)
         if let w = rs.weakest { lower = max(w, lower) }
         upper = rs.strongest(including: upper)
       }
@@ -71,15 +79,15 @@ extension Module {
       if lower == upper {
         // We have to "promote" a request if it can be satisfied by a stronger capability.
         let k = available.elements.first(where: { (a) in a >= lower }) ?? available.weakest!
-        reify(i, as: k, in: f)
+        reify(i, as: k, in: m)
       } else {
         work.append(i)
       }
     }
   }
 
-  private func requests(_ u: Use, in f: Function.ID) -> AccessEffectSet {
-    switch self[u.user, in: f] {
+  fileprivate func requests(_ u: Use) -> AccessEffectSet {
+    switch self[u.user] {
     case let t as Access:
       return t.capabilities
     case is Load:
@@ -87,23 +95,23 @@ extension Module {
     case is Move:
       return u.index == 0 ? .sink : .inout
     case is ProjectBundle:
-      return requests(projectBundle: u, in: f)
+      return requests(projectBundle: u)
     default:
       return []
     }
   }
 
-  private func requests(projectBundle u: Use, in f: Function.ID) -> AccessEffectSet {
-    let s = self[u.user, in: f] as! ProjectBundle
+  fileprivate func requests(projectBundle u: Use) -> AccessEffectSet {
+    let s = self[u.user] as! ProjectBundle
     let t = s.parameters[u.index]
     return (t.access == .yielded) ? s.capabilities : [t.access]
   }
 
   /// Calls `action` on the uses of a capability of the access at the origin of `i`.
-  private func forEachClient(of i: InstructionID, in f: Function.ID, _ action: (Use) -> Void) {
-    for u in self[f].allUses(of: i) {
-      if self[u.user, in: f].isTransparentOffset {
-        forEachClient(of: u.user, in: f, action)
+  fileprivate func forEachClient(of i: InstructionID, _ action: (Use) -> Void) {
+    for u in allUses(of: i) {
+      if self[u.user].isTransparentOffset {
+        forEachClient(of: u.user, action)
       } else {
         action(u)
       }
@@ -112,49 +120,48 @@ extension Module {
 
   /// Replaces the uses of `i` with uses of an instruction providing the same access but only
   /// with capability `k`.
-  private mutating func reify(_ i: InstructionID, as k: AccessEffect, in f: Function.ID) {
-    switch self[i, in: f] {
+  fileprivate mutating func reify(_ i: InstructionID, as k: AccessEffect, in m: Module) {
+    switch self[i] {
     case is Access:
-      reify(access: i, as: k, in: f)
+      reify(access: i, as: k)
     case is ProjectBundle:
-      reify(projectBundle: i, as: k, in: f)
+      reify(projectBundle: i, as: k, in: m)
     default:
       unreachable()
     }
   }
 
   /// Narrows the capabilities requested by `i`, which is an `access` instruction, to just `k`.
-  private mutating func reify(access i: InstructionID, as k: AccessEffect, in f: Function.ID) {
-    let s = self[i, in: f] as! Access
+  fileprivate mutating func reify(access i: InstructionID, as k: AccessEffect) {
+    let s = self[i] as! Access
     assert(s.capabilities.contains(k))
 
     // Nothing to do if the request set is already a singleton.
     if s.capabilities == [k] { return }
 
-    let reified = self[f].makeAccess([k], from: s.source, correspondingTo: s.binding, at: s.site)
-    self[f].replace(i, with: reified)
+    let reified = makeAccess([k], from: s.source, correspondingTo: s.binding, at: s.site)
+    replace(i, with: reified)
   }
 
-  private mutating func reify(projectBundle i: InstructionID, as k: AccessEffect, in f: Function.ID)
-  {
-    let s = self[i, in: f] as! ProjectBundle
+  fileprivate mutating func reify(projectBundle i: InstructionID, as k: AccessEffect, in m: Module) {
+    let s = self[i] as! ProjectBundle
     assert(s.capabilities.contains(k))
 
     // Generate the proper instructions to prepare the projection's arguments.
     var arguments = s.operands
     for a in arguments.indices where s.parameters[a].access == .yielded {
-      let b = self[f].makeAccess([k], from: arguments[a], at: s.site, insertingAt: .before(i))
+      let b = makeAccess([k], from: arguments[a], at: s.site, insertingAt: .before(i))
       arguments[a] = .register(b)
     }
 
     let o = RemoteType(k, s.projection)
     let r = FunctionReference(
-      to: s.variants[k]!, in: self, specializedBy: s.bundle.arguments,
-      in: self[f].scope(containing: i)
+      to: s.variants[k]!, in: m, specializedBy: s.bundle.arguments,
+      in: scope(containing: i)
     )
-    let reified = self[f].makeProject(
+    let reified = makeProject(
       o, applying: r, to: arguments, at: s.site)
-    self[f].replace(i, with: reified)
+    replace(i, with: reified)
   }
 
 }

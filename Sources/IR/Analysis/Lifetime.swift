@@ -82,24 +82,24 @@ struct Lifetime {
 
 }
 
-extension Module {
+extension Function {
 
   /// Given `operand` is an instruction or block parameter, returns its live-range.
   ///
   /// The live-range `L` of an operand `x` in a function `f` is the minimal lifetime such that for
   /// for all instructions `i` in `f`, if `i` uses `x` then `i` is in `L`.
-  func liveRange(of operand: Operand, definedIn site: Block.ID, from f: Function.ID) -> Lifetime {
+  func liveRange(of operand: Operand, definedIn site: Block.ID) -> Lifetime {
 
     // This implementation is a variant of Appel's path exploration algorithm found in Brandner et
     // al.'s "Computing Liveness Sets for SSA-Form Programs".
 
     // Find all blocks in which the operand is being used.
-    var occurrences = functions[f]!.uses[operand, default: []].reduce(
+    var occurrences = uses[operand, default: []].reduce(
       into: Set<Block.ID>(),
-      { (blocks, use) in blocks.insert(functions[f]!.block(of: use.user)) })
+      { (blocks, use) in blocks.insert(block(of: use.user)) })
 
     // Propagate liveness starting from the blocks in which the operand is being used.
-    let cfg = functions[f]!.cfg()
+    let cfg = cfg()
     var approximateCoverage: [Block.ID: (isLiveIn: Bool, isLiveOut: Bool)] = [:]
     while true {
       guard let occurrence = occurrences.popFirst() else { break }
@@ -122,7 +122,7 @@ extension Module {
 
     // If the operand isn't live out of its defining block, its last use is in that block.
     if approximateCoverage.isEmpty {
-      coverage[site] = .closed(lastUse: lastUse(of: operand, in: site, from: f))
+      coverage[site] = .closed(lastUse: lastUse(of: operand, in: site))
       return Lifetime(operand: operand, coverage: coverage)
     }
 
@@ -137,7 +137,7 @@ extension Module {
         coverage[block] = .liveOut
         successors.formUnion(cfg.successors(of: block))
       case (true, false):
-        coverage[block] = .liveIn(lastUse: lastUse(of: operand, in: block, from: f))
+        coverage[block] = .liveIn(lastUse: lastUse(of: operand, in: block))
       case (false, false):
         continue
       }
@@ -154,13 +154,13 @@ extension Module {
   /// Returns `l` in which `i` has been inserted.
   ///
   /// - Requires: The definition of `l` dominates `u`.
-  func extend(lifetime l: Lifetime, toInclude u: Use, in f: Function.ID) -> Lifetime {
+  func extend(lifetime l: Lifetime, toInclude u: Use) -> Lifetime {
     var coverage = l.coverage
-    switch coverage[functions[f]!.block(of: u.user)] {
+    switch coverage[block(of: u.user)] {
     case .closed(let lastUser):
-      coverage[functions[f]!.block(of: u.user)] = .closed(lastUse: last(lastUser, u, in: f))
+      coverage[block(of: u.user)] = .closed(lastUse: last(lastUser, u))
     case .liveIn(let lastUser):
-      coverage[functions[f]!.block(of: u.user)] = .liveIn(lastUse: last(lastUser, u, in: f))
+      coverage[block(of: u.user)] = .liveIn(lastUse: last(lastUser, u))
     default:
       break
     }
@@ -172,7 +172,7 @@ extension Module {
   ///
   /// - Requires: `left` and `right` are defined in the same function, which is in `self`. The
   ///   operand for which `right` is defined must be in `left`.
-  func extend(lifetime left: Lifetime, toCover right: Lifetime, in f: Function.ID) -> Lifetime {
+  func extend(lifetime left: Lifetime, toCover right: Lifetime) -> Lifetime {
     let coverage = left.coverage.merging(right.coverage) { (a, b) in
       switch (a, b) {
       case (.liveOut, .liveIn), (.liveIn, .liveOut):
@@ -182,23 +182,23 @@ extension Module {
       case (.liveOut, _), (_, .liveOut):
         return .liveOut
       case (.liveIn(let lhs), .liveIn(let rhs)):
-        return .liveIn(lastUse: last(lhs, rhs, in: f))
+        return .liveIn(lastUse: last(lhs, rhs))
       case (.liveIn(let lhs), .closed(let rhs)):
-        return .liveIn(lastUse: last(lhs, rhs, in: f))
+        return .liveIn(lastUse: last(lhs, rhs))
       case (.closed(let lhs), .liveIn(let rhs)):
-        return .liveIn(lastUse: last(lhs, rhs, in: f))
+        return .liveIn(lastUse: last(lhs, rhs))
       case (.closed(let lhs), .closed(let rhs)):
-        return .closed(lastUse: last(lhs, rhs, in: f))
+        return .closed(lastUse: last(lhs, rhs))
       }
     }
     return .init(operand: left.operand, coverage: coverage)
   }
 
   /// Returns the last use of `operand` in `block`.
-  private func lastUse(of operand: Operand, in block: Block.ID, from f: Function.ID) -> Use? {
-    let instructions = self[f].instructions(in: block)
+  private func lastUse(of operand: Operand, in block: Block.ID) -> Use? {
+    let instructions = instructions(in: block)
     for i in instructions.reversed() {
-      if let operandIndex = self[f][i].operands.lastIndex(of: operand) {
+      if let operandIndex = self[i].operands.lastIndex(of: operand) {
         return Use(
           user: i,
           index: operandIndex)
@@ -212,7 +212,7 @@ extension Module {
   /// Returns the use that executes last.
   ///
   /// If the two uses are not in the same block, this returns `lhs`.
-  private func last(_ lhs: Use?, _ rhs: Use?, in f: Function.ID) -> Use? {
+  private func last(_ lhs: Use?, _ rhs: Use?) -> Use? {
     guard let lhs = lhs else { return rhs }
     guard let rhs = rhs else { return lhs }
 
@@ -220,7 +220,7 @@ extension Module {
       return lhs.index < rhs.index ? rhs : lhs
     }
 
-    if functions[f]!.precedes(lhs.user, rhs.user) {
+    if precedes(lhs.user, rhs.user) {
       return rhs
     } else {
       return lhs
