@@ -563,7 +563,7 @@ extension Module {
             .uninitializedSetParameter(beforeReturningFrom: f, in: self, at: site))
         } else {
           diagnostics.insert(
-            .illegalParameterEscape(consumedBy: o.value.consumers, from: f, in: self, at: site))
+            .illegalParameterEscape(consumedBy: o.value.consumers, in: self[f], at: site))
         }
       }
     }
@@ -1033,14 +1033,13 @@ extension Diagnostic {
 
   fileprivate static func illegalParameterEscape(
     consumedBy consumers: State.Consumers? = nil,
-    from f: Function.ID,
-    in module: Module,
+    in f: Function,
     at site: SourceRange
   ) -> Diagnostic {
     if let c = consumers {
       return .error(
         "parameter was consumed", at: site,
-        notes: c.map({ Diagnostic.note("escape happens here", at: module[$0, in: f].site) }))
+        notes: c.map({ Diagnostic.note("escape happens here", at: f[$0].site) }))
     } else {
       return .error("parameter was consumed", at: site)
     }
