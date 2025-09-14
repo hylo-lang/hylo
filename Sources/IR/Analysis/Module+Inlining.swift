@@ -13,23 +13,25 @@ extension IR.Program {
   /// Inlines calls in `m` satisfying `shouldInline`.
   public mutating func inlineCalls(in m: Module.ID, where shouldInline: InliningPredicate) {
     for k in modules[m]!.functions.keys {
-      inlineCalls(in: k, definedIn: m, where: shouldInline)
+      modules[m]![k].inlineCalls(program: self, where: shouldInline)
     }
   }
 
+}
+
+extension Function {
+
   /// Inlines calls in `f` satisfying `shouldInline`, reading the definition of `f` from `m`.
-  public mutating func inlineCalls(
-    in f: Function.ID, definedIn m: Module.ID, where shouldInline: InliningPredicate
-  ) {
+  fileprivate mutating func inlineCalls(program: Program, where shouldInline: InliningPredicate) {
     var work: [InstructionID] = []
-    for i in modules[m]![f].instructionIDs {
-      if modules[m]![i, in: f] is Call {
+    for i in instructionIDs {
+      if self[i] is Call {
         work.append(i)
       }
     }
 
     while let i = work.popLast() {
-      _ = inline(functionCall: i, from: f, definedIn: m, if: shouldInline)
+      _ = inline(functionCall: i, program: program, if: shouldInline)
     }
   }
 
@@ -43,9 +45,9 @@ extension IR.Program {
   /// of inlining. For example, if `i` is a call to F, the functions called by F are not inlined.
   /// Likewise, if F is recursive, only one level of recursion is inlined.
   private mutating func inline(
-    functionCall i: InstructionID, from f: Function.ID, definedIn m: Module.ID, if shouldInline: InliningPredicate
+    functionCall i: InstructionID, program: Program, if shouldInline: InliningPredicate
   ) -> Bool {
-    let s = modules[m]![i, in: f] as! Call
+    let s = self[i] as! Call
 
     // Can't inline the call if the callee isn't a function reference.
     guard let callee = s.callee.constant as? FunctionReference else {
@@ -57,35 +59,41 @@ extension IR.Program {
       return false
     }
 
-    // Can't inline if the function has no implementation.
-    let source = module(defining: callee.function)
-    if modules[source]![callee.function].entry == nil {
+    // Can't inline if `shouldInline` doesn't hold.
+    let source = program.module(defining: callee.function)
+    if !shouldInline(callee.function, definedIn: program.modules[source]!) {
       return false
     }
 
-    // Can't inline if `shouldInline` doesn't hold.
-    if !shouldInline(callee.function, definedIn: modules[source]!) {
+    return inline(functionCall: i, calling: program.modules[source]![callee.function])
+  }
+
+  private mutating func inline(functionCall i: InstructionID, calling f: Function) -> Bool {
+    let s = self[i] as! Call
+
+    // Can't inline if the function has no implementation.
+    if f.entry == nil {
       return false
     }
 
     var translation = InliningTranslation(rewrittenBlock: [:])
 
     // Simplest case: the inlined function has no control flow.
-    if modules[source]![callee.function].blocks.count == 1 {
-      let e = modules[source]![callee.function].entry!
+    if f.blocks.count == 1 {
+      let e = f.entry!
 
       translation.rewrittenOperand[.parameter(e, s.arguments.count)] = s.output
       for (n, o) in s.arguments.enumerated() {
         translation.rewrittenOperand[.parameter(e, n)] = o
       }
 
-      for j in modules[source]![callee.function].instructions(in: e) {
-        if modules[source]![j, in: callee.function] is Terminator { break }
-        let k = modules[m]![f].rewrite(j, in: modules[source]![callee.function], transformedBy: &translation, at: .before(i))
+      for j in f.instructions(in: e) {
+        if f[j] is Terminator { break }
+        let k = rewrite(j, in: f, transformedBy: &translation, at: .before(i))
         translation.rewrittenOperand[.register(j)] = .register(k)
       }
 
-      modules[m]![f].removeInstruction(i)
+      removeInstruction(i)
       return true
     }
 
