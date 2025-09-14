@@ -9,43 +9,55 @@ extension Module {
   ///
   /// - Requires: `f` is in `self`.
   public func ensureExclusivity(in f: Function.ID, diagnostics: inout DiagnosticSet) {
-    var machine = AbstractInterpreter(analyzing: self[f], entryContext: entryContext(of: f))
+    self[f].ensureExclusivity(program: program, diagnostics: &diagnostics)
+  }
+
+}
+
+extension Function {
+
+  /// Ensures the Law of Exclusivity is satisfied in `f`, reporting errors and warnings to
+  /// `diagnostics`.
+  ///
+  /// - Requires: `f` is in `self`.
+  public func ensureExclusivity(program: TypedProgram, diagnostics: inout DiagnosticSet) {
+    var machine = AbstractInterpreter(analyzing: self, entryContext: entryContext())
 
     // Verify that access instructions in `b` satisfy the Law of Exclusivity given `context`,
     // reporting violations of exclusivity in `diagnostics`.
     machine.fixedPoint { (b, context) in
-      for user in self[f].instructions(in: b) {
-        switch self[f][user] {
+      for user in instructions(in: b) {
+        switch self[user] {
         case is Access:
-          interpret(access: user, from: f, in: &context)
+          interpret(access: user, in: &context)
         case is AdvancedByStrides:
-          interpret(advancedByStrides: user, from: f, in: &context)
+          interpret(advancedByStrides: user, in: &context)
         case is AllocStack:
-          interpret(allocStack: user, from: f, in: &context)
+          interpret(allocStack: user, in: &context)
         case is CloseUnion:
-          interpret(closeUnion: user, from: f, in: &context)
+          interpret(closeUnion: user, in: &context)
         case is DeallocStack:
-          interpret(deallocStack: user, from: f, in: &context)
+          interpret(deallocStack: user, in: &context)
         case is EndAccess:
-          interpret(endBorrow: user, from: f, in: &context)
+          interpret(endBorrow: user, in: &context)
         case is EndProject:
-          interpret(endProject: user, from: f, in: &context)
+          interpret(endProject: user, in: &context)
         case is GenericParameter:
-          interpret(genericParameter: user, from: f, in: &context)
+          interpret(genericParameter: user, in: &context)
         case is GlobalAddr:
-          interpret(globalAddr: user, from: f, in: &context)
+          interpret(globalAddr: user, in: &context)
         case is OpenCapture:
-          interpret(openCapture: user, from: f, in: &context)
+          interpret(openCapture: user, in: &context)
         case is OpenUnion:
-          interpret(openUnion: user, from: f, in: &context)
+          interpret(openUnion: user, in: &context)
         case is PointerToAddress:
-          interpret(pointerToAddress: user, from: f, in: &context)
+          interpret(pointerToAddress: user, in: &context)
         case is Project:
-          interpret(project: user, from: f, in: &context)
+          interpret(project: user, in: &context)
         case is SubfieldView:
-          interpret(subfieldView: user, from: f, in: &context)
+          interpret(subfieldView: user, in: &context)
         case is WrapExistentialAddr:
-          interpret(wrapExistentialAddr: user, from: f, in: &context)
+          interpret(wrapExistentialAddr: user, in: &context)
         default:
           continue
         }
@@ -53,8 +65,8 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(access i: InstructionID, from f: Function.ID, in context: inout Context) {
-      let s = self[i, in: f] as! Access
+    func interpret(access i: InstructionID, in context: inout Context) {
+      let s = self[i] as! Access
       precondition(s.source.constant == nil, "borrowed source is a constant")
 
       // Access is expected to be reified at this stage.
@@ -67,9 +79,9 @@ extension Module {
       }
 
       // The access must be immutable if the source of the access is a let-parameter.
-      if (request != .let) && self[f].isBoundImmutably(s.source) {
+      if (request != .let) && isBoundImmutably(s.source) {
         // Built-in values are never consumed.
-        if self[f].type(of: s.source).ast.isBuiltin {
+        if type(of: s.source).ast.isBuiltin {
           assert(request != .inout, "unexpected inout access on built-in value")
         } else {
           diagnostics.insert(.error(illegalMutableAccessAt: s.site))
@@ -77,7 +89,7 @@ extension Module {
         }
       }
 
-      let former = reborrowedSource(s, in: f)
+      let former = reborrowedSource(s)
       var hasConflict = false
       context.forEachObject(at: s.source) { (o) in
         // We can always create new borrows if there aren't any.
@@ -96,7 +108,7 @@ extension Module {
           unreachable()
 
         case .let:
-          if borrowers.contains(where: { self[$0, in: f].isAccess(.let) }) || canReborrow(.let) {
+          if borrowers.contains(where: { self[$0].isAccess(.let) }) || canReborrow(.let) {
             o.value.insertBorrower(i)
           } else {
             diagnostics.insert(.error(illegalImmutableAccessAt: s.site))
@@ -115,9 +127,9 @@ extension Module {
 
         /// Returns `true` iff the requested capability can be reborrowed from current borrower.
         func canReborrow(_ k: AccessEffect) -> Bool {
-          if let ff = former {
+          if let f = former {
             let ks = AccessEffectSet.all.filter(strongerOrEqualTo: k)
-            return borrowers.containsOnly(ff) && self[ff, in: f].isAccess(in: ks)
+            return borrowers.containsOnly(f) && self[f].isAccess(in: ks)
           } else {
             return false
           }
@@ -131,8 +143,8 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(advancedByStrides i: InstructionID, from f: Function.ID, in context: inout Context) {
-      let s = self[i, in: f] as! AdvancedByStrides
+    func interpret(advancedByStrides i: InstructionID, in context: inout Context) {
+      let s = self[i] as! AdvancedByStrides
       if case .constant = s.base {
         // Operand is a constant.
         UNIMPLEMENTED()
@@ -149,13 +161,13 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(allocStack i: InstructionID, from f: Function.ID, in context: inout Context) {
-      context.declareStorage(assignedTo: i, from: self[f], definedIn: program, initially: .unique)
+    func interpret(allocStack i: InstructionID, in context: inout Context) {
+      context.declareStorage(assignedTo: i, from: self, definedIn: program, initially: .unique)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(closeUnion i: InstructionID, from f: Function.ID, in context: inout Context) {
-      let s = self[i, in: f] as! CloseUnion
+    func interpret(closeUnion i: InstructionID, in context: inout Context) {
+      let s = self[i] as! CloseUnion
       let payload = context.locals[s.start]!.unwrapLocations()!.uniqueElement!
 
       // The state of the projected payload can't be partial.
@@ -165,7 +177,7 @@ extension Module {
       }
 
       // Copy the state of the payload to set the state of the container.
-      let start = self[s.start.instruction!, in: f] as! OpenUnion
+      let start = self[s.start.instruction!] as! OpenUnion
       context.forEachObject(at: start.container) { (o) in
         o.value = .full(payloadInitializationState)
       }
@@ -174,15 +186,15 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(deallocStack i: InstructionID, from f: Function.ID, in context: inout Context) {
-      let dealloc = self[i, in: f] as! DeallocStack
+    func interpret(deallocStack i: InstructionID, in context: inout Context) {
+      let dealloc = self[i] as! DeallocStack
       let l = context.locals[dealloc.location]!.unwrapLocations()!.uniqueElement!
       context.memory[l] = nil
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(endBorrow i: InstructionID, from f: Function.ID, in context: inout Context) {
-      let end = self[i, in: f] as! EndAccess
+    func interpret(endBorrow i: InstructionID, in context: inout Context) {
+      let end = self[i] as! EndAccess
 
       // Skip the instruction if an error occurred upstream.
       guard context.locals[end.start] != nil else {
@@ -193,8 +205,8 @@ extension Module {
       // Remove the ended borrow from the objects' borrowers, putting the borrowed source back in
       // case the ended borrow was a reborrow.
       let borrower = end.start.instruction!
-      let start = self[borrower, in: f] as! Access
-      let former = reborrowedSource(start, in: f)
+      let start = self[borrower] as! Access
+      let former = reborrowedSource(start)
       context.forEachObject(at: end.start) { (o) in
         if !o.value.removeBorrower(borrower) { return }
         if let s = former {
@@ -211,25 +223,25 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(endProject i: InstructionID, from f: Function.ID, in context: inout Context) {
-      let s = self[i, in: f] as! EndProject
-      let r = self[s.start.instruction!, in: f] as! Project
+    func interpret(endProject i: InstructionID, in context: inout Context) {
+      let s = self[i] as! EndProject
+      let r = self[s.start.instruction!] as! Project
       finalize(region: s.start, projecting: r.projection.access, exitedWith: i, in: &context)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(genericParameter i: InstructionID, from f: Function.ID, in context: inout Context) {
-      context.declareStorage(assignedTo: i, from: self[f], definedIn: program, initially: .unique)
+    func interpret(genericParameter i: InstructionID, in context: inout Context) {
+      context.declareStorage(assignedTo: i, from: self, definedIn: program, initially: .unique)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(globalAddr i: InstructionID, from f: Function.ID, in context: inout Context) {
-      context.declareStorage(assignedTo: i, from: self[f], definedIn: program, initially: .unique)
+    func interpret(globalAddr i: InstructionID, in context: inout Context) {
+      context.declareStorage(assignedTo: i, from: self, definedIn: program, initially: .unique)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(openCapture i: InstructionID, from f: Function.ID, in context: inout Context) {
-      let s = self[i, in: f] as! OpenCapture
+    func interpret(openCapture i: InstructionID, in context: inout Context) {
+      let s = self[i] as! OpenCapture
 
       // Simply share the ownership state of the capture container.
       let source = s.source.instruction!
@@ -237,8 +249,8 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(openUnion i: InstructionID, from f: Function.ID, in context: inout Context) {
-      let s = self[i, in: f] as! OpenUnion
+    func interpret(openUnion i: InstructionID, in context: inout Context) {
+      let s = self[i] as! OpenUnion
       let l = AbstractLocation.root(.register(i))
       precondition(context.memory[l] == nil, "projection leak")
 
@@ -254,8 +266,8 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(pointerToAddress i: InstructionID, from f: Function.ID, in context: inout Context) {
-      let s = self[i, in: f] as! PointerToAddress
+    func interpret(pointerToAddress i: InstructionID, in context: inout Context) {
+      let s = self[i] as! PointerToAddress
       let l = AbstractLocation.root(.register(i))
 
       context.memory[l] = .init(
@@ -265,20 +277,20 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(project i: InstructionID, from f: Function.ID, in context: inout Context) {
-      let s = self[i, in: f] as! Project
-      initializeRegister(createdBy: i, from: f, projecting: s.projection, in: &context)
+    func interpret(project i: InstructionID, in context: inout Context) {
+      let s = self[i] as! Project
+      initializeRegister(createdBy: i, projecting: s.projection, in: &context)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(projectWitness i: InstructionID, from f: Function.ID, in context: inout Context) {
-      let s = self[i, in: f] as! Project
-      initializeRegister(createdBy: i, from: f, projecting: s.projection, in: &context)
+    func interpret(projectWitness i: InstructionID, in context: inout Context) {
+      let s = self[i] as! Project
+      initializeRegister(createdBy: i, projecting: s.projection, in: &context)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(subfieldView i: InstructionID, from f: Function.ID, in context: inout Context) {
-      let s = self[i, in: f] as! SubfieldView
+    func interpret(subfieldView i: InstructionID, in context: inout Context) {
+      let s = self[i] as! SubfieldView
       if case .constant = s.recordAddress {
         // Operand is a constant.
         UNIMPLEMENTED()
@@ -295,8 +307,8 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(wrapExistentialAddr i: InstructionID, from f: Function.ID, in context: inout Context) {
-      let s = self[i, in: f] as! WrapExistentialAddr
+    func interpret(wrapExistentialAddr i: InstructionID, in context: inout Context) {
+      let s = self[i] as! WrapExistentialAddr
       if case .constant = s.witness {
         // Operand is a constant.
         UNIMPLEMENTED()
@@ -318,68 +330,67 @@ extension Module {
       }
       context.memory[v.unwrapLocations()!.uniqueElement!] = nil
     }
-  }
 
-  /// Returns the initial context in which `f` should be interpreted.
-  private func entryContext(of f: Function.ID) -> Context {
-    let function = self[f]
-    var result = Context()
+    /// Returns the initial context in which `f` should be interpreted.
+    func entryContext() -> Context {
+      var result = Context()
 
-    let entry = function.entry!
-    addParameter(.set, function.output, of: entry, at: function.inputs.count, in: &result)
-    for i in function.inputs.indices {
-      addParameter(function.inputs[i].type, of: entry, at: i, in: &result)
+      let entry = entry!
+      addParameter(.set, output, of: entry, at: inputs.count, in: &result)
+      for i in inputs.indices {
+        addParameter(inputs[i].type, of: entry, at: i, in: &result)
+      }
+
+      return result
     }
 
-    return result
-  }
-
-  /// Configure in `context` the initial state of the parameter at `position` in `entry`, which
-  /// has type `t`.
-  private func addParameter(
-    _ t: ParameterType, of entry: Block.ID, at position: Int,
-    in context: inout Context
-  ) {
-    addParameter(t.access, t.bareType, of: entry, at: position, in: &context)
-  }
-
-  /// Configure in `context` the initial state of the parameter at `position` in `entry`, which
-  /// has type `t` passed with capability `k`.
-  private func addParameter(
-    _ k: AccessEffect, _ t: AnyType, of entry: Block.ID, at position: Int,
-    in context: inout Context
-  ) {
-    let l = AbstractTypeLayout(of: t, definedIn: program)
-    let p = Operand.parameter(entry, position)
-
-    switch k {
-    case .let, .inout, .set, .sink:
-      let a = AbstractLocation.root(p)
-      context.locals[p] = .locations([a])
-      context.memory[a] = .init(layout: l, value: .full(.unique))
-
-    case .yielded:
-      preconditionFailure("cannot represent instance of yielded type")
+    /// Configure in `context` the initial state of the parameter at `position` in `entry`, which
+    /// has type `t`.
+    func addParameter(
+      _ t: ParameterType, of entry: Block.ID, at position: Int,
+      in context: inout Context
+    ) {
+      addParameter(t.access, t.bareType, of: entry, at: position, in: &context)
     }
-  }
 
-  /// Assigns the virtual register defined by `i` to the location of the storage projected by `i`,
-  /// using `t` to set the initial state of that storage.
-  private func initializeRegister(
-    createdBy i: InstructionID, from f: Function.ID, projecting t: RemoteType, in context: inout Context
-  ) {
-    let l = AbstractLocation.root(.register(i))
-    precondition(context.memory[l] == nil, "projection leak")
+    /// Configure in `context` the initial state of the parameter at `position` in `entry`, which
+    /// has type `t` passed with capability `k`.
+    func addParameter(
+      _ k: AccessEffect, _ t: AnyType, of entry: Block.ID, at position: Int,
+      in context: inout Context
+    ) {
+      let l = AbstractTypeLayout(of: t, definedIn: program)
+      let p = Operand.parameter(entry, position)
 
-    context.memory[l] = .init(
-      layout: AbstractTypeLayout(of: t.bareType, definedIn: program),
-      value: .full(.unique))
-    context.locals[.register(i)] = .locations([l])
+      switch k {
+      case .let, .inout, .set, .sink:
+        let a = AbstractLocation.root(p)
+        context.locals[p] = .locations([a])
+        context.memory[a] = .init(layout: l, value: .full(.unique))
+
+      case .yielded:
+        preconditionFailure("cannot represent instance of yielded type")
+      }
+    }
+
+    /// Assigns the virtual register defined by `i` to the location of the storage projected by `i`,
+    /// using `t` to set the initial state of that storage.
+    func initializeRegister(
+      createdBy i: InstructionID, projecting t: RemoteType, in context: inout Context
+    ) {
+      let l = AbstractLocation.root(.register(i))
+      precondition(context.memory[l] == nil, "projection leak")
+
+      context.memory[l] = .init(
+        layout: AbstractTypeLayout(of: t.bareType, definedIn: program),
+        value: .full(.unique))
+      context.locals[.register(i)] = .locations([l])
+    }
   }
 
   /// Returns the borrowed instruction from which `b` reborrows, if any.
-  private func reborrowedSource(_ b: Access, in f: Function.ID) -> InstructionID? {
-    if let s = accessSource(b.source, in: f).instruction, self[s, in: f] is Access {
+  private func reborrowedSource(_ b: Access) -> InstructionID? {
+    if let s = accessSource(b.source).instruction, self[s] is Access {
       return s
     } else {
       return nil
@@ -389,18 +400,18 @@ extension Module {
   /// Returns the source of the access denoted by `o`.
   ///
   /// - Requires: `o` denotes a location.
-  private func accessSource(_ o: Operand, in f: Function.ID) -> Operand {
-    switch self[o, in: f] {
+  private func accessSource(_ o: Operand) -> Operand {
+    switch self[o] {
     case let a as AdvancedByBytes:
-      return accessSource(a.base, in: f)
+      return accessSource(a.base)
     case let a as OpenCapture:
-      return accessSource(a.source, in: f)
+      return accessSource(a.source)
     case let a as OpenUnion:
-      return accessSource(a.container, in: f)
+      return accessSource(a.container)
     case let a as SubfieldView:
-      return accessSource(a.recordAddress, in: f)
+      return accessSource(a.recordAddress)
     case let a as WrapExistentialAddr:
-      return accessSource(a.witness, in: f)
+      return accessSource(a.witness)
     default:
       return o
     }
