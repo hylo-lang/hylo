@@ -29,7 +29,6 @@ public struct Switch: Terminator {
   }
 
   mutating func replaceSuccessor(_ old: Block.ID, with new: Block.ID) -> Bool {
-    precondition(new.function == successors[0].function)
     for i in 0 ..< successors.count {
       if successors[i] == old {
         successors[i] = new
@@ -49,7 +48,7 @@ extension Switch: CustomStringConvertible {
 
 }
 
-extension Module {
+extension Function {
 
   /// Creates a `switch` anchored at `site` that jumps to `successors[i]`.
   ///
@@ -63,6 +62,17 @@ extension Module {
     precondition(!successors.isEmpty)
 
     return .init(index: index, successors: successors, site: site)
+  }
+
+  /// Creates a `switch` anchored at `site` that jumps to `successors[i]`, inserting it at `p`.
+  ///
+  /// - Requires: `i` is a valid index in `successors`, expressed as a built-in integer, and
+  ///   `successors` is not empty.
+  mutating func makeSwitch(
+    on index: Operand, toOneOf successors: [Block.ID], at site: SourceRange,
+    insertingAt p: InsertionPoint
+  ) -> InstructionID {
+    insert(makeSwitch(on: index, toOneOf: successors, at: site), at: p)
   }
 
 }

@@ -7,6 +7,9 @@ public struct Function {
   /// A collection of blocks with stable identities.
   public typealias Blocks = DoublyLinkedList<Block>
 
+  /// A collection of instructions with stable identities.
+  public typealias Instructions = DoublyLinkedList<Instruction>
+
   /// `true` iff the function implements a subscript.
   public let isSubscript: Bool
 
@@ -26,10 +29,16 @@ public struct Function {
   public let output: AnyType
 
   /// The blocks in the function.
-  public private(set) var blocks: Blocks
+  public var blocks: Blocks
 
-  /// The entry of the function.
-  public var entry: Blocks.Address? { blocks.firstAddress }
+  /// The instructions in the function.
+  public var instructions: Instructions = []
+
+  /// The block associated with each instruction.
+  internal var blockForInstruction: [InstructionID: Block.ID] = [:]
+
+  /// The def-use chains of the values in this module.
+  public var uses: [Operand: [Use]] = [:]
 
   /// Accesses the basic block at `address`.
   ///
@@ -39,34 +48,25 @@ public struct Function {
     _modify { yield &blocks[address] }
   }
 
-  /// `true` iff the function takes generic parameters.
-  public var isGeneric: Bool {
-    !genericParameters.isEmpty
+  /// Accesses the block identified by `b`.
+  public subscript(b: Block.ID) -> Block {
+    _read { yield blocks[b.address] }
+    _modify { yield &blocks[b.address] }
   }
 
-  /// Appends to `self` a basic block in `scope` that accepts `parameters`, returning its address.
-  ///
-  /// The new block will become the function's entry if `self` contains no block before
-  /// `appendBlock` is called.
-  mutating func appendBlock<T: ScopeID>(
-    in scope: T, taking parameters: [IR.`Type`]
-  ) -> Blocks.Address {
-    blocks.append(Block(scope: AnyScopeID(scope), inputs: parameters))
-  }
-
-  /// Removes the block at `address`.
-  @discardableResult
-  mutating func removeBlock(_ address: Blocks.Address) -> Block {
-    blocks.remove(at: address)
+  /// Accesses the instruction identified by `i`.
+  public subscript(i: InstructionID) -> Instruction {
+    _read { yield instructions[i.address] }
+    _modify { yield &instructions[i.address] }
   }
 
   /// Returns the control flow graph of `self`.
   func cfg() -> ControlFlowGraph {
     var result = ControlFlowGraph()
-    for source in blocks.indices {
-      guard let s = blocks[source.address].instructions.last as? Terminator else { continue }
+    for source in blockIDs {
+      guard let s = self[blocks[source.address].last!] as? Terminator else { continue }
       for target in s.successors {
-        result.define(source.address, predecessorOf: target.address)
+        result.define(source, predecessorOf: target)
       }
     }
 

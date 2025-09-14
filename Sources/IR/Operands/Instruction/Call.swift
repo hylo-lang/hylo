@@ -56,7 +56,7 @@ extension Call: CustomStringConvertible {
 
 }
 
-extension Module {
+extension Function {
 
   /// Creates a `call` anchored at `site` that applies `callee` on `arguments` and writes its
   /// result to `output`.
@@ -75,6 +75,20 @@ extension Module {
     precondition(isBorrowSet(output))
 
     return .init(callee: callee, output: output, arguments: arguments, site: site)
+  }
+
+  /// Creates a `call` anchored at `site` that applies `callee` on `arguments` and writes its
+  /// result to `output`, inserting it at `p`.
+  ///
+  /// - Parameters:
+  ///   - callee: The function to call.
+  ///   - output: The location at which the result of `callee` is stored.
+  ///   - arguments: The arguments of the call; one for each input of `callee`'s type.
+  mutating func makeCall(
+    applying callee: Operand, to arguments: [Operand], writingResultTo output: Operand,
+    at site: SourceRange, insertingAt p: InsertionPoint
+  ) -> InstructionID {
+    insert(makeCall(applying: callee, to: arguments, writingResultTo: output, at: site), at: p)
   }
 
 }

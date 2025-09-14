@@ -46,7 +46,7 @@ extension AdvancedByBytes: CustomStringConvertible {
 
 }
 
-extension Module {
+extension Function {
 
   /// Creates an `advanced by bytes` instruction anchored at `site` computing the `source` address
   /// value advanced by `offset` bytes.
@@ -61,4 +61,12 @@ extension Module {
       site: site)
   }
 
+  /// Creates an `advanced by bytes` instruction anchored at `site` computing the `source` address
+  /// value advanced by `offset` bytes, inserting it at `p`.
+  mutating func makeAdvancedByBytes(
+    source: Operand, offset: Operand, at site: SourceRange,
+    insertingAt p: InsertionPoint
+  ) -> InstructionID {
+    insert(makeAdvancedByBytes(source: source, offset: offset, at: site), at: p)
+  }
 }

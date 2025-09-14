@@ -9,16 +9,25 @@ extension Module {
   ///
   /// - Requires: `f` is in `self`.
   public func ensureExclusivity(in f: Function.ID, diagnostics: inout DiagnosticSet) {
-    var machine = AbstractInterpreter(analyzing: f, in: self, entryContext: entryContext(of: f))
+    self[f].ensureExclusivity(program: program, diagnostics: &diagnostics)
+  }
+
+}
+
+extension Function {
+
+  /// Ensures the Law of Exclusivity is satisfied in `f`, reporting errors and warnings to
+  /// `diagnostics`.
+  ///
+  /// - Requires: `f` is in `self`.
+  public func ensureExclusivity(program: TypedProgram, diagnostics: inout DiagnosticSet) {
+    var machine = AbstractInterpreter(analyzing: self, entryContext: entryContext())
 
     // Verify that access instructions in `b` satisfy the Law of Exclusivity given `context`,
     // reporting violations of exclusivity in `diagnostics`.
     machine.fixedPoint { (b, context) in
-      let blockInstructions = self[f][b].instructions
-      for i in blockInstructions.indices {
-        let user = InstructionID(f, b, i.address)
-
-        switch blockInstructions[i] {
+      for user in instructions(in: b) {
+        switch self[user] {
         case is Access:
           interpret(access: user, in: &context)
         case is AdvancedByStrides:
@@ -72,7 +81,7 @@ extension Module {
       // The access must be immutable if the source of the access is a let-parameter.
       if (request != .let) && isBoundImmutably(s.source) {
         // Built-in values are never consumed.
-        if self.type(of: s.source).ast.isBuiltin {
+        if type(of: s.source).ast.isBuiltin {
           assert(request != .inout, "unexpected inout access on built-in value")
         } else {
           diagnostics.insert(.error(illegalMutableAccessAt: s.site))
@@ -153,7 +162,7 @@ extension Module {
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(allocStack i: InstructionID, in context: inout Context) {
-      context.declareStorage(assignedTo: i, in: self, initially: .unique)
+      context.declareStorage(assignedTo: i, from: self, definedIn: program, initially: .unique)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
@@ -222,12 +231,12 @@ extension Module {
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(genericParameter i: InstructionID, in context: inout Context) {
-      context.declareStorage(assignedTo: i, in: self, initially: .unique)
+      context.declareStorage(assignedTo: i, from: self, definedIn: program, initially: .unique)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(globalAddr i: InstructionID, in context: inout Context) {
-      context.declareStorage(assignedTo: i, in: self, initially: .unique)
+      context.declareStorage(assignedTo: i, from: self, definedIn: program, initially: .unique)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
@@ -321,63 +330,62 @@ extension Module {
       }
       context.memory[v.unwrapLocations()!.uniqueElement!] = nil
     }
-  }
 
-  /// Returns the initial context in which `f` should be interpreted.
-  private func entryContext(of f: Function.ID) -> Context {
-    let function = self[f]
-    var result = Context()
+    /// Returns the initial context in which `f` should be interpreted.
+    func entryContext() -> Context {
+      var result = Context()
 
-    let entry = Block.ID(f, function.entry!)
-    addParameter(.set, function.output, of: entry, at: function.inputs.count, in: &result)
-    for i in function.inputs.indices {
-      addParameter(function.inputs[i].type, of: entry, at: i, in: &result)
+      let entry = entry!
+      addParameter(.set, output, of: entry, at: inputs.count, in: &result)
+      for i in inputs.indices {
+        addParameter(inputs[i].type, of: entry, at: i, in: &result)
+      }
+
+      return result
     }
 
-    return result
-  }
-
-  /// Configure in `context` the initial state of the parameter at `position` in `entry`, which
-  /// has type `t`.
-  private func addParameter(
-    _ t: ParameterType, of entry: Block.ID, at position: Int,
-    in context: inout Context
-  ) {
-    addParameter(t.access, t.bareType, of: entry, at: position, in: &context)
-  }
-
-  /// Configure in `context` the initial state of the parameter at `position` in `entry`, which
-  /// has type `t` passed with capability `k`.
-  private func addParameter(
-    _ k: AccessEffect, _ t: AnyType, of entry: Block.ID, at position: Int,
-    in context: inout Context
-  ) {
-    let l = AbstractTypeLayout(of: t, definedIn: program)
-    let p = Operand.parameter(entry, position)
-
-    switch k {
-    case .let, .inout, .set, .sink:
-      let a = AbstractLocation.root(p)
-      context.locals[p] = .locations([a])
-      context.memory[a] = .init(layout: l, value: .full(.unique))
-
-    case .yielded:
-      preconditionFailure("cannot represent instance of yielded type")
+    /// Configure in `context` the initial state of the parameter at `position` in `entry`, which
+    /// has type `t`.
+    func addParameter(
+      _ t: ParameterType, of entry: Block.ID, at position: Int,
+      in context: inout Context
+    ) {
+      addParameter(t.access, t.bareType, of: entry, at: position, in: &context)
     }
-  }
 
-  /// Assigns the virtual register defined by `i` to the location of the storage projected by `i`,
-  /// using `t` to set the initial state of that storage.
-  private func initializeRegister(
-    createdBy i: InstructionID, projecting t: RemoteType, in context: inout Context
-  ) {
-    let l = AbstractLocation.root(.register(i))
-    precondition(context.memory[l] == nil, "projection leak")
+    /// Configure in `context` the initial state of the parameter at `position` in `entry`, which
+    /// has type `t` passed with capability `k`.
+    func addParameter(
+      _ k: AccessEffect, _ t: AnyType, of entry: Block.ID, at position: Int,
+      in context: inout Context
+    ) {
+      let l = AbstractTypeLayout(of: t, definedIn: program)
+      let p = Operand.parameter(entry, position)
 
-    context.memory[l] = .init(
-      layout: AbstractTypeLayout(of: t.bareType, definedIn: program),
-      value: .full(.unique))
-    context.locals[.register(i)] = .locations([l])
+      switch k {
+      case .let, .inout, .set, .sink:
+        let a = AbstractLocation.root(p)
+        context.locals[p] = .locations([a])
+        context.memory[a] = .init(layout: l, value: .full(.unique))
+
+      case .yielded:
+        preconditionFailure("cannot represent instance of yielded type")
+      }
+    }
+
+    /// Assigns the virtual register defined by `i` to the location of the storage projected by `i`,
+    /// using `t` to set the initial state of that storage.
+    func initializeRegister(
+      createdBy i: InstructionID, projecting t: RemoteType, in context: inout Context
+    ) {
+      let l = AbstractLocation.root(.register(i))
+      precondition(context.memory[l] == nil, "projection leak")
+
+      context.memory[l] = .init(
+        layout: AbstractTypeLayout(of: t.bareType, definedIn: program),
+        value: .full(.unique))
+      context.locals[.register(i)] = .locations([l])
+    }
   }
 
   /// Returns the borrowed instruction from which `b` reborrows, if any.

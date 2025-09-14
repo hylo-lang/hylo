@@ -43,7 +43,7 @@ extension RegionExit: CustomStringConvertible {
 
 }
 
-extension Module {
+extension Function {
 
   /// Creates a region exit anchored at `site` marking an exit of the regions started by `start`.
   func makeRegionExit<Entry: RegionEntry>(

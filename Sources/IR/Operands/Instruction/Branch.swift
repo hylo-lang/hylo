@@ -22,7 +22,6 @@ public struct Branch: Terminator {
   }
 
   mutating func replaceSuccessor(_ old: Block.ID, with new: Block.ID) -> Bool {
-    precondition(new.function == target.function)
     if target == old {
       target = new
       return true
@@ -41,7 +40,7 @@ extension Branch: CustomStringConvertible {
 
 }
 
-extension Module {
+extension Function {
 
   /// Creates a `branch` anchored at `site` that unconditionally jumps at the start of a block.
   ///
@@ -49,6 +48,16 @@ extension Module {
   ///   - target: The block in which control flow jumps.
   func makeBranch(to target: Block.ID, at anchor: SourceRange) -> Branch {
     .init(target: target, site: anchor)
+  }
+
+  /// Creates a `branch` anchored at `site` that unconditionally jumps at the start of a block, inserting it at `p`.
+  ///
+  /// - Parameters:
+  ///   - target: The block in which control flow jumps.
+  mutating func makeBranch(
+    to target: Block.ID, at anchor: SourceRange, insertingAt p: InsertionPoint
+  ) -> InstructionID {
+    insert(makeBranch(to: target, at: anchor), at: p)
   }
 
 }

@@ -2,8 +2,31 @@ import Utils
 
 extension Block {
 
-  /// The ID of a basic block.
+  /// The stable ID of a basic block in its function.
   public struct ID: Hashable {
+
+    /// The address of the block.
+    public var address: Function.Blocks.Address
+
+    /// Creates an instance with the given address.
+    public init(_ address: Function.Blocks.Address) {
+      self.address = address
+    }
+
+    /// Creates an instance with the given address.
+    public init(_ b: Block.AbsoluteID) {
+      self.address = b.address
+    }
+
+    /// The ID of the `index`-th parameter of the block.
+    public func parameter(_ index: Int) -> Operand {
+      .parameter(self, index)
+    }
+
+  }
+
+  /// The absolute ID of a basic block.
+  public struct AbsoluteID: Hashable {
 
     /// The ID of the function containing the block.
     public var function: Function.ID
@@ -17,26 +40,15 @@ extension Block {
       self.address = address
     }
 
-    /// Creates an instance denoting the block containing `i`.
-    public init(containing i: InstructionID) {
-      self.function = i.function
-      self.address = i.block
-    }
-
-    /// The ID of the instruction at `instructionAddress` in the block identified by `self`.
-    public func appending(_ instructionAddress: Block.Instructions.Address) -> InstructionID {
-      InstructionID(function, address, instructionAddress)
+    /// Creates an instance with the given properties.
+    public init(_ function: Function.ID, _ block: Block.ID) {
+      self.function = function
+      self.address = block.address
     }
 
     /// The ID of the `index`-th parameter of the block.
     public func parameter(_ index: Int) -> Operand {
-      .parameter(self, index)
-    }
-
-    /// The operand denoting the result of the instruction at `instructionAddress` in the block
-    /// identified by `self`.
-    public func result(at instructionAddress: Block.Instructions.Address) -> Operand {
-      .register(appending(instructionAddress))
+      .parameter(Block.ID(self), index)
     }
 
   }
@@ -44,6 +56,12 @@ extension Block {
 }
 
 extension Block.ID: CustomStringConvertible {
+
+  public var description: String { "b\(address)" }
+
+}
+
+extension Block.AbsoluteID: CustomStringConvertible {
 
   public var description: String { "b\(address)" }
 

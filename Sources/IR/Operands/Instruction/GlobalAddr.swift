@@ -41,12 +41,21 @@ extension GlobalAddr: CustomStringConvertible {
 
 }
 
-extension Module {
+extension Function {
 
-  /// Creates an `global_addr` anchored at `site` that returns the address of `binding`.
-  func makeGlobalAddr(of binding: BindingDecl.ID, at anchor: SourceRange) -> GlobalAddr {
-    let t = program.canonical(program[binding].type, in: program[binding].scope)
-    return .init(binding: binding, valueType: t, site: anchor)
+  /// Creates an `global_addr` anchored at `site` of type `t` that returns the address of `binding`.
+  func makeGlobalAddr(
+    of binding: BindingDecl.ID, valueType t: AnyType, at anchor: SourceRange
+  ) -> GlobalAddr {
+    .init(binding: binding, valueType: t, site: anchor)
+  }
+
+  /// Creates an `global_addr` anchored at `site` of type `t` that returns the address of `binding`, inserting it at `p`.
+  mutating func makeGlobalAddr(
+    of binding: BindingDecl.ID, valueType t: AnyType, at anchor: SourceRange,
+    insertingAt p: InsertionPoint
+  ) -> InstructionID {
+    insert(makeGlobalAddr(of: binding, valueType: t, at: anchor), at: p)
   }
 
 }

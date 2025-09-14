@@ -23,11 +23,16 @@ public struct Return: Terminator {
 
 }
 
-extension Module {
+extension Function {
 
   /// Creates a `return` anchored at `site`.
   func makeReturn(at site: SourceRange) -> Return {
     .init(site: site)
+  }
+
+  /// Creates a `return` anchored at `site`, inserting it at `p`.
+  mutating func makeReturn(at site: SourceRange, insertingAt p: InsertionPoint) -> InstructionID {
+    insert(makeReturn(at: site), at: p)
   }
 
 }

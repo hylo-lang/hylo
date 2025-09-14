@@ -50,7 +50,7 @@ extension AdvancedByStrides: CustomStringConvertible {
 
 }
 
-extension Module {
+extension Function {
 
   /// Creates an `advanced by strides` instruction anchored at `site` computing the `source`
   /// address advanced by `n` strides of its referred type.
@@ -62,6 +62,15 @@ extension Module {
     }
 
     return .init(source: source, offset: n, result: .address(b.element), site: site)
+  }
+
+  /// Creates an `advanced by strides` instruction anchored at `site` computing the `source`
+  /// address advanced by `n` strides of its referred type, inserting it at `p`.
+  mutating func makeAdvanced(
+    _ source: Operand, byStrides n: Int, at site: SourceRange,
+    insertingAt p: InsertionPoint
+  ) -> InstructionID {
+    insert(makeAdvanced(source, byStrides: n, at: site), at: p)
   }
 
   /// Returns the AST type of `source` iff it is the address of a buffer.

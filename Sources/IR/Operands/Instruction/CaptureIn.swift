@@ -41,7 +41,7 @@ extension CaptureIn: CustomStringConvertible {
 
 }
 
-extension Module {
+extension Function {
 
   /// Creates a `capture ... in` anchored at `site` that captures `source`, which is an access, and
   /// stores it in `target`.
@@ -49,6 +49,15 @@ extension Module {
     precondition(type(of: source).isAddress)
     precondition(type(of: target).isAddress)
     return .init(source: source, target: target, site: site)
+  }
+
+  /// Creates a `capture ... in` anchored at `site` that captures `source`, which is an access, and
+  /// stores it in `target`, inserting it at `p`.
+  mutating func makeCapture(
+    _ source: Operand, in target: Operand, at site: SourceRange,
+    insertingAt p: InsertionPoint
+  ) -> InstructionID {
+    insert(makeCapture(source, in: target, at: site), at: p)
   }
 
 }

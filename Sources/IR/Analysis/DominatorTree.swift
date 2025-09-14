@@ -14,7 +14,7 @@ import Utils
 struct DominatorTree {
 
   /// A node in the tree.
-  typealias Node = Function.Blocks.Address
+  typealias Node = Block.ID
 
   /// The root of the tree.
   let root: Node
@@ -22,12 +22,12 @@ struct DominatorTree {
   /// The immediate dominators of each basic block.
   private var immediateDominators: [Node: Node?]
 
-  /// Creates the dominator tree of `f`, which is in `m`, using the given `cfg`.
-  init(function f: Function.ID, cfg: ControlFlowGraph, in m: Module) {
+  /// Creates the dominator tree of `f`, using the given `cfg`.
+  init(function f: Function, cfg: ControlFlowGraph) {
     // The following is an implementation of Cooper et al.'s fast dominance iterative algorithm
     // (see "A Simple, Fast Dominance Algorithm", 2001). First, build any spanning tree rooted at
     // the function's entry.
-    var t = SpanningTree(of: cfg, rootedAt: m[f].entry!)
+    var t = SpanningTree(of: cfg, rootedAt: f.entry!)
 
     // Then, until a fixed point is reached, for each block `v` that has a predecessor `u` that
     // isn't `v`'s parent in the tree, assign `v`'s parent to the least common ancestor of `u` and
@@ -35,7 +35,7 @@ struct DominatorTree {
     var changed = true
     while changed {
       changed = false
-      for v in m[f].blocks.addresses {
+      for v in f.blockIDs {
         for u in cfg.predecessors(of: v) where t.parent(v) != u {
           let lca = t.lowestCommonAncestor(u, t.parent(v)!)
           if lca != t.parent(v) {
@@ -47,7 +47,7 @@ struct DominatorTree {
     }
 
     // The resulting tree encodes the immediate dominators.
-    root = m[f].entry!
+    root = f.entry!
     immediateDominators = t.parents
   }
 
@@ -105,19 +105,14 @@ struct DominatorTree {
   /// Returns `true` if the instruction identified by `definition` dominates `use`.
   ///
   /// - Requires: `definition` and `use` reside in the function associated with the true.
-  func dominates(definition: InstructionID, use: Use, in module: Module) -> Bool {
+  func dominates(definition: InstructionID, use: Use, from f: Function.ID, in module: Module) -> Bool {
     // If `definition` is in the same block as `use`, check which comes first.
-    if definition.block == use.user.block {
-      for i in module[definition.function][definition.block].instructions.indices {
-        if i.address == definition.address {
-          return true
-        }
-      }
-      return false
+    if module[f].block(of: definition) == module[f].block(of: use.user) {
+      return module[f].precedes(definition, use.user)
     }
 
     // Return whether the block containing `definition` dominates the block containing `use`.
-    return dominates(definition.block, use.user.block)
+    return dominates(module[f].block(of: definition), module[f].block(of: use.user))
   }
 
 }
@@ -144,7 +139,7 @@ extension DominatorTree: CustomStringConvertible {
 private struct SpanningTree {
 
   /// A node in the tree.
-  typealias Node = Function.Blocks.Address
+  typealias Node = Block.ID
 
   /// A map from node to its parent.
   private(set) var parents: [Node: Node?]

@@ -43,7 +43,6 @@ public struct UnionSwitch: Terminator {
   }
 
   mutating func replaceSuccessor(_ old: Block.ID, with new: Block.ID) -> Bool {
-    precondition(new.function == successors[0].function)
     for (t, b) in targets {
       if b == old { targets[t] = b; return true }
     }
@@ -64,7 +63,7 @@ extension UnionSwitch: CustomStringConvertible {
 
 }
 
-extension Module {
+extension Function {
 
   /// Creates a `union_switch` anchored at `site` that switches over `discriminator`, which is the
   /// discriminator of a container of type `union`, jumping to corresponding block in `target`.
@@ -81,6 +80,21 @@ extension Module {
     precondition(t.isObject && t.ast.isBuiltinInteger)
     precondition(union.elements.allSatisfy({ (e) in targets[e] != nil }))
     return .init(discriminator: discriminator, union: union, targets: targets, site: site)
+  }
+
+  /// Creates a `union_switch` anchored at `site` that switches over `discriminator`, which is the
+  /// discriminator of a container of type `union`, jumping to corresponding block in `target`,
+  /// inserting it at `p`.
+  ///
+  /// If `union` is generic, `discriminator` should be the result of `union_discriminator` rather
+  /// than a constant.
+  ///
+  /// - Requires: `targets` has a key defined for each of `union`.
+  mutating func makeUnionSwitch(
+    over discriminator: Operand, of union: UnionType, toOneOf targets: UnionSwitch.Targets,
+    at site: SourceRange, insertingAt p: InsertionPoint
+  ) -> InstructionID {
+    insert(makeUnionSwitch(over: discriminator, of: union, toOneOf: targets, at: site), at: p)
   }
 
 }

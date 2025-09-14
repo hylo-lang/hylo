@@ -23,23 +23,6 @@ public enum Operand {
     .constant(WordConstant(v))
   }
 
-  /// The ID of the function in which the operand is defined, if any.
-  public var function: Function.ID? {
-    block?.function
-  }
-
-  /// The ID of the block in which the operand is defined, if any.
-  public var block: Block.ID? {
-    switch self {
-    case .register(let instruction):
-      return Block.ID(instruction.function, instruction.block)
-    case .parameter(let block, _):
-      return block
-    case .constant(_):
-      return nil
-    }
-  }
-
   /// The ID of the instruction that produces this operand, if any.
   public var instruction: InstructionID? {
     switch self {

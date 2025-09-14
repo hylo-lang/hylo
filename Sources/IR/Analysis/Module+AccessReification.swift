@@ -37,13 +37,21 @@ extension Module {
   ///
   /// - Requires: `f` is in `self`.
   public mutating func reifyAccesses(in f: Function.ID, diagnostics: inout DiagnosticSet) {
+    self[f].reifyAccesses(module: self, diagnostics: &diagnostics)
+  }
+
+}
+
+extension Function {
+
+  fileprivate mutating func reifyAccesses(module m: Module, diagnostics: inout DiagnosticSet) {
     var work: Deque<InstructionID> = []
-    for i in blocks(in: f).map(instructions(in:)).joined() {
+    for i in instructionIDs {
       guard let s = self[i] as? ReifiableAccess else { continue }
 
       // Fast path if the request set is already a singleton.
       if let k = s.capabilities.uniqueElement {
-        reify(i, as: k)
+        reify(i, as: k, in: m)
         continue
       }
 
@@ -71,14 +79,14 @@ extension Module {
       if lower == upper {
         // We have to "promote" a request if it can be satisfied by a stronger capability.
         let k = available.elements.first(where: { (a) in a >= lower }) ?? available.weakest!
-        reify(i, as: k)
+        reify(i, as: k, in: m)
       } else {
         work.append(i)
       }
     }
   }
 
-  private func requests(_ u: Use) -> AccessEffectSet {
+  fileprivate func requests(_ u: Use) -> AccessEffectSet {
     switch self[u.user] {
     case let t as Access:
       return t.capabilities
@@ -93,14 +101,14 @@ extension Module {
     }
   }
 
-  private func requests(projectBundle u: Use) -> AccessEffectSet {
+  fileprivate func requests(projectBundle u: Use) -> AccessEffectSet {
     let s = self[u.user] as! ProjectBundle
     let t = s.parameters[u.index]
     return (t.access == .yielded) ? s.capabilities : [t.access]
   }
 
   /// Calls `action` on the uses of a capability of the access at the origin of `i`.
-  private func forEachClient(of i: InstructionID, _ action: (Use) -> Void) {
+  fileprivate func forEachClient(of i: InstructionID, _ action: (Use) -> Void) {
     for u in allUses(of: i) {
       if self[u.user].isTransparentOffset {
         forEachClient(of: u.user, action)
@@ -112,19 +120,19 @@ extension Module {
 
   /// Replaces the uses of `i` with uses of an instruction providing the same access but only
   /// with capability `k`.
-  private mutating func reify(_ i: InstructionID, as k: AccessEffect) {
+  fileprivate mutating func reify(_ i: InstructionID, as k: AccessEffect, in m: Module) {
     switch self[i] {
     case is Access:
       reify(access: i, as: k)
     case is ProjectBundle:
-      reify(projectBundle: i, as: k)
+      reify(projectBundle: i, as: k, in: m)
     default:
       unreachable()
     }
   }
 
   /// Narrows the capabilities requested by `i`, which is an `access` instruction, to just `k`.
-  private mutating func reify(access i: InstructionID, as k: AccessEffect) {
+  fileprivate mutating func reify(access i: InstructionID, as k: AccessEffect) {
     let s = self[i] as! Access
     assert(s.capabilities.contains(k))
 
@@ -135,20 +143,24 @@ extension Module {
     replace(i, with: reified)
   }
 
-  private mutating func reify(projectBundle i: InstructionID, as k: AccessEffect) {
+  fileprivate mutating func reify(projectBundle i: InstructionID, as k: AccessEffect, in m: Module) {
     let s = self[i] as! ProjectBundle
     assert(s.capabilities.contains(k))
 
     // Generate the proper instructions to prepare the projection's arguments.
     var arguments = s.operands
     for a in arguments.indices where s.parameters[a].access == .yielded {
-      let b = makeAccess([k], from: arguments[a], at: s.site)
-      arguments[a] = .register(insert(b, before: i))
+      let b = makeAccess([k], from: arguments[a], at: s.site, insertingAt: .before(i))
+      arguments[a] = .register(b)
     }
 
     let o = RemoteType(k, s.projection)
+    let r = FunctionReference(
+      to: s.variants[k]!, in: m, specializedBy: s.bundle.arguments,
+      in: scope(containing: i)
+    )
     let reified = makeProject(
-      o, applying: s.variants[k]!, specializedBy: s.bundle.arguments, to: arguments, at: s.site)
+      o, applying: r, to: arguments, at: s.site)
     replace(i, with: reified)
   }
 

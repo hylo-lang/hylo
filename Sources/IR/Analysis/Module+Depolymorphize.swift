@@ -35,16 +35,14 @@ extension IR.Program {
   /// Replaces uses of parametric types and functions in `f` with their monomorphic or existential
   /// counterparts.
   private mutating func depolymorphize(_ f: Function.ID, definedIn m: Module.ID) {
-    for b in modules[m]!.blocks(in: f) {
-      for i in modules[m]!.instructions(in: b) {
-        switch modules[m]![i] {
-        case is Call:
-          depolymorphize(call: i, definedIn: m)
-        case is Project:
-          depolymorphize(project: i, definedIn: m)
-        default:
-          continue
-        }
+    for i in modules[m]![f].instructionIDs {
+      switch modules[m]![i, in: f] {
+      case is Call:
+        depolymorphize(call: i, from: f, definedIn: m)
+      case is Project:
+        depolymorphize(project: i, from: f, definedIn: m)
+      default:
+        continue
       }
     }
   }
@@ -53,8 +51,10 @@ extension IR.Program {
   /// depolymorphized version of its callee.
   ///
   /// - Requires: `i` identifies a `CallInstruction`
-  private mutating func depolymorphize(call i: InstructionID, definedIn m: Module.ID) {
-    let s = modules[m]![i] as! Call
+  private mutating func depolymorphize(
+    call i: InstructionID, from f: Function.ID, definedIn m: Module.ID
+  ) {
+    let s = modules[m]![i, in: f] as! Call
     guard
       let callee = s.callee.constant as? FunctionReference,
       !callee.specialization.isEmpty
@@ -62,28 +62,34 @@ extension IR.Program {
 
     // TODO: Use existentialization unless the function is inlinable
 
-    let g = monomorphize(callee, usedIn: modules[m]!.scope(containing: i))
+    let g = monomorphize(callee, usedIn: modules[m]![f].scope(containing: i))
     let r = FunctionReference(to: g, in: modules[m]!)
-    let new = modules[m]!.makeCall(
+    let new = modules[m]![f].makeCall(
       applying: .constant(r), to: Array(s.arguments), writingResultTo: s.output, at: s.site)
-    modules[m]!.replace(i, with: new)
+    modules[m]![f].replace(i, with: new)
   }
 
   /// Iff `i` is the projection through a generic subscript, replaces it by an instruction applying
   /// a depolymorphized version of its callee.
   ///
   /// - Requires: `i` identifies a `ProjectInstruction`
-  private mutating func depolymorphize(project i: InstructionID, definedIn m: Module.ID) {
-    let s = modules[m]![i] as! Project
-    guard !s.specialization.isEmpty else { return }
+  private mutating func depolymorphize(
+    project i: InstructionID, from f: Function.ID, definedIn m: Module.ID
+  ) {
+    let s = modules[m]![i, in: f] as! Project
+    let r = s.functionReference
+    guard !r.specialization.isEmpty else { return }
 
     // TODO: Use existentialization unless the subscript is inlinable
 
-    let z = base.canonical(s.specialization, in: modules[m]!.scope(containing: i))
-    let g = monomorphize(s.callee, for: z, usedIn: modules[m]!.scope(containing: i))
-    let new = modules[m]!.makeProject(
-      s.projection, applying: g, specializedBy: .empty, to: s.operands, at: s.site)
-    modules[m]!.replace(i, with: new)
+    let scope = modules[m]![f].scope(containing: i)
+    let z = base.canonical(r.specialization, in: scope)
+    let g = monomorphize(r.function, for: z, usedIn: scope)
+    let new = modules[m]![f].makeProject(
+      s.projection,
+      applying: FunctionReference(to: g, in: modules[m]!, specializedBy: .empty, in: scope),
+      to: Array(s.arguments), at: s.site)
+    modules[m]![f].replace(i, with: new)
   }
 
   /// Returns a depolymorphized copy of `base` in which parametric parameters have been notionally
@@ -119,6 +125,7 @@ extension IR.Program {
     _ f: Function.ID, for z: GenericArguments, usedIn scopeOfUse: AnyScopeID
   ) -> Function.ID {
     precondition(z.allSatisfy(\.value.isCanonical))
+
     let result = demandMonomorphizedDeclaration(of: f, for: z, usedIn: scopeOfUse)
 
     let target = base.module(containing: scopeOfUse)
@@ -126,69 +133,61 @@ extension IR.Program {
       return result
     }
 
+    // First, collect the types and function references used in the function.
     let source = module(defining: f)
+    var observer = MonomorphizationObserver()
+    var ff = modules[source]![f]
+    ff.observe(ff.instructionIDs, with: &observer)
+
+    // Monomorphize the types.
+    var transformedTypes: [AnyType: AnyType] = [:]
+    for t in observer.types {
+      transformedTypes[t] = monomorphize(t, for: z, usedIn: scopeOfUse)
+    }
+
+    // Monomorphize the function references.
+    var transformedFunctions: [FunctionReference: FunctionReference] = [:]
+    for c in observer.functionsToMonomorphize {
+      let s = base.module(containing: scopeOfUse)
+      let f = monomorphize(c.function, specializedBy: c.specialization, for: z, usedIn: scopeOfUse)
+      transformedFunctions[c] = FunctionReference(to: f, in: modules[s]!)
+    }
+
     var rewrittenBlock: [Block.ID: Block.ID] = [:]
-    for b in modules[source]![f].blocks.addresses {
-      let s = Block.ID(f, b)
-      let inputs = modules[source]![s].inputs.map { (t) in
-        monomorphize(t, for: z, usedIn: scopeOfUse)
-      }
-      let t = modules[target]![result].appendBlock(in: modules[source]![s].scope, taking: inputs)
-      rewrittenBlock[s] = Block.ID(result, t)
+    for b in modules[source]![f].blockIDs {
+      rewrittenBlock[b] = modules[target]![result].appendBlock(in: modules[source]![b, in: f].scope)
     }
 
-    let rewrittenGenericValue = modules[target]!.defineGenericValueArguments(z, in: result)
+    // Transform `source`, monomorphizing it, and write the result to `result`.
     var monomorphizer = Monomorphizer(
-      specialization: z, scopeOfUse: scopeOfUse,
-      rewrittenGenericValue: rewrittenGenericValue, rewrittenBlock: rewrittenBlock)
-
-    // Iterate over the basic blocks of the source function in a way that guarantees we always
-    // visit definitions before their uses.
-    let cfg = modules[source]![f].cfg()
-    let sourceBlocks = DominatorTree(function: f, cfg: cfg, in: modules[source]!).bfs
-    for b in sourceBlocks {
-      let s = Block.ID(f, b)
-      let t = rewrittenBlock[s]!
-
-      for a in modules[source]![s].instructions.addresses {
-        let i = InstructionID(s, a)
-        switch modules[source]![i] {
-        case is GenericParameter:
-          rewrite(genericParameter: i, to: t)
-        case is Return:
-          rewrite(return: i, to: t)
-        default:
-          rewrite(i, to: t)
-        }
-      }
-    }
+      scopeOfUse: scopeOfUse,
+      transformedTypes: transformedTypes, transformedFunctions: transformedFunctions,
+      rewrittenBlock: rewrittenBlock
+    )
+    modules[target]![result].rewrite(
+      f, from: modules[source]!, transformedBy: &monomorphizer,
+      rewrittenBlock: rewrittenBlock,
+      rewrittenGenericValue: modules[target]!.defineGenericValueArguments(z, in: result)
+    )
 
     return result
+  }
 
-    /// Rewrites `i`, which is in `source`, at the end of `b`, which is in `target`.
-    func rewrite(_ i: InstructionID, to b: Block.ID) {
-      let j = self.rewrite(
-        i, from: source, transformedBy: &monomorphizer,
-        at: .end(of: b), in: target)
-      monomorphizer.rewrittenInstruction[i] = j
-    }
-
-    /// Rewrites `i`, which is in `source`, at the end of `b`, which is in `target`.
-    func rewrite(genericParameter i: InstructionID, to b: Block.ID) {
-      let s = modules[source]![i] as! GenericParameter
-      monomorphizer.rewrittenInstruction[i] = monomorphizer.rewrittenGenericValue[s.parameter]!
-    }
-
-    /// Rewrites `i`, which is in `source`, at the end of `b`, which is in `target`.
-    func rewrite(return i: InstructionID, to b: Block.ID) {
-      let s = modules[source]![i] as! Return
-      let j = modify(&modules[target]!) { (m) in
-        for i in rewrittenGenericValue.values.reversed() {
-          m.append(m.makeDeallocStack(for: .register(i), at: s.site), to: b)
-        }
-        return m.append(m.makeReturn(at: s.site), to: b)
-      }
-      monomorphizer.rewrittenInstruction[i] = j
+  /// Returns a monomorphized copy of `f` specialized by `z` for use in `scopeOfUse`.
+  ///
+  /// If `f` is a trait requirement, the result is a monomorphized version of that requirement's
+  /// implementation, using `a` to identify the requirement's receiver. Otherwise, the result is
+  /// a monomorphized copy of `f`.
+  private mutating func monomorphize(
+    _ f: Function.ID, specializedBy z: GenericArguments, for specialization: GenericArguments,
+    usedIn scopeOfUse: AnyScopeID
+  ) -> Function.ID {
+    let p = base.specialize(z, for: specialization, in: scopeOfUse)
+    let q = base.canonical(p, in: scopeOfUse)
+    if let m = base.requirementDeclaring(memberReferredBy: f) {
+      return monomorphize(m.decl, requiredBy: m.trait, for: q, usedIn: scopeOfUse)
+    } else {
+      return monomorphize(f, for: q, usedIn: scopeOfUse)
     }
   }
 
@@ -233,14 +232,6 @@ extension IR.Program {
   ) -> AnyType {
     let u = base.specialize(t, for: z, in: scopeOfUse)
     return base.canonical(u, in: scopeOfUse)
-  }
-
-  /// Returns `generic` specialized for specialization `z` in `scopeOfUse`.
-  private func monomorphize(
-    _ t: IR.`Type`, for z: GenericArguments, usedIn scopeOfUse: AnyScopeID
-  ) -> IR.`Type` {
-    let u = monomorphize(t.ast, for: z, usedIn: scopeOfUse)
-    return .init(ast: u, isAddress: t.isAddress)
   }
 
   /// Returns the IR function monomorphizing `f` for specialization `z` in `scopeOfUse`.
@@ -289,7 +280,7 @@ extension Module {
     in monomorphized: Function.ID
   ) -> OrderedDictionary<GenericParameterDecl.ID, InstructionID> {
     let insertionSite = SourceRange.empty(at: self[monomorphized].site.start)
-    let entry = Block.ID(monomorphized, self[monomorphized].entry!)
+    let entry = self[monomorphized].entry!
 
     var genericValues = OrderedDictionary<GenericParameterDecl.ID, InstructionID>()
 
@@ -300,10 +291,12 @@ extension Module {
         UNIMPLEMENTED("arbitrary compile-time values")
       }
 
-      let s = append(makeAllocStack(^program.ast.coreType("Int")!, at: insertionSite), to: entry)
+      let s = self[monomorphized].makeAllocStack(
+        ^program.ast.coreType("Int")!, at: insertionSite, insertingAt: .end(of: entry))
 
       var log = DiagnosticSet()
       Emitter.withInstance(insertingIn: &self, reportingDiagnosticsTo: &log) { (e) in
+        e.insertionFunction = monomorphized
         e.insertionPoint = .end(of: entry)
         e.lowering(at: insertionSite) { e in
           e._emitStore(int: w, to: .register(s))
@@ -319,21 +312,118 @@ extension Module {
 
 }
 
+extension Function {
+  /// Inserts a copy of `i`, which is in `source`, inside `self`, transforming its parts with
+  /// `t`, having block correspondences in `rewrittenBlock`, and generic value correspondences in
+  /// `rewrittenGenericValue`.
+  fileprivate mutating func rewrite(
+    _ f: Function.ID, from m: Module, transformedBy t: inout Monomorphizer,
+    rewrittenBlock: [Block.ID: Block.ID],
+    rewrittenGenericValue: OrderedDictionary<GenericParameterDecl.ID, InstructionID>
+  ) {
+    // Iterate over the basic blocks of the source function in a way that guarantees we always
+    // visit definitions before their uses.
+    let cfg = m[f].cfg()
+    let sourceBlocks = DominatorTree(function: m[f], cfg: cfg).bfs
+    for b in sourceBlocks {
+      let t = rewrittenBlock[b]!
+
+      for i in m[f].instructions(in: b) {
+        switch m[i, in: f] {
+        case is GenericParameter:
+          rewrite(genericParameter: i)
+        case is Return:
+          rewrite(return: i, to: t)
+        default:
+          rewrite(i, to: t)
+        }
+      }
+    }
+
+    /// Rewrites `i`, which is in `source`, at the end of `b`, which is in `self`.
+    func rewrite(_ i: InstructionID, to b: Block.ID) {
+      let j = self.rewrite(i, in: m[f], transformedBy: &t, at: .end(of: b))
+      t.rewrittenInstruction[i] = j
+    }
+
+    /// Rewrites `i`, which is in `source`, at the end of `b`, which is in `self`.
+    func rewrite(genericParameter i: InstructionID) {
+      let s = m[i, in: f] as! GenericParameter
+      t.rewrittenInstruction[i] = rewrittenGenericValue[s.parameter]!
+    }
+
+    /// Rewrites `i`, which is in `source`, at the end of `b`, which is in `self`.
+    func rewrite(return i: InstructionID, to b: Block.ID) {
+      let s = m[i, in: f] as! Return
+      for i in rewrittenGenericValue.values.reversed() {
+        _ = makeDeallocStack(for: .register(i), at: s.site, insertingAt: .end(of: b))
+      }
+      t.rewrittenInstruction[i] = makeReturn(at: s.site, insertingAt: .end(of: b))
+    }
+  }
+
+}
+
+/// Observer that collects the types and function references that need monomorphization.
+private struct MonomorphizationObserver: InstructionObserver {
+
+  /// The used types, which might be changed by monomorphization.
+  private(set) var types: Set<AnyType> = []
+
+  /// The set of functions that need monomorphization.
+  private(set) var functionsToMonomorphize: Set<FunctionReference> = []
+
+  /// Collect `t` for possible monomorphization.
+  mutating func observe(_ t: AnyType) {
+    types.insert(t)
+  }
+
+  /// Checks monomorphization functions/types in `c`.
+  mutating func observe(_ o: Operand) {
+    if let c = o.constant {
+      observe(c)
+    }
+  }
+
+  /// Nothing to observe for a block.
+  func observe(_ b: Block.ID) {}
+
+  /// Collects monomorphization functions/types in `c`.
+  private mutating func observe(_ c: any Constant) {
+    switch c {
+    case let r as FunctionReference:
+      observe(r)
+      break
+    case let t as MetatypeType:
+      observe(^t)
+      break
+    default:
+      break
+    }
+  }
+
+  /// Collects `c` if it needs to be monomorphized.
+  private mutating func observe(_ c: FunctionReference) {
+    // Unspecialized references cannot refer to trait members, which are specialized for the
+    // implicit `Self` parameter.
+    if !c.specialization.isEmpty {
+      functionsToMonomorphize.insert(c)
+    }
+  }
+
+}
+
 /// The monomorphization of a function.
 private struct Monomorphizer: InstructionTransformer {
-
-  /// The arguments for which instructions are monomorphized.
-  let specialization: GenericArguments
 
   /// The scope in which instructions are monomorphized.
   let scopeOfUse: AnyScopeID
 
-  /// A table from generic value parameter to the allocation of the storage containing its value.
-  ///
-  /// Generic value parameters are rewritten as local variables initialized at the beginning of
-  /// the monomorphized function. Generic value arguments don't require deinitialization. Their
-  /// local storage is deallocated before each rewritten return instruction.
-  let rewrittenGenericValue: OrderedDictionary<GenericParameterDecl.ID, InstructionID>
+  /// The transformed types that should be used in the monomorphized function.
+  var transformedTypes: [AnyType: AnyType] = [:]
+
+  /// The transformed function references that should be used in the monomorphized function.
+  var transformedFunctions: [FunctionReference: FunctionReference] = [:]
 
   /// A map from basic block in `source` to its corresponding block in `result`.
   let rewrittenBlock: [Block.ID: Block.ID]
@@ -342,15 +432,18 @@ private struct Monomorphizer: InstructionTransformer {
   var rewrittenInstruction: [InstructionID: InstructionID] = [:]
 
   /// Returns the canonical, monomorphized form of `t`.
-  func transform(_ t: AnyType, in ir: inout IR.Program) -> AnyType {
-    ir.monomorphize(^t, for: specialization, usedIn: scopeOfUse)
+  func transform(_ t: AnyType) -> AnyType {
+    precondition(
+      transformedTypes[t] != nil, "Type \(t) was not transformed; check if it was properly observed"
+    )
+    return transformedTypes[t]!
   }
 
   /// Returns a monomorphized copy of `o`.
-  func transform(_ o: Operand, in ir: inout IR.Program) -> Operand {
+  func transform(_ o: Operand) -> Operand {
     switch o {
     case .constant(let c):
-      return .constant(transform(c, in: &ir))
+      return .constant(transform(c))
     case .parameter(let b, let i):
       return .parameter(rewrittenBlock[b]!, i)
     case .register(let s):
@@ -359,50 +452,31 @@ private struct Monomorphizer: InstructionTransformer {
   }
 
   /// Returns a monomorphized copy of `b`.
-  func transform(_ b: Block.ID, in ir: inout IR.Program) -> Block.ID {
+  func transform(_ b: Block.ID) -> Block.ID {
     rewrittenBlock[b]!
   }
 
   /// Returns a monomorphized copy of `c`.
-  private func transform(_ c: any Constant, in ir: inout IR.Program) -> any Constant {
+  private func transform(_ c: any Constant) -> any Constant {
     switch c {
     case let r as FunctionReference:
-      return transform(r, in: &ir)
+      return transform(r)
     case let t as MetatypeType:
-      return MetatypeType(transform(^t, in: &ir))!
+      return MetatypeType(transform(^t))!
     default:
       return c
     }
   }
 
   /// Returns a monomorphized copy of `c`.
-  private func transform(_ c: FunctionReference, in ir: inout IR.Program) -> FunctionReference {
+  private func transform(_ c: FunctionReference) -> FunctionReference {
     // Unspecialized references cannot refer to trait members, which are specialized for the
     // implicit `Self` parameter.
     if c.specialization.isEmpty {
       return c
     }
 
-    let s = ir.base.module(containing: scopeOfUse)
-    let f = transform(c.function, specializedBy: c.specialization, in: &ir)
-    return FunctionReference(to: f, in: ir.modules[s]!)
-  }
-
-  /// Returns a monomorphized copy of `f` specialized by `z` for use in `scopeOfUse`.
-  ///
-  /// If `f` is a trait requirement, the result is a monomorphized version of that requirement's
-  /// implementation, using `a` to identify the requirement's receiver. Otherwise, the result is
-  /// a monomorphized copy of `f`.
-  private func transform(
-    _ f: Function.ID, specializedBy z: GenericArguments, in ir: inout IR.Program
-  ) -> Function.ID {
-    let p = ir.base.specialize(z, for: specialization, in: scopeOfUse)
-    let q = ir.base.canonical(p, in: scopeOfUse)
-    if let m = ir.base.requirementDeclaring(memberReferredBy: f) {
-      return ir.monomorphize(m.decl, requiredBy: m.trait, for: q, usedIn: scopeOfUse)
-    } else {
-      return ir.monomorphize(f, for: q, usedIn: scopeOfUse)
-    }
+    return transformedFunctions[c]!
   }
 
 }

@@ -1,41 +1,35 @@
 import Utils
 
-/// The stable identity of an instruction in its module.
+/// The stable identity of an instruction in its function.
 ///
-/// - SeeAlso: `InstructionIndex`
+/// - SeeAlso: `AbsoluteInstructionID`
 public struct InstructionID: Hashable {
 
-  /// The function containing the instruction.
-  public let function: Function.ID
-
-  /// The block containing the instruction.
-  public let block: Function.Blocks.Address
-
   /// The identity of the instruction in its block.
-  public let address: Block.Instructions.Address
+  public let address: Function.Instructions.Address
 
   /// Creates an instance with the given properties.
   public init(
-    _ function: Function.ID,
-    _ block: Function.Blocks.Address,
-    _ address: Block.Instructions.Address
+    _ address: Function.Instructions.Address
   ) {
-    self.function = function
-    self.block = block
     self.address = address
   }
 
-  /// Creates an instance with the given properties.
-  public init(_ block: Block.ID, _ address: Block.Instructions.Address) {
-    self.function = block.function
-    self.block = block.address
-    self.address = address
+  /// Creates an instance from an absolute instruction ID.
+  public init(_ i: AbsoluteInstructionID) {
+    self.address = i.address
+  }
+
+  /// Creates an instance from an absolute instruction ID.
+  public init?(_ i: AbsoluteInstructionID?) {
+    guard let i = i else { return nil }
+    self.address = i.address
   }
 
 }
 
 extension InstructionID: CustomStringConvertible {
 
-  public var description: String { "i\(block).\(address)" }
+  public var description: String { "i\(address)" }
 
 }

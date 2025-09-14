@@ -6,15 +6,19 @@ extension Module {
   ///
   /// - Requires: `f` is in `self`.
   public mutating func removeDeadCode(in f: Function.ID, diagnostics: inout DiagnosticSet) {
-    removeUnusedDefinitions(from: f)
-    removeCodeAfterCallsReturningNever(from: f)
-    removeUnreachableBlocks(from: f)
+    self[f].removeUnusedDefinitions()
+    self[f].removeCodeAfterCallsReturningNever()
+    self[f].removeUnreachableBlocks()
   }
 
+}
+
+extension Function {
+
   /// Removes the instructions if `f` that have no user.
-  private mutating func removeUnusedDefinitions(from f: Function.ID) {
+  fileprivate mutating func removeUnusedDefinitions() {
     var s = Set<InstructionID>()
-    removeUnused(blocks(in: f).map(instructions(in:)).joined(), keepingTrackIn: &s)
+    removeUnused(instructionIDs, keepingTrackIn: &s)
   }
 
   /// Removes the instructions in `definitions` that have no user, accumulating the IDs of removed
@@ -32,23 +36,23 @@ extension Module {
   }
 
   /// Removes the basic blocks that have no predecessor from `f`, except its entry.
-  private mutating func removeUnreachableBlocks(from f: Function.ID) {
+  fileprivate mutating func removeUnreachableBlocks() {
     // Nothing to do if there isn't more than one block in the function.
-    if self[f].blocks.count < 2 { return }
+    if blocks.count < 2 { return }
 
     // Process all blocks except the entry.
-    var work = Array(self[f].blocks.addresses.dropFirst())
+    var work = Array(blockIDs.dropFirst())
     var e = work.count
     var changed = true
     while changed {
       // CFG is computed the first time and recomputed every time a mutation happened.
-      let cfg = self[f].cfg()
+      let cfg = cfg()
       changed = false
 
       var i = 0
       while i < e {
         if cfg.predecessors(of: work[i]).isEmpty {
-          removeBlock(.init(f, work[i]))
+          removeBlock(work[i])
           work.swapAt(i, e - 1)
           changed = true
           e -= 1
@@ -60,11 +64,11 @@ extension Module {
   }
 
   /// Removes the code after calls returning `Never` from `f`.
-  private mutating func removeCodeAfterCallsReturningNever(from f: Function.ID) {
-    for b in blocks(in: f) {
-      if let i = instructions(in: b).first(where: returnsNever) {
+  fileprivate mutating func removeCodeAfterCallsReturningNever() {
+    for b in blockIDs {
+      if let i = instructions(in: b).first(where: { returnsNever($0) }) {
         removeAllInstructions(after: i)
-        insert(makeUnreachable(at: self[i].site), at: .after(i))
+        makeUnreachable(at: self[i].site, insertingAt: .after(i))
       }
     }
   }

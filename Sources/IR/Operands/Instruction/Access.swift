@@ -67,7 +67,7 @@ extension Access: CustomStringConvertible {
 
 }
 
-extension Module {
+extension Function {
 
   /// Creates an `access` anchored at `site` that may take any of `capabilities` from `source`,
   /// optionally associated with a variable declaration in the AST.
@@ -84,6 +84,17 @@ extension Module {
       source: source,
       binding: binding,
       site: site)
+  }
+
+  /// Creates an `access` anchored at `site` that may take any of `capabilities` from `source`,
+  /// optionally associated with a variable declaration in the AST.
+  mutating func makeAccess(
+    _ capabilities: AccessEffectSet, from source: Operand,
+    correspondingTo binding: VarDecl.ID? = nil,
+    at site: SourceRange,
+    insertingAt p: InsertionPoint
+  ) -> InstructionID {
+    insert(makeAccess(capabilities, from: source, correspondingTo: binding, at: site), at: p)
   }
 
 }

@@ -34,7 +34,7 @@ public struct Store: Instruction {
 
 }
 
-extension Module {
+extension Function {
 
   /// Creates a `record` anchored at `site` that stores `object` at `target.
   ///
@@ -45,6 +45,15 @@ extension Module {
     precondition(type(of: object).isObject)
     precondition(type(of: target).isAddress)
     return .init(object: object, at: target, site: site)
+  }
+
+  /// Creates a `record` anchored at `site` that stores `object` at `target, inserting it at `p`.
+  ///
+  /// - Parameters:
+  ///   - object: The object to store. Must have an object type.
+  ///   - target: The location at which `object` is stored. Must have an address type.
+  mutating func makeStore(_ object: Operand, at target: Operand, at site: SourceRange, insertingAt p: InsertionPoint) -> InstructionID {
+    insert(makeStore(object, at: target, at: site), at: p)
   }
 
 }

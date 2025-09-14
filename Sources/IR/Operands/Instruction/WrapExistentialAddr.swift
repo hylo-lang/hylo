@@ -51,7 +51,7 @@ extension WrapExistentialAddr: CustomStringConvertible {
 
 }
 
-extension Module {
+extension Function {
 
   /// Creates a `wrap_existential_addr` anchored at `site` that creates an existential container of
   /// type `interface` wrapping `witness` and `table`.
@@ -66,6 +66,20 @@ extension Module {
   ) -> WrapExistentialAddr {
     precondition(type(of: witness).isAddress)
     return .init(witness: witness, table: table, interface: .address(interface), site: site)
+  }
+
+  /// Creates a `wrap_existential_addr` anchored at `site` that creates an existential container of
+  /// type `interface` wrapping `witness` and `table`, inserting it at `p`.
+  ///
+  /// - Parameters:
+  ///   - witness: The address of the object wrapped in the container.
+  ///   - interface: The type of the container.
+  ///   - table: The witness table of the wrapped value. Must be a pointer to a witness table.
+  mutating func makeWrapExistentialAddr(
+    _ witness: Operand, _ table: Operand, as interface: ExistentialType,
+    at site: SourceRange, insertingAt p: InsertionPoint
+  ) -> InstructionID {
+    insert(makeWrapExistentialAddr(witness, table, as: interface, at: site), at: p)
   }
 
 }
