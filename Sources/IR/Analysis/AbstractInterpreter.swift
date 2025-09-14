@@ -15,9 +15,6 @@ struct AbstractInterpreter<Domain: AbstractDomain> {
   /// A closure that processes `block` in `context`.
   typealias Interpret = (_ block: Block.ID, _ context: inout Context) -> Void
 
-  /// The function being interpreted.
-  private let subject: Function.ID
-
   /// The control flow graph of the function being interpreted.
   private var cfg: ControlFlowGraph
 
@@ -35,14 +32,12 @@ struct AbstractInterpreter<Domain: AbstractDomain> {
 
   /// Creates an interpreter analyzing `f` which is in `m`, starting with `entryContext`.
   init(
-    analyzing f: Function.ID,
-    in m: Module,
+    analyzing f: Function,
     entryContext: Context
   ) {
-    self.subject = f
-    self.cfg = m[f].cfg()
-    self.dominatorTree = DominatorTree(function: m[f], cfg: cfg)
-    self.state = [m[f].entry!: (sources: [], before: entryContext, after: Context())]
+    self.cfg = f.cfg()
+    self.dominatorTree = DominatorTree(function: f, cfg: cfg)
+    self.state = [f.entry!: (sources: [], before: entryContext, after: Context())]
     self.work = Deque(dominatorTree.bfs.dropFirst())
     self.done = []
   }
@@ -51,9 +46,9 @@ struct AbstractInterpreter<Domain: AbstractDomain> {
   ///
   /// Call this method to update the control-flow information used by this instance to guide
   /// abstract interpretation.
-  mutating func recomputeControlFlow(_ m: Module) {
-    cfg = m[subject].cfg()
-    dominatorTree = .init(function: m[subject], cfg: cfg)
+  mutating func recomputeControlFlow(_ f: Function) {
+    cfg = f.cfg()
+    dominatorTree = .init(function: f, cfg: cfg)
   }
 
   /// Removes `b` from the work list.

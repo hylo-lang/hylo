@@ -12,7 +12,7 @@ extension Module {
   ///
   /// - Requires: Borrows in `self` have been closed. `f` is in `self`.
   public mutating func normalizeObjectStates(in f: Function.ID, diagnostics: inout DiagnosticSet) {
-    var machine = AbstractInterpreter(analyzing: f, in: self, entryContext: entryContext(of: f))
+    var machine = AbstractInterpreter(analyzing: self[f], entryContext: entryContext(of: f))
 
     // Verify that object states are properly initialized/deinitialized in `b` given `context`,
     // updating `self` as necessary and reporting violations in `diagnostics`.
@@ -151,7 +151,7 @@ extension Module {
       // A stack leak may occur if this instruction is in a loop.
       let l = AbstractLocation.root(.register(i))
       precondition(context.memory[l] == nil, "stack leak")
-      context.declareStorage(assignedTo: i, from: f, in: self, initially: .uninitialized)
+      context.declareStorage(assignedTo: i, from: self[f], definedIn: program, initially: .uninitialized)
       return successor(of: i, in: b)
     }
 
@@ -324,13 +324,13 @@ extension Module {
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(genericParameter i: InstructionID, from b: Block.ID, in context: inout Context) -> PC? {
-      context.declareStorage(assignedTo: i, from: f, in: self, initially: .initialized)
+      context.declareStorage(assignedTo: i, from: self[f], definedIn: program, initially: .initialized)
       return successor(of: i, in: b)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(globalAddr i: InstructionID, from b: Block.ID, in context: inout Context) -> PC? {
-      context.declareStorage(assignedTo: i, from: f, in: self, initially: .initialized)
+      context.declareStorage(assignedTo: i, from: self[f], definedIn: program, initially: .initialized)
       return successor(of: i, in: b)
     }
 

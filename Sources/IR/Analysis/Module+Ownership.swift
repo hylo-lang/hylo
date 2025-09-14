@@ -9,7 +9,7 @@ extension Module {
   ///
   /// - Requires: `f` is in `self`.
   public func ensureExclusivity(in f: Function.ID, diagnostics: inout DiagnosticSet) {
-    var machine = AbstractInterpreter(analyzing: f, in: self, entryContext: entryContext(of: f))
+    var machine = AbstractInterpreter(analyzing: self[f], entryContext: entryContext(of: f))
 
     // Verify that access instructions in `b` satisfy the Law of Exclusivity given `context`,
     // reporting violations of exclusivity in `diagnostics`.
@@ -150,7 +150,7 @@ extension Module {
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(allocStack i: InstructionID, from f: Function.ID, in context: inout Context) {
-      context.declareStorage(assignedTo: i, from: f, in: self, initially: .unique)
+      context.declareStorage(assignedTo: i, from: self[f], definedIn: program, initially: .unique)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
@@ -219,12 +219,12 @@ extension Module {
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(genericParameter i: InstructionID, from f: Function.ID, in context: inout Context) {
-      context.declareStorage(assignedTo: i, from: f, in: self, initially: .unique)
+      context.declareStorage(assignedTo: i, from: self[f], definedIn: program, initially: .unique)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(globalAddr i: InstructionID, from f: Function.ID, in context: inout Context) {
-      context.declareStorage(assignedTo: i, from: f, in: self, initially: .unique)
+      context.declareStorage(assignedTo: i, from: self[f], definedIn: program, initially: .unique)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
