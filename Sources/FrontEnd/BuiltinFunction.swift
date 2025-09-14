@@ -454,17 +454,17 @@ extension BuiltinFunction {
     case .xor(let t):
       return .init(^t, ^t, to: ^t)
     case .signedAdditionWithOverflow(let t):
-      return .init(^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+      return .init(^t, ^t, to: ^TupleType([^t, .builtin(.i(1))]))
     case .unsignedAdditionWithOverflow(let t):
-      return .init(^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+      return .init(^t, ^t, to: ^TupleType([^t, .builtin(.i(1))]))
     case .signedSubtractionWithOverflow(let t):
-      return .init(^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+      return .init(^t, ^t, to: ^TupleType([^t, .builtin(.i(1))]))
     case .unsignedSubtractionWithOverflow(let t):
-      return .init(^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+      return .init(^t, ^t, to: ^TupleType([^t, .builtin(.i(1))]))
     case .signedMultiplicationWithOverflow(let t):
-      return .init(^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+      return .init(^t, ^t, to: ^TupleType([^t, .builtin(.i(1))]))
     case .unsignedMultiplicationWithOverflow(let t):
-      return .init(^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+      return .init(^t, ^t, to: ^TupleType([^t, .builtin(.i(1))]))
     case .icmp(_, let t):
       return .init(^t, ^t, to: .builtin(.i(1)))
     case .trunc(let s, let d):
@@ -674,65 +674,65 @@ extension BuiltinFunction {
     case .atomic_xor_seqcst(let t):
       return .init(.builtin(.ptr), ^t, to: ^t)
     case .atomic_cmpxchg_relaxed_relaxed(let t):
-      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType([^t, .builtin(.i(1))]))
     case .atomic_cmpxchg_relaxed_acquire(let t):
-      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType([^t, .builtin(.i(1))]))
     case .atomic_cmpxchg_relaxed_seqcst(let t):
-      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType([^t, .builtin(.i(1))]))
     case .atomic_cmpxchg_acquire_relaxed(let t):
-      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType([^t, .builtin(.i(1))]))
     case .atomic_cmpxchg_acquire_acquire(let t):
-      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType([^t, .builtin(.i(1))]))
     case .atomic_cmpxchg_acquire_seqcst(let t):
-      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType([^t, .builtin(.i(1))]))
     case .atomic_cmpxchg_release_relaxed(let t):
-      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType([^t, .builtin(.i(1))]))
     case .atomic_cmpxchg_release_acquire(let t):
-      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType([^t, .builtin(.i(1))]))
     case .atomic_cmpxchg_release_seqcst(let t):
-      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType([^t, .builtin(.i(1))]))
     case .atomic_cmpxchg_acqrel_relaxed(let t):
-      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType([^t, .builtin(.i(1))]))
     case .atomic_cmpxchg_acqrel_acquire(let t):
-      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType([^t, .builtin(.i(1))]))
     case .atomic_cmpxchg_acqrel_seqcst(let t):
-      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType([^t, .builtin(.i(1))]))
     case .atomic_cmpxchg_seqcst_relaxed(let t):
-      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType([^t, .builtin(.i(1))]))
     case .atomic_cmpxchg_seqcst_acquire(let t):
-      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType([^t, .builtin(.i(1))]))
     case .atomic_cmpxchg_seqcst_seqcst(let t):
-      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType([^t, .builtin(.i(1))]))
     case .atomic_cmpxchgweak_relaxed_relaxed(let t):
-      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType([^t, .builtin(.i(1))]))
     case .atomic_cmpxchgweak_relaxed_acquire(let t):
-      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType([^t, .builtin(.i(1))]))
     case .atomic_cmpxchgweak_relaxed_seqcst(let t):
-      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType([^t, .builtin(.i(1))]))
     case .atomic_cmpxchgweak_acquire_relaxed(let t):
-      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType([^t, .builtin(.i(1))]))
     case .atomic_cmpxchgweak_acquire_acquire(let t):
-      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType([^t, .builtin(.i(1))]))
     case .atomic_cmpxchgweak_acquire_seqcst(let t):
-      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType([^t, .builtin(.i(1))]))
     case .atomic_cmpxchgweak_release_relaxed(let t):
-      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType([^t, .builtin(.i(1))]))
     case .atomic_cmpxchgweak_release_acquire(let t):
-      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType([^t, .builtin(.i(1))]))
     case .atomic_cmpxchgweak_release_seqcst(let t):
-      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType([^t, .builtin(.i(1))]))
     case .atomic_cmpxchgweak_acqrel_relaxed(let t):
-      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType([^t, .builtin(.i(1))]))
     case .atomic_cmpxchgweak_acqrel_acquire(let t):
-      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType([^t, .builtin(.i(1))]))
     case .atomic_cmpxchgweak_acqrel_seqcst(let t):
-      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType([^t, .builtin(.i(1))]))
     case .atomic_cmpxchgweak_seqcst_relaxed(let t):
-      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType([^t, .builtin(.i(1))]))
     case .atomic_cmpxchgweak_seqcst_acquire(let t):
-      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType([^t, .builtin(.i(1))]))
     case .atomic_cmpxchgweak_seqcst_seqcst(let t):
-      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType(types: [^t, .builtin(.i(1))]))
+      return .init(.builtin(.ptr), ^t, ^t, to: ^TupleType([^t, .builtin(.i(1))]))
     case .atomic_fence_acquire:
       return .init(to: .void)
     case .atomic_fence_release:

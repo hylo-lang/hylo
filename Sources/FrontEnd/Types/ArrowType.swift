@@ -57,7 +57,7 @@ public struct ArrowType: TypeProtocol {
 
   /// Returns a thin type accepting `self`'s environment as parameters.
   public var lifted: ArrowType {
-    let elements = TupleType(environment).map(\.elements) ?? [.init(label: nil, type: environment)]
+    let elements = TupleType(environment).map(\.components) ?? [.init(label: nil, type: environment)]
     let p = elements.map { (e) -> CallableTypeParameter in
       if let t = RemoteType(e.type) {
         return .init(label: e.label, type: ^ParameterType(t))
@@ -84,16 +84,16 @@ public struct ArrowType: TypeProtocol {
 
     return ^ArrowType(
       receiverEffect: receiverEffect,
-      environment: ^TupleType(labelsAndTypes: [("self", r)]),
+      environment: ^TupleType([("self", r)]),
       inputs: inputs, output: output)
   }
 
   /// Accesses the individual elements of the lambda's environment.
-  public var captures: [TupleType.Element] {
-    func elements(_ t: AnyType) -> [TupleType.Element] {
+  public var captures: [TupleType.Component] {
+    func elements(_ t: AnyType) -> [TupleType.Component] {
       switch t.base {
       case let u as TupleType:
-        return u.elements
+        return u.components
       case let u as TypeAliasType:
         return elements(u.resolved)
       default:

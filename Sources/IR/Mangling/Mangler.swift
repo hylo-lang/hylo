@@ -645,7 +645,7 @@ struct Mangler {
   /// Writes the mangled representation of `t` to `output`.
   private mutating func append(tuple t: TupleType, to output: inout Output) {
     append(operator: .tupleType, to: &output)
-    append(items: t.elements, to: &output) { (me, e, o) in
+    append(items: t.components, to: &output) { (me, e, o) in
       me.append(string: e.label ?? "", to: &o)
       me.append(type: e.type, to: &o)
     }

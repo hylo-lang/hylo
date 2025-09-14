@@ -272,7 +272,7 @@ public struct TypedProgram {
     case let u as BufferType:
       return isTrivialModel(u.element, of: c.concept, in: c.scope)
     case let u as TupleType:
-      return u.elements.allSatisfy({ isTrivialModel($0.type, of: c.concept, in: c.scope) })
+      return u.components.allSatisfy({ isTrivialModel($0.type, of: c.concept, in: c.scope) })
     case let u as UnionType:
       return u.elements.allSatisfy({ isTrivialModel($0, of: c.concept, in: c.scope) })
     case is MetatypeType:
@@ -285,7 +285,7 @@ public struct TypedProgram {
   }
 
   /// If `t` has a record layout, returns the names and types of its stored properties.
-  public func storage(of t: AnyType) -> [TupleType.Element] {
+  public func storage(of t: AnyType) -> [TupleType.Component] {
     switch t.base {
     case let u as ArrowType:
       return storage(of: u)
@@ -296,7 +296,7 @@ public struct TypedProgram {
     case let u as ProductType:
       return storage(of: u)
     case let u as TupleType:
-      return u.elements
+      return u.components
     case let u as TypeAliasType:
       return storage(of: u.resolved)
     default:
@@ -306,15 +306,15 @@ public struct TypedProgram {
   }
 
   /// Returns the names and types of `t`'s stored properties.
-  public func storage(of t: ArrowType) -> [TupleType.Element] {
+  public func storage(of t: ArrowType) -> [TupleType.Component] {
     return [
-      TupleType.Element(label: "__f", type: .builtin(.ptr)),
-      TupleType.Element(label: "__e", type: t.environment),
+      TupleType.Component(label: "__f", type: .builtin(.ptr)),
+      TupleType.Component(label: "__e", type: t.environment),
     ]
   }
 
   /// Returns the names and types of `t`'s stored properties.
-  public func storage(of t: BoundGenericType) -> [TupleType.Element] {
+  public func storage(of t: BoundGenericType) -> [TupleType.Component] {
     storage(of: t.base).map { (p) in
       // FIXME: Probably wrong to specialize/canonicalize in any random scope.
       let arbitraryScope = AnyScopeID(base.ast.coreLibrary!)
@@ -326,7 +326,7 @@ public struct TypedProgram {
   }
 
   /// Returns the names and types of `t`'s stored properties.
-  public func storage(of t: BufferType) -> [TupleType.Element] {
+  public func storage(of t: BufferType) -> [TupleType.Component] {
     if let w = ConcreteTerm(t.count)?.value as? Int {
       return Array(repeating: .init(label: nil, type: t.element), count: w)
     } else {
@@ -335,8 +335,8 @@ public struct TypedProgram {
   }
 
   /// Returns the names and types of `t`'s stored properties.
-  public func storage(of t: ProductType) -> [TupleType.Element] {
-    var result: [TupleType.Element] = []
+  public func storage(of t: ProductType) -> [TupleType.Component] {
+    var result: [TupleType.Component] = []
     for b in ast[t.decl].members.filter(BindingDecl.self) {
       for (_, n) in ast.names(in: ast[b].pattern) {
         let partName = ast[ast[n].decl].baseName
@@ -463,7 +463,7 @@ public struct TypedProgram {
     case let m as ArrowType:
       guard conforms(m.environment, to: concept, in: scopeOfUse) else { return nil }
     case let m as TupleType:
-      guard allConform(m.elements.map(\.type), to: concept, in: scopeOfUse) else { return nil }
+      guard allConform(m.components.map(\.type), to: concept, in: scopeOfUse) else { return nil }
     case let m as UnionType:
       guard allConform(m.elements, to: concept, in: scopeOfUse) else { return nil }
     case is MetatypeType:

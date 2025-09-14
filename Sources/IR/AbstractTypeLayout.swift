@@ -13,7 +13,7 @@ public struct AbstractTypeLayout {
   public let type: AnyType
 
   /// The stored properties in `type`, in the order in which they are laid out.
-  public let properties: [TupleType.Element]
+  public let properties: [TupleType.Component]
 
   /// Creates the abstract layout of `t` defined in `p`.
   public init<T: TypeProtocol>(of t: T, definedIn p: TypedProgram) {

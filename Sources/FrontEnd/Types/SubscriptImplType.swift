@@ -38,7 +38,7 @@ public struct SubscriptImplType: TypeProtocol {
   public var isThin: Bool { environment.isVoid }
 
   /// Accesses the individual elements of the arrow's environment.
-  public var captures: [TupleType.Element] { TupleType(environment)?.elements ?? [] }
+  public var captures: [TupleType.Component] { TupleType(environment)?.components ?? [] }
 
   public func transformParts<M>(
     mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction

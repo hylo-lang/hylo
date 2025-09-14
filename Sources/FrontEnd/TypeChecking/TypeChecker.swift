@@ -424,7 +424,7 @@ struct TypeChecker {
     case let m as RemoteType:
       return conforms(m.bareType, to: trait, in: scopeOfUse)
     case let m as TupleType:
-      return m.elements.allSatisfy({ conforms($0.type, to: trait, in: scopeOfUse) })
+      return m.components.allSatisfy({ conforms($0.type, to: trait, in: scopeOfUse) })
     case let m as TypeAliasType:
       return structurallyConforms(m.aliasee.value, to: trait, in: scopeOfUse)
     case let m as UnionType:
@@ -2717,7 +2717,7 @@ struct TypeChecker {
   /// - Requires: `d` is not a member declaration.
   private mutating func uncheckedCaptureTypes<T: CapturingDecl>(
     of d: T.ID
-  ) -> (explicit: [TupleType.Element], implicit: [TupleType.Element]) {
+  ) -> (explicit: [TupleType.Component], implicit: [TupleType.Component]) {
     let e = explicitCaptures(program[d].explicitCaptures, of: d)
     let i = implicitCaptures(of: d, ignoring: Set(e.map(\.label!)))
     return (e, i)
@@ -2855,8 +2855,8 @@ struct TypeChecker {
   /// Returns the types of the explicit captures `cs` of `d`.
   private mutating func explicitCaptures<T: Decl & LexicalScope>(
     _ cs: [BindingDecl.ID], of d: T.ID
-  ) -> [TupleType.Element] {
-    var result: [TupleType.Element] = []
+  ) -> [TupleType.Component] {
+    var result: [TupleType.Component] = []
     var sibligns = Set<String>()
 
     for c in cs {
@@ -2885,7 +2885,7 @@ struct TypeChecker {
   /// Returns the implicit captures found in the body of `d`.
   private mutating func implicitCaptures<T: CapturingDecl>(
     of d: T.ID, ignoring explicitCaptures: Set<String>
-  ) -> [TupleType.Element] {
+  ) -> [TupleType.Component] {
     // Only local declarations have captures.
     if !program.isLocal(d) {
       cache.write([], at: \.implicitCaptures[d])
@@ -2905,7 +2905,7 @@ struct TypeChecker {
     }
 
     var captures: [ImplicitCapture] = []
-    var types: [TupleType.Element] = []
+    var types: [TupleType.Component] = []
     for (c, x) in captureToStemAndEffect {
       let t = resolveType(of: c, exposedTo: AnyScopeID(d), reportingDiagnosticsAt: program[d].site)
       if t[.hasError] { continue }
@@ -5769,15 +5769,15 @@ struct TypeChecker {
     updating obligations: inout ProofObligations
   ) -> AnyType {
     let elements = program[e].elements
-    var elementTypes: [TupleType.Element] = []
+    var elementTypes: [TupleType.Component] = []
 
     // If the expected type is a tuple compatible with the shape of the expression, propagate that
     // information down the expression tree. Otherwise, infer the type of the expression from the
     // leaves and use type constraints to detect potential mismatch.
     if let type = TupleType(hint),
-      type.elements.elementsEqual(elements, by: { (a, b) in a.label == b.label?.value })
+      type.components.elementsEqual(elements, by: { (a, b) in a.label == b.label?.value })
     {
-      for (t, e) in zip(type.elements, elements) {
+      for (t, e) in zip(type.components, elements) {
         let u = inferredType(of: e.value, withHint: t.type, updating: &obligations)
         elementTypes.append(.init(label: e.label?.value, type: u))
       }
@@ -5801,7 +5801,7 @@ struct TypeChecker {
     let t = ^freshVariable()
     let i = program[e].index
     obligations.insert(
-      TupleMemberConstraint(s, at: i.value, hasType: t, origin: .init(.member, at: i.site)))
+      TupleMemberConstraint(s, component: i.value, hasType: t, origin: .init(.member, at: i.site)))
     return constrain(e, to: t, in: &obligations)
   }
 
@@ -5811,7 +5811,7 @@ struct TypeChecker {
     of e: TupleTypeExpr.ID, withHint hint: AnyType? = nil,
     updating obligations: inout ProofObligations
   ) -> AnyType {
-    var elementTypes: [TupleType.Element] = []
+    var elementTypes: [TupleType.Component] = []
     for e in program[e].elements {
       let t = evalPartialTypeAnnotation(e.type, updating: &obligations) ?? .error
       elementTypes.append(.init(label: e.label?.value, type: t))
@@ -6034,7 +6034,7 @@ struct TypeChecker {
 
     // If we have a context, it must be a tuple or a variable.
     if let t = TupleType(h) {
-      if t.elements.count != program[p].elements.count {
+      if t.components.count != program[p].elements.count {
         return skip(.error(invalidDestructuringOfType: h, at: program[p].site))
       }
 
@@ -6042,7 +6042,7 @@ struct TypeChecker {
       var rhs: [String?] = []
 
       // Visit the elements pairwise.
-      for (a, b) in zip(program[p].elements, t.elements) {
+      for (a, b) in zip(program[p].elements, t.components) {
         let t = inferredType(of: a.pattern, withHint: b.type, updating: &obligations)
         if t.isError { return .error }
         lhs.append(a.label?.value)

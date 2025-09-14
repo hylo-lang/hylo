@@ -3,8 +3,8 @@ import Utils
 /// A tuple type.
 public struct TupleType: TypeProtocol {
 
-  /// An element in a tuple type.
-  public struct Element: Hashable {
+  /// A part of a tuple type.
+  public struct Component: Hashable {
 
     /// Creates an instance having the given properties.
     public init(label: String?, type: AnyType) {
@@ -20,36 +20,36 @@ public struct TupleType: TypeProtocol {
 
   }
 
-  /// The elements of the tuple.
-  public let elements: [Element]
+  /// The components of the tuple.
+  public let components: [Component]
 
   public let flags: ValueFlags
 
-  /// Creates a tuple type with a sequence of elements.
-  public init<S: Sequence>(_ elements: S) where S.Element == Element {
-    self.elements = Array(elements)
-    self.flags = ValueFlags(self.elements.map(\.type.flags))
+  /// Creates a tuple type having the given components.
+  public init<S: Sequence>(_ components: S) where S.Element == Component {
+    self.components = Array(components)
+    self.flags = ValueFlags(self.components.map(\.type.flags))
   }
 
-  /// Creates a tuple type with a sequence of label-type pairs.
-  public init<S: Sequence>(labelsAndTypes: S) where S.Element == (String?, AnyType) {
-    self.init(labelsAndTypes.map({ Element(label: $0.0, type: $0.1) }))
+  /// Creates a tuple type having the given components.
+  public init<S: Sequence>(_ components: S) where S.Element == (String?, AnyType) {
+    self.init(components.map({ Component(label: $0.0, type: $0.1) }))
   }
 
-  /// Creates a tuple of unlabeled elements with the types in the given sequence.
-  public init<S: Sequence>(types: S) where S.Element == AnyType {
-    self.init(types.map({ Element(label: nil, type: $0) }))
+  /// Creates a tuple having the given unlabeled components.
+  public init<S: Sequence>(_ components: S) where S.Element == AnyType {
+    self.init(components.map({ Component(label: nil, type: $0) }))
   }
 
   /// The labels of the tuple.
-  public var labels: LazyMapSequence<[Element], String?> {
-    elements.lazy.map(\.label)
+  public var labels: LazyMapSequence<[Component], String?> {
+    components.lazy.map(\.label)
   }
 
   public func transformParts<M>(
     mutating m: inout M, _ transformer: (inout M, AnyType) -> TypeTransformAction
   ) -> Self {
-    let newElements = elements.map { (e) -> Element in
+    let newElements = components.map { (e) -> Component in
       .init(label: e.label, type: e.type.transform(mutating: &m, transformer))
     }
     return TupleType(newElements)
@@ -60,16 +60,16 @@ public struct TupleType: TypeProtocol {
 extension TupleType: CustomStringConvertible {
 
   public var description: String {
-    if (elements.count == 1) && (elements[0].label == nil) {
-      return "{\(elements[0]),}"
+    if (components.count == 1) && (components[0].label == nil) {
+      return "{\(components[0]),}"
     } else {
-      return "{\(list: elements)}"
+      return "{\(list: components)}"
     }
   }
 
 }
 
-extension TupleType.Element: CustomStringConvertible {
+extension TupleType.Component: CustomStringConvertible {
 
   public var description: String {
     if let label = label {

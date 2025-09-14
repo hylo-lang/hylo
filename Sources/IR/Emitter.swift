@@ -523,7 +523,7 @@ struct Emitter {
 
     let r = RemoteType(.set, program.canonical(typeOf: d))
     let l = ArrowType(
-      receiverEffect: .set, environment: ^TupleType(types: [^r]), inputs: [], output: .void)
+      receiverEffect: .set, environment: ^TupleType([^r]), inputs: [], output: .void)
     let f = SynthesizedFunctionDecl(
       .globalInitialization(d), typed: l, parameterizedBy: [], in: program[d].scope)
     let i = lower(globalBindingInitializer: f)
