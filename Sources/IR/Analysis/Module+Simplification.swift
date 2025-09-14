@@ -4,10 +4,19 @@ extension Module {
 
   /// Eliminates redundant instructions and fold address computations in `f`.
   public mutating func simplify(_ f: Function.ID) {
-    for b in self[f].blockIDs {
-      var i = self[f].firstInstruction(in: b)
+    self[f].simplify()
+  }
+
+}
+
+extension Function {
+
+  /// Eliminates redundant instructions and fold address computations in `f`.
+  public mutating func simplify() {
+    for b in blockIDs {
+      var i = firstInstruction(in: b)
       while let n = i {
-        i = eliminateRedundantAccess(n, of: b, in: f)
+        i = eliminateRedundantAccess(n, of: b)
       }
     }
   }
@@ -19,22 +28,22 @@ extension Module {
   /// uses of its source.
   ///
   /// Replaces all the uses of `i`, not just the ones in `b`.
-  private mutating func eliminateRedundantAccess(_ i: InstructionID, of b: Block.ID, in f: Function.ID) -> InstructionID? {
+  private mutating func eliminateRedundantAccess(_ i: InstructionID, of b: Block.ID) -> InstructionID? {
     guard
-      let s = self[i, in: f] as? Access,
-      let r = self[s.source, in: f] as? Access,
+      let s = self[i] as? Access,
+      let r = self[s.source] as? Access,
       s.capabilities == r.capabilities, s.binding == nil
     else {
-      return self[f].instruction(after: i, in: b)
+      return instruction(after: i, in: b)
     }
 
-    for u in self[f].allUses(of: i) where self[f][u.user] is EndAccess {
-      self[f].removeInstruction(u.user)
+    for u in allUses(of: i) where self[u.user] is EndAccess {
+      removeInstruction(u.user)
     }
-    self[f].replaceUses(of: .register(i), with: s.source)
+    replaceUses(of: .register(i), with: s.source)
 
-    defer { self[f].removeInstruction(i) }
-    return self[f].instruction(after: i, in: b)
+    defer { removeInstruction(i) }
+    return instruction(after: i, in: b)
   }
 
 }
