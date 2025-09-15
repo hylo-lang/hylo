@@ -139,6 +139,20 @@ extension Function {
     return lhs.address.precedes(rhs.address, in: instructions)
   }
 
+  /// Returns `true` iff `lhs` is sequenced before `rhs` on at least one path.
+  func precedesAcrossBlocks(_ lhs: InstructionID, _ rhs: InstructionID) -> Bool {
+    let leftBlock  = blockForInstruction[lhs]!
+    let rightBlock = blockForInstruction[rhs]!
+    // Fast path: both instructions are in the same block.
+    if leftBlock == rightBlock {
+      return lhs.address.precedes(rhs.address, in: instructions)
+    }
+
+    // Slow path: use the control flow graph.
+    let cfg = cfg()
+    return cfg.paths(to: rightBlock, from: leftBlock).count > 0
+   }
+
   /// Returns the global identity of `block`'s terminator, if it exists.
   func terminator(of block: Block.ID) -> InstructionID? {
     self[block].last
