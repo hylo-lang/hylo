@@ -10,9 +10,8 @@ Please visit our **[website](https://hylo-lang.org)** to get more information ab
 
 ## Development/Use Requirements
 
-This project is written in [Swift](https://swift.org) and distributed in the form of a package, built with [Swift Package Manager](https://swift.org/package-manager/).
-You will need Swift 5.9 or higher to build the compiler from sources.
-
+This project is written in [Swift](https://swift.org) and distributed in the form of a package, built with either [Swift Package Manager](https://swift.org/package-manager/) or CMake.
+You will need Swift 6.1 or higher to build the compiler from sources.
 **This repository contains
 [submodules](https://git-scm.com/book/en/v2/Git-Tools-Submodules)**,
 so after cloning, issue `git submodule update --init` to populate
@@ -24,22 +23,21 @@ for them before checking it out.
 
 ### LLVM
 
-This package requires LLVM 20.  Major versions of LLVM are not
+This package requires LLVM 20. Major versions of LLVM are not
 interchangeable or backward-compatible.
 
-If you are using this package for development we strongly recommend
-the use of an LLVM with assertions enabled such as
-[these](https://github.com/hylo-lang/llvm-build); otherwise it's much
-too easy to violate LLVM's preconditions without knowing it.  This
-package's devcontainer (in the `.devcontainer` subdirectory) has an
-assert-enabled LLVM build preinstalled in
-`/opt/llvm-MinSizeRel`. Instructions to install a debug build are in a
-comment in `.devcontainer/Dockerfile`.
+If you are using this package for development, we strongly recommend
+the use of an LLVM with assertions enabled; otherwise it's too
+easy to violate LLVM's preconditions without knowing it. 
+You can download such a prebuilt LLVM package from Hylo's 
+[LLVM builds](https://github.com/hylo-lang/llvm-build).
+If you are using development containers, this is already installed preinstalled on the system. Run `llvm-config --prefix` to see where.
 
-*If* you want to build with the Swift Package Manager and you choose
-to get LLVM some other way, you'll need an installation with an
-`llvm-config` executable, which we will use to create a `pkg-config`
-file for LLVM.
+*If* you want to build with the Swift Package Manager, you need to have [pkg-config](https://linux.die.net/man/1/pkg-config)
+installed, and `<YOUR LLVM>/pkgconfig` added to the `PKG_CONFIG_PATH` environment variable.
+
+On **Windows**, make sure to set the environment variable `VSINSTALLDIR` to something like
+`C:/Program Files/Microsoft Visual Studio/2022/Community`, without `/` at the end. This is needed for LLVM to locate the DIA SDK.
 
 ## Building with CMake and Ninja
 
@@ -48,24 +46,17 @@ file for LLVM.
    to the root directory of your LLVM installation,
 
 	```
-	cmake -D CMAKE_BUILD_TYPE=<build-type> \
-	  -D LLVM_DIR=<LLVM>/lib/cmake/llvm   \
-      -G Ninja -S . -B <build-directory>
+	cmake -D CMAKE_BUILD_TYPE=<build-type> -D LLVM_DIR=<LLVM>/lib/cmake/llvm -DBUILD_TESTING=1 -G Ninja -S . -B .build
     ```
-
-    (on Windows substitute your shell's line continuation character
-    for `\` or just remove the line breaks and backslashes).
+ 
+    If you don't want to run tests, remove `-DBUILD_TESTING=1`.
     
-    If you want to run tests, add `-DBUILD_TESTING=1`.
-    
-    **Note:** on macOS, if you are not using your Xcode's default
-    toolchain, [you may need `-D
+    > **MacOS-specific flags**
+   > 
+   > - If you are not using the default Swift toolchain, [you may need `-D
     CMAKE_Swift_COMPILER=swiftc`](https://gitlab.kitware.com/cmake/cmake/-/issues/25750)
     to prevent CMake from using Xcode's default `swift`.
-    
-    If this command fails it could be because you have an LLVM without
-    CMake support installed; we suggest you try one of
-    [these](https://github.com/hylo-lang/llvm-build) packages instead.
+   > - Add `-DCMAKE_OSX_SYSROOT=$(xcrun --show-sdk-path)`
 
 2.  **Build**: 
 
@@ -109,38 +100,10 @@ we're considering dropping our use of it, so think about [using CMake
 with ninja](#building-with-cmake-and-ninja) or [with
 Xcode](#building-with-cmake-and-xcode) instead.
 
-First, you need to create a `pkgconfig` file specific to your
-installation and make it visible to your build tools.  We use a `bash`
-script as follows in the top-level directory of this project:
+Make sure to have followed the instructions regarding LLVM setup above and have your `<LLVM installation>/pkgconfig` 
+added to the `PKG_CONFIG_PATH` environment variable.
 
-```bash
-./Tools/make-pkgconfig.sh ./llvm.pc
-``` 
-
-if you are on Windows, your `git` installation (which is required for
-Swift) contains a `bash` executable so you can do something like:
-
-```bash
-C:\Program Files\Git\bin\bash ./Tools/make-pkgconfig.sh ./llvm.pc
-``` 
-
-The command above generates `llvm.pc` in the current directory and
-prints its contents to the terminal.  You can either add its directory
-to your `PKG_CONFIG_PATH` environment variable for use with
-command-line tools:
-
-```bash
-export PKG_CONFIG_PATH=$PWD
-```
-
-or you can put it somewhere that `pkg_config` already searches (needed
-for use with Xcode):
-
-```bash
-sudo mkdir -p /usr/local/lib/pkgconfig && sudo mv llvm.pc /usr/local/lib/pkgconfig/
-```
-
-Once `llvm.pc` is set up, you should be able to **build this project**
+Now you should be able to **build this project**
 using Swift package manager:
 
 ```bash
@@ -161,7 +124,6 @@ swift test -c release --parallel
 1. Add `platforms: [.macOS("xxx")]` to `Package.swift` where `xxx` is
    your macOS version to address the warning complaining that an
    "object file was built for newer macOS version than being linked".
-2. You may need to add the path to `zstd` library in `llvm.pc`.
 
 ### Building a Hylo Devcontainer with VSCode
 
