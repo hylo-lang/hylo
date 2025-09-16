@@ -1,7 +1,7 @@
 import Utils
 
 /// Context to interpret the generic parameters of a declaration.
-public struct GenericEnvironment {
+public struct GenericEnvironment: Sendable {
 
   /// The declaration associated with the environment.
   public let decl: AnyDeclID

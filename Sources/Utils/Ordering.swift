@@ -1,5 +1,5 @@
 /// The result type of a three-way comparison implementing a strict total order.
-public enum StrictOrdering: Hashable {
+public enum StrictOrdering: Hashable, Sendable {
 
   /// The LHS is ordered before the RHS.
   case ascending

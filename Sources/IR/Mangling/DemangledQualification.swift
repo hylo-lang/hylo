@@ -1,5 +1,5 @@
 /// The demangled qualification of a symbol.
-public indirect enum DemangledQualification: Hashable {
+public indirect enum DemangledQualification: Hashable, Sendable {
 
   /// An entity.
   case entity(DemangledEntity)

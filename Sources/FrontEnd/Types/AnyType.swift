@@ -2,7 +2,7 @@ import OrderedCollections
 import Utils
 
 /// A box wrapping a type.
-private protocol TypeBox {
+private protocol TypeBox: Sendable {
 
   /// Hashes the salient parts of the wrapped value into `hasher`.
   func hash(into hasher: inout Hasher)
@@ -56,7 +56,7 @@ private struct ConcreteTypeBox<Base: TypeProtocol>: TypeBox {
 }
 
 /// The (static) type of an entity.
-public struct AnyType {
+public struct AnyType: Sendable {
 
   /// Hylo's `Any` type.
   public static let any = ^ExistentialType(traits: [], constraints: [])

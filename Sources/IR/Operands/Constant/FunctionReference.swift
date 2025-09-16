@@ -2,7 +2,7 @@ import FrontEnd
 import Utils
 
 /// A Hylo IR reference to a user function.
-public struct FunctionReference: Constant, Hashable {
+public struct FunctionReference: Constant, Hashable, Sendable {
 
   /// The ID of the referred IR function.
   public let function: Function.ID

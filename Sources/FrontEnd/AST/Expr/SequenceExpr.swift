@@ -2,7 +2,7 @@
 public struct SequenceExpr: Expr {
 
   /// The operator and right operand in an unfolded sequence of infix expressions.
-  public struct TailElement: Codable {
+  public struct TailElement: Codable, Sendable {
 
     /// The operator.
     public var `operator`: NameExpr.ID

@@ -24,6 +24,8 @@ public struct RegionExit<Entry: RegionEntry> {
 
 }
 
+extension RegionExit: Sendable where Entry: Sendable {}
+
 extension RegionExit: CustomStringConvertible {
 
   public var description: String {
