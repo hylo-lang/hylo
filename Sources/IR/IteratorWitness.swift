@@ -1,7 +1,7 @@
 import FrontEnd
 
 /// The witness of a type's conformance to the `Iterator` trait from the standard library.
-struct IteratorWitness {
+struct IteratorWitness: Sendable {
 
   /// The implementation of the `Iterator.Element`.
   let element: AnyType

@@ -8,7 +8,7 @@ import Utils
 /// block may invalidate existing indices.
 ///
 /// - SeeAlso: `InstructionID`
-public struct InstructionIndex: Hashable {
+public struct InstructionIndex: Hashable, Sendable {
 
   /// The function containing the instruction.
   public let function: Function.ID

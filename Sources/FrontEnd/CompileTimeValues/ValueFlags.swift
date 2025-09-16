@@ -1,5 +1,5 @@
 /// Properties about the representation of a type or term.
-public struct ValueFlags: Hashable, OptionSet {
+public struct ValueFlags: Hashable, OptionSet, Sendable {
 
   public typealias RawValue = UInt8
 

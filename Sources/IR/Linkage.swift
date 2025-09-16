@@ -1,5 +1,5 @@
 /// The linkage of an IR symbol.
-public enum Linkage {
+public enum Linkage: Sendable {
 
   /// The denoted entity can be referred from any module.
   case external

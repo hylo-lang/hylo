@@ -16,7 +16,7 @@ extension Process {
   public typealias OutputText = (standardOutput: Lazy<String>, standardError: Lazy<String>)
 
   /// The results of a process run that exited with a nonzero code.
-  public struct NonzeroExit: Error {
+  public struct NonzeroExit: Error, Sendable {
 
     /// The nonzero exit code of the process run.
     public let terminationStatus: Int32

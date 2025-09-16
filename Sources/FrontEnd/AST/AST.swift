@@ -1,7 +1,7 @@
 import Utils
 
 /// An abstract syntax tree.
-public struct AST {
+public struct AST: Sendable {
 
   /// A function inserting the contents of a module in `ast`, registering the identities of newly
   /// formed ASTs in `nodeSpace` and reporting diagnostics to `log`.

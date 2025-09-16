@@ -1,7 +1,7 @@
 import Foundation
 
 /// A line of a source file.
-public struct SourceLine: Hashable {
+public struct SourceLine: Hashable, Sendable {
 
   /// The source file containing the position.
   public let file: SourceFile
