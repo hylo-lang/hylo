@@ -1,7 +1,7 @@
 import Utils
 
 /// A subset of a program's refinement relation containing all the bases of a single trait.
-struct RefinementClosure: Equatable {
+struct RefinementClosure: Equatable, Sendable {
 
   /// The refinement relationships of a closure.
   typealias Refinements = DirectedGraph<TraitType, NoLabel>

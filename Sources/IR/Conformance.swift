@@ -1,13 +1,13 @@
 import FrontEnd
 
 /// Where, how, and under what conditions a type satisfies the requirements of a trait.
-public struct Conformance {
+public struct Conformance: Sendable {
 
   /// A map from requirement to their implementation.
   public typealias ImplementationMap = DeclProperty<Implementation>
 
   /// The lowered implementation of a requirement.
-  public enum Implementation {
+  public enum Implementation: Sendable {
 
     /// The implementation of a function or subscript requirement.
     case function(FunctionReference)

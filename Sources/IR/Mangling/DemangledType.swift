@@ -2,7 +2,7 @@ import FrontEnd
 import Utils
 
 /// The payload of a `DemangledSymbol.type`.
-public indirect enum DemangledType: Hashable {
+public indirect enum DemangledType: Hashable, Sendable {
 
   /// The `Any` type.
   case any
@@ -69,7 +69,7 @@ public indirect enum DemangledType: Hashable {
   case tuple([Parameter])
 
   /// A parameter of a callable symbol.
-  public struct Parameter: Hashable {
+  public struct Parameter: Hashable, Sendable {
 
     /// The argument label of the parameter.
     let label: String?

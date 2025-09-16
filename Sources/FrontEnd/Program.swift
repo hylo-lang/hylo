@@ -1,7 +1,7 @@
 import Utils
 
 /// Types representing Hylo programs at some stage after syntactic and scope analysis.
-public protocol Program {
+public protocol Program: Sendable {
 
   /// The AST of the program.
   var ast: AST { get }

@@ -1,7 +1,7 @@
 import Utils
 
 /// A collection of declaration identifiers.
-public struct DeclIDs {
+public struct DeclIDs: Sendable {
 
   /// Instances are notionally the concatenation of two collections `front` and `back` such that
   /// `front` only contains type extending declarations and `back` contains none. `insert(_:)`

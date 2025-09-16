@@ -1,5 +1,5 @@
 /// A rule in a rewriting system.
-struct RewritingRule<Term: RewritingTerm>: Equatable {
+struct RewritingRule<Term: RewritingTerm>: Equatable, Sendable {
 
   /// The left-hand side of the rule.
   let lhs: Term
@@ -51,7 +51,7 @@ extension RewritingRule where Term == RequirementTerm {
 }
 
 /// A set of flags associated with a rewriting rule.
-struct RequirementRuleFlags: OptionSet {
+struct RequirementRuleFlags: OptionSet, Sendable {
 
   typealias RawValue = UInt8
 

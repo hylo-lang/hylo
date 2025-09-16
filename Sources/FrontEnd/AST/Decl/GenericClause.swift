@@ -1,5 +1,5 @@
 /// A generic clause.
-public struct GenericClause: Codable {
+public struct GenericClause: Codable, Sendable {
 
   /// The parameters of the clause.
   public let parameters: [GenericParameterDecl.ID]

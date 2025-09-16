@@ -5,13 +5,13 @@ import Utils
 /// This data structure describes relation between the basic blocks of a function. The direction of
 /// the graph's edges denotes the direction of the control flow from one block to another: there an
 /// edge from `A` to `B` if the former's terminator points to the latter.
-struct ControlFlowGraph {
+struct ControlFlowGraph: Sendable {
 
   /// A node in the graph.
   typealias Vertex = Function.Blocks.Address
 
   /// An control edge label.
-  enum Label {
+  enum Label: Sendable {
 
     /// A label denoting that the source is a predecessor of the target.
     case forward

@@ -2,7 +2,7 @@ import Foundation
 import Utils
 
 /// A data structure representing a typed Hylo program ready to be lowered.
-public struct TypedProgram {
+public struct TypedProgram: Sendable {
 
   /// A set of conformances represented to answer "does A conform to T in S" efficiently.
   public typealias ConformanceSet = [AnyType: ConformanceTable]
@@ -63,8 +63,8 @@ public struct TypedProgram {
     annotating base: ScopedProgram,
     inParallel typeCheckingIsParallel: Bool = false,
     reportingDiagnosticsTo log: inout DiagnosticSet,
-    tracingInferenceIf shouldTraceInference: ((AnyNodeID, TypedProgram) -> Bool)? = nil,
-    loggingRequirementSystemIf shouldLogRequirements: ((AnyDeclID, TypedProgram) -> Bool)? = nil
+    tracingInferenceIf shouldTraceInference: (@Sendable (AnyNodeID, TypedProgram) -> Bool)? = nil,
+    loggingRequirementSystemIf shouldLogRequirements: (@Sendable (AnyDeclID, TypedProgram) -> Bool)? = nil
   ) throws {
     let instanceUnderConstruction = SharedMutable(TypedProgram(partiallyFormedFrom: base))
 
@@ -88,11 +88,14 @@ public struct TypedProgram {
       }
     }
 
-    self = try instanceUnderConstruction.read {
+    self = try instanceUnderConstruction.read { p in
+      let tracingInferenceIf = typeCheckingIsParallel ? nil : shouldTraceInference
+      let loggingRequirementSystemIf = typeCheckingIsParallel ? nil : shouldLogRequirements
+      
       var checker = TypeChecker(
-        constructing: $0,
-        tracingInferenceIf: typeCheckingIsParallel ? nil : shouldTraceInference,
-        loggingRequirementSystemIf: typeCheckingIsParallel ? nil : shouldLogRequirements)
+        constructing: p,
+        tracingInferenceIf: tracingInferenceIf,
+        loggingRequirementSystemIf: loggingRequirementSystemIf)
       checker.checkAllDeclarations()
 
       log.formUnion(checker.diagnostics)
@@ -112,8 +115,8 @@ public struct TypedProgram {
   ///     `true` if a trace of type inference should be logged on the console for that node.
   public func loadModule(
     reportingDiagnosticsTo log: inout DiagnosticSet,
-    tracingInferenceIf shouldTraceInference: ((AnyNodeID, TypedProgram) -> Bool)? = nil,
-    loggingRequirementSystemIf shouldLogRequirements: ((AnyDeclID, TypedProgram) -> Bool)? = nil,
+    tracingInferenceIf shouldTraceInference: (@Sendable (AnyNodeID, TypedProgram) -> Bool)? = nil,
+    loggingRequirementSystemIf shouldLogRequirements: (@Sendable (AnyDeclID, TypedProgram) -> Bool)? = nil,
     creatingContentsWith make: AST.ModuleLoader
   ) throws -> Module {
     let (p, m) = try base.loadModule(
@@ -141,14 +144,17 @@ public struct TypedProgram {
     /// The checker used by this operation.
     private var checker: TypeChecker
 
+    /// Potentially unnecessary lock for thread safety.
+    private let lock = NSLock()
+
     /// Creates a task type checking `sources` with a checker identified by `checkerIdentifier`,
     /// constructing `instanceUnderConstruction`.
     init(
       _ sources: [TranslationUnit.ID],
       withCheckerIdentifiedBy checkerIdentifier: UInt8,
       collaborativelyConstructing instanceUnderConstruction: SharedMutable<TypedProgram>,
-      tracingInferenceIf shouldTraceInference: ((AnyNodeID, TypedProgram) -> Bool)?,
-      loggingRequirementSystemIf shouldLogRequirements: ((AnyDeclID, TypedProgram) -> Bool)?
+      tracingInferenceIf shouldTraceInference: (@Sendable (AnyNodeID, TypedProgram) -> Bool)?,
+      loggingRequirementSystemIf shouldLogRequirements: (@Sendable (AnyDeclID, TypedProgram) -> Bool)?
     ) {
       self.sources = sources
       self.checker = TypeChecker(
@@ -160,13 +166,17 @@ public struct TypedProgram {
 
     /// Executes the operation.
     override func main() {
-      checker.check(sources)
-      checker.synchronize()
+      lock.withLock {
+        checker.check(sources)
+        checker.synchronize()
+      }
     }
 
     /// The diagnostic reported during type checker.
     var diagnostics: DiagnosticSet {
-      checker.diagnostics
+      lock.withLock {
+        checker.diagnostics
+      }
     }
 
   }

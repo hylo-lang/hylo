@@ -865,7 +865,7 @@ extension State: CustomStringConvertible {
 }
 
 /// Classification of a record type's subfields into uninitialized, initialized, and consumed sets.
-private struct SubfieldsByInitializationState {
+private struct SubfieldsByInitializationState: Sendable {
 
   /// The paths to the initialized parts.
   var initialized: [RecordPath]

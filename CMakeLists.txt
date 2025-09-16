@@ -2,6 +2,8 @@
 # Standard project boilerplate
 #
 cmake_minimum_required(VERSION 3.30)
+set(CMAKE_OSX_DEPLOYMENT_TARGET 14.0)
+set(CMAKE_Swift_LANGUAGE_VERSION 6)
 
 project(Hylo
   VERSION 0.1.0
@@ -12,14 +14,11 @@ project(Hylo
 enable_testing()
 include(CTest)
 
-set(CMAKE_OSX_DEPLOYMENT_TARGET "13.0")
-
 list(PREPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/modules)
-set(CMAKE_Swift_LANGUAGE_VERSION 5)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ${BUILD_SHARED_LIBS}) # Needed?
 set(CMAKE_Swift_COMPILE_OPTIONS
-  -warnings-as-errors)
+  -warnings-as-errors --verbose)
 if(BUILD_TESTING)
   list(APPEND CMAKE_Swift_COMPILE_OPTIONS -enable-testing)
 endif()

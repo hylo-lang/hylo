@@ -1,5 +1,5 @@
 /// A character boundary in a source file.
-public struct SourcePosition: Hashable {
+public struct SourcePosition: Hashable, Sendable{
 
   /// The source file containing the position.
   public let file: SourceFile
@@ -51,7 +51,7 @@ extension SourcePosition: Comparable {
 
 extension SourcePosition: Codable {
 
-  fileprivate enum CodingKeys: String, CodingKey {
+  fileprivate enum CodingKeys: String, CodingKey, Sendable {
 
     case file, index
 
