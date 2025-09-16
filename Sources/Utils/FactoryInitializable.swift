@@ -1,5 +1,5 @@
 /// Classes whose initializers actually create derived classes
-public protocol FactoryInitializable {
+public protocol FactoryInitializable: Sendable {
 
   /// The type of the least-derived class declared to be FactoryInitializable.
   ///

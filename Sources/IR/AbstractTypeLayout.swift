@@ -1,7 +1,7 @@
 import FrontEnd
 
 /// The abstract layout of a type, describing the relative offsets of its stored properties.
-public struct AbstractTypeLayout {
+public struct AbstractTypeLayout: Sendable {
 
   /// The name and type of a stored property.
   public typealias StoredProperty = (name: String?, type: AnyType)

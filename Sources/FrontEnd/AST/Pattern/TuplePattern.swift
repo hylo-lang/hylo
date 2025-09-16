@@ -2,7 +2,7 @@
 public struct TuplePattern: Pattern {
 
   /// An element in a tuple pattern.
-  public struct Element: Codable {
+  public struct Element: Codable, Sendable {
 
     /// The label of the element.
     public var label: SourceRepresentable<String>?

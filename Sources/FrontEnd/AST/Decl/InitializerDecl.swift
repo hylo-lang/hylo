@@ -4,7 +4,7 @@ public struct InitializerDecl: ExposableDecl, GenericDecl {
   public static let constructDescription = "initializer declaration"
 
   /// The introducer of an initializer declaration.
-  public enum Introducer: Codable {
+  public enum Introducer: Codable, Sendable {
 
     /// The initializer introducer, `init`.
     case `init`

@@ -3,10 +3,10 @@ import Utils
 /// A constraint `F(A1, ..., An) -> R` or `F[A1, ..., An]: R` specifying that `F` is the type of a
 /// callable object that returns or projects (respectively) instances of `R` when called with
 /// arguments of types `A1, ..., An`.
-struct CallConstraint: Constraint, Hashable {
+struct CallConstraint: Constraint, Hashable, Sendable {
 
   /// The label, type, and site of an argument passed to a callable object.
-  struct Argument: Hashable {
+  struct Argument: Hashable, Sendable {
 
     /// The label of the argument.
     let label: SourceRepresentable<String>?

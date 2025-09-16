@@ -1,5 +1,5 @@
 /// The site from which a constraint originates and the reason why it was formed.
-struct ConstraintOrigin: Hashable {
+struct ConstraintOrigin: Hashable, Sendable {
 
   /// The reason why a constraint was formed.
   enum Kind: Hashable {

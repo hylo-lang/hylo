@@ -1,5 +1,5 @@
 /// A half-open range of textual positions in a source file.
-public struct SourceRange: Hashable {
+public struct SourceRange: Hashable, Sendable {
 
   /// The file containing the source text.
   public let file: SourceFile

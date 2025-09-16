@@ -1,4 +1,4 @@
-public struct DistinctNameGenerator<Key: Equatable> {
+public struct DistinctNameGenerator<Key: Equatable & Sendable>: Sendable {
 
   private var nameToOccurrences: [String: [Key]] = [:]
 
