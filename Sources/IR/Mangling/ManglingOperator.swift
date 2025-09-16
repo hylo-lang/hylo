@@ -2,7 +2,7 @@ import FrontEnd
 import Utils
 
 /// A one or two letter identifier specifying how to interpret mangled data.
-public enum ManglingOperator: String {
+public enum ManglingOperator: String, Sendable {
 
   case productTypeDecl = "A"
 

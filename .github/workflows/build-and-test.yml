@@ -44,7 +44,7 @@ on:
 env:
   spm-build-options: -Xswiftc -enable-testing --explicit-target-dependency-import-check error
   spm-test-options: --parallel
-  swift-version: '5.10'
+  swift-version: '6.1'
 
 jobs:
   determine-version:
@@ -64,23 +64,27 @@ jobs:
 
   devcontainer:
     needs: determine-version
-    name: Ubuntu dev container/${{ matrix.cmake_build_type }}
+    name: Ubuntu dev container/${{ matrix.build-system }}/${{ matrix.config }}
     strategy:
       fail-fast: false
       matrix:
-        cmake_build_type: [Debug, Release]
+        config: [debug, release]
+        build-system: [cmake, spm]
+        HYLO_LLVM_BUILD_TYPE: [MinSizeRel]
 
         include:
-          - spm_configuration: debug
-            cmake_build_type: Debug
+          # Map config to cmake build type
+          - config: debug
+            cmake-build-type: Debug
+          - config: release
+            cmake-build-type: Release
+
+          # Enable code coverage for this specific job (devcontainer, spm debug build)
+          - config: debug
+            build-system: spm
             more-spm-test-options: --enable-code-coverage
-            HYLO_LLVM_BUILD_TYPE: MinSizeRel
 
-          - spm_configuration: release
-            cmake_build_type: Release
-            HYLO_LLVM_BUILD_TYPE: MinSizeRel
-
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
@@ -93,19 +97,29 @@ jobs:
       - name: Initialize Dev Container
         uses: devcontainers/ci@v0.3
         with:
-          runCmd: uname -a
+          runCmd: uname -a # Just print OS information
           push: never
 
+      # CMAKE BASED BUILD ================================================================
       - name: Build and Test via CMake
+        if: ${{ matrix.build-system == 'cmake' }}
         uses: devcontainers/ci@v0.3
         env:
           HYLO_LLVM_BUILD_TYPE: ${{ matrix.HYLO_LLVM_BUILD_TYPE }}
         with:
           runCmd: >-
+            set -exu # fail fast, print commands before executing, treat unset variables as an error
+
+            LLVM_DIR="$(llvm-config --prefix)/lib/cmake/llvm"
+
+            echo "Using LLVM_DIR: $LLVM_DIR"
+          
+            ls "$LLVM_DIR"
+          
             cmake -GNinja -S . -B .cmake-build
-            -DCMAKE_BUILD_TYPE=${{ matrix.cmake_build_type }}
+            -DCMAKE_BUILD_TYPE="${{ matrix.cmake-build-type }}"
             -DBUILD_TESTING=YES
-            -DLLVM_DIR=/opt/llvm-${{ matrix.HYLO_LLVM_BUILD_TYPE }}/lib/cmake/llvm
+            -DLLVM_DIR="$LLVM_DIR"
 
             cmake --build .cmake-build
 
@@ -116,111 +130,64 @@ jobs:
             ctest --output-on-failure --parallel --test-dir .cmake-build
           push: never
 
-      - name: Reclaim disk space
-        run: rm -rf .cmake-build
-
+      # SPM BASED BUILD =================================================================
       - name: Restore Cache for SPM
+        if: ${{ matrix.build-system == 'spm' }}
         uses: actions/cache@v4
         with:
           path: .build
-          key: devcontainer-${{ matrix.spm_configuration }}-spm-${{ hashFiles('**/Package.resolved') }}
+          key: devcontainer-${{ matrix.config }}-spm-${{ hashFiles('**/Package.resolved') }}
           restore-keys: |
             ${{ runner.os }}-spm-
 
       - name: Build and Test via SPM
+        if: ${{ matrix.build-system == 'spm' }}
         uses: devcontainers/ci@v0.3
-        with:
+        with: # todo make pipe fail if first command fails
           runCmd: |
-            llvm-cov-15 --version
-            swift test -c ${{ matrix.spm_configuration }} ${{ env.spm-build-options }} ${{ env.spm-test-options }} ${{ matrix.more-spm-test-options }}
+            /usr/bin/llvm-cov --version
+            swift test -c ${{ matrix.config }} ${{ env.spm-build-options }} ${{ env.spm-test-options }} ${{ matrix.more-spm-test-options }}
           push: never
 
       - name: Export Coverage
         uses: devcontainers/ci@v0.3
-        if: ${{ contains(matrix.more-spm-test-options, '--enable-code-coverage') }}
+        if: ${{ matrix.build-system == 'spm' && contains(matrix.more-spm-test-options, '--enable-code-coverage') }}
         with:
           runCmd: |
             shopt -s nullglob
-            dot_os=(.build/${{ matrix.spm_configuration }}/*.build/*.o .build/${{ matrix.spm_configuration }}/*.build/**/*.o)
+            dot_os=(.build/${{ matrix.config }}/*.build/*.o .build/${{ matrix.config }}/*.build/**/*.o)
             bin_params=("${dot_os[0]}")
             for o in "${dot_os[@]:1}"; do
               bin_params+=("-object" "${o}")
             done
             # Note: on mac using llvm-cov from Xcode might require a leading xcrun.
-            llvm-cov-15 export -format="lcov" -instr-profile "$(swift test -c ${{ matrix.spm_configuration }} --show-codecov-path | xargs dirname)"/default.profdata "${bin_params[@]}" > info.lcov
+            /usr/bin/llvm-cov export -format="lcov" -instr-profile "$(swift test -c ${{ matrix.config }} --show-codecov-path | xargs dirname)"/default.profdata "${bin_params[@]}" > info.lcov
           push: never
 
       - name: Upload coverage reports to Codecov
-        if: ${{ contains(matrix.more-spm-test-options, '--enable-code-coverage') }}
-        uses: codecov/codecov-action@v4.5.0
+        if: ${{ matrix.build-system == 'spm' && contains(matrix.more-spm-test-options, '--enable-code-coverage') }}
+        uses: codecov/codecov-action@v5
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: true
 
       - name: Output compiler version
+        if: ${{ matrix.build-system == 'spm' }}
         uses: devcontainers/ci@v0.3
         with:
-          runCmd: .build/${{ matrix.spm_configuration }}/hc --version
+          runCmd: .build/${{ matrix.config }}/hc --version
           push: never
 
-  native:
+  native-spm:
     needs: determine-version
-    name: "Native: ${{ matrix.os }}/${{ matrix.spm_configuration }}/${{ matrix.cmake_generator }}"
+    name: "Native: ${{ matrix.exact-os }}/SPM/${{ matrix.config }}"
     strategy:
       fail-fast: false
       matrix:
-        os: [macos-14, ubuntu-latest, windows-latest]
-        spm_configuration: [debug, release]
-        cmake_generator: [Ninja, Xcode]
+        exact-os: [macos-14, ubuntu-24.04, windows-2025]
+        config: [debug, release]
 
-        exclude:
-          - os: ubuntu-latest
-            cmake_generator: Xcode
-          - os: windows-latest
-            cmake_generator: Xcode
-
-        include:
-          - HYLO_LLVM_BUILD_RELEASE: 20250603-162600
-          - HYLO_LLVM_BUILD_TYPE: MinSizeRel
-          - HYLO_LLVM_DOWNLOAD_URL: https://github.com/hylo-lang/llvm-build/releases/download
-          - HYLO_LLVM_VERSION: '17.0.6'
-          - llvm_package_suffix: .tar.zst
-          - unpackage_command: tar -x --zstd -f
-          # https://github.com/apple/swift/issues/72121
-          - windows_only: '# WINDOWS ONLY:'
-          - use_spm: true
-          - triple_cpu: x86_64
-
-          - os: windows-latest
-            unpackage_command: 7z x -t7z
-            llvm_package_suffix: .7z
-            triple_suffix: unknown-windows-msvc17
-            windows_only: ''
-
-          - os: windows-latest
-            use_spm: false
-
-          - os: macos-14
-            triple_suffix: apple-darwin24.1.0
-            triple_cpu: arm64
-
-          - os: ubuntu-latest
-            triple_suffix: unknown-linux-gnu
-
-          - spm_configuration: debug
-            cmake_build_type: Debug
-
-          - spm_configuration: release
-            cmake_build_type: Release
-
-          - cmake_generator: Xcode
-            use_spm: false
-
-    runs-on: ${{ matrix.os }}
-    env:
-      llvm_url_prefix: ${{ matrix.HYLO_LLVM_DOWNLOAD_URL }}/${{ matrix.HYLO_LLVM_BUILD_RELEASE }}
-      llvm_package_basename: llvm-${{ matrix.HYLO_LLVM_VERSION }}-${{ matrix.triple_cpu }}-${{ matrix.triple_suffix }}-${{ matrix.HYLO_LLVM_BUILD_TYPE }}
-
+    runs-on: ${{ matrix.exact-os }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -234,89 +201,38 @@ jobs:
         run: ./Tools/set-hc-version.sh ${{ needs.determine-version.outputs.version }}
         shell: bash
 
-      - name: Set up swift (non-Windows)
-        if: ${{ runner.os != 'Windows' }}
+      - name: Set up LLVM
+        uses: hylo-lang/get-llvm@v0.2.2
+
+      - name: Set up swift
         uses: SwiftyLab/setup-swift@latest
         with:
-          swift-version: ${{ env.swift-version }}
+          swift-version: ${{ env.swift-version }} # already verifies Swift version
 
-      - uses: compnerd/gha-setup-vsdevenv@main
+      - name: Set up Visual Studio Development Environment (Windows)
+        if: ${{ runner.os == 'Windows' }}
+        uses: compnerd/gha-setup-vsdevenv@main
         with:
           winsdk: "10.0.22621.0" # Workaround for this: https://forums.swift.org/t/swiftpm-plugin-doesnt-work-with-the-latest-visual-studio-version/78183/14
           # TL;DR: The Windows SDK had a change in 10.0.26100.0 that the Swift compiler didn't account for.
           # The Swift compiler team is aware of the issue and they are going to release a fix some time.
-      - name: Set up swift (Windows)
-        if: ${{ runner.os == 'Windows' }}
-        uses: compnerd/gha-setup-swift@v0.2.2
-        with:
-          branch: swift-${{ env.swift-version }}-release
-          tag: ${{ env.swift-version }}-RELEASE
 
-      - name: Verify swift version
-        run: swift --version && swift --version | grep -q ${{ env.swift-version }}
-        shell: bash
-
-      - name: Set up latest CMake and Ninja
-        uses: lukka/get-cmake@latest
-        with:
-          cmakeVersion: latestrc
-
-      - name: Install LLVM
-        # 7z doesn't support decompressing from a stream or we'd do this all as one statement. Maybe
-        # we should find a way to use zstd on windows.
-        run: >-
-          curl --no-progress-meter -L -O
-          -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}"
-          ${{ env.llvm_url_prefix }}/${{ env.llvm_package_basename }}${{ matrix.llvm_package_suffix }}
-
-          ${{ matrix.unpackage_command }} ${{ env.llvm_package_basename }}${{ matrix.llvm_package_suffix }}
-
-      - name: Configure (CMake)
-        # We explicitly point to swiftc in the PATH because otherwise CMake picks up the one in XCode.
-        run: >-
-          cmake -G '${{ matrix.cmake_generator }}' -S . -B .cmake-build
-          ${{ matrix.cmake_generator != 'Xcode' && format('-DCMAKE_BUILD_TYPE={0}', matrix.cmake_build_type) || '' }}
-          -DBUILD_TESTING=YES
-          -DLLVM_DIR=${{ github.workspace }}/${{ env.llvm_package_basename }}/lib/cmake/llvm
-          ${{ runner.os == 'macOS' && '-D CMAKE_Swift_COMPILER=swiftc -DCMAKE_OSX_SYSROOT=$(xcrun --show-sdk-path)' || '' }}
-        working-directory: hylo
-
-      - name: Build (CMake)
-        run: cmake --build hylo/.cmake-build ${{ matrix.cmake_generator == 'Xcode' && format('--config {0}', matrix.cmake_build_type) || '' }}
-
-      - name: Test (CMake)
-        run: ctest --output-on-failure --parallel --test-dir hylo/.cmake-build ${{ matrix.cmake_generator == 'Xcode' && format('-C {0}', matrix.cmake_build_type) || '' }}
-
-      - if: ${{ matrix.use_spm }}
-        name: Create LLVM pkgconfig file and make it findable
-        run: >-
-          set -ex -o pipefail
-
-          mkdir pkg-config
-
-          PATH="${{ github.workspace }}/${{ env.llvm_package_basename }}/bin:$PATH"
-            hylo/Tools/make-pkgconfig.sh pkg-config/llvm.pc
-
-          echo 'PKG_CONFIG_PATH=${{ github.workspace }}/pkg-config' >> "$GITHUB_ENV"
-        shell: bash
-
-      - if: ${{ matrix.use_spm }}
+      - name: SPM cache setup
         # Workaround for https://github.com/actions/cache/issues/1541
         uses: actions/cache@v4.2.2
-        name: SPM cache setup
         with:
           path: hylo/.build
-          key: ${{ matrix.os }}-${{ matrix.spm_configuration }}-spm-${{ hashFiles('hylo/**/Package.resolved') }}
+          key: ${{ matrix.exact-os }}-${{ matrix.config }}-spm-${{ hashFiles('hylo/**/Package.resolved') }}
           restore-keys: |
-            ${{ matrix.os }}-${{ matrix.spm_configuration }}-spm-
+            ${{ matrix.exact-os }}-${{ matrix.config }}-spm-
 
-      - if: ${{ matrix.use_spm && runner.os == 'Windows' }}
-        name: Build support library
+      - name: Build support library (Only for SPM on Windows)
+        if: ${{ runner.os == 'Windows' }}
         run: clang -c ./StandardLibrary/Sources/LibC.c -o HyloLibC.lib
         working-directory: hylo
 
-      - if: ${{ matrix.use_spm && runner.os == 'Windows' }}
-        name: Build the dependencies of build tools
+      - name: Build the dependencies of build tools
+        if: ${{ runner.os == 'Windows' }}
         run: |
           echo 'SPM_BUILD_TOOL_SUPPORT_NO_REENTRANT_BUILD=1' >> $env:GITHUB_ENV
           swift build ${{ env.spm-build-options }} --target BuildToolDependencies
@@ -326,20 +242,106 @@ jobs:
           }
         working-directory: hylo
 
-      - if: ${{ matrix.use_spm }}
-        name: Build
+      - name: Build
         run: |
-          swift build -c ${{ matrix.spm_configuration }} ${{ env.spm-build-options }} --build-tests
-          ${{ matrix.windows_only }} if (-not $?) { swift build ${{ env.spm-build-options }} --target BuildToolDependencies }
-
+          swift build -c ${{ matrix.config }} ${{ env.spm-build-options }} --build-tests
+          if (-not $?) { swift build ${{ env.spm-build-options }} --target BuildToolDependencies } 
+        # Reason for second line: https://github.com/apple/swift/issues/72121
+        shell: pwsh
         working-directory: hylo
 
-      - if: ${{ matrix.use_spm }}
-        name: Test
+      - name: Test
         run: |
-          swift test --skip-build -c ${{ matrix.spm_configuration }} ${{ env.spm-build-options }} ${{ env.spm-test-options }}
-          ${{ matrix.windows_only }} if (-not $?) { swift test -c ${{ matrix.spm_configuration }} ${{ env.spm-test-options }} }
+          swift test --skip-build -c ${{ matrix.config }} ${{ env.spm-build-options }} ${{ env.spm-test-options }}
+          if (-not $?) { swift test -c ${{ matrix.config }} ${{ env.spm-test-options }} }
+        # Reason for second line: https://github.com/apple/swift/issues/72121
+        shell: pwsh
         working-directory: hylo
+
+
+  native-cmake:
+    needs: determine-version
+    name: "Native: ${{ matrix.exact-os }}/CMake/${{ matrix.cmake-build-type }}/${{ matrix.cmake-generator }}"
+    strategy:
+      fail-fast: false
+      matrix:
+        # Temporarily disable CMake builds on macOS because of some compilation issues regarding tgmath.h used by the Algorithms library transitively.
+        exact-os: [ubuntu-24.04, windows-2025, macos-14] # macos-14
+        cmake-generator: [Ninja, Xcode]
+        cmake-build-type: [Debug, Release]
+
+        exclude:
+          # Exclude Xcode for non-macOS platforms
+          - exact-os: ubuntu-24.04
+            cmake-generator: Xcode
+
+          - exact-os: windows-2025
+            cmake-generator: Xcode
+
+          - exact-os: macos-14
+            cmake-generator: Xcode
+          # Todo add back Xcode after migrating to macos-15. See compatibility table at
+          # https://developer.apple.com/support/xcode/#:~:text=and%20other%C2%A0developers.-,Xcode%20Releases,-Latest%20Xcode%20versions 
+          # Note: there are some breaking changes between macos 14 and 15 regarding the Encoder/Decoder protocols.
+
+    runs-on: ${{ matrix.exact-os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+          show-progress: false
+          path: hylo
+
+      - name: Set compiler version
+        working-directory: hylo
+        run: ./Tools/set-hc-version.sh ${{ needs.determine-version.outputs.version }}
+        shell: bash
+
+      - name: Set up LLVM
+        uses: hylo-lang/get-llvm@v0.2.2
+
+      - name: Set up Swift
+        uses: SwiftyLab/setup-swift@latest
+        with:
+          swift-version: ${{ env.swift-version }} # already verifies Swift version
+
+      - name: Set up Visual Studio Development Environment (Windows)
+        if: ${{ runner.os == 'Windows' }}
+        uses: compnerd/gha-setup-vsdevenv@main
+        with:
+          winsdk: "10.0.22621.0" # Workaround for this: https://forums.swift.org/t/swiftpm-plugin-doesnt-work-with-the-latest-visual-studio-version/78183/14
+          # TL;DR: The Windows SDK had a change in 10.0.26100.0 that the Swift compiler didn't account for.
+          # The Swift compiler team is aware of the issue and they are going to release a fix some time.
+
+      - name: Set up latest CMake and Ninja
+        uses: lukka/get-cmake@latest
+        with:
+          cmakeVersion: latestrc
+
+      - name: CMake Configure
+        shell: bash
+        run: >-
+          set -exu # fail fast, print commands before executing, treat unset variables as an error
+
+          LLVM_DIR="$(llvm-config --prefix)/lib/cmake/llvm"
+
+          echo "Using LLVM_DIR: $LLVM_DIR"
+          
+          ls "$LLVM_DIR"
+
+          cmake -G '${{ matrix.cmake-generator }}' -S . -B .cmake-build
+          ${{ matrix.cmake-generator != 'Xcode' && format('-DCMAKE_BUILD_TYPE={0}', matrix.cmake-build-type) || '' }}
+          -DBUILD_TESTING=YES
+          -DLLVM_DIR="$LLVM_DIR"
+          ${{ runner.os == 'macOS' && '-DCMAKE_Swift_COMPILER=$(xcrun -f swiftc) -DCMAKE_OSX_SYSROOT=$(xcrun --show-sdk-path)' || '' }}
+        working-directory: hylo
+
+      - name: Build
+        run: cmake --build hylo/.cmake-build ${{ matrix.cmake-generator == 'Xcode' && format('--config {0}', matrix.cmake-build-type) || '' }}
+
+      - name: Test
+        run: ctest --output-on-failure --parallel --test-dir hylo/.cmake-build ${{ matrix.cmake-generator == 'Xcode' && format('-C {0}', matrix.cmake-build-type) || '' }}
 
       - name: Output compiler version
         run: cmake --build hylo/.cmake-build --target output_compiler_version -- --quiet&

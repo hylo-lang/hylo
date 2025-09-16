@@ -23,7 +23,7 @@ import Utils
 /// the other cases have documentation describing their semantics and Hylo signature.  Supported
 /// LLVM operations include all arithmetic and comparison instructions on built-in integral and
 /// floating-point numbers as well as conversions from and to these types.
-public enum BuiltinFunction: Hashable {
+public enum BuiltinFunction: Hashable, Sendable {
 
   // MARK: Functions unique to Hylo
 
@@ -375,7 +375,7 @@ public enum BuiltinFunction: Hashable {
   /// A set of customizations to the behavior of floating point operations.
   ///
   /// The meaning of each customization is given by the LLVM option of the same name.
-  public struct MathFlags: OptionSet, Hashable {
+  public struct MathFlags: OptionSet, Hashable, Sendable {
 
     public typealias RawValue = UInt8
 
@@ -1606,7 +1606,7 @@ extension BuiltinFunction.MathFlags {
 /// if such instance cannot be parsed.
 ///
 /// - Note: a prefix of `tokens` may have been consumed even if the function returns `nil`.
-private typealias BuiltinFunctionParser<T> = (_ tokens: inout ArraySlice<Substring>) -> T?
+private typealias BuiltinFunctionParser<T> = @Sendable (_ tokens: inout ArraySlice<Substring>) -> T?
 
 /// Returns a parser that consumes an element equal to `s` and returns `.some(s)`, or returns
 /// `.some(nil)` if such an element can't be consumed.
@@ -1626,7 +1626,7 @@ private func exactly(_ s: String) -> BuiltinFunctionParser<String> {
 
 /// Returns a parser that returns the result of applying `a` and then `b` or `nil` if either `a`
 /// or `b` returns `nil`.
-private func ++ <A, B>(
+private func ++ <A: Sendable, B: Sendable>(
   _ a: @escaping BuiltinFunctionParser<A>, _ b: @escaping BuiltinFunctionParser<B>
 ) -> BuiltinFunctionParser<(A, B)> {
   { (stream: inout ArraySlice<Substring>) -> (A, B)? in
@@ -1645,11 +1645,13 @@ private func take<T: RawRepresentable>(
 }
 
 /// Returns a built-in type parsed from `stream`.
+@Sendable
 private func builtinType(_ stream: inout ArraySlice<Substring>) -> BuiltinType? {
   stream.popFirst().flatMap(BuiltinType.init(_:))
 }
 
 /// Returns the longest sequence of floating-point math flags that can be parsed from `stream`.
+@Sendable
 private func mathFlags(_ stream: inout ArraySlice<Substring>) -> BuiltinFunction.MathFlags {
   var result: BuiltinFunction.MathFlags = []
   while let x = stream.first {
@@ -1661,6 +1663,7 @@ private func mathFlags(_ stream: inout ArraySlice<Substring>) -> BuiltinFunction
 }
 
 /// Returns an overflow behavior parsed from `stream` or `.ignore` if none can be parsed.
+@Sendable
 private func overflowBehavior(
   _ stream: inout ArraySlice<Substring>
 ) -> OverflowBehavior {

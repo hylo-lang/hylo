@@ -1,7 +1,7 @@
 import FrontEnd
 
 /// Hylo's demangling algorithm.
-struct Demangler {
+struct Demangler: Sendable {
 
   /// The list of demangled strings, in order of appearance (a.k.a. the string lookup table).
   private var strings: [Substring] = []

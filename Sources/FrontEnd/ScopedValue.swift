@@ -15,6 +15,8 @@ public struct ScopedValue<Value> {
 
 }
 
+extension ScopedValue: Sendable where Value: Sendable {}
+
 extension ScopedValue: Equatable where Value: Equatable {}
 
 extension ScopedValue: Hashable where Value: Hashable {}
