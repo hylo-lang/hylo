@@ -17,7 +17,7 @@ struct AbstractObject<Domain: AbstractDomain>: Equatable, Sendable {
   ///
   /// - Requires: `i` is a valid index in `layout`.
   mutating func withSubobject<T>(_ offset: Int, _ action: (inout AbstractObject) -> T) -> T {
-    precondition(layout.properties.count > 0)
+    precondition(layout.properties.count > 0, "Cannot access subobject of non-composite type \(layout.type)")
 
     var parts: [Value]
     if case .partial(let p) = value {

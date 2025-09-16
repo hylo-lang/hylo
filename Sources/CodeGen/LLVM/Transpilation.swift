@@ -1690,9 +1690,12 @@ extension SwiftyLLVM.Module {
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(return i: IR.InstructionID) {
       if context.source[f].isSubscript {
+        let results = insertCall(SwiftyLLVM.Function(intrinsic(named: Intrinsic.llvm.coro.end.results)!)!,
+                                 on: [], at: insertionPoint)
+
         _ = insertCall(
           SwiftyLLVM.Function(intrinsic(named: Intrinsic.llvm.coro.end)!)!,
-          on: [frame!, i1.zero],
+          on: [frame!, i1.zero, results],
           at: insertionPoint)
         _ = insertUnreachable(at: insertionPoint)
       } else {
