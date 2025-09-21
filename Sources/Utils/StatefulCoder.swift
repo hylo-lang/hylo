@@ -14,15 +14,15 @@ public protocol StatefulCoder {
   associatedtype Encoding = Data
 
   /// The storage vehicle for state.
-  var userInfo: [CodingUserInfoKey: Any] { get set }
+  var userInfo: [CodingUserInfoKey: any Sendable] { get set }
 
 }
 
 extension StatefulCoder {
 
   /// Injects initialState into `self` for use as mutable storage during encoding/decoding.
-  public mutating func setState<T>(_ initialState: T) {
-    userInfo[stateKey] = Box(initialState)
+  public mutating func setState<T: Sendable>(_ initialState: T) {
+    userInfo[stateKey] = SharedMutable(initialState)
   }
 
 }
@@ -43,7 +43,7 @@ extension StatefulEncoder {
 
   /// Returns a serialized representation of `subject`, using `startState` as the initial encoding
   /// state.
-  public mutating func encode<T, State>(_ value: T, startState: State) throws -> Encoding
+  public mutating func encode<T, State: Sendable>(_ value: T, startState: State) throws -> Encoding
   where T: Encodable {
     setState(startState)
     defer { setState(0) }  // Discard state, just in case `self` persists.
@@ -68,7 +68,7 @@ extension StatefulDecoder {
 
   /// Returns the `T` value that was serialized into `archive`, using `startState` as the initial
   /// decoding state.
-  public mutating func decode<T, State>(_ type: T.Type, from encodedT: Encoding, startState: State)
+  public mutating func decode<T, State: Sendable>(_ type: T.Type, from encodedT: Encoding, startState: State)
     throws -> T where T: Decodable
   {
     setState(startState)
