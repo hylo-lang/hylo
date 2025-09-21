@@ -33,9 +33,6 @@ You can download such a prebuilt LLVM package from Hylo's
 [LLVM builds](https://github.com/hylo-lang/llvm-build).
 If you are using development containers, this is already installed preinstalled on the system. Run `llvm-config --prefix` to see where.
 
-*If* you want to build with the Swift Package Manager, you need to have [pkg-config](https://linux.die.net/man/1/pkg-config)
-installed, and `<YOUR LLVM>/pkgconfig` added to the `PKG_CONFIG_PATH` environment variable.
-
 On **Windows**, make sure to set the environment variable `VSINSTALLDIR` to something like
 `C:/Program Files/Microsoft Visual Studio/2022/Community`, without `/` at the end. This is needed for LLVM to locate the DIA SDK.
 
@@ -47,22 +44,19 @@ On **Windows**, make sure to set the environment variable `VSINSTALLDIR` to some
 
 	```
 	cmake -D CMAKE_BUILD_TYPE=<build-type> -D LLVM_DIR=<LLVM>/lib/cmake/llvm -DBUILD_TESTING=1 -G Ninja -S . -B .build
-    ```
+   ```
  
-    If you don't want to run tests, remove `-DBUILD_TESTING=1`.
+   If you don't want to run tests, remove `-DBUILD_TESTING=1`.
     
-    > **MacOS-specific flags**
-   > 
-   > - If you are not using the default Swift toolchain, [you may need `-D
-    CMAKE_Swift_COMPILER=swiftc`](https://gitlab.kitware.com/cmake/cmake/-/issues/25750)
-    to prevent CMake from using Xcode's default `swift`.
-   > - Add `-DCMAKE_OSX_SYSROOT=$(xcrun --show-sdk-path)`
+   **MacOS-specific flags**
+    - If you are not using the default Swift toolchain, [you may need `-D CMAKE_Swift_COMPILER=swiftc`](https://gitlab.kitware.com/cmake/cmake/-/issues/25750) to prevent CMake from using Xcode's default `swift`.
+    - Add `-DCMAKE_OSX_SYSROOT=$(xcrun --show-sdk-path)`
 
-2.  **Build**: 
+2. **Build**: 
 
-    ```
-    cmake --build <build-directory>
-    ```
+   ```
+   cmake --build <build-directory>
+   ```
 
 3. **Test** (requires `-DBUILD_TESTING=1` in step 1):
 
@@ -72,7 +66,7 @@ On **Windows**, make sure to set the environment variable `VSINSTALLDIR` to some
 
 ## Building with CMake and Xcode
 
-You will need CMake 3.3.0-rc1 or newer.
+You will need CMake 3.30 or newer.
 
 1. **Generate Xcode project**: choose a *build-directory* and then,
    where `<LLVM>` is the path to the root directory of your LLVM
@@ -90,24 +84,19 @@ You will need CMake 3.3.0-rc1 or newer.
 
 ## Building with Swift Package Manager
 
-**Windows Users:** Swift Package Manager is poorly supported on
-Windows and we've been seeing a number of tests act flaky on Windows
-only when run under Swift Package Manager.  We strongly recommend
-[using CMake](#building-with-cmake-and-ninja) instead.
+You can skip the following steps if you are using development containers.
 
-**Everyone:** Swift Package Manager is poorly supported in general and
-we're considering dropping our use of it, so think about [using CMake
-with ninja](#building-with-cmake-and-ninja) or [with
-Xcode](#building-with-cmake-and-xcode) instead.
+1. Install [pkg-config](https://linux.die.net/man/1/pkg-config).
+  - Ubuntu: `sudo apt install pkg-config`
+  - Windows: `choco install pkgconfiglite` ([Chocolatey](https://community.chocolatey.org/packages/pkgconfiglite)) or [install it manually](https://sourceforge.net/projects/pkgconfiglite/)
+  - MacOS: `sudo port install pkgconfig` ([Mac Ports](https://ports.macports.org/port/pkgconfig/))
+installed, and `<YOUR LLVM>/pkgconfig` added to the `PKG_CONFIG_PATH` environment variable.
+2. Add your LLVM installation's `pkgconfig` subfolder to `PKG_CONFIG_PATH`.
 
-Make sure to have followed the instructions regarding LLVM setup above and have your `<LLVM installation>/pkgconfig` 
-added to the `PKG_CONFIG_PATH` environment variable.
-
-Now you should be able to **build this project**
-using Swift package manager:
-
+Now you should be able to build and test:
 ```bash
 swift build -c release
+swift test -c release
 ```
 
 That command will create an executable named `hc` in `.build/release`.
