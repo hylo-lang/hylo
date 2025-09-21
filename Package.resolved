@@ -1,10 +1,10 @@
 {
-  "originHash" : "343d15f0e18fac13270467ae356523de737141464cc842aa9b43c49ad4185585",
+  "originHash" : "ac261e6df236deed8cef0d967ba77ba06341a008c4165801d0bb8166eafed518",
   "pins" : [
     {
       "identity" : "bigint",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/attaswift/BigInt",
+      "location" : "https://github.com/attaswift/BigInt.git",
       "state" : {
         "revision" : "e07e00fa1fd435143a2dcf8b7eec9a7710b2fdfe",
         "version" : "5.7.0"
@@ -23,8 +23,8 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/SwiftPackageIndex/SPIManifest.git",
       "state" : {
-        "revision" : "df8dfd0295c5ec9840c2987f8adec20381243109",
-        "version" : "1.8.2"
+        "revision" : "2fad3a95a3740d2eb0dc963bc03737ae35ea2bd8",
+        "version" : "1.10.0"
       }
     },
     {
