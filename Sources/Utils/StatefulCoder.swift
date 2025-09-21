@@ -84,10 +84,14 @@ extension Encoder {
   ///
   /// - Precondition: `self` is the product of some `StatefulEncoder` `e` on which `e.setState(s)`
   ///   has been called, where `s` has type `T`.
-  public subscript<T>(state state: T.Type) -> T {
-    get { (userInfo[stateKey]! as! Box<T>).wrapped }
-    nonmutating set { (userInfo[stateKey]! as! Box<T>).wrapped = newValue }
-    nonmutating _modify { yield &(userInfo[stateKey]! as! Box<T>).wrapped }
+  public subscript<T: Sendable>(state state: T.Type) -> T {
+    get { (userInfo[stateKey]! as! SharedMutable<T>).read{$0} }
+    nonmutating set { (userInfo[stateKey]! as! SharedMutable<T>).modify{ $0 = newValue } }
+    nonmutating _modify { 
+      var stored = (userInfo[stateKey]! as! SharedMutable<T>).read{ $0 }
+      yield &stored
+      (userInfo[stateKey]! as! SharedMutable<T>).modify{ $0 = stored }
+    }
   }
 
 }
@@ -98,10 +102,14 @@ extension Decoder {
   ///
   /// - Precondition: `self` is the product of some `StatefulDecoder` `e` on which `e.setState(s)`
   ///   has been called, where `s` has type `T`.
-  public subscript<T>(state state: T.Type) -> T {
-    get { (userInfo[stateKey]! as! Box<T>).wrapped }
-    nonmutating set { (userInfo[stateKey]! as! Box<T>).wrapped = newValue }
-    nonmutating _modify { yield &(userInfo[stateKey]! as! Box<T>).wrapped }
+  public subscript<T: Sendable>(state state: T.Type) -> T {
+    get { (userInfo[stateKey]! as! SharedMutable<T>).read{ $0 } }
+    nonmutating set { (userInfo[stateKey]! as! SharedMutable<T>).modify { $0 = newValue } }
+    nonmutating _modify { 
+      var stored = (userInfo[stateKey]! as! SharedMutable<T>).read(applying: { $0 })
+      yield &stored
+      (userInfo[stateKey]! as! SharedMutable<T>).modify{ $0 = stored }
+    }
   }
 
 }
@@ -112,17 +120,3 @@ extension JSONEncoder: StatefulEncoder {}
 extension JSONDecoder: StatefulDecoder {}
 extension PropertyListEncoder: StatefulEncoder {}
 extension PropertyListDecoder: StatefulDecoder {}
-
-/// A (thread-unsafe) shared mutable wrapper for a `WrappedType` instance.
-///
-/// An immutable `Box` reference is stored in encoders/decoders as a hack to create mutability where
-/// it is otherwise unavailable.
-private final class Box<WrappedType> {
-
-  /// Creates an instance containing `contents`.
-  init(_ contents: WrappedType) { self.wrapped = contents }
-
-  /// The wrapped instance.
-  var wrapped: WrappedType
-
-}
