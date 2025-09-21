@@ -184,7 +184,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        exact-os: [macos-14, ubuntu-24.04, windows-2025]
+        exact-os: [macos-15, ubuntu-24.04, windows-2025]
         config: [debug, release]
 
     runs-on: ${{ matrix.exact-os }}
@@ -266,7 +266,7 @@ jobs:
       fail-fast: false
       matrix:
         # Temporarily disable CMake builds on macOS because of some compilation issues regarding tgmath.h used by the Algorithms library transitively.
-        exact-os: [ubuntu-24.04, windows-2025, macos-14] # macos-14
+        exact-os: [ubuntu-24.04, windows-2025, macos-15] # macos-15
         cmake-generator: [Ninja, Xcode]
         cmake-build-type: [Debug, Release]
 
@@ -278,7 +278,7 @@ jobs:
           - exact-os: windows-2025
             cmake-generator: Xcode
 
-          - exact-os: macos-14
+          - exact-os: macos-15
             cmake-generator: Xcode
           # Todo add back Xcode after migrating to macos-15. See compatibility table at
           # https://developer.apple.com/support/xcode/#:~:text=and%20other%C2%A0developers.-,Xcode%20Releases,-Latest%20Xcode%20versions 
