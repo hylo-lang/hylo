@@ -1,0 +1,11 @@
+//- lowerToFinishedIR expecting: .failure
+
+public type A: Deinitializable {
+
+  public subscript p(_ i: Int): Int {
+    if i == 0 {
+      yield 1
+    }
+  } //! diagnostic not all paths of the projection contain a yield
+
+}
