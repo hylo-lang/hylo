@@ -1636,7 +1636,7 @@ private func ++ <A: Sendable, B: Sendable>(
 
 /// Returns a parser that returns an instance of `T` if it can be built by consuming the next
 /// element in the stream.
-private func take<T: RawRepresentable>(
+private func take<T: RawRepresentable & SendableMetatype>(
   _: T.Type
 ) -> BuiltinFunctionParser<T> where T.RawValue == String {
   { (stream: inout ArraySlice<Substring>) -> T? in
