@@ -44,7 +44,7 @@ on:
 env:
   spm-build-options: -Xswiftc -enable-testing --explicit-target-dependency-import-check error
   spm-test-options: --parallel
-  swift-version: '6.1'
+  swift-version: '6.2.0'
 
 jobs:
   determine-version:
