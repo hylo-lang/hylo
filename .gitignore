@@ -1,5 +1,7 @@
 # Swift Package Manager
 /.build
+/build
+/build_dir
 /.*-build
 /Packages
 
@@ -7,6 +9,7 @@
 /.vscode
 /.swiftpm
 /.vscode/launch.json
+/.idea
 # macOS
 .DS_Store
 \#*ediff-merge*#

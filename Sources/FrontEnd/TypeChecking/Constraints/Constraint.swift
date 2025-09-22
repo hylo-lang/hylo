@@ -5,7 +5,7 @@ import Utils
 /// A constraint is a predicate over one or multiple types, including type variables, that must be
 /// satisfied in order for a program to be well-typed. Constraints also server to infer implicit
 /// type information from the structure of the program.
-protocol Constraint {
+protocol Constraint: Sendable {
 
   /// The site from which a constraint originates and the reason why it was formed.
   var origin: ConstraintOrigin { get }

@@ -1,5 +1,5 @@
 /// An unqualified name denoting an entity.
-public struct Name: Hashable, Codable {
+public struct Name: Hashable, Codable, Sendable {
 
   /// The stem identifier of the referred entity.
   public let stem: Identifier

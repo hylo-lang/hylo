@@ -5,7 +5,7 @@ public struct SubscriptDecl: BundleDecl, CapturingDecl, GenericDecl {
 
   public typealias Variant = SubscriptImpl
 
-  public enum Introducer: Codable {
+  public enum Introducer: Codable, Sendable {
 
     /// The standard subscript introducer.
     case `subscript`

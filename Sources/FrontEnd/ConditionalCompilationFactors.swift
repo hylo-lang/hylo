@@ -1,7 +1,7 @@
 import Utils
 
 /// The factors that influence conditional compilation.
-public struct ConditionalCompilationFactors: Codable, Equatable, Hashable {
+public struct ConditionalCompilationFactors: Codable, Equatable, Hashable, Sendable {
 
   /// The target operating system.
   public let operatingSystem: Platform.OperatingSystem

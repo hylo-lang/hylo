@@ -1,5 +1,5 @@
 /// A protocol describing the API of an AST node.
-public protocol Node: Codable {
+public protocol Node: Codable, Sendable {
 
   /// The site from which `self` was parsed.
   var site: SourceRange { get }

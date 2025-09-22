@@ -14,7 +14,7 @@ import XCTest
 open class HyloTestCase: XCTestCase {
 
   /// A shared program instance containing only the standard library.
-  private static var base = SharedMutable<TypedProgram?>(nil)
+  private static let base = SharedMutable<TypedProgram?>(nil)
 
   /// The program being processed by the test case.
   ///

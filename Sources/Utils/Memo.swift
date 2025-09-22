@@ -20,3 +20,4 @@ public enum Memo<T: Equatable>: Equatable {
 }
 
 extension Memo: Hashable where T: Hashable {}
+extension Memo: Sendable where T: Sendable {}

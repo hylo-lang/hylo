@@ -3,7 +3,7 @@ import Utils
 /// The stable identity of an instruction in its module.
 ///
 /// - SeeAlso: `InstructionIndex`
-public struct InstructionID: Hashable {
+public struct InstructionID: Hashable, Sendable {
 
   /// The function containing the instruction.
   public let function: Function.ID

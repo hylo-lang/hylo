@@ -5,7 +5,7 @@ import SwiftyLLVM
 import Utils
 
 /// A Hylo program transpiled to LLVM.
-public struct LLVMProgram {
+public struct LLVMProgram: Sendable {
 
   /// The machine for which the program is compiled.
   public let target: SwiftyLLVM.TargetMachine

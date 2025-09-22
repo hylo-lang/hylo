@@ -4,7 +4,7 @@ import Utils
 public struct ExistentialType: TypeProtocol {
 
   /// The interface of an existential type.
-  public enum Interface: Hashable {
+  public enum Interface: Hashable, Sendable {
 
     /// The traits to which the witness is known to conform.
     case traits(Set<TraitType>)

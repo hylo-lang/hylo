@@ -2,7 +2,7 @@
 public struct NameExpr: Expr {
 
   /// A name's qualification.
-  public enum Domain: Codable, Hashable {
+  public enum Domain: Codable, Hashable, Sendable {
 
     /// Unqualified as in `bar`.
     case none

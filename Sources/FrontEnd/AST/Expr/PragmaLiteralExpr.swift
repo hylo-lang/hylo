@@ -2,7 +2,7 @@
 public struct PragmaLiteralExpr: Expr {
 
   /// The kind of a pragma literal.
-  public enum Kind: Codable {
+  public enum Kind: Codable, Sendable {
 
     /// The file in which the literal appears.
     case file
