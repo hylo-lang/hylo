@@ -66,7 +66,9 @@ extension IR.Program {
     let r = FunctionReference(to: g, in: modules[m]!)
     let new = modules[m]!.makeCall(
       applying: .constant(r), to: Array(s.arguments), writingResultTo: s.output, at: s.site)
-    modules[m]!.replace(i, with: new)
+    modules[m]!.modifyIR(of: i.function) { (w) in
+      w.replace(i, with: new)
+    }
   }
 
   /// Iff `i` is the projection through a generic subscript, replaces it by an instruction applying
@@ -83,7 +85,9 @@ extension IR.Program {
     let g = monomorphize(s.callee, for: z, usedIn: modules[m]!.scope(containing: i))
     let new = modules[m]!.makeProject(
       s.projection, applying: g, specializedBy: .empty, to: s.operands, at: s.site)
-    modules[m]!.replace(i, with: new)
+    modules[m]!.modifyIR(of: i.function) { (w) in
+      w.replace(i, with: new)
+    }
   }
 
   /// Returns a depolymorphized copy of `base` in which parametric parameters have been notionally
@@ -144,8 +148,7 @@ extension IR.Program {
 
     // Iterate over the basic blocks of the source function in a way that guarantees we always
     // visit definitions before their uses.
-    let cfg = modules[source]![f].cfg()
-    let sourceBlocks = DominatorTree(function: f, cfg: cfg, in: modules[source]!).bfs
+    let sourceBlocks = DominatorTree(function: modules[source]![f]).bfs
     for b in sourceBlocks {
       let s = Block.ID(f, b)
       let t = rewrittenBlock[s]!
@@ -184,9 +187,15 @@ extension IR.Program {
       let s = modules[source]![i] as! Return
       let j = modify(&modules[target]!) { (m) in
         for i in rewrittenGenericValue.values.reversed() {
-          m.append(m.makeDeallocStack(for: .register(i), at: s.site), to: b)
+          let ir = m.makeDeallocStack(for: .register(i), at: s.site)
+          m.modifyIR(of: b.function) { (w) in
+            w.insert(ir, at: .end(of: b))
+          }
         }
-        return m.append(m.makeReturn(at: s.site), to: b)
+        let ir = m.makeReturn(at: s.site)
+        return m.modifyIR(of: b.function) { (w) in
+          w.insert(ir, at: .end(of: b))
+        }
       }
       monomorphizer.rewrittenInstruction[i] = j
     }
@@ -300,7 +309,10 @@ extension Module {
         UNIMPLEMENTED("arbitrary compile-time values")
       }
 
-      let s = append(makeAllocStack(^program.ast.coreType("Int")!, at: insertionSite), to: entry)
+      let ir = makeAllocStack(^program.ast.coreType("Int")!, at: insertionSite)
+      let s = modifyIR(of: monomorphized) { (w) in
+        w.insert(ir, at: .end(of: entry))
+      }
 
       var log = DiagnosticSet()
       Emitter.withInstance(insertingIn: &self, reportingDiagnosticsTo: &log) { (e) in

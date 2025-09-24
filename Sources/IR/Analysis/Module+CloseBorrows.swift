@@ -29,7 +29,9 @@ extension Module {
         if let decl = s.binding {
           log.insert(.warning(unusedBinding: program.ast[decl].baseName, at: s.site))
         }
-        removeInstruction(i)
+        modifyIR(of: i.function) { (w) in
+          w.removeInstruction(i)
+        }
         return
       }
 
@@ -76,14 +78,18 @@ extension Module {
           continue
         }
         let s = make(&self, self[u].site)
-        insert(s, after: u)
+        modifyIR(of: u.function) { (w) in
+          w.insert(s, at: .after(u))
+        }
 
       case .start(let b):
         let site = instructions(in: b).first.map(default: self[i].site) {
           SourceRange.empty(at: self[$0].site.start)
         }
         let s = make(&self, site)
-        insert(s, at: boundary)
+        modifyIR(of: b.function) { (w) in
+          w.insert(s, at: boundary)
+        }
 
       default:
         unreachable()
@@ -101,7 +107,7 @@ extension Module {
   /// - Note: The definition of an operand `o` isn't part of `o`'s lifetime.
   private func extendedLiveRange(of definition: Operand) -> Lifetime {
     // Nothing to do if the operand has no use.
-    guard let uses = self.uses[definition] else { return Lifetime(operand: definition) }
+    guard let uses = self[definition.function!].uses[definition] else { return Lifetime(operand: definition) }
 
     // Compute the live-range of the definition.
     var r = liveRange(of: definition, definedIn: definition.block!)
@@ -117,7 +123,7 @@ extension Module {
       case let s as CaptureIn where use.index == 0:
         let p = provenances(s.target).uniqueElement!
         guard self[p] is AllocStack else { UNIMPLEMENTED() }
-        let u = self.uses[p, default: []].first(where: { self[$0.user] is ReleaseCaptures })!
+        let u = self[definition.function!].uses[p, default: []].first(where: { self[$0.user] is ReleaseCaptures })!
         return extend(lifetime: r, toInclude: u)
 
       default:

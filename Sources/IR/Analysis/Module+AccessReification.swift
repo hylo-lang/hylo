@@ -132,7 +132,9 @@ extension Module {
     if s.capabilities == [k] { return }
 
     let reified = makeAccess([k], from: s.source, correspondingTo: s.binding, at: s.site)
-    replace(i, with: reified)
+    modifyIR(of: i.function) { (w) in
+      w.replace(i, with: reified)
+    }
   }
 
   private mutating func reify(projectBundle i: InstructionID, as k: AccessEffect) {
@@ -143,13 +145,17 @@ extension Module {
     var arguments = s.operands
     for a in arguments.indices where s.parameters[a].access == .yielded {
       let b = makeAccess([k], from: arguments[a], at: s.site)
-      arguments[a] = .register(insert(b, before: i))
+      arguments[a] = .register(modifyIR(of: i.function) { (w) in
+        w.insert(b, at: .before(i))
+      })
     }
 
     let o = RemoteType(k, s.projection)
     let reified = makeProject(
       o, applying: s.variants[k]!, specializedBy: s.bundle.arguments, to: arguments, at: s.site)
-    replace(i, with: reified)
+    modifyIR(of: i.function) { (w) in
+      w.replace(i, with: reified)
+    }
   }
 
 }
