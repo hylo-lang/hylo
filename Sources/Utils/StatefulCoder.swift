@@ -1,5 +1,13 @@
 import Foundation
 
+// Workaround for compiler bug in Swift 6.1 https://github.com/swiftlang/swift-foundation/issues/1515#issuecomment-3320126660
+// Resolved in Swift 6.2.
+#if compiler(>=6.1)
+typealias UserInfoValue = any Sendable
+#else
+typealias UserInfoValue = Any
+#endif
+
 /// A key used to access the coding state of encoders/decoders.
 private let stateKey = CodingUserInfoKey(rawValue: UUID().uuidString)!
 
@@ -14,7 +22,7 @@ public protocol StatefulCoder {
   associatedtype Encoding = Data
 
   /// The storage vehicle for state.
-  var userInfo: [CodingUserInfoKey: any Sendable] { get set }
+  var userInfo: [CodingUserInfoKey: UserInfoValue] { get set }
 
 }
 
