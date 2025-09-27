@@ -1,6 +1,6 @@
 /// A projection from a `Program` of a node along with its extrinsic relationships.
 @dynamicMemberLookup
-public struct BundledNode<T: NodeIDProtocol, P: Program> {
+public struct BundledNode<T: NodeIDProtocol, P: Program>: Sendable {
 
   /// The program of which this node is a notional part.
   private let container: P

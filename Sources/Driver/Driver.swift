@@ -7,10 +7,10 @@ import StandardLibrary
 import SwiftyLLVM
 import Utils
 
-public struct Driver: ParsableCommand {
+public struct Driver: ParsableCommand, Sendable {
 
   /// A validation error that includes the command's full help message.
-  private struct ValidationErrorWithHelp: Error, CustomStringConvertible {
+  private struct ValidationErrorWithHelp: Error, CustomStringConvertible, Sendable {
 
     var message: String
 
@@ -29,7 +29,7 @@ public struct Driver: ParsableCommand {
   }
 
   /// The type of the output files to generate.
-  private enum OutputType: String, ExpressibleByArgument {
+  private enum OutputType: String, ExpressibleByArgument, Sendable {
 
     /// AST before type-checking.
     case rawAST = "raw-ast"
@@ -51,7 +51,7 @@ public struct Driver: ParsableCommand {
   }
 
   /// The result of a compiler invocation.
-  public struct CompilationResult {
+  public struct CompilationResult: Sendable {
 
     /// The exit status of the compiler.
     public let status: ExitCode
@@ -210,8 +210,10 @@ public struct Driver: ParsableCommand {
       Driver.exit(withError: e)
     }
 
+    var reassignableStandardError = standardError
     log.render(
-      into: &standardError, style: ProcessInfo.ansiTerminalIsConnected ? .styled : .unstyled)
+      into: &reassignableStandardError,
+      style: ProcessInfo.ansiTerminalIsConnected ? .styled : .unstyled)
     Driver.exit(withError: status)
   }
 
@@ -499,7 +501,9 @@ public struct Driver: ParsableCommand {
   /// Returns the path of the binary executable that is invoked at the command-line with the name
   /// given by `invocationName`.
   private func findExecutable(invokedAs invocationName: String) throws -> URL {
-    if let cached = Driver.executableLocationCache[invocationName] { return cached }
+    if let cached = Driver.executableLocationCache.read(applying: ({ $0[invocationName] })) {
+      return cached
+    }
 
     let executableFileName =
       invocationName.hasSuffix(Host.executableSuffix)
@@ -510,7 +514,7 @@ public struct Driver: ParsableCommand {
     for root in path.split(separator: Host.pathEnvironmentSeparator) {
       let candidate = URL(fileURLWithPath: String(root)).appendingPathComponent(executableFileName)
       if FileManager.default.fileExists(atPath: candidate.fileSystemPath) {
-        Driver.executableLocationCache[invocationName] = candidate
+        Driver.executableLocationCache.modify { v in v[invocationName] = candidate }
         return candidate
       }
     }
@@ -532,7 +536,7 @@ public struct Driver: ParsableCommand {
   }
 
   /// A map from the name by which an executable is invoked to path of the named binary.
-  private static var executableLocationCache: [String: URL] = [:]
+  private static let executableLocationCache: SharedMutable<[String: URL]> = SharedMutable([:])
 
   /// Writes a textual description of `input` to the given `output` file.
   func write(_ input: AST, to output: URL) throws {

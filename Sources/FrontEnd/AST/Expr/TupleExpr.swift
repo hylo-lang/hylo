@@ -2,7 +2,7 @@
 public struct TupleExpr: Expr {
 
   /// An element in a tuple expression.
-  public struct Element: Codable {
+  public struct Element: Codable, Sendable {
 
     /// The label of the element.
     public var label: SourceRepresentable<Identifier>?

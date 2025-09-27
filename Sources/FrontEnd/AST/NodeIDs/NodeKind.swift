@@ -2,7 +2,7 @@ import Utils
 
 /// The type of an AST node; a nominal wrapper for `Node.Type` that adds conformances and
 /// convenience APIs.
-public struct NodeKind: Codable {
+public struct NodeKind: Codable, Sendable {
 
   /// The underlying value.
   public let value: Node.Type

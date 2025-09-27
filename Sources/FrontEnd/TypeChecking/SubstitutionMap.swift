@@ -1,8 +1,8 @@
 /// A substitution table mapping type and term variables to assumptions during inference.
-struct SubstitutionMap {
+struct SubstitutionMap: Sendable {
 
   /// A policy for substituting variables during reification.
-  enum SubstitutionPolicy {
+  enum SubstitutionPolicy: Sendable {
 
     /// Free variables are substituted by errors.
     case substitutedByError

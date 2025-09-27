@@ -1,5 +1,5 @@
 /// An array of bit values represented as Booleans, where `true` indicates that the bit is on.
-public struct BitArray {
+public struct BitArray: Sendable {
 
   /// A position in a `BitArray`.
   public struct Position: Comparable {

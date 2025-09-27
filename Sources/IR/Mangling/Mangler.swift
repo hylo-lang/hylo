@@ -2,7 +2,7 @@ import FrontEnd
 import Utils
 
 /// Hylo's mangling algorithm.
-struct Mangler {
+struct Mangler: Sendable {
 
   /// The type of the stream to which data is written.
   typealias Output = String

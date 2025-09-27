@@ -1,3 +1,5 @@
+import Foundation
+
 /// A doubly linked list.
 public struct DoublyLinkedList<Element> {
 
@@ -6,7 +8,7 @@ public struct DoublyLinkedList<Element> {
   // after an element has been removed.
 
   /// The address of an element in a doubly linked list.
-  public struct Address: Hashable {
+  public struct Address: Hashable, Sendable {
 
     public fileprivate(set) var rawValue: Int
 
@@ -29,14 +31,18 @@ public struct DoublyLinkedList<Element> {
   }
 
   /// A collection with the addresses of a doubly-linked list.
-  public struct Addresses {
+  public struct Addresses: @unchecked Sendable {
 
-    private var base: DoublyLinkedList.Indices
+    private let base_: DoublyLinkedList.Indices
+    private let lock = NSLock()
 
     fileprivate init(_ base: DoublyLinkedList) {
-      self.base = base.indices
+      self.base_ = base.indices
     }
 
+    public var base: DoublyLinkedList.Indices {
+      lock.withLock { base_ }
+    }
   }
 
   /// A bucket in the internal storage of a doubly linked list.
@@ -315,7 +321,7 @@ public struct DoublyLinkedList<Element> {
 
 extension DoublyLinkedList: BidirectionalCollection, MutableCollection {
 
-  public struct Index: Comparable, Hashable {
+  public struct Index: Comparable, Hashable, Sendable {
 
     /// The address corresponding to that index.
     public let address: Address
@@ -435,3 +441,6 @@ extension DoublyLinkedList.Addresses: BidirectionalCollection {
   }
 
 }
+
+extension DoublyLinkedList.Bucket: Sendable where Element: Sendable {}
+extension DoublyLinkedList: Sendable where Element: Sendable {}

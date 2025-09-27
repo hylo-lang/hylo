@@ -1,7 +1,7 @@
 import Utils
 
 /// A box wrapping a term.
-private protocol TermBox {
+private protocol TermBox: Sendable {
 
   /// Hashes the salient parts of the wrapped value into `hasher`.
   func hash(into hasher: inout Hasher)
@@ -43,7 +43,7 @@ private struct ConcreteTermBox<Base: TermProtocol>: TermBox {
 }
 
 /// The compile-time representation of the value of an expression.
-public struct AnyTerm {
+public struct AnyTerm: Sendable {
 
   /// A shorthand for `^ErrorTerm()`.
   public static let error = ^ErrorTerm()
