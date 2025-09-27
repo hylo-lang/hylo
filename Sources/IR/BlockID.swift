@@ -62,17 +62,6 @@ extension Block {
       self.address = block.address
     }
 
-    /// Creates an instance denoting the block containing `i`.
-    public init(containing i: AbsoluteInstructionID) {
-      self.function = i.function
-      self.address = i.block
-    }
-
-    /// The ID of the instruction at `instructionAddress` in the block identified by `self`.
-    public func appending(_ instructionAddress: Block.Instructions.Address) -> AbsoluteInstructionID {
-      AbsoluteInstructionID(function, address, instructionAddress)
-    }
-
     /// The ID of the `index`-th parameter of the block.
     public func parameter(_ index: Int) -> Operand {
       .parameter(Block.ID(self), index)
@@ -81,7 +70,7 @@ extension Block {
     /// The operand denoting the result of the instruction at `instructionAddress` in the block
     /// identified by `self`.
     public func result(at instructionAddress: Block.Instructions.Address) -> Operand {
-      .register(InstructionID(appending(instructionAddress)))
+      .register(InstructionID(address, instructionAddress))
     }
 
   }
