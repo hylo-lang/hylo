@@ -45,11 +45,11 @@ extension Module {
   ///   - f: A built-in function.
   ///   - operands: A collection of built-in objects.
   func makeCallBuiltin(
-    applying s: BuiltinFunction, to operands: [Operand], at site: SourceRange
+    applying s: BuiltinFunction, to operands: [Operand], in f: Function.ID, at site: SourceRange
   ) -> CallBuiltinFunction {
     precondition(
       operands.allSatisfy { (o) in
-        let t = type(of: o)
+        let t = type(of: o, in: f)
         return t.isObject && (t.ast.base is BuiltinType)
       })
 

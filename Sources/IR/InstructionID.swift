@@ -1,12 +1,7 @@
 import Utils
 
-/// The stable identity of an instruction in its module.
-///
-/// - SeeAlso: `InstructionIndex`
+/// The stable identity of an instruction in its function.
 public struct InstructionID: Hashable {
-
-  /// The function containing the instruction.
-  public let function: Function.ID
 
   /// The block containing the instruction.
   public let block: Function.Blocks.Address
@@ -16,18 +11,15 @@ public struct InstructionID: Hashable {
 
   /// Creates an instance with the given properties.
   public init(
-    _ function: Function.ID,
     _ block: Function.Blocks.Address,
     _ address: Block.Instructions.Address
   ) {
-    self.function = function
     self.block = block
     self.address = address
   }
 
   /// Creates an instance with the given properties.
   public init(_ block: Block.ID, _ address: Block.Instructions.Address) {
-    self.function = block.function
     self.block = block.address
     self.address = address
   }

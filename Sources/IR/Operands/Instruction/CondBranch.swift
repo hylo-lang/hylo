@@ -40,7 +40,6 @@ public struct CondBranch: Terminator {
   }
 
   mutating func replaceSuccessor(_ old: Block.ID, with new: Block.ID) -> Bool {
-    precondition(new.function == targetIfTrue.function)
     if targetIfTrue == old {
       targetIfTrue = new
       return true
@@ -76,10 +75,10 @@ extension Module {
     if condition: Operand,
     then targetIfTrue: Block.ID,
     else targetIfFalse: Block.ID,
+    in f: Function.ID,
     at site: SourceRange
   ) -> CondBranch {
-    precondition(type(of: condition) == .object(BuiltinType.i(1)))
-    precondition(targetIfTrue.function == targetIfFalse.function)
+    precondition(type(of: condition, in: f) == .object(BuiltinType.i(1)))
     return .init(
       condition: condition,
       targetIfTrue: targetIfTrue,
