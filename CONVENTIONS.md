@@ -8,7 +8,7 @@ It is intended for developers who wish to contribute to the Hylo compiler or sim
 The Swift source code in this repository follows the [Swift API Design guidelines](https://www.swift.org/documentation/api-design-guidelines/).
 In addition, we maintain a set of code formatting conventions checked with `swift-format`.
 There is a CI job that checks the formatting; this job will not auto-correct the formatting, it will just ensure that the formatting is correct.
-See [Docs/CodeFormatting.md](Docs/CodeFormatting.md) for information about setting up your environment.
+See [Docs/Compiler/CodeFormatting.md](Docs/Compiler/CodeFormatting.md) for information about setting up your environment.
 
 ### File names
 

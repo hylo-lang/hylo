@@ -8,7 +8,7 @@ Hylo is a programming language that leverages [mutable value semantics](Docs/Imp
 This repository contains the sources of the reference implementation of Hylo.
 Please visit our **[website](https://hylo-lang.org)** to get more information about the language itself.
 
-## Developement/Use Requirements
+## Development/Use Requirements
 
 This project is written in [Swift](https://swift.org) and distributed in the form of a package, built with [Swift Package Manager](https://swift.org/package-manager/).
 You will need Swift 5.9 or higher to build the compiler from sources.
