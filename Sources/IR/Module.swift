@@ -858,14 +858,6 @@ public struct Module {
   /// Adds `newInstruction` at the end of `block` and returns its identity.
   @discardableResult
   mutating func append(_ newInstruction: Instruction, to block: Block.ID, in f: Function.ID) -> InstructionID {
-    if (self[block, in: f].instructions.last is Terminator) {
-      print("ERROR: precondition failed in append(_:to:in:)")
-      print("  function: \(f), block: \(block)")
-      for i in self[block, in: f].instructions {
-        print("  instruction: \(i)")
-      }
-      print("  new instruction: \(newInstruction)")
-    }
     precondition(!(self[block, in: f].instructions.last is Terminator), "insertion after terminator")
     return insert(newInstruction, in: f) { (m, i) in
       InstructionID(block.address, m[block, in: f].instructions.append(newInstruction))

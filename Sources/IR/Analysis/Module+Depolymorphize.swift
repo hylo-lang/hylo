@@ -137,7 +137,7 @@ extension IR.Program {
 
     let rewrittenGenericValue = modules[target]!.defineGenericValueArguments(z, in: result)
     var monomorphizer = Monomorphizer(
-      source: f, target: result, specialization: z, scopeOfUse: scopeOfUse,
+      specialization: z, scopeOfUse: scopeOfUse,
       rewrittenGenericValue: rewrittenGenericValue, rewrittenBlock: rewrittenBlock)
 
     // Iterate over the basic blocks of the source function in a way that guarantees we always
@@ -320,12 +320,6 @@ extension Module {
 
 /// The monomorphization of a function.
 private struct Monomorphizer: InstructionTransformer {
-
-  /// The source function.
-  let source: Function.ID
-
-  /// The target function.
-  let target: Function.ID
 
   /// The arguments for which instructions are monomorphized.
   let specialization: GenericArguments
