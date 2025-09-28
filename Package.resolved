@@ -1,5 +1,5 @@
 {
-  "originHash" : "ac261e6df236deed8cef0d967ba77ba06341a008c4165801d0bb8166eafed518",
+  "originHash" : "9be32ad94f3434f7bed27ea6460db648bcfc92fa765f3881ce3165cafd603788",
   "pins" : [
     {
       "identity" : "bigint",
@@ -95,7 +95,7 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/hylo-lang/Swifty-LLVM",
       "state" : {
-        "revision" : "7ac212f5b31f83c75832d62c582b127735a1d505"
+        "revision" : "cff484ecca159d9eec1938cda83a72b57cdfbd08"
       }
     },
     {
