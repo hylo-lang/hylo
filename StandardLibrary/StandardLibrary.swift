@@ -26,7 +26,7 @@ private let standardLibrarySourceFolder = URL(
 
 
 /// The root of a directory hierarchy containing all the standard library sources.
-private let hostedLibrarySourceRoot = libraryRoot
+public let hostedLibrarySourceRoot = libraryRoot
 
 /// The root of a directory hierarchy containing the sources for the standard library's freestanding
 /// core.
