@@ -319,6 +319,11 @@ jobs:
         with:
           cmakeVersion: latestrc
 
+      - name: Build support library (Only on Windows)
+        if: ${{ runner.os == 'Windows' }}
+        run: clang -c ./StandardLibrary/Sources/LibC.c -o HyloLibC.lib
+        working-directory: hylo
+
       - name: CMake Configure
         shell: bash
         run: >-
