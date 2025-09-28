@@ -24,6 +24,10 @@ if(BUILD_TESTING)
   list(APPEND CMAKE_Swift_COMPILE_OPTIONS -enable-testing)
 endif()
 
+# LLVM and Swifty-LLVM is built this way and we must match it.
+set(CMAKE_Swift_COMPILE_OPTIONS_MSVC_RUNTIME_LIBRARY MultiThreadedDLL)
+set(CMAKE_MSVC_RUNTIME_LIBRARY MultiThreadedDLL)
+
 if(BUILD_TESTING)
   # We need to work something out, probably a DYLD_LIBRARY_PATH
   # setting, before shared libs can be tested.
