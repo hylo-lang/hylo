@@ -75,4 +75,4 @@ European time.
 [typos-action]: https://github.com/marketplace/actions/typos-action
 [install typos]: https://github.com/crate-ci/typos#install
 [typos false positives documentation]: https://github.com/crate-ci/typos#false-positives
-[CompilerArchitecture.md]: Docs/CompilerArchitecture.md
+[CompilerArchitecture.md]: Docs/Compiler/CompilerArchitecture.md
