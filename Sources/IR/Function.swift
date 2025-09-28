@@ -51,6 +51,52 @@ public struct Function {
     _modify { yield &blocks[i.block].instructions[i.address] }
   }
 
+  /// Accesses the instruction denoted by `o` if it is `.register`; returns `nil` otherwise.
+  public subscript(o: Operand) -> Instruction? {
+    if case .register(let i) = o {
+      return self[i]
+    } else {
+      return nil
+    }
+  }
+
+  /// The entry of the function.
+  public var entry: Block.ID? { blocks.firstAddress.map(Block.ID.init) }
+
+  /// `true` iff the function takes generic parameters.
+  public var isGeneric: Bool {
+    !genericParameters.isEmpty
+  }
+
+  /// Returns the operand representing the return value of `self`.
+  public var returnValue: Operand? {
+    if !isSubscript, let e = entry {
+      return Operand.parameter(e, inputs.count)
+    } else {
+      return nil
+    }
+  }
+
+  /// Returns the IDs of the blocks in `self`.
+  ///
+  /// The first element of the returned collection is the function's entry; other elements are in
+  /// no particular order.
+  public var blockIDs: LazyMapSequence<Function.Blocks.Indices, Block.ID> {
+    blocks.indices.lazy.map({ .init($0.address) })
+  }
+
+  /// Returns the IDs of the instructions in `self`, from all the blocks.
+  public var instructions: LazySequence<
+    FlattenSequence<
+      LazyMapSequence<
+        LazySequence<DefaultIndices<Function.Blocks>>.Elements,
+        LazyMapSequence<Block.Instructions.Indices, InstructionID>
+      >
+    >
+  > {
+    blocks.indices.lazy.flatMap({ instructions(in: Block.ID($0.address)) })
+  }
+
   /// Returns the control flow graph of `self`.
   func cfg() -> ControlFlowGraph {
     var result = ControlFlowGraph()
@@ -237,52 +283,6 @@ public struct Function {
     }
   }
 
-
-  /// Accesses the instruction denoted by `o` if it is `.register`; returns `nil` otherwise.
-  public subscript(o: Operand) -> Instruction? {
-    if case .register(let i) = o {
-      return self[i]
-    } else {
-      return nil
-    }
-  }
-
-  /// The entry of the function.
-  public var entry: Block.ID? { blocks.firstAddress.map(Block.ID.init) }
-
-  /// `true` iff the function takes generic parameters.
-  public var isGeneric: Bool {
-    !genericParameters.isEmpty
-  }
-
-  /// Returns the operand representing the return value of `self`.
-  public var returnValue: Operand? {
-    if !isSubscript, let e = entry {
-      return Operand.parameter(e, inputs.count)
-    } else {
-      return nil
-    }
-  }
-
-  /// Returns the IDs of the blocks in `self`.
-  ///
-  /// The first element of the returned collection is the function's entry; other elements are in
-  /// no particular order.
-  public var blockIDs: LazyMapSequence<Function.Blocks.Indices, Block.ID> {
-    blocks.indices.lazy.map({ .init($0.address) })
-  }
-
-  /// Returns the IDs of the instructions in `self`, from all the blocks.
-  public var instructions: LazySequence<
-    FlattenSequence<
-      LazyMapSequence<
-        LazySequence<DefaultIndices<Function.Blocks>>.Elements,
-        LazyMapSequence<Block.Instructions.Indices, InstructionID>
-      >
-    >
-  > {
-    blocks.indices.lazy.flatMap({ instructions(in: Block.ID($0.address)) })
-  }
 
   /// Returns the IDs of the instructions in `b`, in order.
   public func instructions(
