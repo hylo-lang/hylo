@@ -134,7 +134,7 @@ let package = Package(
       name: "StandardLibrary",
       dependencies: ["FrontEnd", "Utils"],
       path: "StandardLibrary",
-      resources: [.copy("Sources")],
+      resources: [.copy("Sources"), .copy("Lib")],
       swiftSettings: allTargetsSwiftSettings),
 
     .plugin(

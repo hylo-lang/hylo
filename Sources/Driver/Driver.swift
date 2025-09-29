@@ -460,7 +460,7 @@ public struct Driver: ParsableCommand, Sendable {
   ) throws {
     try runCommandLine(
       findExecutable(invokedAs: "lld-link").fileSystemPath,
-      ["-defaultlib:HyloLibC", "-defaultlib:msvcrt", "-out:" + binaryPath, "-libpath:\(StandardLibrary.hostedLibrarySourceRoot.fileSystemPath)"]
+      ["-defaultlib:pthreadVCE3", "-defaultlib:msvcrt", "-force:multiple", "-out:" + binaryPath, "-libpath:\(StandardLibrary.externalLibraryRoot.fileSystemPath)"]
         + objects.map(\.fileSystemPath),
       diagnostics: &diagnostics)
   }
