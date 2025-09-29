@@ -5,8 +5,6 @@ import XCTest
 final class ExecutionTests: XCTestCase {
 
   func testHelloWorld() throws {
-    if swiftyLLVMMandatoryPassesCrash { return }
-
     let source = try FileManager.default.temporaryFile(
       containing: #"public fun main() { print("Hello, World!") }"#)
 

@@ -208,7 +208,6 @@ extension XCTestCase {
     _ hyloFilePath: String, withOptimizations: Bool, extending p: TypedProgram,
     expecting expectation: ExpectedTestOutcome
   ) throws {
-    if swiftyLLVMMandatoryPassesCrash { return }
     try checkAnnotatedHyloFileDiagnostics(
       inFileAt: hyloFilePath, expecting: expectation
     ) { (hyloSource, log) in
@@ -240,7 +239,6 @@ extension XCTestCase {
   public func compileToLLVM(
     _ hyloFilePath: String, extending p: TypedProgram, expecting expectation: ExpectedTestOutcome
   ) throws {
-    if swiftyLLVMMandatoryPassesCrash { return }
     try checkAnnotatedHyloFileDiagnostics(
       inFileAt: hyloFilePath, expecting: expectation
     ) { (hyloSource, log) in
