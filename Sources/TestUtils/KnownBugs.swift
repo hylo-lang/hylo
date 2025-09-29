@@ -2,5 +2,5 @@
 #if os(Windows)
   public let swiftyLLVMMandatoryPassesCrash = false
 #else
-  public let swiftyLLVMMandatoryPassesCrash = true
+  public let swiftyLLVMMandatoryPassesCrash = false
 #endif
