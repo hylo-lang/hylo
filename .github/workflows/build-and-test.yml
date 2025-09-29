@@ -275,8 +275,8 @@ jobs:
           - exact-os: windows-2025
             cmake-generator: Xcode
 
-          - exact-os: macos-15
-            cmake-generator: Xcode
+#          - exact-os: macos-15
+#            cmake-generator: Xcode
           # Todo add back Xcode after migrating to macos-15. See compatibility table at
           # https://developer.apple.com/support/xcode/#:~:text=and%20other%C2%A0developers.-,Xcode%20Releases,-Latest%20Xcode%20versions 
           # Note: there are some breaking changes between macos 14 and 15 regarding the Encoder/Decoder protocols.
