@@ -14,7 +14,7 @@ block()
   set(FETCHCONTENT_TRY_FIND_PACKAGE_MODE NEVER)
   FetchContent_Declare(Hylo-CMakeModules
     GIT_REPOSITORY https://github.com/hylo-lang/CMakeModules.git
-    GIT_TAG        f9600150562e761cf3dd177fc41820f76f8c8011
+    GIT_TAG        fix-numerics
     OVERRIDE_FIND_PACKAGE
   )
 
@@ -73,6 +73,10 @@ function(add_hylo_executable result_target)
   target_link_libraries(${result_target} PRIVATE ${_DEPENDENCIES})
 
   hylo_common_target_setup(${result_target})
+  
+  # Ensure Swift module dependencies are properly accessible for all generators,
+  # especially Xcode which has path issues with transitive dependencies  
+  hylo_propagate_swift_modules(${result_target})
 endfunction()
 
 # add_hylo_library(<target-name>
@@ -104,6 +108,54 @@ function(add_hylo_library result_target)
     FRAMEWORK $<BOOL:${BUILD_TESTING}>)
 
   hylo_common_target_setup(${result_target})
+  
+  # Ensure Swift module dependencies are properly accessible for all generators,
+  # especially Xcode which has path issues with transitive dependencies
+  hylo_propagate_swift_modules(${result_target})
+endfunction()
+
+# Ensures that Swift module search paths are properly propagated for Xcode builds
+function(hylo_propagate_swift_modules target)
+  # Avoid infinite recursion by checking if we've already processed this target
+  get_target_property(already_processed ${target} HYLO_SWIFT_MODULES_PROPAGATED)
+  if(already_processed)
+    return()
+  endif()
+  set_target_properties(${target} PROPERTIES HYLO_SWIFT_MODULES_PROPAGATED TRUE)
+  
+  # Get all the dependencies of this target
+  get_target_property(dependencies ${target} LINK_LIBRARIES)
+  if(dependencies)
+    foreach(dep ${dependencies})
+      if(TARGET ${dep})
+        # Check if this dependency has a Swift module directory
+        get_target_property(dep_swift_dir ${dep} Swift_MODULE_DIRECTORY)
+        get_target_property(dep_binary_dir ${dep} BINARY_DIR)
+        
+        if(dep_swift_dir OR dep_binary_dir)
+          # Add the dependency's module directory to our interface include directories
+          set(swift_module_directory "$<TARGET_PROPERTY:${dep},Swift_MODULE_DIRECTORY>")
+          set(binary_directory "$<TARGET_PROPERTY:${dep},BINARY_DIR>")
+          set_property(TARGET ${target}
+            APPEND
+            PROPERTY INTERFACE_INCLUDE_DIRECTORIES
+            "$<IF:$<STREQUAL:${swift_module_directory},>,${binary_directory},${swift_module_directory}>")
+          
+          # For Xcode builds, also add the configuration-specific subdirectory
+          # since Xcode expects modules in Debug/Release subdirectories  
+          if(CMAKE_GENERATOR MATCHES "Xcode")
+            set_property(TARGET ${target}
+              APPEND
+              PROPERTY INTERFACE_INCLUDE_DIRECTORIES
+              "$<IF:$<STREQUAL:${swift_module_directory},>,${binary_directory}/$<CONFIG>,${swift_module_directory}>")
+          endif()
+        endif()
+        
+        # Process transitive dependencies
+        hylo_propagate_swift_modules(${dep})
+      endif()
+    endforeach()
+  endif()
 endfunction()
 
 # set_unique_subdirs(output_variable common_prefix <paths>...)
@@ -173,6 +225,10 @@ function(add_hylo_test_of testee)
     add_swift_xctest("${top_target}" ${testee} ${swift_files})
     target_link_libraries("${top_target}" PRIVATE ${_DEPENDENCIES})
     hylo_common_target_setup("${top_target}")
+    
+    # Ensure Swift module dependencies are properly accessible for all generators,
+    # especially Xcode which has path issues with transitive dependencies
+    hylo_propagate_swift_modules("${top_target}")
   endif()
 
   set_recursive_file_glob(hylo_files "${_PATH}/*.hylo")
@@ -225,6 +281,10 @@ function(add_hylo_test_of testee)
       add_swift_xctest("${hylo_test_target}" ${testee} ${generated_swift_file})
       target_link_libraries(${hylo_test_target} PRIVATE ${_DEPENDENCIES})
       hylo_common_target_setup(${hylo_test_target})
+      
+      # Ensure Swift module dependencies are properly accessible for all generators,
+      # especially Xcode which has path issues with transitive dependencies
+      hylo_propagate_swift_modules("${hylo_test_target}")
 
       endforeach()
   endforeach()
