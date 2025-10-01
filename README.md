@@ -86,7 +86,7 @@ You will need CMake 3.30 or newer.
 
 You can skip the following steps if you are using development containers.
 
-1. Install [pkg-config](https://linux.die.net/man/1/pkg-config).
+1. Install [pkg-config](https://en.wikipedia.org/wiki/Pkg-config).
   - Ubuntu: `sudo apt install pkg-config`
   - Windows: `choco install pkgconfiglite` ([Chocolatey](https://community.chocolatey.org/packages/pkgconfiglite)) or [install it manually](https://sourceforge.net/projects/pkgconfiglite/)
   - MacOS: `sudo port install pkgconfig` ([Mac Ports](https://ports.macports.org/port/pkgconfig/))
