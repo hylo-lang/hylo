@@ -18,5 +18,5 @@ import Testing
     m.deallocate(p)
   }
 
-  let p = allocations[0]
+  _ = allocations[0]
 }

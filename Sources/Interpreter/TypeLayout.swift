@@ -59,6 +59,23 @@ struct TypeLayout: Hashable {
   let isUnionLayout: Bool
 }
 
+extension TypeLayout {
+
+  var discriminator: Component {
+    precondition(isUnionLayout)
+    return components.last!
+  }
+
+  var discriminatorID: Component.ID {
+    precondition(isUnionLayout)
+    return (self, components.count - 1)
+  }
+
+  var storedComponents: Int {
+    isUnionLayout ? 2 : components.count
+  }
+}
+
 extension TypeLayout.Bytes {
 
   /// Returns the layout of the tuple `(S, T)`, where `S` and `T` are types whose layout is
@@ -69,5 +86,11 @@ extension TypeLayout.Bytes {
     let r = self.size.rounded(upToNearestMultipleOf: t.alignment)
     return .init(alignment: max(self.alignment, t.alignment), size: r + t.size)
   }
+
+}
+
+extension TypeLayout.Component {
+
+  typealias ID = (TypeLayout, component: Int)
 
 }

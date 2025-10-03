@@ -2,6 +2,15 @@ import FrontEnd
 
 struct Memory {
 
+  enum Error: Swift.Error {
+    case partUninitialized(Address, TypeLayout.Component.ID)
+    case alignment(Address, for: TypeLayout)
+    case bounds(Address, allocationSize: Int)
+    case partType(AnyType, part: TypeLayout.Component.ID)
+    case partOffset(Int, part: TypeLayout.Component.ID)
+    case overlap(TypeLayout, InitializedRegion)
+  }
+
   typealias Offset = Int
 
   /// A region of raw memory in the interpreter
@@ -23,11 +32,12 @@ struct Memory {
     var storage: Storage
     let baseOffset: Offset
     let size: Int
+    let id: ID
 
     var initializedRegions: [InitializedRegion] = []
 
     /// `n` bytes with alignment `m`.
-    public init(_ n: Int, bytesWithAlignment m: Int) {
+    public init(_ n: Int, bytesWithAlignment m: Int, id: ID) {
       precondition(n >= 0)
       precondition(m > 0)
 
@@ -40,40 +50,63 @@ struct Memory {
       }
       baseOffset = storage.withUnsafeBytes { $0.firstOffsetAligned(to: m) }
       size = n
+      self.id = id
+    }
+
+    private func address(at o: Offset) -> Address { .init(allocation: id, offset: o) }
+
+    public mutating func requireInitialized(
+      part partID: TypeLayout.Component.ID,
+      baseOffset: Offset,
+      region n: Int
+    ) throws {
+      let part = partID.0.components[partID.component]
+      let partOffset = baseOffset + part.offset
+      let partAddress = address(at: partOffset)
+      guard let r = initializedRegions.dropFirst(n).first,
+            r.offset == partOffset else {
+        throw Error.partUninitialized(partAddress, partID)
+      }
+      if r.type != part.type {
+        throw Error.partType(r.type, part: partID)
+      }
     }
 
     /// Replaces the initialization records starting at `a` for the
     /// parts of a `t` instance, with the initialization record for a
     /// `t` instance.
-    public mutating func finishInitialization(at a: Offset, to t: TypeLayout) {
-      precondition(address(a, hasAlignment: t.alignment))
-      precondition(a + t.size <= self.size)
+    public mutating func finishInitialization(at a: Offset, to t: TypeLayout) throws {
+      guard offset(a, hasAlignment: t.alignment) else {
+        throw Error.alignment(address(at: a), for: t)
+      }
+      guard a + t.size <= self.size else {
+        throw Error.bounds(address(at: a), allocationSize: self.size)
+      }
+
       let i = initializedRegions.partitioningIndex { $0.offset >= a }
-      var j = i
 
       if t.isUnionLayout {
-        let expectedDiscriminator = t.components.last!
-        let discriminator = initializedRegions[expectedDiscriminator.offset == 0 ? i : i + 1]
-        precondition(discriminator.type == expectedDiscriminator.type)
-        precondition(discriminator.offset == expectedDiscriminator.offset + a)
-        let d = unsignedIntValue(at: discriminator.offset, storedAs: discriminator.type.base as! BuiltinType)
-        let expectedPayload = t.components[Int(d)]
-        let payload = initializedRegions[expectedDiscriminator.offset == 0 ? i + 1 : i]
-        precondition(payload.type == expectedPayload.type)
-        precondition(payload.offset == expectedPayload.offset + a)
-        initializedRegions.formIndex(&j, offsetBy: 2)
+        let dc = t.discriminator
+        try requireInitialized(
+          part: t.discriminatorID, baseOffset: a,
+          region: dc.offset == 0 ? i : i + 1)
+
+        let dv = unsignedIntValue(
+          at: dc.offset + a, storedAs: t.discriminator.type.base as! BuiltinType)
+
+        try requireInitialized(
+          part: (t, Int(dv)), baseOffset: a,
+          region: dc.offset == 0 ? i + 1 : i)
       }
       else {
-        for c in t.components {
-          precondition(initializedRegions[j].type == c.type)
-          precondition(initializedRegions[j].offset == a + c.offset)
-          initializedRegions.formIndex(after: &j)
+        for n in t.components.indices {
+          try requireInitialized(part: (t, n), baseOffset: a, region: i + n)
         }
       }
-      precondition(
-        j == initializedRegions.count
-          || initializedRegions[j].offset >= a + t.size)
-      initializedRegions.replaceSubrange(i..<j, with: CollectionOfOne(.init(offset: a, type: t.type)))
+
+      initializedRegions.replaceSubrange(
+        i..<(i + t.storedComponents),
+        with: CollectionOfOne(.init(offset: a, type: t.type)))
     }
 
     mutating func withMutableUnsafeStorage<R>(_ a: Offset, _ body: (UnsafeMutableRawPointer)->R) -> R {
@@ -101,7 +134,7 @@ struct Memory {
     }
 
     /// Returns true if `o` is alinged to an `n` byte boundary.
-    public func address(_ o: Offset, hasAlignment n: Int) -> Bool {
+    public func offset(_ o: Offset, hasAlignment n: Int) -> Bool {
       storage.withUnsafeBytes {
         UInt(bitPattern: $0.baseAddress! + baseOffset + o) % UInt(n) == 0
       }
@@ -110,7 +143,7 @@ struct Memory {
     /// Replaces the initialization record for a `t` instance at `a` with
     /// the initialization records for any parts of that instance.
     public mutating func startDeinitialization(at a: Offset, of t: TypeLayout) {
-      precondition(address(a, hasAlignment: t.alignment))
+      precondition(offset(a, hasAlignment: t.alignment))
       let i = initializedRegions.partitioningIndex { $0.offset >= a }
       precondition(initializedRegions[i].offset == a)
       precondition(initializedRegions[i].type == t.type)
@@ -143,7 +176,7 @@ struct Memory {
   public mutating func allocate(_ n: Int, bytesWithAlignment m: Int) -> Address {
     let a = nextAllocation
     nextAllocation += 1
-    allocation[a] = Allocation(n, bytesWithAlignment: m)
+    allocation[a] = Allocation(n, bytesWithAlignment: m, id: a)
     return .init(allocation: a, offset: 0)
   }
 
@@ -159,13 +192,13 @@ struct Memory {
   /// Replaces the initialization records starting at `a` for the
   /// parts of a `t` instance, with the initialization record for a
   /// `t` instance.
-  public mutating func finishInitialization(at a: Address, to t: TypeLayout) {
-    allocation[a.allocation]!.finishInitialization(at: a.offset, to: t)
+  public mutating func finishInitialization(at a: Address, to t: TypeLayout) throws {
+    try allocation[a.allocation]!.finishInitialization(at: a.offset, to: t)
   }
 
   /// Returns true if `a` is alinged to an `n` byte boundary.
   public func address(_ a: Address, hasAlignment n: Int) -> Bool {
-    allocation[a.allocation]!.address(a.offset, hasAlignment: n)
+    allocation[a.allocation]!.offset(a.offset, hasAlignment: n)
   }
 
   /// Replaces the initialization record for a `t` instance at `a` with
