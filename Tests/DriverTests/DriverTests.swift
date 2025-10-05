@@ -109,7 +109,7 @@ final class DriverTests: XCTestCase {
   func testTypeCheckSuccess() throws {
     let result = try Driver.compileToTemporary(
       FileManager.default.temporaryFile(containing: "public fun main() {}"),
-      withOptions: ["--typecheck"])
+      withOptions: ["--last-phase=type-checking"])
     XCTAssert(result.status.isSuccess)
     result.checkDiagnosticText(is: "")
     XCTAssertFalse(FileManager.default.fileExists(atPath: result.output.relativePath))
@@ -117,7 +117,7 @@ final class DriverTests: XCTestCase {
 
   func testTypeCheckFailure() throws {
     let source = try FileManager.default.temporaryFile(containing: "public fun main() { foo() }")
-    let result = try Driver.compileToTemporary(source, withOptions: ["--typecheck"])
+    let result = try Driver.compileToTemporary(source, withOptions: ["--last-phase=type-checking"])
     XCTAssertFalse(result.status.isSuccess)
     result.checkDiagnosticText(
       is: """
