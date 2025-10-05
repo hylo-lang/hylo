@@ -11,22 +11,19 @@ final class ParserTests: XCTestCase {
   // MARK: Unit tests
 
   func testParse() throws {
-    let input = SourceFile.diagnosableLiteral(
-      """
+    let input = """
       public fun main() {
         print("Hello, World!")
       }
-      """)
+      """.asSourceFile()
 
-    var a = AST()
     try checkNoDiagnostic { d in
-      _ = try a.loadModule("Main", parsing: [input], reportingDiagnosticsTo: &d)
+      _ = try input.parsed(reportingDiagnosticsTo: &d)
     }
   }
 
   func testSourceFile() throws {
-    let input = SourceFile.diagnosableLiteral(
-      """
+    let input = """
         ;;
         import Foo
 
@@ -35,13 +32,12 @@ final class ParserTests: XCTestCase {
 
         let x = "Hello!"
         public let y = 0;
-      """)
+      """.asSourceFile()
 
-    var a = AST()
-    let m = try checkNoDiagnostic { d in
-      try a.loadModule("Main", parsing: [input], reportingDiagnosticsTo: &d)
+    let a = try checkNoDiagnostic { d in
+      try input.parsed(reportingDiagnosticsTo: &d)
     }
-    XCTAssertEqual(a[a[m].sources.first!].decls.count, 4)
+    XCTAssertEqual(a[a[a.theOnlyModule].sources.first!].decls.count, 4)
   }
 
   // MARK: Declarations
@@ -1916,12 +1912,12 @@ final class ParserTests: XCTestCase {
   }
 
   func testConditionalControlInfix() throws {
-    let input = SourceFile.diagnosableLiteral(
-      """
+    let input = """
       #if os(macOS) || os(Linux) && hylo_version(< 1.0.0) || os(Windows)
       do_something()
       #endif
-      """)
+      """.asSourceFile()
+
     let (stmtID, ast) = try apply(Parser.stmt, on: input)
     let stmt = try XCTUnwrap(ast[stmtID] as? ConditionalCompilationStmt)
     XCTAssertEqual(

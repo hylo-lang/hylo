@@ -249,19 +249,11 @@ extension XCTestCase {
     try checkAnnotatedHyloFileDiagnostics(
       inFileAt: hyloFilePath, expecting: expectation
     ) { (hyloSource, log) in
-
-      let (p, m) = try p.loadModule(reportingDiagnosticsTo: &log) { (ast, log, space) in
-        // Note: built-in module is visible so that we can test built-in function calls.
-        try ast.loadModule(
-          hyloSource.baseName, parsing: [hyloSource], inNodeSpace: space,
-          withBuiltinModuleAccess: true,
-          reportingDiagnosticsTo: &log)
-      }
-
-      // Emit Hylo IR.
-      var ir = try Module(lowering: m, in: p, reportingDiagnosticsTo: &log)
-      // Run mandatory IR analysis and transformation passes.
-      try ir.applyMandatoryPasses(reportingDiagnosticsTo: &log)
+      _ = try hyloSource
+        .parsed(reportingDiagnosticsTo: &log)
+        .scoped(reportingDiagnosticsTo: &log)
+        .typeChecked(reportingDiagnosticsTo: &log)
+        .loweredToIR(reportingDiagnosticsTo: &log)
     }
   }
 
@@ -274,9 +266,8 @@ extension XCTestCase {
     try checkAnnotatedHyloFileDiagnostics(
       inFileAt: hyloFilePath, expecting: expectation
     ) { (hyloSource, log) in
-      var ast = AST()
-      _ = try ast.loadModule(
-        hyloSource.baseName, parsing: [hyloSource], reportingDiagnosticsTo: &log)
+      _ = try hyloSource
+        .parsed(reportingDiagnosticsTo: &log)
     }
   }
 
@@ -289,12 +280,10 @@ extension XCTestCase {
     try checkAnnotatedHyloFileDiagnostics(
       inFileAt: hyloFilePath, expecting: expectation
     ) { (hyloSource, log) in
-      _ = try p.loadModule(reportingDiagnosticsTo: &log) { (ast, log, space) in
-        try ast.loadModule(
-          hyloSource.baseName, parsing: [hyloSource], inNodeSpace: space,
-          withBuiltinModuleAccess: true,
-          reportingDiagnosticsTo: &log)
-      }
+      _ = try hyloSource
+        .parsed(reportingDiagnosticsTo: &log)
+        .scoped(reportingDiagnosticsTo: &log)
+        .typeChecked(reportingDiagnosticsTo: &log)
     }
   }
 

@@ -11,7 +11,7 @@ public struct TypedProgram {
   public typealias ConformanceTable = [TraitType: Set<Conformance>]
 
   /// The program annotated by the properties of `self`.
-  private var base: ScopedProgram
+  public private(set) var base: ScopedProgram
 
   /// A map from translation unit to its imports.
   public internal(set) var imports: [TranslationUnit.ID: Set<ModuleDecl.ID>] = [:]
