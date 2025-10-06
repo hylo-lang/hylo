@@ -149,7 +149,7 @@ public struct Function {
     return blocks.remove(at: block.address)
   }
 
-  /// Swaps `old` by `new`.
+  /// Replaces `old` for `new`.
   ///
   /// `old` is removed and the def-use chains are updated so that the uses made by `old` are
   /// replaced by the uses made by `new` and all uses of `old` refer to `new`. After the call,
@@ -163,7 +163,7 @@ public struct Function {
     addUses(for: new, with: old)
   }
 
-  /// Swaps all uses of `old` in `self` by `new` and updates the def-use chains.
+  /// Replaces all uses of `old` in `self` for `new` and updates the def-use chains.
   ///
   /// - Requires: `new` as the same type as `old`.
   mutating func replaceUses(of old: Operand, with new: Operand) {
