@@ -57,7 +57,7 @@ struct Emitter {
   private var loops = LoopIDs()
 
   /// For each block, the state of `frames` where the block was first entered.
-  private var stackOnEntry: [ Block.AbsoluteID: Stack ] = [:]
+  private var stackOnEntry: [Block.AbsoluteID: Stack] = [:]
 
   /// Where new instructions are inserted.
   var insertionPoint: InsertionPoint?

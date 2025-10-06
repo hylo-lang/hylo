@@ -135,14 +135,7 @@ public struct Module {
   }
 
   /// Returns the IDs of the instructions in `f`, from all the blocks.
-  public func instructions(in f: Function.ID) -> LazySequence<
-    FlattenSequence<
-      LazyMapSequence<
-        LazySequence<DefaultIndices<Function.Blocks>>.Elements,
-        LazyMapSequence<Block.Instructions.Indices, InstructionID>
-      >
-    >
-  > {
+  public func instructions(in f: Function.ID) -> some Collection<InstructionID> {
     functions[f]!.instructions
   }
 
