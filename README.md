@@ -56,12 +56,13 @@ file for LLVM.
     (on Windows substitute your shell's line continuation character
     for `\` or just remove the line breaks and backslashes).
     
-    If you want to run tests, add `-DBUILD_TESTING=1`.
+    If you want to run tests, add `-D BUILD_TESTING=1`.
     
-    **Note:** on macOS, if you are not using your Xcode's default
-    toolchain, [you may need `-D
-    CMAKE_Swift_COMPILER=swiftc`](https://gitlab.kitware.com/cmake/cmake/-/issues/25750)
-    to prevent CMake from using Xcode's default `swift`.
+    **Note:** on macOS,
+    - To run tests, you also need `-D CMAKE_OSX_SYSROOT=$(xcrun --show-sdk-path)`.
+    - if you are not using your Xcode's default toolchain, [you may need `-D
+      CMAKE_Swift_COMPILER=swiftc`](https://gitlab.kitware.com/cmake/cmake/-/issues/25750) to
+      prevent CMake from using Xcode's default `swift`.
     
     If this command fails it could be because you have an LLVM without
     CMake support installed; we suggest you try one of
@@ -92,7 +93,11 @@ You will need CMake 3.3.0-rc1 or newer.
       -G Xcode -S . -B <build-directory>
     ```
 
-    If you want to run tests, add `-DBUILD_TESTING=1`.
+    If you want to run tests, add
+
+    ```
+    -D BUILD_TESTING=1 -D CMAKE_OSX_SYSROOT=$(xcrun --show-sdk-path)
+    ```
 
 2. **Profit**: open the `.xcodeproj` file in the *build-directory* and
    use Xcode's UI to build and test.

@@ -10,7 +10,9 @@ project(Hylo
   LANGUAGES C CXX Swift
 )
 enable_testing()
-include(CTest)
+if(BUILD_TESTING)
+  include(CTest)
+endif()
 
 set(CMAKE_OSX_DEPLOYMENT_TARGET "13.0")
 
