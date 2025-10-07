@@ -74,13 +74,13 @@ extension Module {
   func makeAccess(
     _ capabilities: AccessEffectSet, from source: Operand,
     correspondingTo binding: VarDecl.ID? = nil,
-    at site: SourceRange
+    in f: Function.ID, at site: SourceRange
   ) -> Access {
     precondition(!capabilities.isEmpty)
-    precondition(type(of: source).isAddress)
+    precondition(type(of: source, in: f).isAddress)
     return .init(
       capabilities: capabilities,
-      accessedType: type(of: source).ast,
+      accessedType: type(of: source, in: f).ast,
       source: source,
       binding: binding,
       site: site)

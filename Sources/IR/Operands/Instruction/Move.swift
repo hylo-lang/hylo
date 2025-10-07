@@ -53,10 +53,10 @@ extension Module {
   ///   - storage: The location to initialize or assign. Must have an address type.
   func makeMove(
     _ value: Operand, to storage: Operand, usingConformance movable: FrontEnd.Conformance,
-    at site: SourceRange
+    in f: Function.ID, at site: SourceRange
   ) -> Move {
-    precondition(type(of: value).isAddress)
-    precondition(type(of: storage).isAddress)
+    precondition(type(of: value, in: f).isAddress)
+    precondition(type(of: storage, in: f).isAddress)
     return .init(object: value, target: storage, movable: movable, site: site)
   }
 

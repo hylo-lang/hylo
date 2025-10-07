@@ -70,9 +70,9 @@ struct AbstractContext<Domain: AbstractDomain>: Equatable {
 
   /// Adds a new memory cell in `context` and binds its address to `i`, which is in `m`.
   mutating func declareStorage(
-    assignedTo i: InstructionID, in m: Module, initially initialState: Domain
+    assignedTo i: InstructionID, from f: Function.ID, in m: Module, initially initialState: Domain
   ) {
-    let t = m.type(of: .register(i)).ast
+    let t = m.type(of: .register(i), in: f).ast
     let l = AbstractTypeLayout(of: t, definedIn: m.program)
     let a = AbstractLocation.root(.register(i))
     memory[a] = .init(layout: l, value: .full(initialState))

@@ -8,10 +8,8 @@ extension Module {
   ///
   /// - Requires: `self` is has gone through access reification. `f` is in `self`.
   public mutating func closeBorrows(in f: Function.ID, diagnostics: inout DiagnosticSet) {
-    for blockToProcess in blocks(in: f) {
-      for i in instructions(in: blockToProcess) {
-        close(i, in: f, reportingDiagnosticsTo: &diagnostics)
-      }
+    for i in instructions(in: f) {
+      close(i, in: f, reportingDiagnosticsTo: &diagnostics)
     }
   }
 
@@ -20,39 +18,39 @@ extension Module {
   private mutating func close(
     _ i: InstructionID, in f: Function.ID, reportingDiagnosticsTo log: inout DiagnosticSet
   ) {
-    switch self[i] {
+    switch self[i, in: f] {
     case let s as Access:
-      let region = extendedLiveRange(of: .register(i))
+      let region = extendedLiveRange(of: .register(i), in: f)
 
       // Delete the borrow if it's never used.
       if region.isEmpty {
         if let decl = s.binding {
           log.insert(.warning(unusedBinding: program.ast[decl].baseName, at: s.site))
         }
-        removeInstruction(i)
+        removeInstruction(i, in: f)
         return
       }
 
-      insertClose(i, atBoundariesOf: region) { (this, site) in
-        this.makeEndAccess(.register(i), at: site)
+      insertClose(i, in: f, atBoundariesOf: region) { (this, site) in
+        this.makeEndAccess(.register(i), in: f, at: site)
       }
 
     case is OpenCapture:
-      let region = extendedLiveRange(of: .register(i))
-      insertClose(i, atBoundariesOf: region) { (this, site) in
-        this.makeCloseCapture(.register(i), at: site)
+      let region = extendedLiveRange(of: .register(i), in: f)
+      insertClose(i, in: f, atBoundariesOf: region) { (this, site) in
+        this.makeCloseCapture(.register(i), in: f, at: site)
       }
 
     case is OpenUnion:
-      let region = extendedLiveRange(of: .register(i))
-      insertClose(i, atBoundariesOf: region) { (this, site) in
-        this.makeCloseUnion(.register(i), at: site)
+      let region = extendedLiveRange(of: .register(i), in: f)
+      insertClose(i, in: f, atBoundariesOf: region) { (this, site) in
+        this.makeCloseUnion(.register(i), in: f, at: site)
       }
 
     case is Project:
-      let region = extendedLiveRange(of: .register(i))
-      insertClose(i, atBoundariesOf: region) { (this, site) in
-        this.makeEndProject(.register(i), at: site)
+      let region = extendedLiveRange(of: .register(i), in: f)
+      insertClose(i, in: f, atBoundariesOf: region) { (this, site) in
+        this.makeEndProject(.register(i), in: f, at: site)
       }
 
     default:
@@ -65,25 +63,25 @@ extension Module {
   ///
   /// No instruction is inserted at after already existing lifetime closers for `i`.
   private mutating func insertClose<T: LifetimeCloser>(
-    _ i: InstructionID, atBoundariesOf region: Lifetime,
+    _ i: InstructionID, in f: Function.ID, atBoundariesOf region: Lifetime,
     makingInstructionWith make: (inout Self, SourceRange) -> T
   ) {
     for boundary in region.upperBoundaries {
       switch boundary {
       case .after(let u):
         // Skip the insertion if the last user already closes the borrow.
-        if let e = self[u] as? T, e.start.instruction == i {
+        if let e = self[u, in: f] as? T, e.start.instruction == i {
           continue
         }
-        let s = make(&self, self[u].site)
-        insert(s, after: u)
+        let s = make(&self, self[u, in: f].site)
+        insert(s, after: u, in: f)
 
       case .start(let b):
-        let site = instructions(in: b).first.map(default: self[i].site) {
-          SourceRange.empty(at: self[$0].site.start)
+        let site = instructions(in: b, of: f).first.map(default: self[i, in: f].site) {
+          SourceRange.empty(at: self[$0, in: f].site.start)
         }
         let s = make(&self, site)
-        insert(s, at: boundary)
+        insert(s, at: boundary, in: f)
 
       default:
         unreachable()
@@ -99,26 +97,26 @@ extension Module {
   /// `d` is its live-range merged with the extended live-ranges of the definitions extending `d`.
   ///
   /// - Note: The definition of an operand `o` isn't part of `o`'s lifetime.
-  private func extendedLiveRange(of definition: Operand) -> Lifetime {
+  private func extendedLiveRange(of definition: Operand, in f: Function.ID) -> Lifetime {
     // Nothing to do if the operand has no use.
-    guard let uses = self.uses[definition] else { return Lifetime(operand: definition) }
+    guard let uses = self[f].uses[definition] else { return Lifetime(operand: definition) }
 
     // Compute the live-range of the definition.
-    var r = liveRange(of: definition, definedIn: definition.block!)
+    var r = liveRange(of: definition, definedIn: definition.block!, from: f)
 
     // Extend the lifetime with that of its borrows.
     for use in uses {
-      switch self[use.user] {
+      switch self[use.user, in: f] {
       case is LifetimeExtender:
-        if let o = result(of: use.user) {
-          r = extend(lifetime: r, toCover: extendedLiveRange(of: o))
+        if let o = result(of: use.user, in: f) {
+          r = extend(lifetime: r, toCover: extendedLiveRange(of: o, in: f), in: f)
         }
 
       case let s as CaptureIn where use.index == 0:
-        let p = provenances(s.target).uniqueElement!
-        guard self[p] is AllocStack else { UNIMPLEMENTED() }
-        let u = self.uses[p, default: []].first(where: { self[$0.user] is ReleaseCaptures })!
-        return extend(lifetime: r, toInclude: u)
+        let p = provenances(s.target, in: f).uniqueElement!
+        guard self[p, in: f] is AllocStack else { UNIMPLEMENTED() }
+        let u = self[f].uses[p, default: []].first(where: { self[$0.user, in: f] is ReleaseCaptures })!
+        return extend(lifetime: r, toInclude: u, in: f)
 
       default:
         continue

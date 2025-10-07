@@ -21,9 +21,9 @@ enum InsertionPoint {
     case .end(let b):
       return b
     case .before(let i):
-      return .init(i.function, i.block)
+      return .init(i.block)
     case .after(let i):
-      return .init(i.function, i.block)
+      return .init(i.block)
     }
   }
 

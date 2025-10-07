@@ -28,6 +28,9 @@ public struct Function {
   /// The blocks in the function.
   public private(set) var blocks: Blocks
 
+  /// The def-use chains of the values in this module.
+  public var uses: [Operand: [Use]] = [:]
+
   /// The entry of the function.
   public var entry: Blocks.Address? { blocks.firstAddress }
 
@@ -37,6 +40,18 @@ public struct Function {
   public subscript(_ address: Blocks.Address) -> Block {
     get { blocks[address] }
     _modify { yield &blocks[address] }
+  }
+
+  /// Accesses the block identified by `b`.
+  public subscript(b: Block.ID) -> Block {
+    _read { yield blocks[b.address] }
+    _modify { yield &blocks[b.address] }
+  }
+
+  /// Accesses the instruction identified by `i`.
+  public subscript(i: InstructionID) -> Instruction {
+    _read { yield blocks[i.block].instructions[i.address] }
+    _modify { yield &blocks[i.block].instructions[i.address] }
   }
 
   /// `true` iff the function takes generic parameters.

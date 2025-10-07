@@ -29,7 +29,6 @@ public struct Switch: Terminator {
   }
 
   mutating func replaceSuccessor(_ old: Block.ID, with new: Block.ID) -> Bool {
-    precondition(new.function == successors[0].function)
     for i in 0 ..< successors.count {
       if successors[i] == old {
         successors[i] = new
@@ -56,9 +55,9 @@ extension Module {
   /// - Requires: `i` is a valid index in `successors`, expressed as a built-in integer, and
   ///   `successors` is not empty.
   func makeSwitch(
-    on index: Operand, toOneOf successors: [Block.ID], at site: SourceRange
+    on index: Operand, toOneOf successors: [Block.ID], in f: Function.ID, at site: SourceRange
   ) -> Switch {
-    let t = type(of: index)
+    let t = type(of: index, in: f)
     precondition(t.isObject && t.ast.isBuiltinInteger)
     precondition(!successors.isEmpty)
 
