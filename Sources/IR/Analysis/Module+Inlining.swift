@@ -72,7 +72,7 @@ extension IR.Program {
 
     // Simplest case: the inlined function has no control flow.
     if modules[source]![callee.function].blocks.count == 1 {
-      let e = Block.ID(modules[source]![callee.function].entry!)
+      let e = modules[source]![callee.function].entry!
 
       translation.rewrittenOperand[.parameter(e, s.arguments.count)] = s.output
       for (n, o) in s.arguments.enumerated() {
