@@ -57,7 +57,7 @@ struct Emitter {
   private var loops = LoopIDs()
 
   /// For each block, the state of `frames` where the block was first entered.
-  private var stackOnEntry: [Block.AbsoluteID: Stack] = [:]
+  private var stackOnEntry: [BlockInFunction: Stack] = [:]
 
   /// Where new instructions are inserted.
   var insertionPoint: InsertionPoint?
@@ -67,6 +67,18 @@ struct Emitter {
 
   /// The source code associated with instructions to be inserted.
   var currentSource: SourceRange
+
+  /// The block's ID within its function.
+  public struct BlockInFunction: Hashable {
+
+    /// The ID of the function containing the block.
+    public var function: Function.ID
+
+    /// The ID of the block in the function.
+    public var block: Block.ID
+
+  }
+
 
   /// The program being lowered.
   private var program: TypedProgram {
@@ -3592,7 +3604,7 @@ extension Emitter {
   /// This test is used to ensure that all points branching to a block
   /// have consistent stack allocations.
   fileprivate mutating func checkEntryStack(_ b: Block.ID) {
-    modify(&stackOnEntry[Block.AbsoluteID(insertionFunction!, b)]) { x in
+    modify(&stackOnEntry[BlockInFunction(function: insertionFunction!, block: b)]) { x in
       if let y = x {
         assert(y.hasSameAllocations(as: frames))
       }
