@@ -22,14 +22,21 @@ extension String {
   public func asSourceFile(swiftFile: String = #filePath, invocationLine: Int = #line) -> SourceFile {
     .diagnosableLiteral(
       self, swiftFile: swiftFile,
-      invocationLine: invocationLine - self.count { $0.isNewline } )
+      invocationLine: invocationLine - self.count { $0.isNewline } - 3)
   }
 
 }
 
 extension SourceFile {
 
-  /// Returns `self` lowered to IR, or throws diagnostics on error.
+  /// Returns self parsed.
+  public func parsed(reportingDiagnosticsTo log: inout DiagnosticSet) throws -> AST {
+    var r = AST()
+    _ = try r.loadModule("Main", parsing: [self], reportingDiagnosticsTo: &log)
+    return r
+  }
+
+  /// Returns `self` as a one-file module, lowered to IR.
   public func loweredToIR() throws -> IR.Module {
     var log = DiagnosticSet()
     return try self.typecheckedWithStandardLibrary(reportingDiagnosticsTo: &log)
