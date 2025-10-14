@@ -29,22 +29,6 @@ private func makeTypecheckedStandardLibrary()
 /// The standard library after typechecking, plus any diagnostics generated.
 internal let typecheckedStandardLibrary = makeTypecheckedStandardLibrary()
 
-extension TypedProgram {
-  /// An instance with no modules.
-  static let empty = makeEmpty()
-
-  /// Returns an empty instance.
-  private static func makeEmpty() -> Self {
-    var log = DiagnosticSet()
-    do {
-      return try TypedProgram(annotating: ScopedProgram(AST()), reportingDiagnosticsTo: &log)
-    }
-    catch let e {
-      fatalError("Typechecking an empty program failed with: \(e)")
-    }
-  }
-}
-
 /// A test driver for executing test cases generated from Hylo source files.
 ///
 /// This class is intended to be extended by test cases running Hylo programs through the compiler.
