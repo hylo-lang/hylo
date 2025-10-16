@@ -1,0 +1,2 @@
+ignorePatterns:
+  - pattern: '^https://community\.chocolatey\.org/packages/pkgconfiglite.*$'
