@@ -44,11 +44,7 @@
     // Use 'forwardPorts' to make a list of ports inside the container available locally.
     // "forwardPorts": [],
     "containerEnv": {
-        "HYLO_LLVM_BUILD_TYPE": "${localEnv:HYLO_LLVM_BUILD_TYPE:MinSizeRel}"
-    },
-    "remoteEnv": {
-        "PATH": "/python-venv/bin:/opt/llvm-${containerEnv:HYLO_LLVM_BUILD_TYPE}/bin:${containerEnv:PATH}",
-        "PKG_CONFIG_PATH": "/opt/llvm-${containerEnv:HYLO_LLVM_BUILD_TYPE}/pkgconfig:${containerEnv:PKG_CONFIG_PATH}",
+        "HYLO_LLVM_BUILD_TYPE": "${localEnv:HYLO_LLVM_BUILD_TYPE:MinSizeRel}",
         "HYLO_USE_BUILTIN_STDLIB": "true"
     },
     // "postCreateCommand": "sudo ./.devcontainer/postCreateCommand.sh",
