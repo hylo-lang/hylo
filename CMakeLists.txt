@@ -18,7 +18,7 @@ list(PREPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake/modules)
 
 set(CMAKE_POSITION_INDEPENDENT_CODE ${BUILD_SHARED_LIBS}) # Needed?
 set(CMAKE_Swift_COMPILE_OPTIONS
-  -warnings-as-errors --verbose)
+  -warnings-as-errors) # Add --verbose while debugging
 set(CMAKE_STATIC_LIBRARY_PREFIX_Swift "lib") # https://forums.swift.org/t/cmake-swift-6-2-generates-object-files-with-libmytargetname-lib-on-windows/82271
 if(BUILD_TESTING)
   list(APPEND CMAKE_Swift_COMPILE_OPTIONS -enable-testing)
