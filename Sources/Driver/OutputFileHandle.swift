@@ -2,6 +2,7 @@ import Foundation
 
 class OutputFileHandle: TextOutputStream, @unchecked Sendable {
   // Sendable is satisfied by all public operations being protected by `lock`.
+  // Note: Sendable cannot be trivially satisfied due to this being a class.
 
   private let base: FileHandle
   private let lock = NSLock()
