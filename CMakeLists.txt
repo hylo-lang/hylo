@@ -2,7 +2,7 @@
 # Standard project boilerplate
 #
 cmake_minimum_required(VERSION 3.30)
-set(CMAKE_OSX_DEPLOYMENT_TARGET 15.0)
+set(CMAKE_OSX_DEPLOYMENT_TARGET 15.5)
 set(CMAKE_Swift_LANGUAGE_VERSION 6)
 
 project(Hylo
