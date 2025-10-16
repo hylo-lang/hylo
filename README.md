@@ -33,35 +33,36 @@ You can download such a prebuilt LLVM package from Hylo's
 [LLVM builds](https://github.com/hylo-lang/llvm-build).
 If you are using development containers, this is already installed preinstalled on the system. Run `llvm-config --prefix` to see where.
 
-On **Windows**, make sure to set the environment variable `VSINSTALLDIR` to something like
-`C:/Program Files/Microsoft Visual Studio/2022/Community`, without `/` at the end. This is needed for LLVM to locate the DIA SDK.
+On **Windows**, set the environment variable `VSINSTALLDIR` to your visual studio installation path, e.g. `C:/Program Files/Microsoft Visual Studio/2022/Community`, without `/` at the end, so LLVM's CMake files can locate the DIA SDK.
 
 ## Building with CMake and Ninja
 
 1. **Configure**: choose a *build-directory* and a CMake *build type*
-   (usually `Debug` or `Release`) and then, where `<LLVM>` is the path
-   to the root directory of your LLVM installation,
+   (usually `Debug` or `Release`). `<LLVM>` is the path
+   to the root directory of your LLVM installation.
 
 	```
-	cmake -D CMAKE_BUILD_TYPE=<build-type> -D LLVM_DIR=<LLVM>/lib/cmake/llvm -DBUILD_TESTING=1 -G Ninja -S . -B .build
+	cmake 
+      -D LLVM_DIR=<LLVM>/lib/cmake/llvm  \
+      -D CMAKE_BUILD_TYPE=<build-type>   \
+      -D BUILD_TESTING=1                 \
+      -G Ninja -S . -B .build
    ```
- 
-   If you don't want to run tests, remove `-DBUILD_TESTING=1`.
-    
+     
    **MacOS-specific flags**
     - If you are not using the default Swift toolchain, [you may need `-D CMAKE_Swift_COMPILER=swiftc`](https://gitlab.kitware.com/cmake/cmake/-/issues/25750) to prevent CMake from using Xcode's default `swift`.
-    - Add `-DCMAKE_OSX_SYSROOT=$(xcrun --show-sdk-path)`
+    - Add `-D CMAKE_OSX_SYSROOT=$(xcrun --show-sdk-path)`
 
 2. **Build**: 
 
    ```
-   cmake --build <build-directory>
+   cmake --build .build
    ```
 
-3. **Test** (requires `-DBUILD_TESTING=1` in step 1):
+3. **Test** (requires `-D BUILD_TESTING=1` in step 1):
 
    ```
-   ctest --parallel --test-dir <build-directory>
+   ctest --parallel --test-dir .build
    ```
 
 ## Building with CMake and Xcode
@@ -73,11 +74,11 @@ You will need CMake 3.30 or newer.
    installation,
 
     ```
-    cmake -D LLVM_DIR=<LLVM>/lib/cmake/llvm \
-      -G Xcode -S . -B <build-directory>
+    cmake 
+      -D LLVM_DIR=<LLVM>/lib/cmake/llvm \
+      -D BUILD_TESTING=1                \
+      -G Xcode -S . -B .build
     ```
-
-    If you want to run tests, add `-DBUILD_TESTING=1`.
 
 2. **Profit**: open the `.xcodeproj` file in the *build-directory* and
    use Xcode's UI to build and test.
@@ -90,8 +91,7 @@ You can skip the following steps if you are using development containers.
   - Ubuntu: `sudo apt install pkg-config`
   - Windows: `choco install pkgconfiglite` ([Chocolatey](https://community.chocolatey.org/packages/pkgconfiglite)) or [install it manually](https://sourceforge.net/projects/pkgconfiglite/)
   - MacOS: `sudo port install pkgconfig` ([Mac Ports](https://ports.macports.org/port/pkgconfig/))
-installed, and `<YOUR LLVM>/pkgconfig` added to the `PKG_CONFIG_PATH` environment variable.
-2. Add your LLVM installation's `pkgconfig` subfolder to `PKG_CONFIG_PATH`.
+2. Add your [LLVM installation](https://github.com/hylo-lang/llvm-build)'s `pkgconfig` subfolder to `PKG_CONFIG_PATH`.
 
 Now you should be able to build and test:
 ```bash
