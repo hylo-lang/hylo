@@ -37,7 +37,7 @@ extension SourceFile {
     return try typecheckedStandardLibrary.program
       .loadModule(reportingDiagnosticsTo: &log) { ast, log, nodeSpace in
         try ast.loadModule("Main", parsing: [self], withBuiltinModuleAccess: needsBuiltins, reportingDiagnosticsTo: &log)
-      }.0
+      }.program
   }
 
 }
