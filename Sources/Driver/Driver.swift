@@ -278,7 +278,7 @@ public struct Driver: ParsableCommand {
         productName, parsing: sourceFiles(in: inputs), inNodeSpace: space,
         withBuiltinModuleAccess: importBuiltinModule,
         reportingDiagnosticsTo: &log)
-    }
+    }.components()
 
     if typeCheckOnly { return }
 

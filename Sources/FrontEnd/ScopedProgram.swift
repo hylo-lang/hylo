@@ -38,12 +38,15 @@ public struct ScopedProgram: Program {
     self.varToBinding = s.varToBinding
   }
 
+  /// A module within a ScopedProgram.
+  public typealias Module = Module_<Self>
+
   /// Returns a copy of `self` in which a new module has been loaded, calling `make` to form its
   /// contents and reporting diagnostics to `log`.
   public func loadModule(
     reportingDiagnosticsTo log: inout DiagnosticSet,
     creatingContentsWith make: AST.ModuleLoader
-  ) throws -> (ScopedProgram, ModuleDecl.ID) {
+  ) throws -> Module {
     var extended = ast
     let m = try extended.loadModule(reportingDiagnosticsTo: &log, creatingContentsWith: make)
 
@@ -56,7 +59,7 @@ public struct ScopedProgram: Program {
       varToBinding: s.varToBinding)
 
     try log.throwOnError()
-    return (p, m)
+    return .init(program: p, module: m)
   }
 
 }

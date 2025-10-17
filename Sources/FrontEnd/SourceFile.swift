@@ -170,27 +170,28 @@ public struct SourceFile {
 
 }
 
-extension SourceFile {
+extension String {
 
-  /// Returns a SourceFile containing the given text of a multiline string literal, such that
-  /// diagnostics produced in processing that file will point back to the original Swift source.
+  /// Returns a SourceFile containing self, a multiline string literal, such that diagnostics
+  /// produced in processing that file will point back to the original Swift source.
   ///
   /// The text of the result will literally be what's in the Swift file, including its
   /// indentation and any embedded special characters, even if the literal itself is not a raw
-  /// literal or has had indentation stripped by the Swift compiler. It is assumed that the first
-  /// line of the string literal's content is two lines below `invocationLine`, which is consistent
-  /// with this project's formatting standard.
+  /// literal or has had indentation stripped by the Swift compiler. It is assumed that this function is invoked on the line containing the closing quotation marks, e.g.
+  ///
+  ///     let f = """
+  ///        let x = 1
+  ///     """.asSourceFile()
   ///
   /// - Warning:
-  ///   - Do not insert a blank line between the opening parenthesis of the invocation and the
-  ///     opening quotation mark.
   ///   - Only use this function with multiline string literals.
+  ///   - Write `.asSourceFile()` on the same line as the close quotation marks.
   ///   - Serialization of the result is not supported.
-  public static func diagnosableLiteral(
-    _ multilineLiteralText: String, swiftFile: String = #filePath, invocationLine: Int = #line
-  ) -> SourceFile {
+  public func asSourceFile(swiftFile: String = #filePath, invocationLine: Int = #line) -> SourceFile {
     try! .init(
-      diagnosableLiteral: multilineLiteralText, swiftFile: swiftFile, startLine: invocationLine + 2)
+      diagnosableLiteral: self,
+      swiftFile: swiftFile,
+      startLine: invocationLine - self.count(where: { $0.isNewline }) - 1)
   }
 
 }

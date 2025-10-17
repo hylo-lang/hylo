@@ -8,7 +8,7 @@ import XCTest
 final class ManglingTests: XCTestCase {
 
   func testDeclarations() throws {
-    let text = """
+    let input = """
       import Hylo
 
       namespace Stash {
@@ -63,15 +63,12 @@ final class ManglingTests: XCTestCase {
         let f = fun (a: Int) -> Void {}
         let g = fun (a: Int) -> Void {}
       }
-      """
+      """.asSourceFile()
 
-    let input = SourceFile(synthesizedText: text)
     let (p, m) = try checkNoDiagnostic { (d) in
-      var ast = try Utils.Host.hostedLibraryAST.get()
-      let main = try ast.loadModule("Main", parsing: [input], reportingDiagnosticsTo: &d)
-      let base = ScopedProgram(ast)
-      return (try TypedProgram(annotating: base, reportingDiagnosticsTo: &d), main)
-    }
+      try input.typecheckedAsMainWithHostedStandardLibrary(reportingDiagnosticsTo: &d)
+    }.components()
+
 
     var o = SymbolCollector(forNodesIn: p)
     p.ast.walk(m, notifying: &o)
