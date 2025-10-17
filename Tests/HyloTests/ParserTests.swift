@@ -18,7 +18,7 @@ final class ParserTests: XCTestCase {
       """.asSourceFile()
 
     try checkNoDiagnostic { d in
-      _ = try input.parsed(reportingDiagnosticsTo: &d)
+      _ = try input.parsedAsMain(reportingDiagnosticsTo: &d)
     }
   }
 
@@ -34,10 +34,11 @@ final class ParserTests: XCTestCase {
         public let y = 0;
       """.asSourceFile()
 
-    let a = try checkNoDiagnostic { d in
-      try input.parsed(reportingDiagnosticsTo: &d)
-    }
-    XCTAssertEqual(a[a[a.latestModule].sources.first!].decls.count, 4)
+    let (a, m) = try checkNoDiagnostic { d in
+      try input.parsedAsMain(reportingDiagnosticsTo: &d)
+    }.components()
+
+    XCTAssertEqual(a[a[m].sources.first!].decls.count, 4)
   }
 
   // MARK: Declarations

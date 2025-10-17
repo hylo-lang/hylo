@@ -250,7 +250,7 @@ extension XCTestCase {
       inFileAt: hyloFilePath, expecting: expectation
     ) { (hyloSource, log) in
       _ = try hyloSource.typecheckedWithStandardLibrary(reportingDiagnosticsTo: &log, withBuiltinModuleAccess: true)
-        .latestModuleIR(reportingDiagnosticsTo: &log)
+        .loweredToIR(reportingDiagnosticsTo: &log)
     }
   }
 

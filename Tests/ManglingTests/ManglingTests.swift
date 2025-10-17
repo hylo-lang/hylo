@@ -66,9 +66,9 @@ final class ManglingTests: XCTestCase {
       """.asSourceFile()
 
     let (p, m) = try checkNoDiagnostic { (d) in
-      let p = try input.typecheckedWithStandardLibrary(reportingDiagnosticsTo: &d)
-      return (p, p.latestModule)
-    }
+      try input.typecheckedWithStandardLibrary(reportingDiagnosticsTo: &d)
+    }.components()
+
 
     var o = SymbolCollector(forNodesIn: p)
     p.ast.walk(m, notifying: &o)
