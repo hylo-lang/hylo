@@ -2,10 +2,12 @@ import Utils
 
 /// A box wrapping a concrete compile-time value.
 public struct ConcreteTerm: TermProtocol {
-
-  // The value of the term.
-  //
-  // WARNING: Don't use downcasts from here, `as?` will not work properly, only on its wrapped `.anyHashable` object.
+  // Todo: get rid of unsafe type erasure in SendableValue, currently it's only used with an Int value in practice.
+  
+  /// The value of the term.
+  ///
+  /// WARNING: Don't use downcasts from AnyHashableAndSendable directly, only on its wrapped `.anyHashable` object.
+  /// `.sendableValue as? T` would try to downcast the user-defined AnyHashableAndSendable type, which doesn't work like downcasting `AnyHashable`.
   private let sendableValue: AnyHashableAndSendable
 
   /// The value of the term.
