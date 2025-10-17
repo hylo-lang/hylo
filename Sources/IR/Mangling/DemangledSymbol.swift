@@ -1,7 +1,7 @@
 import Utils
 
 /// The demangled description of a or entity.
-public indirect enum DemangledSymbol: Hashable {
+public indirect enum DemangledSymbol: Hashable, Sendable {
 
   /// Creates an instance decoding the symbol mangled in `s`, returning `nil` if decoding failed.
   public init?(_ s: String) {

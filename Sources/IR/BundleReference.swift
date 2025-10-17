@@ -1,7 +1,7 @@
 import FrontEnd
 
 /// A reference to a method or subscript bundle.
-public struct BundleReference<T: BundleDecl>: Hashable {
+public struct BundleReference<T: BundleDecl>: Hashable, Sendable {
 
   /// The ID of the referred bundle.
   public let bundle: T.ID

@@ -1,8 +1,8 @@
 /// An operator precedence group.
-public enum PrecedenceGroup: String, Codable {
+public enum PrecedenceGroup: String, Codable, Sendable {
 
   /// An operator associativity.
-  public enum Associativity: Codable {
+  public enum Associativity: Codable, Sendable {
 
     case left
 

@@ -2,10 +2,10 @@ import DequeModule
 import Durian
 
 /// A type representing the state of the parser.
-struct ParserState {
+struct ParserState: Sendable {
 
   /// A tag representing the context of the parser.
-  enum Context {
+  enum Context: Sendable {
 
     case bindingPattern
 

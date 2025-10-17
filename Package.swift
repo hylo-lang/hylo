@@ -1,4 +1,4 @@
-// swift-tools-version:5.10
+// swift-tools-version:6.2
 import Foundation
 import PackageDescription
 
@@ -25,7 +25,7 @@ let package = Package(
   name: "Hylo",
 
   platforms: [
-    .macOS(.v13)
+    .macOS(.v15)
   ],
 
   products: [
@@ -37,28 +37,28 @@ let package = Package(
   dependencies: [
     .package(
       url: "https://github.com/apple/swift-argument-parser.git",
-      from: "1.1.4"),
+      from: "1.6.1"),
     .package(
       url: "https://github.com/apple/swift-collections.git",
-      from: "1.0.0"),
+      from: "1.2.1"),
     .package(
       url: "https://github.com/apple/swift-algorithms.git",
-      from: "1.2.0"),
+      from: "1.2.1"),
     .package(
       url: "https://github.com/hylo-lang/Durian.git",
-      from: "1.2.0"),
+      revision: "61d0681cafb43f595477b62b4cd5baf8bdfafe41"),
     .package(
-      url: "https://github.com/attaswift/BigInt.git",
-      from: "5.3.0"),
+      url: "https://github.com/attaswift/BigInt",
+      from: "5.7.0"),
     .package(
       url: "https://github.com/hylo-lang/Swifty-LLVM",
-      branch: "main"),
+      revision: "cff484ecca159d9eec1938cda83a72b57cdfbd08"),
     .package(
       url: "https://github.com/apple/swift-format",
       from: "508.0.1"),
     .package(
       url: "https://github.com/SwiftPackageIndex/SPIManifest.git",
-      from: "0.12.0"),
+      from: "1.7.0"),
   ]
     + docGenerationDependency,
 
@@ -134,13 +134,12 @@ let package = Package(
       name: "StandardLibrary",
       dependencies: ["FrontEnd", "Utils"],
       path: "StandardLibrary",
-      resources: [.copy("Sources")],
+      resources: [.copy("Sources"), .copy("Lib")],
       swiftSettings: allTargetsSwiftSettings),
 
     .plugin(
       name: "TestGeneratorPlugin", capability: .buildTool(),
-      // Workaround for SPM bug; see PortableBuildToolPlugin.swift
-      dependencies: osIsWindows ? [] : ["GenerateHyloFileTests"]),
+      dependencies: ["GenerateHyloFileTests"]),
 
     .executableTarget(
       name: "GenerateHyloFileTests",

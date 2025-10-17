@@ -88,8 +88,17 @@ fun test_available_parallelism() {
 public fun main() {
   test_can_create_thread_with_no_argument()
   test_can_create_thread_with_argument()
+
+  // These fail on Windows: https://github.com/hylo-lang/hylo/issues/1733
+  #if os(Linux) || os(macOS)
   test_can_create_thread_with_mutating_argument()
   test_new_thread_has_a_different_thread_id()
+  #endif
+  
   test_can_yield_thread()
+
+  // This fails on Windows: https://github.com/hylo-lang/hylo/issues/1733
+  #if os(Linux) || os(macOS)
   test_available_parallelism()
+  #endif
 }

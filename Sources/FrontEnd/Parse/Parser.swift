@@ -17,7 +17,7 @@ import Utils
 ///     let p2 = attempt(foo.and(bar)).or(foo)
 
 /// A namespace for the routines of Hylo's parser.
-public enum Parser {
+public enum Parser: Sendable {
 
   /// Parses the contents of `input` as a translation unit, registering the identities of newly
   /// formed ASTs in space `k` and reporting errors to `diagnostics`.
@@ -3743,7 +3743,7 @@ private func attribute(_ name: String) -> Apply<ParserState, Token> {
 }
 
 /// Creates a combinator that translates token kinds to instances of type.
-private func translate<T>(
+private func translate<T: Sendable>(
   _ table: [Token.Kind: T]
 ) -> Apply<ParserState, SourceRepresentable<T>> {
   Apply({ (state) in

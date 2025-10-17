@@ -29,6 +29,8 @@ public struct CustomWitnessedSet<Witness: HashableWitness> {
 
 }
 
+extension CustomWitnessedSet: Sendable where Witness.Element: Sendable, Witness: Sendable {}
+
 extension CustomWitnessedSet: Collection {
 
   public struct Index: Comparable {

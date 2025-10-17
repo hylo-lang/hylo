@@ -42,8 +42,6 @@ final class DriverTests: XCTestCase {
   }
 
   func testLLVM() throws {
-    if swiftyLLVMMandatoryPassesCrash { return }
-
     let result = try Driver.compileToTemporary(
       FileManager.default.temporaryFile(containing: "public fun main() {}"),
       withOptions: ["--emit", "llvm"])
@@ -53,8 +51,6 @@ final class DriverTests: XCTestCase {
   }
 
   func testIntelASM() throws {
-    if swiftyLLVMMandatoryPassesCrash { return }
-
     let result = try Driver.compileToTemporary(
       FileManager.default.temporaryFile(containing: "public fun main() {}"),
       withOptions: ["--emit", "intel-asm"])
@@ -64,8 +60,6 @@ final class DriverTests: XCTestCase {
   }
 
   func testBinary() throws {
-    if swiftyLLVMMandatoryPassesCrash { return }
-
     let result = try Driver.compileToTemporary(
       FileManager.default.temporaryFile(containing: "public fun main() {}"),
       withOptions: ["--emit", "binary"])

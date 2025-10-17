@@ -1,7 +1,7 @@
 import Utils
 
 /// A type whose instances can be updated without loss of information.
-protocol Monotonic: Equatable {
+protocol Monotonic: Equatable, Sendable {
 
   /// Assigns `self` to `other`, asserting that the resulting value contains at least as much
   /// information as `self`.
