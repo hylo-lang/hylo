@@ -249,7 +249,7 @@ extension XCTestCase {
     try checkAnnotatedHyloFileDiagnostics(
       inFileAt: hyloFilePath, expecting: expectation
     ) { (hyloSource, log) in
-      _ = try hyloSource.typecheckedWithStandardLibrary(reportingDiagnosticsTo: &log, withBuiltinModuleAccess: true)
+      _ = try hyloSource.typecheckedAsMainWithHostedStandardLibrary(reportingDiagnosticsTo: &log, withBuiltinModuleAccess: true)
         .loweredToIR(reportingDiagnosticsTo: &log)
     }
   }

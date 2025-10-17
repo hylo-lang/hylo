@@ -66,7 +66,7 @@ final class ManglingTests: XCTestCase {
       """.asSourceFile()
 
     let (p, m) = try checkNoDiagnostic { (d) in
-      try input.typecheckedWithStandardLibrary(reportingDiagnosticsTo: &d)
+      try input.typecheckedAsMainWithHostedStandardLibrary(reportingDiagnosticsTo: &d)
     }.components()
 
 

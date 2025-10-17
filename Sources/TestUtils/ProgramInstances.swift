@@ -37,16 +37,13 @@ extension SourceFile {
     return .init(program: target, module: m)
   }
 
-  /// Returns `self` as a one-file module and the hosted standard library,
-  /// typechecked.
+  /// Returns the IR for `self` as the `Main` module in the context of the hosted standard library.
   ///
-  /// The module for `self` is the result's `latestModule`.
-  ///
-  /// - Parameter `needsBuiltins`: `true` iff `self` should be allowed access to
+  /// - Parameter `needsBuiltins`: whether `self` should be allowed access to
   ///   builtin functions.
-  public func loweredToIR(withBuiltinModuleAccess needsBuiltins: Bool = false) throws -> IR.Module {
+  public func loweredToIRAsMainWithHostedStandardLibrary(withBuiltinModuleAccess needsBuiltins: Bool = false) throws -> IR.Module {
     var log = DiagnosticSet()
-    return try self.typecheckedWithStandardLibrary(reportingDiagnosticsTo: &log, withBuiltinModuleAccess: needsBuiltins)
+    return try self.typecheckedAsMainWithHostedStandardLibrary(reportingDiagnosticsTo: &log, withBuiltinModuleAccess: needsBuiltins)
       .loweredToIR(reportingDiagnosticsTo: &log)
   }
 
@@ -57,7 +54,7 @@ extension SourceFile {
   ///
   /// - Parameter `needsBuiltins`: `true` iff `self` should be allowed access to
   ///   builtin functions.
-  public func typecheckedWithStandardLibrary(
+  public func typecheckedAsMainWithHostedStandardLibrary(
     reportingDiagnosticsTo log: inout DiagnosticSet,
     withBuiltinModuleAccess needsBuiltins: Bool = false
   ) throws -> TypedProgram.Module {
