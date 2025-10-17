@@ -82,10 +82,10 @@ import XCTest
 
 #endif
 
-/// The following code is slightly modified because Swift 6 broke our replicated API of Swift 5, e.g. by
-/// requiring runActivity(named:block:) to be @MainActor and converting the XCTActivity from
-/// a struct to a protocol. See the original commit at
-/// https://github.com/hylo-lang/hylo/commit/5b05ff1b2a359efdcaecb0d9abb86ea4842eb7ad
+// The following code is slightly modified compared to Apple's version because Swift 6 broke our replicated API 
+// e.g. by requiring runActivity(named:block:) to be @MainActor and converting the XCTActivity from
+// a struct to a protocol. See the original commit at
+// https://github.com/hylo-lang/hylo/commit/5b05ff1b2a359efdcaecb0d9abb86ea4842eb7ad
 //
 // They are deliberately named `XCT*Hylo` to avoid conflicts with the original XCTest API.
 
