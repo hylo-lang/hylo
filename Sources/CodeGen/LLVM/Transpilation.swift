@@ -1816,7 +1816,7 @@ extension SwiftyLLVM.Module {
         var x = insertGetStructElementPointer(
           of: e, typed: captures, index: i, at: insertionPoint)
 
-        // Remote captures are passed deferenced.
+        // Remote captures are passed dereferenced.
         if c.type.base is RemoteType {
           x = insertLoad(ptr, from: x, at: insertionPoint)
         }
