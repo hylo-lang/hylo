@@ -222,7 +222,7 @@ struct ConstraintSystem {
       return nil
     }
 
-    // Check whether the conformance holds, either explicitly or structually.
+    // Check whether the conformance holds, either explicitly or structurally.
     if checker.conforms(goal.model, to: goal.concept, in: scope) {
       return .success
     } else {
