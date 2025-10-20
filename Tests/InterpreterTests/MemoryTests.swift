@@ -3,7 +3,7 @@ import Testing
 
 @testable import Interpreter
 
-@Test func InterpreterMemory_allocation() {
+@Test func InterpreterMemory_allocation() throws {
   var m = Memory()
   var allocations: [Memory.Address] = []
   for alignmentPower in 0..<8 {
@@ -15,8 +15,15 @@ import Testing
   }
 
   for p in allocations {
-    m.deallocate(p)
-  }
+    try m.deallocate(p)
 
-  _ = allocations[0]
+    #expect(throws: Memory.Error.doubleDeallocation(p)) {
+      try m.deallocate(p)
+    }
+
+    let q = Memory.Address(allocation: p.allocation, offset: p.offset + 1)
+    #expect(throws: Memory.Error.deallocationNotAtStartOfAllocation(q)) {
+      try m.deallocate(q)
+    }
+  }
 }

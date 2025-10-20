@@ -2,13 +2,15 @@ import FrontEnd
 
 struct Memory {
 
-  enum Error: Swift.Error {
+  enum Error: Swift.Error, Hashable {
     case partUninitialized(Address, TypeLayout.Component.ID)
     case alignment(Address, for: TypeLayout)
     case bounds(Address, allocationSize: Int)
     case partType(AnyType, part: TypeLayout.Component.ID)
     case partOffset(Int, part: TypeLayout.Component.ID)
     case overlap(TypeLayout, InitializedRegion)
+    case deallocationNotAtStartOfAllocation(Address)
+    case doubleDeallocation(Address)
   }
 
   typealias Offset = Int
@@ -18,7 +20,7 @@ struct Memory {
 
   /// A region of some raw memory that has been initialized with one
   /// or more instances of a single type.
-  struct InitializedRegion {
+  struct InitializedRegion: Hashable {
     /// Where the region begins relative to the `Allocation`'s `baseOffset`.
     let offset: Storage.Index
 
@@ -60,7 +62,7 @@ struct Memory {
       baseOffset: Offset,
       region n: Int
     ) throws {
-      let part = partID.0.components[partID.component]
+      let part = partID.layout.components[partID.component]
       let partOffset = baseOffset + part.offset
       let partAddress = address(at: partOffset)
       guard let r = initializedRegions.dropFirst(n).first,
@@ -95,12 +97,12 @@ struct Memory {
           at: dc.offset + a, storedAs: t.discriminator.type.base as! BuiltinType)
 
         try requireInitialized(
-          part: (t, Int(dv)), baseOffset: a,
+          part: .init(t, Int(dv)), baseOffset: a,
           region: dc.offset == 0 ? i + 1 : i)
       }
       else {
         for n in t.components.indices {
-          try requireInitialized(part: (t, n), baseOffset: a, region: i + n)
+          try requireInitialized(part: .init(t, n), baseOffset: a, region: i + n)
         }
       }
 
@@ -164,7 +166,7 @@ struct Memory {
     }
   }
 
-  public struct Address {
+  public struct Address: Hashable {
     let allocation: Allocation.ID
     let offset: Storage.Index
   }
@@ -181,12 +183,14 @@ struct Memory {
   }
 
   /// Deallocates the allocated memory starting at `a`.
-  public mutating func deallocate(_ a: Address) {
-    precondition(
-      a.offset == 0,
-      "Cannot deallocate nonzero offset \(a.offset) from beginning of allocation \(a.allocation).")
+  public mutating func deallocate(_ a: Address) throws {
+    if a.offset != 0 {
+      throw Error.deallocationNotAtStartOfAllocation(a)
+    }
     let v = allocation.removeValue(forKey: a.allocation)
-    precondition(v != nil, "Allocation \(a.allocation) already deallocated.")
+    if v == nil {
+      throw Error.doubleDeallocation(a)
+    }
   }
 
   /// Replaces the initialization records starting at `a` for the

@@ -68,7 +68,7 @@ extension TypeLayout {
 
   var discriminatorID: Component.ID {
     precondition(isUnionLayout)
-    return (self, components.count - 1)
+    return .init(self, components.count - 1)
   }
 
   var storedComponents: Int {
@@ -91,6 +91,14 @@ extension TypeLayout.Bytes {
 
 extension TypeLayout.Component {
 
-  typealias ID = (TypeLayout, component: Int)
+  struct ID: Hashable {
+    let layout: TypeLayout
+    let component: Int
+
+    init(_ layout: TypeLayout, _ component: Int) {
+      self.layout = layout
+      self.component = component
+    }
+  }
 
 }
