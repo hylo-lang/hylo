@@ -1,8 +1,11 @@
 import FrontEnd
+import Utils
 
-struct Memory {
+public struct Memory {
 
-  enum Error: Swift.Error, Hashable {
+  public init() {}
+
+  public enum Error: Swift.Error, Regular {
     case partUninitialized(Address, TypeLayout.Component.ID)
     case alignment(Address, for: TypeLayout)
     case bounds(Address, allocationSize: Int)
@@ -13,14 +16,14 @@ struct Memory {
     case doubleDeallocation(Address)
   }
 
-  typealias Offset = Int
+  public typealias Offset = Int
 
   /// A region of raw memory in the interpreter
-  typealias Storage = [UInt8]
+  public typealias Storage = [UInt8]
 
   /// A region of some raw memory that has been initialized with one
   /// or more instances of a single type.
-  struct InitializedRegion: Hashable {
+  public struct InitializedRegion: Regular {
     /// Where the region begins relative to the `Allocation`'s `baseOffset`.
     let offset: Storage.Index
 
@@ -28,15 +31,15 @@ struct Memory {
     let type: AnyType
   }
 
-  struct Allocation {
-    typealias ID = Offset
+  public struct Allocation {
+    public typealias ID = Offset
 
     var storage: Storage
-    let baseOffset: Offset
-    let size: Int
-    let id: ID
+    public let baseOffset: Offset
+    public let size: Int
+    public let id: ID
 
-    var initializedRegions: [InitializedRegion] = []
+    public var initializedRegions: [InitializedRegion] = []
 
     /// `n` bytes with alignment `m`.
     public init(_ n: Int, bytesWithAlignment m: Int, id: ID) {
@@ -57,7 +60,7 @@ struct Memory {
 
     private func address(at o: Offset) -> Address { .init(allocation: id, offset: o) }
 
-    public mutating func requireInitialized(
+    public func requireInitialized(
       part partID: TypeLayout.Component.ID,
       baseOffset: Offset,
       region n: Int
@@ -166,12 +169,19 @@ struct Memory {
     }
   }
 
-  public struct Address: Hashable {
-    let allocation: Allocation.ID
-    let offset: Storage.Index
+  public struct Address: Regular {
+
+    public let allocation: Allocation.ID
+    public let offset: Storage.Index
+
+    public init(allocation: Allocation.ID, offset: Storage.Index) {
+      self.allocation = allocation
+      self.offset = offset
+    }
+
   }
 
-  var allocation: [Allocation.ID: Allocation] = [:]
+  public private(set) var allocation: [Allocation.ID: Allocation] = [:]
   var nextAllocation = 0
 
   /// Allocates `n` bytes with alignment `m`.
@@ -210,5 +220,25 @@ struct Memory {
   public mutating func startDeinitialization(at a: Address, of t: TypeLayout) {
     allocation[a.allocation]!.startDeinitialization(at: a.offset, of: t)
   }
+
+}
+
+extension Memory.Address {
+
+  static func +(l: Self, r: Int) -> Self {
+    .init(allocation: l.allocation, offset: l.offset + r)
+  }
+
+  static func -(l: Self, r: Int) -> Self {
+    .init(allocation: l.allocation, offset: l.offset - r)
+  }
+
+  static func +(l: Int, r: Self) -> Self {
+    .init(allocation: r.allocation, offset: l + r.offset)
+  }
+
+  static func +=(l: inout Self, r: Int) { l = l + r }
+
+  static func -=(l: inout Self, r: Int)  { l = l - r }
 
 }

@@ -3,10 +3,10 @@ import FrontEnd
 
 
 /// The layout of a type in memory, including the positions of its components.
-struct TypeLayout: Hashable {
+public struct TypeLayout: Regular {
 
   /// Memory layout of a type, without any detail about components.
-  struct Bytes: Hashable {
+  struct Bytes: Regular {
     /// The minimum alignment of an instance.  Always a power of 2.
     let alignment: Int
 
@@ -21,7 +21,7 @@ struct TypeLayout: Hashable {
 
   /// A (potential, in the case of union types) part of `type` and
   /// where it is stored in a `type` instance.
-  struct Component: Hashable {
+  public struct Component: Regular {
     /// The name if any (i.e. tuple label or stored property name).
     let name: String?
 
@@ -53,6 +53,10 @@ struct TypeLayout: Hashable {
   /// For union types, info for each case when it is active, followed by info for the discriminator.
   /// Empty otherwise (built-in types).
   let components: [Component]
+
+  var componentIDs: some Collection<Component.ID> {
+    components.indices.lazy.map { .init(self, $0) }
+  }
 
   /// True iff `self` is the layout of a union type, which changes how
   /// its `components` are interpreted.
@@ -91,13 +95,18 @@ extension TypeLayout.Bytes {
 
 extension TypeLayout.Component {
 
-  struct ID: Hashable {
+  public struct ID: Regular, CustomStringConvertible {
+
     let layout: TypeLayout
     let component: Int
 
     init(_ layout: TypeLayout, _ component: Int) {
       self.layout = layout
       self.component = component
+    }
+
+    public var description: String {
+      "{part \(component) of \(layout.type)}"
     }
   }
 
