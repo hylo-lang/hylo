@@ -4,11 +4,13 @@ import FrontEnd
 @testable import Interpreter
 
 @Test func Interpreter_Memory_requireInitialized() throws {
-  var m = Memory()
-  let p = m.allocate(10, bytesWithAlignment: 1)
   var layouts = TypeLayoutCache(typesIn: TypedProgram.empty, for: UnrealABI())
   let void_ = layouts[AnyType.void]
   let voids = layouts[^TupleType(types: [.void, .void])]
+
+  var m = Memory()
+  let p = m.allocate(voids.size, bytesWithAlignment: voids.alignment)
+
   let voidsFirstPart = voids.componentIDs.first!
 
   #expect(throws: Memory.Error.partUninitialized(p, voidsFirstPart)) {

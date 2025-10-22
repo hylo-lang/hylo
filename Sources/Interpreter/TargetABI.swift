@@ -1,14 +1,14 @@
 import FrontEnd
 
-protocol TargetABI {
+public protocol TargetABI {
 
   func layout(_ t: BuiltinType) ->TypeLayout.Bytes
 
 }
 
-struct UnrealABI: TargetABI {
+public struct UnrealABI: TargetABI {
 
-  init() {}
+  public init() {}
 
   let bitsInAWord = 64
   let maxAlignment = 128 / 8
@@ -25,7 +25,7 @@ struct UnrealABI: TargetABI {
       size: bitWidth / 8)
   }
 
-  func layout(_ t: BuiltinType) -> TypeLayout.Bytes {
+  public func layout(_ t: BuiltinType) -> TypeLayout.Bytes {
     let bitWidth = switch t {
     case .i(let w): w
     case .word: bitsInAWord
@@ -46,7 +46,7 @@ extension TargetABI {
   /// Returns a discriminator type for the union of `n` types.
   ///
   /// Precondition: `n` is positive
-  func unionDiscriminator(count n: Int) -> AnyType {
+  public func unionDiscriminator(count n: Int) -> AnyType {
     if n == 1 { return .void }
     let bitsNeeded = UInt(n - 1).bitsInRepresentation
     // Integer sizes are a contiguous range of powers of 2 starting with 8

@@ -8,7 +8,7 @@ public struct Memory {
   public enum Error: Swift.Error, Regular {
     case partUninitialized(Address, TypeLayout.Component.ID)
     case alignment(Address, for: TypeLayout)
-    case bounds(Address, allocationSize: Int)
+    case bounds(Address, for: TypeLayout, allocationSize: Int)
     case partType(AnyType, part: TypeLayout.Component.ID)
     case partOffset(Int, part: TypeLayout.Component.ID)
     case overlap(TypeLayout, InitializedRegion)
@@ -77,16 +77,20 @@ public struct Memory {
       }
     }
 
-    /// Replaces the initialization records starting at `a` for the
-    /// parts of a `t` instance, with the initialization record for a
-    /// `t` instance.
-    public mutating func finishInitialization(at a: Offset, to t: TypeLayout) throws {
+    private func checkAlignmentAndAllocationBounds(at a: Offset, for t: TypeLayout) throws {
       guard offset(a, hasAlignment: t.alignment) else {
         throw Error.alignment(address(at: a), for: t)
       }
       guard a + t.size <= self.size else {
-        throw Error.bounds(address(at: a), allocationSize: self.size)
+        throw Error.bounds(address(at: a), for: t, allocationSize: self.size)
       }
+    }
+
+    /// Replaces the initialization records starting at `a` for the
+    /// parts of a `t` instance, with the initialization record for a
+    /// `t` instance.
+    public mutating func finishInitialization(at a: Offset, to t: TypeLayout) throws {
+      try checkAlignmentAndAllocationBounds(at: a, for: t)
 
       let i = initializedRegions.partitioningIndex { $0.offset >= a }
 
@@ -147,8 +151,9 @@ public struct Memory {
 
     /// Replaces the initialization record for a `t` instance at `a` with
     /// the initialization records for any parts of that instance.
-    public mutating func startDeinitialization(at a: Offset, of t: TypeLayout) {
-      precondition(offset(a, hasAlignment: t.alignment))
+    public mutating func startDeinitialization(at a: Offset, of t: TypeLayout) throws {
+      try checkAlignmentAndAllocationBounds(at: a, for: t)
+
       let i = initializedRegions.partitioningIndex { $0.offset >= a }
       precondition(initializedRegions[i].offset == a)
       precondition(initializedRegions[i].type == t.type)
@@ -169,7 +174,7 @@ public struct Memory {
     }
   }
 
-  public struct Address: Regular {
+  public struct Address: Regular, CustomStringConvertible {
 
     public let allocation: Allocation.ID
     public let offset: Storage.Index
@@ -179,6 +184,7 @@ public struct Memory {
       self.offset = offset
     }
 
+    public var description: String { "@\(allocation):0x\(String(offset, radix: 16))" }
   }
 
   public private(set) var allocation: [Allocation.ID: Allocation] = [:]
@@ -217,13 +223,13 @@ public struct Memory {
 
   /// Replaces the initialization record for a `t` instance at `a` with
   /// the initialization records for any parts of that instance.
-  public mutating func startDeinitialization(at a: Address, of t: TypeLayout) {
-    allocation[a.allocation]!.startDeinitialization(at: a.offset, of: t)
+  public mutating func startDeinitialization(at a: Address, of t: TypeLayout) throws {
+    try allocation[a.allocation]!.startDeinitialization(at: a.offset, of: t)
   }
 
 }
 
-extension Memory.Address {
+public extension Memory.Address {
 
   static func +(l: Self, r: Int) -> Self {
     .init(allocation: l.allocation, offset: l.offset + r)

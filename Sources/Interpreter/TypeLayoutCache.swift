@@ -2,7 +2,7 @@ import IR
 import FrontEnd
 import Utils
 
-struct TypeLayoutCache {
+public struct TypeLayoutCache {
 
   let p: TypedProgram
   let abi: any TargetABI
@@ -10,12 +10,12 @@ struct TypeLayoutCache {
   private typealias Storage = [AnyType: TypeLayout]
   private var storage: Storage = [:]
 
-  init(typesIn p: TypedProgram, for abi: any TargetABI) {
+  public init(typesIn p: TypedProgram, for abi: any TargetABI) {
     self.p = p
     self.abi = abi
   }
 
-  subscript(_ t: AnyType) -> TypeLayout {
+  public subscript(_ t: AnyType) -> TypeLayout {
     mutating get {
       if let r = storage[t] { return r }
       let r = computeLayout(t)

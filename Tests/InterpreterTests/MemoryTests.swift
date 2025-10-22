@@ -28,31 +28,41 @@ import Interpreter
   }
 }
 
-@Test func InterpreterMemory_finishInitialization() throws {
-  /*
-  var m = Memory()
-  let p = m.allocate(10, bytesWithAlignment: 1)
+@Test func InterpreterMemory_tupleInitialization() throws {
   var layouts = TypeLayoutCache(typesIn: TypedProgram.empty, for: UnrealABI())
-  let void_ = layouts[AnyType.void]
-  let voids = layouts[^TupleType(types: [.void, .void])]
-  let voidsFirstPart = voids.componentIDs.first!
+  let i16s = layouts[^TupleType(types: [.builtin(.i(16)), .builtin(.i(16))])]
+  let i16 = layouts[.builtin(.i(16))]
 
-  #expect(throws: Memory.Error.partUninitialized(p, voidsFirstPart)) {
-    try m.allocation[p.allocation]!
-      .requireInitialized(part: voidsFirstPart, baseOffset: 0, region: 0)
+  assert(i16s.alignment > 1, "Need to produce misaligned access for testing")
+
+  var m = Memory()
+  let p = m.allocate(i16s.size, bytesWithAlignment: i16s.alignment)
+
+  #expect(throws: Memory.Error.alignment(p + 1, for: i16)) {
+    try m.finishInitialization(at: p + 1, to: i16)
   }
 
-  try m.finishInitialization(at: p + voids.components[0].offset, to: void_)
-  // It should be possible to initialize both parts at the same address
-  try m.finishInitialization(at: p + voids.components[1].offset, to: void_)
-  try m.finishInitialization(at: p, to: voids)
-
-  let i8s = layouts[^TupleType(types: [.builtin(.i(8)), .builtin(.i(8))])]
-  let i8sFirstPart = i8s.componentIDs.first!
-
-  #expect(throws: Memory.Error.partType(voids.type, part: i8sFirstPart)) {
-    try m.allocation[p.allocation]!
-      .requireInitialized(part: i8sFirstPart, baseOffset: 0, region: 0)
+  // An address that would be suitably aligned, but out of bounds for
+  // i16s initialization.  The initialized object would extend past
+  // the end of the allocation.
+  let outOfBoundsForI16s = p + i16.size
+  #expect(throws: Memory.Error.bounds(outOfBoundsForI16s, for: i16s, allocationSize: i16s.size)) {
+    try m.finishInitialization(at: outOfBoundsForI16s, to: i16s)
   }
-*/
+
+  let parts = i16s.components
+  let partIDs = Array(i16s.componentIDs)
+  #expect(throws: Memory.Error.partUninitialized(p, partIDs[0])) {
+    try m.finishInitialization(at: p, to: i16s)
+  }
+
+  try m.finishInitialization(at: p + parts[0].offset, to: i16)
+
+  #expect(throws: Memory.Error.partUninitialized(p + parts[1].offset, partIDs[1])) {
+    try m.finishInitialization(at: p, to: i16s)
+  }
+
+  try m.finishInitialization(at: p + parts[1].offset, to: i16)
+
+  try m.finishInitialization(at: p, to: i16s)
 }
