@@ -17,7 +17,7 @@ import Interpreter
   for p in allocations {
     try m.deallocate(p)
 
-    #expect(throws: Memory.Error.doubleDeallocation(p)) {
+    #expect(throws: Memory.Error.noLongerAllocated(p)) {
       try m.deallocate(p)
     }
 
@@ -65,4 +65,23 @@ import Interpreter
   try m.compose(i16, at: p + parts[1].offset)
 
   try m.compose(i16s, at: p)
+
+  #expect(throws: Memory.Error.noDecomposable(i16, at: p)) {
+    try m.decompose(i16, at: p)
+  }
+
+  try m.decompose(i16s, at: p)
+
+  #expect(throws: Memory.Error.noDecomposable(i16s, at: p)) {
+    try m.decompose(i16s, at: p)
+  }
+
+  try m.decompose(i16, at: p + parts[0].offset)
+
+  #expect(throws: Memory.Error.noDecomposable(i16, at: p + parts[0].offset)) {
+    try m.decompose(i16, at: p)
+  }
+
+  try m.decompose(i16, at: p + parts[1].offset)
+
 }

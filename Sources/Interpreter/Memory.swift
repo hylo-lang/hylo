@@ -13,7 +13,8 @@ public struct Memory {
     case partOffset(Int, part: TypeLayout.Component.ID)
     case overlap(TypeLayout, InitializedRegion)
     case deallocationNotAtStartOfAllocation(Address)
-    case doubleDeallocation(Address)
+    case noLongerAllocated(Address)
+    case noDecomposable(TypeLayout, at: Address)
   }
 
   public typealias Offset = Int
@@ -39,7 +40,8 @@ public struct Memory {
     public let size: Int
     public let id: ID
 
-    public var initializedRegions: [InitializedRegion] = []
+    fileprivate typealias InitializedRegions = [InitializedRegion]
+    private var initializedRegions = InitializedRegions()
 
     /// `n` bytes with alignment `m`.
     public init(_ n: Int, bytesWithAlignment m: Int, id: ID) {
@@ -77,7 +79,7 @@ public struct Memory {
       }
     }
 
-    private func checkAlignmentAndAllocationBounds(at a: Offset, for t: TypeLayout) throws {
+    fileprivate func checkAlignmentAndAllocationBounds(at a: Offset, for t: TypeLayout) throws {
       guard offset(a, hasAlignment: t.alignment) else {
         throw Error.alignment(address(at: a), for: t)
       }
@@ -149,15 +151,27 @@ public struct Memory {
       }
     }
 
+    fileprivate func decomposable(_ t: TypeLayout, at a: Offset) -> InitializedRegions.Index? {
+      let i = initializedRegions.partitioningIndex { $0.offset >= a }
+      guard let r0 = initializedRegions[i...].first,
+            r0.offset == a,
+            r0.type == t.type
+      else {
+        return nil
+      }
+      assert(
+        initializedRegions[i...].dropFirst().first.map {
+          $0.offset >= r0.offset + t.size
+        } ?? true
+      )
+      return i
+    }
+
     /// Replaces the initialization record for a `t` instance at `a` with
     /// the initialization records for any parts of that instance.
-    public mutating func decompose(_ t: TypeLayout, at a: Offset) throws {
-      try checkAlignmentAndAllocationBounds(at: a, for: t)
+    fileprivate mutating func decompose(_ t: TypeLayout, inRegion i: InitializedRegions.Index) {
+      let a = initializedRegions[i].offset
 
-      let i = initializedRegions.partitioningIndex { $0.offset >= a }
-      precondition(initializedRegions[i].offset == a)
-      precondition(initializedRegions[i].type == t.type)
-      precondition(i + 1 == initializedRegions.count || initializedRegions[i + 1].offset > t.size)
       if t.isUnionLayout {
         let expectedDiscriminator = t.components.last!
         let discriminator = InitializedRegion.init(offset: expectedDiscriminator.offset + a, type: expectedDiscriminator.type)
@@ -205,7 +219,7 @@ public struct Memory {
     }
     let v = allocation.removeValue(forKey: a.allocation)
     if v == nil {
-      throw Error.doubleDeallocation(a)
+      throw Error.noLongerAllocated(a)
     }
   }
 
@@ -224,7 +238,17 @@ public struct Memory {
   /// Replaces the initialization record for a `t` instance at `a` with
   /// the initialization records for any parts of that instance.
   public mutating func decompose(_ t: TypeLayout, at a: Address) throws {
-    try allocation[a.allocation]!.decompose(t, at: a.offset)
+    let i = try checkDecomposable(t, at: a)
+    allocation[a.allocation]!.decompose(t, inRegion: i)
+  }
+
+  private func checkDecomposable(_ t: TypeLayout, at a: Address) throws -> Allocation.InitializedRegions.Index {
+    guard let block = allocation[a.allocation] else {
+      throw Error.noLongerAllocated(a)
+    }
+    try block.checkAlignmentAndAllocationBounds(at: a.offset, for: t)
+    if let i = block.decomposable(t, at: a.offset) { return i }
+    throw Error.noDecomposable(t, at: a)
   }
 
 }
