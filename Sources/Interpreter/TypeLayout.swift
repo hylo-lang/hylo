@@ -2,10 +2,10 @@ import Utils
 import FrontEnd
 
 
-/// The layout of a type in memory, including the positions of its components.
+/// The layout of a type in memory, including the positions of its parts.
 public struct TypeLayout: Regular {
 
-  /// Memory layout of a type, without any detail about components.
+  /// Memory layout of a type, without any detail about parts.
   public struct Bytes: Regular {
     /// The minimum alignment of an instance.  Always a power of 2.
     let alignment: Int
@@ -21,7 +21,7 @@ public struct TypeLayout: Regular {
 
   /// A (potential, in the case of union types) part of `type` and
   /// where it is stored in a `type` instance.
-  public struct Component: Regular {
+  public struct Part: Regular {
     /// The name if any (i.e. tuple label or stored property name).
     public let name: String?
 
@@ -52,31 +52,31 @@ public struct TypeLayout: Regular {
   /// For product types, info for each stored property in storage order.
   /// For union types, info for each case when it is active, followed by info for the discriminator.
   /// Empty otherwise (built-in types).
-  public let components: [Component]
+  public let parts: [Part]
 
-  public var componentIDs: some Collection<Component.ID> {
-    components.indices.lazy.map { .init(self, $0) }
+  public var partIDs: some Collection<Part.ID> {
+    parts.indices.lazy.map { .init(self, $0) }
   }
 
   /// True iff `self` is the layout of a union type, which changes how
-  /// its `components` are interpreted.
+  /// its `parts` are interpreted.
   public let isUnionLayout: Bool
 }
 
 extension TypeLayout {
 
-  public var discriminator: Component {
+  public var discriminator: Part {
     precondition(isUnionLayout)
-    return components.last!
+    return parts.last!
   }
 
-  public var discriminatorID: Component.ID {
+  public var discriminatorID: Part.ID {
     precondition(isUnionLayout)
-    return .init(self, components.count - 1)
+    return .init(self, parts.count - 1)
   }
 
-  public var storedComponents: Int {
-    isUnionLayout ? 2 : components.count
+  public var storedPartCount: Int {
+    isUnionLayout ? 2 : parts.count
   }
 }
 
@@ -93,20 +93,20 @@ extension TypeLayout.Bytes {
 
 }
 
-extension TypeLayout.Component {
+extension TypeLayout.Part {
 
   public struct ID: Regular, CustomStringConvertible {
 
     public let layout: TypeLayout
-    public let component: Int
+    public let part: Int
 
-    init(_ layout: TypeLayout, _ component: Int) {
+    init(_ layout: TypeLayout, _ part: Int) {
       self.layout = layout
-      self.component = component
+      self.part = part
     }
 
     public var description: String {
-      "{part \(component) of \(layout.type)}"
+      "{part \(part) of \(layout.type)}"
     }
   }
 
