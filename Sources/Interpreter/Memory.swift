@@ -107,7 +107,7 @@ public struct Memory {
           region: dc.offset == 0 ? i : i + 1)
 
         let dv = unsignedIntValue(
-          at: dc.offset + a, storedAs: t.discriminator.type.base as! BuiltinType)
+          at: dc.offset + a, ofType: t.discriminator.type.base as! BuiltinType)
 
         try requireComposed(
           part: .init(t, Int(dv)), baseOffset: a,
@@ -124,28 +124,51 @@ public struct Memory {
         with: CollectionOfOne(.init(offset: a, type: t.type)))
     }
 
-    mutating func withMutableUnsafeStorage<R>(_ a: Offset, _ body: (UnsafeMutableRawPointer)->R) -> R {
-      storage.withUnsafeMutableBytes { p in body(p.baseAddress! + baseOffset + a) }
+    mutating func withUnsafeMutablePointer<T, R>(to _: T.Type, at a: Offset, _ body: (UnsafeMutablePointer<T>)->R) -> R {
+      precondition(a + MemoryLayout<T>.size < size)
+      return storage.withUnsafeMutableBytes { p in
+        body((p.baseAddress! + baseOffset + a).assumingMemoryBound(to: T.self))
+      }
     }
 
-    func withUnsafeStorage<R>(_ a: Offset, _ body: (UnsafeRawPointer)->R) -> R {
-      storage.withUnsafeBytes { p in body(p.baseAddress! + baseOffset + a) }
+    func withUnsafePointer<T, R>(to _: T.Type, at a: Offset, _ body: (UnsafePointer<T>)->R) -> R {
+      precondition(a + MemoryLayout<T>.size < size)
+      return storage.withUnsafeBytes { p in
+        body((p.baseAddress! + baseOffset + a).assumingMemoryBound(to: T.self))
+      }
     }
 
     /// Returns the unsigned interpretation of the builtin integer value at `a`;
-    private func unsignedIntValue(at a: Offset, storedAs t: BuiltinType) -> UInt {
+    private func unsignedIntValue(at a: Offset, ofType t: BuiltinType) -> UInt {
       if case .i(let n) = t {
         return switch n {
-        case 8: UInt(withUnsafeStorage(a) { $0.assumingMemoryBound(to: UInt8.self).pointee })
-        case 16: UInt(withUnsafeStorage(a) { $0.assumingMemoryBound(to: UInt16.self).pointee })
-        case 32: UInt(withUnsafeStorage(a) { $0.assumingMemoryBound(to: UInt32.self).pointee })
-        case 64: UInt(withUnsafeStorage(a) { $0.assumingMemoryBound(to: UInt64.self).pointee })
+        case 8: UInt(withUnsafePointer(to: UInt8.self, at: a) { $0.pointee })
+        case 16: UInt(withUnsafePointer(to: UInt16.self, at: a) { $0.pointee })
+        case 32: UInt(withUnsafePointer(to: UInt32.self, at: a) { $0.pointee })
+        case 64: UInt(withUnsafePointer(to: UInt64.self, at: a) { $0.pointee })
         default: fatalError("Unknown builtin integer size \(n)")
         }
       } else {
         fatalError("Unrecognized builtin integer type \(t)")
       }
+    }
 
+    /// Initializes the raw storage of builtin integer type `t` at `a` to `x`.
+    ///
+    /// - Note: performs no alignment, size, initialization, or type
+    ///   checking. Use with care!
+    internal mutating func initialize(_ t: BuiltinType, at a: Offset, to x: UInt) {
+      if case .i(let n) = t {
+        switch n {
+        case 8: withUnsafeMutablePointer(to: UInt8.self, at: a) { $0.initialize(to: .init(x)) }
+        case 16: withUnsafeMutablePointer(to: UInt16.self, at: a) { $0.initialize(to: .init(x)) }
+        case 32: withUnsafeMutablePointer(to: UInt32.self, at: a) { $0.initialize(to: .init(x)) }
+        case 64: withUnsafeMutablePointer(to: UInt64.self, at: a) { $0.initialize(to: .init(x)) }
+        default: fatalError("Unknown builtin integer size \(n)")
+        }
+      } else {
+        fatalError("Unrecognized builtin integer type \(t)")
+      }
     }
 
     /// Returns true if `o` is alinged to an `n` byte boundary.
@@ -179,7 +202,7 @@ public struct Memory {
       if t.isUnionLayout {
         let expectedDiscriminator = t.parts.last!
         let discriminator = ComposedRegion.init(offset: expectedDiscriminator.offset + a, type: expectedDiscriminator.type)
-        let d = unsignedIntValue(at: discriminator.offset, storedAs: discriminator.type.base as! BuiltinType)
+        let d = unsignedIntValue(at: discriminator.offset, ofType: discriminator.type.base as! BuiltinType)
         let expectedPayload = t.parts[Int(d)]
         let payload = ComposedRegion(offset: expectedPayload.offset + a, type: expectedPayload.type)
         let newRecords = expectedDiscriminator.offset == 0 ? [discriminator, payload] : [payload, discriminator]

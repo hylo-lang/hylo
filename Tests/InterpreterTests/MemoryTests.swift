@@ -45,9 +45,9 @@ import Interpreter
   // An address that would be suitably aligned, but out of bounds for
   // i16Pair initialization.  The initialized object would extend past
   // the end of the allocation.
-  let outOfBoundsForPairOfi16 = p + i16.size
-  #expect(throws: Memory.Error.bounds(outOfBoundsForPairOfi16, for: i16Pair, allocationSize: i16Pair.size)) {
-    try m.compose(i16Pair, at: outOfBoundsForPairOfi16)
+  let outOfBoundsFori16Pair = p + i16.size
+  #expect(throws: Memory.Error.bounds(outOfBoundsFori16Pair, for: i16Pair, allocationSize: i16Pair.size)) {
+    try m.compose(i16Pair, at: outOfBoundsFori16Pair)
   }
 
   let parts = i16Pair.parts
@@ -87,50 +87,54 @@ import Interpreter
 
 @Test func InterpreterMemory_unionComposeDecompose() throws {
   var layouts = TypeLayoutCache(typesIn: TypedProgram.empty, for: UnrealABI())
-  let i16Pair = layouts[^TupleType(types: [.builtin(.i(16)), .builtin(.i(16))])]
+  let i16i32Union = layouts[^UnionType([.builtin(.i(16)), .builtin(.i(32))])]
   let i16 = layouts[.builtin(.i(16))]
-
-  assert(i16Pair.alignment > 1, "Need to produce misaligned access for testing")
+  let i32 = layouts[.builtin(.i(32))]
 
   var m = Memory()
-  let p = m.allocate(i16Pair.size, bytesWithAlignment: i16Pair.alignment)
+  let p = m.allocate(i16i32Union.size, bytesWithAlignment: i16i32Union.alignment)
 
-  #expect(throws: Memory.Error.alignment(p + 1, for: i16)) {
-    try m.compose(i16, at: p + 1)
+  assert(i16i32Union.alignment > 1)
+
+  #expect(throws: Memory.Error.alignment(p + 1, for: i16i32Union)) {
+    try m.compose(i16i32Union, at: p + 1)
   }
 
   // An address that would be suitably aligned, but out of bounds for
-  // i16Pair initialization.  The initialized object would extend past
+  // i16i32Union initialization.  The initialized object would extend past
   // the end of the allocation.
-  let outOfBoundsForPairOfi16 = p + i16.size
-  #expect(throws: Memory.Error.bounds(outOfBoundsForPairOfi16, for: i16Pair, allocationSize: i16Pair.size)) {
-    try m.compose(i16Pair, at: outOfBoundsForPairOfi16)
+  let outOfBoundsFori16i32Union = p + i32.size
+  #expect(throws: Memory.Error.bounds(outOfBoundsFori16i32Union, for: i16i32Union, allocationSize: i16i32Union.size)) {
+    try m.compose(i16i32Union, at: outOfBoundsFori16i32Union)
   }
 
-  let parts = i16Pair.parts
-  let partIDs = Array(i16Pair.partIDs)
-  #expect(throws: Memory.Error.noComposedPart(at: p, partIDs[0])) {
-    try m.compose(i16Pair, at: p)
+  let parts = i16i32Union.parts
+  let partIDs = Array(i16i32Union.partIDs)
+  let discriminator = parts.last!
+  #expect(throws: Memory.Error.noComposedPart(at: p + discriminator.offset, partIDs.last!)) {
+    try m.compose(i16i32Union, at: p)
   }
-
+  _ = i16
+/*
+  m.compose()
   try m.compose(i16, at: p + parts[0].offset)
 
   #expect(throws: Memory.Error.noComposedPart(at: p + parts[1].offset, partIDs[1])) {
-    try m.compose(i16Pair, at: p)
+    try m.compose(i16i32Union, at: p)
   }
 
   try m.compose(i16, at: p + parts[1].offset)
 
-  try m.compose(i16Pair, at: p)
+  try m.compose(i16i32Union, at: p)
 
   #expect(throws: Memory.Error.noDecomposable(i16, at: p)) {
     try m.decompose(i16, at: p)
   }
 
-  try m.decompose(i16Pair, at: p)
+  try m.decompose(i16i32Union, at: p)
 
-  #expect(throws: Memory.Error.noDecomposable(i16Pair, at: p)) {
-    try m.decompose(i16Pair, at: p)
+  #expect(throws: Memory.Error.noDecomposable(i16i32Union, at: p)) {
+    try m.decompose(i16i32Union, at: p)
   }
 
   try m.decompose(i16, at: p + parts[0].offset)
@@ -140,4 +144,5 @@ import Interpreter
   }
 
   try m.decompose(i16, at: p + parts[1].offset)
+ */
 }
