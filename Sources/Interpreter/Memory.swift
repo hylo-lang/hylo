@@ -89,7 +89,7 @@ public struct Memory {
     /// Replaces the initialization records starting at `a` for the
     /// parts of a `t` instance, with the initialization record for a
     /// `t` instance.
-    public mutating func finishInitialization(at a: Offset, to t: TypeLayout) throws {
+    public mutating func compose(_ t: TypeLayout, at a: Offset) throws {
       try checkAlignmentAndAllocationBounds(at: a, for: t)
 
       let i = initializedRegions.partitioningIndex { $0.offset >= a }
@@ -151,7 +151,7 @@ public struct Memory {
 
     /// Replaces the initialization record for a `t` instance at `a` with
     /// the initialization records for any parts of that instance.
-    public mutating func startDeinitialization(at a: Offset, of t: TypeLayout) throws {
+    public mutating func decompose(_ t: TypeLayout, at a: Offset) throws {
       try checkAlignmentAndAllocationBounds(at: a, for: t)
 
       let i = initializedRegions.partitioningIndex { $0.offset >= a }
@@ -212,8 +212,8 @@ public struct Memory {
   /// Replaces the initialization records starting at `a` for the
   /// parts of a `t` instance, with the initialization record for a
   /// `t` instance.
-  public mutating func finishInitialization(at a: Address, to t: TypeLayout) throws {
-    try allocation[a.allocation]!.finishInitialization(at: a.offset, to: t)
+  public mutating func compose(_ t: TypeLayout, at a: Address) throws {
+    try allocation[a.allocation]!.compose(t, at: a.offset)
   }
 
   /// Returns true if `a` is alinged to an `n` byte boundary.
@@ -223,8 +223,8 @@ public struct Memory {
 
   /// Replaces the initialization record for a `t` instance at `a` with
   /// the initialization records for any parts of that instance.
-  public mutating func startDeinitialization(at a: Address, of t: TypeLayout) throws {
-    try allocation[a.allocation]!.startDeinitialization(at: a.offset, of: t)
+  public mutating func decompose(_ t: TypeLayout, at a: Address) throws {
+    try allocation[a.allocation]!.decompose(t, at: a.offset)
   }
 
 }

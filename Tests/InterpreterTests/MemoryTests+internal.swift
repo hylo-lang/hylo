@@ -18,10 +18,10 @@ import FrontEnd
       .requireInitialized(part: voidsFirstPart, baseOffset: 0, region: 0)
   }
 
-  try m.finishInitialization(at: p + voids.components[0].offset, to: void_)
+  try m.compose(void_, at: p + voids.components[0].offset)
   // It should be possible to initialize both parts at the same address
-  try m.finishInitialization(at: p + voids.components[1].offset, to: void_)
-  try m.finishInitialization(at: p, to: voids)
+  try m.compose(void_, at: p + voids.components[1].offset)
+  try m.compose(voids, at: p)
 
   let i8s = layouts[^TupleType(types: [.builtin(.i(8)), .builtin(.i(8))])]
   let i8sFirstPart = i8s.componentIDs.first!

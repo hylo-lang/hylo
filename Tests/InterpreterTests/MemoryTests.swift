@@ -28,7 +28,7 @@ import Interpreter
   }
 }
 
-@Test func InterpreterMemory_tupleInitialization() throws {
+@Test func InterpreterMemory_tupleComposeDecompose() throws {
   var layouts = TypeLayoutCache(typesIn: TypedProgram.empty, for: UnrealABI())
   let i16s = layouts[^TupleType(types: [.builtin(.i(16)), .builtin(.i(16))])]
   let i16 = layouts[.builtin(.i(16))]
@@ -39,7 +39,7 @@ import Interpreter
   let p = m.allocate(i16s.size, bytesWithAlignment: i16s.alignment)
 
   #expect(throws: Memory.Error.alignment(p + 1, for: i16)) {
-    try m.finishInitialization(at: p + 1, to: i16)
+    try m.compose(i16, at: p + 1)
   }
 
   // An address that would be suitably aligned, but out of bounds for
@@ -47,22 +47,22 @@ import Interpreter
   // the end of the allocation.
   let outOfBoundsForI16s = p + i16.size
   #expect(throws: Memory.Error.bounds(outOfBoundsForI16s, for: i16s, allocationSize: i16s.size)) {
-    try m.finishInitialization(at: outOfBoundsForI16s, to: i16s)
+    try m.compose(i16s, at: outOfBoundsForI16s)
   }
 
   let parts = i16s.components
   let partIDs = Array(i16s.componentIDs)
   #expect(throws: Memory.Error.partUninitialized(p, partIDs[0])) {
-    try m.finishInitialization(at: p, to: i16s)
+    try m.compose(i16s, at: p)
   }
 
-  try m.finishInitialization(at: p + parts[0].offset, to: i16)
+  try m.compose(i16, at: p + parts[0].offset)
 
   #expect(throws: Memory.Error.partUninitialized(p + parts[1].offset, partIDs[1])) {
-    try m.finishInitialization(at: p, to: i16s)
+    try m.compose(i16s, at: p)
   }
 
-  try m.finishInitialization(at: p + parts[1].offset, to: i16)
+  try m.compose(i16, at: p + parts[1].offset)
 
-  try m.finishInitialization(at: p, to: i16s)
+  try m.compose(i16s, at: p)
 }
