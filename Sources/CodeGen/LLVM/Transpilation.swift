@@ -684,7 +684,7 @@ extension SwiftyLLVM.Module {
     }
 
     for i in context.source[context.source.entry(of: f)!, in: f].inputs.indices {
-      let o = Operand.parameter(.init(entry), i)
+      let o = Operand.parameter(entry, i)
       let s = transpilation.parameters[parameterOffset + i]
       register[o] = s
     }
@@ -700,7 +700,7 @@ extension SwiftyLLVM.Module {
       }
     }
 
-    insertBr(to: block[.init(entry)]!, at: endOf(prologue))
+    insertBr(to: block[entry]!, at: endOf(prologue))
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(_ i: IR.InstructionID) {
