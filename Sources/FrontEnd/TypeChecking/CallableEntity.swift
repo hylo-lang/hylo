@@ -1,5 +1,5 @@
 /// The kind of a callable entity.
-enum CallableEntity {
+enum CallableEntity: Sendable {
 
   /// A function-like entity.
   case function

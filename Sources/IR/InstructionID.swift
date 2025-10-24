@@ -1,7 +1,7 @@
 import Utils
 
 /// The stable identity of an instruction in its function.
-public struct InstructionID: Hashable {
+public struct InstructionID: Hashable, Sendable {
 
   /// The block containing the instruction.
   public let block: Function.Blocks.Address

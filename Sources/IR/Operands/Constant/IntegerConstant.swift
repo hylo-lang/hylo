@@ -3,11 +3,8 @@ import Utils
 
 // DWA: This conformance belongs in WideUInt.swift, but is here pending
 // https://github.com/apple/swift/issues/62498.
-#if swift(>=5.11)
-  extension WideUInt: @retroactive UnsignedInteger {}
-#else
-  extension WideUInt: UnsignedInteger {}
-#endif
+// This was still an issue as of 2025-07-20 - the precondition failed as mentioned in https://github.com/swiftlang/swift/issues/62498#issuecomment-2617256646
+extension WideUInt: UnsignedInteger {}
 
 /// An unsigned integer Hylo IR constant.
 public struct IntegerConstant: Constant, Hashable {

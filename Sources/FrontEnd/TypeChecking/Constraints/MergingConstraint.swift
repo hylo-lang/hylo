@@ -2,7 +2,7 @@ import Utils
 
 /// A constraint `L :> (R1, ..., Rn)` specifying that `L` is the type of a conditional or match
 /// expression whose branches have types `R1, ..., Rn`.
-struct MergingConstraint: Constraint, Hashable {
+struct MergingConstraint: Constraint, Hashable, Sendable {
 
   /// The type of the expression.
   private(set) var supertype: AnyType

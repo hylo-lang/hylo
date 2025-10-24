@@ -4,7 +4,7 @@ import Utils
 public struct TupleType: TypeProtocol {
 
   /// An element in a tuple type.
-  public struct Element: Hashable {
+  public struct Element: Hashable, Sendable {
 
     /// Creates an instance having the given properties.
     public init(label: String?, type: AnyType) {

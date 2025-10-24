@@ -1,6 +1,6 @@
 import DequeModule
 
-struct AbstractInterpreter<Domain: AbstractDomain> {
+struct AbstractInterpreter<Domain: AbstractDomain>: Sendable {
 
   /// An abstract interpretation context.
   typealias Context = AbstractContext<Domain>
@@ -42,7 +42,7 @@ struct AbstractInterpreter<Domain: AbstractDomain> {
     self.subject = f
     self.cfg = m[f].cfg()
     self.dominatorTree = DominatorTree(function: f, cfg: cfg, in: m)
-    self.state = [m[f].entry!: (sources: [], before: entryContext, after: Context())]
+    self.state = [m[f].entry!.address: (sources: [], before: entryContext, after: Context())]
     self.work = Deque(dominatorTree.bfs.dropFirst())
     self.done = []
   }

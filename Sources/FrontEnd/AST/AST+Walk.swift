@@ -24,7 +24,7 @@ import Utils
 ///     print(v.outermostFunctions)
 ///
 /// This program prints the IDs of the outermost function declarations in `ast`.
-public protocol ASTWalkObserver {
+public protocol ASTWalkObserver: Sendable {
 
   /// Called when `n`, which is in `ast`, is about to be entered; returns `false` if traversal
   /// should skip `n`.

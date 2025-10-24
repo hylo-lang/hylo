@@ -23,7 +23,7 @@ import Foundation
 /// - Note: Unless documented otherwise, the methods of `Emitter` type insert IR in `self.module`
 ///   at `self.insertionPoint`, anchoring new instructions at the given source range, named `site`
 ///   in their parameter lists.
-struct Emitter {
+struct Emitter: Sendable {
   // Emitter coding convention:
   //
   // - The `currentSource` property is state set by the `lowering()` family of
@@ -2677,7 +2677,7 @@ struct Emitter {
 
   /// Traps on this execution path because of un unexpected coercion from `lhs` to `rhs`.
   private func unexpectedCoercion(
-    from lhs: AnyType, to rhs: AnyType, file: StaticString = #file, line: UInt = #line
+    from lhs: AnyType, to rhs: AnyType, file: StaticString = #filePath, line: UInt = #line
   ) -> Never {
     fatalError("unexpected coercion from '\(lhs)' to '\(rhs)'", file: file, line: line)
   }
@@ -3503,7 +3503,7 @@ struct Emitter {
 extension Emitter {
 
   /// The local variables and allocations of a lexical scope.
-  fileprivate struct Frame {
+  fileprivate struct Frame: Sendable {
 
     /// A map from declaration of a local variable to its corresponding IR in the frame.
     var locals = DeclProperty<Operand>()
@@ -3525,7 +3525,7 @@ extension Emitter {
   }
 
   /// A stack of frames.
-  fileprivate struct Stack {
+  fileprivate struct Stack: Sendable {
 
     /// Returns `true` iff `other` describes the same number of frames
     /// having the same stacks of allocations.
@@ -3584,7 +3584,7 @@ extension Emitter {
   }
 
   /// The identifier of a loop lexically enclosing newly generated IR.
-  fileprivate struct LoopID {
+  fileprivate struct LoopID: Sendable {
 
     /// The innermost frame enclosing the loop in the emitter context.
     let depth: Int

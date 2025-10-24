@@ -1,5 +1,5 @@
 /// An access modifier.
-public enum AccessModifier: Codable {
+public enum AccessModifier: Codable, Sendable {
 
   /// Denotes (the default) private declaration.
   case `private`

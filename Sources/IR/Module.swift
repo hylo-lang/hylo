@@ -8,7 +8,7 @@ import Utils
 /// A lowered module is a collection of IR functions and a collection of constant IR values, which
 /// represent nominal types, traits, and global bindings. These entities may not necessarily have
 /// a definition. When they don't, they denote a declaration known to be defined in another module.
-public struct Module {
+public struct Module: Sendable {
 
   /// Unique identifier of a module within a program.
   public typealias ID = ModuleDecl.ID
@@ -89,75 +89,32 @@ public struct Module {
 
   /// Returns the type of `operand`.
   public func type(of operand: Operand, in f: Function.ID) -> IR.`Type` {
-    switch operand {
-    case .register(let i):
-      return functions[f]![i.block][i.address].result!
-    case .parameter(let b, let n):
-      return functions[f]![b.address].inputs[n]
-    case .constant(let c):
-      return c.type
-    }
+    functions[f]!.type(of: operand)
   }
 
   /// Returns `true` iff cannot be used to modify or update a value.
   public func isBoundImmutably(_ p: Operand, in f: Function.ID) -> Bool {
-    switch p {
-    case .parameter(let e, let i):
-      return (entry(of: f) == e) && (passingConvention(parameter: i, of: f) == .let)
-    case .constant:
-      return false
-    case .register(let i):
-      return isBoundImmutably(register: i, in: f)
-    }
+    functions[f]!.isBoundImmutably(p)
   }
 
   /// Returns `true` iff the result of `i` cannot be used to modify or update a value.
   public func isBoundImmutably(register i: InstructionID, in f: Function.ID) -> Bool {
-    switch self[i, in: f] {
-    case is AllocStack:
-      return false
-    case let s as AdvancedByBytes:
-      return isBoundImmutably(s.base, in: f)
-    case let s as AdvancedByStrides:
-      return isBoundImmutably(s.base, in: f)
-    case let s as Access:
-      return isBoundImmutably(s.source, in: f)
-    case let s as OpenCapture:
-      return s.isAccess(.let)
-    case is OpenUnion:
-      return false
-    case let s as PointerToAddress:
-      return s.isAccess(.let)
-    case let s as Project:
-      return s.projection.access == .let
-    case let s as SubfieldView:
-      return isBoundImmutably(s.recordAddress, in: f)
-    case let s as WrapExistentialAddr:
-      return isBoundImmutably(s.witness, in: f)
-    default:
-      return true
-    }
+    functions[f]!.isBoundImmutably(register: i)
   }
 
   /// If `p` is a function parameter, returns its passing convention. Otherwise, returns `nil`.
   public func passingConvention(of p: Operand, in f: Function.ID) -> AccessEffect? {
-    if case .parameter(let e, let i) = p, entry(of: f) == e {
-      return passingConvention(parameter: i, of: f)
-    } else {
-      return nil
-    }
+    functions[f]!.passingConvention(of: p)
   }
 
   /// Returns the passing convention of the `i`-th parameter of `f`.
   public func passingConvention(parameter i: Int, of f: Function.ID) -> AccessEffect {
-    // The last parameter of a function denotes its return value.
-    let ps = self[f].inputs
-    return (i == ps.count) ? .set : ps[i].type.access
+    functions[f]!.passingConvention(parameter: i)
   }
 
   /// Returns the scope in which `i` is used.
   public func scope(containing i: InstructionID, in f: Function.ID) -> AnyScopeID {
-    functions[f]![i.block].scope
+    functions[f]!.scope(containing: i)
   }
 
   /// Returns the IDs of the blocks in `f`.
@@ -166,63 +123,35 @@ public struct Module {
   /// no particular order.
   public func blocks(
     in f: Function.ID
-  ) -> LazyMapSequence<Function.Blocks.Indices, Block.ID> {
-    self[f].blocks.indices.lazy.map({ .init($0.address) })
+  ) -> some RandomAccessCollection<Block.ID> {
+    functions[f]!.blockIDs
   }
 
   /// Returns the IDs of the instructions in `b`, in order.
   public func instructions(
     in b: Block.ID, of f: Function.ID
   ) -> LazyMapSequence<Block.Instructions.Indices, InstructionID> {
-    self[b, in: f].instructions.indices.lazy.map({ .init(b.address, $0.address) })
+    functions[f]!.instructions(in: b)
   }
 
   /// Returns the IDs of the instructions in `f`, from all the blocks.
   public func instructions(in f: Function.ID) -> some Collection<InstructionID> {
-    self[f].blocks.indices.lazy.flatMap({ self.instructions(in: Block.ID($0.address), of: f) })
+    functions[f]!.instructions
   }
 
   /// Returns the ID the instruction before `i`.
   func instruction(before i: InstructionID, in f: Function.ID) -> InstructionID? {
-    functions[f]![i.block].instructions.address(before: i.address)
-      .map({ InstructionID(i.block, $0) })
+    functions[f]!.instruction(before: i)
   }
 
   /// Returns the ID the instruction after `i`.
   func instruction(after i: InstructionID, in f: Function.ID) -> InstructionID? {
-    functions[f]![i.block].instructions.address(after: i.address)
-      .map({ InstructionID(i.block, $0) })
-  }
-
-  /// Returns the global identity of `block`'s terminator, if it exists.
-  func terminator(of block: Block.ID, in f: Function.ID) -> InstructionID? {
-    if let a = functions[f]!.blocks[block.address].instructions.lastAddress {
-      return InstructionID(block, a)
-    } else {
-      return nil
-    }
+    functions[f]!.instruction(after: i)
   }
 
   /// Returns the register asssigned by `i`, if any.
   func result(of i: InstructionID, in f: Function.ID) -> Operand? {
-    if self[i, in: f].result != nil {
-      return .register(i)
-    } else {
-      return nil
-    }
-  }
-
-  /// Returns `true` iff `lhs` is sequenced before `rhs`.
-  func dominates(_ lhs: InstructionID, _ rhs: InstructionID, in f: Function.ID) -> Bool {
-    // Fast path: both instructions are in the same block.
-    if lhs.block == rhs.block {
-      let sequence = functions[f]![lhs.block].instructions
-      return lhs.address.precedes(rhs.address, in: sequence)
-    }
-
-    // Slow path: use the dominator tree.
-    let d = DominatorTree(function: f, cfg: self[f].cfg(), in: self)
-    return d.dominates(lhs.block, rhs.block)
+    functions[f]!.result(of: i)
   }
 
   /// Returns `true` if `i` is a deinitializer.
@@ -724,19 +653,14 @@ public struct Module {
   ///
   /// - Requires: `f` is declared in `self`.
   public func entry(of f: Function.ID) -> Block.ID? {
-    functions[f]!.entry.map({ Block.ID($0) })
+    functions[f]!.entry
   }
 
   /// Returns the operand representing the return value of `f`.
   ///
   /// - Requires: `f` is declared in `self`.
   public func returnValue(of f: Function.ID) -> Operand? {
-    let i = functions[f]!
-    if !i.isSubscript, let e = entry(of: f) {
-      return Operand.parameter(e, i.inputs.count)
-    } else {
-      return nil
-    }
+    functions[f]!.returnValue
   }
 
   /// Appends to `f` an entry block that is in `scope`, returning its identifier.
@@ -766,8 +690,7 @@ public struct Module {
     taking parameters: [IR.`Type`] = [],
     to f: Function.ID
   ) -> Block.ID {
-    let a = functions[f]!.appendBlock(in: scope, taking: parameters)
-    return Block.ID(a)
+    functions[f]!.append(in: scope, taking: parameters)
   }
 
   /// Removes `block` and updates def-use chains.
@@ -775,11 +698,7 @@ public struct Module {
   /// - Requires: No instruction in `block` is used by an instruction outside of `block`.
   @discardableResult
   mutating func removeBlock(_ block: Block.ID, from f: Function.ID) -> Block {
-    for i in instructions(in: block, of: f) {
-      precondition(allUses(of: i, in: f).allSatisfy({ $0.user.block == block.address }))
-      removeUsesMadeBy(i, in: f)
-    }
-    return functions[f]!.removeBlock(block.address)
+    functions[f]!.remove(block)
   }
 
   /// Swaps `old` by `new`.
@@ -790,36 +709,14 @@ public struct Module {
   ///
   /// - Requires: `new` produces results with the same types as `old`.
   mutating func replace<I: Instruction>(_ old: InstructionID, with new: I, in f: Function.ID) {
-    precondition(self[old, in: f].result == new.result)
-    removeUsesMadeBy(old, in: f)
-    _ = insert(new, in: f) { (m, i) in
-      m[old, in: f] = i
-      return old
-    }
+    functions[f]!.replace(old, with: new)
   }
 
   /// Swaps all uses of `old` in `f` by `new` and updates the def-use chains.
   ///
   /// - Requires: `new` as the same type as `old`. `f` is in `self`.
   mutating func replaceUses(of old: Operand, with new: Operand, in f: Function.ID) {
-    precondition(old != new)
-    precondition(type(of: old, in: f) == type(of: new, in: f))
-
-    guard var oldUses = self[f].uses[old], !oldUses.isEmpty else { return }
-    var newUses = self[f].uses[new] ?? []
-
-    var end = oldUses.count
-    for i in oldUses.indices.reversed() {
-      let u = oldUses[i]
-      self[u.user, in: f].replaceOperand(at: u.index, with: new)
-      newUses.append(u)
-      end -= 1
-      oldUses.swapAt(i, end)
-    }
-    oldUses.removeSubrange(end...)
-
-    self[f].uses[old] = oldUses
-    self[f].uses[new] = newUses
+    functions[f]!.replaceUses(of: old, with: new)
   }
 
   /// Inserts `newInstruction` at `boundary` and returns its identity.
@@ -827,34 +724,13 @@ public struct Module {
   mutating func insert(
     _ newInstruction: Instruction, at boundary: InsertionPoint, in f: Function.ID
   ) -> InstructionID {
-    switch boundary {
-    case .start(let b):
-      return prepend(newInstruction, to: b, in: f)
-    case .end(let b):
-      return append(newInstruction, to: b, in: f)
-    case .before(let i):
-      return insert(newInstruction, before: i, in: f)
-    case .after(let i):
-      return insert(newInstruction, after: i, in: f)
-    }
-  }
-
-  /// Adds `newInstruction` at the start of `block` and returns its identity.
-  @discardableResult
-  mutating func prepend(_ newInstruction: Instruction, to block: Block.ID, in f: Function.ID) -> InstructionID {
-    precondition(!(newInstruction is Terminator), "terminator must appear last in a block")
-    return insert(newInstruction, in: f) { (m, i) in
-      InstructionID(block.address, m[block, in: f].instructions.prepend(newInstruction))
-    }
+    functions[f]!.insert(newInstruction, at: boundary)
   }
 
   /// Adds `newInstruction` at the end of `block` and returns its identity.
   @discardableResult
   mutating func append(_ newInstruction: Instruction, to block: Block.ID, in f: Function.ID) -> InstructionID {
-    precondition(!(self[block, in: f].instructions.last is Terminator), "insertion after terminator")
-    return insert(newInstruction, in: f) { (m, i) in
-      InstructionID(block.address, m[block, in: f].instructions.append(newInstruction))
-    }
+    functions[f]!.insert(newInstruction, at: .end(of: block))
   }
 
   /// Inserts `newInstruction` before `successor` and returns its identity.
@@ -862,12 +738,7 @@ public struct Module {
   mutating func insert(
     _ newInstruction: Instruction, before successor: InstructionID, in f: Function.ID
   ) -> InstructionID {
-    precondition(!(newInstruction is Terminator), "terminator must appear last in a block")
-    return insert(newInstruction, in: f) { (m, i) in
-      let address = m.functions[f]![successor.block].instructions
-        .insert(newInstruction, before: successor.address)
-      return InstructionID(successor.block, address)
-    }
+    functions[f]!.insert(newInstruction, at: .before(successor))
   }
 
   /// Inserts `newInstruction` after `predecessor` and returns its identity.
@@ -875,37 +746,14 @@ public struct Module {
   mutating func insert(
     _ newInstruction: Instruction, after predecessor: InstructionID, in f: Function.ID
   ) -> InstructionID {
-    precondition(!(instruction(after: predecessor, in: f) is Terminator), "insertion after terminator")
-    return insert(newInstruction, in: f) { (m, i) in
-      let address = m.functions[f]![predecessor.block].instructions
-        .insert(newInstruction, after: predecessor.address)
-      return InstructionID(predecessor.block, address)
-    }
-  }
-
-  /// Inserts `newInstruction` with `impl` and returns its identity.
-  private mutating func insert(
-    _ newInstruction: Instruction, in f: Function.ID,
-    with impl: (inout Self, Instruction) -> InstructionID
-  ) -> InstructionID {
-    // Insert the instruction.
-    let user = impl(&self, newInstruction)
-
-    // Update the def-use chains.
-    for i in 0 ..< newInstruction.operands.count {
-      self[f].uses[newInstruction.operands[i], default: []].append(Use(user: user, index: i))
-    }
-
-    return user
+    functions[f]!.insert(newInstruction, at: .after(predecessor))
   }
 
   /// Removes instruction `i` and updates def-use chains.
   ///
   /// - Requires: The result of `i` have no users.
   mutating func removeInstruction(_ i: InstructionID, in f: Function.ID) {
-    precondition(result(of: i, in: f).map(default: true, { self[f].uses[$0, default: []].isEmpty }))
-    removeUsesMadeBy(i, in: f)
-    self[f][i.block].instructions.remove(at: i.address)
+    functions[f]!.remove(i)
   }
 
   /// Removes all instructions after `i` in its containing block and updates def-use chains.
@@ -913,21 +761,12 @@ public struct Module {
   /// - Requires: Let `S` be the set of removed instructions, all users of a result of `j` in `S`
   ///   are also in `S`.
   mutating func removeAllInstructions(after i: InstructionID, in f: Function.ID) {
-    while let a = self[f][i.block].instructions.lastAddress, a != i.address {
-      removeInstruction(.init(i.block, a), in: f)
-    }
+    functions[f]!.removeAllInstructions(after: i)
   }
 
   /// Returns the uses of all the registers assigned by `i`.
   func allUses(of i: InstructionID, in f: Function.ID) -> [Use] {
-    result(of: i, in: f).map(default: [], { self[f].uses[$0, default: []] })
-  }
-
-  /// Removes `i` from the def-use chains of its operands.
-  private mutating func removeUsesMadeBy(_ i: InstructionID, in f: Function.ID) {
-    for o in self[i, in: f].operands {
-      self[f].uses[o]?.removeAll(where: { $0.user == i })
-    }
+    functions[f]!.allUses(of: i)
   }
 
   /// Returns the operands from which the address denoted by `a` derives.
@@ -937,61 +776,17 @@ public struct Module {
   /// arguments and because an address defined as a parameter of a basic block with multiple
   /// predecessors depends on that bock's arguments.
   func provenances(_ a: Operand, in f: Function.ID) -> Set<Operand> {
-    // TODO: Block arguments
-    guard let i = a.instruction else { return [a] }
-
-    switch self[i, in: f] {
-    case let s as AdvancedByBytes:
-      return provenances(s.base, in: f)
-    case let s as Access:
-      return provenances(s.source, in: f)
-    case let s as Project:
-      return s.operands.reduce(into: []) { (p, o) in
-        if type(of: o, in: f).isAddress { p.formUnion(provenances(o, in: f)) }
-      }
-    case let s as SubfieldView:
-      return provenances(s.recordAddress, in: f)
-    case let s as WrapExistentialAddr:
-      return provenances(s.witness, in: f)
-    default:
-      return [a]
-    }
+    functions[f]!.provenances(a)
   }
 
   /// Returns `true` if `o` can be sunken.
   func isSink(_ o: Operand, in f: Function.ID) -> Bool {
-    provenances(o, in: f).allSatisfy { (p) -> Bool in
-      switch p {
-      case .parameter(let e, let i):
-        if entry(of: f) == e {
-          return self[f].inputs[i].type.access == .sink
-        } else {
-          return false
-        }
-
-      case .register(let i):
-        switch self[i, in: f] {
-        case let s as ProjectBundle:
-          return s.capabilities.contains(.sink)
-        case let s as Project:
-          return s.projection.access == .sink
-        default:
-          return true
-        }
-
-      default:
-        return true
-      }
-    }
+    functions[f]!.isSink(o)
   }
 
   /// Returns `true` iff `o` is an `access [set]` instruction.
   func isBorrowSet(_ o: Operand, in f: Function.ID) -> Bool {
-    guard
-      let i = o.instruction,
-      let s = self[i, in: f] as? Access
-    else { return false }
-    return s.capabilities == .set
+    functions[f]!.isBorrowSet(o)
   }
 
 }

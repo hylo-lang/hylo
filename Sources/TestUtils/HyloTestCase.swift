@@ -3,6 +3,32 @@ import IR
 import Utils
 import XCTest
 
+/// Returns a hosted standard library after typechecking and any diagnostics generated.
+///
+/// The resulting program may be empty if typechecking fails.
+private func makeTypecheckedStandardLibrary()
+  -> (program: TypedProgram, diagnostics: DiagnosticSet)
+{
+  var log = DiagnosticSet()
+  let p = Utils.Host.hostedLibraryAST
+    .map { ScopedProgram($0) }
+    .flatMap { p in
+      Result { try TypedProgram(annotating: p, reportingDiagnosticsTo: &log) }
+    }
+  if let e = p.failure {
+    guard let d = e as? DiagnosticSet else {
+      fatalError(
+        "Error thrown from typechecking is a \(type(of: e)), not a DiagnosticSet:\n\(e)")
+    }
+    precondition(d == log, "Thrown diagnostics don't match mutated ones. \n\(d)\n\(log)")
+    return (.empty, log)
+  }
+  return (p.success!, log)
+}
+
+/// The standard library after typechecking, plus any diagnostics generated.
+internal let typecheckedStandardLibrary = makeTypecheckedStandardLibrary()
+
 /// A test driver for executing test cases generated from Hylo source files.
 ///
 /// This class is intended to be extended by test cases running Hylo programs through the compiler.
@@ -14,7 +40,7 @@ import XCTest
 open class HyloTestCase: XCTestCase {
 
   /// A shared program instance containing only the standard library.
-  private static var base = SharedMutable<TypedProgram?>(nil)
+  private static let base = SharedMutable<TypedProgram?>(nil)
 
   /// The program being processed by the test case.
   ///
@@ -25,9 +51,10 @@ open class HyloTestCase: XCTestCase {
   /// Returns a copy of `base`, creating it if necessary.
   private func checkedBaseProgram() throws -> TypedProgram {
     return try self.checkNoDiagnostic { (d) in
-      let a = try Utils.Host.hostedLibraryAST.get()
-      let b = ScopedProgram(a)
-      return try TypedProgram(annotating: b, reportingDiagnosticsTo: &d)
+      assert(d.isEmpty)
+      d = typecheckedStandardLibrary.diagnostics
+      try d.throwOnError()
+      return typecheckedStandardLibrary.program
     }
   }
 

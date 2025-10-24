@@ -9,7 +9,7 @@ extension AST {
 
 /// A helper to project core entities from an AST.
 @dynamicMemberLookup
-public struct CoreEntities {
+public struct CoreEntities: Sendable {
 
   /// The AST in which the entities are defined.
   fileprivate let ast: AST

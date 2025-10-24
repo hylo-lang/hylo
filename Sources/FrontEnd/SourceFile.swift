@@ -3,7 +3,7 @@ import Utils
 
 /// A Hylo source file, a synthesized fragment of Hylo source, or a fragment Hylo source embedded
 /// in a Swift string literal.
-public struct SourceFile {
+public struct SourceFile: Sendable {
 
   /// The notional stored properties of `self`; distinguished for encoding/decoding purposes.
   ///
@@ -170,27 +170,28 @@ public struct SourceFile {
 
 }
 
-extension SourceFile {
+extension String {
 
-  /// Returns a SourceFile containing the given text of a multiline string literal, such that
-  /// diagnostics produced in processing that file will point back to the original Swift source.
+  /// Returns a SourceFile containing self, a multiline string literal, such that diagnostics
+  /// produced in processing that file will point back to the original Swift source.
   ///
   /// The text of the result will literally be what's in the Swift file, including its
   /// indentation and any embedded special characters, even if the literal itself is not a raw
-  /// literal or has had indentation stripped by the Swift compiler. It is assumed that the first
-  /// line of the string literal's content is two lines below `invocationLine`, which is consistent
-  /// with this project's formatting standard.
+  /// literal or has had indentation stripped by the Swift compiler. It is assumed that this function is invoked on the line containing the closing quotation marks, e.g.
+  ///
+  ///     let f = """
+  ///        let x = 1
+  ///     """.asSourceFile()
   ///
   /// - Warning:
-  ///   - Do not insert a blank line between the opening parenthesis of the invocation and the
-  ///     opening quotation mark.
   ///   - Only use this function with multiline string literals.
+  ///   - Write `.asSourceFile()` on the same line as the close quotation marks.
   ///   - Serialization of the result is not supported.
-  public static func diagnosableLiteral(
-    _ multilineLiteralText: String, swiftFile: String = #filePath, invocationLine: Int = #line
-  ) -> SourceFile {
+  public func asSourceFile(swiftFile: String = #filePath, invocationLine: Int = #line) -> SourceFile {
     try! .init(
-      diagnosableLiteral: multilineLiteralText, swiftFile: swiftFile, startLine: invocationLine + 2)
+      diagnosableLiteral: self,
+      swiftFile: swiftFile,
+      startLine: invocationLine - self.count(where: { $0.isNewline }) - 1)
   }
 
 }
@@ -218,7 +219,7 @@ extension SourceFile: Hashable {
 extension SourceFile: Codable {
 
   /// The state that must be maintained on behalf of `SourceFile`s while they are encoded.
-  struct EncodingState {
+  struct EncodingState: Sendable {
 
     /// Creates an empty instance.
     public init() {}
@@ -345,12 +346,12 @@ extension SourceFile {
     }
 
     /// The owner of all instances of `Storage`.
-    private static var allInstances = SharedMutable<[URL: Storage]>([:])
+    private static let allInstances = SharedMutable<[URL: Storage]>([:])
 
     /// Creates an alias to the instance with the given `url` if it exists, or creates a new
     /// instance having the given `url` and the text resulting from `makeText()`.
     fileprivate convenience init(
-      _ url: URL, lineStarts: [Index]? = nil, makeText: () throws -> Substring
+      _ url: URL, lineStarts: [Index]? = nil, makeText: @Sendable () throws -> Substring
     ) rethrows {
       self.init(
         aliasing: try Self.allInstances.modify { (c: inout [URL: Storage]) -> Storage in
