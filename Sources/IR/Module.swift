@@ -123,7 +123,7 @@ public struct Module {
   /// no particular order.
   public func blocks(
     in f: Function.ID
-  ) -> LazyMapSequence<Function.Blocks.Indices, Block.ID> {
+  ) -> some RandomAccessCollection<Block.ID> {
     functions[f]!.blockIDs
   }
 
@@ -690,7 +690,7 @@ public struct Module {
     taking parameters: [IR.`Type`] = [],
     to f: Function.ID
   ) -> Block.ID {
-    functions[f]!.appendBlock(in: scope, taking: parameters)
+    functions[f]!.append(in: scope, taking: parameters)
   }
 
   /// Removes `block` and updates def-use chains.
@@ -698,7 +698,7 @@ public struct Module {
   /// - Requires: No instruction in `block` is used by an instruction outside of `block`.
   @discardableResult
   mutating func removeBlock(_ block: Block.ID, from f: Function.ID) -> Block {
-    functions[f]!.removeBlock(block)
+    functions[f]!.remove(block)
   }
 
   /// Swaps `old` by `new`.
@@ -753,7 +753,7 @@ public struct Module {
   ///
   /// - Requires: The result of `i` have no users.
   mutating func removeInstruction(_ i: InstructionID, in f: Function.ID) {
-    functions[f]!.removeInstruction(i)
+    functions[f]!.remove(i)
   }
 
   /// Removes all instructions after `i` in its containing block and updates def-use chains.

@@ -126,7 +126,7 @@ public struct Function {
       parameters.append(.address(output))
     }
 
-    return appendBlock(in: scope, taking: parameters)
+    return append(in: scope, taking: parameters)
   }
 
   /// Removes `block` and updates def-use chains.
@@ -156,6 +156,9 @@ public struct Function {
   }
 
   /// Replaces all uses of `old` with `new` and updates the def-use chains.
+  ///
+  /// The def-use chains are updated so that the uses formerly made by `old` are
+  /// replaced by the uses made by `new` and all former uses of `old` refer to `new`.
   ///
   /// - Requires: `new` as the same type as `old`.
   mutating func replaceUses(of old: Operand, with new: Operand) {
@@ -257,7 +260,7 @@ public struct Function {
   ///   are also in `S`.
   mutating func removeAllInstructions(after i: InstructionID) {
     while let a = self[i.block].instructions.lastAddress, a != i.address {
-      removeInstruction(.init(i.block, a))
+      remove(.init(i.block, a))
     }
   }
 
