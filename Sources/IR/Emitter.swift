@@ -68,17 +68,16 @@ struct Emitter: Sendable {
   /// The source code associated with instructions to be inserted.
   var currentSource: SourceRange
 
-  /// The block's ID within its function.
+  /// The block's ID across functions.
   public struct BlockInFunction: Hashable {
 
     /// The ID of the function containing the block.
     public var function: Function.ID
 
-    /// The ID of the block in the function.
+    /// The block's ID inside the function.
     public var block: Block.ID
 
   }
-
 
   /// The program being lowered.
   private var program: TypedProgram {
