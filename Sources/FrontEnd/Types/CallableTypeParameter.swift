@@ -1,5 +1,5 @@
 /// A parameter in a callable type.
-public struct CallableTypeParameter: Hashable {
+public struct CallableTypeParameter: Hashable, Sendable {
 
   /// The label of the parameter.
   public let label: String?

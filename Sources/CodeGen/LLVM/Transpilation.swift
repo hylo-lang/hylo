@@ -64,7 +64,7 @@ fileprivate extension SwiftyLLVM.FloatingPointPredicate {
 }
 
 /// The state of a compilation from Hylo IR to LLVM IR.
-struct CodeGenerationContext {
+struct CodeGenerationContext: Sendable {
 
   /// The program containing the `module`.
   let ir: IR.Program
@@ -1690,9 +1690,12 @@ extension SwiftyLLVM.Module {
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(return i: IR.InstructionID) {
       if context.source[f].isSubscript {
+        let results = insertCall(SwiftyLLVM.Function(intrinsic(named: Intrinsic.llvm.coro.end.results)!)!,
+                                 on: [], at: insertionPoint)
+
         _ = insertCall(
           SwiftyLLVM.Function(intrinsic(named: Intrinsic.llvm.coro.end)!)!,
-          on: [frame!, i1.zero],
+          on: [frame!, i1.zero, results],
           at: insertionPoint)
         _ = insertUnreachable(at: insertionPoint)
       } else {
@@ -1813,7 +1816,7 @@ extension SwiftyLLVM.Module {
         var x = insertGetStructElementPointer(
           of: e, typed: captures, index: i, at: insertionPoint)
 
-        // Remote captures are passed deferenced.
+        // Remote captures are passed dereferenced.
         if c.type.base is RemoteType {
           x = insertLoad(ptr, from: x, at: insertionPoint)
         }
@@ -1874,7 +1877,7 @@ extension LLVMProgram: CustomStringConvertible {
 }
 
 /// The contents of an arrow.
-private struct ArrowContents {
+private struct ArrowContents: Sendable {
 
   /// A pointer to the underlying thin function.
   let function: SwiftyLLVM.IRValue

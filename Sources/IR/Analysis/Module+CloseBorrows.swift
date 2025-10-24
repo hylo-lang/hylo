@@ -139,7 +139,7 @@ extension Diagnostic {
 }
 
 /// An instruction that extends the lifetime of all its uses.
-private protocol LifetimeExtender {}
+private protocol LifetimeExtender: Sendable {}
 
 extension Access: LifetimeExtender {}
 

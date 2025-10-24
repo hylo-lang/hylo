@@ -2,8 +2,7 @@ import Foundation
 import FrontEnd
 import Utils
 
-private let standardLibrarySourceFolder = URL(
-  fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("Sources")
+private let standardLibraryFolder = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
 
 #if SWIFT_PACKAGE // Check if SPM is being used
   /// The parent directory of the standard library sources directory.
@@ -15,18 +14,25 @@ private let standardLibrarySourceFolder = URL(
     // source files actually fix the problems (see https://github.com/hylo-lang/hylo/issues/932).
     // If we ever change that, some other mechanism is needed to ensure that diagnostics refer to
     // the original source files.
-    standardLibrarySourceFolder
+    standardLibraryFolder.appendingPathComponent("Sources")
   } else {
     Bundle.module.url(forResource: "Sources", withExtension: nil)!
   }
+
+  private let externalLibRoot = Bundle.module.url(forResource: "Lib", withExtension: nil)!
 #else
-  // Default to source location on SPM. TODO make this able to use exported resources
-  private let libraryRoot = standardLibrarySourceFolder
+  // Default to source location when using CMake. TODO make this able to use exported resources
+  private let libraryRoot = standardLibraryFolder.appendingPathComponent("Sources")
+  private let externalLibRoot = standardLibraryFolder.appendingPathComponent("Lib")
 #endif
 
 
 /// The root of a directory hierarchy containing all the standard library sources.
-private let hostedLibrarySourceRoot = libraryRoot
+public let hostedLibrarySourceRoot = libraryRoot
+
+/// Location of prebuilt C libraries that the standard library depends on.
+public let externalLibraryRoot = externalLibRoot
+
 
 /// The root of a directory hierarchy containing the sources for the standard library's freestanding
 /// core.

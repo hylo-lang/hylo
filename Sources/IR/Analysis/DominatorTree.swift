@@ -11,7 +11,7 @@ import Utils
 ///
 /// A dominator tree encodes the dominance relation of a control graph as a tree where a node is
 /// a basic blocks and its children are those it immediately dominates.
-struct DominatorTree {
+struct DominatorTree: Sendable {
 
   /// A node in the tree.
   typealias Node = Function.Blocks.Address
@@ -146,7 +146,7 @@ extension DominatorTree: CustomStringConvertible {
 }
 
 /// A spanning tree of a control flow graph.
-private struct SpanningTree {
+private struct SpanningTree: Sendable {
 
   /// A node in the tree.
   typealias Node = Function.Blocks.Address

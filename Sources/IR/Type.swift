@@ -4,7 +4,7 @@ import FrontEnd
 ///
 /// Note: when qualified, this must be spelled IR.`Type`
 /// (https://github.com/apple/swift/issues/67378)
-public struct Type: Hashable {
+public struct Type: Hashable, Sendable {
 
   /// A high-level representation of the type.
   public let ast: AnyType
