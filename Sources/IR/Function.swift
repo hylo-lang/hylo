@@ -25,7 +25,7 @@ public struct Function {
   /// The type of the function's output.
   public let output: AnyType
 
-  /// The blocks in the function.
+  /// The basic blocks of the control flow graph.
   public var blocks: Blocks
 
   /// The def-use chains of the values in this module.
@@ -52,7 +52,7 @@ public struct Function {
   }
 
   /// Accesses the instruction denoted by `o` if it is `.register`; returns `nil` otherwise.
-  public subscript(o: Operand) -> Instruction? {
+  public subscript(register o: Operand) -> Instruction? {
     if case .register(let i) = o {
       return self[i]
     } else {
@@ -68,7 +68,7 @@ public struct Function {
     !genericParameters.isEmpty
   }
 
-  /// Returns the operand representing the return value of `self`.
+  /// Returns the identity of the return value.
   public var returnValue: Operand? {
     if !isSubscript, let e = entry {
       return Operand.parameter(e, inputs.count)
@@ -77,15 +77,15 @@ public struct Function {
     }
   }
 
-  /// Returns the IDs of the blocks in `self`.
+  /// The IDs of all basic blocks in the CFG, beginning with the entry point block.
   ///
   /// The first element of the returned collection is the function's entry; other elements are in
   /// no particular order.
-  public var blockIDs: LazyMapSequence<Function.Blocks.Indices, Block.ID> {
+  public var blockIDs: some RandomAccessCollection<Block.ID> {
     blocks.indices.lazy.map({ .init($0.address) })
   }
 
-  /// Returns the IDs of the instructions in `self`, from all the blocks.
+  /// The IDs of all instructions.
   public var instructions: some Collection<InstructionID> {
     blocks.indices.lazy.flatMap({ instructions(in: Block.ID($0.address)) })
   }
@@ -104,13 +104,12 @@ public struct Function {
   }
 
 
-  /// Appends to `self` a basic block in `scope` that accepts `parameters`, returning its address.
+  /// Appends a basic block in `scope` accepting `parameters`, returning its address.
   ///
-  /// The new block will become the function's entry if `self` contains no block before
-  /// `appendBlock` is called.
+  /// The first block appended becomes the entry point block.
   ///
   /// TODO: merge `appendBlock` and `appendEntry`
-  mutating func appendBlock<T: ScopeID>(
+  mutating func append<T: ScopeID>(
     in scope: T, taking parameters: [IR.`Type`]
   ) -> Block.ID {
     Block.ID(blocks.append(Block(scope: AnyScopeID(scope), inputs: parameters)))
@@ -134,7 +133,7 @@ public struct Function {
   ///
   /// - Requires: No instruction in `block` is used by an instruction outside of `block`.
   @discardableResult
-  mutating func removeBlock(_ block: Block.ID) -> Block {
+  mutating func remove(_ block: Block.ID) -> Block {
     for i in self.instructions(in: block) {
       precondition(self.allUses(of: i).allSatisfy({ $0.user.block == block.address }))
       removeUsesMadeBy(i)
@@ -142,10 +141,10 @@ public struct Function {
     return blocks.remove(at: block.address)
   }
 
-  /// Replaces `old` for `new`.
+  /// Replaces `old` with `new`.
   ///
-  /// `old` is removed and the def-use chains are updated so that the uses made by `old` are
-  /// replaced by the uses made by `new` and all uses of `old` refer to `new`. After the call,
+  /// The def-use chains are updated so that the uses formerly made by `old` are
+  /// replaced by the uses made by `new` and all former uses of `old` refer to `new`. After the call,
   /// `self[old] == new`.
   ///
   /// - Requires: `new` produces results with the same types as `old`.
@@ -156,7 +155,7 @@ public struct Function {
     addUses(for: new, with: old)
   }
 
-  /// Replaces all uses of `old` in `self` for `new` and updates the def-use chains.
+  /// Replaces all uses of `old` with `new` and updates the def-use chains.
   ///
   /// - Requires: `new` as the same type as `old`.
   mutating func replaceUses(of old: Operand, with new: Operand) {
@@ -246,7 +245,7 @@ public struct Function {
   /// Removes instruction `i` and updates def-use chains.
   ///
   /// - Requires: The result of `i` have no users.
-  mutating func removeInstruction(_ i: InstructionID) {
+  mutating func remove(_ i: InstructionID) {
     precondition(result(of: i).map(default: true, { uses[$0, default: []].isEmpty }))
     removeUsesMadeBy(i)
     self[i.block].instructions.remove(at: i.address)
