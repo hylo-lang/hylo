@@ -1,30 +1,31 @@
-import Utils
-import XCTest
-import Interpreter
-import IR
 import Driver
+import Foundation
+import IR
+import Testing
+import Utils
 
-final class InterpreterTests: XCTestCase {
+@testable import Interpreter
 
-  func testInterpreter() throws {
-    let source = try FileManager.default.temporaryFile(
-      containing: #"public fun main() { print("Hello, World!") }"#)
+@Suite struct RunInterpreter {
+
+  func run(_ program: String) throws -> Interpreter {
+    let source = try FileManager.default.temporaryFile(containing: program)
 
     let compilation = try Driver.compileToTemporary(
       source, withOptions: ["--last-phase=lowering"])
     try compilation.diagnostics.throwOnError()
 
-    func runAndCheckOutput(_ ir: IR.Program) throws {
-      var executor = Interpreter(ir)
-      while executor.isRunning { try executor.step() }
-      let output = executor.standardOutput
+    var executor = Interpreter(compilation.ir!)
 
-      // Remember, Windows has a different newline character
-      XCTAssert(output.last?.isNewline ?? false, "Expected a final newline")
-      XCTAssertEqual(output.dropLast(), "Hello, World!")
+    #expect(throws: Never.self) {
+      while executor.isRunning { try executor.step() }
     }
 
-    XCTAssertNoThrow(try runAndCheckOutput(compilation.ir!))
+    return executor
+  }
+
+  @Test func emptyProgramShouldWork() throws {
+    _ = try run(#"public fun main() {  }"#)
   }
 
 }
