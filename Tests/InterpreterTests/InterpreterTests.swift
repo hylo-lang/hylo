@@ -1,35 +1,32 @@
 import Driver
 import Foundation
 import IR
-import Testing
+import Interpreter
 import Utils
+import XCTest
 
-@testable import Interpreter
+final class InterpreterTests: XCTestCase {
 
-@Suite struct RunInterpreter {
+  func run(_ program: String) throws -> Interpreter {
+    let source = try FileManager.default.temporaryFile(containing: program)
 
-  @Suite struct ShouldWork {
+    let compilation = try Driver.compileToTemporary(
+      source, withOptions: ["--last-phase=lowering"])
+    try compilation.diagnostics.throwOnError()
 
-    func run(_ program: String) throws -> Interpreter {
-      let source = try FileManager.default.temporaryFile(containing: program)
+    var executor = Interpreter(compilation.ir!)
 
-      let compilation = try Driver.compileToTemporary(
-        source, withOptions: ["--last-phase=lowering"])
-      try compilation.diagnostics.throwOnError()
-
-      var executor = Interpreter(compilation.ir!)
-
-      #expect(throws: Never.self) {
-        while executor.isRunning { try executor.step() }
-      }
-
-      return executor
+    func runProgram() throws {
+      while executor.isRunning { try executor.step() }
     }
 
-    @Test func emptyProgram() throws {
-      _ = try run(#"public fun main() {  }"#)
-    }
+    XCTAssertNoThrow(try runProgram())
 
+    return executor
+  }
+
+  func testEmptyProgram() throws {
+    _ = try run(#"public fun main() {  }"#)
   }
 
 }
