@@ -8,24 +8,28 @@ import Utils
 
 @Suite struct RunInterpreter {
 
-  func run(_ program: String) throws -> Interpreter {
-    let source = try FileManager.default.temporaryFile(containing: program)
+  @Suite struct ShouldWork {
 
-    let compilation = try Driver.compileToTemporary(
-      source, withOptions: ["--last-phase=lowering"])
-    try compilation.diagnostics.throwOnError()
+    func run(_ program: String) throws -> Interpreter {
+      let source = try FileManager.default.temporaryFile(containing: program)
 
-    var executor = Interpreter(compilation.ir!)
+      let compilation = try Driver.compileToTemporary(
+        source, withOptions: ["--last-phase=lowering"])
+      try compilation.diagnostics.throwOnError()
 
-    #expect(throws: Never.self) {
-      while executor.isRunning { try executor.step() }
+      var executor = Interpreter(compilation.ir!)
+
+      #expect(throws: Never.self) {
+        while executor.isRunning { try executor.step() }
+      }
+
+      return executor
     }
 
-    return executor
-  }
+    @Test func emptyProgram() throws {
+      _ = try run(#"public fun main() {  }"#)
+    }
 
-  @Test func emptyProgramShouldWork() throws {
-    _ = try run(#"public fun main() {  }"#)
   }
 
 }
