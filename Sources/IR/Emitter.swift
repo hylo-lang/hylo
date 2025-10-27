@@ -69,7 +69,7 @@ struct Emitter: Sendable {
   var currentSource: SourceRange
 
   /// The block's ID across functions.
-  public struct BlockInFunction: Hashable {
+  public struct BlockAndFunction: Hashable {
 
     /// The ID of the function containing the block.
     public var function: Function.ID
