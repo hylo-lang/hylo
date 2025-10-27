@@ -57,7 +57,7 @@ struct Emitter: Sendable {
   private var loops = LoopIDs()
 
   /// For each block, the state of `frames` where the block was first entered.
-  private var stackOnEntry: [BlockInFunction: Stack] = [:]
+  private var stackOnEntry: [BlockAndFunction: Stack] = [:]
 
   /// Where new instructions are inserted.
   var insertionPoint: InsertionPoint?
@@ -3603,7 +3603,7 @@ extension Emitter {
   /// This test is used to ensure that all points branching to a block
   /// have consistent stack allocations.
   fileprivate mutating func checkEntryStack(_ b: Block.ID) {
-    modify(&stackOnEntry[BlockInFunction(function: insertionFunction!, block: b)]) { x in
+    modify(&stackOnEntry[BlockAndFunction(function: insertionFunction!, block: b)]) { x in
       if let y = x {
         assert(y.hasSameAllocations(as: frames))
       }
