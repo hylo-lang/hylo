@@ -21,12 +21,12 @@ extension Module {
     arguments[0] = .register(self[f].insert(r, at: .before(i)))
 
     let b = Block.ID(containing: i)
-    let ff = FunctionReference(
+    let x = FunctionReference(
       to: s.variants[k]!, in: self, specializedBy: s.bundle.arguments, in: self[b, in: f].scope)
 
     let reified = makeCall(
-      applying: .constant(ff), to: arguments, writingResultTo: s.output, in: f, at: s.site)
-    self[f].replace(i, with: reified)
+      applying: .constant(x), to: arguments, writingResultTo: s.output, in: f, at: s.site)
+    replace(i, with: reified, in: f)
   }
 
 }

@@ -3,7 +3,7 @@ import Utils
 extension Block {
 
   /// The stable ID of a basic block in its function.
-  public struct ID: Hashable {
+  public struct ID: Hashable, Sendable {
 
     /// The address of the block.
     public var address: Function.Blocks.Address
@@ -42,7 +42,7 @@ extension Block {
   }
 
   /// The absolute ID of a basic block.
-  public struct AbsoluteID: Hashable {
+  public struct AbsoluteID: Hashable, Sendable {
 
     /// The ID of the function containing the block.
     public var function: Function.ID
@@ -62,17 +62,6 @@ extension Block {
       self.address = block.address
     }
 
-    /// Creates an instance denoting the block containing `i`.
-    public init(containing i: AbsoluteInstructionID) {
-      self.function = i.function
-      self.address = i.block
-    }
-
-    /// The ID of the instruction at `instructionAddress` in the block identified by `self`.
-    public func appending(_ instructionAddress: Block.Instructions.Address) -> AbsoluteInstructionID {
-      AbsoluteInstructionID(function, address, instructionAddress)
-    }
-
     /// The ID of the `index`-th parameter of the block.
     public func parameter(_ index: Int) -> Operand {
       .parameter(Block.ID(self), index)
@@ -81,7 +70,7 @@ extension Block {
     /// The operand denoting the result of the instruction at `instructionAddress` in the block
     /// identified by `self`.
     public func result(at instructionAddress: Block.Instructions.Address) -> Operand {
-      .register(InstructionID(appending(instructionAddress)))
+      .register(InstructionID(address, instructionAddress))
     }
 
   }

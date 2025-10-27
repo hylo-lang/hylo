@@ -1,8 +1,8 @@
 /// A reference to a declaration.
-public enum DeclReference: Hashable {
+public enum DeclReference: Hashable, Sendable {
 
   /// A member reference's qualification.
-  public indirect enum Receiver: Hashable {
+  public indirect enum Receiver: Hashable, Sendable {
 
     /// The left operand in an infix expression, as `foo` in `foo + bar`.
     case operand

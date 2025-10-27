@@ -23,7 +23,7 @@ import Foundation
 /// - Note: Unless documented otherwise, the methods of `Emitter` type insert IR in `self.module`
 ///   at `self.insertionPoint`, anchoring new instructions at the given source range, named `site`
 ///   in their parameter lists.
-struct Emitter {
+struct Emitter: Sendable {
   // Emitter coding convention:
   //
   // - The `currentSource` property is state set by the `lowering()` family of
@@ -57,7 +57,7 @@ struct Emitter {
   private var loops = LoopIDs()
 
   /// For each block, the state of `frames` where the block was first entered.
-  private var stackOnEntry: [ Block.AbsoluteID: Stack ] = [:]
+  private var stackOnEntry: [Block.AbsoluteID: Stack] = [:]
 
   /// Where new instructions are inserted.
   var insertionPoint: InsertionPoint?
@@ -2665,7 +2665,7 @@ struct Emitter {
 
   /// Traps on this execution path because of un unexpected coercion from `lhs` to `rhs`.
   private func unexpectedCoercion(
-    from lhs: AnyType, to rhs: AnyType, file: StaticString = #file, line: UInt = #line
+    from lhs: AnyType, to rhs: AnyType, file: StaticString = #filePath, line: UInt = #line
   ) -> Never {
     fatalError("unexpected coercion from '\(lhs)' to '\(rhs)'", file: file, line: line)
   }
@@ -2961,7 +2961,9 @@ struct Emitter {
   /// After the call, `insertionPoint` set to `nil`.
   mutating func replaceMove(_ i: InstructionID, in f: Function.ID, with semantics: AccessEffect) -> InstructionID {
     let s = module[i, in: f] as! Move
+    let x = insertionFunction
     insertionFunction = f
+    defer { insertionFunction = x }
     let predecessor = module[f].instruction(before: i)
 
     insertionPoint = .before(i)
@@ -3456,19 +3458,19 @@ struct Emitter {
   /// Returns the result of calling `action` on a copy of `self` whose insertion block and frames
   /// are clear.
   private mutating func withClearContext<T>(_ action: (inout Self) throws -> T) rethrows -> T {
-    var ff: Function.ID? = nil
+    var x: Function.ID? = nil
     var p: InsertionPoint? = nil
     var f = Stack()
     var l = LoopIDs()
     var s = program[module.id].site
 
-    swap(&ff, &insertionFunction)
+    swap(&x, &insertionFunction)
     swap(&p, &insertionPoint)
     swap(&f, &frames)
     swap(&l, &loops)
     swap(&s, &currentSource)
     defer {
-      swap(&ff, &insertionFunction)
+      swap(&x, &insertionFunction)
       swap(&p, &insertionPoint)
       swap(&f, &frames)
       swap(&l, &loops)
@@ -3489,7 +3491,7 @@ struct Emitter {
 extension Emitter {
 
   /// The local variables and allocations of a lexical scope.
-  fileprivate struct Frame {
+  fileprivate struct Frame: Sendable {
 
     /// A map from declaration of a local variable to its corresponding IR in the frame.
     var locals = DeclProperty<Operand>()
@@ -3511,7 +3513,7 @@ extension Emitter {
   }
 
   /// A stack of frames.
-  fileprivate struct Stack {
+  fileprivate struct Stack: Sendable {
 
     /// Returns `true` iff `other` describes the same number of frames
     /// having the same stacks of allocations.
@@ -3570,7 +3572,7 @@ extension Emitter {
   }
 
   /// The identifier of a loop lexically enclosing newly generated IR.
-  fileprivate struct LoopID {
+  fileprivate struct LoopID: Sendable {
 
     /// The innermost frame enclosing the loop in the emitter context.
     let depth: Int

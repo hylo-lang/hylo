@@ -17,6 +17,8 @@ public struct SourceRepresentable<Part> {
 
 }
 
+extension SourceRepresentable: Sendable where Part: Sendable {}
+
 extension SourceRepresentable: Equatable where Part: Equatable {
 
   public static func == (l: Self, r: Self) -> Bool {
@@ -35,7 +37,7 @@ extension SourceRepresentable: Hashable where Part: Hashable {
 
 extension SourceRepresentable: Codable where Part: Codable {
 
-  fileprivate enum CodingKeys: String, CodingKey {
+  fileprivate enum CodingKeys: String, CodingKey, Sendable {
 
     case value, range
 

@@ -118,9 +118,9 @@ extension Module {
 
         /// Returns `true` iff the requested capability can be reborrowed from current borrower.
         func canReborrow(_ k: AccessEffect) -> Bool {
-          if let ff = former {
+          if let i = former {
             let ks = AccessEffectSet.all.filter(strongerOrEqualTo: k)
-            return borrowers.containsOnly(ff) && self[ff, in: f].isAccess(in: ks)
+            return borrowers.containsOnly(i) && self[i, in: f].isAccess(in: ks)
           } else {
             return false
           }

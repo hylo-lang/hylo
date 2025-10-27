@@ -2,7 +2,7 @@
 public struct ArrowTypeExpr: Expr {
 
   /// A parameter in an arrow type expression.
-  public struct Parameter: Codable {
+  public struct Parameter: Codable, Sendable {
 
     /// The label of the parameter.
     public var label: SourceRepresentable<Identifier>?

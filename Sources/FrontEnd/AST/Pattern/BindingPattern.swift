@@ -7,7 +7,7 @@ import Utils
 public struct BindingPattern: Pattern {
 
   /// An introducer in a binding pattern.
-  public enum Introducer: Codable {
+  public enum Introducer: Codable, Sendable {
 
     case `let`
 

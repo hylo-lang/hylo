@@ -1,7 +1,7 @@
 import Utils
 
 /// A type serving as a witness for `Constraint`s conformance to `Hashable`.
-struct ConstraintHashableWitness: HashableWitness {
+struct ConstraintHashableWitness: HashableWitness, Sendable {
 
   typealias Element = Constraint
 

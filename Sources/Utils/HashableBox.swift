@@ -18,3 +18,5 @@ public struct HashableBox<Witness: HashableWitness>: Hashable {
   }
 
 }
+
+extension HashableBox: Sendable where Witness.Element: Sendable {}

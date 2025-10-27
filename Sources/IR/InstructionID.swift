@@ -1,9 +1,7 @@
 import Utils
 
 /// The stable identity of an instruction in its function.
-///
-/// - SeeAlso: `AbsoluteInstructionID`
-public struct InstructionID: Hashable {
+public struct InstructionID: Hashable, Sendable {
 
   /// The block containing the instruction.
   public let block: Function.Blocks.Address
@@ -24,19 +22,6 @@ public struct InstructionID: Hashable {
   public init(_ block: Block.ID, _ address: Block.Instructions.Address) {
     self.block = block.address
     self.address = address
-  }
-
-  /// Creates an instance from an absolute instruction ID.
-  public init(_ i: AbsoluteInstructionID) {
-    self.block = i.block
-    self.address = i.address
-  }
-
-  /// Creates an instance from an absolute instruction ID.
-  public init?(_ i: AbsoluteInstructionID?) {
-    guard let i = i else { return nil }
-    self.block = i.block
-    self.address = i.address
   }
 
 }
