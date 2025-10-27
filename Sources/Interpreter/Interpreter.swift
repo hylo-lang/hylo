@@ -1,6 +1,6 @@
-import Collections
 import Foundation
 import FrontEnd
+import Collections
 import IR
 
 struct CodePointer {
@@ -89,18 +89,15 @@ struct StackAllocation {
   init(_ structure: TypeLayout) {
     size = structure.bytes.size
     storage = .init(repeating: 0, count: max(0, size + structure.bytes.alignment - 1))
-    baseOffset =
-      size == 0
-      ? 0
-      : storage.withUnsafeBytes {
-        let b = UInt(bitPattern: $0.baseAddress!)
-        return Int(b.rounded(upToNearestMultipleOf: UInt(structure.bytes.alignment)) - b)
-      }
+    baseOffset = size == 0 ? 0 : storage.withUnsafeBytes {
+      let b = UInt(bitPattern: $0.baseAddress!)
+      return Int(b.rounded(upToNearestMultipleOf: UInt(structure.bytes.alignment)) - b)
+    }
     self.structure = structure
   }
 
-  func withUnsafeBytes<R>(_ body: (UnsafeRawBufferPointer) -> R) -> R {
-    storage.withUnsafeBytes { b in body(.init(rebasing: b[baseOffset..<baseOffset + size])) }
+  func withUnsafeBytes<R>(_ body: (UnsafeRawBufferPointer)->R) -> R {
+    storage.withUnsafeBytes { b in body(.init(rebasing: b[baseOffset..<baseOffset+size])) }
   }
 }
 
@@ -298,7 +295,8 @@ public struct Interpreter {
     }
     if stack.frames.isEmpty {
       isRunning = false
-    } else {
+    }
+    else {
       try advanceProgramCounter()
     }
   }
@@ -309,9 +307,8 @@ public struct Interpreter {
   public var currentInstruction: any Instruction {
     _read {
       yield program.modules[programCounter.module]!
-        .functions[programCounter.instructionInModule.function]!
-        .blocks[programCounter.instructionInModule.block][
-          programCounter.instructionInModule.address]
+      .functions[programCounter.instructionInModule.function]!
+      .blocks[programCounter.instructionInModule.block][programCounter.instructionInModule.address]
     }
   }
 
