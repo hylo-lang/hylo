@@ -104,7 +104,7 @@ struct Emitter: Sendable {
 
   /// Appends a new basic block at the end of `self.insertionFunction`, defined in s.
   private mutating func appendBlock<T: ScopeID>(in s: T) -> Block.ID {
-    module[insertionFunction!].appendBlock(in: s)
+    module[insertionFunction!].append(in: s)
   }
 
   /// Appends a new basic block at the end of `self.insertionFunction`, defined in the same scope
@@ -2434,7 +2434,7 @@ struct Emitter: Sendable {
       allocations.append(emitAllocation(binding: d))
     }
 
-    let failure = module[insertionFunction!].appendBlock(in: scope)
+    let failure = module[insertionFunction!].append(in: scope)
     var nextAllocation = 0
     for item in condition {
       switch item {
@@ -2970,7 +2970,7 @@ struct Emitter: Sendable {
     lowering(at: s.site) {
       $0._emitMove(semantics, s.object, to: s.target, withMovableConformance: s.movable)
     }
-    module[f].removeInstruction(i)
+    module[f].remove(i)
 
     if let p = predecessor {
       return module[f].instruction(after: p)!

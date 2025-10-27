@@ -26,7 +26,7 @@ extension Module {
       if self[f].allUses(of: i).isEmpty && isRemovableWhenUnused(i, in: f) {
         removed.insert(i)
         removeUnused(self[i, in: f].operands.compactMap(\.instruction), keepingTrackIn: &removed, in: f)
-        self[f].removeInstruction(i)
+        self[f].remove(i)
       }
     }
   }
@@ -48,7 +48,7 @@ extension Module {
       var i = 0
       while i < e {
         if cfg.predecessors(of: work[i]).isEmpty {
-          self[f].removeBlock(Block.ID(work[i]))
+          self[f].remove(Block.ID(work[i]))
           work.swapAt(i, e - 1)
           changed = true
           e -= 1

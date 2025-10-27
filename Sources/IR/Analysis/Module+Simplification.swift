@@ -27,11 +27,11 @@ extension Module {
     }
 
     for u in self[f].allUses(of: i) where self[f][u.user] is EndAccess {
-      self[f].removeInstruction(u.user)
+      self[f].remove(u.user)
     }
     self[f].replaceUses(of: .register(i), with: s.source)
 
-    defer { self[f].removeInstruction(i) }
+    defer { self[f].remove(i) }
     return self[f].instruction(after: i)
   }
 

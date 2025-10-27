@@ -85,7 +85,7 @@ extension IR.Program {
         translation.rewrittenOperand[.register(j)] = .register(k)
       }
 
-      modules[m]![f].removeInstruction(i)
+      modules[m]![f].remove(i)
       return true
     }
 
