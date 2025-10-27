@@ -8,18 +8,14 @@ import Utils
 
 @Suite struct InterpreterRunTests {
 
-  func executor(for program: String) throws -> Interpreter {
-    let source = try FileManager.default.temporaryFile(containing: program)
-
-    let compilation = try Driver.compileToTemporary(
-      source, withOptions: ["--last-phase=lowering"])
-    try compilation.diagnostics.throwOnError()
-
-    return Interpreter(compilation.ir!)
-  }
-
   @Test func emptyMain() throws {
-    var executor = try executor(for: #"public fun main() {  }"#)
+    let input =
+      """
+        public fun main() { }
+      """.asSourceFile()
+    let module = try input.loweredToIRAsMainWithHostedStandardLibrary();
+    let program = IR.Program.init(syntax: module.program, modules: [module.id: module]);
+    var executor = Interpreter(program);
     #expect(throws: Never.self) {
       while executor.isRunning { try executor.step() }
     }
