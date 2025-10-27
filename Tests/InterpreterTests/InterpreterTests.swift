@@ -18,7 +18,7 @@ import Utils
     return Interpreter(compilation.ir!)
   }
 
-  @Test func emptyProgramShouldWork() throws {
+  @Test func emptyMain() throws {
     var executor = try executor(for: #"public fun main() {  }"#)
     #expect(throws: Never.self) {
       while executor.isRunning { try executor.step() }
