@@ -21,4 +21,19 @@ import Utils
     }
   }
 
+  @Test func stackAllocAndDealloc() throws {
+    let input =
+      """
+        public fun main() {
+          let x = 2
+        }
+      """.asSourceFile()
+    let module = try input.loweredToIRAsMainWithHostedStandardLibrary();
+    let program = IR.Program.init(syntax: module.program, modules: [module.id: module]);
+    var executor = Interpreter(program);
+    #expect(throws: Never.self) {
+      while executor.isRunning { try executor.step() }
+    }
+  }
+
 }

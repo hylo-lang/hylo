@@ -323,7 +323,8 @@ public struct Interpreter {
     case let x as Store:
       _ = x
     case let x as SubfieldView:
-      _ = x
+      currentRegister = .address(
+        address(ofField: x.subfield, at: address(denotedBy: x.recordAddress)!))
     case let x as Switch:
       _ = x
     case let x as UnionDiscriminator:
@@ -383,7 +384,7 @@ public struct Interpreter {
     }
   }
 
-  /// Return address of object denoted by operand, if any.
+  /// Returns address of object denoted by operand, if any.
   func address(denotedBy operand: Operand) -> Stack.Address? {
     switch operand {
     case .register(let instruction):
@@ -393,6 +394,25 @@ public struct Interpreter {
     case .constant:
       return nil
     }
+  }
+
+  /// Returns address of `field` stored at `address` in stack.
+  mutating func address(ofField field: RecordPath, at address: Stack.Address) -> Stack.Address {
+    let stackframe = stack[address.frame]
+    let allocationIndex = stackframe.allocationIDToIndex[address.allocation]!
+    let allocation = stackframe.allocations[allocationIndex]
+    var offset = 0;
+    var layout = allocation.structure;
+    for i in field {
+      offset += layout.components[i].offset
+      layout = typeLayout[layout.components[i].type]
+    }
+    return Stack.Address.init(
+      memoryLayout: layout,
+      frame: address.frame,
+      allocation: address.allocation,
+      byteOffset: offset
+    )
   }
 
 }
