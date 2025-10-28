@@ -24,7 +24,7 @@ struct BuiltInObject {
 enum InstructionResult {
 
   /// Address of object on stack.
-  case address((AnyType, Stack.Address))
+  case address(Stack.Address)
 
   /// The object of builtin type.
   case builtIn(BuiltInObject)
@@ -33,7 +33,7 @@ enum InstructionResult {
   case string(Data)
 
   /// The address, if any.
-  public var address: (AnyType, Stack.Address)? {
+  public var address: Stack.Address? {
     switch self {
     case .address(let x):
       return x
@@ -73,7 +73,7 @@ struct StackFrame {
   typealias ID = UUID
 
   /// Function parameters
-  var parameters: [(AnyType, Stack.Address)]
+  var parameters: [Stack.Address]
 
   /// The results of instructions.
   var registers: [InstructionID: InstructionResult] = [:]
@@ -89,13 +89,11 @@ struct StackFrame {
   var allocations: [StackAllocation] = []
   var allocationIDToIndex: [UUID: Int] = [:]
 
-  mutating func allocate(_ t: TypeLayout) -> (AnyType, Stack.Address) {
+  mutating func allocate(_ t: TypeLayout) -> Stack.Address {
     let a = StackAllocation(t)
     allocationIDToIndex[a.id] = allocations.count
     allocations.append(a)
-    return (
-      t.type, Stack.Address(memoryLayout: t, frame: id, allocation: a.id, byteOffset: a.baseOffset)
-    )
+    return Stack.Address(memoryLayout: t, frame: id, allocation: a.id, byteOffset: a.baseOffset)
   }
 
   mutating func deallocate(_ a: Stack.Address) {
@@ -177,7 +175,7 @@ struct Stack {
   }
 
   /// Adds a new frame on top with the given `returnAddress`.
-  mutating func push(parameters: [(AnyType, Stack.Address)], returnAddress: CodePointer) {
+  mutating func push(parameters: [Stack.Address], returnAddress: CodePointer) {
     let f = StackFrame(parameters: parameters, returnAddress: returnAddress)
     frameIDToIndex[f.id] = frames.count
     frames.append(f)
@@ -266,7 +264,7 @@ public struct Interpreter {
     print("\(currentInstruction.site.gnuStandardText): \(currentInstruction)")
     switch currentInstruction {
     case let x as Access:
-      currentRegister = .address(addressAndType(denotedBy: x.source)!)
+      currentRegister = .address(address(denotedBy: x.source)!)
     case let x as AddressToPointer:
       _ = x
     case let x as AdvancedByBytes:
@@ -298,7 +296,7 @@ public struct Interpreter {
     case let x as ConstantString:
       currentRegister = .string(x.value)
     case let x as DeallocStack:
-      topOfStack.deallocate(topOfStack.registers[x.location.instruction!]!.address!.1)
+      topOfStack.deallocate(topOfStack.registers[x.location.instruction!]!.address!)
     case is EndAccess:
       // No effect on program state
       break
@@ -309,8 +307,8 @@ public struct Interpreter {
     case let x as GlobalAddr:
       _ = x
     case let x as Load:
-      let (type, address) = addressAndType(denotedBy: x.source)!
-      currentRegister = .builtIn(builtInObject(at: address, type: type)!)
+      let address = address(denotedBy: x.source)!;
+      currentRegister = .builtIn(builtInObject(at: address)!)
     case is MarkState:
       // No effect on program state
       break
@@ -337,9 +335,8 @@ public struct Interpreter {
     case let x as Store:
       _ = x
     case let x as SubfieldView:
-      let (parentType, parentField) = addressAndType(denotedBy: x.recordAddress)!;
-      currentRegister = .address(
-        subFieldAddressAndType(denotedBy: x.subfield, of: parentField, type: parentType))
+      let parent = address(denotedBy: x.recordAddress)!;
+      currentRegister = .address(subField(denotedBy: x.subfield, of: parent))
     case let x as Switch:
       _ = x
     case let x as UnionDiscriminator:
@@ -400,7 +397,7 @@ public struct Interpreter {
   }
 
   /// Returns address and type of object denoted by operand, if any.
-  func addressAndType(denotedBy operand: Operand) -> (AnyType, Stack.Address)? {
+  func address(denotedBy operand: Operand) -> Stack.Address? {
     switch operand {
     case .register(let instruction):
       return topOfStack.registers[instruction]?.address
@@ -412,33 +409,30 @@ public struct Interpreter {
   }
 
   /// Returns address and type of `field` stored at `address` in stack.
-  mutating func subFieldAddressAndType(
-    denotedBy path: RecordPath, of address: Stack.Address, type: AnyType
-  )
-    -> (AnyType, Stack.Address)
+  mutating func subField(denotedBy path: RecordPath, of address: Stack.Address)
+    -> Stack.Address
   {
     var offset = address.byteOffset;
-    var layout = typeLayout[type];
+    var layout = address.memoryLayout;
     for i in path {
       offset += layout.components[i].offset
       layout = typeLayout[layout.components[i].type]
     }
-    let addr = Stack.Address.init(
+    return .init(
       memoryLayout: layout,
       frame: address.frame,
       allocation: address.allocation,
       byteOffset: offset
     )
-    return (layout.type, addr)
   }
 
   /// Return builtin object (if any) at given `address`.
   ///
   /// Postcondition: Bytes at lower index are at less significant byte in result.
-  mutating func builtInObject(at address: Stack.Address, type: AnyType)
+  mutating func builtInObject(at address: Stack.Address)
     -> BuiltInObject?
   {
-    if !type.isBuiltin {
+    if !address.memoryLayout.type.isBuiltin {
       return nil
     }
 
@@ -446,7 +440,7 @@ public struct Interpreter {
     let allocationIdx = stackframe.allocationIDToIndex[address.allocation]!
     let allocation = stackframe.allocations[allocationIdx]
 
-    let size = typeLayout[type].size;
+    let size = address.memoryLayout.size;
     let bytes = allocation.storage[address.byteOffset..<address.byteOffset + size];
 
     var value: UInt128 = 0;
