@@ -26,6 +26,7 @@ import Utils
       """
         public fun main() {
           let x = 2
+          let y = 2
         }
       """.asSourceFile()
     let module = try input.loweredToIRAsMainWithHostedStandardLibrary();

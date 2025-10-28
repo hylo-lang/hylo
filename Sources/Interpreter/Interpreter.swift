@@ -83,7 +83,9 @@ struct StackFrame {
     let a = StackAllocation(t)
     allocationIDToIndex[a.id] = allocations.count
     allocations.append(a)
-    return (t.type, Stack.Address(memoryLayout: t, frame: id, allocation: a.id, byteOffset: 0))
+    return (
+      t.type, Stack.Address(memoryLayout: t, frame: id, allocation: a.id, byteOffset: a.baseOffset)
+    )
   }
 
   mutating func deallocate(_ a: Stack.Address) {
@@ -91,7 +93,8 @@ struct StackFrame {
       a.allocation == allocations.last!.id,
       "The latest allocation that has not been deallocated must be deallocated first.")
     precondition(a.frame == id, "Can't deallocate address from a different frame.")
-    precondition(a.byteOffset == 0, "Can't deallocate the memory of a subobject.")
+    precondition(
+      a.byteOffset == allocations.last!.baseOffset, "Can't deallocate the memory of a subobject.")
     precondition(
       a.memoryLayout.type == allocations.last!.structure.type,
       "Deallocating using address of the wrong type; perhaps this is a subobject?")
@@ -323,8 +326,9 @@ public struct Interpreter {
     case let x as Store:
       _ = x
     case let x as SubfieldView:
-      let parentFieldAddress = addressAndType(denotedBy: x.recordAddress)!.1;
-      currentRegister = .address(addressAndType(ofField: x.subfield, at: parentFieldAddress))
+      let (parentType, parentField) = addressAndType(denotedBy: x.recordAddress)!;
+      currentRegister = .address(
+        subFieldAddressAndType(denotedBy: x.subfield, of: parentField, type: parentType))
     case let x as Switch:
       _ = x
     case let x as UnionDiscriminator:
@@ -397,15 +401,14 @@ public struct Interpreter {
   }
 
   /// Returns address and type of `field` stored at `address` in stack.
-  mutating func addressAndType(ofField field: RecordPath, at address: Stack.Address)
+  mutating func subFieldAddressAndType(
+    denotedBy path: RecordPath, of address: Stack.Address, type: AnyType
+  )
     -> (AnyType, Stack.Address)
   {
-    let stackframe = stack[address.frame]
-    let allocationIndex = stackframe.allocationIDToIndex[address.allocation]!
-    let allocation = stackframe.allocations[allocationIndex]
-    var offset = 0;
-    var layout = allocation.structure;
-    for i in field {
+    var offset = address.byteOffset;
+    var layout = typeLayout[type];
+    for i in path {
       offset += layout.components[i].offset
       layout = typeLayout[layout.components[i].type]
     }
