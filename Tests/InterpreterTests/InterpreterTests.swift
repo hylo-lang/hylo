@@ -37,4 +37,28 @@ import Utils
     }
   }
 
+  @Test func functionCall() throws {
+    let input =
+      """
+       public fun dummy() {}
+
+       public fun id(_ x: sink Int) -> Int {
+         dummy()
+         return x
+       }
+
+       public fun main() {
+         let x = 2
+         let y = id(x)
+         let z = 3
+       }
+      """.asSourceFile()
+    let module = try input.loweredToIRAsMainWithHostedStandardLibrary();
+    let program = IR.Program.init(syntax: module.program, modules: [module.id: module]);
+    var executor = Interpreter(program);
+    #expect(throws: Never.self) {
+      while executor.isRunning { try executor.step() }
+    }
+  }
+
 }

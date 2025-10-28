@@ -278,7 +278,9 @@ public struct Interpreter {
     case let x as Branch:
       _ = x
     case let x as Call:
-      _ = x
+      stack.push(parameters: blockParams(from: x), returnAddress: try nextCodePointer())
+      jumpToEntry(of: (x.callee.constant as! FunctionReference).function)
+      return
     case let x as CallBuiltinFunction:
       _ = x
     case is CallBundle:
@@ -373,16 +375,29 @@ public struct Interpreter {
 
   /// Moves the program counter to the next instruction.
   mutating func advanceProgramCounter() throws {
+    programCounter.instructionInModule = try nextInstruction()
+  }
+
+  /// Returns the next instruction.
+  func nextInstruction() throws -> InstructionID {
     let b = program.modules[programCounter.module]!
       .functions[programCounter.instructionInModule.function]!
       .blocks[programCounter.instructionInModule.block].instructions
     guard let a = b.address(after: programCounter.instructionInModule.address) else {
       throw IRError()
     }
-    programCounter.instructionInModule = InstructionID(
+    return InstructionID(
       programCounter.instructionInModule.function,
       programCounter.instructionInModule.block,
-      a)
+      a
+    )
+  }
+
+  /// Returns code pointer pointing to next instruction.
+  func nextCodePointer() throws -> CodePointer {
+    var codePointer = programCounter;
+    codePointer.instructionInModule = try nextInstruction();
+    return codePointer;
   }
 
   /// Removes topmost stackframe and points `programCounter` to next instruction
@@ -467,6 +482,23 @@ public struct Interpreter {
       .allocations[destAllocationIdx]
       .storage
       .replaceSubrange(dest.byteOffset..<dest.byteOffset + size, with: srcBytes)
+  }
+
+  /// Returns block parameters from operands in `arg`.
+  func blockParams(from arg: Call) -> [Stack.Address] {
+    arg.arguments.map { address(denotedBy: $0)! } + [address(denotedBy: arg.output)!]
+  }
+
+  /// Moves the program counter to entry point of the given function.
+  mutating func jumpToEntry(of functionId: Function.ID) {
+    let moduleId = program.module(defining: functionId)
+    let function = program.modules[moduleId]![functionId]
+    let entryBlock = function.entry!;
+    let entryInstruction = function.blocks[entryBlock].instructions.firstAddress!
+    programCounter = CodePointer(
+      module: moduleId,
+      instructionInModule: InstructionID(functionId, entryBlock, entryInstruction)
+    )
   }
 
 }
