@@ -342,7 +342,14 @@ public struct Interpreter {
       popStackFrame()
       return
     case let x as Store:
-      _ = x
+      let obj = builtIn(denotedBy: x.object)!
+      let dest = address(denotedBy: x.target)!
+      let destAllocationIdx = stack[dest.frame].allocationIDToIndex[dest.allocation]!
+      for i in 0..<obj.bytes {
+        stack[dest.frame]
+          .allocations[destAllocationIdx]
+          .storage[dest.byteOffset + i] = obj.storage.byte(at: i)
+      }
     case let x as SubfieldView:
       let parent = address(denotedBy: x.recordAddress)!;
       currentRegister = .address(subField(denotedBy: x.subfield, of: parent))
@@ -541,6 +548,12 @@ public struct Interpreter {
     )
   }
 
+}
+
+extension UInt128 {
+  func byte(at i: Int) -> UInt8 {
+    return UInt8(truncatingIfNeeded: self >> (i * 8))
+  }
 }
 
 struct IRError: Error {}
