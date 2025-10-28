@@ -276,7 +276,8 @@ public struct Interpreter {
       currentRegister = .address(topOfStack.allocate(typeLayout[x.allocatedType]))
 
     case let x as Branch:
-      _ = x
+      jumpTo(block: x.target)
+      return
     case let x as Call:
       stack.push(parameters: blockParams(from: x), returnAddress: try nextCodePointer())
       jumpToEntry(of: (x.callee.constant as! FunctionReference).function)
@@ -294,7 +295,13 @@ public struct Interpreter {
     case let x as CloseUnion:
       _ = x
     case let x as CondBranch:
-      _ = x
+      let cond = builtIn(denotedBy: x.condition)!
+      if cond.storage != 0 {
+        jumpTo(block: x.targetIfTrue)
+      } else {
+        jumpTo(block: x.targetIfFalse)
+      }
+      return
     case let x as ConstantString:
       currentRegister = .string(x.value)
     case let x as DeallocStack:
@@ -423,6 +430,26 @@ public struct Interpreter {
     }
   }
 
+  /// Returns address and type of object denoted by operand, if any.
+  func builtIn(denotedBy operand: Operand) -> BuiltInObject? {
+    switch operand {
+    case .register(let instruction):
+      return topOfStack.registers[instruction]?.builtIn
+    case .parameter:
+      return nil;
+    case .constant(let c):
+      switch c {
+      case let x as IntegerConstant:
+        return BuiltInObject(
+          storage: UInt128(truncatingIfNeeded: x.value),
+          bytes: (x.value.bitWidth + 7) / 8
+        )
+      default:
+        fatalError("unimplemented constant parsing!!!")
+      }
+    }
+  }
+
   /// Returns address and type of `field` stored at `address` in stack.
   mutating func subField(denotedBy path: RecordPath, of address: Stack.Address)
     -> Stack.Address
@@ -494,6 +521,19 @@ public struct Interpreter {
     let moduleId = program.module(defining: functionId)
     let function = program.modules[moduleId]![functionId]
     let entryBlock = function.entry!;
+    let entryInstruction = function.blocks[entryBlock].instructions.firstAddress!
+    programCounter = CodePointer(
+      module: moduleId,
+      instructionInModule: InstructionID(functionId, entryBlock, entryInstruction)
+    )
+  }
+
+  /// Moves the program counter to start of given block.
+  mutating func jumpTo(block blockId: Block.ID) {
+    let functionId = blockId.function
+    let moduleId = program.module(defining: functionId)
+    let function = program.modules[moduleId]![functionId]
+    let entryBlock = blockId.address;
     let entryInstruction = function.blocks[entryBlock].instructions.firstAddress!
     programCounter = CodePointer(
       module: moduleId,
