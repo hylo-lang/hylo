@@ -10,6 +10,16 @@ struct CodePointer {
 
 }
 
+struct BuiltInObject {
+
+  /// The storage in little-endian format.
+  public let storage: UInt128
+
+  /// Number of bytes, storage is representing.
+  public let bytes: Int
+
+}
+
 /// Result of an instruction.
 enum InstructionResult {
 
@@ -17,7 +27,7 @@ enum InstructionResult {
   case address((AnyType, Stack.Address))
 
   /// The object of builtin type.
-  case builtIn((BuiltinType, UInt128))
+  case builtIn(BuiltInObject)
 
   /// String literal.
   case string(Data)
@@ -33,7 +43,7 @@ enum InstructionResult {
   }
 
   /// The object, if any.
-  public var builtIn: (BuiltinType, UInt128)? {
+  public var builtIn: BuiltInObject? {
     switch self {
     case .builtIn(let x):
       return x
@@ -299,7 +309,8 @@ public struct Interpreter {
     case let x as GlobalAddr:
       _ = x
     case let x as Load:
-      _ = x
+      let (type, address) = addressAndType(denotedBy: x.source)!
+      currentRegister = .builtIn(builtInObject(at: address, type: type)!)
     case is MarkState:
       // No effect on program state
       break
@@ -419,6 +430,31 @@ public struct Interpreter {
       byteOffset: offset
     )
     return (layout.type, addr)
+  }
+
+  /// Return builtin object (if any) at given `address`.
+  ///
+  /// Postcondition: Bytes at lower index are at less significant byte in result.
+  mutating func builtInObject(at address: Stack.Address, type: AnyType)
+    -> BuiltInObject?
+  {
+    if !type.isBuiltin {
+      return nil
+    }
+
+    let stackframe = stack[address.frame]
+    let allocationIdx = stackframe.allocationIDToIndex[address.allocation]!
+    let allocation = stackframe.allocations[allocationIdx]
+
+    let size = typeLayout[type].size;
+    let bytes = allocation.storage[address.byteOffset..<address.byteOffset + size];
+
+    var value: UInt128 = 0;
+    for (i, byte) in zip(0..<size, bytes) {
+      value |= UInt128(byte) << (i * 8)
+    }
+
+    return BuiltInObject.init(storage: value, bytes: size);
   }
 
 }
