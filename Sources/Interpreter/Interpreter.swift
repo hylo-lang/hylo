@@ -22,6 +22,35 @@ enum InstructionResult {
   /// String literal.
   case string(Data)
 
+  /// The address, if any.
+  public var address: Stack.Address? {
+    switch self {
+    case .address(let x):
+      return x
+    default:
+      return nil;
+    }
+  }
+
+  /// The object, if any.
+  public var object: StackAllocation? {
+    switch self {
+    case .object(let x):
+      return x
+    default:
+      return nil;
+    }
+  }
+
+  /// The string-literal, if any.
+  public var string: Data? {
+    switch self {
+    case .string(let x):
+      return x
+    default:
+      return nil;
+    }
+  }
 }
 
 /// The local variables, parameters, and return address for a function
@@ -66,6 +95,7 @@ struct StackFrame {
     precondition(
       a.memoryLayout.type == allocations.last!.structure.type,
       "Deallocating using address of the wrong type; perhaps this is a subobject?")
+    allocationIDToIndex.removeValue(forKey: a.allocation)
     allocations.removeLast()
   }
 
@@ -233,7 +263,7 @@ public struct Interpreter {
       _ = x
 
     case let x as AllocStack:
-      currentRegister = .object(StackAllocation(typeLayout[x.allocatedType]))
+      currentRegister = .address(topOfStack.allocate(typeLayout[x.allocatedType]))
 
     case let x as Branch:
       _ = x
@@ -256,7 +286,7 @@ public struct Interpreter {
     case let x as ConstantString:
       currentRegister = .string(x.value)
     case let x as DeallocStack:
-      _ = x
+      topOfStack.deallocate(topOfStack.registers[x.location.instruction!]!.address!)
     case is EndAccess:
       // No effect on program state
       break
