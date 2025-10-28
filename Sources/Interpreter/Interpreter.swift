@@ -16,8 +16,8 @@ enum InstructionResult {
   /// Address of object on stack.
   case address(Stack.Address)
 
-  /// Object value.
-  case object(StackAllocation)
+  /// The object of builtin type.
+  case builtIn((BuiltinType, UInt128))
 
   /// String literal.
   case string(Data)
@@ -33,9 +33,9 @@ enum InstructionResult {
   }
 
   /// The object, if any.
-  public var object: StackAllocation? {
+  public var builtIn: (BuiltinType, UInt128)? {
     switch self {
-    case .object(let x):
+    case .builtIn(let x):
       return x
     default:
       return nil;
