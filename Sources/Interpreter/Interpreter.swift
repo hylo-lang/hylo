@@ -138,7 +138,7 @@ extension UnsafeRawBufferPointer {
 struct StackAllocation {
   typealias ID = UUID
 
-  let storage: [UInt8]
+  var storage: [UInt8]
   let baseOffset: Int
   let size: Int
   let structure: TypeLayout
@@ -313,7 +313,7 @@ public struct Interpreter {
       // No effect on program state
       break
     case let x as MemoryCopy:
-      _ = x
+      memcpy(src: address(denotedBy: x.source)!, dest: address(denotedBy: x.target)!)
     case is Move:
       fatalError("Interpreter: Move instructions have not been removed.")
     case let x as OpenCapture:
@@ -449,6 +449,24 @@ public struct Interpreter {
     }
 
     return BuiltInObject.init(storage: value, bytes: size);
+  }
+
+  /// Copy bytes of object at `src` to bytes of object at `dest`.
+  ///
+  /// Precondition: `src` and `dest` have same type.
+  mutating func memcpy(src: Stack.Address, dest: Stack.Address) {
+    let size = src.memoryLayout.size;
+
+    let srcAllocationIdx = stack[src.frame].allocationIDToIndex[src.allocation]!
+    let srcBytes = stack[src.frame]
+      .allocations[srcAllocationIdx]
+      .storage[src.byteOffset..<src.byteOffset + size];
+
+    let destAllocationIdx = stack[dest.frame].allocationIDToIndex[dest.allocation]!
+    stack[dest.frame]
+      .allocations[destAllocationIdx]
+      .storage
+      .replaceSubrange(dest.byteOffset..<dest.byteOffset + size, with: srcBytes)
   }
 
 }
