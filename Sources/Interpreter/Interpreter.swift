@@ -10,6 +10,20 @@ struct CodePointer {
 
 }
 
+/// Result of an instruction.
+enum InstructionResult {
+
+  /// Address of object on stack.
+  case address(Stack.Address)
+
+  /// Object value.
+  case object(StackAllocation)
+
+  /// String literal.
+  case string(Data)
+
+}
+
 /// The local variables, parameters, and return address for a function
 /// call.
 struct StackFrame {
@@ -19,8 +33,11 @@ struct StackFrame {
   // to be able to rigorously detect invalid addresses.
   typealias ID = UUID
 
+  /// Function parameters
+  var parameters: [Stack.Address]
+
   /// The results of instructions.
-  var registers: [InstructionID: Any] = [:]
+  var registers: [InstructionID: InstructionResult] = [:]
 
   /// The program counter to which execution should return when
   /// popping this frame.
@@ -117,8 +134,8 @@ struct Stack {
   }
 
   /// Adds a new frame on top with the given `returnAddress`.
-  mutating func push(returnAddress: CodePointer) {
-    let f = StackFrame(returnAddress: returnAddress)
+  mutating func push(parameters: [Stack.Address], returnAddress: CodePointer) {
+    let f = StackFrame(parameters: parameters, returnAddress: returnAddress)
     frameIDToIndex[f.id] = frames.count
     frames.append(f)
   }
@@ -192,11 +209,11 @@ public struct Interpreter {
 
     // The return address of the bottom-most frame will never be used,
     // so we fill it with something arbitrary.
-    stack.push(returnAddress: programCounter)
+    stack.push(parameters: [], returnAddress: programCounter)
     typeLayout = .init(typesIn: p.base, for: UnrealABI())
   }
 
-  private var currentRegister: Any? {
+  private var currentRegister: InstructionResult? {
     get { topOfStack.registers[programCounter.instructionInModule]! }
     set { topOfStack.registers[programCounter.instructionInModule] = newValue }
   }
@@ -216,7 +233,7 @@ public struct Interpreter {
       _ = x
 
     case let x as AllocStack:
-      currentRegister = StackAllocation(typeLayout[x.allocatedType])
+      currentRegister = .object(StackAllocation(typeLayout[x.allocatedType]))
 
     case let x as Branch:
       _ = x
@@ -237,7 +254,7 @@ public struct Interpreter {
     case let x as CondBranch:
       _ = x
     case let x as ConstantString:
-      currentRegister = x.value
+      currentRegister = .string(x.value)
     case let x as DeallocStack:
       _ = x
     case is EndAccess:
