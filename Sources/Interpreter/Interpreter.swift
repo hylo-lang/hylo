@@ -252,9 +252,8 @@ public struct Interpreter {
   public mutating func step() throws {
     print("\(currentInstruction.site.gnuStandardText): \(currentInstruction)")
     switch currentInstruction {
-    case is Access:
-      // No effect on program state
-      break
+    case let x as Access:
+      currentRegister = .address(address(denotedBy: x.source)!)
     case let x as AddressToPointer:
       _ = x
     case let x as AdvancedByBytes:
@@ -381,6 +380,18 @@ public struct Interpreter {
     programCounter = stack.pop()
     if stack.frames.isEmpty {
       isRunning = false
+    }
+  }
+
+  /// Return address of object denoted by operand, if any.
+  func address(denotedBy operand: Operand) -> Stack.Address? {
+    switch operand {
+    case .register(let instruction):
+      return topOfStack.registers[instruction]?.address
+    case .parameter(_, let i):
+      return topOfStack.parameters[i]
+    case .constant:
+      return nil
     }
   }
 
