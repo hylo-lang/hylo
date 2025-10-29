@@ -29,9 +29,6 @@ enum InstructionResult {
   /// The object of builtin type.
   case builtIn(BuiltInObject)
 
-  /// String literal.
-  case string(Data)
-
   /// The address, if any.
   public var address: Stack.Address? {
     switch self {
@@ -52,15 +49,6 @@ enum InstructionResult {
     }
   }
 
-  /// The string-literal, if any.
-  public var string: Data? {
-    switch self {
-    case .string(let x):
-      return x
-    default:
-      return nil
-    }
-  }
 }
 
 /// The local variables, parameters, and return address for a function
@@ -303,7 +291,7 @@ public struct Interpreter {
       }
       return
     case let x as ConstantString:
-      currentRegister = .string(x.value)
+      _ = x
     case let x as DeallocStack:
       topOfStack.deallocate(topOfStack.registers[x.location.instruction!]!.address!)
     case is EndAccess:
