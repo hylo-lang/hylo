@@ -251,6 +251,16 @@ public struct Memory {
     throw Error.noDecomposable(t, at: a)
   }
 
+  /// Allocation at given address.
+  public subscript(_ i: Allocation.ID) -> Allocation {
+    _read {
+      yield allocation[i]!
+    }
+    _modify {
+      yield &allocation[i]!
+    }
+  }
+
 }
 
 public extension Memory.Address {
