@@ -16,8 +16,8 @@ import Utils
     let module = try input.loweredToIRAsMainWithHostedStandardLibrary();
     let program = IR.Program.init(syntax: module.program, modules: [module.id: module]);
     var executor = Interpreter(program, withStackMemoryOfBytes: 512 * 1024);
-    #expect(throws: Never.self) {
-      while executor.isRunning { try executor.step() }
+    while executor.isRunning {
+      try executor.step()
     }
   }
 
@@ -32,8 +32,8 @@ import Utils
     let module = try input.loweredToIRAsMainWithHostedStandardLibrary();
     let program = IR.Program.init(syntax: module.program, modules: [module.id: module]);
     var executor = Interpreter(program, withStackMemoryOfBytes: 512 * 1024);
-    #expect(throws: Never.self) {
-      while executor.isRunning { try executor.step() }
+    while executor.isRunning {
+      try executor.step()
     }
   }
 
@@ -56,8 +56,8 @@ import Utils
     let module = try input.loweredToIRAsMainWithHostedStandardLibrary();
     let program = IR.Program.init(syntax: module.program, modules: [module.id: module]);
     var executor = Interpreter(program, withStackMemoryOfBytes: 512 * 1024);
-    #expect(throws: Never.self) {
-      while executor.isRunning { try executor.step() }
+    while executor.isRunning {
+      try executor.step()
     }
   }
 
@@ -80,8 +80,8 @@ import Utils
     let module = try input.loweredToIRAsMainWithHostedStandardLibrary();
     let program = IR.Program.init(syntax: module.program, modules: [module.id: module]);
     var executor = Interpreter(program, withStackMemoryOfBytes: 512 * 1024);
-    #expect(throws: Never.self) {
-      while executor.isRunning { try executor.step() }
+    while executor.isRunning {
+      try executor.step()
     }
   }
 
