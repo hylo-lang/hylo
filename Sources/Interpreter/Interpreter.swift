@@ -125,8 +125,12 @@ struct Stack {
 
   /// Removes the top frame and returns its `returnAddress`.
   mutating func pop() -> CodePointer {
-    defer { frames.removeLast() }
-    return frames.last!.returnAddress
+    let f = frames.last!
+    defer {
+      frameIDToIndex.removeValue(forKey: f.id)
+      frames.removeLast()
+    }
+    return f.returnAddress
   }
 
   struct Address {
@@ -267,8 +271,9 @@ public struct Interpreter {
     case is ReleaseCaptures:
       // No effect on program state
       break
-    case let x as Return:
-      _ = x
+    case is Return:
+      popStackFrame()
+      return
     case let x as Store:
       _ = x
     case let x as SubfieldView:
@@ -319,6 +324,17 @@ public struct Interpreter {
       programCounter.instructionInModule.function,
       programCounter.instructionInModule.block,
       a)
+  }
+
+  /// Removes topmost stack frame and points `programCounter` to next instruction
+  /// of any previous stack frame, or stops the program if the stack is now empty.
+  ///
+  /// - Precondition: the program is running.
+  mutating func popStackFrame() {
+    programCounter = stack.pop()
+    if stack.frames.isEmpty {
+      isRunning = false
+    }
   }
 
 }
