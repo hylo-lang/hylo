@@ -326,8 +326,8 @@ public struct Interpreter {
       a)
   }
 
-  /// Removes topmost stackframe and points `programCounter` to next instruction
-  /// of any previous stackframe, or stops the program if the stack is now empty.
+  /// Removes topmost stack frame and points `programCounter` to next instruction
+  /// of any previous stack frame, or stops the program if the stack is now empty.
   ///
   /// - Precondition: the program is running.
   mutating func popStackFrame() {
