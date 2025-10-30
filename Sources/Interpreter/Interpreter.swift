@@ -261,7 +261,7 @@ public struct Interpreter {
       return
     case let x as Store:
       let obj = builtIn(denotedBy: x.object)!
-      let dest = stripAlignment(address(denotedBy: x.target)!)
+      let dest = address(denotedBy: x.target)!
       stack.withMutableUnsafeStorage(dest.memoryAddress.offset) { destBuffer in
         withUnsafeBytes(of: obj.storage) { objBytes in
           destBuffer.copyMemory(from: objBytes.baseAddress!, byteCount: obj.bytes)
@@ -353,7 +353,7 @@ public struct Interpreter {
     let returnAddress = ObjectAddress(
       memoryAddress: Memory.Address(
         allocation: stack.id,
-        offset: topOfStack
+        offset: topOfStack + offset
       ),
       memoryLayout: typeLayout
     )
@@ -405,7 +405,6 @@ public struct Interpreter {
   mutating func subField(denotedBy path: RecordPath, of address: ObjectAddress)
     -> ObjectAddress
   {
-    let address = stripAlignment(address)
     let memoryAddress = address.memoryAddress;
     var offset = address.memoryAddress.offset;
     var layout = address.memoryLayout;
@@ -428,7 +427,6 @@ public struct Interpreter {
     if !address.memoryLayout.type.isBuiltin {
       return nil
     }
-    let address = stripAlignment(address)
     let offset = address.memoryAddress.offset
     let size = address.memoryLayout.size;
 
@@ -447,8 +445,6 @@ public struct Interpreter {
   /// Precondition: `src` and `dest` have same type.
   mutating func memcpy(src: ObjectAddress, dest: ObjectAddress) {
     let size = src.memoryLayout.size;
-    let src = stripAlignment(src)
-    let dest = stripAlignment(dest)
 
     memory[src.memoryAddress.allocation].withUnsafeStorage(src.memoryAddress.offset) { srcBytes in
       stack.withMutableUnsafeStorage(dest.memoryAddress.offset) { destBytes in
@@ -485,19 +481,6 @@ public struct Interpreter {
       module: moduleId,
       instructionInModule: InstructionID(functionId, entryBlock, entryInstruction)
     )
-  }
-
-  /// Address to allocated object with skipping alignment.
-  func stripAlignment(_ address: ObjectAddress) -> ObjectAddress {
-    let additionalOffset = stack.withUnsafeStorage(address.memoryAddress.offset) {
-      $0.offsetToAlignment(address.memoryLayout.alignment)
-    }
-    return .init(
-      memoryAddress: .init(
-        allocation: address.memoryAddress.allocation,
-        offset: address.memoryAddress.offset + additionalOffset
-      ),
-      memoryLayout: address.memoryLayout)
   }
 
 }
