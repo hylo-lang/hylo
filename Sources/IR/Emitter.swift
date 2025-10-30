@@ -101,7 +101,7 @@ struct Emitter: Sendable {
 
   /// The address of the return value in the current function, if any.
   private var returnValue: Operand? {
-    if let f = insertionFunction, let b = module.entry(of: f), !module[f].isSubscript {
+    if let f = insertionFunction, let b = module[f].entry, !module[f].isSubscript {
       return .parameter(b, module[f].inputs.count)
     } else {
       return nil
@@ -115,7 +115,7 @@ struct Emitter: Sendable {
 
   /// Appends a new basic block at the end of `self.insertionFunction`, defined in s.
   private mutating func appendBlock<T: ScopeID>(in s: T) -> Block.ID {
-    module.appendBlock(in: s, to: insertionFunction!)
+    module[insertionFunction!].append(in: s)
   }
 
   /// Appends a new basic block at the end of `self.insertionFunction`, defined in the same scope
@@ -129,8 +129,8 @@ struct Emitter: Sendable {
   /// - Requires: `self.insertionPoint` refers to the end of a block.
   @discardableResult
   private mutating func insert<I: Instruction>(_ newInstruction: I) -> Operand? {
-    let i = module.insert(newInstruction, at: insertionPoint!, in: insertionFunction!)
-    return module.result(of: i, in: insertionFunction!)
+    let i = module[insertionFunction!].insert(newInstruction, at: insertionPoint!)
+    return module[insertionFunction!].result(of: i)
   }
 
   // MARK: Top-level entry points
@@ -231,7 +231,7 @@ struct Emitter: Sendable {
     insertionFunction = f
 
     // Configure the emitter context.
-    let entry = module.appendEntry(in: program.scopeContainingBody(of: d)!, to: f)
+    let entry = module[f].appendEntry(in: program.scopeContainingBody(of: d)!)
     let bodyFrame = outermostFrame(of: d, entering: entry)
     self.insertionPoint = .end(of: entry)
 
@@ -295,7 +295,7 @@ struct Emitter: Sendable {
     insertionFunction = f
 
     // Configure the emitter context.
-    let entry = module.appendEntry(in: d, to: f)
+    let entry = module[f].appendEntry(in: d)
 
     self.insertionPoint = .end(of: entry)
     self.frames.push()
@@ -345,7 +345,7 @@ struct Emitter: Sendable {
     insertionFunction = f
 
     // Create the function entry.
-    let entry = module.appendEntry(in: ast[d].body!, to: f)
+    let entry = module[f].appendEntry(in: ast[d].body!)
 
     // Configure the locals.
     var locals = DeclProperty<Operand>()
@@ -361,7 +361,7 @@ struct Emitter: Sendable {
     }
 
     // If the object is empty, simply mark it initialized.
-    let r = module.type(of: .parameter(entry, 0), in: f).ast
+    let r = module[f].type(of: .parameter(entry, 0)).ast
     let l = AbstractTypeLayout(of: r, definedIn: program)
 
     if l.properties.isEmpty {
@@ -387,7 +387,7 @@ struct Emitter: Sendable {
     insertionFunction = f
 
     // Create the function entry.
-    let entry = module.appendEntry(in: program.scopeContainingBody(of: d)!, to: f)
+    let entry = module[f].appendEntry(in: program.scopeContainingBody(of: d)!)
 
     // Configure the locals.
     var parameters = DeclProperty<Operand>()
@@ -429,7 +429,7 @@ struct Emitter: Sendable {
     insertionFunction = f
 
     // Create the function entry.
-    let entry = module.appendEntry(in: program.scopeContainingBody(of: d)!, to: f)
+    let entry = module[f].appendEntry(in: program.scopeContainingBody(of: d)!)
 
     // Configure the locals.
     var locals = DeclProperty<Operand>()
@@ -668,7 +668,7 @@ struct Emitter: Sendable {
   private mutating func assignProjections(of rhs: Operand, to d: BindingPattern.ID) {
     precondition(!program[d].introducer.value.isConsuming)
     let k = AccessEffect(program[d].introducer.value)
-    let request: AccessEffectSet = module.isSink(rhs, in: insertionFunction!) ? [k, .sink] : [k]
+    let request: AccessEffectSet = module[insertionFunction!].isSink(rhs) ? [k, .sink] : [k]
 
     for (path, name) in ast.names(in: program[d].subpattern) {
       var part = lowering(program[name].decl) {
@@ -725,7 +725,7 @@ struct Emitter: Sendable {
     withPrologue(of: d) { (me, entry) in
       let receiver = Operand.parameter(entry, 0)
       let argument = Operand.parameter(entry, 1)
-      let object = me.module.type(of: receiver, in: me.insertionFunction!).ast
+      let object = me.module[me.insertionFunction!].type(of: receiver).ast
 
       if object.hasRecordLayout {
         me._emitMoveInitRecordParts(of: receiver, consuming: argument)
@@ -744,7 +744,7 @@ struct Emitter: Sendable {
   private mutating func _emitMoveInitRecordParts(
     of receiver: Operand, consuming argument: Operand
   ) {
-    let layout = AbstractTypeLayout(of: module.type(of: receiver, in: insertionFunction!).ast, definedIn: program)
+    let layout = AbstractTypeLayout(of: module[insertionFunction!].type(of: receiver).ast, definedIn: program)
 
     // If the object is empty, simply mark it initialized.
     if layout.properties.isEmpty {
@@ -768,7 +768,7 @@ struct Emitter: Sendable {
   private mutating func _emitMoveInitUnionPayload(
     of receiver: Operand, consuming argument: Operand
   ) {
-    let t = UnionType(module.type(of: receiver, in: insertionFunction!).ast)!
+    let t = UnionType(module[insertionFunction!].type(of: receiver).ast)!
 
     // If union is empty, simply mark it initialized.
     if t.elements.isEmpty {
@@ -838,7 +838,7 @@ struct Emitter: Sendable {
     withPrologue(of: d) { (me, entry) in
       let source = Operand.parameter(entry, 0)
       let target = Operand.parameter(entry, 1)
-      let object = me.module.type(of: source, in: me.insertionFunction!).ast
+      let object = me.module[me.insertionFunction!].type(of: source).ast
 
       if object.hasRecordLayout {
         me._emitCopyRecordParts(from: source, to: target)
@@ -856,7 +856,7 @@ struct Emitter: Sendable {
     withPrologue(of: d) { (me, entry) in
       let lhs = Operand.parameter(entry, 0)
       let rhs = Operand.parameter(entry, 1)
-      let t = me.module.type(of: lhs, in: me.insertionFunction!).ast
+      let t = me.module[me.insertionFunction!].type(of: lhs).ast
 
       if t.hasRecordLayout {
         me._emitStorePartsEquality(lhs, rhs, to: me.returnValue!)
@@ -883,7 +883,7 @@ struct Emitter: Sendable {
       let f = me.module.demandDeclaration(lowering: d)
       if me.shouldEmitBody(of: d, loweredTo: f) {
         me.insertionFunction = f
-        let entry = me.module.appendEntry(in: d.scope, to: f)
+        let entry = me.module[f].appendEntry(in: d.scope)
         me.insertionPoint = .end(of: entry)
         me.frames.push()
 
@@ -903,7 +903,7 @@ struct Emitter: Sendable {
   private mutating func _emitCopyRecordParts(
     from source: Operand, to target: Operand
   ) {
-    let layout = AbstractTypeLayout(of: module.type(of: source, in: insertionFunction!).ast, definedIn: program)
+    let layout = AbstractTypeLayout(of: module[insertionFunction!].type(of: source).ast, definedIn: program)
 
     // If the object is empty, simply mark the target as initialized.
     if layout.properties.isEmpty {
@@ -923,7 +923,7 @@ struct Emitter: Sendable {
   private mutating func _emitCopyUnionPayload(
     from source: Operand, to target: Operand
   ) {
-    let t = UnionType(module.type(of: source, in: insertionFunction!).ast)!
+    let t = UnionType(module[insertionFunction!].type(of: source).ast)!
 
     // If union is empty, simply mark the target as initialized.
     if t.elements.isEmpty {
@@ -989,7 +989,7 @@ struct Emitter: Sendable {
     guard case .autoclosure(let argument) = d.kind else { unreachable() }
     let f = module.demandDeclaration(lowering: d)
     insertionFunction = f
-    let entry = module.appendEntry(in: d.scope, to: f)
+    let entry = module[f].appendEntry(in: d.scope)
 
     insertionPoint = .end(of: entry)
     self.frames.push()
@@ -1392,7 +1392,7 @@ struct Emitter: Sendable {
         t, applying: collectionWitness.access.function,
         specializedBy: collectionWitness.access.specialization, to: [x6, x7])
 
-      if me.module.type(of: x8, in: me.insertionFunction!).ast != collectionWitness.element {
+      if me.module[me.insertionFunction!].type(of: x8).ast != collectionWitness.element {
         UNIMPLEMENTED("narrowing projections #1099")
       }
 
@@ -1647,7 +1647,7 @@ struct Emitter: Sendable {
     let u = canonical(program[e].type)
     let movable = program.ast.core.movable.type
     if !program.conforms(u, to: movable, in: insertionScope!) {
-      report(.error(module.type(of: x0, in: insertionFunction!).ast, doesNotConformTo: movable, at: ast[e].site))
+      report(.error(module[insertionFunction!].type(of: x0).ast, doesNotConformTo: movable, at: ast[e].site))
       return
     }
 
@@ -1859,7 +1859,7 @@ struct Emitter: Sendable {
     convertingIfNecessary e: T,
     to storage: Operand
   ) {
-    let lhsType = module.type(of: storage, in: insertionFunction!).ast
+    let lhsType = module[insertionFunction!].type(of: storage).ast
     let rhsType = canonical(program[e].type)
 
     if program.areEquivalent(lhsType, rhsType, in: program[e].scope) {
@@ -1982,7 +1982,7 @@ struct Emitter: Sendable {
   private mutating func _emitStore(
     access a: Operand, to storage: Operand
   ) {
-    guard let s = module.provenances(storage, in: insertionFunction!).uniqueElement, module[s, in: insertionFunction!] is AllocStack else {
+    guard let s = module[insertionFunction!].provenances(storage).uniqueElement, module[s, in: insertionFunction!] is AllocStack else {
       report(.error(cannotCaptureAccessAt: currentSource))
       return
     }
@@ -2327,7 +2327,7 @@ struct Emitter: Sendable {
     requested = requested.isEmpty ? available : requested
 
     let entityToCall = module.memberCallee(
-      referringTo: d, memberOf: module.type(of: r, in: insertionFunction!).ast, accessedWith: requested,
+      referringTo: d, memberOf: module[insertionFunction!].type(of: r).ast, accessedWith: requested,
       specializedBy: a, usedIn: scopeOfUse)
 
     if case .bundle(let b) = entityToCall {
@@ -2445,7 +2445,7 @@ struct Emitter: Sendable {
       allocations.append(emitAllocation(binding: d))
     }
 
-    let failure = module.appendBlock(in: scope, to: insertionFunction!)
+    let failure = module[insertionFunction!].append(in: scope)
     var nextAllocation = 0
     for item in condition {
       switch item {
@@ -2507,7 +2507,7 @@ struct Emitter: Sendable {
 
     assert(program[lhs].introducer.value.isConsuming || (storage == nil))
 
-    if module.type(of: rhs, in: insertionFunction!).ast.base is UnionType {
+    if module[insertionFunction!].type(of: rhs).ast.base is UnionType {
       return emitUnionNarrowing(
         from: rhs, to: lhs, typed: lhsType,
         movingConsumedValuesTo: storage, branchingOnFailureTo: failure,
@@ -2530,7 +2530,7 @@ struct Emitter: Sendable {
     branchingOnFailureTo failure: Block.ID,
     in scope: AnyScopeID
   ) -> Block.ID {
-    let rhsType = UnionType(module.type(of: rhs, in: insertionFunction!).ast)!
+    let rhsType = UnionType(module[insertionFunction!].type(of: rhs).ast)!
     precondition(rhsType.elements.contains(lhsType), "recursive narrowing is unimplemented")
 
     let next = appendBlock(in: scope)
@@ -2572,7 +2572,7 @@ struct Emitter: Sendable {
 
   /// Inserts the IR for extracting the built-in value stored in an instance of `Hylo.Bool`.
   private mutating func _emitLoadBuiltinBool(_ wrapper: Operand) -> Operand {
-    precondition(module.type(of: wrapper, in: insertionFunction!) == .address(ast.coreType("Bool")!))
+    precondition(module[insertionFunction!].type(of: wrapper) == .address(ast.coreType("Bool")!))
     let x0 = _subfield_view(wrapper, at: [0])
     let x1 = _access(.sink, from: x0)
     let x2 = _load(x1)
@@ -2583,7 +2583,7 @@ struct Emitter: Sendable {
   /// If `s` has a remote type, returns the result of an instruction exposing the captured access;
   /// otherwise, returns `s`.
   private mutating func _unwrapCapture(_ s: Operand) -> Operand {
-    if module.type(of: s, in: insertionFunction!).ast.base is RemoteType {
+    if module[insertionFunction!].type(of: s).ast.base is RemoteType {
       return _open_capture(s)
     } else {
       return s
@@ -2595,7 +2595,7 @@ struct Emitter: Sendable {
   /// `source` is returned unchanged if it stores an instance of `target`. Otherwise, the IR
   /// producing an address of type `target` is inserted, consuming `source` if necessary.
   private mutating func _emitCoerce(_ source: Operand, to target: AnyType) -> Operand {
-    let lhs = module.type(of: source, in: insertionFunction!).ast
+    let lhs = module[insertionFunction!].type(of: source).ast
     let rhs = program.canonical(target, in: insertionScope!)
 
     if program.areEquivalent(lhs, rhs, in: insertionScope!) {
@@ -2625,7 +2625,7 @@ struct Emitter: Sendable {
   private mutating func _emitCoerce(
     _ source: Operand, to target: ExistentialType
   ) -> Operand {
-    let t = module.type(of: source, in: insertionFunction!).ast
+    let t = module[insertionFunction!].type(of: source).ast
     if t.base is ExistentialType {
       return source
     }
@@ -2639,7 +2639,7 @@ struct Emitter: Sendable {
   private mutating func _emitCoerce(
     _ source: Operand, to target: ArrowType
   ) -> Operand {
-    let t = module.type(of: source, in: insertionFunction!).ast
+    let t = module[insertionFunction!].type(of: source).ast
     guard let lhs = ArrowType(t) else {
       unexpectedCoercion(from: t, to: ^target)
     }
@@ -2665,7 +2665,7 @@ struct Emitter: Sendable {
   private mutating func _emitCoerce(
     _ source: Operand, to target: UnionType
   ) -> Operand {
-    let lhs = module.type(of: source, in: insertionFunction!).ast
+    let lhs = module[insertionFunction!].type(of: source).ast
 
     let x0 = _alloc_stack(^target)
     let x1 = _open_union(x0, as: lhs, .forInitialization)
@@ -2683,7 +2683,7 @@ struct Emitter: Sendable {
 
   /// Inserts the IR for converting `foreign` to a value of type `ir`.
   private mutating func _emitConvert(foreign: Operand, to ir: AnyType) -> Operand {
-    precondition(module.type(of: foreign, in: insertionFunction!).isObject)
+    precondition(module[insertionFunction!].type(of: foreign).isObject)
 
     let foreignConvertible = ast.core.foreignConvertible.type
     let foreignConvertibleConformance = program.conformance(
@@ -2694,7 +2694,7 @@ struct Emitter: Sendable {
     // TODO: Handle cases where the foreign representation of `t` is not built-in.
 
     // Store the foreign representation in memory to call the converter.
-    let source = _alloc_stack(module.type(of: foreign, in: insertionFunction!).ast)
+    let source = _alloc_stack(module[insertionFunction!].type(of: foreign).ast)
     _emitInitialize(storage: source, to: foreign)
 
     switch foreignConvertibleConformance.implementations[r]! {
@@ -2724,7 +2724,7 @@ struct Emitter: Sendable {
   ///
   /// The returned operand is the result of a `load` instruction.
   private mutating func _emitConvertToForeign(_ o: Operand) -> Operand {
-    let t = module.type(of: o, in: insertionFunction!)
+    let t = module[insertionFunction!].type(of: o)
     precondition(t.isAddress)
 
     let foreignConvertible = ast.core.foreignConvertible.type
@@ -2760,7 +2760,7 @@ struct Emitter: Sendable {
   private mutating func _emitExistential(
     _ t: ExistentialType, wrapping witness: Operand
   ) -> Operand {
-    let w = module.type(of: witness, in: insertionFunction!).ast
+    let w = module[insertionFunction!].type(of: witness).ast
     let table = Operand.constant(module.demandWitnessTable(w, in: insertionScope!))
     return _wrap_existential_addr(witness, table, as: t)
   }
@@ -2927,7 +2927,7 @@ struct Emitter: Sendable {
         boundTo: r, declaredByBundle: .init(d)!, specializedBy: z)
 
     case VarDecl.self:
-      let l = AbstractTypeLayout(of: module.type(of: r, in: insertionFunction!).ast, definedIn: program)
+      let l = AbstractTypeLayout(of: module[insertionFunction!].type(of: r).ast, definedIn: program)
       let i = l.offset(of: ast[VarDecl.ID(d)!].baseName)!
       return _subfield_view(r, at: [i])
 
@@ -2975,16 +2975,16 @@ struct Emitter: Sendable {
     let x = insertionFunction
     insertionFunction = f
     defer { insertionFunction = x }
-    let predecessor = module.instruction(before: i, in: f)
+    let predecessor = module[f].instruction(before: i)
 
     insertionPoint = .before(i)
     lowering(at: s.site) {
       $0._emitMove(semantics, s.object, to: s.target, withMovableConformance: s.movable)
     }
-    module.removeInstruction(i, in: f)
+    module[f].remove(i)
 
     if let p = predecessor {
-      return module.instruction(after: p, in: f)!
+      return module[f].instruction(after: p)!
     } else {
       let b = insertionBlock!
       return .init(b.address, module[b, in: f].instructions.firstAddress!)
@@ -3003,8 +3003,8 @@ struct Emitter: Sendable {
     _ semantics: AccessEffectSet, _ value: Operand, to storage: Operand
   ) {
     precondition(!semantics.isEmpty && semantics.isSubset(of: [.set, .inout]))
-    let model = module.type(of: value, in: insertionFunction!).ast
-    precondition(model == module.type(of: storage, in: insertionFunction!).ast)
+    let model = module[insertionFunction!].type(of: value).ast
+    precondition(model == module[insertionFunction!].type(of: storage).ast)
 
     // Built-in types are handled as a special case.
     if model.isBuiltin {
@@ -3082,8 +3082,8 @@ struct Emitter: Sendable {
   private mutating func _emitCopy(
     _ source: Operand, to target: Operand
   ) {
-    let model = module.type(of: source, in: insertionFunction!).ast
-    precondition(model == module.type(of: target, in: insertionFunction!).ast)
+    let model = module[insertionFunction!].type(of: source).ast
+    precondition(model == module[insertionFunction!].type(of: target).ast)
 
     // Built-in types are handled as a special case.
     if model.isBuiltin {
@@ -3123,7 +3123,7 @@ struct Emitter: Sendable {
   /// Let `T` be the type of `storage`, `storage` is deinitializable iff `T` has a deinitializer
   /// exposed to `self.insertionScope`.
   mutating func _emitDeinit(_ storage: Operand) {
-    let m = module.type(of: storage, in: insertionFunction!).ast
+    let m = module[insertionFunction!].type(of: storage).ast
     let d = program.ast.core.deinitializable.type
 
     if m.base is RemoteType {
@@ -3161,7 +3161,7 @@ struct Emitter: Sendable {
   /// If `storage` is deinitializable in `self.insertionScope`, inserts the IR for deinitializing
   /// it; reports a diagnostic for each part that isn't deinitializable otherwise.
   mutating func _emitDeinitParts(of storage: Operand) {
-    let t = module.type(of: storage, in: insertionFunction!).ast
+    let t = module[insertionFunction!].type(of: storage).ast
 
     if program.isTriviallyDeinitializable(t, in: insertionScope!) {
       _mark_state(.uninitialized, storage)
@@ -3180,7 +3180,7 @@ struct Emitter: Sendable {
   ///
   /// - Requires: the type of `storage` has a record layout.
   private mutating func _emitDeinitRecordParts(of storage: Operand) {
-    let t = module.type(of: storage, in: insertionFunction!).ast
+    let t = module[insertionFunction!].type(of: storage).ast
     precondition(t.hasRecordLayout)
 
     let layout = AbstractTypeLayout(of: t, definedIn: module.program)
@@ -3204,7 +3204,7 @@ struct Emitter: Sendable {
   ///
   /// - Requires: the type of `storage` is a union.
   private mutating func _emitDeinitUnionPayload(of storage: Operand) {
-    let t = UnionType(module.type(of: storage, in: insertionFunction!).ast)!
+    let t = UnionType(module[insertionFunction!].type(of: storage).ast)!
 
     // If union is empty, simply mark it uninitialized.
     if t.elements.isEmpty {
@@ -3246,7 +3246,7 @@ struct Emitter: Sendable {
   // MARK: Equality
 
   private mutating func _emitStoreEquality(_ lhs: Operand, _ rhs: Operand, to target: Operand) {
-    let m = module.type(of: lhs, in: insertionFunction!).ast
+    let m = module[insertionFunction!].type(of: lhs).ast
     let d = program.ast.core.equatable.type
 
     if let equatable = program.conformance(of: m, to: d, exposedTo: insertionScope!) {
@@ -3271,7 +3271,7 @@ struct Emitter: Sendable {
     to target: Operand
   ) {
     let layout = AbstractTypeLayout(
-      of: module.type(of: lhs, in: insertionFunction!).ast, definedIn: module.program)
+      of: module[insertionFunction!].type(of: lhs).ast, definedIn: module.program)
 
     // If the object is empty, return true.
     var parts = layout.properties[...]
@@ -3304,7 +3304,7 @@ struct Emitter: Sendable {
   private mutating func _emitStoreUnionPayloadEquality(
     _ lhs: Operand, _ rhs: Operand, to target: Operand
   ) {
-    let union = UnionType(module.type(of: lhs, in: insertionFunction!).ast)!
+    let union = UnionType(module[insertionFunction!].type(of: lhs).ast)!
 
     // If the union is empty, return true.
     if union.elements.isEmpty {
@@ -3442,7 +3442,7 @@ struct Emitter: Sendable {
   private mutating func _emitUnionSwitch(
     on scrutinee: Operand, toOneOf targets: UnionSwitch.Targets
   ) {
-    let u = UnionType(module.type(of: scrutinee, in: insertionFunction!).ast)!
+    let u = UnionType(module[insertionFunction!].type(of: scrutinee).ast)!
     let i = _emitUnionDiscriminator(scrutinee)
     _union_switch(case: i, of: u, targets)
   }

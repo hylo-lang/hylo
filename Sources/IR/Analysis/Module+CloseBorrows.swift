@@ -8,7 +8,7 @@ extension Module {
   ///
   /// - Requires: `self` is has gone through access reification. `f` is in `self`.
   public mutating func closeBorrows(in f: Function.ID, diagnostics: inout DiagnosticSet) {
-    for i in instructions(in: f) {
+    for i in self[f].instructions {
       close(i, in: f, reportingDiagnosticsTo: &diagnostics)
     }
   }
@@ -27,7 +27,7 @@ extension Module {
         if let decl = s.binding {
           log.insert(.warning(unusedBinding: program.ast[decl].baseName, at: s.site))
         }
-        removeInstruction(i, in: f)
+        self[f].remove(i)
         return
       }
 
@@ -74,14 +74,14 @@ extension Module {
           continue
         }
         let s = make(&self, self[u, in: f].site)
-        insert(s, after: u, in: f)
+        self[f].insert(s, at: boundary)
 
       case .start(let b):
-        let site = instructions(in: b, of: f).first.map(default: self[i, in: f].site) {
+        let site = self[f].instructions(in: b).first.map(default: self[i, in: f].site) {
           SourceRange.empty(at: self[$0, in: f].site.start)
         }
         let s = make(&self, site)
-        insert(s, at: boundary, in: f)
+        self[f].insert(s, at: boundary)
 
       default:
         unreachable()
@@ -108,12 +108,12 @@ extension Module {
     for use in uses {
       switch self[use.user, in: f] {
       case is LifetimeExtender:
-        if let o = result(of: use.user, in: f) {
+        if let o = self[f].result(of: use.user) {
           r = extend(lifetime: r, toCover: extendedLiveRange(of: o, in: f), in: f)
         }
 
       case let s as CaptureIn where use.index == 0:
-        let p = provenances(s.target, in: f).uniqueElement!
+        let p = self[f].provenances(s.target).uniqueElement!
         guard self[p, in: f] is AllocStack else { UNIMPLEMENTED() }
         let u = self[f].uses[p, default: []].first(where: { self[$0.user, in: f] is ReleaseCaptures })!
         return extend(lifetime: r, toInclude: u, in: f)

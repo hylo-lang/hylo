@@ -185,7 +185,7 @@ extension Module {
     func interpret(call i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i, in: f] as! Call
       let x = s.callee
-      let callee = ArrowType(type(of: x, in: f).ast)!
+      let callee = ArrowType(self[f].type(of: x).ast)!
 
       // Evaluate the callee.
 
@@ -240,7 +240,7 @@ extension Module {
       let projection = context.withObject(at: l, { $0 })
 
       let start = self[s.start.instruction!, in: f] as! OpenCapture
-      let t = RemoteType(self.type(of: start.source, in: f).ast)!
+      let t = RemoteType(self[f].type(of: start.source).ast)!
 
       switch t.access {
       case .let, .inout, .set:
@@ -354,7 +354,7 @@ extension Module {
       let s = self[i, in: f] as! MarkState
 
       // Built-in values are never consumed.
-      let isBuiltin = type(of: s.storage, in: f).ast.isBuiltin
+      let isBuiltin = self[f].type(of: s.storage).ast.isBuiltin
 
       context.forEachObject(at: s.storage) { (o) in
         if s.initialized {
@@ -388,7 +388,7 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(openCapture i: InstructionID, in context: inout Context) -> PC? {
       let s = self[i, in: f] as! OpenCapture
-      let t = RemoteType(self.type(of: s.source, in: f).ast)!
+      let t = RemoteType(self[f].type(of: s.source).ast)!
       initializeRegister(createdBy: i, projecting: t, from: f, in: &context)
       return successor(of: i)
     }
@@ -432,7 +432,7 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(return i: InstructionID, in context: inout Context) -> PC? {
       // Make sure that all non-sink parameters are initialized on exit.
-      let entry = entry(of: f)!
+      let entry = self[f].entry!
       for (k, p) in self[f].inputs.enumerated() {
         let source = Operand.parameter(entry, k)
         if p.type.access == .sink {
@@ -522,7 +522,7 @@ extension Module {
       assert(self[source.instruction!, in: f].isAccess(.sink), "bad source")
 
       // Built-in values are copied implicitly.
-      if !type(of: source, in: f).ast.isBuiltin {
+      if !self[f].type(of: source).ast.isBuiltin {
         context.forEachObject(at: source) { (o) in
           o.value = .full(.consumed(by: [consumer]))
         }
@@ -536,7 +536,7 @@ extension Module {
     ) {
       // Constant values are synthesized on demand. Built-ins are never consumed.
       if case .constant = o { return }
-      if type(of: o, in: f).ast.isBuiltin { return }
+      if self[f].type(of: o).ast.isBuiltin { return }
 
       var v = context.locals[o]!.unwrapObject()!
       if v.value == .full(.initialized) {
@@ -596,7 +596,7 @@ extension Module {
     func ensureReturnValueIsInitialized(
       in context: inout Context, at site: SourceRange
     ) {
-      let p = returnValue(of: f)!
+      let p = self[f].returnValue!
       let isInitialized = context.withObject(at: .root(p)) { (o) in
         o.value == .full(.initialized)
       }

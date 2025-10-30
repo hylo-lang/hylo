@@ -4,8 +4,8 @@ extension Module {
 
   /// Eliminates redundant instructions and fold address computations in `f`.
   public mutating func simplify(_ f: Function.ID) {
-    for b in blocks(in: f) {
-      var i = instructions(in: b, of: f).first
+    for b in self[f].blockIDs {
+      var i = self[f].instructions(in: b).first
       while let n = i {
         i = eliminateRedundantAccess(n, in: f)
       }
@@ -23,16 +23,16 @@ extension Module {
       let r = self[s.source, in: f] as? Access,
       s.capabilities == r.capabilities, s.binding == nil
     else {
-      return instruction(after: i, in: f)
+      return self[f].instruction(after: i)
     }
 
-    for u in allUses(of: i, in: f) where self[u.user, in: f] is EndAccess {
-      removeInstruction(u.user, in: f)
+    for u in self[f].allUses(of: i) where self[f][u.user] is EndAccess {
+      self[f].remove(u.user)
     }
-    replaceUses(of: .register(i), with: s.source, in: f)
+    self[f].replaceUses(of: .register(i), with: s.source)
 
-    defer { removeInstruction(i, in: f) }
-    return instruction(after: i, in: f)
+    defer { self[f].remove(i) }
+    return self[f].instruction(after: i)
   }
 
 }

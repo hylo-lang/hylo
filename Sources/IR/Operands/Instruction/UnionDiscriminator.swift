@@ -37,7 +37,7 @@ extension Module {
   func makeUnionDiscriminator(
     _ container: Operand, in f: Function.ID, at site: SourceRange
   ) -> UnionDiscriminator {
-    precondition(type(of: container, in: f).isAddress)
+    precondition(self[f].type(of: container).isAddress)
     return .init(container: container, site: site)
   }
 

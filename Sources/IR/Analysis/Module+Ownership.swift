@@ -70,9 +70,9 @@ extension Module {
       }
 
       // The access must be immutable if the source of the access is a let-parameter.
-      if (request != .let) && isBoundImmutably(s.source, in: f) {
+      if (request != .let) && self[f].isBoundImmutably(s.source) {
         // Built-in values are never consumed.
-        if self.type(of: s.source, in: f).ast.isBuiltin {
+        if self[f].type(of: s.source).ast.isBuiltin {
           assert(request != .inout, "unexpected inout access on built-in value")
         } else {
           diagnostics.insert(.error(illegalMutableAccessAt: s.site))

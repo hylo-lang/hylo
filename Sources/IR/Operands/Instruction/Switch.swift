@@ -57,7 +57,7 @@ extension Module {
   func makeSwitch(
     on index: Operand, toOneOf successors: [Block.ID], in f: Function.ID, at site: SourceRange
   ) -> Switch {
-    let t = type(of: index, in: f)
+    let t = self[f].type(of: index)
     precondition(t.isObject && t.ast.isBuiltinInteger)
     precondition(!successors.isEmpty)
 

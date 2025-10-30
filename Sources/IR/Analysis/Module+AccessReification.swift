@@ -38,7 +38,7 @@ extension Module {
   /// - Requires: `f` is in `self`.
   public mutating func reifyAccesses(in f: Function.ID, diagnostics: inout DiagnosticSet) {
     var work: Deque<InstructionID> = []
-    for i in instructions(in: f) {
+    for i in self[f].instructions {
       guard let s = self[i, in: f] as? ReifiableAccess else { continue }
 
       // Fast path if the request set is already a singleton.
@@ -101,7 +101,7 @@ extension Module {
 
   /// Calls `action` on the uses of a capability of the access at the origin of `i`.
   private func forEachClient(of i: InstructionID, in f: Function.ID, _ action: (Use) -> Void) {
-    for u in allUses(of: i, in: f) {
+    for u in self[f].allUses(of: i) {
       if self[u.user, in: f].isTransparentOffset {
         forEachClient(of: u.user, in: f, action)
       } else {
@@ -132,7 +132,7 @@ extension Module {
     if s.capabilities == [k] { return }
 
     let reified = makeAccess([k], from: s.source, correspondingTo: s.binding, in: f, at: s.site)
-    replace(i, with: reified, in: f)
+    self[f].replace(i, with: reified)
   }
 
   private mutating func reify(projectBundle i: InstructionID, as k: AccessEffect, in f: Function.ID)
@@ -144,13 +144,13 @@ extension Module {
     var arguments = s.operands
     for a in arguments.indices where s.parameters[a].access == .yielded {
       let b = makeAccess([k], from: arguments[a], in: f, at: s.site)
-      arguments[a] = .register(insert(b, before: i, in: f))
+      arguments[a] = .register(self[f].insert(b, at: .before(i)))
     }
 
     let o = RemoteType(k, s.projection)
     let reified = makeProject(
       o, applying: s.variants[k]!, specializedBy: s.bundle.arguments, to: arguments, at: s.site)
-    replace(i, with: reified, in: f)
+    self[f].replace(i, with: reified)
   }
 
 }

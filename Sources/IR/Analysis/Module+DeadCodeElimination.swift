@@ -14,7 +14,7 @@ extension Module {
   /// Removes the instructions if `f` that have no user.
   private mutating func removeUnusedDefinitions(from f: Function.ID) {
     var s = Set<InstructionID>()
-    removeUnused(instructions(in: f), keepingTrackIn: &s, in: f)
+    removeUnused(self[f].instructions, keepingTrackIn: &s, in: f)
   }
 
   /// Removes the instructions in `definitions` that have no user, accumulating the IDs of removed
@@ -23,10 +23,10 @@ extension Module {
     _ definitions: S, keepingTrackIn removed: inout Set<InstructionID>, in f: Function.ID
   ) {
     for i in definitions where !removed.contains(i) {
-      if allUses(of: i, in: f).isEmpty && isRemovableWhenUnused(i, in: f) {
+      if self[f].allUses(of: i).isEmpty && isRemovableWhenUnused(i, in: f) {
         removed.insert(i)
         removeUnused(self[i, in: f].operands.compactMap(\.instruction), keepingTrackIn: &removed, in: f)
-        removeInstruction(i, in: f)
+        self[f].remove(i)
       }
     }
   }
@@ -48,7 +48,7 @@ extension Module {
       var i = 0
       while i < e {
         if cfg.predecessors(of: work[i]).isEmpty {
-          removeBlock(Block.ID(work[i]), from: f)
+          self[f].remove(Block.ID(work[i]))
           work.swapAt(i, e - 1)
           changed = true
           e -= 1
@@ -61,10 +61,10 @@ extension Module {
 
   /// Removes the code after calls returning `Never` from `f`.
   private mutating func removeCodeAfterCallsReturningNever(from f: Function.ID) {
-    for b in blocks(in: f) {
-      if let i = instructions(in: b, of: f).first(where: { returnsNever($0, in: f) }) {
-        removeAllInstructions(after: i, in: f)
-        insert(makeUnreachable(at: self[i, in: f].site), at: .after(i), in: f)
+    for b in self[f].blockIDs {
+      if let i = self[f].instructions(in: b).first(where: { returnsNever($0, in: f) }) {
+        self[f].removeAllInstructions(after: i)
+        self[f].insert(makeUnreachable(at: self[i, in: f].site), at: .after(i))
       }
     }
   }
@@ -73,7 +73,7 @@ extension Module {
   private func returnsNever(_ i: InstructionID, in f: Function.ID) -> Bool {
     switch self[i, in: f] {
     case is Call:
-      return type(of: (self[i, in: f] as! Call).output, in: f).ast.isNever
+      return self[f].type(of: (self[i, in: f] as! Call).output).ast.isNever
     case is CallFFI:
       return (self[i, in: f] as! CallFFI).returnType.ast.isNever
     default:

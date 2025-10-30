@@ -7,7 +7,7 @@ extension Module {
   ///
   /// - Requires: `f` is in `self`.
   public mutating func reifyCallsToBundles(in f: Function.ID, diagnostics: inout DiagnosticSet) {
-    for i in instructions(in: f) where self[i, in: f] is CallBundle {
+    for i in self[f].instructions where self[i, in: f] is CallBundle {
       reify(callBundle: i, in: f)
     }
   }
@@ -18,7 +18,7 @@ extension Module {
 
     var arguments = Array(s.arguments)
     let r = makeAccess([k], from: arguments[0], in: f, at: s.site)
-    arguments[0] = .register(insert(r, before: i, in: f))
+    arguments[0] = .register(self[f].insert(r, at: .before(i)))
 
     let b = Block.ID(containing: i)
     let x = FunctionReference(
@@ -26,7 +26,7 @@ extension Module {
 
     let reified = makeCall(
       applying: .constant(x), to: arguments, writingResultTo: s.output, in: f, at: s.site)
-    replace(i, with: reified, in: f)
+    self[f].replace(i, with: reified)
   }
 
 }

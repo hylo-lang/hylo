@@ -35,7 +35,7 @@ extension IR.Program {
   /// Replaces uses of parametric types and functions in `f` with their monomorphic or existential
   /// counterparts.
   private mutating func depolymorphize(_ f: Function.ID, definedIn m: Module.ID) {
-    for i in modules[m]!.instructions(in: f) {
+    for i in modules[m]![f].instructions {
       switch modules[m]![i, in: f] {
       case is Call:
         depolymorphize(call: i, from: f, definedIn: m)
@@ -60,11 +60,11 @@ extension IR.Program {
 
     // TODO: Use existentialization unless the function is inlinable
 
-    let g = monomorphize(callee, usedIn: modules[m]!.scope(containing: i, in: f))
+    let g = monomorphize(callee, usedIn: modules[m]![f].scope(containing: i))
     let r = FunctionReference(to: g, in: modules[m]!)
     let new = modules[m]!.makeCall(
       applying: .constant(r), to: Array(s.arguments), writingResultTo: s.output, in: f, at: s.site)
-    modules[m]!.replace(i, with: new, in: f)
+    modules[m]![f].replace(i, with: new)
   }
 
   /// Iff `i` is the projection through a generic subscript, replaces it by an instruction applying
@@ -77,11 +77,11 @@ extension IR.Program {
 
     // TODO: Use existentialization unless the subscript is inlinable
 
-    let z = base.canonical(s.specialization, in: modules[m]!.scope(containing: i, in: f))
-    let g = monomorphize(s.callee, for: z, usedIn: modules[m]!.scope(containing: i, in: f))
+    let z = base.canonical(s.specialization, in: modules[m]![f].scope(containing: i))
+    let g = monomorphize(s.callee, for: z, usedIn: modules[m]![f].scope(containing: i))
     let new = modules[m]!.makeProject(
       s.projection, applying: g, specializedBy: .empty, to: s.operands, at: s.site)
-    modules[m]!.replace(i, with: new, in: f)
+    modules[m]![f].replace(i, with: new)
   }
 
   /// Returns a depolymorphized copy of `base` in which parametric parameters have been notionally
@@ -181,9 +181,9 @@ extension IR.Program {
       let s = modules[source]![i, in: f] as! Return
       let j = modify(&modules[target]!) { (m) in
         for i in rewrittenGenericValue.values.reversed() {
-          m.append(m.makeDeallocStack(for: .register(i), in: result, at: s.site), to: b, in: result)
+          m[result].insert(m.makeDeallocStack(for: .register(i), in: result, at: s.site), at: .end(of: b))
         }
-        return m.append(m.makeReturn(at: s.site), to: b, in: result)
+        return m[result].insert(m.makeReturn(at: s.site), at: .end(of: b))
       }
       monomorphizer.rewrittenInstruction[i] = j
     }
@@ -297,7 +297,7 @@ extension Module {
         UNIMPLEMENTED("arbitrary compile-time values")
       }
 
-      let s = append(makeAllocStack(^program.ast.coreType("Int")!, at: insertionSite), to: entry, in: monomorphized)
+      let s = self[monomorphized].insert(makeAllocStack(^program.ast.coreType("Int")!, at: insertionSite), at: .end(of: entry))
 
       var log = DiagnosticSet()
       Emitter.withInstance(insertingIn: &self, reportingDiagnosticsTo: &log) { (e) in
