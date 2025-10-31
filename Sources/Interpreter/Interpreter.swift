@@ -14,7 +14,7 @@ struct CodePointer {
 struct StackFrame {
 
   /// Function parameters
-  var parameters: [ObjectAddress]
+  var parameters: [Address]
 
   /// The results of instructions.
   var registers: [InstructionID: InstructionResult] = [:]
@@ -25,17 +25,23 @@ struct StackFrame {
 
 }
 
-struct BuiltInObject {
+/// The value of a `Builtin` type instance, stripped of type information.
+struct UntypedBuiltinValue {
 
-  /// The storage in little-endian format.
-  public let storage: UInt128
+  /// The result of reinterpretation as an unsigned integer value.
+  ///
+  /// Equivalent to `UInt128(unsafeBitCast<T>(x))`, where `x` is the represented value
+  /// and `T` is an unsigned integer of the same size as `x`.  Stores the unsigned
+  /// representation of integer types.
+  public let asUInt128: UInt128
 
-  /// Number of bytes, storage is representing.
-  public let bytes: Int
+  /// The size of the value in bytes.
+  public let size: Int
 
 }
 
-struct ObjectAddress {
+/// Address to object with type layout.
+struct Address {
 
   /// Address of object in memory.
   public let memoryAddress: Memory.Address
@@ -49,13 +55,13 @@ struct ObjectAddress {
 enum InstructionResult {
 
   /// Address of object.
-  case address(ObjectAddress)
+  case address(Address)
 
   /// The object of builtin type.
-  case builtIn(BuiltInObject)
+  case builtIn(UntypedBuiltinValue)
 
   /// The address, if any.
-  public var address: ObjectAddress? {
+  public var address: Address? {
     switch self {
     case .address(let x):
       return x
@@ -65,7 +71,7 @@ enum InstructionResult {
   }
 
   /// The object, if any.
-  public var builtIn: BuiltInObject? {
+  public var builtIn: UntypedBuiltinValue? {
     switch self {
     case .builtIn(let x):
       return x
@@ -213,7 +219,7 @@ public struct Interpreter {
       _ = x
     case let x as CondBranch:
       let cond = builtIn(denotedBy: x.condition)!
-      if cond.storage != 0 {
+      if cond.asUInt128 != 0 {
         jumpTo(block: x.targetIfTrue)
       } else {
         jumpTo(block: x.targetIfFalse)
@@ -263,8 +269,8 @@ public struct Interpreter {
       let dest = stripAlignment(address(denotedBy: x.target)!)
       let destAllocIdx = dest.memoryAddress.allocation
       memory[destAllocIdx].withMutableUnsafeStorage(dest.memoryAddress.offset) { destBuffer in
-        withUnsafeBytes(of: obj.storage) { objBytes in
-          destBuffer.copyMemory(from: objBytes.baseAddress!, byteCount: obj.bytes)
+        withUnsafeBytes(of: obj.asUInt128) { objBytes in
+          destBuffer.copyMemory(from: objBytes.baseAddress!, byteCount: obj.size)
         }
       }
     case let x as SubfieldView:
@@ -345,12 +351,12 @@ public struct Interpreter {
 
   /// Allocates given local variable on top of stack along with required alignment
   /// and returns address of start of allocation (that also includes alignment).
-  mutating func allocateLocalVariable(_ typeLayout: TypeLayout) -> ObjectAddress {
+  mutating func allocateLocalVariable(_ typeLayout: TypeLayout) -> Address {
     let offset =
       stack.withUnsafeStorage(topOfStack) { b in
         b.offsetToAlignment(typeLayout.alignment)
       }
-    let returnAddress = ObjectAddress(
+    let returnAddress = Address(
       memoryAddress: Memory.Address(
         allocation: stack.id,
         offset: topOfStack
@@ -362,7 +368,7 @@ public struct Interpreter {
   }
 
   /// Deallocates the object on top of stack.
-  mutating func deallocateLocalVariable(_ address: ObjectAddress) {
+  mutating func deallocateLocalVariable(_ address: Address) {
     precondition(
       address.memoryAddress.allocation == stackId,
       "Deallocating variable that doesn't live on stack")
@@ -370,7 +376,7 @@ public struct Interpreter {
   }
 
   /// Returns address and type of object denoted by operand, if any.
-  func address(denotedBy operand: Operand) -> ObjectAddress? {
+  func address(denotedBy operand: Operand) -> Address? {
     switch operand {
     case .register(let instruction):
       return topStackFrame.registers[instruction]?.address
@@ -382,7 +388,7 @@ public struct Interpreter {
   }
 
   /// Returns address and type of object denoted by operand, if any.
-  func builtIn(denotedBy operand: Operand) -> BuiltInObject? {
+  func builtIn(denotedBy operand: Operand) -> UntypedBuiltinValue? {
     switch operand {
     case .register(let instruction):
       return topStackFrame.registers[instruction]?.builtIn
@@ -391,9 +397,9 @@ public struct Interpreter {
     case .constant(let c):
       switch c {
       case let x as IntegerConstant:
-        return BuiltInObject(
-          storage: UInt128(truncatingIfNeeded: x.value),
-          bytes: (x.value.bitWidth + 7) / 8
+        return UntypedBuiltinValue(
+          asUInt128: UInt128(truncatingIfNeeded: x.value),
+          size: (x.value.bitWidth + 7) / 8
         )
       default:
         fatalError("unimplemented constant parsing!!!")
@@ -402,8 +408,8 @@ public struct Interpreter {
   }
 
   /// Returns address and type of `field` stored at `address` in stack.
-  mutating func subField(denotedBy path: RecordPath, of address: ObjectAddress)
-    -> ObjectAddress
+  mutating func subField(denotedBy path: RecordPath, of address: Address)
+    -> Address
   {
     let address = stripAlignment(address)
     let memoryAddress = address.memoryAddress;
@@ -422,8 +428,8 @@ public struct Interpreter {
   /// Return builtin object (if any) at given `address`.
   ///
   /// Postcondition: Bytes at lower index are at less significant byte in result.
-  mutating func builtIn(at address: ObjectAddress)
-    -> BuiltInObject?
+  mutating func builtIn(at address: Address)
+    -> UntypedBuiltinValue?
   {
     if !address.memoryLayout.type.isBuiltin {
       return nil
@@ -440,13 +446,13 @@ public struct Interpreter {
       value |= UInt128(byte) << (i * 8)
     }
 
-    return BuiltInObject.init(storage: value, bytes: size);
+    return UntypedBuiltinValue.init(asUInt128: value, size: size);
   }
 
   /// Copy bytes of object at `src` to bytes of object at `dest`.
   ///
   /// Precondition: `src` and `dest` have same type.
-  mutating func memcpy(src: ObjectAddress, dest: ObjectAddress) {
+  mutating func memcpy(src: Address, dest: Address) {
     let size = src.memoryLayout.size;
     let src = stripAlignment(src)
     let dest = stripAlignment(dest)
@@ -462,7 +468,7 @@ public struct Interpreter {
   }
 
   /// Returns block parameters from operands in `arg`.
-  func blockParams(from arg: Call) -> [ObjectAddress] {
+  func blockParams(from arg: Call) -> [Address] {
     arg.arguments.map { address(denotedBy: $0)! } + [address(denotedBy: arg.output)!]
   }
 
@@ -492,7 +498,7 @@ public struct Interpreter {
   }
 
   /// Address to allocated object with skipping alignment.
-  func stripAlignment(_ address: ObjectAddress) -> ObjectAddress {
+  func stripAlignment(_ address: Address) -> Address {
     let additionalOffset = stack.withUnsafeStorage(address.memoryAddress.offset) {
       $0.offsetToAlignment(address.memoryLayout.alignment)
     }
