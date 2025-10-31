@@ -10,6 +10,21 @@ struct CodePointer {
 
 }
 
+/// The parameters, and return address for a function call.
+struct StackFrame {
+
+  /// Function parameters
+  var parameters: [ObjectAddress]
+
+  /// The results of instructions.
+  var registers: [InstructionID: InstructionResult] = [:]
+
+  /// The program counter to which execution should return when
+  /// popping this frame.
+  var returnAddress: CodePointer
+
+}
+
 struct BuiltInObject {
 
   /// The storage in little-endian format.
@@ -33,7 +48,7 @@ struct ObjectAddress {
 /// Result of an instruction.
 enum InstructionResult {
 
-  /// Address of object on stack.
+  /// Address of object.
   case address(ObjectAddress)
 
   /// The object of builtin type.
@@ -81,22 +96,6 @@ extension UnsafeRawBufferPointer {
   func firstOffsetAligned(to a: Int) -> Int {
     return baseAddress?.offsetToAlignment(a) ?? 0
   }
-
-}
-
-
-/// The parameters, and return address for a function call.
-struct StackFrame {
-
-  /// Function parameters
-  var parameters: [ObjectAddress]
-
-  /// The results of instructions.
-  var registers: [InstructionID: InstructionResult] = [:]
-
-  /// The program counter to which execution should return when
-  /// popping this frame.
-  var returnAddress: CodePointer
 
 }
 
