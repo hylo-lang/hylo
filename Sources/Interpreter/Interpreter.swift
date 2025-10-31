@@ -268,9 +268,15 @@ public struct Interpreter {
       let obj = builtIn(denotedBy: x.object)!
       let dest = stripAlignment(address(denotedBy: x.target)!)
       let destAllocIdx = dest.memoryAddress.allocation
-      memory[destAllocIdx].withMutableUnsafeStorage(dest.memoryAddress.offset) { destBuffer in
-        withUnsafeBytes(of: obj.asUInt128) { objBytes in
-          destBuffer.copyMemory(from: objBytes.baseAddress!, byteCount: obj.size)
+      let val = obj.asUInt128
+      memory[destAllocIdx].withMutableUnsafeStorage(dest.memoryAddress.offset) {
+        switch obj.size {
+        case 1: $0.assumingMemoryBound(to: UInt8.self).pointee = UInt8(truncatingIfNeeded: val)
+        case 2: $0.assumingMemoryBound(to: UInt16.self).pointee = UInt16(truncatingIfNeeded: val)
+        case 4: $0.assumingMemoryBound(to: UInt32.self).pointee = UInt32(truncatingIfNeeded: val)
+        case 8: $0.assumingMemoryBound(to: UInt64.self).pointee = UInt64(truncatingIfNeeded: val)
+        case 16: $0.assumingMemoryBound(to: UInt128.self).pointee = UInt128(truncatingIfNeeded: val)
+        default: fatalError("Unknown builtin size!")
         }
       }
     case let x as SubfieldView:
@@ -426,8 +432,6 @@ public struct Interpreter {
   }
 
   /// Return builtin object (if any) at given `address`.
-  ///
-  /// Postcondition: Bytes at lower index are at less significant byte in result.
   mutating func builtIn(at address: Address)
     -> UntypedBuiltinValue?
   {
@@ -439,11 +443,16 @@ public struct Interpreter {
     let offset = address.memoryAddress.offset
     let size = address.memoryLayout.size;
 
-    let bytes = memory[allocIdx].storage[offset..<offset + size];
-
-    var value: UInt128 = 0;
-    for (i, byte) in zip(0..<size, bytes) {
-      value |= UInt128(byte) << (i * 8)
+    let value =
+      memory[allocIdx].withUnsafeStorage(offset) {
+        switch size {
+        case 1: UInt128($0.assumingMemoryBound(to: UInt8.self).pointee)
+        case 2: UInt128($0.assumingMemoryBound(to: UInt16.self).pointee)
+        case 4: UInt128($0.assumingMemoryBound(to: UInt32.self).pointee)
+        case 8: UInt128($0.assumingMemoryBound(to: UInt64.self).pointee)
+        case 16: UInt128($0.assumingMemoryBound(to: UInt128.self).pointee)
+        default: fatalError("Unknown builtin size!")
+        }
     }
 
     return UntypedBuiltinValue.init(asUInt128: value, size: size);
