@@ -261,7 +261,8 @@ public struct Interpreter {
     case let x as Store:
       let obj = builtIn(denotedBy: x.object)!
       let dest = stripAlignment(address(denotedBy: x.target)!)
-      stack.withMutableUnsafeStorage(dest.memoryAddress.offset) { destBuffer in
+      let destAllocIdx = dest.memoryAddress.allocation
+      memory[destAllocIdx].withMutableUnsafeStorage(dest.memoryAddress.offset) { destBuffer in
         withUnsafeBytes(of: obj.storage) { objBytes in
           destBuffer.copyMemory(from: objBytes.baseAddress!, byteCount: obj.bytes)
         }
@@ -428,10 +429,11 @@ public struct Interpreter {
       return nil
     }
     let address = stripAlignment(address)
+    let allocIdx = address.memoryAddress.allocation
     let offset = address.memoryAddress.offset
     let size = address.memoryLayout.size;
 
-    let bytes = stack.storage[offset..<offset + size];
+    let bytes = memory[allocIdx].storage[offset..<offset + size];
 
     var value: UInt128 = 0;
     for (i, byte) in zip(0..<size, bytes) {
@@ -449,8 +451,11 @@ public struct Interpreter {
     let src = stripAlignment(src)
     let dest = stripAlignment(dest)
 
-    memory[src.memoryAddress.allocation].withUnsafeStorage(src.memoryAddress.offset) { srcBytes in
-      stack.withMutableUnsafeStorage(dest.memoryAddress.offset) { destBytes in
+    let srcAllocIdx = src.memoryAddress.allocation
+    let destAllocIdx = dest.memoryAddress.allocation
+
+    memory[srcAllocIdx].withUnsafeStorage(src.memoryAddress.offset) { srcBytes in
+      memory[destAllocIdx].withMutableUnsafeStorage(dest.memoryAddress.offset) { destBytes in
         destBytes.copyMemory(from: srcBytes, byteCount: size)
       }
     }
