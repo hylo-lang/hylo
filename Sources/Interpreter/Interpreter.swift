@@ -57,10 +57,10 @@ enum InstructionResult {
   /// Address of object.
   case address(Address)
 
-  /// The object of builtin type.
+  /// The builtin object.
   case builtIn(UntypedBuiltinValue)
 
-  /// The address, if any.
+  /// Address, if present.
   public var address: Address? {
     switch self {
     case .address(let x):
@@ -70,7 +70,7 @@ enum InstructionResult {
     }
   }
 
-  /// The object, if any.
+  /// Object, if present.
   public var builtIn: UntypedBuiltinValue? {
     switch self {
     case .builtIn(let x):
@@ -381,7 +381,7 @@ public struct Interpreter {
     topOfStack = address.memoryAddress.offset
   }
 
-  /// Returns address and type of object denoted by operand, if any.
+  /// Returns address of object denoted by operand, if any.
   func address(denotedBy operand: Operand) -> Address? {
     switch operand {
     case .register(let instruction):
@@ -393,7 +393,7 @@ public struct Interpreter {
     }
   }
 
-  /// Returns address and type of object denoted by operand, if any.
+  /// Returns untyped builtin value denoted by operand, if any.
   func builtIn(denotedBy operand: Operand) -> UntypedBuiltinValue? {
     switch operand {
     case .register(let instruction):
@@ -413,7 +413,7 @@ public struct Interpreter {
     }
   }
 
-  /// Returns address and type of `field` stored at `address` in stack.
+  /// Returns address of subfield denoted by `path` stored in field at given `address`.
   mutating func subField(denotedBy path: RecordPath, of address: Address)
     -> Address
   {
@@ -431,7 +431,7 @@ public struct Interpreter {
     )
   }
 
-  /// Return builtin object (if any) at given `address`.
+  /// Returns builtin object (if any) stored at given `address`.
   mutating func builtIn(at address: Address)
     -> UntypedBuiltinValue?
   {
@@ -458,7 +458,7 @@ public struct Interpreter {
     return UntypedBuiltinValue.init(asUInt128: value, size: size);
   }
 
-  /// Copy bytes of object at `src` to bytes of object at `dest`.
+  /// Copies bytes from object at `src` to bytes of object at `dest`.
   ///
   /// Precondition: `src` and `dest` have same type.
   mutating func memcpy(src: Address, dest: Address) {
@@ -519,12 +519,6 @@ public struct Interpreter {
       memoryLayout: address.memoryLayout)
   }
 
-}
-
-extension UInt128 {
-  func byte(at i: Int) -> UInt8 {
-    return UInt8(truncatingIfNeeded: self >> (i * 8))
-  }
 }
 
 struct IRError: Error {}
