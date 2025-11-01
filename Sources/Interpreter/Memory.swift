@@ -144,7 +144,7 @@ public struct Memory {
 
     }
 
-    /// Returns true if `o` is alinged to an `n` byte boundary.
+    /// Returns true if `o` is aligned to an `n` byte boundary.
     public func offset(_ o: Offset, hasAlignment n: Int) -> Bool {
       storage.withUnsafeBytes {
         UInt(bitPattern: $0.baseAddress! + baseOffset + o) % UInt(n) == 0
@@ -230,7 +230,7 @@ public struct Memory {
     try allocation[a.allocation]!.compose(t, at: a.offset)
   }
 
-  /// Returns true if `a` is alinged to an `n` byte boundary.
+  /// Returns true if `a` is aligned to an `n` byte boundary.
   public func address(_ a: Address, hasAlignment n: Int) -> Bool {
     allocation[a.allocation]!.offset(a.offset, hasAlignment: n)
   }
