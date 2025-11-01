@@ -11,7 +11,7 @@ Please visit our **[website](https://hylo-lang.org)** to get more information ab
 ## Development/Use Requirements
 
 This project is written in [Swift](https://swift.org) and distributed in the form of a package, built with either [Swift Package Manager](https://swift.org/package-manager/) or CMake.
-You will need Swift 6.1 or higher to build the compiler from sources.
+You will need Swift 6.2 or higher to build the compiler from sources.
 **This repository contains
 [submodules](https://git-scm.com/book/en/v2/Git-Tools-Submodules)**,
 so after cloning, issue `git submodule update --init` to populate
