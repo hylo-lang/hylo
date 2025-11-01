@@ -1,4 +1,4 @@
-# Hylo (formerly Val)
+# Hylo (formerly Val )
 
 
 [![codecov](https://codecov.io/gh/hylo-lang/hylo/graph/badge.svg?token=YF1Q8W88VN)](https://codecov.io/gh/hylo-lang/hylo)
