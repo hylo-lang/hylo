@@ -31,7 +31,7 @@ add_hylo_test_of(FrontEnd NAMED HyloTests
   DEPENDENCIES IR TestUtils StandardLibrary Utils Algorithms)
 
 add_hylo_test_of(Interpreter NAMED InterpreterTests
-  DEPENDENCIES Interpreter FrontEnd IR TestUtils
+  DEPENDENCIES Interpreter FrontEnd IR TestUtils Testing
   # TODO: why is this needed?
   Collections
 )
