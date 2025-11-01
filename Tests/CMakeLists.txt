@@ -3,6 +3,7 @@ if(NOT APPLE)
 endif()
 
 find_package(SwiftXCTest)
+find_package(SwiftTesting)
 
 add_hylo_library(TestUtils
   DEPENDENCIES FrontEnd Driver Utils SwiftXCTest
