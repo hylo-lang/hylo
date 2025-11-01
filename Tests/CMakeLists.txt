@@ -33,7 +33,7 @@ add_hylo_test_of(FrontEnd NAMED HyloTests
 add_hylo_test_of(Interpreter NAMED InterpreterTests
   DEPENDENCIES Interpreter FrontEnd IR TestUtils
   # TODO: why is this needed?
-  Testing Collections
+  Collections
 )
 
 add_hylo_test_of(Driver NAMED EndToEndTests
