@@ -10,7 +10,7 @@ import PackageDescription
 
 /// Settings to be passed to swiftc for all targets.
 let allTargetsSwiftSettings: [SwiftSetting] = [
-  .unsafeFlags(["-warnings-as-errors"])
+   .unsafeFlags(["-warnings-as-errors"])
 ]
 
 /// Dependencies for documentation extraction.
