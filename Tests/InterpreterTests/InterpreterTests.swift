@@ -1,7 +1,6 @@
 import Foundation
 import IR
 import Testing
-import Utils
 
 @testable import Interpreter
 
