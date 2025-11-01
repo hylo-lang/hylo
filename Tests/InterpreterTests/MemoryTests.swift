@@ -1,5 +1,6 @@
 import FrontEnd
 import Testing
+import TestUtils
 import Interpreter
 
 @Test func InterpreterMemory_allocation() throws {
