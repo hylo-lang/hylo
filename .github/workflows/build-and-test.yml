@@ -314,7 +314,7 @@ jobs:
         shell: bash
 
       - name: Set up LLVM
-        uses: hylo-lang/get-llvm@v0.2.2
+        uses: hylo-lang/get-llvm@v0.3.0
 
       - name: Set up Swift
         uses: SwiftyLab/setup-swift@latest
