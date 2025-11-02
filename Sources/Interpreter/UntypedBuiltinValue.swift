@@ -14,7 +14,7 @@ struct UntypedBuiltinValue {
   private let size: Int
 
   /// Creates instance of builtin value with unsigned reinterpretation `v` and size `s`.
-  init(asUInt128 v: UInt128, size s: Int) {
+  fileprivate init(asUInt128 v: UInt128, size s: Int) {
     asUInt128 = v
     size = s
   }
