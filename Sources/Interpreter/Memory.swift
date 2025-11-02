@@ -251,7 +251,7 @@ public struct Memory {
     throw Error.noDecomposable(t, at: a)
   }
 
-  /// Allocation at given address.
+  /// The allocation identified by `i`.
   public subscript(_ i: Allocation.ID) -> Allocation {
     _read {
       yield allocation[i]!

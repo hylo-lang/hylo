@@ -10,7 +10,8 @@ struct CodePointer {
 
 }
 
-/// The parameters, and return address for a function call.
+/// The local variables, parameters, and return address for a function
+/// call.
 struct StackFrame {
 
   /// Function parameters
@@ -111,27 +112,11 @@ public struct Interpreter {
   /// The program to be executed.
   private let program: IR.Program
 
-  /// The stack and dynamically-allocated memory in use by the program.
+  /// The stack- and dynamically-allocated memory in use by the program.
   private var memory = Memory()
 
   /// function parameters, and return addresses.
   private var stackFrames: [StackFrame] = []
-
-  /// Local variables.
-  private var stack: Memory.Allocation {
-    _read {
-      yield memory[stackId]
-    }
-    _modify {
-      yield &memory[stackId]
-    }
-  }
-
-  /// Index to next unallocated memory on stack.
-  private var topOfStack: Int
-
-  /// Index to allocation in memory referred as stack.
-  private let stackId: Memory.Allocation.ID
 
   /// Identity of the next instruction to be executed.
   private var programCounter: CodePointer
@@ -145,7 +130,7 @@ public struct Interpreter {
 
   private var typeLayout: TypeLayoutCache
 
-  private var topStackFrame: StackFrame {
+  private var topOfStack: StackFrame {
     get { stackFrames.last! }
     _modify {
       yield &stackFrames[stackFrames.count - 1]
@@ -155,7 +140,7 @@ public struct Interpreter {
   /// An instance executing `p`.
   ///
   /// - Precondition: `p.entry != nil`
-  public init(_ p: IR.Program, withStackMemoryOfBytes bytes: Int) {
+  public init(_ p: IR.Program) {
     program = p
     let entryModuleID = p.entry!
     let entryModule = p.modules[entryModuleID]!
@@ -170,15 +155,12 @@ public struct Interpreter {
     // The return address of the bottom-most frame will never be used,
     // so we fill it with something arbitrary.
     stackFrames.append(StackFrame(parameters: [], returnAddress: programCounter))
-    let stackAddr = memory.allocate(bytes, bytesWithAlignment: 1)
-    stackId = stackAddr.allocation
-    topOfStack = stackAddr.offset
     typeLayout = .init(typesIn: p.base, for: UnrealABI())
   }
 
   private var currentRegister: InstructionResult? {
-    get { topStackFrame.registers[programCounter.instructionInModule]! }
-    set { topStackFrame.registers[programCounter.instructionInModule] = newValue }
+    get { topOfStack.registers[programCounter.instructionInModule]! }
+    set { topOfStack.registers[programCounter.instructionInModule] = newValue }
   }
 
   /// Executes a single instruction.
@@ -195,7 +177,7 @@ public struct Interpreter {
       _ = x
 
     case let x as AllocStack:
-      currentRegister = .address(allocateLocalVariable(typeLayout[x.allocatedType]))
+      currentRegister = .address(allocate(typeLayout[x.allocatedType]))
 
     case let x as Branch:
       jumpTo(block: x.target)
@@ -228,7 +210,7 @@ public struct Interpreter {
     case let x as ConstantString:
       _ = x
     case let x as DeallocStack:
-      deallocateLocalVariable(topStackFrame.registers[x.location.instruction!]!.address!)
+      try deallocate(topOfStack.registers[x.location.instruction!]!.address!)
     case is EndAccess:
       // No effect on program state
       break
@@ -266,7 +248,7 @@ public struct Interpreter {
       return
     case let x as Store:
       let obj = builtIn(denotedBy: x.object)!
-      let dest = stripAlignment(address(denotedBy: x.target)!)
+      let dest = address(denotedBy: x.target)!
       let destAllocIdx = dest.memoryAddress.allocation
       let val = obj.asUInt128
       memory[destAllocIdx].withMutableUnsafeStorage(dest.memoryAddress.offset) {
@@ -355,39 +337,24 @@ public struct Interpreter {
     }
   }
 
-  /// Allocates given local variable on top of stack along with required alignment
-  /// and returns address of start of allocation (that also includes alignment).
-  mutating func allocateLocalVariable(_ typeLayout: TypeLayout) -> Address {
-    let offset =
-      stack.withUnsafeStorage(topOfStack) { b in
-        b.offsetToAlignment(typeLayout.alignment)
-      }
-    let returnAddress = Address(
-      memoryAddress: Memory.Address(
-        allocation: stack.id,
-        offset: topOfStack
-      ),
-      memoryLayout: typeLayout
-    )
-    topOfStack += offset + typeLayout.size
-    return returnAddress
+  /// Allocates object of type layout `t` on `memory` and returns address of start of object.
+  mutating func allocate(_ t: TypeLayout) -> Address {
+    let addr = memory.allocate(t.size, bytesWithAlignment: t.alignment)
+    return .init(memoryAddress: addr, memoryLayout: t)
   }
 
-  /// Deallocates the object on top of stack.
-  mutating func deallocateLocalVariable(_ address: Address) {
-    precondition(
-      address.memoryAddress.allocation == stackId,
-      "Deallocating variable that doesn't live on stack")
-    topOfStack = address.memoryAddress.offset
+  /// Deallocates object allocated at `a`.
+  mutating func deallocate(_ a: Address) throws {
+    try memory.deallocate(a.memoryAddress)
   }
 
   /// Returns address of object denoted by operand, if any.
   func address(denotedBy operand: Operand) -> Address? {
     switch operand {
     case .register(let instruction):
-      return topStackFrame.registers[instruction]?.address
+      return topOfStack.registers[instruction]?.address
     case .parameter(_, let i):
-      return topStackFrame.parameters[i]
+      return topOfStack.parameters[i]
     case .constant:
       return nil
     }
@@ -397,7 +364,7 @@ public struct Interpreter {
   func builtIn(denotedBy operand: Operand) -> UntypedBuiltinValue? {
     switch operand {
     case .register(let instruction):
-      return topStackFrame.registers[instruction]?.builtIn
+      return topOfStack.registers[instruction]?.builtIn
     case .parameter:
       return nil;
     case .constant(let c):
@@ -413,14 +380,13 @@ public struct Interpreter {
     }
   }
 
-  /// Returns address of subfield denoted by `path` stored in field at given `address`.
-  mutating func subField(denotedBy path: RecordPath, of address: Address)
+  /// Returns address of subfield denoted by `path` stored in field at `a`.
+  mutating func subField(denotedBy path: RecordPath, of a: Address)
     -> Address
   {
-    let address = stripAlignment(address)
-    let memoryAddress = address.memoryAddress;
-    var offset = address.memoryAddress.offset;
-    var layout = address.memoryLayout;
+    let memoryAddress = a.memoryAddress;
+    var offset = a.memoryAddress.offset;
+    var layout = a.memoryLayout;
     for i in path {
       offset += layout.components[i].offset
       layout = typeLayout[layout.components[i].type]
@@ -431,17 +397,16 @@ public struct Interpreter {
     )
   }
 
-  /// Returns builtin object (if any) stored at given `address`.
-  mutating func builtIn(at address: Address)
+  /// Returns builtin object (if any) stored at `a`.
+  mutating func builtIn(at a: Address)
     -> UntypedBuiltinValue?
   {
-    if !address.memoryLayout.type.isBuiltin {
+    if !a.memoryLayout.type.isBuiltin {
       return nil
     }
-    let address = stripAlignment(address)
-    let allocIdx = address.memoryAddress.allocation
-    let offset = address.memoryAddress.offset
-    let size = address.memoryLayout.size;
+    let allocIdx = a.memoryAddress.allocation
+    let offset = a.memoryAddress.offset
+    let size = a.memoryLayout.size;
 
     let value =
       memory[allocIdx].withUnsafeStorage(offset) {
@@ -463,8 +428,6 @@ public struct Interpreter {
   /// Precondition: `src` and `dest` have same type.
   mutating func memcpy(src: Address, dest: Address) {
     let size = src.memoryLayout.size;
-    let src = stripAlignment(src)
-    let dest = stripAlignment(dest)
 
     let srcAllocIdx = src.memoryAddress.allocation
     let destAllocIdx = dest.memoryAddress.allocation
@@ -481,42 +444,29 @@ public struct Interpreter {
     arg.arguments.map { address(denotedBy: $0)! } + [address(denotedBy: arg.output)!]
   }
 
-  /// Moves the program counter to entry point of the given function.
-  mutating func jumpToEntry(of functionId: Function.ID) {
-    let moduleId = program.module(defining: functionId)
-    let function = program.modules[moduleId]![functionId]
+  /// Moves the program counter to entry point of `f`.
+  mutating func jumpToEntry(of f: Function.ID) {
+    let moduleId = program.module(defining: f)
+    let function = program.modules[moduleId]![f]
     let entryBlock = function.entry!;
     let entryInstruction = function.blocks[entryBlock].instructions.firstAddress!
     programCounter = CodePointer(
       module: moduleId,
-      instructionInModule: InstructionID(functionId, entryBlock, entryInstruction)
+      instructionInModule: InstructionID(f, entryBlock, entryInstruction)
     )
   }
 
-  /// Moves the program counter to start of given block.
-  mutating func jumpTo(block blockId: Block.ID) {
-    let functionId = blockId.function
+  /// Moves the program counter to start of `b`.
+  mutating func jumpTo(block b: Block.ID) {
+    let functionId = b.function
     let moduleId = program.module(defining: functionId)
     let function = program.modules[moduleId]![functionId]
-    let entryBlock = blockId.address;
+    let entryBlock = b.address;
     let entryInstruction = function.blocks[entryBlock].instructions.firstAddress!
     programCounter = CodePointer(
       module: moduleId,
       instructionInModule: InstructionID(functionId, entryBlock, entryInstruction)
     )
-  }
-
-  /// Address to allocated object with skipping alignment.
-  func stripAlignment(_ address: Address) -> Address {
-    let additionalOffset = stack.withUnsafeStorage(address.memoryAddress.offset) {
-      $0.offsetToAlignment(address.memoryLayout.alignment)
-    }
-    return .init(
-      memoryAddress: .init(
-        allocation: address.memoryAddress.allocation,
-        offset: address.memoryAddress.offset + additionalOffset
-      ),
-      memoryLayout: address.memoryLayout)
   }
 
 }
