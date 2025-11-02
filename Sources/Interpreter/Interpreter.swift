@@ -26,21 +26,6 @@ struct StackFrame {
 
 }
 
-/// The value of a `Builtin` type instance, stripped of type information.
-struct UntypedBuiltinValue {
-
-  /// The result of reinterpretation as an unsigned integer value.
-  ///
-  /// Equivalent to `UInt128(unsafeBitCast<T>(x))`, where `x` is the represented value
-  /// and `T` is an unsigned integer of the same size as `x`.  Stores the unsigned
-  /// representation of integer types.
-  public let asUInt128: UInt128
-
-  /// The size of the value in bytes.
-  public let size: Int
-
-}
-
 /// Address to object with type layout.
 struct Address {
 
@@ -201,7 +186,7 @@ public struct Interpreter {
       _ = x
     case let x as CondBranch:
       let cond = builtIn(denotedBy: x.condition)!
-      if cond.asUInt128 != 0 {
+      if cond.bool! {
         jumpTo(block: x.targetIfTrue)
       } else {
         jumpTo(block: x.targetIfFalse)
@@ -247,20 +232,7 @@ public struct Interpreter {
       popStackFrame()
       return
     case let x as Store:
-      let obj = builtIn(denotedBy: x.object)!
-      let dest = address(denotedBy: x.target)!
-      let destAllocIdx = dest.memoryAddress.allocation
-      let val = obj.asUInt128
-      memory[destAllocIdx].withMutableUnsafeStorage(dest.memoryAddress.offset) {
-        switch obj.size {
-        case 1: $0.assumingMemoryBound(to: UInt8.self).pointee = UInt8(truncatingIfNeeded: val)
-        case 2: $0.assumingMemoryBound(to: UInt16.self).pointee = UInt16(truncatingIfNeeded: val)
-        case 4: $0.assumingMemoryBound(to: UInt32.self).pointee = UInt32(truncatingIfNeeded: val)
-        case 8: $0.assumingMemoryBound(to: UInt64.self).pointee = UInt64(truncatingIfNeeded: val)
-        case 16: $0.assumingMemoryBound(to: UInt128.self).pointee = UInt128(truncatingIfNeeded: val)
-        default: fatalError("Unknown builtin size!")
-        }
-      }
+      store(builtIn(denotedBy: x.object)!, at: address(denotedBy: x.target)!)
     case let x as SubfieldView:
       let parent = address(denotedBy: x.recordAddress)!;
       currentRegister = .address(subField(denotedBy: x.subfield, of: parent))
@@ -370,10 +342,7 @@ public struct Interpreter {
     case .constant(let c):
       switch c {
       case let x as IntegerConstant:
-        return UntypedBuiltinValue(
-          asUInt128: UInt128(truncatingIfNeeded: x.value),
-          size: (x.value.bitWidth + 7) / 8
-        )
+        return UntypedBuiltinValue(withIntegerConstant: x)
       default:
         fatalError("unimplemented constant parsing!!!")
       }
@@ -408,19 +377,17 @@ public struct Interpreter {
     let offset = a.memoryAddress.offset
     let size = a.memoryLayout.size;
 
-    let value =
+    return
       memory[allocIdx].withUnsafeStorage(offset) {
         switch size {
-        case 1: UInt128($0.assumingMemoryBound(to: UInt8.self).pointee)
-        case 2: UInt128($0.assumingMemoryBound(to: UInt16.self).pointee)
-        case 4: UInt128($0.assumingMemoryBound(to: UInt32.self).pointee)
-        case 8: UInt128($0.assumingMemoryBound(to: UInt64.self).pointee)
-        case 16: UInt128($0.assumingMemoryBound(to: UInt128.self).pointee)
+        case 1: .init(withUInt8: $0.assumingMemoryBound(to: UInt8.self).pointee)
+        case 2: .init(withUInt16: $0.assumingMemoryBound(to: UInt16.self).pointee)
+        case 4: .init(withUInt32: $0.assumingMemoryBound(to: UInt32.self).pointee)
+        case 8: .init(withUInt64: $0.assumingMemoryBound(to: UInt64.self).pointee)
+        case 16: .init(withUInt128: $0.assumingMemoryBound(to: UInt128.self).pointee)
         default: fatalError("Unknown builtin size!")
         }
     }
-
-    return UntypedBuiltinValue.init(asUInt128: value, size: size);
   }
 
   /// Copies bytes from object at `src` to bytes of object at `dest`.
@@ -467,6 +434,27 @@ public struct Interpreter {
       module: moduleId,
       instructionInModule: InstructionID(functionId, entryBlock, entryInstruction)
     )
+  }
+
+  /// Store builtin value `v` at address `a`.
+  mutating func store(_ v: UntypedBuiltinValue, at a: Address) {
+    let alloc = a.memoryAddress.allocation
+    let offset = a.memoryAddress.offset
+    memory[alloc].withMutableUnsafeStorage(offset) {
+      if let v = v.uint8 {
+        $0.assumingMemoryBound(to: UInt8.self).pointee = v
+      } else if let v = v.uint16 {
+        $0.assumingMemoryBound(to: UInt16.self).pointee = v
+      } else if let v = v.uint32 {
+        $0.assumingMemoryBound(to: UInt32.self).pointee = v
+      } else if let v = v.uint64 {
+        $0.assumingMemoryBound(to: UInt64.self).pointee = v
+      } else if let v = v.uint128 {
+        $0.assumingMemoryBound(to: UInt128.self).pointee = v
+      } else {
+        fatalError("Unknown builtin value!")
+      }
+    }
   }
 
 }
