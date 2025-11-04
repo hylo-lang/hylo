@@ -40,6 +40,13 @@ public struct Memory {
     public let size: Int
     public let id: ID
 
+    /// Records pointer values stored at given offsets in an allocation.
+    ///
+    /// When an object field at given offset is a pointer, its logical value is
+    /// stored here instead of being serialized directly into storage as
+    /// pointers being than their allocated size.
+    var pointerTable: [Offset: Pointer] = [:]
+
     fileprivate typealias InitializedRegions = [InitializedRegion]
     private var initializedRegions = InitializedRegions()
 
@@ -186,6 +193,17 @@ public struct Memory {
           i..<i + 1, with: t.components.lazy.map { .init(offset: a + $0.offset, type: $0.type) })
       }
     }
+
+    /// Yield pointer stored at offset `i`.
+    subscript(pointerAt i: Offset) -> Pointer? {
+      _read {
+        yield pointerTable[i]
+      }
+      _modify {
+        yield &pointerTable[i]
+      }
+    }
+
   }
 
   public struct Address: Regular, CustomStringConvertible {

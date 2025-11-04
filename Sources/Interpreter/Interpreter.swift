@@ -376,6 +376,10 @@ public struct Interpreter {
     let allocIdx = a.memoryAddress.allocation
     let offset = a.memoryAddress.offset
     let size = a.memoryLayout.size;
+    let alloc = memory[allocIdx]
+    if let p = alloc[pointerAt: offset] {
+      return .pointer(p)
+    }
 
     return
       memory[allocIdx].withUnsafeStorage(offset) {
@@ -404,6 +408,8 @@ public struct Interpreter {
         destBytes.copyMemory(from: srcBytes, byteCount: size)
       }
     }
+
+    memory[destAllocIdx].pointerTable = memory[srcAllocIdx].pointerTable
   }
 
   /// Returns block parameters from operands in `arg`.
@@ -440,6 +446,10 @@ public struct Interpreter {
   mutating func store(_ v: UntypedBuiltinValue, at a: Address) {
     let alloc = a.memoryAddress.allocation
     let offset = a.memoryAddress.offset
+    if let v = v.pointer {
+      memory[alloc][pointerAt: offset] = v
+      return
+    }
     memory[alloc].withMutableUnsafeStorage(offset) {
       if let v = v.uint8 {
         $0.assumingMemoryBound(to: UInt8.self).pointee = v
