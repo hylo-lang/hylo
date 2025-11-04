@@ -3,9 +3,14 @@ if(NOT APPLE)
 endif()
 
 find_package(SwiftXCTest)
+include(FetchContent)
+FetchContent_Declare(SwiftTesting
+  GIT_REPOSITORY https://github.com/swiftlang/swift-testing.git
+  GIT_TAG main)
+FetchContent_MakeAvailable(SwiftTesting)
 
 add_hylo_library(TestUtils
-  DEPENDENCIES FrontEnd Driver Utils SwiftXCTest
+  DEPENDENCIES FrontEnd Driver Utils SwiftXCTest SwiftTesting
   # TODO: why is this needed?
   SwiftyLLVM
   PATH ../Sources/TestUtils
