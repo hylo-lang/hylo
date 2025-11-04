@@ -1,13 +1,13 @@
 import Foundation
 import IR
-import Testing
 import TestUtils
+import XCTest
 
 @testable import Interpreter
 
-@Suite struct InterpreterRunTests {
+final class InterpreterRunTests : XCTestCase{
 
-  @Test func emptyMain() throws {
+  func testEmptyMain() throws {
     let input =
       """
         public fun main() { }
@@ -20,7 +20,7 @@ import TestUtils
     }
   }
 
-  @Test func stackAllocAndDealloc() throws {
+  func testStackAllocAndDealloc() throws {
     let input =
       """
         public fun main() {
@@ -36,7 +36,7 @@ import TestUtils
     }
   }
 
-  @Test func functionCall() throws {
+  func testFunctionCall() throws {
     let input =
       """
        public fun dummy() {}
@@ -60,7 +60,7 @@ import TestUtils
     }
   }
 
-  @Test func branch() throws {
+  func testBranch() throws {
     let input =
       """
        public fun select(_ cond: Bool, _ first: sink Int, _ second: sink Int) -> Int {
