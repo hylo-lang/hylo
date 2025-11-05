@@ -87,9 +87,22 @@ final class InterpreterRunTests : XCTestCase{
   func testFunctionPointer() throws {
     let input =
       """
+        public fun select(_ cond: Bool, _ first: sink Int, _ second: sink Int) -> Int {
+          if cond {
+            return first
+          }else{
+            return second
+          }
+        }
+
+        public fun exec(_ f: [{}](sink Bool) -> Bool, with x: sink Bool) -> Bool {
+          f(x)
+        }
+
         public fun main() {
           let id = fun(_ x: sink Bool) { x }
-          _ = id(true)
+          _ = select(exec(id, with: true), 3, 4)
+          _ = select(exec(id, with: false), 3, 4)
         }
       """.asSourceFile()
     let module = try input.loweredToIRAsMainWithHostedStandardLibrary();
