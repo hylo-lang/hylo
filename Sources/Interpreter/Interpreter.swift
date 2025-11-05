@@ -230,7 +230,9 @@ public struct Interpreter {
     case let x as OpenUnion:
       _ = x
     case let x as PointerToAddress:
-      _ = x
+      let pointer = builtIn(denotedBy: x.source)!.pointer!
+      let layout = typeLayout[x.target.bareType]
+      currentRegister = .address(.init(pointer: pointer, memoryLayout: layout))
     case let x as Project:
       _ = x
     case is ProjectBundle:
