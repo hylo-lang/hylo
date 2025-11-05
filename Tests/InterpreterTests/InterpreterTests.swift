@@ -84,4 +84,20 @@ final class InterpreterRunTests : XCTestCase{
     }
   }
 
+  func testFunctionPointer() throws {
+    let input =
+      """
+        public fun main() {
+          let id = fun(_ x: sink Bool) { x }
+          _ = id(true)
+        }
+      """.asSourceFile()
+    let module = try input.loweredToIRAsMainWithHostedStandardLibrary();
+    let program = IR.Program.init(syntax: module.program, modules: [module.id: module]);
+    var executor = Interpreter(program);
+    while executor.isRunning {
+      try executor.step()
+    }
+  }
+
 }

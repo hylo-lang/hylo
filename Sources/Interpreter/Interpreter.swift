@@ -26,14 +26,22 @@ struct StackFrame {
 
 }
 
-/// Address to object with type layout.
+/// Describes an addressable location in the interpreter.
 struct Address {
 
-  /// Address of object in memory.
-  public let memoryAddress: Memory.Address
+  /// The underlying pointer value.
+  public let pointer: Pointer
 
-  /// Type layout of object.
-  public let memoryLayout: TypeLayout
+  /// The type layout of the object, if this is a memory pointer.
+  public let memoryLayout: TypeLayout?
+
+  /// Creates an address to `pointer` with optionally having type layout `memoryLayout`.
+  ///
+  /// - Precondition: `memoryLayout != nil` iff `pointer.memoryAddress != nil`.
+  public init(pointer: Pointer, memoryLayout: TypeLayout? = nil) {
+    self.pointer = pointer
+    self.memoryLayout = memoryLayout
+  }
 
 }
 
@@ -155,7 +163,7 @@ public struct Interpreter {
     case let x as Access:
       currentRegister = .address(address(denotedBy: x.source)!)
     case let x as AddressToPointer:
-      _ = x
+      currentRegister = .builtIn(.pointer(address(denotedBy: x.source)!.pointer))
     case let x as AdvancedByBytes:
       _ = x
     case let x as AdvancedByStrides:
@@ -168,9 +176,11 @@ public struct Interpreter {
       jumpTo(block: x.target)
       return
     case let x as Call:
+      let f =
+        function(at: address(denotedBy: x.callee)!)!
       stackFrames.append(
         StackFrame(parameters: blockParams(from: x), returnAddress: try nextCodePointer()))
-      jumpToEntry(of: (x.callee.constant as! FunctionReference).function)
+      jumpToEntry(of: f)
       return
     case let x as CallBuiltinFunction:
       _ = x
@@ -312,12 +322,14 @@ public struct Interpreter {
   /// Allocates object of type layout `t` on `memory` and returns address of start of object.
   mutating func allocate(_ t: TypeLayout) -> Address {
     let addr = memory.allocate(t.size, bytesWithAlignment: t.alignment)
-    return .init(memoryAddress: addr, memoryLayout: t)
+    return .init(pointer: .memory(addr), memoryLayout: t)
   }
 
   /// Deallocates object allocated at `a`.
+  ///
+  /// - Precondition: `a.pointer` is pointing to memory address.
   mutating func deallocate(_ a: Address) throws {
-    try memory.deallocate(a.memoryAddress)
+    try memory.deallocate(a.pointer.memoryAddress!)
   }
 
   /// Returns address of object denoted by operand, if any.
@@ -327,8 +339,12 @@ public struct Interpreter {
       return topOfStack.registers[instruction]?.address
     case .parameter(_, let i):
       return topOfStack.parameters[i]
-    case .constant:
-      return nil
+    case .constant(let c):
+      switch c {
+      case let f as FunctionReference:
+        return .init(pointer: .function(f.function), memoryLayout: nil)
+      default: return nil
+      }
     }
   }
 
@@ -349,33 +365,50 @@ public struct Interpreter {
     }
   }
 
+  /// Returns identity of function at location `a`.
+  func function(at a: Address) -> Function.ID? {
+    switch a.pointer {
+    case .memory(let addr):
+      let alloc = addr.allocation
+      let offset = addr.offset
+      return memory[alloc][pointerAt: offset]?.function
+    case .function(let f): return f
+    }
+  }
+
   /// Returns address of subfield denoted by `path` stored in field at `a`.
+  ///
+  /// - Precondition: `a.pointer` is a pointer to memory address.
   mutating func subField(denotedBy path: RecordPath, of a: Address)
     -> Address
   {
-    let memoryAddress = a.memoryAddress;
-    var offset = a.memoryAddress.offset;
-    var layout = a.memoryLayout;
+    let memoryAddress = a.pointer.memoryAddress!;
+    var offset = memoryAddress.offset;
+    var layout = a.memoryLayout!;
     for i in path {
       offset += layout.components[i].offset
       layout = typeLayout[layout.components[i].type]
     }
     return .init(
-      memoryAddress: .init(allocation: memoryAddress.allocation, offset: offset),
+      pointer: .memory(.init(allocation: memoryAddress.allocation, offset: offset)),
       memoryLayout: layout
     )
   }
 
   /// Returns builtin object (if any) stored at `a`.
+  ///
+  /// - Precondition: `a.pointer` is a pointer to memory address.
   mutating func builtIn(at a: Address)
     -> UntypedBuiltinValue?
   {
-    if !a.memoryLayout.type.isBuiltin {
+    let layout = a.memoryLayout!;
+    if !layout.type.isBuiltin {
       return nil
     }
-    let allocIdx = a.memoryAddress.allocation
-    let offset = a.memoryAddress.offset
-    let size = a.memoryLayout.size;
+    let memoryAddress = a.pointer.memoryAddress!
+    let allocIdx = memoryAddress.allocation
+    let offset = memoryAddress.offset
+    let size = layout.size;
     let alloc = memory[allocIdx]
     if let p = alloc[pointerAt: offset] {
       return .pointer(p)
@@ -396,15 +429,20 @@ public struct Interpreter {
 
   /// Copies bytes from object at `src` to bytes of object at `dest`.
   ///
-  /// Precondition: `src` and `dest` have same type.
+  /// Precondition:
+  ///   - `src` and `dest` have same type.
+  ///   - `src.pointer` and `dest.pointer` are pointers to memory address.
   mutating func memcpy(src: Address, dest: Address) {
-    let size = src.memoryLayout.size;
+    let size = src.memoryLayout!.size;
 
-    let srcAllocIdx = src.memoryAddress.allocation
-    let destAllocIdx = dest.memoryAddress.allocation
+    let srcMemoryAddress = src.pointer.memoryAddress!
+    let srcAllocIdx = srcMemoryAddress.allocation
 
-    memory[srcAllocIdx].withUnsafeStorage(src.memoryAddress.offset) { srcBytes in
-      memory[destAllocIdx].withMutableUnsafeStorage(dest.memoryAddress.offset) { destBytes in
+    let destMemoryAddress = dest.pointer.memoryAddress!
+    let destAllocIdx = destMemoryAddress.allocation
+
+    memory[srcAllocIdx].withUnsafeStorage(srcMemoryAddress.offset) { srcBytes in
+      memory[destAllocIdx].withMutableUnsafeStorage(destMemoryAddress.offset) { destBytes in
         destBytes.copyMemory(from: srcBytes, byteCount: size)
       }
     }
@@ -443,9 +481,12 @@ public struct Interpreter {
   }
 
   /// Store builtin value `v` at address `a`.
+  ///
+  /// - Precondition: `a.pointer` is pointing to memory.
   mutating func store(_ v: UntypedBuiltinValue, at a: Address) {
-    let alloc = a.memoryAddress.allocation
-    let offset = a.memoryAddress.offset
+    let memoryAddress = a.pointer.memoryAddress!
+    let alloc = memoryAddress.allocation
+    let offset = memoryAddress.offset
     if let v = v.pointer {
       memory[alloc][pointerAt: offset] = v
       return

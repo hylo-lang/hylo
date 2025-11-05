@@ -21,29 +21,23 @@ struct RawScalar {
 
 }
 
-/// Type representing builtin ptr.
+/// Represents value of builtin pointer type.
 enum Pointer {
 
-  /// pointing to data in memory.
+  /// Pointer pointing to a memory allocation.
   case memory(Memory.Address)
 
-  /// pointing to a function.
+  /// Pointer pointing to a function definition.
   case function(Function.ID)
 
-  /// Returns address of object pointed by `self`.
-  var address: Memory.Address? {
-    switch self {
-    case .memory(let addr): return addr
-    case .function: return nil
-    }
+  /// The underlying memory address, if this pointer points to memory.
+  var memoryAddress: Memory.Address? {
+    if case .memory(let addr) = self { addr } else { nil }
   }
 
-  /// Identity of function pointed by `self`.
+  /// The function identifier, if this pointer points to a function.
   var function: Function.ID? {
-    switch self {
-    case .memory: return nil
-    case .function(let id): return id
-    }
+    if case .function(let id) = self { id } else { nil }
   }
 
 }
