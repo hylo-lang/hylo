@@ -439,9 +439,11 @@ public struct Interpreter {
 
     let srcMemoryAddress = src.pointer.memoryAddress!
     let srcAllocIdx = srcMemoryAddress.allocation
+    let srcOffset = srcMemoryAddress.offset
 
     let destMemoryAddress = dest.pointer.memoryAddress!
     let destAllocIdx = destMemoryAddress.allocation
+    let destOffset = destMemoryAddress.offset
 
     memory[srcAllocIdx].withUnsafeStorage(srcMemoryAddress.offset) { srcBytes in
       memory[destAllocIdx].withMutableUnsafeStorage(destMemoryAddress.offset) { destBytes in
@@ -449,7 +451,12 @@ public struct Interpreter {
       }
     }
 
-    memory[destAllocIdx].pointerTable = memory[srcAllocIdx].pointerTable
+    for (offset, ptr) in memory[srcAllocIdx].pointerTable {
+      if offset >= srcOffset && offset < srcOffset + size {
+        let relativeOffset = offset - srcOffset
+        memory[destAllocIdx][pointerAt: destOffset + relativeOffset] = ptr
+      }
+    }
   }
 
   /// Returns block parameters from operands in `arg`.
