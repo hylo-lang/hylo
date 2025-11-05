@@ -1,14 +1,14 @@
 import Driver
 import Foundation
 import IR
-import Testing
+import XCTest
 import Utils
 
 @testable import Interpreter
 
-@Suite struct InterpreterRunTests {
+final class InterpreterRunTests: XCTestCase {
 
-  @Test func emptyMain() throws {
+  func testEmptyMain() throws {
     let input =
       """
         public fun main() { }

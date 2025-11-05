@@ -189,7 +189,7 @@ let package = Package(
     .testTarget(
       name: "InterpreterTests",
       dependencies: [
-        "Utils", "Interpreter", "IR", "Driver"
+        "Utils", "Interpreter", "IR", "Driver", "TestUtils"
       ],
       swiftSettings: allTargetsSwiftSettings),
 
