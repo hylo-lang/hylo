@@ -55,7 +55,7 @@ public struct TypeLayoutCache {
       return TypeLayout.init(
         bytes: l,
         type: ^u,
-        components:
+        parts:
           basis.map { .init(name: String(describing: $0.type), type: $0.type, offset: payloadOffset) }
           + [ .init(name: "discriminator",  type: discriminator, offset: discriminatorOffset) ],
         isUnionLayout: true)
@@ -65,19 +65,19 @@ public struct TypeLayoutCache {
     if l.properties.isEmpty {
       return TypeLayout(
         bytes: .init(alignment: 1, size: 0), type: l.type,
-        components: [], isUnionLayout: false
+        parts: [], isUnionLayout: false
       )
     }
     let f = l.properties.first!
     var b = self[f.type].bytes
-    var components: [TypeLayout.Component] = [.init(name: f.label ?? "0", type: f.type, offset: 0)]
+    var parts: [TypeLayout.Part] = [.init(name: f.label ?? "0", type: f.type, offset: 0)]
     for (i, p) in l.properties.dropFirst().enumerated() {
       let c = self[p.type].bytes
       b = b.appending(c)
-      components.append(
+      parts.append(
         .init(name: p.label ?? String(describing: i + 1), type: p.type, offset: b.size - c.size))
     }
-    return TypeLayout(bytes: b, type: l.type, components: components, isUnionLayout: false)
+    return TypeLayout(bytes: b, type: l.type, parts: parts, isUnionLayout: false)
   }
 
   private mutating func computeLayout(_ t: AnyType) -> TypeLayout {
@@ -85,7 +85,7 @@ public struct TypeLayoutCache {
     case let u as UnionType:
       computeLayout(u)
     case let u as BuiltinType:
-      TypeLayout(bytes: abi.layout(u), type: t, components: [], isUnionLayout: false)
+      TypeLayout(bytes: abi.layout(u), type: t, parts: [], isUnionLayout: false)
     case _ where t.hasRecordLayout:
       concretized(AbstractTypeLayout(of: t, definedIn: p))
     default:

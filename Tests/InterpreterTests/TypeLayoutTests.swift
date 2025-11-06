@@ -16,22 +16,22 @@ final class TypeLayoutTests: XCTestCase {
     let i8 = c[^BuiltinType.i(8)]
     XCTAssertEqual(i8.size, 1)
     XCTAssertEqual(i8.alignment, 1)
-    XCTAssert(i8.components.isEmpty)
+    XCTAssert(i8.parts.isEmpty)
 
     let i16 = c[^BuiltinType.i(16)]
     XCTAssertEqual(i16.size, 2)
     XCTAssertEqual(i16.alignment, 2)
-    XCTAssert(i16.components.isEmpty)
+    XCTAssert(i16.parts.isEmpty)
 
     let i32 = c[^BuiltinType.i(32)]
     XCTAssertEqual(i32.size, 4)
     XCTAssertEqual(i32.alignment, 4)
-    XCTAssert(i32.components.isEmpty)
+    XCTAssert(i32.parts.isEmpty)
 
     let i64 = c[^BuiltinType.i(64)]
     XCTAssertEqual(i64.size, 8)
     XCTAssertEqual(i64.alignment, 8)
-    XCTAssert(i64.components.isEmpty)
+    XCTAssert(i64.parts.isEmpty)
   }
 
   func testTrivialTuples() throws {
@@ -40,13 +40,13 @@ final class TypeLayoutTests: XCTestCase {
     let void = c[.void]
     XCTAssertEqual(void.size, 0)
     XCTAssertEqual(void.alignment, 1)
-    XCTAssert(void.components.isEmpty)
+    XCTAssert(void.parts.isEmpty)
 
 
     let justI8 = c[^TupleType(types: [^BuiltinType.i(8)])]
     let i8 = c[^BuiltinType.i(8)]
     XCTAssertEqual(justI8.bytes, i8.bytes)
-    XCTAssertEqual(justI8.components, [.init(name: "0", type: ^BuiltinType.i(8), offset: 0)])
+    XCTAssertEqual(justI8.parts, [.init(name: "0", type: ^BuiltinType.i(8), offset: 0)])
   }
 
   func testPairs() throws {
@@ -58,12 +58,12 @@ final class TypeLayoutTests: XCTestCase {
     XCTAssertEqual(i64i8.bytes, .init(alignment: 8, size: 9))
 
     XCTAssertEqual(
-      i8i64.components,
+      i8i64.parts,
       [ .init(name: "0", type: ^BuiltinType.i(8), offset: 0),
         .init(name: "1", type: ^BuiltinType.i(64), offset: 8)])
 
     XCTAssertEqual(
-      i64i8.components,
+      i64i8.parts,
       [ .init(name: "0", type: ^BuiltinType.i(64), offset: 0),
         .init(name: "1", type: ^BuiltinType.i(8), offset: 8)])
   }
@@ -75,7 +75,7 @@ final class TypeLayoutTests: XCTestCase {
     XCTAssertEqual(i8i16i32.bytes, .init(alignment: 4, size: 8))
 
     XCTAssertEqual(
-      i8i16i32.components,
+      i8i16i32.parts,
       [ .init(name: "0", type: ^BuiltinType.i(8), offset: 0),
         .init(name: "1", type: ^BuiltinType.i(16), offset: 2),
         .init(name: "2", type: ^BuiltinType.i(32), offset: 4),
@@ -93,7 +93,7 @@ final class TypeLayoutTests: XCTestCase {
 
     XCTAssertEqual(a.bytes, .init(alignment: 8, size: 9))
     XCTAssertEqual(
-      a.components,
+      a.parts,
       [ .init(name: "__f", type: ^BuiltinType.ptr, offset: 0),
         .init(name: "__e", type: ^TupleType(types: [^BuiltinType.i(8)]), offset: 8)
       ])
@@ -105,7 +105,7 @@ final class TypeLayoutTests: XCTestCase {
 
     XCTAssertEqual(u.bytes, .init(alignment: 2, size: 3))
     XCTAssertEqual(
-      u.components,
+      u.parts,
       [ .init(name: "i8", type: ^BuiltinType.i(8), offset: 0),
         .init(name: "i16", type: ^BuiltinType.i(16), offset: 0),
         .init(name: "discriminator", type: ^BuiltinType.i(8), offset: 2)
@@ -114,17 +114,17 @@ final class TypeLayoutTests: XCTestCase {
 
   func testWideUnion() throws {
     var c = TypeLayoutCache(typesIn: emptyProgram, for: UnrealABI())
-    var components = [^BuiltinType.i(8)]
-    while components.count <= 256 {
-      components.append(^TupleType(types: [components.last!]))
+    var parts = [^BuiltinType.i(8)]
+    while parts.count <= 256 {
+      parts.append(^TupleType(types: [parts.last!]))
     }
 
-    let u = c[^UnionType(components)]
+    let u = c[^UnionType(parts)]
     XCTAssertEqual(u.bytes, .init(alignment: 2, size: 3))
     XCTAssertEqual(
-      u.components[0], .init(name: "i8", type: ^BuiltinType.i(8), offset: 2))
-    XCTAssertEqual(u.components[1].offset, 2)
-    XCTAssertEqual(u.components.last!, .init(name: "discriminator", type: ^BuiltinType.i(16), offset: 0))
+      u.parts[0], .init(name: "i8", type: ^BuiltinType.i(8), offset: 2))
+    XCTAssertEqual(u.parts[1].offset, 2)
+    XCTAssertEqual(u.parts.last!, .init(name: "discriminator", type: ^BuiltinType.i(16), offset: 0))
   }
 
 }

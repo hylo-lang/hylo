@@ -1,11 +1,11 @@
 import Foundation
 import IR
-import TestUtils
 import XCTest
+import Utils
 
 @testable import Interpreter
 
-final class InterpreterRunTests : XCTestCase{
+final class InterpreterRunTests: XCTestCase {
 
   func testEmptyMain() throws {
     let input =
