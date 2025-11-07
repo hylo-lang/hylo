@@ -357,8 +357,8 @@ public struct Interpreter {
     var offset = a.memoryAddress.offset;
     var layout = a.memoryLayout;
     for i in path {
-      offset += layout.components[i].offset
-      layout = typeLayout[layout.components[i].type]
+      offset += layout.parts[i].offset
+      layout = typeLayout[layout.parts[i].type]
     }
     return .init(
       memoryAddress: .init(allocation: memoryAddress.allocation, offset: offset),
@@ -375,18 +375,17 @@ public struct Interpreter {
     }
     let allocIdx = a.memoryAddress.allocation
     let offset = a.memoryAddress.offset
-    let size = a.memoryLayout.size;
+    let n = a.memoryLayout.size
 
     return
-      memory[allocIdx].withUnsafeStorage(offset) {
-        switch size {
-        case 1: .init(withUInt8: $0.assumingMemoryBound(to: UInt8.self).pointee)
-        case 2: .init(withUInt16: $0.assumingMemoryBound(to: UInt16.self).pointee)
-        case 4: .init(withUInt32: $0.assumingMemoryBound(to: UInt32.self).pointee)
-        case 8: .init(withUInt64: $0.assumingMemoryBound(to: UInt64.self).pointee)
-        case 16: .init(withUInt128: $0.assumingMemoryBound(to: UInt128.self).pointee)
-        default: fatalError("Unknown builtin size!")
-        }
+      switch n
+    {
+    case 1: .init(withUInt8: memory[allocIdx][offset, type: UInt8.self])
+    case 2: .init(withUInt16: memory[allocIdx][offset, type: UInt16.self])
+    case 4: .init(withUInt32: memory[allocIdx][offset, type: UInt32.self])
+    case 8: .init(withUInt64: memory[allocIdx][offset, type: UInt64.self])
+    case 16: .init(withUInt128: memory[allocIdx][offset, type: UInt128.self])
+    default: fatalError("Unknown builtin size \(n)")
     }
   }
 
@@ -397,11 +396,14 @@ public struct Interpreter {
     let size = src.memoryLayout.size;
 
     let srcAllocIdx = src.memoryAddress.allocation
-    let destAllocIdx = dest.memoryAddress.allocation
+    let srcOffset = src.memoryAddress.offset
 
-    memory[srcAllocIdx].withUnsafeStorage(src.memoryAddress.offset) { srcBytes in
-      memory[destAllocIdx].withMutableUnsafeStorage(dest.memoryAddress.offset) { destBytes in
-        destBytes.copyMemory(from: srcBytes, byteCount: size)
+    let destAllocIdx = dest.memoryAddress.allocation
+    let destOffset = dest.memoryAddress.offset
+
+    memory[srcAllocIdx].withUnsafePointer(to: UInt8.self, at: srcOffset) { srcBytes in
+      memory[destAllocIdx].withUnsafeMutablePointer(to: UInt8.self, at: destOffset) { destBytes in
+        UnsafeMutableRawPointer(destBytes).copyMemory(from: srcBytes, byteCount: size)
       }
     }
   }
@@ -440,20 +442,18 @@ public struct Interpreter {
   mutating func store(_ v: UntypedBuiltinValue, at a: Address) {
     let alloc = a.memoryAddress.allocation
     let offset = a.memoryAddress.offset
-    memory[alloc].withMutableUnsafeStorage(offset) {
-      if let v = v.uint8 {
-        $0.assumingMemoryBound(to: UInt8.self).pointee = v
-      } else if let v = v.uint16 {
-        $0.assumingMemoryBound(to: UInt16.self).pointee = v
-      } else if let v = v.uint32 {
-        $0.assumingMemoryBound(to: UInt32.self).pointee = v
-      } else if let v = v.uint64 {
-        $0.assumingMemoryBound(to: UInt64.self).pointee = v
-      } else if let v = v.uint128 {
-        $0.assumingMemoryBound(to: UInt128.self).pointee = v
-      } else {
-        fatalError("Unknown builtin value!")
-      }
+    if let v = v.uint8 {
+      memory[alloc][offset, type: UInt8.self] = v
+    } else if let v = v.uint16 {
+      memory[alloc][offset, type: UInt16.self] = v
+    } else if let v = v.uint32 {
+      memory[alloc][offset, type: UInt32.self] = v
+    } else if let v = v.uint64 {
+      memory[alloc][offset, type: UInt64.self] = v
+    } else if let v = v.uint128 {
+      memory[alloc][offset, type: UInt128.self] = v
+    } else {
+      fatalError("Unknown builtin value!")
     }
   }
 

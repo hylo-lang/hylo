@@ -309,3 +309,22 @@ public extension Memory.Address {
   static func -=(l: inout Self, r: Int)  { l = l - r }
 
 }
+
+extension Memory.Allocation {
+
+  /// Yields value of type `t` stored at offset `a` in allocation.
+  subscript<T>(_ a: Memory.Offset, type t: T.Type) -> T
+  {
+    get {
+      withUnsafePointer(to: t, at: a) {
+        $0.pointee
+      }
+    }
+    set {
+      withUnsafeMutablePointer(to: t, at: a) {
+        $0.pointee = newValue
+      }
+    }
+  }
+
+}
