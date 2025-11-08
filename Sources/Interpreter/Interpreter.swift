@@ -100,7 +100,7 @@ public struct Interpreter {
   /// The stack- and dynamically-allocated memory in use by the program.
   private var memory = Memory()
 
-  /// function parameters, and return addresses.
+  /// function parameters and return addresses.
   private var stackFrames: [StackFrame] = []
 
   /// Identity of the next instruction to be executed.
@@ -165,12 +165,12 @@ public struct Interpreter {
       currentRegister = .address(allocate(typeLayout[x.allocatedType]))
 
     case let x as Branch:
-      jumpTo(block: x.target)
+      jumpTo(x.target)
       return
     case let x as Call:
       stackFrames.append(
         StackFrame(parameters: blockParams(from: x), returnAddress: try nextCodePointer()))
-      jumpToEntry(of: (x.callee.constant as! FunctionReference).function)
+      jumpTo((x.callee.constant as! FunctionReference).function)
       return
     case let x as CallBuiltinFunction:
       _ = x
@@ -187,9 +187,9 @@ public struct Interpreter {
     case let x as CondBranch:
       let cond = builtIn(denotedBy: x.condition)!
       if cond.bool! {
-        jumpTo(block: x.targetIfTrue)
+        jumpTo(x.targetIfTrue)
       } else {
-        jumpTo(block: x.targetIfFalse)
+        jumpTo(x.targetIfFalse)
       }
       return
     case let x as ConstantString:
@@ -399,7 +399,7 @@ public struct Interpreter {
   }
 
   /// Moves the program counter to entry point of `f`.
-  mutating func jumpToEntry(of f: Function.ID) {
+  mutating func jumpTo(_ f: Function.ID) {
     let moduleId = program.module(defining: f)
     let function = program.modules[moduleId]![f]
     let entryBlock = function.entry!;
@@ -411,7 +411,7 @@ public struct Interpreter {
   }
 
   /// Moves the program counter to start of `b`.
-  mutating func jumpTo(block b: Block.ID) {
+  mutating func jumpTo(_ b: Block.ID) {
     let functionId = b.function
     let moduleId = program.module(defining: functionId)
     let function = program.modules[moduleId]![functionId]
