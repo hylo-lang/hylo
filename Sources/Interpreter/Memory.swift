@@ -278,6 +278,23 @@ public struct Memory {
     throw Error.noDecomposable(t, at: a)
   }
 
+  /// Copies `n` bytes from `source` to `destination`.
+  public mutating func copy(
+    bytes n: Int, from source: Memory.Address, to destination: Memory.Address
+  ) {
+    precondition(source.offset + n <= self[source.allocation].size)
+    precondition(destination.offset + n <= self[destination.allocation].size)
+    let sourceBaseOffset = self[source.allocation].baseOffset
+    let destinationBaseOffset = self[destination.allocation].baseOffset
+    self[source.allocation].storage.withUnsafeBytes { sourceBuffer in
+      self[destination.allocation].storage.withUnsafeMutableBytes { destBuffer in
+        let s = sourceBuffer.baseAddress! + sourceBaseOffset + source.offset
+        let d = destBuffer.baseAddress! + destinationBaseOffset + destination.offset
+        d.copyMemory(from: s, byteCount: n)
+      }
+    }
+  }
+
   /// The allocation identified by `i`.
   public subscript(_ i: Allocation.ID) -> Allocation {
     _read {

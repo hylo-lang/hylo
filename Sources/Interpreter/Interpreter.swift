@@ -212,7 +212,11 @@ public struct Interpreter {
       // No effect on program state
       break
     case let x as MemoryCopy:
-      memcpy(src: address(denotedBy: x.source)!, dest: address(denotedBy: x.target)!)
+      let sourceAddress = address(denotedBy: x.source)!
+      let destinationAddress = address(denotedBy: x.target)!
+      memory.copy(
+        bytes: sourceAddress.memoryLayout.size, from: sourceAddress.memoryAddress,
+        to: destinationAddress.memoryAddress)
     case is Move:
       fatalError("Interpreter: Move instructions have not been removed.")
     case let x as OpenCapture:
@@ -386,25 +390,6 @@ public struct Interpreter {
     case 8: .init(withUInt64: memory[allocIdx][offset, type: UInt64.self])
     case 16: .init(withUInt128: memory[allocIdx][offset, type: UInt128.self])
     default: fatalError("Unknown builtin size \(n)")
-    }
-  }
-
-  /// Copies bytes from object at `src` to bytes of object at `dest`.
-  ///
-  /// Precondition: `src` and `dest` have same type.
-  mutating func memcpy(src: Address, dest: Address) {
-    let size = src.memoryLayout.size;
-
-    let srcAllocIdx = src.memoryAddress.allocation
-    let srcOffset = src.memoryAddress.offset
-
-    let destAllocIdx = dest.memoryAddress.allocation
-    let destOffset = dest.memoryAddress.offset
-
-    memory[srcAllocIdx].withUnsafePointer(to: UInt8.self, at: srcOffset) { srcBytes in
-      memory[destAllocIdx].withUnsafeMutablePointer(to: UInt8.self, at: destOffset) { destBytes in
-        UnsafeMutableRawPointer(destBytes).copyMemory(from: srcBytes, byteCount: size)
-      }
     }
   }
 
