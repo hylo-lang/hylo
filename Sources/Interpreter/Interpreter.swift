@@ -383,11 +383,11 @@ public struct Interpreter {
     return
       switch n
     {
-    case 1: .init(withUInt8: memory[allocation][offset, type: UInt8.self])
-    case 2: .init(withUInt16: memory[allocation][offset, type: UInt16.self])
-    case 4: .init(withUInt32: memory[allocation][offset, type: UInt32.self])
-    case 8: .init(withUInt64: memory[allocation][offset, type: UInt64.self])
-    case 16: .init(withUInt128: memory[allocation][offset, type: UInt128.self])
+    case 1: .i8(memory[allocation][offset, type: UInt8.self])
+    case 2: .i16(memory[allocation][offset, type: UInt16.self])
+    case 4: .i32(memory[allocation][offset, type: UInt32.self])
+    case 8: .i64(memory[allocation][offset, type: UInt64.self])
+    case 16: .i128(memory[allocation][offset, type: UInt128.self])
     default: fatalError("Unknown builtin size \(n)")
     }
   }
