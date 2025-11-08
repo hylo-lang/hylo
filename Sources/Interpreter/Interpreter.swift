@@ -37,13 +37,13 @@ struct Address {
 
 }
 
-/// Result of an instruction.
+/// The value produced by executing an instruction.
 enum InstructionResult {
 
-  /// Address of object.
+  /// If executing instruction produces an address.
   case address(Address)
 
-  /// The builtin object.
+  /// If executing instruction produces a builtin value.
   case builtIn(UntypedBuiltinValue)
 
   /// Address, if present.
@@ -56,7 +56,7 @@ enum InstructionResult {
     }
   }
 
-  /// Object, if present.
+  /// Builtin value, if present.
   public var builtIn: UntypedBuiltinValue? {
     switch self {
     case .builtIn(let x):
@@ -239,7 +239,7 @@ public struct Interpreter {
       store(builtIn(denotedBy: x.object)!, at: address(denotedBy: x.target)!)
     case let x as SubfieldView:
       let parent = address(denotedBy: x.recordAddress)!;
-      currentRegister = .address(subField(denotedBy: x.subfield, of: parent))
+      currentRegister = .address(address(of: x.subfield, at: parent))
     case let x as Switch:
       _ = x
     case let x as UnionDiscriminator:
@@ -353,14 +353,13 @@ public struct Interpreter {
     }
   }
 
-  /// Returns address of subfield denoted by `path` stored in field at `a`.
-  mutating func subField(denotedBy path: RecordPath, of a: Address)
-    -> Address
+  /// Returns the address of `subField` in the object  at `origin`.
+  mutating func address(of subField: RecordPath, at origin: Address) -> Address
   {
-    let memoryAddress = a.memoryAddress;
-    var offset = a.memoryAddress.offset;
-    var layout = a.memoryLayout;
-    for i in path {
+    let memoryAddress = origin.memoryAddress;
+    var offset = origin.memoryAddress.offset;
+    var layout = origin.memoryLayout;
+    for i in subField {
       offset += layout.parts[i].offset
       layout = typeLayout[layout.parts[i].type]
     }
@@ -377,18 +376,18 @@ public struct Interpreter {
     if !a.memoryLayout.type.isBuiltin {
       return nil
     }
-    let allocIdx = a.memoryAddress.allocation
+    let allocation = a.memoryAddress.allocation
     let offset = a.memoryAddress.offset
     let n = a.memoryLayout.size
 
     return
       switch n
     {
-    case 1: .init(withUInt8: memory[allocIdx][offset, type: UInt8.self])
-    case 2: .init(withUInt16: memory[allocIdx][offset, type: UInt16.self])
-    case 4: .init(withUInt32: memory[allocIdx][offset, type: UInt32.self])
-    case 8: .init(withUInt64: memory[allocIdx][offset, type: UInt64.self])
-    case 16: .init(withUInt128: memory[allocIdx][offset, type: UInt128.self])
+    case 1: .init(withUInt8: memory[allocation][offset, type: UInt8.self])
+    case 2: .init(withUInt16: memory[allocation][offset, type: UInt16.self])
+    case 4: .init(withUInt32: memory[allocation][offset, type: UInt32.self])
+    case 8: .init(withUInt64: memory[allocation][offset, type: UInt64.self])
+    case 16: .init(withUInt128: memory[allocation][offset, type: UInt128.self])
     default: fatalError("Unknown builtin size \(n)")
     }
   }
@@ -400,26 +399,28 @@ public struct Interpreter {
 
   /// Moves the program counter to entry point of `f`.
   mutating func jumpTo(_ f: Function.ID) {
-    let moduleId = program.module(defining: f)
-    let function = program.modules[moduleId]![f]
+    let module = program.module(defining: f)
+    let function = program.modules[module]![f]
     let entryBlock = function.entry!;
     let entryInstruction = function.blocks[entryBlock].instructions.firstAddress!
     programCounter = CodePointer(
-      module: moduleId,
+      module: module,
       instructionInModule: InstructionID(f, entryBlock, entryInstruction)
     )
   }
 
   /// Moves the program counter to start of `b`.
   mutating func jumpTo(_ b: Block.ID) {
-    let functionId = b.function
-    let moduleId = program.module(defining: functionId)
-    let function = program.modules[moduleId]![functionId]
+    let function = b.function
+    let module = program.module(defining: function)
     let entryBlock = b.address;
-    let entryInstruction = function.blocks[entryBlock].instructions.firstAddress!
+    let entryInstruction = program.modules[module]![b.function]
+      .blocks[entryBlock]
+      .instructions
+      .firstAddress!
     programCounter = CodePointer(
-      module: moduleId,
-      instructionInModule: InstructionID(functionId, entryBlock, entryInstruction)
+      module: module,
+      instructionInModule: InstructionID(function, entryBlock, entryInstruction)
     )
   }
 
@@ -427,15 +428,15 @@ public struct Interpreter {
   mutating func store(_ v: UntypedBuiltinValue, at a: Address) {
     let alloc = a.memoryAddress.allocation
     let offset = a.memoryAddress.offset
-    if let v = v.uint8 {
+    if let v = v.i8 {
       memory[alloc][offset, type: UInt8.self] = v
-    } else if let v = v.uint16 {
+    } else if let v = v.i16 {
       memory[alloc][offset, type: UInt16.self] = v
-    } else if let v = v.uint32 {
+    } else if let v = v.i32 {
       memory[alloc][offset, type: UInt32.self] = v
-    } else if let v = v.uint64 {
+    } else if let v = v.i64 {
       memory[alloc][offset, type: UInt64.self] = v
-    } else if let v = v.uint128 {
+    } else if let v = v.i128 {
       memory[alloc][offset, type: UInt128.self] = v
     } else {
       fatalError("Unknown builtin value!")

@@ -51,19 +51,19 @@ struct UntypedBuiltinValue {
   }
 
   /// UInt8 value, if present.
-  public var uint8: UInt8? { size == 1 ? UInt8(truncatingIfNeeded: asUInt128) : nil }
+  public var i8: UInt8? { size == 1 ? UInt8(truncatingIfNeeded: asUInt128) : nil }
 
   /// UInt16 value, if present
-  public var uint16: UInt16? { size == 2 ? UInt16(truncatingIfNeeded: asUInt128) : nil }
+  public var i16: UInt16? { size == 2 ? UInt16(truncatingIfNeeded: asUInt128) : nil }
 
   /// UInt32 value, if present
-  public var uint32: UInt32? { size == 4 ? UInt32(truncatingIfNeeded: asUInt128) : nil }
+  public var i32: UInt32? { size == 4 ? UInt32(truncatingIfNeeded: asUInt128) : nil }
 
   /// UInt64 value, if present
-  public var uint64: UInt64? { size == 8 ? UInt64(truncatingIfNeeded: asUInt128) : nil }
+  public var i64: UInt64? { size == 8 ? UInt64(truncatingIfNeeded: asUInt128) : nil }
 
   /// UInt128 value, if present
-  public var uint128: UInt128? { size == 16 ? asUInt128 : nil }
+  public var i128: UInt128? { size == 16 ? asUInt128 : nil }
 
 }
 
