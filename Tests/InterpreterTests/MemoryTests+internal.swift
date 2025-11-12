@@ -1,6 +1,7 @@
 import XCTest
 import TestUtils
 import FrontEnd
+import XCTest
 @testable import Interpreter
 
 final class InterpreterMemoryInternalTests: XCTestCase {

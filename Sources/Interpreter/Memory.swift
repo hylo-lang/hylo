@@ -125,14 +125,14 @@ public struct Memory {
     }
 
     mutating func withUnsafeMutablePointer<T, R>(to _: T.Type, at a: Offset, _ body: (UnsafeMutablePointer<T>)->R) -> R {
-      precondition(a + MemoryLayout<T>.size < size)
+      precondition(a + MemoryLayout<T>.size <= size)
       return storage.withUnsafeMutableBytes { p in
         body((p.baseAddress! + baseOffset + a).assumingMemoryBound(to: T.self))
       }
     }
 
     func withUnsafePointer<T, R>(to _: T.Type, at a: Offset, _ body: (UnsafePointer<T>)->R) -> R {
-      precondition(a + MemoryLayout<T>.size < size)
+      precondition(a + MemoryLayout<T>.size <= size)
       return storage.withUnsafeBytes { p in
         body((p.baseAddress! + baseOffset + a).assumingMemoryBound(to: T.self))
       }
@@ -171,7 +171,7 @@ public struct Memory {
       }
     }
 
-    /// Returns true if `o` is alinged to an `n` byte boundary.
+    /// Returns true if `o` is aligned to an `n` byte boundary.
     public func offset(_ o: Offset, hasAlignment n: Int) -> Bool {
       storage.withUnsafeBytes {
         UInt(bitPattern: $0.baseAddress! + baseOffset + o) % UInt(n) == 0
@@ -257,7 +257,7 @@ public struct Memory {
     try allocation[a.allocation]!.compose(t, at: a.offset)
   }
 
-  /// Returns true if `a` is alinged to an `n` byte boundary.
+  /// Returns true if `a` is aligned to an `n` byte boundary.
   public func address(_ a: Address, hasAlignment n: Int) -> Bool {
     allocation[a.allocation]!.offset(a.offset, hasAlignment: n)
   }
@@ -276,6 +276,33 @@ public struct Memory {
     try block.checkAlignmentAndAllocationBounds(at: a.offset, for: t)
     if let i = block.decomposable(t, at: a.offset) { return i }
     throw Error.noDecomposable(t, at: a)
+  }
+
+  /// Copies `n` bytes from `source` to `destination`.
+  public mutating func copy(
+    bytes n: Int, from source: Memory.Address, to destination: Memory.Address
+  ) {
+    precondition(source.offset + n <= self[source.allocation].size)
+    precondition(destination.offset + n <= self[destination.allocation].size)
+    let sourceBaseOffset = self[source.allocation].baseOffset
+    let destinationBaseOffset = self[destination.allocation].baseOffset
+    self[source.allocation].storage.withUnsafeBytes { sourceBuffer in
+      self[destination.allocation].storage.withUnsafeMutableBytes { destBuffer in
+        let s = sourceBuffer.baseAddress! + sourceBaseOffset + source.offset
+        let d = destBuffer.baseAddress! + destinationBaseOffset + destination.offset
+        d.copyMemory(from: s, byteCount: n)
+      }
+    }
+  }
+
+  /// The allocation identified by `i`.
+  public subscript(_ i: Allocation.ID) -> Allocation {
+    _read {
+      yield allocation[i]!
+    }
+    _modify {
+      yield &allocation[i]!
+    }
   }
 
 }
@@ -297,5 +324,24 @@ public extension Memory.Address {
   static func +=(l: inout Self, r: Int) { l = l + r }
 
   static func -=(l: inout Self, r: Int)  { l = l - r }
+
+}
+
+extension Memory.Allocation {
+
+  /// Yields value of type `t` stored at offset `a` in allocation.
+  subscript<T>(_ a: Memory.Offset, type t: T.Type) -> T
+  {
+    get {
+      withUnsafePointer(to: t, at: a) {
+        $0.pointee
+      }
+    }
+    set {
+      withUnsafeMutablePointer(to: t, at: a) {
+        $0.pointee = newValue
+      }
+    }
+  }
 
 }
