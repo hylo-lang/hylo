@@ -45,6 +45,8 @@ env:
   spm-build-options: -Xswiftc -enable-testing --explicit-target-dependency-import-check error
   spm-test-options: --parallel
   swift-version: '6.2.0'
+  HYLO_LLVM_BUILD_RELEASE: 20251018-115119
+  HYLO_LLVM_VERSION: '20.1.6'
 
 jobs:
   determine-version:
@@ -70,14 +72,16 @@ jobs:
       matrix:
         config: [debug, release]
         build-system: [cmake, spm]
-        HYLO_LLVM_BUILD_TYPE: [MinSizeRel]
 
         include:
           # Map config to cmake build type
           - config: debug
             cmake-build-type: Debug
+            HYLO_LLVM_BUILD_TYPE: Debug
+
           - config: release
             cmake-build-type: Release
+            HYLO_LLVM_BUILD_TYPE: MinSizeRel
 
           # Enable code coverage for this specific job (devcontainer, spm debug build)
           - config: debug
@@ -86,7 +90,7 @@ jobs:
 
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: true
           show-progress: false
@@ -191,7 +195,7 @@ jobs:
     runs-on: ${{ matrix.exact-os }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: true
           show-progress: false
@@ -203,7 +207,14 @@ jobs:
         shell: bash
 
       - name: Set up LLVM
-        uses: hylo-lang/get-llvm@v0.2.2
+        uses: hylo-lang/get-llvm@v0.3.0
+        id: get-llvm
+        with:
+          llvmVersion: ${{ env.HYLO_LLVM_VERSION }}
+          llvmBuildRelease: ${{ env.HYLO_LLVM_BUILD_RELEASE }}
+          llvmBuildConfig: ${{ matrix.HYLO_LLVM_BUILD_TYPE }}
+          addToPkgConfigPath: true
+          addToPath: true
 
       - name: Set up swift
         uses: SwiftyLab/setup-swift@latest
@@ -291,7 +302,7 @@ jobs:
     runs-on: ${{ matrix.exact-os }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           submodules: true
           show-progress: false

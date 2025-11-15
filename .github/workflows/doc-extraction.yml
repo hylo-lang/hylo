@@ -6,7 +6,7 @@ defaults:
 
 on:
   push:
-    branches: [ main, fix-doc-generation ]
+    branches: [ main, fix-docs-ci ]
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -28,12 +28,12 @@ jobs:
     if: github.repository == 'hylo-lang/hylo'
     runs-on: macos-15
     env:
-      llvm_url_prefix: https://github.com/hylo-lang/llvm-build/releases/download/20250617-222524
-      llvm_package_basename: llvm-20.1.6-arm64-apple-darwin24.1.0-MinSizeRel.tar.zst
       swift-version: '6.2.0'
+      HYLO_LLVM_BUILD_RELEASE: 20251018-115119
+      HYLO_LLVM_VERSION: '20.1.6'
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       with:
         submodules: true
         show-progress: false
@@ -48,23 +48,19 @@ jobs:
         swift-version: ${{ env.swift-version }}
         cache-snapshot: false # Workaround for https://github.com/SwiftyLab/setup-swift/issues/315
 
-    - name: Install LLVM and create its pkgconfig file
-      # 7z doesn't support decompressing from a stream or we'd do this all as one statement. Maybe
-      # we should find a way to use zstd on windows.
-      run: >-
-        curl --no-progress-meter -L -O
-        -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}"
-        ${{ env.llvm_url_prefix }}/${{ env.llvm_package_basename }}.tar.zst
-
-        tar -x --zstd -f ${{ env.llvm_package_basename }}.tar.zst
-
-        PATH="${{ github.workspace }}/${{ env.llvm_package_basename }}/bin:$PATH"
-        ./Tools/make-pkgconfig.sh llvm.pc
+    - name: Set up LLVM
+      uses: hylo-lang/get-llvm@v0.3.0
+      id: get-llvm
+      with:
+        llvmVersion: ${{ env.HYLO_LLVM_VERSION }}
+        llvmBuildRelease: ${{ env.HYLO_LLVM_BUILD_RELEASE }}
+        llvmBuildConfig: MinSizeRel
+        addToPkgConfigPath: true
+        addToPath: true
 
     - name: Prepare shell environment
       run: |
-        echo "PKG_CONFIG_PATH=${{ github.workspace }}
-        REPO_SANS_OWNER=${GITHUB_REPOSITORY##*/}
+        echo "REPO_SANS_OWNER=${GITHUB_REPOSITORY##*/}
         REF_URL_COMPONENT=${GITHUB_REF##*/}
         HYLO_ENABLE_DOC_GENERATION=1
         " >> "${GITHUB_ENV}"
@@ -106,29 +102,49 @@ jobs:
         -DGITHUB_REPOSITORY="${GITHUB_REPOSITORY}" \
         Tools/doc-index.html.gyb -o _site/index.html
         
+    - name: print folder structure to 2 levels (print folders and files)
+      run: |
+        echo "Folder structure of _site/:"
+        find _site/ -maxdepth 2 -print
+        echo "-------------------------"
+        echo "EXTRACTION_TARGETS: ${EXTRACTION_TARGETS}"
+        echo "-------------------------"
+
+
     - name: Extract with DocC
       run: |
         export PKG_CONFIG_PATH
         for TARGET in ${EXTRACTION_TARGETS}; do
+          echo "Processing target: $TARGET"
           mkdir -p _site/docc/"$TARGET"
+          echo "Created directory: _site/docc/$TARGET"
+          ls -la _site/docc/
+          
+          echo "Running DocC for target: $TARGET"
           Tools/retry-once swift package --allow-writing-to-directory ./_site \
           generate-documentation \
           --target "$TARGET" \
           --output-path _site/docc/"${TARGET}" \
-          --experimental-documentation-coverage --level brief \
+          --experimental-documentation-coverage \
+          --coverage-summary-level brief \
           --enable-inherited-docs \
           --transform-for-static-hosting \
           --hosting-base-path "${REPO_SANS_OWNER}/docc/${TARGET}" \
           --source-service github \
           --source-service-base-url "https://github.com/${GITHUB_REPOSITORY}/blob/${REF_URL_COMPONENT}" \
           --checkout-path "$(pwd)"
+          
+          echo "DocC generation completed for target: $TARGET"
+          ls -la _site/docc/"$TARGET"/
         done
 
     - name: Extract with Jazzy
       run: |
         export PKG_CONFIG_PATH
         for TARGET in ${EXTRACTION_TARGETS}; do
+          echo "Processing Jazzy for target: $TARGET"
           mkdir -p _site/jazzy/"$TARGET"
+          
           jazzy \
           --source-host-files-url "https://github.com/${GITHUB_REPOSITORY}/blob/${REF_URL_COMPONENT}" \
           --module $(echo "$TARGET" | sed -e 's/-/_/g') \
@@ -137,10 +153,26 @@ jobs:
           --config .jazzy.yml \
           --output _site/jazzy/"$TARGET" \
           --min-acl private
+          
+          echo "Jazzy generation completed for target: $TARGET"
         done
 
     - name: Setup Pages
       uses: actions/configure-pages@v5
+
+    - name: Verify final site structure
+      run: |
+        echo "Final _site structure:"
+        ls -la _site/
+        
+        echo "Counting HTML files..."
+        find _site/ -type f -name "*.html" | wc -l
+        
+        echo "Checking docc and jazzy directories:"
+        ls -la _site/docc/ | head -5
+        ls -la _site/jazzy/ | head -5
+        
+        echo "Documentation generation summary complete."
 
     - name: Fix permissions
       run: |
@@ -149,7 +181,7 @@ jobs:
         done
 
     - name: Upload artifact
-      uses: actions/upload-pages-artifact@v3
+      uses: actions/upload-pages-artifact@v4
 
   # Deployment job
   deploy:
