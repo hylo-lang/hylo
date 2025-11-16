@@ -215,7 +215,7 @@ public struct Interpreter {
       store(toBuiltinValue(x.object)!, at: toAddress(x.target)!)
     case let x as SubfieldView:
       let parent = toAddress(x.recordAddress)!;
-      currentRegister = address(of: x.subfield, at: parent)
+      currentRegister = address(of: x.subfield, in: parent)
     case let x as Switch:
       _ = x
     case let x as UnionDiscriminator:
@@ -330,7 +330,7 @@ public struct Interpreter {
   }
 
   /// Returns the address of `subField` in the object  at `origin`.
-  mutating func address(of subField: RecordPath, at origin: Address) -> Address
+  mutating func address(of subField: RecordPath, in origin: Address) -> Address
   {
     let memoryAddress = origin.memoryAddress;
     var offset = origin.memoryAddress.offset;
