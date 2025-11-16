@@ -18,7 +18,7 @@ struct StackFrame {
   var parameters: [Address]
 
   /// The results of instructions.
-  var registers: [InstructionID: InstructionResult] = [:]
+  var registers: [InstructionID: Any] = [:]
 
   /// The program counter to which execution should return when
   /// popping this frame.
@@ -34,37 +34,6 @@ struct Address {
 
   /// Type layout of object.
   public let memoryLayout: TypeLayout
-
-}
-
-/// The value produced by executing an instruction.
-enum InstructionResult {
-
-  /// If executing instruction produces an address.
-  case address(Address)
-
-  /// If executing instruction produces a builtin value.
-  case builtIn(UntypedBuiltinValue)
-
-  /// Address, if present.
-  public var address: Address? {
-    switch self {
-    case .address(let x):
-      return x
-    default:
-      return nil
-    }
-  }
-
-  /// Builtin value, if present.
-  public var builtIn: UntypedBuiltinValue? {
-    switch self {
-    case .builtIn(let x):
-      return x
-    default:
-      return nil
-    }
-  }
 
 }
 
@@ -143,7 +112,7 @@ public struct Interpreter {
     typeLayout = .init(typesIn: p.base, for: UnrealABI())
   }
 
-  private var currentRegister: InstructionResult? {
+  private var currentRegister: Any? {
     get { topOfStack.registers[programCounter.instructionInModule]! }
     set { topOfStack.registers[programCounter.instructionInModule] = newValue }
   }
@@ -153,7 +122,7 @@ public struct Interpreter {
     print("\(currentInstruction.site.gnuStandardText): \(currentInstruction)")
     switch currentInstruction {
     case let x as Access:
-      currentRegister = .address(address(denotedBy: x.source)!)
+      currentRegister = address(denotedBy: x.source)!
     case let x as AddressToPointer:
       _ = x
     case let x as AdvancedByBytes:
@@ -162,7 +131,7 @@ public struct Interpreter {
       _ = x
 
     case let x as AllocStack:
-      currentRegister = .address(allocate(typeLayout[x.allocatedType]))
+      currentRegister = allocate(typeLayout[x.allocatedType])
 
     case let x as Branch:
       jumpTo(x.target)
@@ -195,7 +164,7 @@ public struct Interpreter {
     case let x as ConstantString:
       _ = x
     case let x as DeallocStack:
-      try deallocate(topOfStack.registers[x.location.instruction!]!.address!)
+      try deallocate(topOfStack.registers[x.location.instruction!]! as! Address)
     case is EndAccess:
       // No effect on program state
       break
@@ -207,7 +176,7 @@ public struct Interpreter {
       _ = x
     case let x as Load:
       let address = address(denotedBy: x.source)!;
-      currentRegister = .builtIn(builtIn(at: address)!)
+      currentRegister = builtIn(at: address)!
     case is MarkState:
       // No effect on program state
       break
@@ -239,7 +208,7 @@ public struct Interpreter {
       store(builtIn(denotedBy: x.object)!, at: address(denotedBy: x.target)!)
     case let x as SubfieldView:
       let parent = address(denotedBy: x.recordAddress)!;
-      currentRegister = .address(address(of: x.subfield, at: parent))
+      currentRegister = address(of: x.subfield, at: parent)
     case let x as Switch:
       _ = x
     case let x as UnionDiscriminator:
@@ -328,7 +297,7 @@ public struct Interpreter {
   func address(denotedBy operand: Operand) -> Address? {
     switch operand {
     case .register(let instruction):
-      return topOfStack.registers[instruction]?.address
+      return topOfStack.registers[instruction] as? Address
     case .parameter(_, let i):
       return topOfStack.parameters[i]
     case .constant:
@@ -340,7 +309,7 @@ public struct Interpreter {
   func builtIn(denotedBy operand: Operand) -> UntypedBuiltinValue? {
     switch operand {
     case .register(let instruction):
-      return topOfStack.registers[instruction]?.builtIn
+      return topOfStack.registers[instruction] as? UntypedBuiltinValue
     case .parameter:
       return nil;
     case .constant(let c):
