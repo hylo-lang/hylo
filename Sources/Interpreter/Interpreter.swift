@@ -24,6 +24,10 @@ struct StackFrame {
   /// popping this frame.
   var returnAddress: CodePointer
 
+  /// Memory addresses of local variables currently allocated on stack frame
+  /// such that last element points to latest allocated local variable.
+  var localVariables: [Memory.Address] = []
+
 }
 
 /// Address to object with type layout.
@@ -69,7 +73,7 @@ public struct Interpreter {
   /// The stack- and dynamically-allocated memory in use by the program.
   private var memory = Memory()
 
-  /// function parameters and return addresses.
+  /// Local variables, function parameters and return addresses.
   private var stackFrames: [StackFrame] = []
 
   /// Identity of the next instruction to be executed.
@@ -131,7 +135,9 @@ public struct Interpreter {
       _ = x
 
     case let x as AllocStack:
-      currentRegister = allocate(typeLayout[x.allocatedType])
+      let allocatedAddress = allocate(typeLayout[x.allocatedType])
+      topOfStack.localVariables.append(allocatedAddress.memoryAddress)
+      currentRegister = allocatedAddress
 
     case let x as Branch:
       jumpTo(x.target)
@@ -165,6 +171,7 @@ public struct Interpreter {
       _ = x
     case let x as DeallocStack:
       try deallocate(topOfStack.registers[x.location.instruction!]! as! Address)
+      topOfStack.localVariables.removeLast()
     case is EndAccess:
       // No effect on program state
       break
