@@ -313,16 +313,16 @@ public struct Interpreter {
   }
 
   /// Returns untyped builtin value denoted by operand, if any.
-  func builtIn(denotedBy operand: Operand) -> UntypedBuiltinValue? {
+  func builtIn(denotedBy operand: Operand) -> BuiltinValue? {
     switch operand {
     case .register(let instruction):
-      return topOfStack.registers[instruction] as? UntypedBuiltinValue
+      return topOfStack.registers[instruction] as? BuiltinValue
     case .parameter:
       return nil;
     case .constant(let c):
       switch c {
       case let x as IntegerConstant:
-        return UntypedBuiltinValue(withIntegerConstant: x)
+        return BuiltinValue(withIntegerConstant: x)
       default:
         fatalError("unimplemented constant parsing!!!")
       }
@@ -347,24 +347,21 @@ public struct Interpreter {
 
   /// Returns builtin object (if any) stored at `a`.
   mutating func builtIn(at a: Address)
-    -> UntypedBuiltinValue?
+    -> BuiltinValue?
   {
-    if !a.memoryLayout.type.isBuiltin {
-      return nil
-    }
     let allocation = a.memoryAddress.allocation
     let offset = a.memoryAddress.offset
-    let n = a.memoryLayout.size
 
     return
-      switch n
+      switch a.memoryLayout.type.base
     {
-    case 1: .i8(memory[allocation][offset, type: UInt8.self])
-    case 2: .i16(memory[allocation][offset, type: UInt16.self])
-    case 4: .i32(memory[allocation][offset, type: UInt32.self])
-    case 8: .i64(memory[allocation][offset, type: UInt64.self])
-    case 16: .i128(memory[allocation][offset, type: UInt128.self])
-    default: fatalError("Unknown builtin size \(n)")
+    case BuiltinType.i(1): .i1(memory[allocation][offset, type: UInt8.self] != 0)
+    case BuiltinType.i(8): .i8(memory[allocation][offset, type: UInt8.self])
+    case BuiltinType.i(16): .i16(memory[allocation][offset, type: UInt16.self])
+    case BuiltinType.i(32): .i32(memory[allocation][offset, type: UInt32.self])
+    case BuiltinType.i(64): .i64(memory[allocation][offset, type: UInt64.self])
+    case BuiltinType.i(128): .i128(memory[allocation][offset, type: UInt128.self])
+    default: nil
     }
   }
 
@@ -401,21 +398,16 @@ public struct Interpreter {
   }
 
   /// Store builtin value `v` at address `a`.
-  mutating func store(_ v: UntypedBuiltinValue, at a: Address) {
+  mutating func store(_ v: BuiltinValue, at a: Address) {
     let alloc = a.memoryAddress.allocation
     let offset = a.memoryAddress.offset
-    if let v = v.i8 {
-      memory[alloc][offset, type: UInt8.self] = v
-    } else if let v = v.i16 {
-      memory[alloc][offset, type: UInt16.self] = v
-    } else if let v = v.i32 {
-      memory[alloc][offset, type: UInt32.self] = v
-    } else if let v = v.i64 {
-      memory[alloc][offset, type: UInt64.self] = v
-    } else if let v = v.i128 {
-      memory[alloc][offset, type: UInt128.self] = v
-    } else {
-      fatalError("Unknown builtin value!")
+    switch v {
+    case .i1(let n): memory[alloc][offset, type: UInt8.self] = n ? 1 : 0
+    case .i8(let n): memory[alloc][offset, type: UInt8.self] = n
+    case .i16(let n): memory[alloc][offset, type: UInt16.self] = n
+    case .i32(let n): memory[alloc][offset, type: UInt32.self] = n
+    case .i64(let n): memory[alloc][offset, type: UInt64.self] = n
+    case .i128(let n): memory[alloc][offset, type: UInt128.self] = n
     }
   }
 

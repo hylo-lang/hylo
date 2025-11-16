@@ -2,7 +2,6 @@ import FrontEnd
 import XCTest
 import TestUtils
 import Interpreter
-import XCTest
 
 final class InterpreterMemoryTests: XCTestCase {
 
@@ -150,5 +149,4 @@ final class InterpreterMemoryTests: XCTestCase {
       try m.decompose(i16, at: p + parts[1].offset)
      */
   }
-
 }
