@@ -126,7 +126,7 @@ public struct Interpreter {
     print("\(currentInstruction.site.gnuStandardText): \(currentInstruction)")
     switch currentInstruction {
     case let x as Access:
-      currentRegister = address(denotedBy: x.source)!
+      currentRegister = toAddress(x.source)!
     case let x as AddressToPointer:
       _ = x
     case let x as AdvancedByBytes:
@@ -160,7 +160,7 @@ public struct Interpreter {
     case let x as CloseUnion:
       _ = x
     case let x as CondBranch:
-      let cond = builtIn(denotedBy: x.condition)!
+      let cond = toBuiltinValue(x.condition)!
       if cond.bool! {
         jumpTo(x.targetIfTrue)
       } else {
@@ -182,16 +182,16 @@ public struct Interpreter {
     case let x as GlobalAddr:
       _ = x
     case let x as Load:
-      let address = address(denotedBy: x.source)!;
+      let address = toAddress(x.source)!;
       currentRegister = builtIn(at: address)!
     case is MarkState:
       // No effect on program state
       break
     case let x as MemoryCopy:
-      let sourceAddress = address(denotedBy: x.source)!
-      let destinationAddress = address(denotedBy: x.target)!
+      let sourceAddress = toAddress(x.source)!
+      let destinationAddress = toAddress(x.target)!
       memory.copy(
-        bytes: sourceAddress.memoryLayout.size, from: sourceAddress.memoryAddress,
+        byteCount: sourceAddress.memoryLayout.size, from: sourceAddress.memoryAddress,
         to: destinationAddress.memoryAddress)
     case is Move:
       fatalError("Interpreter: Move instructions have not been removed.")
@@ -212,9 +212,9 @@ public struct Interpreter {
       popStackFrame()
       return
     case let x as Store:
-      store(builtIn(denotedBy: x.object)!, at: address(denotedBy: x.target)!)
+      store(toBuiltinValue(x.object)!, at: toAddress(x.target)!)
     case let x as SubfieldView:
-      let parent = address(denotedBy: x.recordAddress)!;
+      let parent = toAddress(x.recordAddress)!;
       currentRegister = address(of: x.subfield, at: parent)
     case let x as Switch:
       _ = x
@@ -300,8 +300,8 @@ public struct Interpreter {
     try memory.deallocate(a.memoryAddress)
   }
 
-  /// Returns address of object denoted by operand, if any.
-  func address(denotedBy operand: Operand) -> Address? {
+  /// Returns address referenced by `operand`, if any.
+  func toAddress(_ operand: Operand) -> Address? {
     switch operand {
     case .register(let instruction):
       return topOfStack.registers[instruction] as? Address
@@ -312,8 +312,8 @@ public struct Interpreter {
     }
   }
 
-  /// Returns untyped builtin value denoted by operand, if any.
-  func builtIn(denotedBy operand: Operand) -> BuiltinValue? {
+  /// Returns builtin value referenced by `operand`, if any.
+  func toBuiltinValue(_ operand: Operand) -> BuiltinValue? {
     switch operand {
     case .register(let instruction):
       return topOfStack.registers[instruction] as? BuiltinValue
@@ -367,7 +367,7 @@ public struct Interpreter {
 
   /// Returns block parameters from operands in `arg`.
   func blockParams(from arg: Call) -> [Address] {
-    arg.arguments.map { address(denotedBy: $0)! } + [address(denotedBy: arg.output)!]
+    arg.arguments.map { toAddress($0)! } + [toAddress(arg.output)!]
   }
 
   /// Moves the program counter to entry point of `f`.

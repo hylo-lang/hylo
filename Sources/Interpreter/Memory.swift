@@ -280,7 +280,7 @@ public struct Memory {
 
   /// Copies `n` bytes from `source` to `destination`.
   public mutating func copy(
-    bytes n: Int, from source: Memory.Address, to destination: Memory.Address
+    byteCount n: Int, from source: Memory.Address, to destination: Memory.Address
   ) {
     precondition(source.offset + n <= self[source.allocation].size)
     precondition(destination.offset + n <= self[destination.allocation].size)
