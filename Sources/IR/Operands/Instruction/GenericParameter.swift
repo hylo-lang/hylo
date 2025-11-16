@@ -13,7 +13,7 @@ public struct GenericParameter: Instruction {
   public let site: SourceRange
 
   /// Creates an instance with the given properties.
-  fileprivate init(
+  init(
     parameter: GenericParameterDecl.ID,
     result: IR.`Type`,
     site: SourceRange
@@ -33,18 +33,6 @@ extension GenericParameter: CustomStringConvertible {
 
   public var description: String {
     "generic_parameter @\(parameter)"
-  }
-
-}
-
-extension Module {
-
-  /// Creates an `generic_parameter` anchored at `site` that returns the address of the generic
-  /// argument passed to `p`.
-  func makeGenericParameter(
-    passedTo p: GenericParameterDecl.ID, at site: SourceRange
-  ) -> GenericParameter {
-    .init(parameter: p, result: .address(program[p].type), site: site)
   }
 
 }

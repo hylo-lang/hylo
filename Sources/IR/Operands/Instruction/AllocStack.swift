@@ -10,7 +10,8 @@ public struct AllocStack: Instruction {
   public let site: SourceRange
 
   /// Creates an instance with the given properties.
-  fileprivate init(allocatedType: AnyType, site: SourceRange) {
+  init(allocatedType: AnyType, site: SourceRange) {
+    precondition(allocatedType.isCanonical)
     self.allocatedType = allocatedType
     self.site = site
   }
@@ -29,18 +30,6 @@ extension AllocStack: CustomStringConvertible {
 
   public var description: String {
     "alloc_stack \(allocatedType)"
-  }
-
-}
-
-extension Module {
-
-  /// Creates an `alloc_stack` anchored at `site` that allocates storage of type `t`.
-  ///
-  /// - Requires: `t` is canonical.
-  func makeAllocStack(_ t: AnyType, at site: SourceRange) -> AllocStack {
-    precondition(t.isCanonical)
-    return .init(allocatedType: t, site: site)
   }
 
 }

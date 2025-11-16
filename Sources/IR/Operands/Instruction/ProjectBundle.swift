@@ -25,7 +25,7 @@ public struct ProjectBundle: Instruction {
   public let site: SourceRange
 
   /// Creates an instance with the given properties.
-  fileprivate init(
+  init(
     bundle: BundleReference<SubscriptDecl>,
     variants: [AccessEffect: Function.ID],
     parameters: [ParameterType],
@@ -65,36 +65,6 @@ extension ProjectBundle: CustomStringConvertible {
     } else {
       return "project_bundle \(capabilities) \(bundle), \(list: operands)"
     }
-  }
-
-}
-
-extension Module {
-
-  /// Creates a `project_bundle` anchored at `site` that applies one of the variants defined in `m`
-  /// to arguments `a`, canonicalizing types in `scopeOfUse`.
-  mutating func makeProjectBundle(
-    applying m: BundleReference<SubscriptDecl>, to a: [Operand],
-    at site: SourceRange,
-    canonicalizingTypesIn scopeOfUse: AnyScopeID
-  ) -> ProjectBundle {
-    var variants: [AccessEffect: Function.ID] = [:]
-    for v in program[m.bundle].impls {
-      let i = program[v].introducer.value
-      if m.capabilities.contains(i) {
-        variants[program[v].introducer.value] = demandDeclaration(lowering: v)
-      }
-    }
-    precondition(!variants.isEmpty)
-
-    let t = SubscriptType(
-      program.canonicalType(of: m.bundle, specializedBy: m.arguments, in: scopeOfUse))!.pure
-
-    return .init(
-      bundle: m, variants: variants,
-      parameters: t.inputs.lazy.map({ ParameterType($0.type)! }),
-      projection: RemoteType(t.output)!.bareType,
-      operands: a, site: site)
   }
 
 }

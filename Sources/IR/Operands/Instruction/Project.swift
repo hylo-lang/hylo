@@ -24,7 +24,7 @@ public struct Project: RegionEntry {
   public let site: SourceRange
 
   /// Creates an instance with the given properties.
-  fileprivate init(
+  init(
     projection: RemoteType,
     callee: Function.ID,
     specialization: GenericArguments,
@@ -57,29 +57,6 @@ extension Project: CustomStringConvertible {
     } else {
       return "project \(callee), \(list: operands)"
     }
-  }
-
-}
-
-extension Module {
-
-  /// Creates a `project` anchored at `site` that projects a value of type `t` by applying `s`,
-  /// which is a reference to a lowered subscript, on `arguments`.
-  func makeProject(
-    _ t: RemoteType, applying s: FunctionReference, to arguments: [Operand], at site: SourceRange
-  ) -> Project {
-    .init(
-      projection: t, callee: s.function, specialization: s.specialization,
-      operands: arguments, site: site)
-  }
-
-  /// Creates a `project` anchored at `site` that projects a value of type `t` by applying `s`,
-  /// which is a lowered subscript, specialized by `z`, on `arguments`.
-  func makeProject(
-    _ t: RemoteType, applying s: Function.ID, specializedBy z: GenericArguments,
-    to arguments: [Operand], at site: SourceRange
-  ) -> Project {
-    .init(projection: t, callee: s, specialization: z, operands: arguments, site: site)
   }
 
 }

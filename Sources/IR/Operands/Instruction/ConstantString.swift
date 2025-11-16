@@ -13,7 +13,7 @@ public struct ConstantString: Instruction {
   public let site: SourceRange
 
   /// Creates an instance with the given properties.
-  fileprivate init(value: Data, site: SourceRange) {
+  init(value: Data, site: SourceRange) {
     self.value = value
     self.site = site
   }
@@ -34,16 +34,6 @@ extension ConstantString: CustomStringConvertible {
 
   public var description: String {
     "constant_string \(String(data: value, encoding: .utf8)!.debugDescription)"
-  }
-
-}
-
-extension Module {
-
-  /// Creates a `constant_string` anchored at `site` that returns a  string with given `value`,
-  /// encoded in UTF8.
-  func makeConstantString(utf8 value: Data, at site: SourceRange) -> ConstantString {
-    .init(value: value, site: site)
   }
 
 }

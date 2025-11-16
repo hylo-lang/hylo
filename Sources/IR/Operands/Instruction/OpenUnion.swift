@@ -26,7 +26,7 @@ public struct OpenUnion: RegionEntry {
   public let site: SourceRange
 
   /// Creates an instance with the given properties.
-  fileprivate init(
+  init(
     container: Operand, payloadType: AnyType, isUsedForInitialization: Bool, site: SourceRange
   ) {
     self.container = container
@@ -58,29 +58,6 @@ extension OpenUnion: CustomStringConvertible {
     } else {
       return "open_union \(container) as \(payloadType)"
     }
-  }
-
-}
-
-extension Module {
-
-  /// Creates an `open_union` anchored at `site` that projects the address of `container`'s payload
-  /// viewed as an instance of `payload`.
-  ///
-  /// If the bits of the union's discriminator are hidden in its storage, this function removes
-  /// them before projecting the address unless `isUsedForInitialization` is `true`.
-  func makeOpenUnion(
-    _ container: Operand, as payload: AnyType,
-    forInitialization isUsedForInitialization: Bool = false,
-    in f: Function.ID, at site: SourceRange
-  ) -> OpenUnion {
-    precondition(self[f].type(of: container).isAddress)
-    precondition(payload.isCanonical)
-    return .init(
-      container: container,
-      payloadType: payload,
-      isUsedForInitialization: isUsedForInitialization,
-      site: site)
   }
 
 }

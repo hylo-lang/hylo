@@ -17,7 +17,7 @@ public struct WrapExistentialAddr: Instruction {
   public let site: SourceRange
 
   /// Creates an instance with the given properties.
-  fileprivate init(witness: Operand, table: Operand, interface: IR.`Type`, site: SourceRange) {
+  init(witness: Operand, table: Operand, interface: IR.`Type`, site: SourceRange) {
     self.witness = witness
     self.table = table
     self.interface = interface
@@ -47,25 +47,6 @@ extension WrapExistentialAddr: CustomStringConvertible {
 
   public var description: String {
     "wrap_existential_addr \(witness), \(table) as \(interface)"
-  }
-
-}
-
-extension Module {
-
-  /// Creates a `wrap_existential_addr` anchored at `site` that creates an existential container of
-  /// type `interface` wrapping `witness` and `table`.
-  ///
-  /// - Parameters:
-  ///   - witness: The address of the object wrapped in the container.
-  ///   - interface: The type of the container.
-  ///   - table: The witness table of the wrapped value. Must be a pointer to a witness table.
-  func makeWrapExistentialAddr(
-    _ witness: Operand, _ table: Operand, as interface: ExistentialType,
-    in f: Function.ID, at site: SourceRange
-  ) -> WrapExistentialAddr {
-    precondition(self[f].type(of: witness).isAddress)
-    return .init(witness: witness, table: table, interface: .address(interface), site: site)
   }
 
 }

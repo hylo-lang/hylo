@@ -10,7 +10,7 @@ public struct UnionDiscriminator: Instruction {
   public var site: SourceRange
 
   /// Creates an instance with the given properties.
-  fileprivate init(container: Operand, site: SourceRange) {
+  init(container: Operand, site: SourceRange) {
     self.container = container
     self.site = site
   }
@@ -26,19 +26,6 @@ public struct UnionDiscriminator: Instruction {
   public mutating func replaceOperand(at i: Int, with new: Operand) {
     precondition(i == 0)
     container = new
-  }
-
-}
-
-extension Module {
-
-  /// Creates a `union_discriminator` anchored at `site` that returns the discriminator of the
-  /// element stored in `container`.
-  func makeUnionDiscriminator(
-    _ container: Operand, in f: Function.ID, at site: SourceRange
-  ) -> UnionDiscriminator {
-    precondition(self[f].type(of: container).isAddress)
-    return .init(container: container, site: site)
   }
 
 }

@@ -20,7 +20,7 @@ public struct UnionSwitch: Terminator {
   public let site: SourceRange
 
   /// Creates an instance with the given properties.
-  fileprivate init(discriminator: Operand, union: UnionType, targets: Targets, site: SourceRange) {
+  init(discriminator: Operand, union: UnionType, targets: Targets, site: SourceRange) {
     self.discriminator = discriminator
     self.union = union
     self.targets = targets
@@ -59,27 +59,6 @@ extension UnionSwitch: CustomStringConvertible {
       s.write(", \(t) => \(b)")
     }
     return s
-  }
-
-}
-
-extension Module {
-
-  /// Creates a `union_switch` anchored at `site` that switches over `discriminator`, which is the
-  /// discriminator of a container of type `union`, jumping to corresponding block in `target`.
-  ///
-  /// If `union` is generic, `discriminator` should be the result of `union_discriminator` rather
-  /// than a constant.
-  ///
-  /// - Requires: `targets` has a key defined for each of `union`.
-  func makeUnionSwitch(
-    over discriminator: Operand, of union: UnionType, toOneOf targets: UnionSwitch.Targets,
-    in f: Function.ID, at site: SourceRange
-  ) -> UnionSwitch {
-    let t = self[f].type(of: discriminator)
-    precondition(t.isObject && t.ast.isBuiltinInteger)
-    precondition(union.elements.allSatisfy({ (e) in targets[e] != nil }))
-    return .init(discriminator: discriminator, union: union, targets: targets, site: site)
   }
 
 }

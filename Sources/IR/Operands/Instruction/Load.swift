@@ -13,7 +13,7 @@ public struct Load: Instruction {
   public let site: SourceRange
 
   /// Creates an instance with the given properties.
-  fileprivate init(objectType: IR.`Type`, from source: Operand, site: SourceRange) {
+  init(objectType: IR.`Type`, from source: Operand, site: SourceRange) {
     self.objectType = objectType
     self.source = source
     self.site = site
@@ -30,20 +30,6 @@ public struct Load: Instruction {
   public mutating func replaceOperand(at i: Int, with new: Operand) {
     precondition(i == 0)
     source = new
-  }
-
-}
-
-extension Module {
-
-  /// Creates a `load` anchored at `site` that loads the object at `source`.
-  ///
-  /// - Parameters:
-  ///   - source: The location from which the object is loaded. Must be the result of an `access`
-  ///     instruction requesting a `sink` capability.
-  func makeLoad(_ source: Operand, in f: Function.ID, at site: SourceRange) -> Load {
-    precondition(self[source, in: f] is Access)
-    return .init(objectType: .object(self[f].type(of: source).ast), from: source, site: site)
   }
 
 }

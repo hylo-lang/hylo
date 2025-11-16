@@ -3382,7 +3382,7 @@ struct Emitter: Sendable {
     // having set up a record of frames and allocations.  When we recompute
     // allocations as on-demand, that will become a non-issue.
     if frames.isEmpty { frames.push() }
-    let s = insert(module.makeAllocStack(canonical(t), at: currentSource))!
+    let s = insert(AllocStack(allocatedType: canonical(t), site: currentSource))!
     frames.top.allocs.append((source: s, mayHoldCaptures: false))
     return s
   }
@@ -3406,7 +3406,8 @@ struct Emitter: Sendable {
     if a.mayHoldCaptures {
       _release_capture(a.source)
     }
-    insert(module.makeDeallocStack(for: source, in: insertionFunction!, at: currentSource))
+    precondition(source.instruction.map({ module[$0, in: insertionFunction!] is AllocStack }) ?? false)
+    insert(DeallocStack(location: source, site: currentSource))
   }
 
   /// Appends the IR for computing the address of the given `subfield` of the record at
@@ -3416,14 +3417,21 @@ struct Emitter: Sendable {
   ) -> Operand {
     if subfield.isEmpty { return recordAddress }
 
+    var elementPath: RecordPath
+    var address: Operand
     if let r = module[recordAddress, in: insertionFunction!] as? SubfieldView {
-      let p = r.subfield + subfield
-      let s = module.makeSubfieldView(of: r.recordAddress, subfield: p, in: insertionFunction!, at: currentSource)
-      return insert(s)!
+      elementPath = r.subfield + subfield
+      address = r.recordAddress
     } else {
-      let s = module.makeSubfieldView(of: recordAddress, subfield: subfield, in: insertionFunction!, at: currentSource)
-      return insert(s)!
+      elementPath = subfield
+      address = recordAddress
     }
+    let ir = module[insertionFunction!]
+    precondition(ir.type(of: address).isAddress)
+    let l = AbstractTypeLayout(of: ir.type(of: address).ast, definedIn: program)
+    let t = l[elementPath].type
+    let s = SubfieldView(base: address, subfield: elementPath, subfieldType: .address(t), site: currentSource)
+    return insert(s)!
   }
 
   /// Emits the IR for copying the union discriminator of `container`, which is the address of
@@ -3494,7 +3502,12 @@ struct Emitter: Sendable {
   mutating func _cond_branch(if condition: Operand, then targetIfTrue: Block.ID, else targetIfFalse: Block.ID) {
     checkEntryStack(targetIfTrue)
     checkEntryStack(targetIfFalse)
-    insert(module.makeCondBranch(if: condition, then: targetIfTrue, else: targetIfFalse, in: insertionFunction!, at: currentSource))
+    precondition(module[insertionFunction!].type(of: condition) == .object(BuiltinType.i(1)))
+    insert(CondBranch(
+      condition: condition,
+      targetIfTrue: targetIfTrue,
+      targetIfFalse: targetIfFalse,
+      site: currentSource))
   }
 
 }
@@ -3715,53 +3728,71 @@ extension Emitter {
 extension Emitter {
 
   fileprivate mutating func _mark_state(_ x: InitializationState, _ op: Operand?) {
-    insert(module.makeMarkState(op!, initialized: x == .initialized, in: insertionFunction!, at: currentSource))
+    precondition(module[insertionFunction!].type(of: op!).isAddress)
+    insert(MarkState(storage: op!, initialized: x == .initialized, site: currentSource))
   }
 
   fileprivate mutating func _call_ffi<T: TypeProtocol>(_ foreignName: String, on arguments: [Operand], returning returnType: T) -> Operand {
-    insert(
-      module.makeCallFFI(
-        returning: .object(returnType), applying: foreignName, to: arguments, in: insertionFunction!, at: currentSource))!
+    let ir = module[insertionFunction!]
+    precondition(arguments.allSatisfy({ ir[register: $0] is Load }))
+    return insert(
+      CallFFI(
+        returnType: .object(returnType), callee: foreignName, arguments: arguments, site: currentSource))!
   }
 
   fileprivate mutating func _unreachable() {
-    insert(module.makeUnreachable(at: currentSource))
+    insert(Unreachable(site: currentSource))
   }
 
   fileprivate mutating func _return() {
-    insert(module.makeReturn(at: currentSource))
+    insert(Return(site: currentSource))
   }
 
-  fileprivate mutating func _access(
+  mutating func _access(
     _ capabilities: AccessEffectSet, from s: Operand, correspondingTo binding: VarDecl.ID? = nil
   ) -> Operand {
-    insert(module.makeAccess(capabilities, from: s, correspondingTo: binding, in: insertionFunction!, at: currentSource))!
+    insert(Access(
+      capabilities: capabilities,
+      accessedType: module[insertionFunction!].type(of: s),
+      source: s,
+      binding: binding,
+      site: currentSource))!
   }
 
   fileprivate mutating func _end_access(_ x: Operand) {
-    insert(module.makeEndAccess(x, in: insertionFunction!, at: currentSource))
+    let ir = module[insertionFunction!]
+    precondition(x.instruction.map({ ir[$0] is Access }) ?? false)
+    insert(EndAccess(start: x, site: currentSource))
   }
 
   fileprivate mutating func _yield(_ c: AccessEffect, _ a: Operand) {
-    _ = insert(module.makeYield(c, a, in: insertionFunction!, at: currentSource))
+    precondition(module[insertionFunction!].type(of: a).isAddress)
+    _ = insert(Yield(capability: c, projection: a, site: currentSource))
   }
 
   fileprivate mutating func _branch(to x: Block.ID) {
     checkEntryStack(x)
-    _ = insert(module.makeBranch(to: x, at: currentSource))
+    _ = insert(Branch(target: x, site: currentSource))
   }
 
   fileprivate mutating func _open_union(
     _ container: Operand, as payload: AnyType,
     _ option: OpenUnionOption = .notForInitialization
   ) -> Operand {
-    insert(
-      module.makeOpenUnion(
-        container, as: payload, forInitialization: option == .forInitialization, in: insertionFunction!, at: currentSource))!
+    precondition(module[insertionFunction!].type(of: container).isAddress)
+    precondition(payload.isCanonical)
+    return insert(
+      OpenUnion(
+        container: container,
+        payloadType: payload,
+        isUsedForInitialization: option == .forInitialization,
+        site: currentSource))!
   }
 
   fileprivate mutating func _close_union(_ x: Operand  ) {
-    insert(module.makeCloseUnion(x, in: insertionFunction!, at: currentSource))
+    let ir = module[insertionFunction!]
+    precondition(x.instruction.map({ ir[$0] is OpenUnion }) ?? false)
+    insert(CloseUnion(start: x, site: currentSource))
   }
 
   fileprivate mutating func _project(
@@ -3769,62 +3800,103 @@ extension Emitter {
     to arguments: [Operand]
   ) -> Operand {
     insert(
-      module.makeProject(t, applying: s, specializedBy: z, to: arguments, at: currentSource))!
+      Project(projection: t, callee: s, specialization: z, operands: arguments, site: currentSource))!
   }
 
   fileprivate mutating func _store(_ source: Operand, _ target: Operand) {
-    insert(module.makeStore(source, at: target, in: insertionFunction!, at: currentSource))
+    let ir = module[insertionFunction!]
+    precondition(ir.type(of: source).isObject)
+    precondition(ir.type(of: target).isAddress)
+    insert(Store(object: source, at: target, site: currentSource))
   }
 
   /// Inserts a `load` instruction reading from `source`.
   fileprivate mutating func _load(_ source: Operand) -> Operand {
-    insert(module.makeLoad(source, in: insertionFunction!, at: currentSource))!
+    let ir = module[insertionFunction!]
+    precondition(ir[register: source] is Access)
+    return insert(Load(objectType: .object(ir.type(of: source).ast), from: source, site: currentSource))!
   }
 
 
   fileprivate mutating func _address_to_pointer(_ source: Operand) -> Operand {
-    insert(module.makeAddressToPointer(source, at: currentSource))!
+    insert(AddressToPointer(source: source, site: currentSource))!
   }
 
   fileprivate mutating func _call_builtin(
     _ f: BuiltinFunction, _ arguments: [Operand]
   ) -> Operand {
-    insert(module.makeCallBuiltin(applying: f, to: arguments, in: insertionFunction!, at: currentSource))!
+    let ir = module[insertionFunction!]
+    precondition(
+      arguments.allSatisfy { (o) in
+        let t = ir.type(of: o)
+        return t.isObject && (t.ast.base is BuiltinType)
+      })
+    return insert(CallBuiltinFunction(applying: f, to: arguments, site: currentSource))!
   }
 
   fileprivate mutating func _project_bundle(
     applying b: BundleReference<SubscriptDecl>, to arguments: [Operand]
   ) -> Operand {
-    insert(
-      module.makeProjectBundle(
-        applying: b, to: arguments, at: currentSource,
-        canonicalizingTypesIn: insertionScope!))!
+    var variants: [AccessEffect: Function.ID] = [:]
+    for v in program[b.bundle].impls {
+      let i = program[v].introducer.value
+      if b.capabilities.contains(i) {
+        variants[program[v].introducer.value] = module.demandDeclaration(lowering: v)
+      }
+    }
+    precondition(!variants.isEmpty)
+
+    let t = SubscriptType(
+      program.canonicalType(of: b.bundle, specializedBy: b.arguments, in: insertionScope!))!.pure
+
+    return insert(ProjectBundle(
+      bundle: b, variants: variants,
+      parameters: t.inputs.lazy.map({ ParameterType($0.type)! }),
+      projection: RemoteType(t.output)!.bareType,
+      operands: arguments, site: currentSource))!
   }
 
   fileprivate mutating func _open_capture(_ s: Operand) -> Operand {
-    insert(module.makeOpenCapture(s, in: insertionFunction!, at: currentSource))!
+    let t = RemoteType(module[insertionFunction!].type(of: s).ast) ?? preconditionFailure()
+    return insert(OpenCapture(result: .address(t.bareType), source: s, site: currentSource))!
   }
 
   fileprivate mutating func _release_capture(_ source: Operand) {
-    insert(module.makeReleaseCapture(source, in: insertionFunction!, at: currentSource))
+    let ir = module[insertionFunction!]
+    precondition(source.instruction.map({ ir[$0] is AllocStack }) ?? false)
+    insert(ReleaseCaptures(container: source, site: currentSource))
   }
 
   fileprivate mutating func _advanced(_ source: Operand, byStrides n: Int) -> Operand {
-    insert(module.makeAdvanced(source, byStrides: n, in: insertionFunction!, at: currentSource))!
+    let s = module[insertionFunction!].type(of: source)
+    if !s.isAddress {
+      preconditionFailure("source must be the address of a buffer")
+    }
+    let sourceType = BufferType(s.ast)!
+
+    return insert(AdvancedByStrides(source: source, offset: n, result: .address(sourceType.element), site: currentSource))!
   }
 
   fileprivate mutating func _constant_string(utf8 value: Data) -> Operand {
-    insert(module.makeConstantString(utf8: value, at: currentSource))!
+    insert(ConstantString(value: value, site: currentSource))!
   }
 
   fileprivate mutating func _capture(_ source: Operand, in target: Operand) {
-    insert(module.makeCapture(source, in: target, in: insertionFunction!, at: currentSource))
+    let ir = module[insertionFunction!]
+    precondition(ir.type(of: source).isAddress)
+    precondition(ir.type(of: target).isAddress)
+    insert(CaptureIn(source: source, target: target, site: currentSource))
   }
 
   fileprivate mutating func _call(
     _ callee: Operand, _ arguments: [Operand], to output: Operand
   ) {
-    insert(module.makeCall(applying: callee, to: arguments, writingResultTo: output, in: insertionFunction!, at: currentSource))
+    let ir = module[insertionFunction!]
+    let t = ArrowType(ir.type(of: callee).ast)!.strippingEnvironment
+    precondition(t.inputs.count == arguments.count)
+    precondition(arguments.allSatisfy({ ir[register: $0] is Access }))
+    precondition(ir.isBorrowSet(output))
+    insert(Call(callee: callee, output: output, arguments: arguments, site: currentSource))
   }
 
   fileprivate mutating func _call_bundle(
@@ -3832,43 +3904,72 @@ extension Emitter {
     to o: Operand,
     scopeOfUse: AnyScopeID
   ) {
-    insert(module.makeCallBundle(
-      applying: m, to: a, writingResultTo: o, in: insertionFunction!, at: currentSource,
-      canonicalizingTypesIn: scopeOfUse))
+    var variants: [AccessEffect: Function.ID] = [:]
+    for v in program[m.bundle].impls {
+      let i = program[v].introducer.value
+      if m.capabilities.contains(i) {
+        variants[program[v].introducer.value] = module.demandDeclaration(lowering: v)
+      }
+    }
+
+    precondition(variants.count > 1)
+
+    let ir = module[insertionFunction!]
+    let t = MethodType(
+      program.canonicalType(of: m.bundle, specializedBy: m.arguments, in: scopeOfUse))!
+    precondition((t.inputs.count + 1) == a.count)
+    precondition(a.allSatisfy({ ir[register: $0] is Access }))
+    precondition(ir.isBorrowSet(o))
+
+    insert(CallBundle(
+      bundle: m, bundleType: t, variants: variants, output: o, arguments: a, site: currentSource))
   }
 
   fileprivate mutating func _wrap_existential_addr(
     _ witness: Operand, _ table: Operand, as interface: ExistentialType
   ) -> Operand {
-    insert(module.makeWrapExistentialAddr(witness, table, as: interface, in: insertionFunction!, at: currentSource))!
+    precondition(module[insertionFunction!].type(of: witness).isAddress)
+    return insert(WrapExistentialAddr(witness: witness, table: table, interface: .address(interface), site: currentSource))!
   }
 
   fileprivate mutating func _pointer_to_address(_ x: Operand, as t: RemoteType) -> Operand {
-    insert(module.makePointerToAddress(x, to: t, at: currentSource))!
+    precondition(t.access != .yielded)
+    return insert(PointerToAddress(source: x, target: t, site: currentSource))!
   }
 
   fileprivate mutating func _generic_parameter(at x: GenericParameterDecl.ID) -> Operand {
-    insert(module.makeGenericParameter(passedTo: x, at: currentSource))!
+    insert(GenericParameter(parameter: x, result: .address(program[x].type), site: currentSource))!
   }
 
   fileprivate mutating func _global_addr(at x: BindingDecl.ID) -> Operand {
-    insert(module.makeGlobalAddr(of: x, at: currentSource))!
+    let t = program.canonical(program[x].type, in: program[x].scope)
+    return insert(GlobalAddr(binding: x, valueType: t, site: currentSource))!
   }
 
   fileprivate mutating func _memory_copy(_ source: Operand, _ target: Operand) {
-    insert(module.makeMemoryCopy(source, target, in: insertionFunction!, at: currentSource))
+    let ir = module[insertionFunction!]
+    let s = ir.type(of: source)
+    precondition(s.isAddress && (s == ir.type(of: target)))
+    insert(MemoryCopy(source: source, target: target, site: currentSource))
   }
 
   fileprivate mutating func _move(_ source: Operand, _ target: Operand, via movability: FrontEnd.Conformance) {
-    insert(module.makeMove(source, to: target, usingConformance: movability, in: insertionFunction!, at: currentSource))
+    let ir = module[insertionFunction!]
+    precondition(ir.type(of: source).isAddress)
+    precondition(ir.type(of: target).isAddress)
+    insert(Move(object: source, target: target, movable: movability, site: currentSource))
   }
 
   fileprivate mutating func _union_discriminator(_ x: Operand) -> Operand {
-    insert(module.makeUnionDiscriminator(x, in: insertionFunction!, at: currentSource))!
+    precondition(module[insertionFunction!].type(of: x).isAddress)
+    return insert(UnionDiscriminator(container: x, site: currentSource))!
   }
 
   fileprivate mutating func _union_switch(case discriminator: Operand, of u: UnionType, _ targets: UnionSwitch.Targets) {
-    insert(module.makeUnionSwitch(over: discriminator, of: u, toOneOf: targets, in: insertionFunction!, at: currentSource))
+    let t = module[insertionFunction!].type(of: discriminator)
+    precondition(t.isObject && t.ast.isBuiltinInteger)
+    precondition(u.elements.allSatisfy({ (e) in targets[e] != nil }))
+    insert(UnionSwitch(discriminator: discriminator, union: u, targets: targets, site: currentSource))
   }
 
 }
