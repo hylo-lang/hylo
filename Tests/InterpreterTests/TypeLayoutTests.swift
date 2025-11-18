@@ -13,6 +13,11 @@ final class TypeLayoutTests: XCTestCase {
 
   func testBuiltinIntegers() throws {
     var c = TypeLayoutCache(typesIn: emptyProgram, for: UnrealABI())
+    let i1 = c[^BuiltinType.i(1)]
+    XCTAssertEqual(i1.size, 1)
+    XCTAssertEqual(i1.alignment, 1)
+    XCTAssert(i1.parts.isEmpty)
+
     let i8 = c[^BuiltinType.i(8)]
     XCTAssertEqual(i8.size, 1)
     XCTAssertEqual(i8.alignment, 1)

@@ -20,9 +20,10 @@ public struct UnrealABI: TargetABI {
     precondition(
       bitWidth > 0 && bitWidth.nonzeroBitCount == 1,
       "bit width \(bitWidth) is not a power of 2.")
+    let sizeInBytes = (bitWidth + 7) / 8
     return .init(
-      alignment: min(bitWidth / 8, maxAlignment),
-      size: bitWidth / 8)
+      alignment: min(sizeInBytes, maxAlignment),
+      size: sizeInBytes)
   }
 
   public func layout(_ t: BuiltinType) -> TypeLayout.Bytes {
