@@ -125,14 +125,14 @@ public struct Memory {
     }
 
     mutating func withUnsafeMutablePointer<T, R>(to _: T.Type, at a: Offset, _ body: (UnsafeMutablePointer<T>)->R) -> R {
-      precondition(a + MemoryLayout<T>.size < size)
+      precondition(a + MemoryLayout<T>.size <= size)
       return storage.withUnsafeMutableBytes { p in
         body((p.baseAddress! + baseOffset + a).assumingMemoryBound(to: T.self))
       }
     }
 
     func withUnsafePointer<T, R>(to _: T.Type, at a: Offset, _ body: (UnsafePointer<T>)->R) -> R {
-      precondition(a + MemoryLayout<T>.size < size)
+      precondition(a + MemoryLayout<T>.size <= size)
       return storage.withUnsafeBytes { p in
         body((p.baseAddress! + baseOffset + a).assumingMemoryBound(to: T.self))
       }

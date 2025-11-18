@@ -34,4 +34,11 @@ final class InterpreterMemoryInternalTests: XCTestCase {
     }
   }
 
+  func test_canAccessUnsafePointerToAllocatedBytes() throws {
+    var memory = Memory()
+    let allocationAddress = memory.allocate(1, bytesWithAlignment: 1)
+
+    memory.allocation[allocationAddress.allocation]!.withUnsafePointer(to: UInt8.self, at: 0) { p in
+    }
+  }
 }
