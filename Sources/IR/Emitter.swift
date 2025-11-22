@@ -3839,6 +3839,11 @@ extension Emitter {
   fileprivate mutating func _project_bundle(
     applying b: BundleReference<SubscriptDecl>, to arguments: [Operand]
   ) -> Operand {
+    insert(makeProjectBundle(applying: b, to: arguments))!
+  }
+
+  /// Returns a `ProjectBundle` instruction for projecting `b` applied to `arguments`.
+  private mutating func makeProjectBundle(applying b: BundleReference<SubscriptDecl>, to arguments: [Operand]) -> ProjectBundle {
     var variants: [AccessEffect: Function.ID] = [:]
     for v in program[b.bundle].impls {
       let i = program[v].introducer.value
@@ -3851,11 +3856,11 @@ extension Emitter {
     let t = SubscriptType(
       program.canonicalType(of: b.bundle, specializedBy: b.arguments, in: insertionScope!))!.pure
 
-    return insert(ProjectBundle(
+    return .init(
       bundle: b, variants: variants,
       parameters: t.inputs.lazy.map({ ParameterType($0.type)! }),
       projection: RemoteType(t.output)!.bareType,
-      operands: arguments, site: currentSource))!
+      operands: arguments, site: currentSource)
   }
 
   fileprivate mutating func _open_capture(_ s: Operand) -> Operand {
