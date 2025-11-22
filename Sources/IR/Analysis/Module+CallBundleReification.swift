@@ -17,9 +17,11 @@ extension Module {
     let k = s.capabilities.weakest!
 
     var arguments = Array(s.arguments)
+    let t = self[f].type(of: arguments[0])
+    precondition(t.isAddress)
     let r = Access(
       capabilities: [k],
-      accessedType: self[f].type(of: arguments[0]),
+      accessedType: t,
       source: arguments[0],
       site: s.site)
     arguments[0] = .register(self[f].insert(r, at: .before(i)))

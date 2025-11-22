@@ -148,9 +148,11 @@ extension Module {
     // Generate the proper instructions to prepare the projection's arguments.
     var arguments = s.operands
     for a in arguments.indices where s.parameters[a].access == .yielded {
+      let t = self[f].type(of: arguments[a])
+      precondition(t.isAddress)
       let b = Access(
         capabilities: [k],
-        accessedType: self[f].type(of: arguments[a]),
+        accessedType: t,
         source: arguments[a],
         site: s.site)
       arguments[a] = .register(self[f].insert(b, at: .before(i)))

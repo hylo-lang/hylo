@@ -62,6 +62,10 @@ extension IR.Program {
 
     let g = monomorphize(callee, usedIn: modules[m]![f].scope(containing: i))
     let r = FunctionReference(to: g, in: modules[m]!)
+    let t = ArrowType(r.type.ast)!.strippingEnvironment
+    precondition(t.inputs.count == s.arguments.count)
+    precondition(s.arguments.allSatisfy({ modules[m]![f][register: $0] is Access }))
+    precondition(modules[m]![f].isBorrowSet(s.output))
     let new = Call(
       callee: .constant(r), output: s.output, arguments: Array(s.arguments), site: s.site)
     modules[m]![f].replace(i, with: new)
@@ -181,6 +185,7 @@ extension IR.Program {
       let s = modules[source]![i, in: f] as! Return
       let j = modify(&modules[target]!) { (m) in
         for i in rewrittenGenericValue.values.reversed() {
+          precondition(m[i, in: result] is AllocStack)
           m[result].insert(DeallocStack(location: .register(i), site: s.site), at: .end(of: b))
         }
         return m[result].insert(Return(site: s.site), at: .end(of: b))
