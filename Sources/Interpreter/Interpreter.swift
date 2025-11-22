@@ -13,6 +13,17 @@ struct CodePointer {
 /// The value produced by executing an instruction.
 typealias InstructionResult = Any
 
+/// Address to allocated object with type layout.
+struct Address {
+
+  /// Address of object in memory.
+  public let memoryAddress: Memory.Address
+
+  /// Type layout of object.
+  public let memoryLayout: TypeLayout
+
+}
+
 /// The local variables, parameters, and return address for a function
 /// call.
 struct StackFrame {
@@ -24,7 +35,7 @@ struct StackFrame {
   var returnAddress: CodePointer
 
   /// The allocations in this stack frame.
-  var allocations: [Memory.Address] = []
+  var allocations: [Address] = []
 }
 
 extension UnsafeRawPointer {
@@ -122,7 +133,9 @@ public struct Interpreter {
       _ = x
 
     case let x as AllocStack:
-      _ = x
+      let allocationAddress = allocate(typeLayout[x.allocatedType])
+      topOfStack.allocations.append(allocationAddress)
+      currentRegister = allocationAddress
 
     case let x as Branch:
       _ = x
@@ -145,7 +158,8 @@ public struct Interpreter {
     case let x as ConstantString:
       currentRegister = x.value
     case let x as DeallocStack:
-      _ = x
+      try deallocate(topOfStack.registers[x.location.instruction!]! as! Address)
+      topOfStack.allocations.removeLast()
     case is EndAccess:
       // No effect on program state
       break
@@ -241,6 +255,17 @@ public struct Interpreter {
     if stackFrames.isEmpty {
       isRunning = false
     }
+  }
+
+  /// Allocates object of type layout `t` on `memory` and returns address of start of object.
+  mutating func allocate(_ t: TypeLayout) -> Address {
+    let addr = memory.allocate(t.size, bytesWithAlignment: t.alignment)
+    return .init(memoryAddress: addr, memoryLayout: t)
+  }
+
+  /// Deallocates object allocated at `a`.
+  mutating func deallocate(_ a: Address) throws {
+    try memory.deallocate(a.memoryAddress)
   }
 
 }
