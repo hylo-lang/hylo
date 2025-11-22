@@ -13,12 +13,6 @@ struct CodePointer {
 /// The local variables, parameters, and return address for a function
 /// call.
 struct StackFrame {
-  /// An identifier by which we can look up a frame in a given
-  /// Stack.
-  // We could just use the frame's index on the stack but we'd like
-  // to be able to rigorously detect invalid addresses.
-  typealias ID = UUID
-
   /// The results of instructions.
   var registers: [InstructionID: Any] = [:]
 
@@ -26,32 +20,8 @@ struct StackFrame {
   /// popping this frame.
   var returnAddress: CodePointer
 
-  /// This frame's unique identifier throughout time.
-  let id = ID()
-
   /// The allocations in this stack frame.
-  var allocations: [StackAllocation] = []
-  var allocationIDToIndex: [UUID: Int] = [:]
-
-  mutating func allocate(_ t: TypeLayout) -> Stack.Address {
-    let a = StackAllocation(t)
-    allocationIDToIndex[a.id] = allocations.count
-    allocations.append(a)
-    return Stack.Address(memoryLayout: t, frame: id, allocation: a.id, byteOffset: 0)
-  }
-
-  mutating func deallocate(_ a: Stack.Address) {
-    precondition(
-      a.allocation == allocations.last!.id,
-      "The latest allocation that has not been deallocated must be deallocated first.")
-    precondition(a.frame == id, "Can't deallocate address from a different frame.")
-    precondition(a.byteOffset == 0, "Can't deallocate the memory of a subobject.")
-    precondition(
-      a.memoryLayout.type == allocations.last!.structure.type,
-      "Deallocating using address of the wrong type; perhaps this is a subobject?")
-    allocations.removeLast()
-  }
-
+  var allocations: [Memory.Address] = []
 }
 
 extension UnsafeRawPointer {
@@ -77,70 +47,6 @@ extension UnsafeRawBufferPointer {
 
 }
 
-struct StackAllocation {
-  typealias ID = UUID
-
-  let storage: [UInt8]
-  let baseOffset: Int
-  let size: Int
-  let structure: TypeLayout
-  let id = ID()
-
-  init(_ structure: TypeLayout) {
-    size = structure.bytes.size
-    storage = .init(repeating: 0, count: max(0, size + structure.bytes.alignment - 1))
-    baseOffset = size == 0 ? 0 : storage.withUnsafeBytes {
-      let b = UInt(bitPattern: $0.baseAddress!)
-      return Int(b.rounded(upToNearestMultipleOf: UInt(structure.bytes.alignment)) - b)
-    }
-    self.structure = structure
-  }
-
-  func withUnsafeBytes<R>(_ body: (UnsafeRawBufferPointer)->R) -> R {
-    storage.withUnsafeBytes { b in body(.init(rebasing: b[baseOffset..<baseOffset+size])) }
-  }
-}
-
-struct Stack {
-  /// Local variables, parameters, and return addresses.
-  public fileprivate(set) var frames: [StackFrame] = []
-
-  /// A mapping from the `id`s of stack frames to their index in the stack.
-  private var frameIDToIndex: [StackFrame.ID: Int] = [:]
-
-  /// Accesses the given frame.
-  subscript(id: StackFrame.ID) -> StackFrame {
-    get { frames[frameIDToIndex[id]!] }
-    _modify {
-      yield &frames[frameIDToIndex[id]!]
-    }
-  }
-
-  /// Adds a new frame on top with the given `returnAddress`.
-  mutating func push(returnAddress: CodePointer) {
-    let f = StackFrame(returnAddress: returnAddress)
-    frameIDToIndex[f.id] = frames.count
-    frames.append(f)
-  }
-
-  /// Removes the top frame and returns its `returnAddress`.
-  mutating func pop() -> CodePointer {
-    let f = frames.last!
-    defer {
-      frameIDToIndex.removeValue(forKey: f.id)
-      frames.removeLast()
-    }
-    return f.returnAddress
-  }
-
-  struct Address {
-    let memoryLayout: TypeLayout
-    let frame: StackFrame.ID
-    let allocation: StackAllocation.ID
-    let byteOffset: Int
-  }
-}
-
 /// A virtual machine that executes Hylo's in-memory IR representation.
 public struct Interpreter {
 
@@ -151,10 +57,7 @@ public struct Interpreter {
   private var memory = Memory()
 
   /// Local variables, parameters, and return addresses.
-  private var stack = Stack()
-
-  /// A mapping from the `id`s of stack frames to their index in the stack.
-  private var frameIDToIndex: [StackFrame.ID: Int] = [:]
+  private var stackFrames: [StackFrame] = []
 
   /// Identity of the next instruction to be executed.
   private var programCounter: CodePointer
@@ -169,9 +72,9 @@ public struct Interpreter {
   private var typeLayout: TypeLayoutCache
 
   private var topOfStack: StackFrame {
-    get { stack.frames.last! }
+    get { stackFrames.last! }
     _modify {
-      yield &stack.frames[stack.frames.count - 1]
+      yield &stackFrames[stackFrames.count - 1]
     }
   }
 
@@ -192,7 +95,7 @@ public struct Interpreter {
 
     // The return address of the bottom-most frame will never be used,
     // so we fill it with something arbitrary.
-    stack.push(returnAddress: programCounter)
+    stackFrames.append(StackFrame(returnAddress: programCounter))
     typeLayout = .init(typesIn: p.base, for: UnrealABI())
   }
 
@@ -216,7 +119,7 @@ public struct Interpreter {
       _ = x
 
     case let x as AllocStack:
-      currentRegister = StackAllocation(typeLayout[x.allocatedType])
+      _ = x
 
     case let x as Branch:
       _ = x
@@ -293,7 +196,7 @@ public struct Interpreter {
     default:
       fatalError("Interpreter: unimplemented instruction")
     }
-    if stack.frames.isEmpty {
+    if stackFrames.isEmpty {
       isRunning = false
     }
     else {
@@ -331,8 +234,8 @@ public struct Interpreter {
   ///
   /// - Precondition: the program is running.
   mutating func popStackFrame() {
-    programCounter = stack.pop()
-    if stack.frames.isEmpty {
+    programCounter = stackFrames.popLast()!.returnAddress
+    if stackFrames.isEmpty {
       isRunning = false
     }
   }
