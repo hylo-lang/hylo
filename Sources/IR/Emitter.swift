@@ -3422,21 +3422,23 @@ struct Emitter: Sendable {
   ) -> Operand {
     if subfield.isEmpty { return recordAddress }
 
-    var elementPath: RecordPath
-    var address: Operand
-    if let r = module[recordAddress, in: insertionFunction!] as? SubfieldView {
-      elementPath = r.subfield + subfield
-      address = r.recordAddress
-    } else {
-      elementPath = subfield
-      address = recordAddress
-    }
+    let (address, elementPath) = rootAndPath(of: recordAddress, appending: subfield)
     let addressType = irType(of: address)
     precondition(addressType.isAddress)
     let l = AbstractTypeLayout(of: addressType.ast, definedIn: program)
     let t = l[elementPath].type
     let s = SubfieldView(base: address, subfield: elementPath, subfieldType: .address(t), site: currentSource)
     return insert(s)!
+  }
+
+  /// Returns the root address and full path of the given `subfield` of the record at
+  /// `recordAddress`.
+  private func rootAndPath(of recordAddress: Operand, appending subfield: RecordPath) -> (root: Operand, path: RecordPath) {
+    if let r = module[recordAddress, in: insertionFunction!] as? SubfieldView {
+      return (root: r.recordAddress, path: r.subfield + subfield)
+    } else {
+      return (root: recordAddress, path: subfield)
+    }
   }
 
   /// Emits the IR for copying the union discriminator of `container`, which is the address of
