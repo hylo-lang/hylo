@@ -10,11 +10,14 @@ struct CodePointer {
 
 }
 
+/// The value produced by executing an instruction.
+typealias InstructionResult = Any
+
 /// The local variables, parameters, and return address for a function
 /// call.
 struct StackFrame {
   /// The results of instructions.
-  var registers: [InstructionID: Any] = [:]
+  var registers: [InstructionID: InstructionResult] = [:]
 
   /// The program counter to which execution should return when
   /// popping this frame.
@@ -99,7 +102,7 @@ public struct Interpreter {
     typeLayout = .init(typesIn: p.base, for: UnrealABI())
   }
 
-  private var currentRegister: Any? {
+  private var currentRegister: InstructionResult? {
     get { topOfStack.registers[programCounter.instructionInModule]! }
     set { topOfStack.registers[programCounter.instructionInModule] = newValue }
   }
