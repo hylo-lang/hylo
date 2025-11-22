@@ -25,4 +25,9 @@ extension Optional {
     map(transform) ?? defaultValue()
   }
 
+  /// Returns the result of `predicate` applied to the wrapped value if `self` is not `nil`;
+  /// returns `false` otherwise.
+  public func satisfies(_ predicate: (Wrapped) throws -> Bool) rethrows -> Bool {
+    if let w = self { try predicate(w) } else { false }
+  }
 }

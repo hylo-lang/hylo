@@ -13,7 +13,7 @@ public struct GlobalAddr: Instruction {
   public let site: SourceRange
 
   /// Creates an instance with the given properties.
-  fileprivate init(
+  init(
     binding: BindingDecl.ID,
     valueType: AnyType,
     site: SourceRange
@@ -37,16 +37,6 @@ extension GlobalAddr: CustomStringConvertible {
 
   public var description: String {
     "global_addr @\(binding)"
-  }
-
-}
-
-extension Module {
-
-  /// Creates an `global_addr` anchored at `site` that returns the address of `binding`.
-  func makeGlobalAddr(of binding: BindingDecl.ID, at anchor: SourceRange) -> GlobalAddr {
-    let t = program.canonical(program[binding].type, in: program[binding].scope)
-    return .init(binding: binding, valueType: t, site: anchor)
   }
 
 }

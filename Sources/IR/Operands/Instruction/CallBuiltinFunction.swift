@@ -13,7 +13,7 @@ public struct CallBuiltinFunction: Instruction {
   public let site: SourceRange
 
   /// An instance with the given properties.
-  fileprivate init(applying s: BuiltinFunction, to operands: [Operand], site: SourceRange) {
+  init(applying s: BuiltinFunction, to operands: [Operand], site: SourceRange) {
     self.callee = s
     self.operands = operands
     self.site = site
@@ -33,27 +33,6 @@ extension CallBuiltinFunction: CustomStringConvertible {
 
   public var description: String {
     operands.isEmpty ? "\(callee)" : "\(callee) \(list: operands)"
-  }
-
-}
-
-extension Module {
-
-  /// Creates an instruction anchored at `site` that applies `f` to `operands`.
-  ///
-  /// - Parameters:
-  ///   - f: A built-in function.
-  ///   - operands: A collection of built-in objects.
-  func makeCallBuiltin(
-    applying s: BuiltinFunction, to operands: [Operand], in f: Function.ID, at site: SourceRange
-  ) -> CallBuiltinFunction {
-    precondition(
-      operands.allSatisfy { (o) in
-        let t = self[f].type(of: o)
-        return t.isObject && (t.ast.base is BuiltinType)
-      })
-
-    return .init(applying: s, to: operands, site: site)
   }
 
 }

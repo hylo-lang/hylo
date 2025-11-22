@@ -13,7 +13,7 @@ public struct Yield: Instruction {
   public let site: SourceRange
 
   /// Creates an instance with the given properties.
-  fileprivate init(capability: AccessEffect, projection: Operand, site: SourceRange) {
+  init(capability: AccessEffect, projection: Operand, site: SourceRange) {
     self.capability = capability
     self.projection = projection
     self.site = site
@@ -32,16 +32,6 @@ public struct Yield: Instruction {
 
   func replaceSuccessor(_ old: Block.ID, _ new: Block.ID) -> Bool {
     false
-  }
-
-}
-
-extension Module {
-
-  /// Creates a `yield` anchored at `site` that projects `a` with capability `c`.
-  func makeYield(_ c: AccessEffect, _ a: Operand, in f: Function.ID, at site: SourceRange) -> Yield {
-    precondition(self[f].type(of: a).isAddress)
-    return .init(capability: c, projection: a, site: site)
   }
 
 }

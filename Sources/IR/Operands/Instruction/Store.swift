@@ -13,7 +13,7 @@ public struct Store: Instruction {
   public let site: SourceRange
 
   /// Creates an instance with the given properties.
-  fileprivate init(object: Operand, at target: Operand, site: SourceRange) {
+  init(object: Operand, at target: Operand, site: SourceRange) {
     self.object = object
     self.target = target
     self.site = site
@@ -30,21 +30,6 @@ public struct Store: Instruction {
     default:
       preconditionFailure()
     }
-  }
-
-}
-
-extension Module {
-
-  /// Creates a `record` anchored at `site` that stores `object` at `target.
-  ///
-  /// - Parameters:
-  ///   - object: The object to store. Must have an object type.
-  ///   - target: The location at which `object` is stored. Must have an address type.
-  func makeStore(_ object: Operand, at target: Operand, in f: Function.ID, at site: SourceRange) -> Store {
-    precondition(self[f].type(of: object).isObject)
-    precondition(self[f].type(of: target).isAddress)
-    return .init(object: object, at: target, site: site)
   }
 
 }

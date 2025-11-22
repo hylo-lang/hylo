@@ -14,7 +14,7 @@ public struct Call: Instruction {
   public let site: SourceRange
 
   /// Creates an instance with the given properties.
-  fileprivate init(
+  init(
     callee: Operand,
     output: Operand,
     arguments: [Operand],
@@ -52,29 +52,6 @@ extension Call: CustomStringConvertible {
 
   public var description: String {
     "call \(callee)(\(list: arguments)) to \(output)"
-  }
-
-}
-
-extension Module {
-
-  /// Creates a `call` anchored at `site` that applies `callee` on `arguments` and writes its
-  /// result to `output`.
-  ///
-  /// - Parameters:
-  ///   - callee: The function to call.
-  ///   - output: The location at which the result of `callee` is stored.
-  ///   - arguments: The arguments of the call; one for each input of `callee`'s type.
-  func makeCall(
-    applying callee: Operand, to arguments: [Operand], writingResultTo output: Operand,
-    in f: Function.ID, at site: SourceRange
-  ) -> Call {
-    let t = ArrowType(self[f].type(of: callee).ast)!.strippingEnvironment
-    precondition(t.inputs.count == arguments.count)
-    precondition(arguments.allSatisfy({ self[$0, in: f] is Access }))
-    precondition(self[f].isBorrowSet(output))
-
-    return .init(callee: callee, output: output, arguments: arguments, site: site)
   }
 
 }

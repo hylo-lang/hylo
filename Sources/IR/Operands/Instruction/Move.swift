@@ -16,9 +16,7 @@ public struct Move: Instruction {
   public let site: SourceRange
 
   /// Creates an instance with the given properties.
-  fileprivate init(
-    object: Operand, target: Operand, movable: FrontEnd.Conformance, site: SourceRange
-  ) {
+  init(object: Operand, target: Operand, movable: FrontEnd.Conformance, site: SourceRange) {
     self.object = object
     self.target = target
     self.movable = movable
@@ -36,28 +34,6 @@ public struct Move: Instruction {
     default:
       preconditionFailure()
     }
-  }
-
-}
-
-extension Module {
-
-  /// Creates a `move` anchored at `site` that moves `value` into `storage` using the move
-  /// operations defined by `movable`.
-  ///
-  /// This instruction is replaced during IR transformation by either the initialization or
-  /// assignment of `storage`, depending on its initialization state.
-  ///
-  /// - Parameters:
-  ///   - value: The object to move. Must have an address type.
-  ///   - storage: The location to initialize or assign. Must have an address type.
-  func makeMove(
-    _ value: Operand, to storage: Operand, usingConformance movable: FrontEnd.Conformance,
-    in f: Function.ID, at site: SourceRange
-  ) -> Move {
-    precondition(self[f].type(of: value).isAddress)
-    precondition(self[f].type(of: storage).isAddress)
-    return .init(object: value, target: storage, movable: movable, site: site)
   }
 
 }

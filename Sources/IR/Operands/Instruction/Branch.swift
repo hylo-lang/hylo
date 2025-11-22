@@ -10,7 +10,7 @@ public struct Branch: Terminator {
   public let site: SourceRange
 
   /// Creates an instance with the given properties.
-  fileprivate init(target: Block.ID, site: SourceRange) {
+  init(target: Block.ID, site: SourceRange) {
     self.target = target
     self.site = site
   }
@@ -36,18 +36,6 @@ extension Branch: CustomStringConvertible {
 
   public var description: String {
     "branch \(target)"
-  }
-
-}
-
-extension Module {
-
-  /// Creates a `branch` anchored at `site` that unconditionally jumps at the start of a block.
-  ///
-  /// - Parameters:
-  ///   - target: The block in which control flow jumps.
-  func makeBranch(to target: Block.ID, at anchor: SourceRange) -> Branch {
-    .init(target: target, site: anchor)
   }
 
 }

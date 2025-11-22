@@ -16,7 +16,7 @@ public struct CaptureIn: Instruction {
   public let site: SourceRange
 
   /// Creates an instance with the given properties.
-  fileprivate init(source: Operand, target: Operand, site: SourceRange) {
+  init(source: Operand, target: Operand, site: SourceRange) {
     self.operands = [source, target]
     self.site = site
   }
@@ -37,18 +37,6 @@ extension CaptureIn: CustomStringConvertible {
 
   public var description: String {
     "capture \(source) in \(target)"
-  }
-
-}
-
-extension Module {
-
-  /// Creates a `capture ... in` anchored at `site` that captures `source`, which is an access, and
-  /// stores it in `target`.
-  func makeCapture(_ source: Operand, in target: Operand, in f: Function.ID, at site: SourceRange) -> CaptureIn {
-    precondition(self[f].type(of: source).isAddress)
-    precondition(self[f].type(of: target).isAddress)
-    return .init(source: source, target: target, site: site)
   }
 
 }

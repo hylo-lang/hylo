@@ -30,15 +30,17 @@ public struct Access: RegionEntry {
   public let site: SourceRange
 
   /// Creates an instance with the given properties.
-  fileprivate init(
+  init(
     capabilities: AccessEffectSet,
-    accessedType: AnyType,
+    accessedType: IR.`Type`,
     source: Operand,
-    binding: VarDecl.ID?,
+    binding: VarDecl.ID? = nil,
     site: SourceRange
   ) {
+    precondition(!capabilities.isEmpty)
+    precondition(accessedType.isAddress)
     self.capabilities = capabilities
-    self.accessedType = accessedType
+    self.accessedType = accessedType.ast
     self.source = source
     self.binding = binding
     self.site = site
@@ -63,27 +65,6 @@ extension Access: CustomStringConvertible {
 
   public var description: String {
     "access \(capabilities) \(source)"
-  }
-
-}
-
-extension Module {
-
-  /// Creates an `access` anchored at `site` that may take any of `capabilities` from `source`,
-  /// optionally associated with a variable declaration in the AST.
-  func makeAccess(
-    _ capabilities: AccessEffectSet, from source: Operand,
-    correspondingTo binding: VarDecl.ID? = nil,
-    in f: Function.ID, at site: SourceRange
-  ) -> Access {
-    precondition(!capabilities.isEmpty)
-    precondition(self[f].type(of: source).isAddress)
-    return .init(
-      capabilities: capabilities,
-      accessedType: self[f].type(of: source).ast,
-      source: source,
-      binding: binding,
-      site: site)
   }
 
 }

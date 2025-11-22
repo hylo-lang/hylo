@@ -16,7 +16,7 @@ public struct CondBranch: Terminator {
   public let site: SourceRange
 
   /// Creates an instance with the given properties.
-  fileprivate init(
+  init(
     condition: Operand,
     targetIfTrue: Block.ID,
     targetIfFalse: Block.ID,
@@ -57,33 +57,6 @@ extension CondBranch: CustomStringConvertible {
 
   public var description: String {
     "cond_branch \(condition), \(targetIfTrue), \(targetIfFalse)"
-  }
-
-}
-
-extension Module {
-
-  /// Creates a `cond_branch` anchored at `site` that jumps to `targetIfTrue` if `condition` is
-  /// true or `targetIfFalse` otherwise.
-  ///
-  /// - Parameters:
-  ///   - condition: The condition tested to select the jump destination. Must a built-in `i1`
-  ///     object.
-  ///   - targetIfTrue: The block in which control flow jumps if `condition` is true.
-  ///   - targetIfFalse: The block in which control flow jumps if `condition` is false.
-  func makeCondBranch(
-    if condition: Operand,
-    then targetIfTrue: Block.ID,
-    else targetIfFalse: Block.ID,
-    in f: Function.ID,
-    at site: SourceRange
-  ) -> CondBranch {
-    precondition(self[f].type(of: condition) == .object(BuiltinType.i(1)))
-    return .init(
-      condition: condition,
-      targetIfTrue: targetIfTrue,
-      targetIfFalse: targetIfFalse,
-      site: site)
   }
 
 }

@@ -18,7 +18,7 @@ public struct SubfieldView: Instruction {
   public let site: SourceRange
 
   /// Creates an instance with the given properties.
-  fileprivate init(
+  init(
     base: Operand,
     subfield: RecordPath,
     subfieldType: IR.`Type`,
@@ -49,28 +49,6 @@ extension SubfieldView: CustomStringConvertible {
 
   public var description: String {
     "subfield_view \(recordAddress)\(subfield.isEmpty ? "" : ", ")\(list: subfield)"
-  }
-
-}
-
-extension Module {
-
-  /// Creates a `subfield_view` anchored at `site` computing the address of the given `subfield` of
-  /// some record at `recordAddress`.
-  ///
-  /// - Note: `base` is returned unchanged if `elementPath` is empty.
-  func makeSubfieldView(
-    of recordAddress: Operand, subfield elementPath: RecordPath, in f: Function.ID, at site: SourceRange
-  ) -> SubfieldView {
-    precondition(self[f].type(of: recordAddress).isAddress)
-    let l = AbstractTypeLayout(of: self[f].type(of: recordAddress).ast, definedIn: program)
-    let t = l[elementPath].type
-
-    return .init(
-      base: recordAddress,
-      subfield: elementPath,
-      subfieldType: .address(t),
-      site: site)
   }
 
 }

@@ -17,7 +17,7 @@ public struct CallFFI: Instruction {
   public let site: SourceRange
 
   /// Creates an instance with the given properties.
-  fileprivate init(
+  init(
     returnType: IR.`Type`,
     callee: String,
     arguments: [Operand],
@@ -44,26 +44,6 @@ extension CallFFI: CustomStringConvertible {
   public var description: String {
     let s = "call_ffi \(callee)"
     return operands.isEmpty ? s : "\(s), \(list: operands)"
-  }
-
-}
-
-extension Module {
-
-  /// Creates a `call_ffi` anchored at `site` that applies `callee` on `arguments` using to return
-  /// and returns a value of `returnType`.
-  ///
-  /// - Parameters:
-  ///   - returnType: The return type of the callee.
-  ///   - callee: The name of the foreign function to call
-  ///   - arguments: The arguments of the call.
-  func makeCallFFI(
-    returning returnType: IR.`Type`, applying callee: String, to arguments: [Operand],
-    in f: Function.ID, at site: SourceRange
-  ) -> CallFFI {
-    precondition(returnType.isObject)
-    precondition(arguments.allSatisfy({ self[$0, in: f] is Load }))
-    return .init(returnType: returnType, callee: callee, arguments: arguments, site: site)
   }
 
 }
