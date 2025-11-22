@@ -3411,7 +3411,7 @@ struct Emitter: Sendable {
     if a.mayHoldCaptures {
       _release_capture(a.source)
     }
-    precondition(source.instruction.map({ module[$0, in: insertionFunction!] is AllocStack }) ?? false)
+    precondition(source.instruction.satisfies({ module[$0, in: insertionFunction!] is AllocStack }))
     insert(DeallocStack(location: source, site: currentSource))
   }
 
@@ -3764,7 +3764,7 @@ extension Emitter {
   }
 
   fileprivate mutating func _end_access(_ x: Operand) {
-    precondition(x.instruction.map({ module[insertionFunction!][$0] is Access }) ?? false)
+    precondition(x.instruction.satisfies({ module[insertionFunction!][$0] is Access }))
     insert(EndAccess(start: x, site: currentSource))
   }
 
@@ -3793,7 +3793,7 @@ extension Emitter {
   }
 
   fileprivate mutating func _close_union(_ x: Operand  ) {
-    precondition(x.instruction.map({ module[insertionFunction!][$0] is OpenUnion }) ?? false)
+    precondition(x.instruction.satisfies({ module[insertionFunction!][$0] is OpenUnion }))
     insert(CloseUnion(start: x, site: currentSource))
   }
 
@@ -3862,7 +3862,7 @@ extension Emitter {
   }
 
   fileprivate mutating func _release_capture(_ source: Operand) {
-    precondition(source.instruction.map({ module[insertionFunction!][$0] is AllocStack }) ?? false)
+    precondition(source.instruction.satisfies({ module[insertionFunction!][$0] is AllocStack }))
     insert(ReleaseCaptures(container: source, site: currentSource))
   }
 

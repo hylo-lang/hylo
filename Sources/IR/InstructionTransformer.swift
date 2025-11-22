@@ -105,7 +105,7 @@ extension IR.Program {
       let x0 = t.transform(s.start, in: &self)
       return insert(at: p, in: g, in: n) { (target) in
         let ir = target[g]
-        precondition(x0.instruction.map({ ir[$0] is OpenCapture }) ?? false)
+        precondition(x0.instruction.satisfies({ ir[$0] is OpenCapture }))
         return CloseCapture(start: x0, site: s.site)
       }
 
