@@ -108,6 +108,11 @@ struct Emitter: Sendable {
     }
   }
 
+  /// Returns the type of `operand`, which is contained in `self.insertionFunction`.
+  private func irType(of operand: Operand) -> IR.`Type` {
+    module[insertionFunction!].type(of: operand)
+  }
+
   /// Reports the given diagnostic.
   private mutating func report(_ d: Diagnostic) {
     diagnostics.insert(d)
@@ -744,7 +749,7 @@ struct Emitter: Sendable {
   private mutating func _emitMoveInitRecordParts(
     of receiver: Operand, consuming argument: Operand
   ) {
-    let layout = AbstractTypeLayout(of: module[insertionFunction!].type(of: receiver).ast, definedIn: program)
+    let layout = AbstractTypeLayout(of: irType(of: receiver).ast, definedIn: program)
 
     // If the object is empty, simply mark it initialized.
     if layout.properties.isEmpty {
@@ -768,7 +773,7 @@ struct Emitter: Sendable {
   private mutating func _emitMoveInitUnionPayload(
     of receiver: Operand, consuming argument: Operand
   ) {
-    let t = UnionType(module[insertionFunction!].type(of: receiver).ast)!
+    let t = UnionType(irType(of: receiver).ast)!
 
     // If union is empty, simply mark it initialized.
     if t.elements.isEmpty {
@@ -903,7 +908,7 @@ struct Emitter: Sendable {
   private mutating func _emitCopyRecordParts(
     from source: Operand, to target: Operand
   ) {
-    let layout = AbstractTypeLayout(of: module[insertionFunction!].type(of: source).ast, definedIn: program)
+    let layout = AbstractTypeLayout(of: irType(of: source).ast, definedIn: program)
 
     // If the object is empty, simply mark the target as initialized.
     if layout.properties.isEmpty {
@@ -923,7 +928,7 @@ struct Emitter: Sendable {
   private mutating func _emitCopyUnionPayload(
     from source: Operand, to target: Operand
   ) {
-    let t = UnionType(module[insertionFunction!].type(of: source).ast)!
+    let t = UnionType(irType(of: source).ast)!
 
     // If union is empty, simply mark the target as initialized.
     if t.elements.isEmpty {
@@ -1647,7 +1652,7 @@ struct Emitter: Sendable {
     let u = canonical(program[e].type)
     let movable = program.ast.core.movable.type
     if !program.conforms(u, to: movable, in: insertionScope!) {
-      report(.error(module[insertionFunction!].type(of: x0).ast, doesNotConformTo: movable, at: ast[e].site))
+      report(.error(irType(of: x0).ast, doesNotConformTo: movable, at: ast[e].site))
       return
     }
 
@@ -1859,7 +1864,7 @@ struct Emitter: Sendable {
     convertingIfNecessary e: T,
     to storage: Operand
   ) {
-    let lhsType = module[insertionFunction!].type(of: storage).ast
+    let lhsType = irType(of: storage).ast
     let rhsType = canonical(program[e].type)
 
     if program.areEquivalent(lhsType, rhsType, in: program[e].scope) {
@@ -2327,7 +2332,7 @@ struct Emitter: Sendable {
     requested = requested.isEmpty ? available : requested
 
     let entityToCall = module.memberCallee(
-      referringTo: d, memberOf: module[insertionFunction!].type(of: r).ast, accessedWith: requested,
+      referringTo: d, memberOf: irType(of: r).ast, accessedWith: requested,
       specializedBy: a, usedIn: scopeOfUse)
 
     if case .bundle(let b) = entityToCall {
@@ -2507,7 +2512,7 @@ struct Emitter: Sendable {
 
     assert(program[lhs].introducer.value.isConsuming || (storage == nil))
 
-    if module[insertionFunction!].type(of: rhs).ast.base is UnionType {
+    if irType(of: rhs).ast.base is UnionType {
       return emitUnionNarrowing(
         from: rhs, to: lhs, typed: lhsType,
         movingConsumedValuesTo: storage, branchingOnFailureTo: failure,
@@ -2530,7 +2535,7 @@ struct Emitter: Sendable {
     branchingOnFailureTo failure: Block.ID,
     in scope: AnyScopeID
   ) -> Block.ID {
-    let rhsType = UnionType(module[insertionFunction!].type(of: rhs).ast)!
+    let rhsType = UnionType(irType(of: rhs).ast)!
     precondition(rhsType.elements.contains(lhsType), "recursive narrowing is unimplemented")
 
     let next = appendBlock(in: scope)
@@ -2572,7 +2577,7 @@ struct Emitter: Sendable {
 
   /// Inserts the IR for extracting the built-in value stored in an instance of `Hylo.Bool`.
   private mutating func _emitLoadBuiltinBool(_ wrapper: Operand) -> Operand {
-    precondition(module[insertionFunction!].type(of: wrapper) == .address(ast.coreType("Bool")!))
+    precondition(irType(of: wrapper) == .address(ast.coreType("Bool")!))
     let x0 = _subfield_view(wrapper, at: [0])
     let x1 = _access(.sink, from: x0)
     let x2 = _load(x1)
@@ -2583,7 +2588,7 @@ struct Emitter: Sendable {
   /// If `s` has a remote type, returns the result of an instruction exposing the captured access;
   /// otherwise, returns `s`.
   private mutating func _unwrapCapture(_ s: Operand) -> Operand {
-    if module[insertionFunction!].type(of: s).ast.base is RemoteType {
+    if irType(of: s).ast.base is RemoteType {
       return _open_capture(s)
     } else {
       return s
@@ -2595,7 +2600,7 @@ struct Emitter: Sendable {
   /// `source` is returned unchanged if it stores an instance of `target`. Otherwise, the IR
   /// producing an address of type `target` is inserted, consuming `source` if necessary.
   private mutating func _emitCoerce(_ source: Operand, to target: AnyType) -> Operand {
-    let lhs = module[insertionFunction!].type(of: source).ast
+    let lhs = irType(of: source).ast
     let rhs = program.canonical(target, in: insertionScope!)
 
     if program.areEquivalent(lhs, rhs, in: insertionScope!) {
@@ -2625,7 +2630,7 @@ struct Emitter: Sendable {
   private mutating func _emitCoerce(
     _ source: Operand, to target: ExistentialType
   ) -> Operand {
-    let t = module[insertionFunction!].type(of: source).ast
+    let t = irType(of: source).ast
     if t.base is ExistentialType {
       return source
     }
@@ -2639,7 +2644,7 @@ struct Emitter: Sendable {
   private mutating func _emitCoerce(
     _ source: Operand, to target: ArrowType
   ) -> Operand {
-    let t = module[insertionFunction!].type(of: source).ast
+    let t = irType(of: source).ast
     guard let lhs = ArrowType(t) else {
       unexpectedCoercion(from: t, to: ^target)
     }
@@ -2665,7 +2670,7 @@ struct Emitter: Sendable {
   private mutating func _emitCoerce(
     _ source: Operand, to target: UnionType
   ) -> Operand {
-    let lhs = module[insertionFunction!].type(of: source).ast
+    let lhs = irType(of: source).ast
 
     let x0 = _alloc_stack(^target)
     let x1 = _open_union(x0, as: lhs, .forInitialization)
@@ -2683,7 +2688,7 @@ struct Emitter: Sendable {
 
   /// Inserts the IR for converting `foreign` to a value of type `ir`.
   private mutating func _emitConvert(foreign: Operand, to ir: AnyType) -> Operand {
-    precondition(module[insertionFunction!].type(of: foreign).isObject)
+    precondition(irType(of: foreign).isObject)
 
     let foreignConvertible = ast.core.foreignConvertible.type
     let foreignConvertibleConformance = program.conformance(
@@ -2694,7 +2699,7 @@ struct Emitter: Sendable {
     // TODO: Handle cases where the foreign representation of `t` is not built-in.
 
     // Store the foreign representation in memory to call the converter.
-    let source = _alloc_stack(module[insertionFunction!].type(of: foreign).ast)
+    let source = _alloc_stack(irType(of: foreign).ast)
     _emitInitialize(storage: source, to: foreign)
 
     switch foreignConvertibleConformance.implementations[r]! {
@@ -2724,7 +2729,7 @@ struct Emitter: Sendable {
   ///
   /// The returned operand is the result of a `load` instruction.
   private mutating func _emitConvertToForeign(_ o: Operand) -> Operand {
-    let t = module[insertionFunction!].type(of: o)
+    let t = irType(of: o)
     precondition(t.isAddress)
 
     let foreignConvertible = ast.core.foreignConvertible.type
@@ -2760,7 +2765,7 @@ struct Emitter: Sendable {
   private mutating func _emitExistential(
     _ t: ExistentialType, wrapping witness: Operand
   ) -> Operand {
-    let w = module[insertionFunction!].type(of: witness).ast
+    let w = irType(of: witness).ast
     let table = Operand.constant(module.demandWitnessTable(w, in: insertionScope!))
     return _wrap_existential_addr(witness, table, as: t)
   }
@@ -2927,7 +2932,7 @@ struct Emitter: Sendable {
         boundTo: r, declaredByBundle: .init(d)!, specializedBy: z)
 
     case VarDecl.self:
-      let l = AbstractTypeLayout(of: module[insertionFunction!].type(of: r).ast, definedIn: program)
+      let l = AbstractTypeLayout(of: irType(of: r).ast, definedIn: program)
       let i = l.offset(of: ast[VarDecl.ID(d)!].baseName)!
       return _subfield_view(r, at: [i])
 
@@ -3003,8 +3008,8 @@ struct Emitter: Sendable {
     _ semantics: AccessEffectSet, _ value: Operand, to storage: Operand
   ) {
     precondition(!semantics.isEmpty && semantics.isSubset(of: [.set, .inout]))
-    let model = module[insertionFunction!].type(of: value).ast
-    precondition(model == module[insertionFunction!].type(of: storage).ast)
+    let model = irType(of: value).ast
+    precondition(model == irType(of: storage).ast)
 
     // Built-in types are handled as a special case.
     if model.isBuiltin {
@@ -3082,8 +3087,8 @@ struct Emitter: Sendable {
   private mutating func _emitCopy(
     _ source: Operand, to target: Operand
   ) {
-    let model = module[insertionFunction!].type(of: source).ast
-    precondition(model == module[insertionFunction!].type(of: target).ast)
+    let model = irType(of: source).ast
+    precondition(model == irType(of: target).ast)
 
     // Built-in types are handled as a special case.
     if model.isBuiltin {
@@ -3123,7 +3128,7 @@ struct Emitter: Sendable {
   /// Let `T` be the type of `storage`, `storage` is deinitializable iff `T` has a deinitializer
   /// exposed to `self.insertionScope`.
   mutating func _emitDeinit(_ storage: Operand) {
-    let m = module[insertionFunction!].type(of: storage).ast
+    let m = irType(of: storage).ast
     let d = program.ast.core.deinitializable.type
 
     if m.base is RemoteType {
@@ -3161,7 +3166,7 @@ struct Emitter: Sendable {
   /// If `storage` is deinitializable in `self.insertionScope`, inserts the IR for deinitializing
   /// it; reports a diagnostic for each part that isn't deinitializable otherwise.
   mutating func _emitDeinitParts(of storage: Operand) {
-    let t = module[insertionFunction!].type(of: storage).ast
+    let t = irType(of: storage).ast
 
     if program.isTriviallyDeinitializable(t, in: insertionScope!) {
       _mark_state(.uninitialized, storage)
@@ -3180,7 +3185,7 @@ struct Emitter: Sendable {
   ///
   /// - Requires: the type of `storage` has a record layout.
   private mutating func _emitDeinitRecordParts(of storage: Operand) {
-    let t = module[insertionFunction!].type(of: storage).ast
+    let t = irType(of: storage).ast
     precondition(t.hasRecordLayout)
 
     let layout = AbstractTypeLayout(of: t, definedIn: module.program)
@@ -3204,7 +3209,7 @@ struct Emitter: Sendable {
   ///
   /// - Requires: the type of `storage` is a union.
   private mutating func _emitDeinitUnionPayload(of storage: Operand) {
-    let t = UnionType(module[insertionFunction!].type(of: storage).ast)!
+    let t = UnionType(irType(of: storage).ast)!
 
     // If union is empty, simply mark it uninitialized.
     if t.elements.isEmpty {
@@ -3246,7 +3251,7 @@ struct Emitter: Sendable {
   // MARK: Equality
 
   private mutating func _emitStoreEquality(_ lhs: Operand, _ rhs: Operand, to target: Operand) {
-    let m = module[insertionFunction!].type(of: lhs).ast
+    let m = irType(of: lhs).ast
     let d = program.ast.core.equatable.type
 
     if let equatable = program.conformance(of: m, to: d, exposedTo: insertionScope!) {
@@ -3271,7 +3276,7 @@ struct Emitter: Sendable {
     to target: Operand
   ) {
     let layout = AbstractTypeLayout(
-      of: module[insertionFunction!].type(of: lhs).ast, definedIn: module.program)
+      of: irType(of: lhs).ast, definedIn: module.program)
 
     // If the object is empty, return true.
     var parts = layout.properties[...]
@@ -3304,7 +3309,7 @@ struct Emitter: Sendable {
   private mutating func _emitStoreUnionPayloadEquality(
     _ lhs: Operand, _ rhs: Operand, to target: Operand
   ) {
-    let union = UnionType(module[insertionFunction!].type(of: lhs).ast)!
+    let union = UnionType(irType(of: lhs).ast)!
 
     // If the union is empty, return true.
     if union.elements.isEmpty {
@@ -3426,9 +3431,9 @@ struct Emitter: Sendable {
       elementPath = subfield
       address = recordAddress
     }
-    let ir = module[insertionFunction!]
-    precondition(ir.type(of: address).isAddress)
-    let l = AbstractTypeLayout(of: ir.type(of: address).ast, definedIn: program)
+    let addressType = irType(of: address)
+    precondition(addressType.isAddress)
+    let l = AbstractTypeLayout(of: addressType.ast, definedIn: program)
     let t = l[elementPath].type
     let s = SubfieldView(base: address, subfield: elementPath, subfieldType: .address(t), site: currentSource)
     return insert(s)!
@@ -3450,7 +3455,7 @@ struct Emitter: Sendable {
   private mutating func _emitUnionSwitch(
     on scrutinee: Operand, toOneOf targets: UnionSwitch.Targets
   ) {
-    let u = UnionType(module[insertionFunction!].type(of: scrutinee).ast)!
+    let u = UnionType(irType(of: scrutinee).ast)!
     let i = _emitUnionDiscriminator(scrutinee)
     _union_switch(case: i, of: u, targets)
   }
@@ -3502,7 +3507,7 @@ struct Emitter: Sendable {
   mutating func _cond_branch(if condition: Operand, then targetIfTrue: Block.ID, else targetIfFalse: Block.ID) {
     checkEntryStack(targetIfTrue)
     checkEntryStack(targetIfFalse)
-    precondition(module[insertionFunction!].type(of: condition) == .object(BuiltinType.i(1)))
+    precondition(irType(of: condition) == .object(BuiltinType.i(1)))
     insert(CondBranch(
       condition: condition,
       targetIfTrue: targetIfTrue,
@@ -3728,13 +3733,12 @@ extension Emitter {
 extension Emitter {
 
   fileprivate mutating func _mark_state(_ x: InitializationState, _ op: Operand?) {
-    precondition(module[insertionFunction!].type(of: op!).isAddress)
+    precondition(irType(of: op!).isAddress)
     insert(MarkState(storage: op!, initialized: x == .initialized, site: currentSource))
   }
 
   fileprivate mutating func _call_ffi<T: TypeProtocol>(_ foreignName: String, on arguments: [Operand], returning returnType: T) -> Operand {
-    let ir = module[insertionFunction!]
-    precondition(arguments.allSatisfy({ ir[register: $0] is Load }))
+    precondition(arguments.allSatisfy({ module[insertionFunction!][register: $0] is Load }))
     return insert(
       CallFFI(
         returnType: .object(returnType), callee: foreignName, arguments: arguments, site: currentSource))!
@@ -3753,20 +3757,19 @@ extension Emitter {
   ) -> Operand {
     insert(Access(
       capabilities: capabilities,
-      accessedType: module[insertionFunction!].type(of: s),
+      accessedType: irType(of: s),
       source: s,
       binding: binding,
       site: currentSource))!
   }
 
   fileprivate mutating func _end_access(_ x: Operand) {
-    let ir = module[insertionFunction!]
-    precondition(x.instruction.map({ ir[$0] is Access }) ?? false)
+    precondition(x.instruction.map({ module[insertionFunction!][$0] is Access }) ?? false)
     insert(EndAccess(start: x, site: currentSource))
   }
 
   fileprivate mutating func _yield(_ c: AccessEffect, _ a: Operand) {
-    precondition(module[insertionFunction!].type(of: a).isAddress)
+    precondition(irType(of: a).isAddress)
     _ = insert(Yield(capability: c, projection: a, site: currentSource))
   }
 
@@ -3779,7 +3782,7 @@ extension Emitter {
     _ container: Operand, as payload: AnyType,
     _ option: OpenUnionOption = .notForInitialization
   ) -> Operand {
-    precondition(module[insertionFunction!].type(of: container).isAddress)
+    precondition(irType(of: container).isAddress)
     precondition(payload.isCanonical)
     return insert(
       OpenUnion(
@@ -3790,8 +3793,7 @@ extension Emitter {
   }
 
   fileprivate mutating func _close_union(_ x: Operand  ) {
-    let ir = module[insertionFunction!]
-    precondition(x.instruction.map({ ir[$0] is OpenUnion }) ?? false)
+    precondition(x.instruction.map({ module[insertionFunction!][$0] is OpenUnion }) ?? false)
     insert(CloseUnion(start: x, site: currentSource))
   }
 
@@ -3804,17 +3806,15 @@ extension Emitter {
   }
 
   fileprivate mutating func _store(_ source: Operand, _ target: Operand) {
-    let ir = module[insertionFunction!]
-    precondition(ir.type(of: source).isObject)
-    precondition(ir.type(of: target).isAddress)
+    precondition(irType(of: source).isObject)
+    precondition(irType(of: target).isAddress)
     insert(Store(object: source, at: target, site: currentSource))
   }
 
   /// Inserts a `load` instruction reading from `source`.
   fileprivate mutating func _load(_ source: Operand) -> Operand {
-    let ir = module[insertionFunction!]
-    precondition(ir[register: source] is Access)
-    return insert(Load(objectType: .object(ir.type(of: source).ast), from: source, site: currentSource))!
+    precondition(module[insertionFunction!][register: source] is Access)
+    return insert(Load(objectType: .object(irType(of: source).ast), from: source, site: currentSource))!
   }
 
 
@@ -3857,18 +3857,17 @@ extension Emitter {
   }
 
   fileprivate mutating func _open_capture(_ s: Operand) -> Operand {
-    let t = RemoteType(module[insertionFunction!].type(of: s).ast) ?? preconditionFailure()
+    let t = RemoteType(irType(of: s).ast) ?? preconditionFailure()
     return insert(OpenCapture(result: .address(t.bareType), source: s, site: currentSource))!
   }
 
   fileprivate mutating func _release_capture(_ source: Operand) {
-    let ir = module[insertionFunction!]
-    precondition(source.instruction.map({ ir[$0] is AllocStack }) ?? false)
+    precondition(source.instruction.map({ module[insertionFunction!][$0] is AllocStack }) ?? false)
     insert(ReleaseCaptures(container: source, site: currentSource))
   }
 
   fileprivate mutating func _advanced(_ source: Operand, byStrides n: Int) -> Operand {
-    let s = module[insertionFunction!].type(of: source)
+    let s = irType(of: source)
     if !s.isAddress {
       preconditionFailure("source must be the address of a buffer")
     }
@@ -3882,20 +3881,18 @@ extension Emitter {
   }
 
   fileprivate mutating func _capture(_ source: Operand, in target: Operand) {
-    let ir = module[insertionFunction!]
-    precondition(ir.type(of: source).isAddress)
-    precondition(ir.type(of: target).isAddress)
+    precondition(irType(of: source).isAddress)
+    precondition(irType(of: target).isAddress)
     insert(CaptureIn(source: source, target: target, site: currentSource))
   }
 
   fileprivate mutating func _call(
     _ callee: Operand, _ arguments: [Operand], to output: Operand
   ) {
-    let ir = module[insertionFunction!]
-    let t = ArrowType(ir.type(of: callee).ast)!.strippingEnvironment
+    let t = ArrowType(irType(of: callee).ast)!.strippingEnvironment
     precondition(t.inputs.count == arguments.count)
-    precondition(arguments.allSatisfy({ ir[register: $0] is Access }))
-    precondition(ir.isBorrowSet(output))
+    precondition(arguments.allSatisfy({ module[insertionFunction!][register: $0] is Access }))
+    precondition(module[insertionFunction!].isBorrowSet(output))
     insert(Call(callee: callee, output: output, arguments: arguments, site: currentSource))
   }
 
@@ -3928,7 +3925,7 @@ extension Emitter {
   fileprivate mutating func _wrap_existential_addr(
     _ witness: Operand, _ table: Operand, as interface: ExistentialType
   ) -> Operand {
-    precondition(module[insertionFunction!].type(of: witness).isAddress)
+    precondition(irType(of: witness).isAddress)
     return insert(WrapExistentialAddr(witness: witness, table: table, interface: .address(interface), site: currentSource))!
   }
 
@@ -3947,26 +3944,24 @@ extension Emitter {
   }
 
   fileprivate mutating func _memory_copy(_ source: Operand, _ target: Operand) {
-    let ir = module[insertionFunction!]
-    let s = ir.type(of: source)
-    precondition(s.isAddress && (s == ir.type(of: target)))
+    let s = irType(of: source)
+    precondition(s.isAddress && (s == irType(of: target)))
     insert(MemoryCopy(source: source, target: target, site: currentSource))
   }
 
   fileprivate mutating func _move(_ source: Operand, _ target: Operand, via movability: FrontEnd.Conformance) {
-    let ir = module[insertionFunction!]
-    precondition(ir.type(of: source).isAddress)
-    precondition(ir.type(of: target).isAddress)
+    precondition(irType(of: source).isAddress)
+    precondition(irType(of: target).isAddress)
     insert(Move(object: source, target: target, movable: movability, site: currentSource))
   }
 
   fileprivate mutating func _union_discriminator(_ x: Operand) -> Operand {
-    precondition(module[insertionFunction!].type(of: x).isAddress)
+    precondition(irType(of: x).isAddress)
     return insert(UnionDiscriminator(container: x, site: currentSource))!
   }
 
   fileprivate mutating func _union_switch(case discriminator: Operand, of u: UnionType, _ targets: UnionSwitch.Targets) {
-    let t = module[insertionFunction!].type(of: discriminator)
+    let t = irType(of: discriminator)
     precondition(t.isObject && t.ast.isBuiltinInteger)
     precondition(u.elements.allSatisfy({ (e) in targets[e] != nil }))
     insert(UnionSwitch(discriminator: discriminator, union: u, targets: targets, site: currentSource))
