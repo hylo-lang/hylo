@@ -76,6 +76,9 @@ enum BuiltinValue {
 /// Methods to create builtin value from IR constants.
 extension BuiltinValue {
 
+  /// Boolean value, if present.
+  var bool: Bool? { i1 }
+
   /// Creates instance of builtin value with integer constant `c`.
   public init(withIntegerConstant c: IntegerConstant) {
     self =

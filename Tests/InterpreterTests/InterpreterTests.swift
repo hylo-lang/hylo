@@ -53,4 +53,31 @@ final class InterpreterRunTests: XCTestCase {
     }
   }
 
+  func testBranching() throws {
+    let input =
+      """
+        public fun main() {
+          var condition = true;
+          var notOfCondition = if condition {
+            false
+          } else {
+            true
+          }
+
+          &condition = false;
+          &notOfCondition = if condition {
+            false
+          } else {
+            true
+          }
+        }
+      """.asSourceFile()
+    let module = try input.loweredToIRAsMainWithHostedStandardLibrary();
+    let program = IR.Program.init(syntax: module.program, modules: [module.id: module]);
+    var executor = Interpreter(program);
+    while executor.isRunning {
+      try executor.step()
+    }
+  }
+
 }

@@ -329,6 +329,21 @@ public extension Memory.Address {
 
 extension Memory.Allocation {
 
+  /// Returns builtin value stored at offset `o` having type `t`.
+  func builtinValue(at o: Memory.Offset, ofType t: BuiltinType)
+    -> BuiltinValue
+  {
+    switch t {
+    case .i(1): withUnsafePointer(to: Bool.self, at: o) { .i1($0.pointee) }
+    case .i(8): withUnsafePointer(to: UInt8.self, at: o) { .i8($0.pointee) }
+    case .i(16): withUnsafePointer(to: UInt16.self, at: o) { .i16($0.pointee) }
+    case .i(32): withUnsafePointer(to: UInt32.self, at: o) { .i32($0.pointee) }
+    case .i(64): withUnsafePointer(to: UInt64.self, at: o) { .i64($0.pointee) }
+    case .i(128): withUnsafePointer(to: UInt128.self, at: o) { .i128($0.pointee) }
+    default: fatalError("Unsupported builtin type \(t).")
+    }
+  }
+
   /// Stores `v` at offset `o`.
   mutating func store(_ v: BuiltinValue, at o: Memory.Offset) {
     switch v {

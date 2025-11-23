@@ -140,7 +140,8 @@ public struct Interpreter {
       currentRegister = allocationAddress
 
     case let x as Branch:
-      _ = x
+      jump(to: x.target)
+      return
     case let x as Call:
       _ = x
     case let x as CallBuiltinFunction:
@@ -156,7 +157,13 @@ public struct Interpreter {
     case let x as CloseUnion:
       _ = x
     case let x as CondBranch:
-      _ = x
+      let condition = builtinValue(x.condition)!
+      if condition.bool! {
+        jump(to: x.targetIfTrue)
+      } else {
+        jump(to: x.targetIfFalse)
+      }
+      return
     case let x as ConstantString:
       currentRegister = x.value
     case let x as DeallocStack:
@@ -172,7 +179,7 @@ public struct Interpreter {
     case let x as GlobalAddr:
       _ = x
     case let x as Load:
-      _ = x
+      currentRegister = builtinValue(at: address(x.source)!)
     case is MarkState:
       // No effect on program state
       break
@@ -321,11 +328,35 @@ public struct Interpreter {
     }
   }
 
+  /// Returns builtin value stored at `a`.
+  func builtinValue(at a: Address) -> BuiltinValue {
+    precondition(a.memoryLayout.type.isBuiltin)
+    let allocation = a.memoryAddress.allocation
+    let offset = a.memoryAddress.offset
+    let typeOfValue = a.memoryLayout.type.base as! BuiltinType
+    return memory[allocation].builtinValue(at: offset, ofType: typeOfValue)
+  }
+
   /// Stores `v` in memory at `a`.
   mutating func store(_ v: BuiltinValue, at a: Address) {
     let allocation = a.memoryAddress.allocation
     let offset = a.memoryAddress.offset
     memory[allocation].store(v, at: offset)
+  }
+
+  /// Sets the program counter to the start of `b`.
+  mutating func jump(to b: Block.ID) {
+    let function = b.function
+    let module = program.module(defining: function)
+    let entryBlock = b.address;
+    let entryInstruction = program.modules[module]![b.function]
+      .blocks[entryBlock]
+      .instructions
+      .firstAddress!
+    programCounter = CodePointer(
+      module: module,
+      instructionInModule: InstructionID(function, entryBlock, entryInstruction)
+    )
   }
 
 }
