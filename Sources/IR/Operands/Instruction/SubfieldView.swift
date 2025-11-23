@@ -53,19 +53,15 @@ extension SubfieldView: CustomStringConvertible {
 
 }
 
-extension Module {
+extension Function {
 
-  /// Creates a `subfield_view` anchored at `site` computing the address of the given `subfield` of
-  /// some record at `recordAddress`.
-  ///
-  /// - Note: `base` is returned unchanged if `elementPath` is empty.
+  /// Creates a `subfield_view` anchored at `site` computing the address of the given `elementPath` of
+  /// some record at `recordAddress`, using layout `l`.
   func makeSubfieldView(
-    of recordAddress: Operand, subfield elementPath: RecordPath, in f: Function.ID, at site: SourceRange
+    of recordAddress: Operand, subfield elementPath: RecordPath, layout l: AbstractTypeLayout, at site: SourceRange
   ) -> SubfieldView {
-    precondition(self[f].type(of: recordAddress).isAddress)
-    let l = AbstractTypeLayout(of: self[f].type(of: recordAddress).ast, definedIn: program)
+    precondition(type(of: recordAddress).isAddress)
     let t = l[elementPath].type
-
     return .init(
       base: recordAddress,
       subfield: elementPath,

@@ -37,7 +37,7 @@ extension CallBuiltinFunction: CustomStringConvertible {
 
 }
 
-extension Module {
+extension Function {
 
   /// Creates an instruction anchored at `site` that applies `f` to `operands`.
   ///
@@ -45,11 +45,11 @@ extension Module {
   ///   - f: A built-in function.
   ///   - operands: A collection of built-in objects.
   func makeCallBuiltin(
-    applying s: BuiltinFunction, to operands: [Operand], in f: Function.ID, at site: SourceRange
+    applying s: BuiltinFunction, to operands: [Operand], at site: SourceRange
   ) -> CallBuiltinFunction {
     precondition(
       operands.allSatisfy { (o) in
-        let t = self[f].type(of: o)
+        let t = type(of: o)
         return t.isObject && (t.ast.base is BuiltinType)
       })
 

@@ -131,7 +131,7 @@ extension Module {
     // Nothing to do if the request set is already a singleton.
     if s.capabilities == [k] { return }
 
-    let reified = makeAccess([k], from: s.source, correspondingTo: s.binding, in: f, at: s.site)
+    let reified = self[f].makeAccess([k], from: s.source, correspondingTo: s.binding, at: s.site)
     self[f].replace(i, with: reified)
   }
 
@@ -143,12 +143,12 @@ extension Module {
     // Generate the proper instructions to prepare the projection's arguments.
     var arguments = s.operands
     for a in arguments.indices where s.parameters[a].access == .yielded {
-      let b = makeAccess([k], from: arguments[a], in: f, at: s.site)
+      let b = self[f].makeAccess([k], from: arguments[a], at: s.site)
       arguments[a] = .register(self[f].insert(b, at: .before(i)))
     }
 
     let o = RemoteType(k, s.projection)
-    let reified = makeProject(
+    let reified = self[f].makeProject(
       o, applying: s.variants[k]!, specializedBy: s.bundle.arguments, to: arguments, at: s.site)
     self[f].replace(i, with: reified)
   }

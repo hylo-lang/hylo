@@ -40,7 +40,7 @@ extension Branch: CustomStringConvertible {
 
 }
 
-extension Module {
+extension Function {
 
   /// Creates a `branch` anchored at `site` that unconditionally jumps at the start of a block.
   ///

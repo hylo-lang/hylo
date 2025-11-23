@@ -23,7 +23,7 @@ public struct Return: Terminator {
 
 }
 
-extension Module {
+extension Function {
 
   /// Creates a `return` anchored at `site`.
   func makeReturn(at site: SourceRange) -> Return {

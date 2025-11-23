@@ -33,7 +33,7 @@ public struct AddressToPointer: Instruction {
 
 }
 
-extension Module {
+extension Function {
 
   /// Creates an `address_to_pointer` anchored at `site` that converts `source` to a built-in
   /// pointer value.

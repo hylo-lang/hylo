@@ -61,7 +61,7 @@ extension Project: CustomStringConvertible {
 
 }
 
-extension Module {
+extension Function {
 
   /// Creates a `project` anchored at `site` that projects a value of type `t` by applying `s`,
   /// which is a reference to a lowered subscript, on `arguments`.

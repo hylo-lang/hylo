@@ -32,25 +32,25 @@ extension Module {
       }
 
       insertClose(i, in: f, atBoundariesOf: region) { (this, site) in
-        this.makeEndAccess(.register(i), in: f, at: site)
+        this[f].makeEndAccess(.register(i), at: site)
       }
 
     case is OpenCapture:
       let region = extendedLiveRange(of: .register(i), in: f)
       insertClose(i, in: f, atBoundariesOf: region) { (this, site) in
-        this.makeCloseCapture(.register(i), in: f, at: site)
+        this[f].makeCloseCapture(.register(i), at: site)
       }
 
     case is OpenUnion:
       let region = extendedLiveRange(of: .register(i), in: f)
       insertClose(i, in: f, atBoundariesOf: region) { (this, site) in
-        this.makeCloseUnion(.register(i), in: f, at: site)
+        this[f].makeCloseUnion(.register(i), at: site)
       }
 
     case is Project:
       let region = extendedLiveRange(of: .register(i), in: f)
       insertClose(i, in: f, atBoundariesOf: region) { (this, site) in
-        this.makeEndProject(.register(i), in: f, at: site)
+        this[f].makeEndProject(.register(i), at: site)
       }
 
     default:

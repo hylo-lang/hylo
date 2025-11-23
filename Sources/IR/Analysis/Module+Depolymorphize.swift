@@ -62,8 +62,8 @@ extension IR.Program {
 
     let g = monomorphize(callee, usedIn: modules[m]![f].scope(containing: i))
     let r = FunctionReference(to: g, in: modules[m]!)
-    let new = modules[m]!.makeCall(
-      applying: .constant(r), to: Array(s.arguments), writingResultTo: s.output, in: f, at: s.site)
+    let new = modules[m]![f].makeCall(
+      applying: .constant(r), to: Array(s.arguments), writingResultTo: s.output, at: s.site)
     modules[m]![f].replace(i, with: new)
   }
 
@@ -79,7 +79,7 @@ extension IR.Program {
 
     let z = base.canonical(s.specialization, in: modules[m]![f].scope(containing: i))
     let g = monomorphize(s.callee, for: z, usedIn: modules[m]![f].scope(containing: i))
-    let new = modules[m]!.makeProject(
+    let new = modules[m]![f].makeProject(
       s.projection, applying: g, specializedBy: .empty, to: s.operands, at: s.site)
     modules[m]![f].replace(i, with: new)
   }
@@ -181,9 +181,9 @@ extension IR.Program {
       let s = modules[source]![i, in: f] as! Return
       let j = modify(&modules[target]!) { (m) in
         for i in rewrittenGenericValue.values.reversed() {
-          m[result].insert(m.makeDeallocStack(for: .register(i), in: result, at: s.site), at: .end(of: b))
+          m[result].insert(m[result].makeDeallocStack(for: .register(i), at: s.site), at: .end(of: b))
         }
-        return m[result].insert(m.makeReturn(at: s.site), at: .end(of: b))
+        return m[result].insert(m[result].makeReturn(at: s.site), at: .end(of: b))
       }
       monomorphizer.rewrittenInstruction[i] = j
     }
@@ -297,7 +297,8 @@ extension Module {
         UNIMPLEMENTED("arbitrary compile-time values")
       }
 
-      let s = self[monomorphized].insert(makeAllocStack(^program.ast.coreType("Int")!, at: insertionSite), at: .end(of: entry))
+      let i = self[monomorphized].makeAllocStack(^program.ast.coreType("Int")!, at: insertionSite);
+      let s = self[monomorphized].insert(i, at: .end(of: entry))
 
       var log = DiagnosticSet()
       Emitter.withInstance(insertingIn: &self, reportingDiagnosticsTo: &log) { (e) in

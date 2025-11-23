@@ -17,15 +17,15 @@ extension Module {
     let k = s.capabilities.weakest!
 
     var arguments = Array(s.arguments)
-    let r = makeAccess([k], from: arguments[0], in: f, at: s.site)
+    let r = self[f].makeAccess([k], from: arguments[0], at: s.site)
     arguments[0] = .register(self[f].insert(r, at: .before(i)))
 
     let b = Block.ID(containing: i)
     let x = FunctionReference(
       to: s.variants[k]!, in: self, specializedBy: s.bundle.arguments, in: self[b, in: f].scope)
 
-    let reified = makeCall(
-      applying: .constant(x), to: arguments, writingResultTo: s.output, in: f, at: s.site)
+    let reified = self[f].makeCall(
+      applying: .constant(x), to: arguments, writingResultTo: s.output, at: s.site)
     self[f].replace(i, with: reified)
   }
 

@@ -64,7 +64,7 @@ extension Module {
     for b in self[f].blockIDs {
       if let i = self[f].instructions(in: b).first(where: { returnsNever($0, in: f) }) {
         self[f].removeAllInstructions(after: i)
-        self[f].insert(makeUnreachable(at: self[i, in: f].site), at: .after(i))
+        self[f].insert(self[f].makeUnreachable(at: self[i, in: f].site), at: .after(i))
       }
     }
   }

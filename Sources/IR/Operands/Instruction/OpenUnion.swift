@@ -62,7 +62,7 @@ extension OpenUnion: CustomStringConvertible {
 
 }
 
-extension Module {
+extension Function {
 
   /// Creates an `open_union` anchored at `site` that projects the address of `container`'s payload
   /// viewed as an instance of `payload`.
@@ -72,9 +72,9 @@ extension Module {
   func makeOpenUnion(
     _ container: Operand, as payload: AnyType,
     forInitialization isUsedForInitialization: Bool = false,
-    in f: Function.ID, at site: SourceRange
+    at site: SourceRange
   ) -> OpenUnion {
-    precondition(self[f].type(of: container).isAddress)
+    precondition(type(of: container).isAddress)
     precondition(payload.isCanonical)
     return .init(
       container: container,

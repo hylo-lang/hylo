@@ -28,7 +28,7 @@ public struct Unreachable: Terminator {
 
 }
 
-extension Module {
+extension Function {
 
   /// Creates an `unreachable` anchored at `site` that marks the execution path unreachable.
   func makeUnreachable(at site: SourceRange) -> Unreachable {

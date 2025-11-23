@@ -37,14 +37,14 @@ extension GenericParameter: CustomStringConvertible {
 
 }
 
-extension Module {
+extension Function {
 
   /// Creates an `generic_parameter` anchored at `site` that returns the address of the generic
-  /// argument passed to `p`.
+  /// argument passed to `p`, having type `t`.
   func makeGenericParameter(
-    passedTo p: GenericParameterDecl.ID, at site: SourceRange
+    passedTo p: GenericParameterDecl.ID, type t: AnyType, at site: SourceRange
   ) -> GenericParameter {
-    .init(parameter: p, result: .address(program[p].type), site: site)
+    .init(parameter: p, result: .address(t), site: site)
   }
 
 }

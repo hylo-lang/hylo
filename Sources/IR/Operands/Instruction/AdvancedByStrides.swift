@@ -50,14 +50,14 @@ extension AdvancedByStrides: CustomStringConvertible {
 
 }
 
-extension Module {
+extension Function {
 
   /// Creates an `advanced by strides` instruction anchored at `site` computing the `source`
   /// address advanced by `n` strides of its referred type.
   func makeAdvanced(
-    _ source: Operand, byStrides n: Int, in f: Function.ID, at site: SourceRange
+    _ source: Operand, byStrides n: Int, at site: SourceRange
   ) -> AdvancedByStrides {
-    guard let b = sourceType(source, in: f) else {
+    guard let b = sourceType(source) else {
       preconditionFailure("source must be the address of a buffer")
     }
 
@@ -65,8 +65,8 @@ extension Module {
   }
 
   /// Returns the AST type of `source` iff it is the address of a buffer.
-  private func sourceType(_ source: Operand, in f: Function.ID) -> BufferType? {
-    let s = self[f].type(of: source)
+  private func sourceType(_ source: Operand) -> BufferType? {
+    let s = type(of: source)
     if s.isAddress {
       return BufferType(s.ast)
     } else {

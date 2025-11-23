@@ -33,7 +33,7 @@ extension AllocStack: CustomStringConvertible {
 
 }
 
-extension Module {
+extension Function {
 
   /// Creates an `alloc_stack` anchored at `site` that allocates storage of type `t`.
   ///

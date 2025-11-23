@@ -38,7 +38,7 @@ extension ConstantString: CustomStringConvertible {
 
 }
 
-extension Module {
+extension Function {
 
   /// Creates a `constant_string` anchored at `site` that returns a  string with given `value`,
   /// encoded in UTF8.
