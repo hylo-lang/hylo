@@ -278,6 +278,16 @@ public struct Memory {
     throw Error.noDecomposable(t, at: a)
   }
 
+  /// The allocation identified by `i`.
+  public subscript(_ i: Allocation.ID) -> Allocation {
+    _read {
+      yield allocation[i]!
+    }
+    _modify {
+      yield &allocation[i]!
+    }
+  }
+
 }
 
 public extension Memory.Address {
@@ -297,5 +307,21 @@ public extension Memory.Address {
   static func +=(l: inout Self, r: Int) { l = l + r }
 
   static func -=(l: inout Self, r: Int)  { l = l - r }
+
+}
+
+extension Memory.Allocation {
+
+  /// Stores `v` at offset `o`.
+  mutating func store(_ v: BuiltinValue, at o: Memory.Offset) {
+    switch v {
+    case .i1(let x): withUnsafeMutablePointer(to: Bool.self, at: o) { $0.pointee = x }
+    case .i8(let x): withUnsafeMutablePointer(to: UInt8.self, at: o) { $0.pointee = x }
+    case .i16(let x): withUnsafeMutablePointer(to: UInt16.self, at: o) { $0.pointee = x }
+    case .i32(let x): withUnsafeMutablePointer(to: UInt32.self, at: o) { $0.pointee = x }
+    case .i64(let x): withUnsafeMutablePointer(to: UInt64.self, at: o) { $0.pointee = x }
+    case .i128(let x): withUnsafeMutablePointer(to: UInt128.self, at: o) { $0.pointee = x }
+    }
+  }
 
 }
