@@ -37,7 +37,7 @@ final class InterpreterRunTests: XCTestCase {
     }
   }
 
-  func testVariableAssignment() throws {
+  func testCopyingBuiltin() throws {
     let input =
       """
         public fun main() {
