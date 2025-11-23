@@ -286,6 +286,11 @@ public struct Function: Sendable {
     self[b].instructions.indices.lazy.map({ .init(b.address, $0.address) })
   }
 
+  /// Returns the ID of the first instruction in `b`, if any.
+  public func firstInstruction(in b: Block.ID) -> InstructionID? {
+    self[b].instructions.firstAddress.map({ InstructionID(b.address, $0) })
+  }
+
   /// Returns the ID the instruction before `i`.
   func instruction(before i: InstructionID) -> InstructionID? {
     self[i.block].instructions.address(before: i.address)
@@ -301,6 +306,12 @@ public struct Function: Sendable {
   /// Returns the scope in which `i` is used.
   public func scope(containing i: InstructionID) -> AnyScopeID {
     self[i.block].scope
+  }
+
+  /// Returns `true` iff `lhs` is sequenced before `rhs` in the block of `lhs`.
+  /// Returns `false` if the two instructions are not in the same block.
+  public func precedes(_ lhs: InstructionID, _ rhs: InstructionID) -> Bool {
+    return lhs.address.precedes(rhs.address, in: self[lhs.block].instructions)
   }
 
   /// Returns `true` iff `lhs` is sequenced before `rhs`.

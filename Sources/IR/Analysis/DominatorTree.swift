@@ -113,12 +113,7 @@ struct DominatorTree: Sendable {
   func dominates(definition: InstructionID, use: Use, from f: Function.ID, in module: Module) -> Bool {
     // If `definition` is in the same block as `use`, check which comes first.
     if definition.block == use.user.block {
-      for i in module[f][definition.block].instructions.indices {
-        if i.address == definition.address {
-          return true
-        }
-      }
-      return false
+      return module[f].dominates(definition, use.user)
     }
 
     // Return whether the block containing `definition` dominates the block containing `use`.

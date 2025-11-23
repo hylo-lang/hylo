@@ -5,7 +5,7 @@ extension Module {
   /// Eliminates redundant instructions and fold address computations in `f`.
   public mutating func simplify(_ f: Function.ID) {
     for b in self[f].blockIDs {
-      var i = self[f].instructions(in: b).first
+      var i = self[f].firstInstruction(in: b)
       while let n = i {
         i = eliminateRedundantAccess(n, in: f)
       }

@@ -196,9 +196,9 @@ extension Module {
 
   /// Returns the last use of `operand` in `block`.
   private func lastUse(of operand: Operand, in block: Block.ID, from f: Function.ID) -> Use? {
-    let instructions = self[block, in: f].instructions
-    for i in instructions.indices.reversed() {
-      if let operandIndex = instructions[i].operands.lastIndex(of: operand) {
+    let instructions = self[f].instructions(in: block)
+    for i in instructions.reversed() {
+      if let operandIndex = self[f][i].operands.lastIndex(of: operand) {
         return Use(
           user: InstructionID(block, i.address),
           index: operandIndex)
@@ -210,6 +210,8 @@ extension Module {
   }
 
   /// Returns the use that executes last.
+  ///
+  /// If the two uses are not in the same block, this returns `lhs`.
   private func last(_ lhs: Use?, _ rhs: Use?, in f: Function.ID) -> Use? {
     guard let lhs = lhs else { return rhs }
     guard let rhs = rhs else { return lhs }
@@ -218,8 +220,7 @@ extension Module {
       return lhs.index < rhs.index ? rhs : lhs
     }
 
-    let block = functions[f]![lhs.user.block]
-    if lhs.user.address.precedes(rhs.user.address, in: block.instructions) {
+    if functions[f]!.precedes(lhs.user, rhs.user) {
       return rhs
     } else {
       return lhs

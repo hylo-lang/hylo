@@ -126,12 +126,11 @@ extension IR.Program {
 
     let source = module(defining: f)
     var rewrittenBlock: [Block.ID: Block.ID] = [:]
-    for b in modules[source]![f].blocks.addresses {
-      let s = Block.ID(b)
-      let inputs = modules[source]![s, in: f].inputs.map { (t) in
+    for b in modules[source]![f].blockIDs {
+      let inputs = modules[source]![b, in: f].inputs.map { (t) in
         monomorphize(t, for: z, usedIn: scopeOfUse)
       }
-      rewrittenBlock[s] = modules[target]![result].append(in: modules[source]![s, in: f].scope, taking: inputs)
+      rewrittenBlock[b] = modules[target]![result].append(in: modules[source]![b, in: f].scope, taking: inputs)
     }
 
     let rewrittenGenericValue = modules[target]!.defineGenericValueArguments(z, in: result)
@@ -147,8 +146,7 @@ extension IR.Program {
       let s = Block.ID(b)
       let t = rewrittenBlock[s]!
 
-      for a in modules[source]![s, in: f].instructions.addresses {
-        let i = InstructionID(b, a)
+      for i in modules[source]![f].instructions(in: s) {
         switch modules[source]![i, in: f] {
         case is GenericParameter:
           rewrite(genericParameter: i)
