@@ -37,4 +37,20 @@ final class InterpreterRunTests: XCTestCase {
     }
   }
 
+  func testVariableAssignment() throws {
+    let input =
+      """
+        public fun main() {
+          let x = 2;
+          var y = x;
+        }
+      """.asSourceFile()
+    let module = try input.loweredToIRAsMainWithHostedStandardLibrary();
+    let program = IR.Program.init(syntax: module.program, modules: [module.id: module]);
+    var executor = Interpreter(program);
+    while executor.isRunning {
+      try executor.step()
+    }
+  }
+
 }

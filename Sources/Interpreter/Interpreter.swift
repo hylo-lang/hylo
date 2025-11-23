@@ -177,7 +177,13 @@ public struct Interpreter {
       // No effect on program state
       break
     case let x as MemoryCopy:
-      _ = x
+      let sourceAddress = address(x.source)!
+      let destinationAddress = address(x.target)!
+      memory.copy(
+        byteCount: sourceAddress.memoryLayout.size,
+        from: sourceAddress.memoryAddress,
+        to: destinationAddress.memoryAddress
+      )
     case is Move:
       fatalError("Interpreter: Move instructions have not been removed.")
     case let x as OpenCapture:
