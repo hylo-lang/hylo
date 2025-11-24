@@ -90,7 +90,7 @@ jobs:
 
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           submodules: true
           show-progress: false
@@ -195,7 +195,7 @@ jobs:
     runs-on: ${{ matrix.exact-os }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           submodules: true
           show-progress: false
@@ -302,7 +302,7 @@ jobs:
     runs-on: ${{ matrix.exact-os }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           submodules: true
           show-progress: false
