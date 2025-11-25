@@ -143,7 +143,11 @@ public struct Interpreter {
       jump(to: x.target)
       return
     case let x as Call:
-      _ = x
+      let p = x.arguments.map { address($0)! } + [address(x.output)!]
+      let r = try nextCodePointer()
+      callStack.append(.init(returnAddress: r, parameters: p))
+      jump(to: (x.callee.constant as! FunctionReference).function)
+      return
     case let x as CallBuiltinFunction:
       _ = x
     case is CallBundle:
@@ -251,16 +255,29 @@ public struct Interpreter {
 
   /// Moves the program counter to the next instruction.
   mutating func advanceProgramCounter() throws {
+    programCounter.instructionInModule = try nextInstruction()
+  }
+
+  /// Returns the next instruction.
+  func nextInstruction() throws -> InstructionID {
     let b = program.modules[programCounter.module]!
       .functions[programCounter.instructionInModule.function]!
       .blocks[programCounter.instructionInModule.block].instructions
     guard let a = b.address(after: programCounter.instructionInModule.address) else {
       throw IRError()
     }
-    programCounter.instructionInModule = InstructionID(
+    return InstructionID(
       programCounter.instructionInModule.function,
       programCounter.instructionInModule.block,
-      a)
+      a
+    )
+  }
+
+  /// Returns code pointer pointing to next instruction.
+  func nextCodePointer() throws -> CodePointer {
+    var p = programCounter;
+    p.instructionInModule = try nextInstruction();
+    return p;
   }
 
   /// Removes topmost stack frame and points `programCounter` to next instruction
@@ -364,6 +381,18 @@ public struct Interpreter {
     programCounter = CodePointer(
       module: m,
       instructionInModule: InstructionID(f, a, i)
+    )
+  }
+
+  /// Sets the program counter to the start of `f`.
+  mutating func jump(to f: Function.ID) {
+    let m = program.module(defining: f)
+    let g = program.modules[m]![f]
+    let b = g.entry!;
+    let i = g.blocks[b].instructions.firstAddress!
+    programCounter = CodePointer(
+      module: m,
+      instructionInModule: InstructionID(f, b, i)
     )
   }
 
