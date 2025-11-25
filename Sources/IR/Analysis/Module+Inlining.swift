@@ -21,17 +21,28 @@ extension IR.Program {
   public mutating func inlineCalls(
     in f: Function.ID, definedIn m: Module.ID, where shouldInline: InliningPredicate
   ) {
-    var work: [InstructionID] = []
-    for b in modules[m]!.blocks(in: f) {
-      for i in modules[m]!.instructions(in: b) {
-        if modules[m]![i] is Call {
-          work.append(i)
+    // Keep inlining until no more calls can be inlined (fixed-point iteration)
+    var madeProgress = true
+    while madeProgress {
+      madeProgress = false
+      
+      // Collect all call instructions in the function
+      var work: [InstructionID] = []
+      for b in modules[m]!.blocks(in: f) {
+        for i in modules[m]!.instructions(in: b) {
+          if modules[m]![i] is Call {
+            work.append(i)
+          }
         }
       }
-    }
 
-    while let i = work.popLast() {
-      _ = inline(functionCall: i, definedIn: m, if: shouldInline)
+      // Try to inline each call. We process the work list in reverse order
+      // to inline inner calls before outer ones when possible.
+      while let i = work.popLast() {
+        if inline(functionCall: i, definedIn: m, if: shouldInline) {
+          madeProgress = true
+        }
+      }
     }
   }
 
@@ -49,47 +60,78 @@ extension IR.Program {
   ) -> Bool {
     let s = modules[m]![i] as! Call
 
-    // Can't inline the call if the callee isn't a function reference.
-    guard let callee = s.callee.constant as? FunctionReference else {
+    // Can't inline the call if the callee is not a constant.
+    guard s.callee.isConstant else {
+      // print("Failed to inline call because callee is not constant `\(s.callee)`")
       return false
     }
 
+    // Can't inline the call if the callee isn't a function reference.
+    guard let callee = s.callee.constant as? FunctionReference else {
+      // print("Failed to inline call because callee is not a function reference `\(s.callee)`")
+      return false
+    }
+
+    // Extract function name for debugging
+    // let functionName: String
+    // if case .lowered(let declId) = callee.function.value,
+    //     let functionDeclId = FunctionDecl.ID(declId),
+    //     let identifier = modules[m]!.program.ast[functionDeclId].identifier?.value {
+    //   functionName = identifier
+    // } else {
+    //   functionName = "\(callee.function)"
+    // }
+
+    //print("Attempting to inline call to `\(functionName)`")
+
     // Can't inline the call if the callee is generic.
     if !callee.specialization.isEmpty {
+      // print("Failed to inline call to `\(functionName)` because function is generic")
       return false
     }
 
     // Can't inline if the function has no implementation.
     let source = module(defining: callee.function)
-    if modules[source]![callee.function].entry == nil {
+    let sourceModule = modules[source]!
+    guard let calleeFunction = sourceModule.functions[callee.function] else {
+      // print("Failed to inline call to `\(functionName)` because function not found in module")
+      return false
+    }
+    if calleeFunction.entry == nil {
+      // print("Failed to inline call to `\(functionName)` because function has no implementation")
       return false
     }
 
     // Can't inline if `shouldInline` doesn't hold.
-    if !shouldInline(callee.function, definedIn: modules[source]!) {
+    if !shouldInline(callee.function, definedIn: sourceModule) {
+      // print("Failed to inline call to `\(functionName)` because predicate not satisfied")
       return false
     }
 
     var translation = InliningTranslation(rewrittenBlock: [:])
 
     // Simplest case: the inlined function has no control flow.
-    if modules[source]![callee.function].blocks.count == 1 {
-      let e = Block.ID(callee.function, modules[source]![callee.function].entry!)
+    if calleeFunction.blocks.count == 1 {
+      let e = Block.ID(callee.function, calleeFunction.entry!)
 
       translation.rewrittenOperand[.parameter(e, s.arguments.count)] = s.output
       for (n, o) in s.arguments.enumerated() {
         translation.rewrittenOperand[.parameter(e, n)] = o
       }
 
-      for j in modules[source]!.instructions(in: e) {
-        if modules[source]![j] is Terminator { break }
+      for j in sourceModule.instructions(in: e) {
+        if sourceModule[j] is Terminator { break }
         let k = self.rewrite(j, from: source, transformedBy: &translation, at: .before(i), in: m)
         translation.rewrittenOperand[.register(j)] = .register(k)
       }
 
       modules[m]!.removeInstruction(i)
+
+      // print("    -> Successfully inlined call to `\(functionName)`")
       return true
     }
+
+    // print("Failed to inline call to `\(functionName)` because it has \(calleeFunction.blocks.count) blocks.")
 
     return false
   }
