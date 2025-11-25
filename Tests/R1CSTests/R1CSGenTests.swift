@@ -1,8 +1,8 @@
 import XCTest
 import BigInt
-@testable import R1CSGen
+@testable import R1CS
 
-final class R1CSGenTests: XCTestCase {
+final class R1CSTests: XCTestCase {
   
   /// Test basic R1CS functionality
   func testBuilderBasics() {
@@ -28,30 +28,30 @@ final class R1CSGenTests: XCTestCase {
     var lc = LinearCombination()
     XCTAssertTrue(lc.terms.isEmpty)
     
-    lc.addTerm(wireId: WireID(rawValue: 5), coefficient: 3)
-    lc.addTerm(wireId: WireID(rawValue: 2), coefficient: 8)
-    lc.addTerm(wireId: WireID(rawValue: 10), coefficient: 1)
+    lc.addTerm(wire: WireID(rawValue: 5), coefficient: 3)
+    lc.addTerm(wire: WireID(rawValue: 2), coefficient: 8)
+    lc.addTerm(wire: WireID(rawValue: 10), coefficient: 1)
     
     // Terms are stored in insertion order
     XCTAssertEqual(lc.terms.count, 3)
-    XCTAssertEqual(lc.terms[0].wireId.rawValue, 5)
-    XCTAssertEqual(lc.terms[1].wireId.rawValue, 2)
-    XCTAssertEqual(lc.terms[2].wireId.rawValue, 10)
+    XCTAssertEqual(lc.terms[0].wire.rawValue, 5)
+    XCTAssertEqual(lc.terms[1].wire.rawValue, 2)
+    XCTAssertEqual(lc.terms[2].wire.rawValue, 10)
   }
   
   /// Test constraint creation
   func testConstraintCreation() {
     var a = LinearCombination()
-    a.addTerm(wireId: WireID(rawValue: 5), coefficient: 3)
-    a.addTerm(wireId: WireID(rawValue: 6), coefficient: 8)
+    a.addTerm(wire: WireID(rawValue: 5), coefficient: 3)
+    a.addTerm(wire: WireID(rawValue: 6), coefficient: 8)
     
     var b = LinearCombination()
-    b.addTerm(wireId: WireID(rawValue: 0), coefficient: 2)
-    b.addTerm(wireId: WireID(rawValue: 2), coefficient: 20)
+    b.addTerm(wire: R1CS.unitWire, coefficient: 2)
+    b.addTerm(wire: WireID(rawValue: 2), coefficient: 20)
     
     var c = LinearCombination()
-    c.addTerm(wireId: WireID(rawValue: 0), coefficient: 5)
-    c.addTerm(wireId: WireID(rawValue: 2), coefficient: 7)
+    c.addTerm(wire: R1CS.unitWire, coefficient: 5)
+    c.addTerm(wire: WireID(rawValue: 2), coefficient: 7)
     
     let constraint = R1CSConstraint(a: a, b: b, c: c)
     
@@ -88,44 +88,44 @@ final class R1CSGenTests: XCTestCase {
     
     // Constraint 0: (3w_5 + 8w_6) * (2w_0 + 20w_2 + 12w_3) - (5w_0 + 7w_2) = 0
     let a0 = LinearCombination(terms: [
-      (wireId: WireID(rawValue: 5), coefficient: 3),
-      (wireId: WireID(rawValue: 6), coefficient: 8)
+      (wire: WireID(rawValue: 5), coefficient: 3),
+      (wire: WireID(rawValue: 6), coefficient: 8)
     ])
     let b0 = LinearCombination(terms: [
-      (wireId: WireID(rawValue: 0), coefficient: 2),
-      (wireId: WireID(rawValue: 2), coefficient: 20),
-      (wireId: WireID(rawValue: 3), coefficient: 12)
+      (wire: R1CS.unitWire, coefficient: 2),
+      (wire: WireID(rawValue: 2), coefficient: 20),
+      (wire: WireID(rawValue: 3), coefficient: 12)
     ])
     let c0 = LinearCombination(terms: [
-      (wireId: WireID(rawValue: 0), coefficient: 5),
-      (wireId: WireID(rawValue: 2), coefficient: 7)
+      (wire: R1CS.unitWire, coefficient: 5),
+      (wire: WireID(rawValue: 2), coefficient: 7)
     ])
     r1cs.addConstraint(R1CSConstraint(a: a0, b: b0, c: c0))
     
     // Constraint 1: (4w_1 + 8w_4 + 3w_5) * (6w_6 + 44w_3) = 0
     let a1 = LinearCombination(terms: [
-      (wireId: WireID(rawValue: 1), coefficient: 4),
-      (wireId: WireID(rawValue: 4), coefficient: 8),
-      (wireId: WireID(rawValue: 5), coefficient: 3)
+      (wire: WireID(rawValue: 1), coefficient: 4),
+      (wire: WireID(rawValue: 4), coefficient: 8),
+      (wire: WireID(rawValue: 5), coefficient: 3)
     ])
     let b1 = LinearCombination(terms: [
-      (wireId: WireID(rawValue: 3), coefficient: 44),
-      (wireId: WireID(rawValue: 6), coefficient: 6)
+      (wire: WireID(rawValue: 3), coefficient: 44),
+      (wire: WireID(rawValue: 6), coefficient: 6)
     ])
     let c1 = LinearCombination()  // Empty
     r1cs.addConstraint(R1CSConstraint(a: a1, b: b1, c: c1))
     
     // Constraint 2: (4w_6) * (6w_0 + 5w_3 + 11w_2) - (600w_6) = 0
     let a2 = LinearCombination(terms: [
-      (wireId: WireID(rawValue: 6), coefficient: 4)
+      (wire: WireID(rawValue: 6), coefficient: 4)
     ])
     let b2 = LinearCombination(terms: [
-      (wireId: WireID(rawValue: 0), coefficient: 6),
-      (wireId: WireID(rawValue: 2), coefficient: 11),
-      (wireId: WireID(rawValue: 3), coefficient: 5)
+      (wire: WireID(rawValue: 0), coefficient: 6),
+      (wire: WireID(rawValue: 2), coefficient: 11),
+      (wire: WireID(rawValue: 3), coefficient: 5)
     ])
     let c2 = LinearCombination(terms: [
-      (wireId: WireID(rawValue: 6), coefficient: 600)
+      (wire: WireID(rawValue: 6), coefficient: 600)
     ])
     r1cs.addConstraint(R1CSConstraint(a: a2, b: b2, c: c2))
     
@@ -198,23 +198,23 @@ final class R1CSGenTests: XCTestCase {
     
     // Create linear combination with unsorted wire IDs
     let lc = LinearCombination(terms: [
-      (wireId: WireID(rawValue: 10), coefficient: 1),
-      (wireId: WireID(rawValue: 2), coefficient: 2),
-      (wireId: WireID(rawValue: 5), coefficient: 3),
-      (wireId: WireID(rawValue: 1), coefficient: 4)
+      (wire: WireID(rawValue: 10), coefficient: 1),
+      (wire: WireID(rawValue: 2), coefficient: 2),
+      (wire: WireID(rawValue: 5), coefficient: 3),
+      (wire: WireID(rawValue: 1), coefficient: 4)
     ])
     
     // Terms are stored in insertion order (unsorted)
-    XCTAssertEqual(lc.terms[0].wireId.rawValue, 10)
-    XCTAssertEqual(lc.terms[1].wireId.rawValue, 2)
-    XCTAssertEqual(lc.terms[2].wireId.rawValue, 5)
-    XCTAssertEqual(lc.terms[3].wireId.rawValue, 1)
+    XCTAssertEqual(lc.terms[0].wire.rawValue, 10)
+    XCTAssertEqual(lc.terms[1].wire.rawValue, 2)
+    XCTAssertEqual(lc.terms[2].wire.rawValue, 5)
+    XCTAssertEqual(lc.terms[3].wire.rawValue, 1)
     
     // But serialization should produce sorted output
     let constraint = R1CSConstraint(
       a: lc,
-      b: LinearCombination(terms: [(wireId: WireID(rawValue: 0), coefficient: 1)]),
-      c: LinearCombination(terms: [(wireId: WireID(rawValue: 0), coefficient: 1)])
+      b: LinearCombination(terms: [(wire: WireID(rawValue: 0), coefficient: 1)]),
+      c: LinearCombination(terms: [(wire: WireID(rawValue: 0), coefficient: 1)])
     )
     r1cs.addConstraint(constraint)
     
@@ -256,10 +256,10 @@ final class R1CSGenTests: XCTestCase {
     
     // Create constraint with large coefficients
     let a = LinearCombination(terms: [
-      (wireId: WireID(rawValue: 0), coefficient: bn254Prime - BigUInt(1))
+      (wire: WireID(rawValue: 0), coefficient: bn254Prime - BigUInt(1))
     ])
     let b = LinearCombination(terms: [
-      (wireId: WireID(rawValue: 1), coefficient: bn254Prime / BigUInt(2))
+      (wire: WireID(rawValue: 1), coefficient: bn254Prime / BigUInt(2))
     ])
     let c = LinearCombination()
     
@@ -358,11 +358,11 @@ final class R1CSGenTests: XCTestCase {
   /// Test linear combination with single term
   func testSingleTermLinearCombination() {
     let lc = LinearCombination(terms: [
-      (wireId: WireID(rawValue: 7), coefficient: 42)
+      (wire: WireID(rawValue: 7), coefficient: 42)
     ])
     
     XCTAssertEqual(lc.terms.count, 1)
-    XCTAssertEqual(lc.terms[0].wireId.rawValue, 7)
+    XCTAssertEqual(lc.terms[0].wire.rawValue, 7)
     XCTAssertEqual(lc.terms[0].coefficient, 42)
   }
   
@@ -374,8 +374,8 @@ final class R1CSGenTests: XCTestCase {
     r1cs.addWire(labelId: LabelID(rawValue: 1))
     
     // Constraint: (w0) * (w1) - 0 = 0
-    let a = LinearCombination(terms: [(wireId: WireID(rawValue: 0), coefficient: 1)])
-    let b = LinearCombination(terms: [(wireId: WireID(rawValue: 1), coefficient: 1)])
+    let a = LinearCombination(terms: [(wire: WireID(rawValue: 0), coefficient: 1)])
+    let b = LinearCombination(terms: [(wire: WireID(rawValue: 1), coefficient: 1)])
     let c = LinearCombination()  // Empty
     
     r1cs.addConstraint(R1CSConstraint(a: a, b: b, c: c))
@@ -431,9 +431,9 @@ final class R1CSGenTests: XCTestCase {
     
     let constraintCount = 500
     for _ in 0..<constraintCount {
-      let a = LinearCombination(terms: [(wireId: WireID(rawValue: 0), coefficient: 1)])
-      let b = LinearCombination(terms: [(wireId: WireID(rawValue: 1), coefficient: 1)])
-      let c = LinearCombination(terms: [(wireId: WireID(rawValue: 2), coefficient: 1)])
+      let a = LinearCombination(terms: [(wire: WireID(rawValue: 0), coefficient: 1)])
+      let b = LinearCombination(terms: [(wire: WireID(rawValue: 1), coefficient: 1)])
+      let c = LinearCombination(terms: [(wire: WireID(rawValue: 2), coefficient: 1)])
       r1cs.addConstraint(R1CSConstraint(a: a, b: b, c: c))
     }
     
@@ -505,8 +505,8 @@ final class R1CSGenTests: XCTestCase {
     
     // Linear combination with zero coefficient (unusual but valid)
     let lc = LinearCombination(terms: [
-      (wireId: WireID(rawValue: 0), coefficient: 0),
-      (wireId: WireID(rawValue: 1), coefficient: 0)
+      (wire: WireID(rawValue: 0), coefficient: 0),
+      (wire: WireID(rawValue: 1), coefficient: 0)
     ])
     
     XCTAssertEqual(lc.terms.count, 2)
@@ -536,13 +536,13 @@ final class R1CSGenTests: XCTestCase {
     
     let maxCoeff = prime - 1
     let lc = LinearCombination(terms: [
-      (wireId: WireID(rawValue: 0), coefficient: maxCoeff),
-      (wireId: WireID(rawValue: 1), coefficient: maxCoeff)
+      (wire: WireID(rawValue: 0), coefficient: maxCoeff),
+      (wire: WireID(rawValue: 1), coefficient: maxCoeff)
     ])
     
     let constraint = R1CSConstraint(
       a: lc,
-      b: LinearCombination(terms: [(wireId: WireID(rawValue: 0), coefficient: 1)]),
+      b: LinearCombination(terms: [(wire: WireID(rawValue: 0), coefficient: 1)]),
       c: LinearCombination()
     )
     r1cs.addConstraint(constraint)
@@ -567,9 +567,9 @@ final class R1CSGenTests: XCTestCase {
     r1cs.publicInputCount = 1
     r1cs.privateInputCount = 1
     
-    let a = LinearCombination(terms: [(wireId: WireID(rawValue: 1), coefficient: 3)])
-    let b = LinearCombination(terms: [(wireId: WireID(rawValue: 2), coefficient: 4)])
-    let c = LinearCombination(terms: [(wireId: WireID(rawValue: 0), coefficient: 12)])
+    let a = LinearCombination(terms: [(wire: WireID(rawValue: 1), coefficient: 3)])
+    let b = LinearCombination(terms: [(wire: WireID(rawValue: 2), coefficient: 4)])
+    let c = LinearCombination(terms: [(wire: WireID(rawValue: 0), coefficient: 12)])
     r1cs.addConstraint(R1CSConstraint(a: a, b: b, c: c))
     
     let tempFile = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".r1cs")
@@ -634,9 +634,9 @@ final class R1CSGenTests: XCTestCase {
     }
     
     // Create linear combination with many terms
-    var terms: [(wireId: WireID, coefficient: BigUInt)] = []
+    var terms: [(wire: WireID, coefficient: BigUInt)] = []
     for i in 0..<100 {
-      terms.append((wireId: WireID(rawValue: UInt32(i)), coefficient: BigUInt(i + 1)))
+      terms.append((wire: WireID(rawValue: UInt32(i)), coefficient: BigUInt(i + 1)))
     }
     let lc = LinearCombination(terms: terms)
     
@@ -644,7 +644,7 @@ final class R1CSGenTests: XCTestCase {
     
     let constraint = R1CSConstraint(
       a: lc,
-      b: LinearCombination(terms: [(wireId: WireID(rawValue: 0), coefficient: 1)]),
+      b: LinearCombination(terms: [(wire: WireID(rawValue: 0), coefficient: 1)]),
       c: LinearCombination()
     )
     r1cs.addConstraint(constraint)

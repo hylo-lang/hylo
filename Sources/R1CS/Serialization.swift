@@ -100,14 +100,14 @@ extension R1CS {
     var data = Data()
     
     // Sort terms by wire ID for serialization
-    let sortedTerms = lc.terms.sorted { $0.wireId < $1.wireId }
+    let sortedTerms = lc.terms.sorted { $0.wire < $1.wire }
     
     // Number of non-zero factors
     data.append(uint32: UInt32(sortedTerms.count))
     
     // Each factor
     for term in sortedTerms {
-      data.append(uint32: term.wireId.rawValue)
+      data.append(uint32: term.wire.rawValue)
       data.append(bigUInt: term.coefficient, byteCount: fieldSize)
     }
     

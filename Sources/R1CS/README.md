@@ -1,4 +1,4 @@
-# R1CSGen
+# R1CS
 
 A Swift library for generating R1CS (Rank-1 Constraint System) files in the standard binary format.
 
@@ -20,7 +20,7 @@ R1CS (Rank-1 Constraint System) is a representation of algebraic circuits used i
 
 ```swift
 import BigInt
-import R1CSGen
+import R1CS
 
 // Create an R1CS constraint system with a prime field
 let prime = BigUInt("21888242871839275222246405745257275088548364400416034343698204186575808495617", radix: 10)!
@@ -143,7 +143,7 @@ The library includes comprehensive tests covering:
 
 Run tests with:
 ```bash
-swift test --filter R1CSGenTests
+swift test --filter R1CSTests
 ```
 
 ## Dependencies
