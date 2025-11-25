@@ -96,4 +96,42 @@ extension Module: TextOutputStreamable {
     }
   }
 
+  /// Returns a textual representation of the blocks in function `f` with call instructions
+  /// showing the identifier of the callee function when available.
+  public func describeBlocksWithCalleeIdentifiers(in f: Function.ID) -> String {
+    var output = ""
+    
+    for i in blocks(in: f) {
+      output.write("\(i)(")
+      output.write(
+        self[i].inputs.enumerated().lazy
+          .map({ (j, t) in "\(Operand.parameter(i, j)) : \(t)" })
+          .joined(separator: ", "))
+      output.write("):\n")
+
+      for j in instructions(in: i) {
+        output.write("  ")
+        if let t = self[j].result {
+          output.write("\(Operand.register(j)): \(t) = ")
+        }
+
+        // Special handling for Call instructions to print function identifier
+        let instruction = self[j]
+        if let call = instruction as? Call,
+          case .constant(let c) = call.callee,
+          let funcRef = c as? FunctionReference,
+          case .lowered(let declId) = funcRef.function.value,
+          let functionDeclId = FunctionDecl.ID(declId),
+          let functionName = program.ast[functionDeclId].identifier?.value
+        {
+          output.write("call @\(functionName)(\(list: call.arguments)) to \(call.output)\n")
+        } else {
+          output.write("\(instruction)\n")
+        }
+      }
+    }
+    
+    return output
+  }
+
 }
