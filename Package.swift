@@ -32,6 +32,7 @@ let package = Package(
     .executable(name: "hc", targets: ["hc"]),
     .executable(name: "hylo-demangle", targets: ["hylo-demangle"]),
     .library(name: "FrontEnd", targets: ["FrontEnd"]),
+    .library(name: "R1CSGen", targets: ["R1CSGen"]),
   ],
 
   dependencies: [
@@ -126,6 +127,13 @@ let package = Package(
       swiftSettings: allTargetsSwiftSettings),
 
     .target(
+      name: "R1CSGen",
+      dependencies: [
+        .product(name: "BigInt", package: "BigInt"),
+      ],
+      swiftSettings: allTargetsSwiftSettings),
+
+    .target(
       name: "TestUtils",
       dependencies: ["FrontEnd", "Driver", "Utils"],
       swiftSettings: allTargetsSwiftSettings),
@@ -153,6 +161,11 @@ let package = Package(
     .testTarget(
       name: "UtilsTests",
       dependencies: ["Utils", .product(name: "Algorithms", package: "swift-algorithms")],
+      swiftSettings: allTargetsSwiftSettings),
+
+    .testTarget(
+      name: "R1CSGenTests",
+      dependencies: ["R1CSGen"],
       swiftSettings: allTargetsSwiftSettings),
 
     .testTarget(
