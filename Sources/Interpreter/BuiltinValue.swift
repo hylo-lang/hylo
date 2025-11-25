@@ -76,7 +76,7 @@ enum BuiltinValue {
 /// Methods to create builtin value from IR constants.
 extension BuiltinValue {
 
-  /// Creates instance of builtin value with integer constant `c`.
+  /// Creates instance of builtin value with `c`.
   public init(withIntegerConstant c: IntegerConstant) {
     self =
       switch c.value.bitWidth {

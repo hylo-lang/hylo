@@ -200,8 +200,8 @@ public struct Interpreter {
     case let x as Store:
       store(builtinValue(x.object)!, at: address(x.target)!)
     case let x as SubfieldView:
-      let parentField = address(x.recordAddress)!;
-      currentRegister = address(of: x.subfield, in: parentField)
+      let p = address(x.recordAddress)!;
+      currentRegister = address(of: x.subfield, in: p)
     case let x as Switch:
       _ = x
     case let x as UnionDiscriminator:
