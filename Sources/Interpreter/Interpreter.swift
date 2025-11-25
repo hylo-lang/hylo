@@ -143,9 +143,9 @@ public struct Interpreter {
       jump(to: x.target)
       return
     case let x as Call:
-      let functionParameters = x.arguments.map { address($0)! } + [address(x.output)!]
-      let returnAddress = try nextCodePointer()
-      stackFrames.append(.init(returnAddress: returnAddress, parameters: functionParameters))
+      let p = x.arguments.map { address($0)! } + [address(x.output)!]
+      let r = try nextCodePointer()
+      callStack.append(.init(returnAddress: r, parameters: p))
       jump(to: (x.callee.constant as! FunctionReference).function)
       return
     case let x as CallBuiltinFunction:
@@ -275,9 +275,9 @@ public struct Interpreter {
 
   /// Returns code pointer pointing to next instruction.
   func nextCodePointer() throws -> CodePointer {
-    var codePointer = programCounter;
-    codePointer.instructionInModule = try nextInstruction();
-    return codePointer;
+    var p = programCounter;
+    p.instructionInModule = try nextInstruction();
+    return p;
   }
 
   /// Removes topmost stack frame and points `programCounter` to next instruction
@@ -386,13 +386,13 @@ public struct Interpreter {
 
   /// Sets the program counter to the start of `f`.
   mutating func jump(to f: Function.ID) {
-    let module = program.module(defining: f)
-    let function = program.modules[module]![f]
-    let entryBlock = function.entry!;
-    let entryInstruction = function.blocks[entryBlock].instructions.firstAddress!
+    let m = program.module(defining: f)
+    let g = program.modules[m]![f]
+    let b = g.entry!;
+    let i = g.blocks[b].instructions.firstAddress!
     programCounter = CodePointer(
-      module: module,
-      instructionInModule: InstructionID(f, entryBlock, entryInstruction)
+      module: m,
+      instructionInModule: InstructionID(f, b, i)
     )
   }
 
