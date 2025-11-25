@@ -34,7 +34,7 @@ final class InterpreterMemoryInternalTests: XCTestCase {
     }
   }
 
-  func test_canAccessUnsafePointerToAllocatedBytes() throws {
+  func testFormingPointerToLastByteOfAllocation() throws {
     var memory = Memory()
     let allocationAddress = memory.allocate(1, bytesWithAlignment: 1)
 
