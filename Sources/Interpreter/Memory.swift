@@ -294,12 +294,12 @@ public struct Memory {
   ) {
     precondition(source.offset + n <= self[source.allocation].size)
     precondition(destination.offset + n <= self[destination.allocation].size)
-    let sourceBaseOffset = self[source.allocation].baseOffset
-    let destinationBaseOffset = self[destination.allocation].baseOffset
-    self[source.allocation].storage.withUnsafeBytes { sourceBuffer in
-      self[destination.allocation].storage.withUnsafeMutableBytes { destBuffer in
-        let s = sourceBuffer.baseAddress! + sourceBaseOffset + source.offset
-        let d = destBuffer.baseAddress! + destinationBaseOffset + destination.offset
+    let i = self[source.allocation].baseOffset
+    let j = self[destination.allocation].baseOffset
+    self[source.allocation].storage.withUnsafeBytes { a in
+      self[destination.allocation].storage.withUnsafeMutableBytes { b in
+        let s = a.baseAddress! + i + source.offset
+        let d = b.baseAddress! + j + destination.offset
         d.copyMemory(from: s, byteCount: n)
       }
     }
@@ -329,10 +329,8 @@ public extension Memory.Address {
 
 extension Memory.Allocation {
 
-  /// Returns builtin value stored at offset `o` having type `t`.
-  func builtinValue(at o: Memory.Offset, ofType t: BuiltinType)
-    -> BuiltinValue
-  {
+  /// Returns builtin value stored at `o` having type `t`.
+  func builtinValue(at o: Memory.Offset, ofType t: BuiltinType) -> BuiltinValue {
     switch t {
     case .i(1): withUnsafePointer(to: Bool.self, at: o) { .i1($0.pointee) }
     case .i(8): withUnsafePointer(to: UInt8.self, at: o) { .i8($0.pointee) }
@@ -344,7 +342,7 @@ extension Memory.Allocation {
     }
   }
 
-  /// Stores `v` at offset `o`.
+  /// Stores `v` at `o`.
   mutating func store(_ v: BuiltinValue, at o: Memory.Offset) {
     switch v {
     case .i1(let x): withUnsafeMutablePointer(to: Bool.self, at: o) { $0.pointee = x }
