@@ -294,12 +294,12 @@ public struct Memory {
   ) {
     precondition(source.offset + n <= self[source.allocation].size)
     precondition(destination.offset + n <= self[destination.allocation].size)
-    let sourceBaseOffset = self[source.allocation].baseOffset
-    let destinationBaseOffset = self[destination.allocation].baseOffset
-    self[source.allocation].storage.withUnsafeBytes { sourceBuffer in
-      self[destination.allocation].storage.withUnsafeMutableBytes { destBuffer in
-        let s = sourceBuffer.baseAddress! + sourceBaseOffset + source.offset
-        let d = destBuffer.baseAddress! + destinationBaseOffset + destination.offset
+    let i = self[source.allocation].baseOffset
+    let j = self[destination.allocation].baseOffset
+    self[source.allocation].storage.withUnsafeBytes { a in
+      self[destination.allocation].storage.withUnsafeMutableBytes { b in
+        let s = a.baseAddress! + i + source.offset
+        let d = b.baseAddress! + j + destination.offset
         d.copyMemory(from: s, byteCount: n)
       }
     }
