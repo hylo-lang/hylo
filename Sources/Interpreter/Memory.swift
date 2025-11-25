@@ -329,7 +329,7 @@ public extension Memory.Address {
 
 extension Memory.Allocation {
 
-  /// Stores `v` at offset `o`.
+  /// Stores `v` at `o`.
   mutating func store(_ v: BuiltinValue, at o: Memory.Offset) {
     switch v {
     case .i1(let x): withUnsafeMutablePointer(to: Bool.self, at: o) { $0.pointee = x }

@@ -76,16 +76,16 @@ enum BuiltinValue {
 /// Methods to create builtin value from IR constants.
 extension BuiltinValue {
 
-  /// Creates instance of builtin value with integer constant `c`.
+  /// Creates instance of builtin value with `c`.
   public init(withIntegerConstant c: IntegerConstant) {
     self =
       switch c.value.bitWidth {
       case 1: .i1(Bool(c.value != 0))
-      case 8: .i8(UInt8(truncatingIfNeeded: c.value))
-      case 16: .i16(UInt16(truncatingIfNeeded: c.value))
-      case 32: .i32(UInt32(truncatingIfNeeded: c.value))
-      case 64: .i64(UInt64(truncatingIfNeeded: c.value))
-      case 128: .i128(UInt128(truncatingIfNeeded: c.value))
+      case 8: .i8(UInt8(c.value))
+      case 16: .i16(UInt16(c.value))
+      case 32: .i32(UInt32(c.value))
+      case 64: .i64(UInt64(c.value))
+      case 128: .i128(UInt128(c.value))
       default: fatalError("Unknown bitwidth of integer \(c.value.bitWidth)")
       }
   }

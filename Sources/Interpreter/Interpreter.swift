@@ -13,14 +13,14 @@ struct CodePointer {
 /// The value produced by executing an instruction.
 typealias InstructionResult = Any
 
-/// Address to allocated object with type layout.
+/// A typed location in memory.
 struct Address {
 
-  /// Address of object in memory.
-  public let memoryAddress: Memory.Address
+  /// The position in memory.
+  public let startLocation: Memory.Address
 
-  /// Type layout of object.
-  public let memoryLayout: TypeLayout
+  /// The type to be accessed at `startLocation`.
+  public let type: TypeLayout
 
 }
 
@@ -35,7 +35,7 @@ struct StackFrame {
   var returnAddress: CodePointer
 
   /// The allocations in this stack frame.
-  var allocations: [Address] = []
+  var allocations: [Memory.Allocation.ID] = []
 
   /// Function parameters
   var parameters: [Address]
@@ -74,7 +74,7 @@ public struct Interpreter {
   private var memory = Memory()
 
   /// Local variables, parameters, and return addresses.
-  private var stackFrames: [StackFrame] = []
+  private var callStack: [StackFrame] = []
 
   /// Identity of the next instruction to be executed.
   private var programCounter: CodePointer
@@ -89,9 +89,9 @@ public struct Interpreter {
   private var typeLayout: TypeLayoutCache
 
   private var topOfStack: StackFrame {
-    get { stackFrames.last! }
+    get { callStack.last! }
     _modify {
-      yield &stackFrames[stackFrames.count - 1]
+      yield &callStack[callStack.count - 1]
     }
   }
 
@@ -112,7 +112,7 @@ public struct Interpreter {
 
     // The return address of the bottom-most frame will never be used,
     // so we fill it with something arbitrary.
-    stackFrames.append(StackFrame(returnAddress: programCounter, parameters: []))
+    callStack.append(StackFrame(returnAddress: programCounter, parameters: []))
     typeLayout = .init(typesIn: p.base, for: UnrealABI())
   }
 
@@ -135,9 +135,9 @@ public struct Interpreter {
       _ = x
 
     case let x as AllocStack:
-      let allocationAddress = allocate(typeLayout[x.allocatedType])
-      topOfStack.allocations.append(allocationAddress)
-      currentRegister = allocationAddress
+      let a = allocate(typeLayout[x.allocatedType])
+      topOfStack.allocations.append(a.startLocation.allocation)
+      currentRegister = a
 
     case let x as Branch:
       _ = x
@@ -160,7 +160,8 @@ public struct Interpreter {
     case let x as ConstantString:
       currentRegister = x.value
     case let x as DeallocStack:
-      try deallocate(topOfStack.registers[x.location.instruction!]! as! Address)
+      let a = addressProduced(by: x.location.instruction!)!
+      try deallocate(a)
       topOfStack.allocations.removeLast()
     case is EndAccess:
       // No effect on program state
@@ -205,8 +206,8 @@ public struct Interpreter {
     case let x as Store:
       store(builtinValue(x.object)!, at: address(x.target)!)
     case let x as SubfieldView:
-      let parentField = address(x.recordAddress)!;
-      currentRegister = address(of: x.subfield, in: parentField)
+      let p = address(x.recordAddress)!;
+      currentRegister = address(of: x.subfield, in: p)
     case let x as Switch:
       _ = x
     case let x as UnionDiscriminator:
@@ -222,7 +223,7 @@ public struct Interpreter {
     default:
       fatalError("Interpreter: unimplemented instruction")
     }
-    if stackFrames.isEmpty {
+    if callStack.isEmpty {
       isRunning = false
     }
     else {
@@ -260,21 +261,31 @@ public struct Interpreter {
   ///
   /// - Precondition: the program is running.
   mutating func popStackFrame() {
-    programCounter = stackFrames.popLast()!.returnAddress
-    if stackFrames.isEmpty {
+    programCounter = callStack.popLast()!.returnAddress
+    if callStack.isEmpty {
       isRunning = false
     }
   }
 
-  /// Allocates object of type layout `t` on `memory` and returns address of start of object.
+  /// Allocates memory for an object of type `t` and returns the address.
   mutating func allocate(_ t: TypeLayout) -> Address {
-    let addr = memory.allocate(t.size, bytesWithAlignment: t.alignment)
-    return .init(memoryAddress: addr, memoryLayout: t)
+    let a = memory.allocate(t.size, bytesWithAlignment: t.alignment)
+    return .init(startLocation: a, type: t)
   }
 
-  /// Deallocates object allocated at `a`.
+  /// Deallocates `a`.
   mutating func deallocate(_ a: Address) throws {
-    try memory.deallocate(a.memoryAddress)
+    precondition(a.startLocation.offset == 0, "Can't deallocate the memory of subobject.")
+    precondition(
+      memory.allocation[a.startLocation.allocation]?.size == a.type.size,
+      "Deallocating using address of the wrong type.")
+    try memory.deallocate(a.startLocation)
+  }
+
+  /// Returns the address produced by executing instruction identified by `i` in the current frame,
+  /// or `nil` if it didn't produce an address.
+  func addressProduced(by i: InstructionID) -> Address? {
+    topOfStack.registers[i] as? Address
   }
 
   /// Returns the value of `x` if it has a address, or `nil` if it does not.
@@ -291,17 +302,14 @@ public struct Interpreter {
 
   /// Returns the address of `subField` in the object  at `origin`.
   mutating func address(of subField: RecordPath, in origin: Address) -> Address {
-    let memoryAddress = origin.memoryAddress;
-    var offset = origin.memoryAddress.offset;
-    var layout = origin.memoryLayout;
+    let l = origin.startLocation;
+    var o = l.offset;
+    var t = origin.type;
     for i in subField {
-      offset += layout.parts[i].offset
-      layout = typeLayout[layout.parts[i].type]
+      o += t.parts[i].offset
+      t = typeLayout[t.parts[i].type]
     }
-    return .init(
-      memoryAddress: .init(allocation: memoryAddress.allocation, offset: offset),
-      memoryLayout: layout
-    )
+    return .init(startLocation: .init(allocation: l.allocation, offset: o), type: t)
   }
 
   /// Returns the value of `x` if it has a builtin type, or `nil` if it does not.
@@ -321,10 +329,10 @@ public struct Interpreter {
     }
   }
 
-  /// Stores `v` in memory at `a`.
+  /// Stores `v` at `a`.
   mutating func store(_ v: BuiltinValue, at a: Address) {
-    let allocation = a.memoryAddress.allocation
-    let offset = a.memoryAddress.offset
+    let allocation = a.startLocation.allocation
+    let offset = a.startLocation.offset
     memory[allocation].store(v, at: offset)
   }
 
