@@ -156,11 +156,12 @@ extension Module {
   /// - Requires: The definition of `l` dominates `u`.
   func extend(lifetime l: Lifetime, toInclude u: Use, in f: Function.ID) -> Lifetime {
     var coverage = l.coverage
-    switch coverage[functions[f]!.block(of: u.user).address] {
+    let block = functions[f]!.block(of: u.user).address
+    switch coverage[block] {
     case .closed(let lastUser):
-      coverage[functions[f]!.block(of: u.user).address] = .closed(lastUse: last(lastUser, u, in: f))
+      coverage[block] = .closed(lastUse: last(lastUser, u, in: f))
     case .liveIn(let lastUser):
-      coverage[functions[f]!.block(of: u.user).address] = .liveIn(lastUse: last(lastUser, u, in: f))
+      coverage[block] = .liveIn(lastUse: last(lastUser, u, in: f))
     default:
       break
     }
