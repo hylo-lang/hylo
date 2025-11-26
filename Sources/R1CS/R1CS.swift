@@ -13,7 +13,7 @@ public struct WireID: Equatable, Hashable, Comparable, Sendable {
     lhs.raw < rhs.raw
   }
 
-  static let unit = WireID(rawValue: 0)
+  public static let unit = WireID(rawValue: 0)
 }
 
 /// A unique identifier for a label in the circuit.

@@ -144,7 +144,7 @@ public func generateR1CS(
     // Last parameter is the pointer to the return value
     let returnValueParam = Operand.parameter(entryBlockId, entryBlock.inputs.count - 1)
     let returnValueWire = r1cs.addWire()
-    memory[returnValueParam] = [:] 
+    memory[returnValueParam] = [:]
     memory[returnValueParam]![0] = returnValueWire
     operandValues[returnValueParam] = .pointer(base: returnValueParam, offset: 0)
 
@@ -226,17 +226,24 @@ public func generateR1CS(
                 valueWire = getWire(for: .parameter(blockId, index))
             }
             // Resolve the Address
-            let (base, offset) = getPointer(for: store.target)
+            let (targetBase, offset) = getPointer(for: store.target)
 
-            if base == returnValueParam {
+            // Todo avoid extra wire here
+            if targetBase == returnValueParam {
                 witnessGen.recordAssignment(destination: returnValueWire, source: valueWire)
+                r1cs.addConstraint(
+                    .init(
+                        a: LinearCombination(terms: [(wire: returnValueWire, coefficient: 1)]),
+                        b: LinearCombination(terms: [(wire: .unit, coefficient: 1)]),
+                        c: LinearCombination(terms: [(wire: valueWire, coefficient: 1)])
+                    ))
             }
 
             // Update Physical Memory
-            if memory[base] == nil {
-                memory[base] = [:]  // Initialize new base if needed (why is this needed)
+            if memory[targetBase] == nil {
+                memory[targetBase] = [:]  // Initialize new base if needed (why is this needed)
             }
-            memory[base]![offset] = valueWire
+            memory[targetBase]![offset] = valueWire
         case let access as IR.Access:
             // Resolve pointer
             let (base, offset) = getPointer(for: access.source)
@@ -257,6 +264,30 @@ public func generateR1CS(
 
             // The result of a Load instruction is a Value (Wire)
             operandValues[.register(instructionId)] = .wire(loadedWire)
+
+        case let memcpy as IR.MemoryCopy:
+            let sourcePointer = getPointer(for: memcpy.source)
+            let targetPointer = getPointer(for: memcpy.target)
+
+            let sourcePointee = memory[sourcePointer.base]![sourcePointer.offset]!
+
+            // Update memory at target pointer to point to source wire
+            if memory[targetPointer.base] == nil {
+                memory[targetPointer.base] = [:]
+            }
+            memory[targetPointer.base]![targetPointer.offset] = sourcePointee
+
+
+            // Todo avoid extra wire here
+            if targetPointer.base == returnValueParam {
+                witnessGen.recordAssignment(destination: returnValueWire, source: sourcePointee)
+                r1cs.addConstraint(
+                    .init(
+                        a: LinearCombination(terms: [(wire: returnValueWire, coefficient: 1)]),
+                        b: LinearCombination(terms: [(wire: .unit, coefficient: 1)]),
+                        c: LinearCombination(terms: [(wire: sourcePointee, coefficient: 1)])
+                    ))
+            }
 
         case let callBuiltin as IR.CallBuiltinFunction:
             /// Result wire
@@ -341,11 +372,15 @@ public func generateR1CS(
             default:
                 print("\(red)Unsupported builtin function: \(callBuiltin.callee)\(reset)")
             }
-
+        case _ as IR.EndAccess, _ as IR.DeallocStack, _ as IR.MarkState, _ as IR.Return:
+            // No action needed for R1CS generation
+            break
         default:
             print("   - ignored instruction \(instruction)")
         }
     }
+
+    print("Memory: \(memory)")
 
     print("R1CS Output: ..............................................")
 

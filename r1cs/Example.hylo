@@ -7,6 +7,24 @@ fun is_right_triangle(a: Int, b: Int, c: Int) -> Int {
   return lhs - rhs
 }
 
+trait Op {
+  fun apply(x: Int) -> Int
+}
+
+type W : Op, Deinitializable {
+  let m: Int
+  internal memberwise init
+
+  public fun apply(x: Int) -> Int {
+    return x + m
+  }
+}
+
+fun use<T: Op>(op: T, val: Int) -> Int {
+  return op.apply(x: val)
+}
+
 public fun problem(a: Int, b: Int) -> Int {
-  return is_right_triangle(a: a, b: b, c: 5)
+  var v = W(m: a.copy()).apply(x: b)
+  return v
 }
