@@ -77,11 +77,11 @@ public func generateR1CS(
 
     // Generate the output
     let irSourceModule = ir.modules[sourceModule]!
-    let output = irSourceModule.describeBlocksWithCalleeIdentifiers(in: entryFunction.key)
+    let output = irSourceModule.coloredDescribeBlocksWithCalleeIdentifiers(in: entryFunction.key)
 
     // Write to file
     let outputFile = outputURL ?? URL(fileURLWithPath: "\(productName)")
-    try output.write(to: outputFile.appendingPathExtension("ir"), atomically: true, encoding: .utf8)
+    try output.write(to: outputFile.appendingPathExtension("ir.ansi"), atomically: true, encoding: .utf8)
 
     // BN254 (alt_bn128) curve prime - standard for zkSNARKs
     // This is the scalar field order of the BN254 curve used by Ethereum, snarkjs, circom, etc.
@@ -138,8 +138,6 @@ public func generateR1CS(
 
     // Update the public input count in R1CS
     r1cs.publicInputCount = UInt32(publicInputWires.count)
-
-    print("Total public inputs: \(publicInputWires.count)")
 
     // Last parameter is the pointer to the return value
     let returnValueParam = Operand.parameter(entryBlockId, entryBlock.inputs.count - 1)
@@ -381,8 +379,6 @@ public func generateR1CS(
     }
 
     print("Memory: \(memory)")
-
-    print("R1CS Output: ..............................................")
 
     try String(describing: r1cs).write(
         to: outputURL!.appendingPathExtension("r1cs.ansi"), atomically: true, encoding: .utf8)

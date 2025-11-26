@@ -1,4 +1,5 @@
 import FrontEnd
+import Utils
 
 // An integer constant that has the size of a machine word.
 public struct WordConstant: Constant, Hashable {
@@ -22,6 +23,14 @@ extension WordConstant: CustomStringConvertible {
 
   public var description: String {
     "\(type.ast)(\(value))"
+  }
+
+}
+
+extension WordConstant: ColoredDescribable {
+
+  public var coloredDescription: String {
+    "\(type.coloredDescription)(\(styledConstant(String(value))))"
   }
 
 }

@@ -1,4 +1,5 @@
 import FrontEnd
+import Utils
 
 /// A floating-point number Hylo IR constant.
 public struct FloatingPointConstant: Constant, Hashable {
@@ -31,6 +32,14 @@ extension FloatingPointConstant: CustomStringConvertible {
 
   public var description: String {
     "\(type.ast)(\(value))"
+  }
+
+}
+
+extension FloatingPointConstant: ColoredDescribable {
+
+  public var coloredDescription: String {
+    "\(type.coloredDescription)(\(styledConstant(value)))"
   }
 
 }

@@ -1,4 +1,5 @@
 import FrontEnd
+import Utils
 
 /// The possibly synthetic declaration of a parameter to a Hylo IR function.
 public struct Parameter: Sendable {

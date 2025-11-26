@@ -185,11 +185,11 @@ extension R1CS: CustomDebugStringConvertible {
 
     // Header
     output +=
-      "\(bold)\(cyan)╔═══════════════════════════════════════════════════════════════╗\(reset)\n"
+      "\(bold)\(cyan)╔════════════════════════════════════════╗\(reset)\n"
     output +=
-      "\(bold)\(cyan)║\(reset)  \(bold)R1CS Constraint System\(reset)                                       \(bold)\(cyan)║\(reset)\n"
+      "\(bold)\(cyan)║\(reset)  \(bold)R1CS Constraint System\(reset)                \(bold)\(cyan)║\(reset)\n"
     output +=
-      "\(bold)\(cyan)╚═══════════════════════════════════════════════════════════════╝\(reset)\n\n"
+      "\(bold)\(cyan)╚════════════════════════════════════════╝\(reset)\n\n"
 
     // Field information
     output += "\(bold)\(green)Field:\(reset)\n"

@@ -49,3 +49,12 @@ extension ParameterType: CustomStringConvertible {
   }
 
 }
+
+extension ParameterType: ColoredDescribable {
+
+  public var coloredDescription: String {
+    let r = "\(styledKeyword(String(describing: access))) \(styledType(String(describing: bareType)))"
+    return isAutoclosure ? "\(styledKeyword("@autoclosure")) \(r)" : r
+  }
+
+}

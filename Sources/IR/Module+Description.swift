@@ -134,4 +134,44 @@ extension Module: TextOutputStreamable {
     return output
   }
 
+  
+  /// Returns a textual representation of the blocks in function `f` with call instructions
+  /// showing the identifier of the callee function when available.
+  public func coloredDescribeBlocksWithCalleeIdentifiers(in f: Function.ID) -> String {
+    var output = ""
+    
+    for i in blocks(in: f) {
+      output.write("\(i)(")
+      output.write(
+        self[i].inputs.enumerated().lazy
+          .map({ (j, t) in "\(Operand.parameter(i, j).coloredDescription) : \(t.coloredDescription)" })
+          .joined(separator: ", "))
+      output.write("):\n")
+
+      for j in instructions(in: i) {
+        output.write("  ")
+        if let t = self[j].result {
+          output.write("\(Operand.register(j).coloredDescription): \(t.coloredDescription) = ")
+        }
+
+        // Special handling for Call instructions to print function identifier
+        let instruction = self[j]
+        if let call = instruction as? Call,
+          case .constant(let c) = call.callee,
+          let funcRef = c as? FunctionReference,
+          case .lowered(let declId) = funcRef.function.value,
+          let functionDeclId = FunctionDecl.ID(declId),
+          let functionName = program.ast[functionDeclId].identifier?.value
+        {
+          output.write("\(styledIdentifier("call")) @\(styledIdentifier(functionName))(\(list: call.arguments.map { $0.coloredDescription })) to \(call.output.coloredDescription)\n")
+        } else {
+          output.write("\(instruction.coloredDescription)\n")
+        }
+      }
+    }
+    
+    return output
+  }
+
+
 }
