@@ -209,9 +209,7 @@ extension Module {
     return nil
   }
 
-  /// Returns the use that executes last.
-  ///
-  /// If the two uses are not in the same block, this returns `lhs`.
+  /// Returns the use that executes last iff both `lhs` and `rhs` are in the same block. Otherwise, returns `lhs`.
   private func last(_ lhs: Use?, _ rhs: Use?, in f: Function.ID) -> Use? {
     guard let lhs = lhs else { return rhs }
     guard let rhs = rhs else { return lhs }
