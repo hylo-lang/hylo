@@ -1,3 +1,4 @@
+import BigInt
 import Foundation
 import FrontEnd
 import IR
@@ -87,7 +88,11 @@ public func generateR1CS(
     let outputFile = outputURL ?? URL(fileURLWithPath: "\(productName).ir")
     try output.write(to: outputFile, atomically: true, encoding: .utf8)
 
-    var r1cs = R1CS(prime: 87_178_291_199)
+    // BN254 (alt_bn128) curve prime - standard for zkSNARKs
+    // This is the scalar field order of the BN254 curve used by Ethereum, snarkjs, circom, etc.
+    // 21888242871839275222246405745257275088548364400416034343698204186575808495617
+    let bn254Prime: BigUInt = "21888242871839275222246405745257275088548364400416034343698204186575808495617"
+    var r1cs = R1CS(prime: bn254Prime)
 
     let entryBlockId = irSourceModule.blocks(in: entryFunction.key).first!
     let entryBlock = irSourceModule[entryBlockId]
@@ -103,19 +108,60 @@ public func generateR1CS(
     typealias PhysicalMemory = [Operand: [Int: WireID]]
     var memory: PhysicalMemory = [:]
 
+    // Track public input wires (function parameters)
+    var publicInputWires: [WireID] = []
 
-    // Add wires for all block parameters:
+    // In Hylo IR, function parameters come as pointers. The last parameter is always
+    // the return value pointer. All others are input parameters.
+    // For ZK proofs, we need to:
+    // 1. Create wires for the input values
+    // 2. Set up memory so those pointers point to the input wires
+    // 3. Mark them as public inputs
+
+    // Process all parameters except the last one (return pointer)
     for index in entryBlock.inputs.indices.dropLast() {
+        let paramOperand = Operand.parameter(entryBlockId, index)
+        
+        // Create a wire for this input parameter's value
         let label = r1cs.nextLabel()
         let wire = r1cs.addWire(labelId: label)
-        operandValues[.parameter(entryBlockId, index)] = .wire(wire)
+        publicInputWires.append(wire)
+        
+        // The parameter itself is a pointer
+        operandValues[paramOperand] = .pointer(base: paramOperand, offset: 0)
+        
+        // Initialize memory at this pointer location with the input wire
+        memory[paramOperand] = [0: wire]
+        
+        if verbose {
+            print("Parameter \(index): wire \(wire) marked as public input")
+        }
+    }
+
+    // Update the public input count in R1CS
+    r1cs.publicInputCount = UInt32(publicInputWires.count)
+    
+    if verbose {
+        print("Total public inputs: \(publicInputWires.count)")
     }
 
     // Last parameter is the pointer to the return value
     let returnValueParam = Operand.parameter(entryBlockId, entryBlock.inputs.count - 1)
-    memory[returnValueParam] = nil
+    memory[returnValueParam] = [:]  // Initialize as empty, will be filled with result
     operandValues[returnValueParam] = .pointer(base: returnValueParam, offset: 0)
 
+    // Extract the return value wire (public output in ZK sense)
+    // The return value is stored in memory at the return pointer location
+    if let returnWire = memory[returnValueParam]?[0] {
+        r1cs.publicOutputCount = 1
+        if verbose {
+            print("Return value wire: \(returnWire) marked as public output")
+        }
+    } else {
+        if verbose {
+            print("Warning: No return value found in memory")
+        }
+    }
 
     // Helper to extract a wire from a register or parameter
     func getWire(for operand: Operand) -> WireID {
@@ -307,6 +353,8 @@ public func generateR1CS(
 
     try String(describing: r1cs).write(
         to: outputURL!.appendingPathExtension("r1cs.ansi"), atomically: true, encoding: .utf8)
+
+    try r1cs.serialize(to: outputURL!.appendingPathExtension("r1cs.bin"))
 
     return output
 }

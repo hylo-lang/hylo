@@ -140,7 +140,7 @@ final class R1CSTests: XCTestCase {
     // Write to file
     let tempDir = FileManager.default.temporaryDirectory
     let fileURL = tempDir.appendingPathComponent("test_spec_example.r1cs")
-    try r1cs.write(to: fileURL)
+    try r1cs.serialize(to: fileURL)
     
     // Verify file was created and has content
     XCTAssertTrue(FileManager.default.fileExists(atPath: fileURL.path))
@@ -176,7 +176,7 @@ final class R1CSTests: XCTestCase {
     
     let tempDir = FileManager.default.temporaryDirectory
     let fileURL = tempDir.appendingPathComponent("test_header.r1cs")
-    try r1cs.write(to: fileURL)
+    try r1cs.serialize(to: fileURL)
     
     let data = try Data(contentsOf: fileURL)
     
@@ -219,7 +219,7 @@ final class R1CSTests: XCTestCase {
     r1cs.addConstraint(constraint)
     
     let tempFile = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".r1cs")
-    try r1cs.write(to: tempFile)
+    try r1cs.serialize(to: tempFile)
     
     // Read back and verify format is valid
     let data = try Data(contentsOf: tempFile)
@@ -238,7 +238,7 @@ final class R1CSTests: XCTestCase {
     
     let tempDir = FileManager.default.temporaryDirectory
     let fileURL = tempDir.appendingPathComponent("test_empty.r1cs")
-    try r1cs.write(to: fileURL)
+    try r1cs.serialize(to: fileURL)
     
     XCTAssertTrue(FileManager.default.fileExists(atPath: fileURL.path))
     
@@ -267,7 +267,7 @@ final class R1CSTests: XCTestCase {
     
     let tempDir = FileManager.default.temporaryDirectory
     let fileURL = tempDir.appendingPathComponent("test_large_field.r1cs")
-    try r1cs.write(to: fileURL)
+    try r1cs.serialize(to: fileURL)
     
     XCTAssertTrue(FileManager.default.fileExists(atPath: fileURL.path))
     
@@ -347,7 +347,7 @@ final class R1CSTests: XCTestCase {
     r1cs.addConstraint(constraint)
     
     let tempFile = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".r1cs")
-    try r1cs.write(to: tempFile)
+    try r1cs.serialize(to: tempFile)
     
     let data = try Data(contentsOf: tempFile)
     XCTAssertGreaterThan(data.count, 0)
@@ -382,7 +382,7 @@ final class R1CSTests: XCTestCase {
     XCTAssertEqual(r1cs.constraints.count, 1)
     
     let tempFile = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".r1cs")
-    try r1cs.write(to: tempFile)
+    try r1cs.serialize(to: tempFile)
     
     let data = try Data(contentsOf: tempFile)
     XCTAssertGreaterThan(data.count, 0)
@@ -413,7 +413,7 @@ final class R1CSTests: XCTestCase {
     XCTAssertEqual(r1cs.wireCount, UInt32(wireCount + 1))
     
     let tempFile = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".r1cs")
-    try r1cs.write(to: tempFile)
+    try r1cs.serialize(to: tempFile)
     
     let data = try Data(contentsOf: tempFile)
     XCTAssertGreaterThan(data.count, 0)
@@ -440,7 +440,7 @@ final class R1CSTests: XCTestCase {
     XCTAssertEqual(r1cs.constraints.count, constraintCount)
     
     let tempFile = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".r1cs")
-    try r1cs.write(to: tempFile)
+    try r1cs.serialize(to: tempFile)
     
     let data = try Data(contentsOf: tempFile)
     XCTAssertGreaterThan(data.count, 0)
@@ -465,7 +465,7 @@ final class R1CSTests: XCTestCase {
       r1cs.addWire(labelId: LabelID(rawValue: 1))
       
       let tempFile = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".r1cs")
-      try r1cs.write(to: tempFile)
+      try r1cs.serialize(to: tempFile)
       
       let data = try Data(contentsOf: tempFile)
       XCTAssertGreaterThan(data.count, 0, "Failed for \(description)")
@@ -488,7 +488,7 @@ final class R1CSTests: XCTestCase {
     XCTAssertEqual(r1cs.privateInputCount, 5)
     
     let tempFile = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".r1cs")
-    try r1cs.write(to: tempFile)
+    try r1cs.serialize(to: tempFile)
     
     let data = try Data(contentsOf: tempFile)
     XCTAssertGreaterThan(data.count, 0)
@@ -519,7 +519,7 @@ final class R1CSTests: XCTestCase {
     r1cs.addConstraint(constraint)
     
     let tempFile = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".r1cs")
-    try r1cs.write(to: tempFile)
+    try r1cs.serialize(to: tempFile)
     
     let data = try Data(contentsOf: tempFile)
     XCTAssertGreaterThan(data.count, 0)
@@ -548,7 +548,7 @@ final class R1CSTests: XCTestCase {
     r1cs.addConstraint(constraint)
     
     let tempFile = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".r1cs")
-    try r1cs.write(to: tempFile)
+    try r1cs.serialize(to: tempFile)
     
     let data = try Data(contentsOf: tempFile)
     XCTAssertGreaterThan(data.count, 0)
@@ -573,7 +573,7 @@ final class R1CSTests: XCTestCase {
     r1cs.addConstraint(R1CSConstraint(a: a, b: b, c: c))
     
     let tempFile = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".r1cs")
-    try r1cs.write(to: tempFile)
+    try r1cs.serialize(to: tempFile)
     
     let data = try Data(contentsOf: tempFile)
     
@@ -615,7 +615,7 @@ final class R1CSTests: XCTestCase {
     XCTAssertEqual(r1cs.wireToLabelMap[3].rawValue, 30)
     
     let tempFile = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".r1cs")
-    try r1cs.write(to: tempFile)
+    try r1cs.serialize(to: tempFile)
     
     let data = try Data(contentsOf: tempFile)
     XCTAssertGreaterThan(data.count, 0)
@@ -650,7 +650,7 @@ final class R1CSTests: XCTestCase {
     r1cs.addConstraint(constraint)
     
     let tempFile = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".r1cs")
-    try r1cs.write(to: tempFile)
+    try r1cs.serialize(to: tempFile)
     
     let data = try Data(contentsOf: tempFile)
     XCTAssertGreaterThan(data.count, 0)

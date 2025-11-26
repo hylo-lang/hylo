@@ -8,7 +8,7 @@ extension R1CS {
   ///
   /// - Parameter url: The file URL to write to.
   /// - Throws: Any I/O errors that occur during writing.
-  public func write(to url: URL) throws {
+  public func serialize(to url: URL) throws {
     var data = Data()
     
     // Magic number "r1cs"

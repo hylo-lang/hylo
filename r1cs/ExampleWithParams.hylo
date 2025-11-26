@@ -1,0 +1,9 @@
+//- compileAndRun expecting: .success
+
+// This function takes public inputs and produces a public output
+// Perfect for zero-knowledge proofs
+public fun problem(a: Int, b: Int, c: Int) -> Int {
+  let lhs = (a * a) + (b * b)
+  let rhs = c * c
+  return lhs - rhs
+}
