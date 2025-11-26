@@ -3,14 +3,14 @@ import Foundation
 
 /// A unique identifier for a wire in an R1CS constraint system.
 public struct WireID: Equatable, Hashable, Comparable, Sendable {
-  internal let rawValue: UInt32
+  public let raw: UInt32
 
   internal init(rawValue: UInt32) {
-    self.rawValue = rawValue
+    self.raw = rawValue
   }
 
   public static func < (lhs: WireID, rhs: WireID) -> Bool {
-    lhs.rawValue < rhs.rawValue
+    lhs.raw < rhs.raw
   }
 
   static let unit = WireID(rawValue: 0)
@@ -89,6 +89,13 @@ public struct R1CS {
     return wire
   }
 
+  /// Adds a new wire to the system with a newly allocated label.
+  @discardableResult
+  public mutating func addWire() -> WireID {
+    let labelId = nextLabel()
+    return addWire(labelId: labelId)
+  }
+
   /// Adds a constraint to the system.
   ///
   /// - Parameter constraint: The constraint to add.
@@ -152,6 +159,15 @@ public struct LinearCombination {
   }
 }
 
+extension R1CS {
+  public func numberToField(_ number: BigInt) -> BigUInt {
+    var number = number
+    while number < 0 {
+      number = BigInt(prime) + number
+    }
+    return BigUInt(number)
+  }
+}
 // MARK: - Debug Descriptions
 
 extension R1CS: CustomDebugStringConvertible {
@@ -278,7 +294,7 @@ extension LinearCombination: CustomDebugStringConvertible {
       var parts: [String] = []
       for term in terms {
         let wireStr =
-          term.wire.rawValue == 0 ? "\(yellow)1\(reset)" : "\(green)w\(term.wire.rawValue)\(reset)"
+          term.wire.raw == 0 ? "\(yellow)1\(reset)" : "\(green)w\(term.wire.raw)\(reset)"
         if term.coefficient == 1 {
           // Omit coefficient when it's 1
           parts.append(wireStr)
@@ -293,8 +309,8 @@ extension LinearCombination: CustomDebugStringConvertible {
       var parts: [String] = []
       for term in terms {
         let wireStr =
-          term.wire.rawValue == 0
-          ? "\(yellow)w\(term.wire.rawValue) (1)\(reset)" : "\(green)w\(term.wire.rawValue)\(reset)"
+          term.wire.raw == 0
+          ? "\(yellow)w\(term.wire.raw) (1)\(reset)" : "\(green)w\(term.wire.raw)\(reset)"
         parts.append("\(magenta)\(term.coefficient)\(reset) \(dim)·\(reset) \(wireStr)")
       }
       return parts.joined(separator: " \(dim)+\(reset) ")
@@ -308,10 +324,10 @@ extension WireID: CustomDebugStringConvertible {
     let green = "\u{001B}[32m"
     let reset = "\u{001B}[0m"
 
-    if rawValue == 0 {
-      return "\(yellow)w\(rawValue) (constant 1)\(reset)"
+    if raw == 0 {
+      return "\(yellow)w\(raw) (constant 1)\(reset)"
     } else {
-      return "\(green)w\(rawValue)\(reset)"
+      return "\(green)w\(raw)\(reset)"
     }
   }
 }

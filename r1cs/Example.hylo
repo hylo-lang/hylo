@@ -1,15 +1,12 @@
 //- compileAndRun expecting: .success
 
+/// Returns 0 iff it's a right angle triangle.
 fun is_right_triangle(a: Int, b: Int, c: Int) -> Int {
   let lhs = (a * a) + (b * b)
   let rhs = c * c
   return lhs - rhs
 }
 
-// public fun main() -> Int {
-//   is_right_triangle(a: 3, b: 4, c: 5)
-// }
-
-public fun problem() -> Int {
-    2 + is_right_triangle(a: 3, b: 4, c: 5)
+public fun problem(a: Int, b: Int) -> Int {
+  return is_right_triangle(a: a, b: b, c: 5)
 }

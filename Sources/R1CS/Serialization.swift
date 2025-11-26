@@ -107,7 +107,7 @@ extension R1CS {
     
     // Each factor
     for term in sortedTerms {
-      data.append(uint32: term.wire.rawValue)
+      data.append(uint32: term.wire.raw)
       data.append(bigUInt: term.coefficient, byteCount: fieldSize)
     }
     

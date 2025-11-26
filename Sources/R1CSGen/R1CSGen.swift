@@ -79,19 +79,15 @@ public func generateR1CS(
     let irSourceModule = ir.modules[sourceModule]!
     let output = irSourceModule.describeBlocksWithCalleeIdentifiers(in: entryFunction.key)
 
-    print("described IR ")
-    print(output)
-
-    print("----------------------------")
-
     // Write to file
-    let outputFile = outputURL ?? URL(fileURLWithPath: "\(productName).ir")
-    try output.write(to: outputFile, atomically: true, encoding: .utf8)
+    let outputFile = outputURL ?? URL(fileURLWithPath: "\(productName)")
+    try output.write(to: outputFile.appendingPathExtension("ir"), atomically: true, encoding: .utf8)
 
     // BN254 (alt_bn128) curve prime - standard for zkSNARKs
     // This is the scalar field order of the BN254 curve used by Ethereum, snarkjs, circom, etc.
     // 21888242871839275222246405745257275088548364400416034343698204186575808495617
-    let bn254Prime: BigUInt = "21888242871839275222246405745257275088548364400416034343698204186575808495617"
+    let bn254Prime: BigUInt =
+        "21888242871839275222246405745257275088548364400416034343698204186575808495617"
     var r1cs = R1CS(prime: bn254Prime)
 
     let entryBlockId = irSourceModule.blocks(in: entryFunction.key).first!
@@ -101,10 +97,14 @@ public func generateR1CS(
         throw R1CSGenerationError.moreThanOneBlockInEntryFunction
     }
 
-    // Maps SSA Register ID -> Value (Wire) OR Address (Pointer)
+    var witnessGen: WitnessGeneratorGen = JavaScriptWitnessGeneratorGen(
+        prime: r1cs.prime,
+        parameterCount: entryBlock.inputs.count - 1)  // Last param is return pointer
+
+    /// Maps SSA Register ID -> Value (Wire) OR Address (Pointer)
     var operandValues: [Operand: AbstractValue] = [:]
 
-    // Maps a Base Allocation ID (e.g. %i0.0) -> (Offset -> WireID)
+    /// Maps a Base Allocation ID (e.g. %i0.0) -> (Offset -> WireID)
     typealias PhysicalMemory = [Operand: [Int: WireID]]
     var memory: PhysicalMemory = [:]
 
@@ -121,46 +121,40 @@ public func generateR1CS(
     // Process all parameters except the last one (return pointer)
     for index in entryBlock.inputs.indices.dropLast() {
         let paramOperand = Operand.parameter(entryBlockId, index)
-        
+
         // Create a wire for this input parameter's value
-        let label = r1cs.nextLabel()
-        let wire = r1cs.addWire(labelId: label)
-        publicInputWires.append(wire)
-        
+        let paramWire = r1cs.addWire()
+        publicInputWires.append(paramWire)
+
         // The parameter itself is a pointer
         operandValues[paramOperand] = .pointer(base: paramOperand, offset: 0)
-        
+        witnessGen.recordInput(wire: paramWire, argIndex: index)
+
         // Initialize memory at this pointer location with the input wire
-        memory[paramOperand] = [0: wire]
-        
-        if verbose {
-            print("Parameter \(index): wire \(wire) marked as public input")
-        }
+        memory[paramOperand] = [0: paramWire]
+
+        print("Parameter \(index): wire \(paramWire) marked as public input")
     }
 
     // Update the public input count in R1CS
     r1cs.publicInputCount = UInt32(publicInputWires.count)
-    
-    if verbose {
-        print("Total public inputs: \(publicInputWires.count)")
-    }
+
+    print("Total public inputs: \(publicInputWires.count)")
 
     // Last parameter is the pointer to the return value
     let returnValueParam = Operand.parameter(entryBlockId, entryBlock.inputs.count - 1)
-    memory[returnValueParam] = [:]  // Initialize as empty, will be filled with result
+    let returnValueWire = r1cs.addWire()
+    memory[returnValueParam] = [:] 
+    memory[returnValueParam]![0] = returnValueWire
     operandValues[returnValueParam] = .pointer(base: returnValueParam, offset: 0)
 
     // Extract the return value wire (public output in ZK sense)
     // The return value is stored in memory at the return pointer location
     if let returnWire = memory[returnValueParam]?[0] {
         r1cs.publicOutputCount = 1
-        if verbose {
-            print("Return value wire: \(returnWire) marked as public output")
-        }
+        print("Return value wire: \(returnWire) marked as public output")
     } else {
-        if verbose {
-            print("Warning: No return value found in memory")
-        }
+        fatalError("Warning: No return value found in memory")
     }
 
     // Helper to extract a wire from a register or parameter
@@ -188,7 +182,8 @@ public func generateR1CS(
 
         switch instruction {
         case _ as IR.AllocStack:
-            operandValues[.register(instructionId)] = .pointer(base: .register(instructionId), offset: 0)
+            operandValues[.register(instructionId)] = .pointer(
+                base: .register(instructionId), offset: 0)
             memory[.register(instructionId)] = nil  // Allocate as uninitialized
 
         case let subfieldView as IR.SubfieldView:
@@ -210,8 +205,6 @@ public func generateR1CS(
             operandValues[.register(instructionId)] = .pointer(
                 base: base, offset: currentOffset + 0)
         case let store as IR.Store:
-            print("Store instruction: \(store)")
-
             let valueWire: WireID
 
             switch store.object {
@@ -220,8 +213,13 @@ public func generateR1CS(
                     fatalError("Unsupported constant type for store: \(c.type)")
                 }
 
-                valueWire = r1cs.addWire(labelId: r1cs.nextLabel())
-                r1cs.addConstraint(.constant(wire: valueWire, value: .init(value.value)))  // TODO: handle negative numbers
+                // todo avoid adding extra wire here
+                valueWire = r1cs.addWire()
+                let fieldValue = r1cs.numberToField(BigInt(value.value))
+                r1cs.addConstraint(
+                    .constant(wire: valueWire, value: fieldValue))
+                witnessGen.recordConstant(wire: valueWire, value: fieldValue)
+
             case .register(let instructionID):
                 valueWire = getWire(for: .register(instructionID))
             case .parameter(let blockId, let index):
@@ -230,14 +228,16 @@ public func generateR1CS(
             // Resolve the Address
             let (base, offset) = getPointer(for: store.target)
 
+            if base == returnValueParam {
+                witnessGen.recordAssignment(destination: returnValueWire, source: valueWire)
+            }
+
             // Update Physical Memory
             if memory[base] == nil {
                 memory[base] = [:]  // Initialize new base if needed (why is this needed)
             }
             memory[base]![offset] = valueWire
         case let access as IR.Access:
-            print("Access instruction: \(access)")
-
             // Resolve pointer
             let (base, offset) = getPointer(for: access.source)
 
@@ -259,12 +259,8 @@ public func generateR1CS(
             operandValues[.register(instructionId)] = .wire(loadedWire)
 
         case let callBuiltin as IR.CallBuiltinFunction:
-            print("Calling builtin function: \(callBuiltin.callee)")
-
-            let resultLabel = r1cs.nextLabel()
-
             /// Result wire
-            let x = r1cs.addWire(labelId: resultLabel)
+            let x = r1cs.addWire()
             operandValues[.register(instructionId)] = .wire(x)
 
             switch callBuiltin.callee {
@@ -295,6 +291,7 @@ public func generateR1CS(
                                 (wire: a, coefficient: 1),
                                 (wire: b, coefficient: 1),
                             ])))
+                    witnessGen.recordAdd(destination: x, a: a, b: b)
                 case .sub(_, _):
                     // HYLO IR: x := a - b
                     // x - a + b = 0
@@ -311,6 +308,7 @@ public func generateR1CS(
                                 (wire: a, coefficient: 1),
                                 (wire: b, coefficient: r1cs.prime - 1),
                             ])))
+                    witnessGen.recordSub(destination: x, a: a, b: b)
                 case .mul(_, _):
                     // HYLO IR: x := a * b
                     // (a) * (b) - (x) = 0
@@ -322,6 +320,7 @@ public func generateR1CS(
                             a: LinearCombination(terms: [(wire: a, coefficient: 1)]),
                             b: LinearCombination(terms: [(wire: b, coefficient: 1)]),
                             c: LinearCombination(terms: [(wire: x, coefficient: 1)])))
+                    witnessGen.recordMul(destination: x, a: a, b: b)
 
                 // case .div(, _):
                 //     // HYLO IR: x := a / b
@@ -344,17 +343,21 @@ public func generateR1CS(
             }
 
         default:
-            print("   -  \(instruction)")
+            print("   - ignored instruction \(instruction)")
         }
     }
 
     print("R1CS Output: ..............................................")
-    print(r1cs)
 
     try String(describing: r1cs).write(
         to: outputURL!.appendingPathExtension("r1cs.ansi"), atomically: true, encoding: .utf8)
 
-    try r1cs.serialize(to: outputURL!.appendingPathExtension("r1cs.bin"))
+    try r1cs.serialize(to: outputURL!.appendingPathExtension("r1cs"))
+
+    try witnessGen.generateCode().write(
+        to: outputURL!.appendingPathExtension("witnessgen.js"),
+        atomically: true,
+        encoding: .utf8)
 
     return output
 }

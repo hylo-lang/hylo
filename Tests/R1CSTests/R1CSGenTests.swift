@@ -13,11 +13,11 @@ final class R1CSTests: XCTestCase {
     
     // Add some wires
     let wire1 = r1cs.addWire(labelId: LabelID(rawValue: 3))
-    XCTAssertEqual(wire1.rawValue, 1)
+    XCTAssertEqual(wire1.raw, 1)
     XCTAssertEqual(r1cs.wireCount, 2)
     
     let wire2 = r1cs.addWire(labelId: LabelID(rawValue: 10))
-    XCTAssertEqual(wire2.rawValue, 2)
+    XCTAssertEqual(wire2.raw, 2)
     XCTAssertEqual(r1cs.wireCount, 3)
     
     XCTAssertEqual(r1cs.labelCount, 11)  // Highest label is 10, so count is 11
@@ -34,9 +34,9 @@ final class R1CSTests: XCTestCase {
     
     // Terms are stored in insertion order
     XCTAssertEqual(lc.terms.count, 3)
-    XCTAssertEqual(lc.terms[0].wire.rawValue, 5)
-    XCTAssertEqual(lc.terms[1].wire.rawValue, 2)
-    XCTAssertEqual(lc.terms[2].wire.rawValue, 10)
+    XCTAssertEqual(lc.terms[0].wire.raw, 5)
+    XCTAssertEqual(lc.terms[1].wire.raw, 2)
+    XCTAssertEqual(lc.terms[2].wire.raw, 10)
   }
   
   /// Test constraint creation
@@ -205,10 +205,10 @@ final class R1CSTests: XCTestCase {
     ])
     
     // Terms are stored in insertion order (unsorted)
-    XCTAssertEqual(lc.terms[0].wire.rawValue, 10)
-    XCTAssertEqual(lc.terms[1].wire.rawValue, 2)
-    XCTAssertEqual(lc.terms[2].wire.rawValue, 5)
-    XCTAssertEqual(lc.terms[3].wire.rawValue, 1)
+    XCTAssertEqual(lc.terms[0].wire.raw, 10)
+    XCTAssertEqual(lc.terms[1].wire.raw, 2)
+    XCTAssertEqual(lc.terms[2].wire.raw, 5)
+    XCTAssertEqual(lc.terms[3].wire.raw, 1)
     
     // But serialization should produce sorted output
     let constraint = R1CSConstraint(
@@ -362,7 +362,7 @@ final class R1CSTests: XCTestCase {
     ])
     
     XCTAssertEqual(lc.terms.count, 1)
-    XCTAssertEqual(lc.terms[0].wire.rawValue, 7)
+    XCTAssertEqual(lc.terms[0].wire.raw, 7)
     XCTAssertEqual(lc.terms[0].coefficient, 42)
   }
   
@@ -407,7 +407,7 @@ final class R1CSTests: XCTestCase {
     let wireCount = 1000
     for i in 0..<wireCount {
       let wire = r1cs.addWire(labelId: LabelID(rawValue: UInt64(i)))
-      XCTAssertEqual(wire.rawValue, UInt32(i + 1))  // +1 because wire 0 exists
+      XCTAssertEqual(wire.raw, UInt32(i + 1))  // +1 because wire 0 exists
     }
     
     XCTAssertEqual(r1cs.wireCount, UInt32(wireCount + 1))

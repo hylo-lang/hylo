@@ -1,3 +1,7 @@
 *.ir
 *.ansi
 *.bin
+*.r1cs
+*.witnessgen.js
+*.witness.json
+node_modules
