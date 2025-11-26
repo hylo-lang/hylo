@@ -3,6 +3,7 @@ import CodeGenLLVM
 import Foundation
 import FrontEnd
 import IR
+import R1CSGen
 import StandardLibrary
 import SwiftyLLVM
 import Utils
@@ -48,6 +49,9 @@ public struct Driver: ParsableCommand, Sendable {
 
     /// Executable binary.
     case binary = "binary"
+
+    /// R1CS (Rank-1 Constraint System) representation.
+    case r1cs = "r1cs"
   }
 
   /// The result of a compiler invocation.
@@ -294,6 +298,21 @@ public struct Driver: ParsableCommand, Sendable {
       return
     }
 
+    if outputType == .r1cs {
+      logVerbose("begin R1CS generation pass.\n")
+      
+      _ = try generateR1CS(
+        ir: &ir,
+        sourceModule: sourceModule,
+        program: program,
+        outputURL: outputURL,
+        productName: productName,
+        verbose: verbose
+      )
+      
+      return
+    }
+
     // LLVM
 
     logVerbose("begin depolymorphization pass.\n")
@@ -460,7 +479,10 @@ public struct Driver: ParsableCommand, Sendable {
   ) throws {
     try runCommandLine(
       findExecutable(invokedAs: "lld-link").fileSystemPath,
-      ["-defaultlib:pthreadVCE3", "-defaultlib:msvcrt", "-force:multiple", "-out:" + binaryPath, "-libpath:\(StandardLibrary.externalLibraryRoot.fileSystemPath)"]
+      [
+        "-defaultlib:pthreadVCE3", "-defaultlib:msvcrt", "-force:multiple", "-out:" + binaryPath,
+        "-libpath:\(StandardLibrary.externalLibraryRoot.fileSystemPath)",
+      ]
         + objects.map(\.fileSystemPath),
       diagnostics: &diagnostics)
   }
