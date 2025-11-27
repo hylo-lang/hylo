@@ -10,9 +10,14 @@ let reset = "\u{001B}[0;0m"
 
 typealias OperandID = InstructionID
 
+enum Value {
+    case runtime(WireID)
+    case compileTime(BigInt)
+}
+
 // Represents what a register holds in the compiler's mind.
 enum AbstractValue {
-    case wire(WireID)
+    case value(Value)
     case pointer(base: Operand, offset: Int)
 }
 
@@ -112,8 +117,9 @@ public func generateR1CS(
     /// Maps SSA Register ID -> Value (Wire) OR Address (Pointer)
     var operandValues: [Operand: AbstractValue] = [:]
 
+
     /// Maps a Base Allocation ID (e.g. %i0.0) -> (Offset -> WireID)
-    typealias PhysicalMemory = [Operand: [Int: WireID]]
+    typealias PhysicalMemory = [Operand: [Int: Value]]
     var memory: PhysicalMemory = [:]
 
     // Track public input wires (function parameters)
@@ -135,7 +141,7 @@ public func generateR1CS(
         witnessGen.recordInput(wire: paramWire, argIndex: index)
 
         // Initialize memory at this pointer location with the input wire
-        memory[paramOperand] = [0: paramWire]
+        memory[paramOperand] = [0: .runtime(paramWire)]
 
         print("Parameter \(index): wire \(paramWire) marked as public input")
     }
@@ -148,8 +154,8 @@ public func generateR1CS(
     operandValues[returnValueParam] = .pointer(base: returnValueParam, offset: 0)
 
     // Helper to extract a wire from a register or parameter
-    func getWire(for operand: Operand) -> WireID {
-        guard let val = operandValues[operand], case .wire(let w) = val else {
+    func getValue(for operand: Operand) -> Value {
+        guard let val = operandValues[operand], case .value(let w) = val else {
             fatalError(
                 "Expected register \(operand) to hold a Wire, but found \(String(describing: operandValues[operand]))"
             )
@@ -189,13 +195,13 @@ public func generateR1CS(
             // Determine the added offset.
             // Note: Real implementation needs to look at type layout.
             // For now, assuming an array of Words (Ints) so index adds 1.
-            // If subfield indices are bytes, you might need type info here.
+            // If subfield indices are bytes, we might need type info here.
             // let addedOffset = subfieldView.subfield  // TODO: Parse indices to get real offset
 
             operandValues[.register(instructionId)] = .pointer(
                 base: base, offset: currentOffset + 0)
         case let store as IR.Store:
-            let valueWire: WireID
+            let valueToStore: Value
 
             switch store.object {
             case .constant(let c):
@@ -203,17 +209,12 @@ public func generateR1CS(
                     fatalError("Unsupported constant type for store: \(c.type)")
                 }
 
-                // todo avoid adding extra wire here
-                valueWire = r1cs.addWire()
-                let fieldValue = r1cs.numberToField(BigInt(value.value))
-                r1cs.addConstraint(
-                    .constant(wire: valueWire, value: fieldValue))
-                witnessGen.recordConstant(wire: valueWire, value: fieldValue)
+                valueToStore = Value.compileTime(r1cs.numberToField(BigInt(value.value)))
 
             case .register(let instructionID):
-                valueWire = getWire(for: .register(instructionID))
+                valueWire = getValue(for: .register(instructionID))
             case .parameter(let blockId, let index):
-                valueWire = getWire(for: .parameter(blockId, index))
+                valueWire = getValue(for: .parameter(blockId, index))
             }
             // Resolve the Address
             let (targetBase, offset) = getPointer(for: store.target)
@@ -242,7 +243,7 @@ public func generateR1CS(
             }
 
             // The result of a Load instruction is a Value (Wire)
-            operandValues[.register(instructionId)] = .wire(loadedWire)
+            operandValues[.register(instructionId)] = .runtimeValue(loadedWire)
 
         case let memcpy as IR.MemoryCopy:
             let sourcePointer = getPointer(for: memcpy.source)
@@ -259,7 +260,7 @@ public func generateR1CS(
         case let callBuiltin as IR.CallBuiltinFunction:
             /// Result wire
             let x = r1cs.addWire()
-            operandValues[.register(instructionId)] = .wire(x)
+            operandValues[.register(instructionId)] = .runtimeValue(x)
 
             switch callBuiltin.callee {
             case .add(_, _), .mul(_, _), .sub(_, _):
@@ -270,8 +271,8 @@ public func generateR1CS(
                 let leftOperand = callBuiltin.operands[0]
                 let rightOperand = callBuiltin.operands[1]
 
-                let a = getWire(for: leftOperand)
-                let b = getWire(for: rightOperand)
+                let a = getValue(for: leftOperand)
+                let b = getValue(for: rightOperand)
 
                 switch callBuiltin.callee {
                 case .add(_, _):
