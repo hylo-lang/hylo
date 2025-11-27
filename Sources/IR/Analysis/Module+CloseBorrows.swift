@@ -8,7 +8,7 @@ extension Module {
   ///
   /// - Requires: `self` is has gone through access reification. `f` is in `self`.
   public mutating func closeBorrows(in f: Function.ID, diagnostics: inout DiagnosticSet) {
-    for i in self[f].instructionIDs {
+    for i in self[f].instructions {
       close(i, in: f, reportingDiagnosticsTo: &diagnostics)
     }
   }
