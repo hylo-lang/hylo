@@ -97,9 +97,11 @@ struct JavaScriptWitnessGeneratorGen : WitnessGeneratorGen {
         buffer += "w[\(destination.raw)] = mul(w[\(a.raw)], w[\(b.raw)]);\n"
     }
     
-    func generateCode() -> String {
+    func generateCode(outputWire: WireID) -> String {
         return buffer + """
         // END OF PROGRAM
+        
+        const outputWire = \(outputWire.raw);
 
         // Validate witness array integrity
         for (let i = 0; i < w.length; i++) {
@@ -112,10 +114,29 @@ struct JavaScriptWitnessGeneratorGen : WitnessGeneratorGen {
                 process.exit(1);
             }
         }
+
+        const returnValue = w[outputWire];
         
-        // Output result as JSON string of strings (for Arkworks/SnarkJS)
-        const output = w.map(val => val.toString());
-        console.log(JSON.stringify(output));
+        if(process.argv[3] === 'nice') {
+            let niceWitness = "{"
+            for(let i = 0; i < w.length; i++) {
+                if(i === outputWire) {
+                  niceWitness += `\\u001b[33mw${i}\\u001b[0m: \\u001b[35m${w[i].toString()}\\u001b[0m`;
+                } else {
+                  niceWitness += `\\u001b[32mw${i}\\u001b[0m: \\u001b[35m${w[i].toString()}\\u001b[0m`;
+                }
+                if(i < w.length - 1) {
+                    niceWitness += ", ";
+                }
+            }
+            niceWitness += "}";
+            console.log("Witness: " + niceWitness);
+            console.log(`Return Value (Wire ${outputWire}): ${returnValue.toString()}`);
+        } else {
+            // Output result as JSON string of strings (for Arkworks/SnarkJS)
+            const output = w.map(val => val.toString());
+            console.log(JSON.stringify(output));
+        }
         """
     }
 }

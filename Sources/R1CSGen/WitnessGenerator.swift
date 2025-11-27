@@ -11,5 +11,5 @@ protocol WitnessGeneratorGen {
     mutating func recordSub(destination: WireID, a: WireID, b: WireID)
     mutating func recordMul(destination: WireID, a: WireID, b: WireID)
 
-    func generateCode() -> String
+    func generateCode(outputWire: WireID) -> String
 }

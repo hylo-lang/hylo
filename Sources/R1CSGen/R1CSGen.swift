@@ -142,19 +142,7 @@ public func generateR1CS(
 
     // Last parameter is the pointer to the return value
     let returnValueParam = Operand.parameter(entryBlockId, entryBlock.inputs.count - 1)
-    let returnValueWire = r1cs.addWire()
-    memory[returnValueParam] = [:]
-    memory[returnValueParam]![0] = returnValueWire
     operandValues[returnValueParam] = .pointer(base: returnValueParam, offset: 0)
-
-    // Extract the return value wire (public output in ZK sense)
-    // The return value is stored in memory at the return pointer location
-    if let returnWire = memory[returnValueParam]?[0] {
-        r1cs.publicOutputCount = 1
-        print("Return value wire: \(returnWire) marked as public output")
-    } else {
-        fatalError("Warning: No return value found in memory")
-    }
 
     // Helper to extract a wire from a register or parameter
     func getWire(for operand: Operand) -> WireID {
@@ -227,17 +215,6 @@ public func generateR1CS(
             // Resolve the Address
             let (targetBase, offset) = getPointer(for: store.target)
 
-            // Todo avoid extra wire here
-            if targetBase == returnValueParam {
-                witnessGen.recordAssignment(destination: returnValueWire, source: valueWire)
-                r1cs.addConstraint(
-                    .init(
-                        a: LinearCombination(terms: [(wire: returnValueWire, coefficient: 1)]),
-                        b: LinearCombination(terms: [(wire: .unit, coefficient: 1)]),
-                        c: LinearCombination(terms: [(wire: valueWire, coefficient: 1)])
-                    ))
-            }
-
             // Update Physical Memory
             if memory[targetBase] == nil {
                 memory[targetBase] = [:]  // Initialize new base if needed (why is this needed)
@@ -275,17 +252,6 @@ public func generateR1CS(
                 memory[targetPointer.base] = [:]
             }
             memory[targetPointer.base]![targetPointer.offset] = sourcePointee
-
-            // Todo avoid extra wire here
-            if targetPointer.base == returnValueParam {
-                witnessGen.recordAssignment(destination: returnValueWire, source: sourcePointee)
-                r1cs.addConstraint(
-                    .init(
-                        a: LinearCombination(terms: [(wire: returnValueWire, coefficient: 1)]),
-                        b: LinearCombination(terms: [(wire: .unit, coefficient: 1)]),
-                        c: LinearCombination(terms: [(wire: sourcePointee, coefficient: 1)])
-                    ))
-            }
 
         case let callBuiltin as IR.CallBuiltinFunction:
             /// Result wire
@@ -378,14 +344,21 @@ public func generateR1CS(
         }
     }
 
-    print("Memory: \(memory)")
+    print("Final Memory: \(memory)")
+
+    let returnValue = memory[returnValueParam]?[0]
+    guard let returnWire = returnValue else {
+        fatalError("Warning: No return value found in memory")
+    }
+
+    print("Return value wire: \(returnWire) marked as public output")
 
     try String(describing: r1cs).write(
         to: outputURL!.appendingPathExtension("r1cs.ansi"), atomically: true, encoding: .utf8)
 
     try r1cs.serialize(to: outputURL!.appendingPathExtension("r1cs"))
 
-    try witnessGen.generateCode().write(
+    try witnessGen.generateCode(outputWire: returnWire).write(
         to: outputURL!.appendingPathExtension("witnessgen.js"),
         atomically: true,
         encoding: .utf8)
