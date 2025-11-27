@@ -53,6 +53,9 @@ public func generateR1CS(
         }
     }
 
+    // Depolymorphize first - this creates monomorphized versions of generic functions
+    ir.depolymorphize()
+
     // Inline calls to simplify the IR
     ir.inlineCalls(in: sourceModule, where: .hasNoControlFlow)
 

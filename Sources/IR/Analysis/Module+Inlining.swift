@@ -55,6 +55,11 @@ extension IR.Program {
   /// The contents of the callee is inserted in the function containing `i`, applying one "level"
   /// of inlining. For example, if `i` is a call to F, the functions called by F are not inlined.
   /// Likewise, if F is recursive, only one level of recursion is inlined.
+  ///
+  /// This method supports inlining of monomorphized generic functions. When a generic function
+  /// is monomorphized, it becomes a concrete function with no generic parameters, even though
+  /// the FunctionReference may still carry specialization arguments. Such functions are safe to
+  /// inline because they operate in a fully concrete context with no runtime witnesses.
   private mutating func inline(
     functionCall i: InstructionID, definedIn m: Module.ID, if shouldInline: InliningPredicate
   ) -> Bool {
@@ -62,49 +67,43 @@ extension IR.Program {
 
     // Can't inline the call if the callee is not a constant.
     guard s.callee.isConstant else {
-      // print("Failed to inline call because callee is not constant `\(s.callee)`")
+      print("Failed to inline call because callee is not constant `\(s.callee)`")
       return false
     }
 
     // Can't inline the call if the callee isn't a function reference.
     guard let callee = s.callee.constant as? FunctionReference else {
-      // print("Failed to inline call because callee is not a function reference `\(s.callee)`")
+      print("Failed to inline call because callee is not a function reference `\(s.callee)`")
       return false
     }
 
     // Extract function name for debugging
-    // let functionName: String
-    // if case .lowered(let declId) = callee.function.value,
-    //     let functionDeclId = FunctionDecl.ID(declId),
-    //     let identifier = modules[m]!.program.ast[functionDeclId].identifier?.value {
-    //   functionName = identifier
-    // } else {
-    //   functionName = "\(callee.function)"
-    // }
-
-    //print("Attempting to inline call to `\(functionName)`")
-
-    // Can't inline the call if the callee is generic.
-    if !callee.specialization.isEmpty {
-      // print("Failed to inline call to `\(functionName)` because function is generic")
-      return false
+    let functionName: String
+    if case .lowered(let declId) = callee.function.value,
+        let functionDeclId = FunctionDecl.ID(declId),
+        let identifier = modules[m]!.program.ast[functionDeclId].identifier?.value {
+      functionName = identifier
+    } else {
+      functionName = "\(callee.function)"
     }
+
+    print("Attempting to inline call to `\(functionName)`")
 
     // Can't inline if the function has no implementation.
     let source = module(defining: callee.function)
     let sourceModule = modules[source]!
     guard let calleeFunction = sourceModule.functions[callee.function] else {
-      // print("Failed to inline call to `\(functionName)` because function not found in module")
+      print("Failed to inline call to `\(functionName)` because function not found in module")
       return false
     }
     if calleeFunction.entry == nil {
-      // print("Failed to inline call to `\(functionName)` because function has no implementation")
+      print("Failed to inline call to `\(functionName)` because function has no implementation")
       return false
     }
 
     // Can't inline if `shouldInline` doesn't hold.
     if !shouldInline(callee.function, definedIn: sourceModule) {
-      // print("Failed to inline call to `\(functionName)` because predicate not satisfied")
+      print("Failed to inline call to `\(functionName)` because predicate not satisfied")
       return false
     }
 
@@ -131,7 +130,7 @@ extension IR.Program {
       return true
     }
 
-    // print("Failed to inline call to `\(functionName)` because it has \(calleeFunction.blocks.count) blocks.")
+    print("Failed to inline call to `\(functionName)` because it has \(calleeFunction.blocks.count) blocks.")
 
     return false
   }

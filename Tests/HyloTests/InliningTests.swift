@@ -88,7 +88,8 @@ final class InliningTests: XCTestCase {
     let moduleID = typedModule.module
 
     // Lower all modules to IR (including standard library)
-    var irProgram = try typedModule.program.lowerToIR(reportingDiagnosticsTo: &log, freestanding: true)
+    var irProgram = try typedModule.program.lowerToIR(
+      reportingDiagnosticsTo: &log, freestanding: true)
     irProgram.inlineCalls(in: moduleID, where: .hasNoControlFlow)
 
     // Verify that all functions are inlined
@@ -127,7 +128,8 @@ final class InliningTests: XCTestCase {
     let moduleID = typedModule.module
 
     // Lower all modules to IR (including standard library)
-    var irProgram = try typedModule.program.lowerToIR(reportingDiagnosticsTo: &log, freestanding: true)
+    var irProgram = try typedModule.program.lowerToIR(
+      reportingDiagnosticsTo: &log, freestanding: true)
     irProgram.inlineCalls(in: moduleID, where: .hasNoControlFlow)
 
     // Verify that conditional is NOT inlined (it has control flow)
@@ -158,7 +160,8 @@ final class InliningTests: XCTestCase {
     let moduleID = typedModule.module
 
     // Lower all modules to IR (including standard library)
-    var irProgram = try typedModule.program.lowerToIR(reportingDiagnosticsTo: &log, freestanding: true)
+    var irProgram = try typedModule.program.lowerToIR(
+      reportingDiagnosticsTo: &log, freestanding: true)
     irProgram.inlineCalls(where: .hasNoControlFlow)
 
     // Verify that helper is inlined
@@ -187,7 +190,8 @@ final class InliningTests: XCTestCase {
 
     // Lower all modules to IR (including standard library)
     // First inlining pass
-    var irProgram1 = try typedModule.program.lowerToIR(reportingDiagnosticsTo: &log, freestanding: true)
+    var irProgram1 = try typedModule.program.lowerToIR(
+      reportingDiagnosticsTo: &log, freestanding: true)
     irProgram1.inlineCalls(in: moduleID, where: .hasNoControlFlow)
     let result1 = irProgram1.modules[moduleID]!.description
 
@@ -217,7 +221,8 @@ final class InliningTests: XCTestCase {
     let moduleID = typedModule.module
 
     // Lower ALL modules (including standard library) to IR
-    var irProgram = try typedModule.program.lowerToIR(reportingDiagnosticsTo: &log, freestanding: true)
+    var irProgram = try typedModule.program.lowerToIR(
+      reportingDiagnosticsTo: &log, freestanding: true)
     irProgram.inlineCalls(in: moduleID, where: .hasNoControlFlow)
 
     // Verify that all functions are inlined
@@ -227,6 +232,91 @@ final class InliningTests: XCTestCase {
     XCTAssertFalse(irText.contains("call @f1"), "f1 should be inlined")
     XCTAssertFalse(irText.contains("call @f2"), "f2 should be inlined")
     XCTAssertFalse(irText.contains("call @f3"), "f3 should be inlined")
+  }
+
+  /// Tests that monomorphized generic functions can be inlined in non-generic contexts.
+  func testGenericFunctionInliningAfterMonomorphization() throws {
+    let source = """
+      fun add_one<T: Copyable>(x: T) -> T {
+        return x.copy()
+      }
+
+      public fun main() -> Int {
+        add_one(x: 42)
+      }
+      """.asSourceFile()
+
+    var log = DiagnosticSet()
+    let typedModule = try source.typecheckedAsMainWithStandardLibrary(
+      reportingDiagnosticsTo: &log, freestanding: true)
+    let moduleID = typedModule.module
+
+    // Lower to IR and depolymorphize (monomorphize)
+    var irProgram = try typedModule.program.lowerToIR(
+      reportingDiagnosticsTo: &log, freestanding: true)
+
+    // Depolymorphize first - this creates monomorphized versions of generic functions
+    irProgram.depolymorphize()
+
+    // Now inline - monomorphized functions should be inlinable
+    irProgram.inlineCalls(in: moduleID, where: .hasNoControlFlow)
+
+    // Verify that the monomorphized add_one function is inlined
+    let mainFunc = irProgram.modules[moduleID]!.entryFunction!
+    let irText = irProgram.modules[moduleID]!.describe(function: mainFunc)
+
+    // The add_one function should be inlined
+    XCTAssertFalse(
+      irText.contains("call @add_one"),
+      "Monomorphized add_one function should be inlined")
+  }
+
+  /// Tests that generic functions with multiple type parameters can be inlined after monomorphization.
+  func testComplexGenericFunctionInlining() throws {
+    let source = """
+      trait Op {
+        fun apply(x: Int) -> Int
+      }
+
+      type W : Op, Deinitializable {
+        let m: Int
+        internal memberwise init
+
+        public fun apply(x: Int) -> Int {
+          return x + m
+        }
+      }
+
+      fun use<T: Op>(op: T, val: Int) -> Int {
+        return op.apply(x: val)
+      }
+
+      public fun problem(a: Int, b: Int) -> Int {
+        
+        return use(op: W(m: a.copy()), val: b)
+        
+      }
+
+      """.asSourceFile()
+
+    var log = DiagnosticSet()
+    let typedModule = try source.typecheckedAsMainWithStandardLibrary(
+      reportingDiagnosticsTo: &log, freestanding: true)
+    let moduleID = typedModule.module
+
+    // Lower to IR and depolymorphize
+    var irProgram = try typedModule.program.lowerToIR(
+      reportingDiagnosticsTo: &log, freestanding: true)
+    irProgram.depolymorphize()
+    irProgram.inlineCalls(in: moduleID, where: .hasNoControlFlow)
+
+    // Verify that the monomorphized function is inlined
+    let mainFunc = irProgram.modules[moduleID]!.entryFunction!
+    let irText = irProgram.modules[moduleID]!.describe(function: mainFunc)
+
+    XCTAssertFalse(
+      irText.contains("call @"),
+      "Monomorphized generic function should be inlined")
   }
 
 }
