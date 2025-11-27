@@ -1257,6 +1257,8 @@ struct TypeChecker: Sendable {
       check(ReturnStmt.ID(s)!)
     case WhileStmt.self:
       check(WhileStmt.ID(s)!)
+    case UnrollStmt.self:
+      check(UnrollStmt.ID(s)!)
     case YieldStmt.self:
       check(YieldStmt.ID(s)!)
     default:
@@ -1376,6 +1378,11 @@ struct TypeChecker: Sendable {
   /// Type checks `s`.
   private mutating func check(_ s: WhileStmt.ID) {
     check(program[s].condition)
+    check(program[s].body)
+  }
+
+  /// Type checks `s`.
+  private mutating func check(_ s: UnrollStmt.ID) {
     check(program[s].body)
   }
 

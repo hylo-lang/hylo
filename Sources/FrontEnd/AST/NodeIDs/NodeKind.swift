@@ -150,6 +150,7 @@ extension NodeKind {
     ForStmt.self,
     ReturnStmt.self,
     WhileStmt.self,
+    UnrollStmt.self,
     YieldStmt.self,
 
     MatchCase.self,

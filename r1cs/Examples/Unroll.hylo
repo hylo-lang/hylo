@@ -4,5 +4,5 @@ public fun problem(a: Int) -> Int {
   unroll 5 {
     &result += a
   }
-  return result  
+  return result
 }
