@@ -33,7 +33,7 @@ public func generateR1CS(
     outputURL: URL?,
     productName: String,
     verbose: Bool = false
-) throws -> String {
+) throws {
     if verbose {
         print("begin R1CS generation pass.")
     }
@@ -53,16 +53,23 @@ public func generateR1CS(
         }
     }
 
-    // // Get the entry function
-    // guard let entryFunction = ir.modules[sourceModule]?.entryFunction else {
-    //     throw R1CSGenerationError.noEntryFunction
-    // }
-
     // Inline calls to simplify the IR
     ir.inlineCalls(in: sourceModule, where: .hasNoControlFlow)
 
+    let irSourceModule = ir.modules[sourceModule]!
+    // var d = DiagnosticSet()
+    // for f in irSourceModule.functions.keys {
+    //     irSourceModule.removeDeadCode(in: f, diagnostics: &d)
+    // }
+    // ir.modules[sourceModule] = irSourceModule
+
+    // if !d.isEmpty {
+    //     print("Dead code elimination completed with diagnostics: \(d)")
+    //     return
+    // }
+
     guard
-        let entryFunction = ir.modules[sourceModule]?.functions.first(where: { f in
+        let entryFunction = irSourceModule.functions.first(where: { f in
             f.value.site.text.contains("public fun problem")
         })
     else {
@@ -74,14 +81,12 @@ public func generateR1CS(
             "entry function found at \(ir.modules[sourceModule]!.functions[entryFunction.key]!.site)"
         )
     }
-
-    // Generate the output
-    let irSourceModule = ir.modules[sourceModule]!
     let output = irSourceModule.coloredDescribeBlocksWithCalleeIdentifiers(in: entryFunction.key)
 
     // Write to file
     let outputFile = outputURL ?? URL(fileURLWithPath: "\(productName)")
-    try output.write(to: outputFile.appendingPathExtension("ir.ansi"), atomically: true, encoding: .utf8)
+    try output.write(
+        to: outputFile.appendingPathExtension("ir.ansi"), atomically: true, encoding: .utf8)
 
     // BN254 (alt_bn128) curve prime - standard for zkSNARKs
     // This is the scalar field order of the BN254 curve used by Ethereum, snarkjs, circom, etc.
@@ -113,10 +118,6 @@ public func generateR1CS(
 
     // In Hylo IR, function parameters come as pointers. The last parameter is always
     // the return value pointer. All others are input parameters.
-    // For ZK proofs, we need to:
-    // 1. Create wires for the input values
-    // 2. Set up memory so those pointers point to the input wires
-    // 3. Mark them as public inputs
 
     // Process all parameters except the last one (return pointer)
     for index in entryBlock.inputs.indices.dropLast() {
@@ -275,7 +276,6 @@ public func generateR1CS(
             }
             memory[targetPointer.base]![targetPointer.offset] = sourcePointee
 
-
             // Todo avoid extra wire here
             if targetPointer.base == returnValueParam {
                 witnessGen.recordAssignment(destination: returnValueWire, source: sourcePointee)
@@ -389,8 +389,6 @@ public func generateR1CS(
         to: outputURL!.appendingPathExtension("witnessgen.js"),
         atomically: true,
         encoding: .utf8)
-
-    return output
 }
 
 /// Errors that can occur during R1CS generation.
