@@ -18,7 +18,7 @@ public struct UnrollStmt: Stmt, LexicalScope {
     body: BraceStmt.ID,
     site: SourceRange
   ) {
-    precondition(count > 0)
+    precondition(count >= 0)
 
     self.site = site
     self.introducerSite = introducerSite
