@@ -1,8 +1,10 @@
 public fun problem(a: Int) -> Int {
   var result = 0
   
-  unroll 5 {
-    &result += a
+  let c = 1
+  
+  unroll 0 {
+    &result += a * c
   }
   return result  
 }
