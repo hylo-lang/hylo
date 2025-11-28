@@ -95,7 +95,7 @@ public struct Function: Sendable {
   }
 
   /// The IDs of all instructions.
-  public var instructionIDs: some Collection<InstructionID> {
+  public var instructionIdentities: some Collection<InstructionID> {
     instructions.addresses.lazy.map({ InstructionID($0) })
   }
 
