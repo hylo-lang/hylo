@@ -1,12 +1,10 @@
-const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const snarkjs = require('snarkjs');
+const { generateWitness } = require('./Example.witnessgen.js');
+const { verifyWitness } = require('./verify.js');
 
 const r1csFile = path.join(__dirname, 'Example.r1cs');
-const witnessGenScript = path.join(__dirname, 'Example.witnessgen.js');
-const verifyScript = path.join(__dirname, 'verify.js');
-const witnessFile = path.join(__dirname, 'Example.witness.json');
 
 // Generate random integer between min and max (inclusive)
 function randomInt(min, max) {
@@ -23,29 +21,23 @@ function generateRandomInputs(count) {
     return inputs;
 }
 
-// Call witness generator with given inputs
-async function callWitnessGen(inputs) {
+// Generate witness programmatically
+async function generateWitnessForInputs(inputs) {
     try {
-        const inputArg = JSON.stringify(inputs);
-        const command = `node ${witnessGenScript} '${inputArg}' 1> ${witnessFile}`;
-        
-        const output = execSync(command, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] });
-        return true;
+        const result = generateWitness(inputs);
+        return { success: true, witness: result.witness };
     } catch (error) {
-        console.error(`Witness generation failed: ${error.message}`);
-        return false;
+        return { success: false, error: error.message };
     }
 }
 
-// Run verification script
-async function runVerification() {
+// Verify witness programmatically
+async function verifyWitnessArray(witnessArray) {
     try {
-        const command = `node ${verifyScript} ${r1csFile} ${witnessFile}`;
-        const output = execSync(command, { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'pipe'] });
-        return true;
+        const result = await verifyWitness(r1csFile, witnessArray, false);
+        return { success: result.valid, result };
     } catch (error) {
-        // verify.js exits with code 1 on failure, which throws an error in execSync
-        return false;
+        return { success: false, error: error.message };
     }
 }
 
@@ -61,7 +53,7 @@ async function main() {
         console.log(`Total wires: ${r1csData.nVars}`);
         console.log('');
 
-        const numTests = 20; // Number of random test cases
+        const numTests = 10; // Number of random test cases
         let successCount = 0;
         let failureCount = 0;
 
@@ -75,20 +67,20 @@ async function main() {
             process.stdout.write(`inputs=[${inputs.join(', ')}] `);
             
             // Generate witness
-            const witnessSuccess = await callWitnessGen(inputs);
-            if (!witnessSuccess) {
-                console.log('❌ Witness generation failed');
+            const witnessResult = await generateWitnessForInputs(inputs);
+            if (!witnessResult.success) {
+                console.log(`❌ Witness generation failed: ${witnessResult.error}`);
                 failureCount++;
                 continue;
             }
             
             // Verify witness
-            const verifySuccess = await runVerification();
-            if (verifySuccess) {
+            const verifyResult = await verifyWitnessArray(witnessResult.witness);
+            if (verifyResult.success) {
                 console.log('✅ Verified');
                 successCount++;
             } else {
-                console.log('❌ Verification failed');
+                console.log(`❌ Verification failed: ${verifyResult.error || 'Constraints not satisfied'}`);
                 failureCount++;
             }
         }

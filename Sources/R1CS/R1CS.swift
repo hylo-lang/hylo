@@ -100,7 +100,33 @@ public struct R1CS {
   ///
   /// - Parameter constraint: The constraint to add.
   public mutating func addConstraint(_ constraint: R1CSConstraint) {
-    constraints.append(constraint)
+    let normalizedConstraint = R1CSConstraint(
+      a: normalizeLinearCombination(constraint.a),
+      b: normalizeLinearCombination(constraint.b),
+      c: normalizeLinearCombination(constraint.c)
+    )
+    constraints.append(normalizedConstraint)
+  }
+  
+  /// Normalizes a linear combination by collapsing duplicate wires and applying modular arithmetic.
+  private func normalizeLinearCombination(_ lc: LinearCombination) -> LinearCombination {
+    // Collapse duplicate wires by summing their coefficients
+    var wireCoefficients: [WireID: BigUInt] = [:]
+    for term in lc.terms {
+      if let existingCoeff = wireCoefficients[term.wire] {
+        let sum = existingCoeff + term.coefficient
+        wireCoefficients[term.wire] = sum % prime
+      } else {
+        wireCoefficients[term.wire] = term.coefficient % prime
+      }
+    }
+    
+    // Convert back to array of terms, filtering out zero coefficients
+    let normalizedTerms = wireCoefficients.compactMap { (wire, coefficient) in
+      coefficient == 0 ? nil : (wire: wire, coefficient: coefficient)
+    }.sorted { $0.wire < $1.wire }
+    
+    return LinearCombination(terms: normalizedTerms)
   }
 }
 

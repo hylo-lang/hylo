@@ -18,6 +18,6 @@ fun use<T: Op>(op: T, val: Int) -> Int {
 
 public fun problem(a: Int, b: Int) -> Int {
   
-  return use(op: W(m: a.copy()), val: b) + 2
+  return use(op: W(m: a.copy()), val: b)
   
 }
