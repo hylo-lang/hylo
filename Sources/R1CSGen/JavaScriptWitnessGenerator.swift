@@ -54,14 +54,18 @@ struct JavaScriptWitnessGeneratorGen : WitnessGeneratorGen {
             args = parsed.map((val, idx) => {
                 try {
                     // Convert to BigInt, handling both string and number inputs
-                    const bigIntVal = BigInt(val);
+                    let bigIntVal = BigInt(val);
                     
-                    // Validate that the value is in the valid field range [0, P)
+                    // Normalize negative values to be in the valid field range [0, P)
                     if (bigIntVal < 0n) {
-                        throw new Error(`Input at index ${idx} must be non-negative, got: ${val}`);
-                    }
-                    if (bigIntVal >= P) {
-                        throw new Error(`Input at index ${idx} exceeds field prime. Value: ${val}, Prime: ${P}`);
+                        // For negative values, normalize by adding multiples of P until positive
+                        bigIntVal = bigIntVal % P;
+                        if (bigIntVal < 0n) {
+                            bigIntVal += P;
+                        }
+                    } else if (bigIntVal >= P) {
+                        // For values >= P, use modular reduction
+                        bigIntVal = bigIntVal % P;
                     }
                     
                     return bigIntVal;
