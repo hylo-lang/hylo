@@ -65,10 +65,7 @@ public func generateR1CS(
     // Depolymorphize first - this creates monomorphized versions of generic functions
     ir.depolymorphize()
 
-    // Inline calls to simplify the IR
-    ir.inlineCalls(in: sourceModule, where: .hasNoControlFlow)
-
-    let irSourceModule = ir.modules[sourceModule]!
+   
     // var d = DiagnosticSet()
     // for f in irSourceModule.functions.keys {
     //     irSourceModule.removeDeadCode(in: f, diagnostics: &d)
@@ -80,20 +77,27 @@ public func generateR1CS(
     //     return
     // }
 
+
     guard
-        let entryFunction = irSourceModule.functions.first(where: { f in
+        let entryFunctionId = ir.modules[sourceModule]!.functions.first(where: { f in
             f.value.site.text.contains("public fun problem")
-        })
+        })?.key
     else {
         throw R1CSGenerationError.noEntryFunction
     }
 
     if verbose {
         print(
-            "entry function found at \(ir.modules[sourceModule]!.functions[entryFunction.key]!.site)"
+            "entry function found at \(ir.modules[sourceModule]!.functions[entryFunctionId]!.site)"
         )
     }
-    let output = irSourceModule.coloredDescribeBlocksWithCalleeIdentifiers(in: entryFunction.key)
+
+     // Inline calls to simplify the IR
+    ir.inlineCalls(in: entryFunctionId, definedIn: sourceModule, where: .hasNoControlFlow)
+
+    let entryFunction = ir.modules[sourceModule]!.functions[entryFunctionId]!
+
+    let output = ir.modules[sourceModule]!.coloredDescribeBlocksWithCalleeIdentifiers(in: entryFunctionId)
 
     // Write to file
     let outputFile = outputURL ?? URL(fileURLWithPath: "\(productName)")
@@ -107,10 +111,10 @@ public func generateR1CS(
         "21888242871839275222246405745257275088548364400416034343698204186575808495617"
     var r1cs = R1CS(prime: bn254Prime)
 
-    let entryBlockId = irSourceModule.blocks(in: entryFunction.key).first!
-    let entryBlock = irSourceModule[entryBlockId]
+    let entryBlockId = ir.modules[sourceModule]!.blocks(in: entryFunctionId).first!
+    let entryBlock = ir.modules[sourceModule]![entryBlockId]
 
-    guard entryFunction.value.blocks.count == 1 else {
+    guard entryFunction.blocks.count == 1 else {
         throw R1CSGenerationError.moreThanOneBlockInEntryFunction
     }
 
@@ -145,8 +149,6 @@ public func generateR1CS(
 
         // Initialize memory at this pointer location with the input wire
         memory[paramOperand] = [0: .runtime(paramWire)]
-
-        print("Parameter \(index): wire \(paramWire) marked as public input")
     }
 
     // Update the public input count in R1CS
@@ -174,10 +176,10 @@ public func generateR1CS(
         return (b, o)
     }
 
-    for instructionId in irSourceModule.instructions(
-        in: irSourceModule.blocks(in: entryFunction.key).first!)
+    for instructionId in ir.modules[sourceModule]!.instructions(
+        in: ir.modules[sourceModule]!.blocks(in: entryFunctionId).first!)
     {
-        let instruction = irSourceModule[instructionId]
+        let instruction = ir.modules[sourceModule]![instructionId]
 
         switch instruction {
         case _ as IR.AllocStack:
@@ -395,7 +397,10 @@ public func generateR1CS(
         returnWire = wire
     }
 
-    print("Return value: \(returnWire) marked as public output")
+    print("\nInputs wires: \(publicInputWires)")
+    print("Output wire: \(returnWire)")
+    print("\n# Constraints: \(magenta)\(r1cs.constraints.count)\(reset)")
+    print("# Wires: \(magenta)\(r1cs.wireCount)\(reset) \(gray)(\(Int(r1cs.wireCount) - publicInputWires.count - 1) + \(publicInputWires.count+1) for interface)\(reset)")
 
     try String(describing: r1cs).write(
         to: outputURL!.appendingPathExtension("r1cs.ansi"), atomically: true, encoding: .utf8)
