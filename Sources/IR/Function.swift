@@ -32,7 +32,7 @@ public struct Function: Sendable {
   public var blocks: Blocks
 
   /// The instructions in the function.
-  public var instructionStorage: Instructions = []
+  public var instructions: Instructions = []
 
   /// The block associated with each instruction.
   internal var blockForInstruction: [InstructionID: Block.ID] = [:]
@@ -56,8 +56,8 @@ public struct Function: Sendable {
 
   /// Accesses the instruction identified by `i`.
   public subscript(i: InstructionID) -> Instruction {
-    _read { yield instructionStorage[i.address] }
-    _modify { yield &instructionStorage[i.address] }
+    _read { yield instructions[i.address] }
+    _modify { yield &instructions[i.address] }
   }
 
   /// Accesses the instruction denoted by `o` if it is `.register`; returns `nil` otherwise.
@@ -95,8 +95,8 @@ public struct Function: Sendable {
   }
 
   /// The IDs of all instructions.
-  public var instructions: some Collection<InstructionID> {
-    instructionStorage.addresses.lazy.map({ InstructionID($0) })
+  public var instructionIDs: some Collection<InstructionID> {
+    instructions.addresses.lazy.map({ InstructionID($0) })
   }
 
   /// Returns the control flow graph of `self`.
@@ -206,11 +206,11 @@ public struct Function: Sendable {
   private mutating func prepend(_ newInstruction: Instruction, to block: Block.ID) -> InstructionID {
     var i: InstructionID
     if self[block].first == nil {
-      i = InstructionID(instructionStorage.append(newInstruction))
+      i = InstructionID(instructions.append(newInstruction))
     } else {
       precondition(!(newInstruction is Terminator), "terminator must appear last in a block")
       i = InstructionID(
-        instructionStorage.insert(newInstruction, before: self[block].first!.address))
+        instructions.insert(newInstruction, before: self[block].first!.address))
     }
     blockForInstruction[i] = block
     self[block].setFirst(i)
@@ -223,11 +223,11 @@ public struct Function: Sendable {
   private mutating func append(_ newInstruction: Instruction, to block: Block.ID) -> InstructionID {
     var i: InstructionID
     if self[block].last == nil {
-      i = InstructionID(instructionStorage.append(newInstruction))
+      i = InstructionID(instructions.append(newInstruction))
     } else {
       precondition(!(self[terminator(of: block)!] is Terminator), "insertion after terminator")
       i = InstructionID(
-        instructionStorage.insert(newInstruction, after: self[block].last!.address))
+        instructions.insert(newInstruction, after: self[block].last!.address))
     }
     blockForInstruction[i] = block
     self[block].setLast(i)
@@ -242,7 +242,7 @@ public struct Function: Sendable {
   ) -> InstructionID {
     precondition(!(newInstruction is Terminator), "terminator must appear last in a block")
     let b = blockForInstruction[successor]!
-    let i = InstructionID(instructionStorage.insert(newInstruction, before: successor.address))
+    let i = InstructionID(instructions.insert(newInstruction, before: successor.address))
     blockForInstruction[i] = b
     if self[b].first == successor {
       self[b].setFirst(i)
@@ -258,7 +258,7 @@ public struct Function: Sendable {
   ) -> InstructionID {
     precondition(!(self[predecessor] is Terminator), "terminator must appear last in a block")
     let b = blockForInstruction[predecessor]!
-    let i = InstructionID(instructionStorage.insert(newInstruction, after: predecessor.address))
+    let i = InstructionID(instructions.insert(newInstruction, after: predecessor.address))
     blockForInstruction[i] = b
     if self[b].last == predecessor {
       self[b].setLast(i)
@@ -275,7 +275,7 @@ public struct Function: Sendable {
     removeUsesMadeBy(i)
     uses[.register(i)] = nil
     removeFromBlock(i)
-    instructionStorage.remove(at: i.address)
+    instructions.remove(at: i.address)
   }
 
   /// Removes `i` from its corresponding block.
@@ -324,7 +324,7 @@ public struct Function: Sendable {
     let last = blocks[b.address].last
     let i = AnyIterator {
       if let n = next {
-        next = (n != last) ? InstructionID(instructionStorage.address(after: n.address)!) : nil
+        next = (n != last) ? InstructionID(instructions.address(after: n.address)!) : nil
         return n
       } else {
         return nil
@@ -342,26 +342,26 @@ public struct Function: Sendable {
   ///
   /// Note: this may cross block boundaries.
   func instruction(before i: InstructionID) -> InstructionID? {
-    instructionStorage.address(before: i.address).map({ InstructionID($0) })
+    instructions.address(before: i.address).map({ InstructionID($0) })
   }
 
   /// Returns the ID the instruction before `i`.
   func instruction(before i: InstructionID, in b: Block.ID) -> InstructionID? {
     if self[b].first == i { return nil }
-    return instructionStorage.address(before: i.address).map({ InstructionID($0) })
+    return instructions.address(before: i.address).map({ InstructionID($0) })
   }
 
   /// Returns the ID the instruction after `i`.
   ///
   /// Note: this may cross block boundaries.
   func instruction(after i: InstructionID) -> InstructionID? {
-    instructionStorage.address(after: i.address).map({ InstructionID($0) })
+    instructions.address(after: i.address).map({ InstructionID($0) })
   }
 
   /// Returns the ID the instruction after `i`, in block `b`.
   func instruction(after i: InstructionID, in b: Block.ID) -> InstructionID? {
     if self[b].last == i { return nil }
-    return instructionStorage.address(after: i.address).map({ InstructionID($0) })
+    return instructions.address(after: i.address).map({ InstructionID($0) })
   }
 
   /// Returns the block corresponding to `i`.
@@ -394,14 +394,14 @@ public struct Function: Sendable {
     if blockForInstruction[lhs]! != blockForInstruction[rhs]! {
       return false
     }
-    return lhs.address.precedes(rhs.address, in: instructionStorage)
+    return lhs.address.precedes(rhs.address, in: instructions)
   }
 
   /// Returns `true` iff `lhs` is sequenced before `rhs` on all paths leading to `rhs`.
   func dominates(_ lhs: InstructionID, _ rhs: InstructionID) -> Bool {
     // Fast path: both instructions are in the same block.
     if blockForInstruction[lhs]! == blockForInstruction[rhs]! {
-      return lhs.address.precedes(rhs.address, in: instructionStorage)
+      return lhs.address.precedes(rhs.address, in: instructions)
     }
 
     // Slow path: use the dominator tree.

@@ -35,7 +35,7 @@ extension IR.Program {
   /// Replaces uses of parametric types and functions in `f` with their monomorphic or existential
   /// counterparts.
   private mutating func depolymorphize(_ f: Function.ID, definedIn m: Module.ID) {
-    for i in modules[m]![f].instructions {
+    for i in modules[m]![f].instructionIDs {
       switch modules[m]![i, in: f] {
       case is Call:
         depolymorphize(call: i, from: f, definedIn: m)
