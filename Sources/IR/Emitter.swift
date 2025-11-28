@@ -115,14 +115,14 @@ struct Emitter: Sendable {
   }
 
   /// Appends a new basic block at the end of `self.insertionFunction`, defined in s.
-  private mutating func append<T: ScopeID>(in s: T) -> Block.ID {
+  private mutating func appendBlock<T: ScopeID>(in s: T) -> Block.ID {
     module[insertionFunction!].append(in: s)
   }
 
   /// Appends a new basic block at the end of `self.insertionFunction`, defined in the same scope
   /// as `self.insertionBlock`.
-  private mutating func append() -> Block.ID {
-    append(in: insertionScope!)
+  private mutating func appendBlock() -> Block.ID {
+    appendBlock(in: insertionScope!)
   }
 
   /// Inserts `newInstruction` into `self.module` at the end of `self.insertionPoint`.
@@ -786,11 +786,11 @@ struct Emitter: Sendable {
 
     // Otherwise, use a switch to select the correct move-initialization.
     let targets = UnionSwitch.Targets(
-      t.elements.map({ (e) in (key: e, value: append()) }),
+      t.elements.map({ (e) in (key: e, value: appendBlock()) }),
       uniquingKeysWith: { (a, _) in a })
     _emitUnionSwitch(on: argument, toOneOf: targets)
 
-    let tail = append()
+    let tail = appendBlock()
     for (u, b) in targets {
       insertionPoint = .end(of: b)
       _emitMoveInitUnionPayload(of: receiver, consuming: argument, containing: u)
@@ -940,11 +940,11 @@ struct Emitter: Sendable {
 
     // Otherwise, use a switch to select the correct copy method.
     let targets = UnionSwitch.Targets(
-      t.elements.map({ (e) in (key: e, value: append()) }),
+      t.elements.map({ (e) in (key: e, value: appendBlock()) }),
       uniquingKeysWith: { (a, _) in a })
     _emitUnionSwitch(on: source, toOneOf: targets)
 
-    let tail = append()
+    let tail = appendBlock()
     for (u, b) in targets {
       insertionPoint = .end(of: b)
       _emitCopyUnionPayload(from: source, containing: u, to: target)
@@ -1170,7 +1170,7 @@ struct Emitter: Sendable {
   private mutating func emit(conditionalBindingStmt s: ConditionalBindingStmt.ID) -> ControlFlow {
     let storage = emitAllocation(binding: ast[s].binding)
 
-    let fail = append()
+    let fail = appendBlock()
     let next = emitConditionalNarrowing(
       ast[s].binding, movingConsumedValuesTo: storage,
       branchingOnFailureTo: fail, in: insertionScope!)
@@ -1188,7 +1188,7 @@ struct Emitter: Sendable {
   private mutating func emit(conditionalStmt s: ConditionalStmt.ID) -> ControlFlow {
     lowering(s) { me in
       let (firstBranch, secondBranch) = me.emitTest(condition: me.ast[s].condition, in: AnyScopeID(s))
-      let tail = me.append()
+      let tail = me.appendBlock()
 
       me.insertionPoint = .end(of: firstBranch)
       let f1 = me.emit(braceStmt: me.ast[s].success)
@@ -1230,8 +1230,8 @@ struct Emitter: Sendable {
   }
 
   private mutating func _emit(doWhileStmt s: DoWhileStmt.ID) -> ControlFlow {
-    let body = append(in: ast[s].body)
-    let exit = append(in: ast[s].body)
+    let body = appendBlock(in: ast[s].body)
+    let exit = appendBlock(in: ast[s].body)
     loops.append(LoopID(depth: frames.depth, exit: exit))
     defer { loops.removeLast() }
 
@@ -1300,9 +1300,9 @@ struct Emitter: Sendable {
     let storage = emitAllocation(binding: ast[s].binding)
 
     // The "head" of the loop; extracts the next element.
-    let head = append(in: s)
+    let head = appendBlock(in: s)
     // The remainder of the program, after the loop.
-    let exit = append()
+    let exit = appendBlock()
 
     loops.append(LoopID(depth: frames.depth, exit: exit))
     defer { loops.removeLast() }
@@ -1362,13 +1362,13 @@ struct Emitter: Sendable {
         forIteratingOver: domain, usingWitness: collectionWitness)
 
       // The "head" of the loop; tests for the exit condition.
-      let head = me.append(in: s)
+      let head = me.appendBlock(in: s)
       // The "lens" of the loop; tests for narrowing conditions and applies filters.
-      let enter = me.append(in: s)
+      let enter = me.appendBlock(in: s)
       // The "tail" of the loop; increments the index and jumps back to the head.
-      let tail = me.append(in: s)
+      let tail = me.appendBlock(in: s)
       // The remainder of the program, after the loop.
-      let exit = me.append()
+      let exit = me.appendBlock()
 
       me.loops.append(LoopID(depth: me.frames.depth, exit: exit))
       defer { me.loops.removeLast() }
@@ -1460,7 +1460,7 @@ struct Emitter: Sendable {
 
   private mutating func emit(whileStmt s: WhileStmt.ID) -> ControlFlow {
     // Enter the loop.
-    let head = append(in: s)
+    let head = appendBlock(in: s)
     lowering(before: s) { $0._branch(to: head) }
 
     // Test the conditions.
@@ -1658,7 +1658,7 @@ struct Emitter: Sendable {
   /// Inserts the IR for storing the value of `e` to `storage`.
   private mutating func _emitStore(_ e: ConditionalExpr.ID, to storage: Operand) {
     let (success, failure) = emitTest(condition: ast[e].condition, in: AnyScopeID(e))
-    let tail = append()
+    let tail = appendBlock()
 
     // Emit the success branch.
     insertionPoint = .end(of: success)
@@ -2452,7 +2452,7 @@ struct Emitter: Sendable {
       switch item {
       case .expr(let e):
         let test = within(Frame(), { $0.emit(branchCondition: e) })
-        let next = append(in: scope)
+        let next = appendBlock(in: scope)
         lowering(e) {
           $0._cond_branch(if: test, then: next, else: failure)
         }
@@ -2534,7 +2534,7 @@ struct Emitter: Sendable {
     let rhsType = UnionType(module[insertionFunction!].type(of: rhs).ast)!
     precondition(rhsType.elements.contains(lhsType), "recursive narrowing is unimplemented")
 
-    let next = append(in: scope)
+    let next = appendBlock(in: scope)
     var targets = UnionSwitch.Targets(
       rhsType.elements.map({ (e) in (key: e, value: failure) }),
       uniquingKeysWith: { (a, _) in a })
@@ -3221,11 +3221,11 @@ struct Emitter: Sendable {
 
     // One successor per member in the union, ordered by their mangled representation.
     let targets = UnionSwitch.Targets(
-      t.elements.map({ (e) in (key: e, value: append()) }),
+      t.elements.map({ (e) in (key: e, value: appendBlock()) }),
       uniquingKeysWith: { (a, _) in a })
     _emitUnionSwitch(on: storage, toOneOf: targets)
 
-    let tail = append()
+    let tail = appendBlock()
     for (u, b) in targets {
       insertionPoint = .end(of: b)
       _emitDeinitUnionPayload(of: storage, containing: u)
@@ -3282,7 +3282,7 @@ struct Emitter: Sendable {
     }
 
     // Otherwise, compare all parts pairwise.
-    let tail = append()
+    let tail = appendBlock()
     while !parts.isEmpty {
       let x0 = _subfield_view(lhs, at: [parts.startIndex])
       let x1 = _subfield_view(rhs, at: [parts.startIndex])
@@ -3294,7 +3294,7 @@ struct Emitter: Sendable {
         insertionPoint = .end(of: tail)
       } else {
         let x2 = _emitLoadBuiltinBool(target)
-        let next = append()
+        let next = appendBlock()
         _cond_branch(if: x2, then: next, else: tail)
         insertionPoint = .end(of: next)
       }
@@ -3314,12 +3314,12 @@ struct Emitter: Sendable {
     }
 
     // Otherwise, compare their payloads.
-    let same = append()
+    let same = appendBlock()
     let targets = UnionSwitch.Targets(
-      union.elements.map({ (e) in (key: e, value: append()) }),
+      union.elements.map({ (e) in (key: e, value: appendBlock()) }),
       uniquingKeysWith: { (a, _) in a })
-    let fail = append()
-    let tail = append()
+    let fail = appendBlock()
+    let tail = appendBlock()
 
     // The success blocks compare discriminators and then payloads.
     let dl = _emitUnionDiscriminator(lhs)
