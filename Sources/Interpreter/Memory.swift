@@ -278,6 +278,16 @@ public struct Memory {
     throw Error.noDecomposable(t, at: a)
   }
 
+  /// The allocation identified by `i`.
+  public subscript(_ i: Allocation.ID) -> Allocation {
+    _read {
+      yield allocation[i]!
+    }
+    _modify {
+      yield &allocation[i]!
+    }
+  }
+
 }
 
 public extension Memory.Address {

@@ -38,7 +38,12 @@ final class InterpreterMemoryInternalTests: XCTestCase {
     var memory = Memory()
     let allocationAddress = memory.allocate(1, bytesWithAlignment: 1)
 
-    memory.allocation[allocationAddress.allocation]!.withUnsafePointer(to: UInt8.self, at: 0) { p in
+    memory[allocationAddress.allocation].withUnsafeMutablePointer(to: UInt8.self, at: 0) { p in
+      p.pointee = 2
     }
+    memory[allocationAddress.allocation].withUnsafePointer(to: UInt8.self, at: 0) { p in
+      XCTAssertEqual(p.pointee, 2)
+    }
+
   }
 }
