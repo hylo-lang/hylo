@@ -85,3 +85,18 @@ extension FunctionReference: CustomStringConvertible {
   }
 
 }
+
+extension FunctionReference: ColoredDescribable {
+
+  public var coloredDescription: String {
+    if specialization.isEmpty {
+      return "@\(styledIdentifier(String(describing: function)))"
+    } else {
+      let args = specialization.values.map { arg in
+        styledType(String(describing: arg))
+      }.joined(separator: ", ")
+      return "@\(styledIdentifier(String(describing: function)))<\(args)>"
+    }
+  }
+
+}

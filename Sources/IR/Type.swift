@@ -1,4 +1,5 @@
 import FrontEnd
+import Utils
 
 /// The lowered (static) type of an entity.
 ///
@@ -43,6 +44,18 @@ extension IR.`Type`: CustomStringConvertible {
       return "&" + String(describing: ast)
     } else {
       return String(describing: ast)
+    }
+  }
+
+}
+
+extension IR.`Type`: ColoredDescribable {
+
+  public var coloredDescription: String {
+    if isAddress {
+      return styledType("&" + String(describing: ast))
+    } else {
+      return styledType(String(describing: ast))
     }
   }
 

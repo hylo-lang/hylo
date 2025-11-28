@@ -1,5 +1,7 @@
+import Utils
+
 /// A constant value in Hylo IR.
-public protocol Constant: Hashable, Sendable {
+public protocol Constant: Hashable, Sendable, ColoredDescribable {
 
   /// The type of the value.
   var type: IR.`Type` { get }

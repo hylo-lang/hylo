@@ -97,6 +97,7 @@ public struct Lexer: IteratorProtocol, Sequence, Sendable {
       case "else": token.kind = .`else`
       case "extension": token.kind = .`extension`
       case "for": token.kind = .`for`
+      case "unroll": token.kind = .`unroll`
       case "fun": token.kind = .`fun`
       case "if": token.kind = .`if`
       case "import": token.kind = .`import`

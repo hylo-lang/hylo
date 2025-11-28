@@ -2,7 +2,7 @@ import FrontEnd
 import Utils
 
 /// A Hylo IR instruction.
-public protocol Instruction: CustomStringConvertible, Sendable {
+public protocol Instruction: CustomStringConvertible, ColoredDescribable, Sendable {
 
   /// The type of the instruction's result, if any.
   var result: IR.`Type`? { get }
@@ -52,6 +52,18 @@ extension Instruction {
   public var description: String {
     let n = String(describing: type(of: self)).snakeCased()
     return operands.isEmpty ? String(n) : "\(n) \(list: operands)"
+  }
+
+  public var coloredDescription: String {
+    let n = String(describing: type(of: self)).snakeCased()
+    let styledName = styledInstruction(n)
+    
+    if operands.isEmpty {
+      return styledName
+    } else {
+      let coloredOperands = operands.map(\.coloredDescription).joined(separator: ", ")
+      return "\(styledName) \(coloredOperands)"
+    }
   }
 
 }

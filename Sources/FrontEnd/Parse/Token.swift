@@ -26,6 +26,7 @@ public struct Token: Sendable {
     case `conformance`
     case `continue`
     case `do`
+    case `unroll`
     case `else`
     case `extension`
     case `for`
@@ -183,7 +184,7 @@ public struct Token: Sendable {
   /// Indicates whether `self` may be at the beginning of a control statement.
   public var mayBeginCtrlStmt: Bool {
     switch kind {
-    case .break, .continue, .for, .if, .lBrace, .return, .while:
+    case .break, .continue, .for, .if, .lBrace, .return, .while, .unroll:
       return true
     default:
       return false

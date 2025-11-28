@@ -34,3 +34,11 @@ extension IntegerConstant: CustomStringConvertible {
   }
 
 }
+
+extension IntegerConstant: ColoredDescribable {
+
+  public var coloredDescription: String {
+    "\(type.coloredDescription)(\(styledConstant("0x\(String(value.value, radix: 16))")))"
+  }
+
+}

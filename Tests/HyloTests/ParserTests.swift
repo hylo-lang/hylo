@@ -1594,6 +1594,50 @@ final class ParserTests: XCTestCase {
     XCTAssertEqual(stmt.condition.count, 1)
   }
 
+  func testUnrollStmt() throws {
+    let input: SourceFile = "unroll 4 {}"
+    let (stmtID, ast) = try apply(Parser.unrollStmt, on: input)
+    let stmt = try XCTUnwrap(ast[stmtID])
+    XCTAssertEqual(stmt.count, 4)
+  }
+  func testUnrollStmtWithExponent() throws {
+    let input: SourceFile = "unroll 400_000 {}"
+    let (stmtID, ast) = try apply(Parser.unrollStmt, on: input)
+    let stmt = try XCTUnwrap(ast[stmtID])
+    XCTAssertEqual(stmt.count, 400_000)
+  }
+
+  func testUnrollStmtWithBody() throws {
+    let input: SourceFile =
+      """
+      unroll 4 {
+        var x = 0
+        &x = x + 1
+      }
+      """
+    let (stmtID, ast) = try apply(Parser.unrollStmt, on: input)
+    let stmt = try XCTUnwrap(ast[stmtID])
+    XCTAssertEqual(stmt.count, 4)
+  }
+
+  func testUnrollStmtIntegration() throws {
+    let input: SourceFile =
+      """
+      fun main() {
+        var x = 0
+        unroll 2 {
+          let y = 2
+          &x += y
+        }
+      }
+      """
+
+      var ast = AST()
+      var d = DiagnosticSet()
+      _ = try ast.loadModule("Main", parsing: [input], reportingDiagnosticsTo: &d)
+      XCTAssertTrue(d.isEmpty)
+  }
+
   func testWhileStmtWithMultipleConditions() throws {
     let input: SourceFile = "while let x = foo(), x > 0 {}"
     let (stmtID, ast) = try apply(Parser.whileStmt, on: input)
@@ -1693,12 +1737,12 @@ final class ParserTests: XCTestCase {
     XCTAssertEqual(stmt.condition, .operatingSystem("macOs"))
     XCTAssertEqual(stmt.stmts.count, 1)
     XCTAssertEqual(stmt.fallback.count, 1)
-    
+
     let stmt2 = try XCTUnwrap(ast[stmt.fallback[0]] as? ConditionalCompilationStmt)
     XCTAssertEqual(stmt2.condition, .operatingSystem("Linux"))
     XCTAssertEqual(stmt2.stmts.count, 1)
     XCTAssertEqual(stmt2.fallback.count, 1)
-    
+
     let stmt3 = try XCTUnwrap(ast[stmt2.fallback[0]] as? ConditionalCompilationStmt)
     XCTAssertEqual(stmt3.condition, .operatingSystem("Windows"))
     XCTAssertEqual(stmt3.stmts.count, 1)
@@ -1713,17 +1757,17 @@ final class ParserTests: XCTestCase {
     XCTAssertEqual(stmt.condition, .architecture("x86_64"))
     XCTAssertEqual(stmt.stmts.count, 1)
     XCTAssertEqual(stmt.fallback.count, 1)
-    
+
     let stmt2 = try XCTUnwrap(ast[stmt.fallback[0]] as? ConditionalCompilationStmt)
     XCTAssertEqual(stmt2.condition, .architecture("i386"))
     XCTAssertEqual(stmt2.stmts.count, 1)
     XCTAssertEqual(stmt2.fallback.count, 1)
-    
+
     let stmt3 = try XCTUnwrap(ast[stmt2.fallback[0]] as? ConditionalCompilationStmt)
     XCTAssertEqual(stmt3.condition, .architecture("arm64"))
     XCTAssertEqual(stmt3.stmts.count, 1)
     XCTAssertEqual(stmt3.fallback.count, 1)
-    
+
     let stmt4 = try XCTUnwrap(ast[stmt3.fallback[0]] as? ConditionalCompilationStmt)
     XCTAssertEqual(stmt4.condition, .architecture("arm"))
     XCTAssertEqual(stmt4.stmts.count, 1)
@@ -1839,7 +1883,7 @@ final class ParserTests: XCTestCase {
       .hyloVersion(comparison: .less(SemanticVersion(major: 0, minor: 1, patch: 0))))
     XCTAssertEqual(stmt.stmts.count, 0)  // Body not parsed
     XCTAssertEqual(stmt.fallback.count, 1)
-    
+
     let stmt2 = try XCTUnwrap(ast[stmt.fallback[0]] as? ConditionalCompilationStmt)
     XCTAssertEqual(stmt2.condition, .operatingSystem("bla"))
     XCTAssertEqual(stmt2.stmts.count, 0)

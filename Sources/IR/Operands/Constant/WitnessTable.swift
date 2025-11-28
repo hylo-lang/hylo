@@ -1,4 +1,5 @@
 import FrontEnd
+import Utils
 
 /// The type and conformances of a value acting as the witness of an existential container.
 public struct WitnessTable: Constant, Hashable {
@@ -32,6 +33,15 @@ extension WitnessTable: CustomStringConvertible {
 
   public var description: String {
     "WitnessTable(\(witness): \(list: conformances.map(\.concept)))"
+  }
+
+}
+
+extension WitnessTable: ColoredDescribable {
+
+  public var coloredDescription: String {
+    let concepts = conformances.map { styledType(String(describing: $0.concept)) }.joined(separator: ", ")
+    return "\(styledKeyword("WitnessTable"))(\(styledType(String(describing: witness))): \(concepts))"
   }
 
 }

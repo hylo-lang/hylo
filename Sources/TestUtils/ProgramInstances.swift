@@ -54,18 +54,39 @@ extension SourceFile {
   ///
   /// - Parameter `needsBuiltins`: `true` iff `self` should be allowed access to
   ///   builtin functions.
-  public func typecheckedAsMainWithHostedStandardLibrary(
+  /// - Parameter `freestanding`: `true` to use the freestanding standard library,
+  ///   `false` to use the hosted standard library.
+  public func typecheckedAsMainWithStandardLibrary(
     reportingDiagnosticsTo log: inout DiagnosticSet,
-    withBuiltinModuleAccess needsBuiltins: Bool = false
+    withBuiltinModuleAccess needsBuiltins: Bool = false,
+    freestanding: Bool = false
   ) throws -> TypedProgram.Module {
-    log.formUnion(typecheckedStandardLibrary.diagnostics)
-    return try typecheckedStandardLibrary.program
+    log.formUnion(typecheckedStandardLibrary(freestanding: freestanding).diagnostics)
+    return try typecheckedStandardLibrary(freestanding: freestanding).program
       .loadModule(reportingDiagnosticsTo: &log) { ast, log, nodeSpace in
         try self.parsedAsMain(
           into: &ast, withBuiltinModuleAccess: needsBuiltins,
           reportingDiagnosticsTo: &log
         )
       }
+  }
+
+  /// Returns `self` as a one-file module and the hosted standard library,
+  /// typechecked.
+  ///
+  /// The module for `self` is the result's `latestModule`.
+  ///
+  /// - Parameter `needsBuiltins`: `true` iff `self` should be allowed access to
+  ///   builtin functions.
+  public func typecheckedAsMainWithHostedStandardLibrary(
+    reportingDiagnosticsTo log: inout DiagnosticSet,
+    withBuiltinModuleAccess needsBuiltins: Bool = false
+  ) throws -> TypedProgram.Module {
+    try typecheckedAsMainWithStandardLibrary(
+      reportingDiagnosticsTo: &log,
+      withBuiltinModuleAccess: needsBuiltins,
+      freestanding: false
+    )
   }
 
 }
@@ -77,6 +98,27 @@ extension TypedProgram.Module {
     var r = try IR.Module(lowering: module, in: self.program, reportingDiagnosticsTo: &log)
     try r.applyMandatoryPasses(reportingDiagnosticsTo: &log)
     return r
+  }
+
+}
+
+extension TypedProgram {
+
+  /// Lowers all modules in `self` to IR.
+  ///
+  /// - Parameter freestanding: If `true`, uses freestanding standard library modules;
+  ///   otherwise uses hosted standard library modules.
+  public func lowerToIR(
+    reportingDiagnosticsTo log: inout DiagnosticSet,
+    freestanding: Bool = false
+  ) throws -> IR.Program {
+    var loweredModules: [ModuleDecl.ID: IR.Module] = [:]
+    for d in ast.modules {
+      var irModule = try IR.Module(lowering: d, in: self, reportingDiagnosticsTo: &log)
+      try irModule.applyMandatoryPasses(reportingDiagnosticsTo: &log)
+      loweredModules[d] = irModule
+    }
+    return IR.Program(syntax: self, modules: loweredModules)
   }
 
 }
