@@ -6,5 +6,5 @@ public fun problem(a: Int) -> Int {
   unroll 3 {
     &result += a * c
   }
-  return result  
+  return result
 }

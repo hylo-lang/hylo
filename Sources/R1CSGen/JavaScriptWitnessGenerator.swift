@@ -1,6 +1,16 @@
 import BigInt
 import R1CS
 
+fileprivate extension Value {
+    var js: String {
+        switch self {
+        case .compileTime(let const):
+            return "\(const)n"
+        case .runtime(let wire):
+            return "w[\(wire.raw)]"
+        }
+    }
+}
 struct JavaScriptWitnessGeneratorGen : WitnessGeneratorGen {
     var buffer: String = ""
     
@@ -81,20 +91,16 @@ struct JavaScriptWitnessGeneratorGen : WitnessGeneratorGen {
         buffer += "w[\(wire.raw)] = \(value)n;\n"
     }
     
-    mutating func recordAssignment(destination: WireID, source: WireID) {
-        buffer += "w[\(destination.raw)] = w[\(source.raw)];\n"
+    mutating func recordAdd(destination: WireID, a: Value, b: Value) {
+        buffer += "w[\(destination.raw)] = add(\(a.js), \(b.js));\n"
     }
     
-    mutating func recordAdd(destination: WireID, a: WireID, b: WireID) {
-        buffer += "w[\(destination.raw)] = add(w[\(a.raw)], w[\(b.raw)]);\n"
+    mutating func recordSub(destination: WireID, a: Value, b: Value) {
+        buffer += "w[\(destination.raw)] = sub(\(a.js), \(b.js));\n"
     }
     
-    mutating func recordSub(destination: WireID, a: WireID, b: WireID) {
-        buffer += "w[\(destination.raw)] = sub(w[\(a.raw)], w[\(b.raw)]);\n"
-    }
-    
-    mutating func recordMul(destination: WireID, a: WireID, b: WireID) {
-        buffer += "w[\(destination.raw)] = mul(w[\(a.raw)], w[\(b.raw)]);\n"
+    mutating func recordMul(destination: WireID, a: Value, b: Value) {
+        buffer += "w[\(destination.raw)] = mul(\(a.js), \(b.js));\n"
     }
     
     func generateCode(outputWire: WireID) -> String {

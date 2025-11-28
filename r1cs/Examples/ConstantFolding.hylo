@@ -1,0 +1,7 @@
+public fun problem(x: Int) -> Int {
+  let a = 4
+  let b = 10
+  let c = a - b // -6
+
+  return x + c
+}

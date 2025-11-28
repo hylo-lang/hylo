@@ -13,7 +13,7 @@ public struct WireID: Equatable, Hashable, Comparable, Sendable {
     lhs.raw < rhs.raw
   }
 
-  public static let unit = WireID(rawValue: 0)
+  public static let one = WireID(rawValue: 0)
 }
 
 /// A unique identifier for a label in the circuit.
@@ -28,7 +28,7 @@ public struct LabelID: Equatable, Hashable {
 /// A mutable R1CS constraint system that can be built incrementally.
 public struct R1CS {
   /// The wire that is always set to 1 (the constant wire).
-  public static let unitWire = WireID.unit
+  public static let unitWire = WireID.one
 
   /// The prime field modulus.
   public var prime: BigUInt
@@ -126,20 +126,31 @@ public struct R1CSConstraint {
   public static func constant(wire: WireID, value: BigUInt) -> R1CSConstraint {
     .init(
       a: LinearCombination(terms: [(wire: wire, coefficient: 1)]),
-      b: LinearCombination(terms: [(wire: .unit, coefficient: 1)]),
-      c: LinearCombination(terms: [(wire: .unit, coefficient: .init(value))])
+      b: LinearCombination(terms: [(wire: .one, coefficient: 1)]),
+      c: LinearCombination(terms: [(wire: .one, coefficient: .init(value))])
     )
   }
 }
 
 /// A linear combination of wires with field coefficients.
-public struct LinearCombination {
+public struct LinearCombination: Sendable {
   /// The terms in the linear combination, mapping wire ID to coefficient.
   public var terms: [(wire: WireID, coefficient: BigUInt)]
 
   /// Initializes an empty linear combination.
   public init() {
     self.terms = []
+  }
+
+  public static let one = LinearCombination(terms: [(wire: .one, coefficient: 1)])
+  public static let zero = LinearCombination(terms: [])
+
+  public static func constant(_ value: BigUInt) -> LinearCombination {
+    LinearCombination(terms: [(wire: .one, coefficient: value)])
+  }
+
+  public static func wire(_ value: WireID) -> LinearCombination {
+    LinearCombination(terms: [(wire: value, coefficient: 1)])
   }
 
   /// Initializes a linear combination with the given terms.

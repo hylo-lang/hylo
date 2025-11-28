@@ -87,7 +87,7 @@ extension IR.Program {
       functionName = "\(callee.function)"
     }
 
-    print("Attempting to inline call to `\(functionName)`")
+    // print("Attempting to inline call to `\(functionName)`")
 
     // Can't inline if the function has no implementation.
     let source = module(defining: callee.function)

@@ -140,8 +140,8 @@ final class WitnessValidatorIntegrationTests: XCTestCase {
     // Constraint: w4 * 1 = 5 (c = 5)
     r1cs.addConstraint(R1CSConstraint(
       a: LinearCombination(terms: [(wire: w4, coefficient: 1)]),
-      b: LinearCombination(terms: [(wire: .unit, coefficient: 1)]),
-      c: LinearCombination(terms: [(wire: .unit, coefficient: 5)])
+      b: LinearCombination(terms: [(wire: .one, coefficient: 1)]),
+      c: LinearCombination(terms: [(wire: .one, coefficient: 5)])
     ))
     
     // Constraint: b * b = b² (w2 * w2 = w5)
@@ -164,7 +164,7 @@ final class WitnessValidatorIntegrationTests: XCTestCase {
         (wire: w6, coefficient: 1),
         (wire: w5, coefficient: 1)
       ]),
-      b: LinearCombination(terms: [(wire: .unit, coefficient: 1)]),
+      b: LinearCombination(terms: [(wire: .one, coefficient: 1)]),
       c: LinearCombination(terms: [(wire: w7, coefficient: 1)])
     ))
     
@@ -183,14 +183,14 @@ final class WitnessValidatorIntegrationTests: XCTestCase {
         (wire: w7, coefficient: 1),
         (wire: w8, coefficient: negOne)
       ]),
-      b: LinearCombination(terms: [(wire: .unit, coefficient: 1)]),
+      b: LinearCombination(terms: [(wire: .one, coefficient: 1)]),
       c: LinearCombination(terms: [(wire: w9, coefficient: 1)])
     ))
     
     // Constraint: result = w9 (w3 = w9)
     r1cs.addConstraint(R1CSConstraint(
       a: LinearCombination(terms: [(wire: w9, coefficient: 1)]),
-      b: LinearCombination(terms: [(wire: .unit, coefficient: 1)]),
+      b: LinearCombination(terms: [(wire: .one, coefficient: 1)]),
       c: LinearCombination(terms: [(wire: w3, coefficient: 1)])
     ))
     
