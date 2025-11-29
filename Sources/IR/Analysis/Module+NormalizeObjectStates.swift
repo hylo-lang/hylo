@@ -5,7 +5,7 @@ import Utils
 extension Module {
 
   /// A "program counter" in the abstract machine.
-  private typealias PC = Block.Instructions.Address
+  private typealias PC = Function.Instructions.Address
 
   /// Ensures that objects in `f` are initialized before use and deinitialized after last use,
   /// reporting errors and warnings to `diagnostics`.
@@ -16,84 +16,85 @@ extension Module {
 
     // Verify that object states are properly initialized/deinitialized in `b` given `context`,
     // updating `self` as necessary and reporting violations in `diagnostics`.
-    machine.fixedPoint { (b, context) in
-      var pc = self[f][b].instructions.firstAddress
+    machine.fixedPoint { (blockAddress, context) in
+      let b = Block.ID(blockAddress)
+      var pc = self[f].firstInstruction(in: b)?.address
       while let a = pc {
-        let user = InstructionID(b, a)
+        let user = InstructionID(a)
 
-        switch self[f][b].instructions[a] {
+        switch self[f][user] {
         case is Access:
-          pc = interpret(access: user, in: &context)
+          pc = interpret(access: user, from: b, in: &context)
         case is AddressToPointer:
-          pc = interpret(addressToPointer: user, in: &context)
+          pc = interpret(addressToPointer: user, from: b, in: &context)
         case is AdvancedByBytes:
-          pc = interpret(advancedByBytes: user, in: &context)
+          pc = interpret(advancedByBytes: user, from: b, in: &context)
         case is AdvancedByStrides:
-          pc = interpret(advancedByStrides: user, in: &context)
+          pc = interpret(advancedByStrides: user, from: b, in: &context)
         case is AllocStack:
-          pc = interpret(allocStack: user, in: &context)
+          pc = interpret(allocStack: user, from: b, in: &context)
         case is Branch:
-          pc = successor(of: user)
+          pc = successor(of: user, in: b)
         case is Call:
-          pc = interpret(call: user, in: &context)
+          pc = interpret(call: user, from: b, in: &context)
         case is CallFFI:
-          pc = interpret(callFFI: user, in: &context)
+          pc = interpret(callFFI: user, from: b, in: &context)
         case is CaptureIn:
-          pc = interpret(captureIn: user, in: &context)
+          pc = interpret(captureIn: user, from: b, in: &context)
         case is CloseCapture:
-          pc = interpret(closeCapture: user, in: &context)
+          pc = interpret(closeCapture: user, from: b, in: &context)
         case is CloseUnion:
-          pc = interpret(closeUnion: user, in: &context)
+          pc = interpret(closeUnion: user, from: b, in: &context)
         case is CondBranch:
-          pc = interpret(condBranch: user, in: &context)
+          pc = interpret(condBranch: user, from: b, in: &context)
         case is ConstantString:
-          pc = interpret(constantString: user, in: &context)
+          pc = interpret(constantString: user, from: b, in: &context)
         case is DeallocStack:
-          pc = interpret(deallocStack: user, in: &context)
+          pc = interpret(deallocStack: user, from: b, in: &context)
         case is EndAccess:
-          pc = successor(of: user)
+          pc = successor(of: user, in: b)
         case is EndProject:
-          pc = interpret(endProject: user, in: &context)
+          pc = interpret(endProject: user, from: b, in: &context)
         case is GenericParameter:
-          pc = interpret(genericParameter: user, in: &context)
+          pc = interpret(genericParameter: user, from: b, in: &context)
         case is GlobalAddr:
-          pc = interpret(globalAddr: user, in: &context)
+          pc = interpret(globalAddr: user, from: b, in: &context)
         case is CallBuiltinFunction:
-          pc = interpret(callBuiltin: user, in: &context)
+          pc = interpret(callBuiltin: user, from: b, in: &context)
         case is Load:
-          pc = interpret(load: user, in: &context)
+          pc = interpret(load: user, from: b, in: &context)
         case is MarkState:
-          pc = interpret(markState: user, in: &context)
+          pc = interpret(markState: user, from: b, in: &context)
         case is MemoryCopy:
-          pc = interpret(memoryCopy: user, in: &context)
+          pc = interpret(memoryCopy: user, from: b, in: &context)
         case is Move:
-          pc = interpret(move: user, in: &context)
+          pc = interpret(move: user, from: b, in: &context)
         case is OpenCapture:
-          pc = interpret(openCapture: user, in: &context)
+          pc = interpret(openCapture: user, from: b, in: &context)
         case is OpenUnion:
-          pc = interpret(openUnion: user, in: &context)
+          pc = interpret(openUnion: user, from: b, in: &context)
         case is PointerToAddress:
-          pc = interpret(pointerToAddress: user, in: &context)
+          pc = interpret(pointerToAddress: user, from: b, in: &context)
         case is Project:
-          pc = interpret(project: user, in: &context)
+          pc = interpret(project: user, from: b, in: &context)
         case is ReleaseCaptures:
-          pc = successor(of: user)
+          pc = successor(of: user, in: b)
         case is Return:
-          pc = interpret(return: user, in: &context)
+          pc = interpret(return: user, from: b, in: &context)
         case is Store:
-          pc = interpret(store: user, in: &context)
+          pc = interpret(store: user, from: b, in: &context)
         case is SubfieldView:
-          pc = interpret(subfieldView: user, in: &context)
+          pc = interpret(subfieldView: user, from: b, in: &context)
         case is UnionDiscriminator:
-          pc = interpret(unionDiscriminator: user, in: &context)
+          pc = interpret(unionDiscriminator: user, from: b, in: &context)
         case is UnionSwitch:
-          pc = successor(of: user)
+          pc = successor(of: user, in: b)
         case is Unreachable:
-          pc = successor(of: user)
+          pc = successor(of: user, in: b)
         case is WrapExistentialAddr:
-          pc = interpret(wrapExistentialAddr: user, in: &context)
+          pc = interpret(wrapExistentialAddr: user, from: b, in: &context)
         case is Yield:
-          pc = interpret(yield: user, in: &context)
+          pc = interpret(yield: user, from: b, in: &context)
         default:
           unreachable("unexpected instruction")
         }
@@ -101,12 +102,12 @@ extension Module {
     }
 
     /// Returns the successor of `i`, if any.
-    func successor(of i: InstructionID) -> PC? {
-      self[f][i.block].instructions.address(after: i.address)
+    func successor(of i: InstructionID, in b: Block.ID) -> PC? {
+      self[f].instruction(after: i, in: b)?.address
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(access i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(access i: InstructionID, from b: Block.ID, in context: inout Context) -> PC? {
       let s = self[i, in: f] as! Access
       precondition(s.source.constant == nil, "source is a constant")
 
@@ -137,35 +138,35 @@ extension Module {
       }
 
       context.locals[.register(i)] = context.locals[s.source]
-      return successor(of: i)
+      return successor(of: i, in: b)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(addressToPointer i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(addressToPointer i: InstructionID, from b: Block.ID, in context: inout Context) -> PC? {
       initializeRegister(createdBy: i, from: f, in: &context)
-      return successor(of: i)
+      return successor(of: i, in: b)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(allocStack i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(allocStack i: InstructionID, from b: Block.ID, in context: inout Context) -> PC? {
       // A stack leak may occur if this instruction is in a loop.
       let l = AbstractLocation.root(.register(i))
       precondition(context.memory[l] == nil, "stack leak")
       context.declareStorage(assignedTo: i, from: f, in: self, initially: .uninitialized)
-      return successor(of: i)
+      return successor(of: i, in: b)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(advancedByBytes i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(advancedByBytes i: InstructionID, from b: Block.ID, in context: inout Context) -> PC? {
       let s = self[i, in: f] as! AdvancedByBytes
       consume(s.base, with: i, at: s.site, in: &context)
       consume(s.byteOffset, with: i, at: s.site, in: &context)
       initializeRegister(createdBy: i, from: f, in: &context)
-      return successor(of: i)
+      return successor(of: i, in: b)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(advancedByStrides i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(advancedByStrides i: InstructionID, from b: Block.ID, in context: inout Context) -> PC? {
       let s = self[i, in: f] as! AdvancedByStrides
 
       // Operand must a location.
@@ -178,11 +179,11 @@ extension Module {
       }
 
       context.locals[.register(i)] = .locations(Set(locations))
-      return successor(of: i)
+      return successor(of: i, in: b)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(call i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(call i: InstructionID, from b: Block.ID, in context: inout Context) -> PC? {
       let s = self[i, in: f] as! Call
       let x = s.callee
       let callee = ArrowType(self[f].type(of: x).ast)!
@@ -213,28 +214,28 @@ extension Module {
       // Evaluate the return value.
       initialize(s.output, in: &context)
 
-      return successor(of: i)
+      return successor(of: i, in: b)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(callFFI i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(callFFI i: InstructionID, from b: Block.ID, in context: inout Context) -> PC? {
       let s = self[i, in: f] as! CallFFI
       for a in s.operands {
         consume(a, with: i, at: s.site, in: &context)
       }
       initializeRegister(createdBy: i, from: f, in: &context)
-      return successor(of: i)
+      return successor(of: i, in: b)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(captureIn i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(captureIn i: InstructionID, from b: Block.ID, in context: inout Context) -> PC? {
       let s = self[i, in: f] as! CaptureIn
       initialize(s.target, in: &context)
-      return successor(of: i)
+      return successor(of: i, in: b)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(closeCapture i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(closeCapture i: InstructionID, from b: Block.ID, in context: inout Context) -> PC? {
       let s = self[i, in: f] as! CloseCapture
       let l = context.locals[s.start]!.unwrapLocations()!.uniqueElement!
       let projection = context.withObject(at: l, { $0 })
@@ -258,11 +259,11 @@ extension Module {
         unreachable()
       }
 
-      return successor(of: i)
+      return successor(of: i, in: b)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(closeUnion i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(closeUnion i: InstructionID, from b: Block.ID, in context: inout Context) -> PC? {
       let s = self[i, in: f] as! CloseUnion
       let payload = context.locals[s.start]!.unwrapLocations()!.uniqueElement!
 
@@ -279,24 +280,24 @@ extension Module {
       }
 
       context.memory[payload] = nil
-      return successor(of: i)
+      return successor(of: i, in: b)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(condBranch i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(condBranch i: InstructionID, from b: Block.ID, in context: inout Context) -> PC? {
       let branch = self[i, in: f] as! CondBranch
       consume(branch.condition, with: i, at: branch.site, in: &context)
-      return successor(of: i)
+      return successor(of: i, in: b)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(constantString i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(constantString i: InstructionID, from b: Block.ID, in context: inout Context) -> PC? {
       initializeRegister(createdBy: i, from: f, in: &context)
-      return successor(of: i)
+      return successor(of: i, in: b)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(deallocStack i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(deallocStack i: InstructionID, from b: Block.ID, in context: inout Context) -> PC? {
       let s = self[i, in: f] as! DeallocStack
       let l = context.locals[s.location]!.unwrapLocations()!.uniqueElement!
 
@@ -307,11 +308,11 @@ extension Module {
         s.location, at: p, before: i, in: f,
         anchoringInstructionsTo: s.site, reportingDiagnosticsTo: &diagnostics)
       context.memory[l] = nil
-      return successor(of: i)
+      return successor(of: i, in: b)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(endProject i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(endProject i: InstructionID, from b: Block.ID, in context: inout Context) -> PC? {
       let s = self[i, in: f] as! EndProject
       let r = self[s.start.instruction!, in: f] as! Project
 
@@ -319,38 +320,38 @@ extension Module {
       finalize(
         region: s.start, projecting: r.projection.access, in: f, from: [],
         exitedWith: i, in: &context)
-      return successor(of: i)
+      return successor(of: i, in: b)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(genericParameter i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(genericParameter i: InstructionID, from b: Block.ID, in context: inout Context) -> PC? {
       context.declareStorage(assignedTo: i, from: f, in: self, initially: .initialized)
-      return successor(of: i)
+      return successor(of: i, in: b)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(globalAddr i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(globalAddr i: InstructionID, from b: Block.ID, in context: inout Context) -> PC? {
       context.declareStorage(assignedTo: i, from: f, in: self, initially: .initialized)
-      return successor(of: i)
+      return successor(of: i, in: b)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(callBuiltin i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(callBuiltin i: InstructionID, from b: Block.ID, in context: inout Context) -> PC? {
       // TODO: Check that operands are initialized.
       initializeRegister(createdBy: i, from: f, in: &context)
-      return successor(of: i)
+      return successor(of: i, in: b)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(load i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(load i: InstructionID, from b: Block.ID, in context: inout Context) -> PC? {
       let s = self[i, in: f] as! Load
       sink(s.source, with: i, in: &context)
       initializeRegister(createdBy: i, from: f, in: &context)
-      return successor(of: i)
+      return successor(of: i, in: b)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(markState i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(markState i: InstructionID, from b: Block.ID, in context: inout Context) -> PC? {
       let s = self[i, in: f] as! MarkState
 
       // Built-in values are never consumed.
@@ -365,18 +366,18 @@ extension Module {
         }
       }
 
-      return successor(of: i)
+      return successor(of: i, in: b)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(memoryCopy i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(memoryCopy i: InstructionID, from b: Block.ID, in context: inout Context) -> PC? {
       let s = self[i, in: f] as! MemoryCopy
       initialize(s.target, in: &context)
-      return successor(of: i)
+      return successor(of: i, in: b)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(move i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(move i: InstructionID, from b: Block.ID, in context: inout Context) -> PC? {
       let s = self[i, in: f] as! Move
       let k: AccessEffect = context.isStaticallyInitialized(s.target) ? .inout : .set
       let n = Emitter.withInstance(insertingIn: &self, reportingDiagnosticsTo: &diagnostics) {
@@ -386,15 +387,15 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(openCapture i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(openCapture i: InstructionID, from b: Block.ID, in context: inout Context) -> PC? {
       let s = self[i, in: f] as! OpenCapture
       let t = RemoteType(self[f].type(of: s.source).ast)!
       initializeRegister(createdBy: i, projecting: t, from: f, in: &context)
-      return successor(of: i)
+      return successor(of: i, in: b)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(openUnion i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(openUnion i: InstructionID, from b: Block.ID, in context: inout Context) -> PC? {
       let s = self[i, in: f] as! OpenUnion
       let l = AbstractLocation.root(.register(i))
       precondition(context.memory[l] == nil, "overlapping accesses to union payload")
@@ -408,29 +409,29 @@ extension Module {
 
       context.memory[l] = .init(layout: t, value: o.value)
       context.locals[.register(i)] = .locations([l])
-      return successor(of: i)
+      return successor(of: i, in: b)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(pointerToAddress i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(pointerToAddress i: InstructionID, from b: Block.ID, in context: inout Context) -> PC? {
       let s = self[i, in: f] as! PointerToAddress
       consume(s.source, with: i, at: s.site, in: &context)
       initializeRegister(createdBy: i, projecting: s.target, from: f, in: &context)
-      return successor(of: i)
+      return successor(of: i, in: b)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(project i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(project i: InstructionID, from b: Block.ID, in context: inout Context) -> PC? {
       let s = self[i, in: f] as! Project
 
       // TODO: Process arguments
 
       initializeRegister(createdBy: i, projecting: s.projection, from: f, in: &context)
-      return successor(of: i)
+      return successor(of: i, in: b)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(return i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(return i: InstructionID, from b: Block.ID, in context: inout Context) -> PC? {
       // Make sure that all non-sink parameters are initialized on exit.
       let entry = self[f].entry!
       for (k, p) in self[f].inputs.enumerated() {
@@ -451,19 +452,19 @@ extension Module {
         ensureReturnValueIsInitialized(in: &context, at: self[i, in: f].site)
       }
 
-      return successor(of: i)
+      return successor(of: i, in: b)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(store i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(store i: InstructionID, from b: Block.ID, in context: inout Context) -> PC? {
       let store = self[i, in: f] as! Store
       consume(store.object, with: i, at: store.site, in: &context)
       initialize(store.target, in: &context)
-      return successor(of: i)
+      return successor(of: i, in: b)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(subfieldView i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(subfieldView i: InstructionID, from b: Block.ID, in context: inout Context) -> PC? {
       let addr = self[i, in: f] as! SubfieldView
 
       // Operand must a location.
@@ -479,17 +480,17 @@ extension Module {
       }
 
       context.locals[.register(i)] = .locations(Set(locations))
-      return successor(of: i)
+      return successor(of: i, in: b)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(unionDiscriminator i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(unionDiscriminator i: InstructionID, from b: Block.ID, in context: inout Context) -> PC? {
       initializeRegister(createdBy: i, from: f, in: &context)
-      return successor(of: i)
+      return successor(of: i, in: b)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(wrapExistentialAddr i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(wrapExistentialAddr i: InstructionID, from b: Block.ID, in context: inout Context) -> PC? {
       let s = self[i, in: f] as! WrapExistentialAddr
       if case .constant = s.witness {
         // Operand is a constant.
@@ -497,14 +498,14 @@ extension Module {
       }
 
       context.locals[.register(i)] = context.locals[s.witness]
-      return successor(of: i)
+      return successor(of: i, in: b)
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(yield i: InstructionID, in context: inout Context) -> PC? {
+    func interpret(yield i: InstructionID, from b: Block.ID, in context: inout Context) -> PC? {
       let s = self[i, in: f] as! Yield
       assert(self[s.projection.instruction!, in: f].isAccess(s.capability))
-      return successor(of: i)
+      return successor(of: i, in: b)
     }
 
     /// Updates `context` to mark all objects at `source`, which is an `access .set`, as having

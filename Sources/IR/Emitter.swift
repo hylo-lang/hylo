@@ -96,7 +96,8 @@ struct Emitter: Sendable {
 
   /// The scope corresponding to the current insertion block.
   private var insertionScope: AnyScopeID? {
-    insertionBlock.map({ module[$0, in: insertionFunction!].scope })
+    let insertionIR = module[insertionFunction!]
+    return insertionPoint.map({ insertionIR[insertionIR.block(of: $0)!].scope })
   }
 
   /// The address of the return value in the current function, if any.
@@ -115,7 +116,7 @@ struct Emitter: Sendable {
 
   /// Appends a new basic block at the end of `self.insertionFunction`, defined in s.
   private mutating func appendBlock<T: ScopeID>(in s: T) -> Block.ID {
-    module[insertionFunction!].append(in: s)
+    module[insertionFunction!].appendBlock(in: s)
   }
 
   /// Appends a new basic block at the end of `self.insertionFunction`, defined in the same scope
@@ -231,7 +232,7 @@ struct Emitter: Sendable {
     insertionFunction = f
 
     // Configure the emitter context.
-    let entry = module[f].appendEntry(in: program.scopeContainingBody(of: d)!)
+    let entry = module[f].appendBlock(in: program.scopeContainingBody(of: d)!)
     let bodyFrame = outermostFrame(of: d, entering: entry)
     self.insertionPoint = .end(of: entry)
 
@@ -295,7 +296,7 @@ struct Emitter: Sendable {
     insertionFunction = f
 
     // Configure the emitter context.
-    let entry = module[f].appendEntry(in: d)
+    let entry = module[f].appendBlock(in: d)
 
     self.insertionPoint = .end(of: entry)
     self.frames.push()
@@ -345,7 +346,7 @@ struct Emitter: Sendable {
     insertionFunction = f
 
     // Create the function entry.
-    let entry = module[f].appendEntry(in: ast[d].body!)
+    let entry = module[f].appendBlock(in: ast[d].body!)
 
     // Configure the locals.
     var locals = DeclProperty<Operand>()
@@ -387,7 +388,7 @@ struct Emitter: Sendable {
     insertionFunction = f
 
     // Create the function entry.
-    let entry = module[f].appendEntry(in: program.scopeContainingBody(of: d)!)
+    let entry = module[f].appendBlock(in: program.scopeContainingBody(of: d)!)
 
     // Configure the locals.
     var parameters = DeclProperty<Operand>()
@@ -429,7 +430,7 @@ struct Emitter: Sendable {
     insertionFunction = f
 
     // Create the function entry.
-    let entry = module[f].appendEntry(in: program.scopeContainingBody(of: d)!)
+    let entry = module[f].appendBlock(in: program.scopeContainingBody(of: d)!)
 
     // Configure the locals.
     var locals = DeclProperty<Operand>()
@@ -883,7 +884,7 @@ struct Emitter: Sendable {
       let f = me.module.demandDeclaration(lowering: d)
       if me.shouldEmitBody(of: d, loweredTo: f) {
         me.insertionFunction = f
-        let entry = me.module[f].appendEntry(in: d.scope)
+        let entry = me.module[f].appendBlock(in: d.scope)
         me.insertionPoint = .end(of: entry)
         me.frames.push()
 
@@ -989,7 +990,7 @@ struct Emitter: Sendable {
     guard case .autoclosure(let argument) = d.kind else { unreachable() }
     let f = module.demandDeclaration(lowering: d)
     insertionFunction = f
-    let entry = module[f].appendEntry(in: d.scope)
+    let entry = module[f].appendBlock(in: d.scope)
 
     insertionPoint = .end(of: entry)
     self.frames.push()
@@ -2445,7 +2446,7 @@ struct Emitter: Sendable {
       allocations.append(emitAllocation(binding: d))
     }
 
-    let failure = module[insertionFunction!].append(in: scope)
+    let failure = module[insertionFunction!].appendBlock(in: scope)
     var nextAllocation = 0
     for item in condition {
       switch item {
@@ -2975,7 +2976,8 @@ struct Emitter: Sendable {
     let x = insertionFunction
     insertionFunction = f
     defer { insertionFunction = x }
-    let predecessor = module[f].instruction(before: i)
+    let b = module[f].block(of: i)
+    let predecessor = module[f].instruction(before: i, in: b)
 
     insertionPoint = .before(i)
     lowering(at: s.site) {
@@ -2984,10 +2986,9 @@ struct Emitter: Sendable {
     module[f].remove(i)
 
     if let p = predecessor {
-      return module[f].instruction(after: p)!
+      return module[f].instruction(after: p, in: b)!
     } else {
-      let b = insertionBlock!
-      return .init(b.address, module[b, in: f].instructions.firstAddress!)
+      return module[f].firstInstruction(in: b)!
     }
   }
 

@@ -35,7 +35,7 @@ extension IR.Program {
   /// Replaces uses of parametric types and functions in `f` with their monomorphic or existential
   /// counterparts.
   private mutating func depolymorphize(_ f: Function.ID, definedIn m: Module.ID) {
-    for i in modules[m]![f].instructions {
+    for i in modules[m]![f].instructionIdentities {
       switch modules[m]![i, in: f] {
       case is Call:
         depolymorphize(call: i, from: f, definedIn: m)
@@ -126,12 +126,8 @@ extension IR.Program {
 
     let source = module(defining: f)
     var rewrittenBlock: [Block.ID: Block.ID] = [:]
-    for b in modules[source]![f].blocks.addresses {
-      let s = Block.ID(b)
-      let inputs = modules[source]![s, in: f].inputs.map { (t) in
-        monomorphize(t, for: z, usedIn: scopeOfUse)
-      }
-      rewrittenBlock[s] = modules[target]![result].append(in: modules[source]![s, in: f].scope, taking: inputs)
+    for b in modules[source]![f].blockIDs {
+      rewrittenBlock[b] = modules[target]![result].appendBlock(in: modules[source]![b, in: f].scope)
     }
 
     let rewrittenGenericValue = modules[target]!.defineGenericValueArguments(z, in: result)
@@ -147,8 +143,7 @@ extension IR.Program {
       let s = Block.ID(b)
       let t = rewrittenBlock[s]!
 
-      for a in modules[source]![s, in: f].instructions.addresses {
-        let i = InstructionID(b, a)
+      for i in modules[source]![f].instructions(in: s) {
         switch modules[source]![i, in: f] {
         case is GenericParameter:
           rewrite(genericParameter: i)

@@ -8,7 +8,7 @@ extension Module {
   ///
   /// - Requires: `self` is has gone through access reification. `f` is in `self`.
   public mutating func closeBorrows(in f: Function.ID, diagnostics: inout DiagnosticSet) {
-    for i in self[f].instructions {
+    for i in self[f].instructionIdentities {
       close(i, in: f, reportingDiagnosticsTo: &diagnostics)
     }
   }
@@ -77,7 +77,7 @@ extension Module {
         self[f].insert(s, at: boundary)
 
       case .start(let b):
-        let site = self[f].instructions(in: b).first.map(default: self[i, in: f].site) {
+        let site = self[f].firstInstruction(in: b).map(default: self[i, in: f].site) {
           SourceRange.empty(at: self[$0, in: f].site.start)
         }
         let s = make(&self, site)
@@ -102,7 +102,7 @@ extension Module {
     guard let uses = self[f].uses[definition] else { return Lifetime(operand: definition) }
 
     // Compute the live-range of the definition.
-    var r = liveRange(of: definition, definedIn: definition.block!, from: f)
+    var r = liveRange(of: definition, definedIn: self[f].block(of: definition.instruction!), from: f)
 
     // Extend the lifetime with that of its borrows.
     for use in uses {

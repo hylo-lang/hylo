@@ -96,7 +96,7 @@ extension Module {
     // Find all blocks in which the operand is being used.
     var occurrences = functions[f]!.uses[operand, default: []].reduce(
       into: Set<Function.Blocks.Address>(),
-      { (blocks, use) in blocks.insert(use.user.block) })
+      { (blocks, use) in blocks.insert(functions[f]!.block(of: use.user).address) })
 
     // Propagate liveness starting from the blocks in which the operand is being used.
     let cfg = functions[f]!.cfg()
@@ -156,11 +156,12 @@ extension Module {
   /// - Requires: The definition of `l` dominates `u`.
   func extend(lifetime l: Lifetime, toInclude u: Use, in f: Function.ID) -> Lifetime {
     var coverage = l.coverage
-    switch coverage[u.user.block] {
+    let block = functions[f]!.block(of: u.user).address
+    switch coverage[block] {
     case .closed(let lastUser):
-      coverage[u.user.block] = .closed(lastUse: last(lastUser, u, in: f))
+      coverage[block] = .closed(lastUse: last(lastUser, u, in: f))
     case .liveIn(let lastUser):
-      coverage[u.user.block] = .liveIn(lastUse: last(lastUser, u, in: f))
+      coverage[block] = .liveIn(lastUse: last(lastUser, u, in: f))
     default:
       break
     }
@@ -196,11 +197,11 @@ extension Module {
 
   /// Returns the last use of `operand` in `block`.
   private func lastUse(of operand: Operand, in block: Block.ID, from f: Function.ID) -> Use? {
-    let instructions = self[block, in: f].instructions
-    for i in instructions.indices.reversed() {
-      if let operandIndex = instructions[i].operands.lastIndex(of: operand) {
+    let instructions = self[f].instructions(in: block)
+    for i in instructions.reversed() {
+      if let operandIndex = self[f][i].operands.lastIndex(of: operand) {
         return Use(
-          user: InstructionID(block, i.address),
+          user: i,
           index: operandIndex)
       }
     }
@@ -209,7 +210,7 @@ extension Module {
     return nil
   }
 
-  /// Returns the use that executes last.
+  /// Returns the use that executes last iff both `lhs` and `rhs` are in the same block. Otherwise, returns `lhs`.
   private func last(_ lhs: Use?, _ rhs: Use?, in f: Function.ID) -> Use? {
     guard let lhs = lhs else { return rhs }
     guard let rhs = rhs else { return lhs }
@@ -218,8 +219,7 @@ extension Module {
       return lhs.index < rhs.index ? rhs : lhs
     }
 
-    let block = functions[f]![lhs.user.block]
-    if lhs.user.address.precedes(rhs.user.address, in: block.instructions) {
+    if functions[f]!.precedes(lhs.user, rhs.user) {
       return rhs
     } else {
       return lhs
