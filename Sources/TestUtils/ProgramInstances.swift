@@ -84,7 +84,7 @@ extension TypedProgram.Module {
 extension TypedProgram {
 
   /// An instance with no modules.
-  static let empty = makeEmpty()
+  public static let empty = makeEmpty()
 
   /// Returns an empty instance.
   private static func makeEmpty() -> Self {
