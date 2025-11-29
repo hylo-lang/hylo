@@ -127,7 +127,7 @@ extension IR.Program {
     let source = module(defining: f)
     var rewrittenBlock: [Block.ID: Block.ID] = [:]
     for b in modules[source]![f].blockIDs {
-      rewrittenBlock[b] = modules[target]![result].append(in: modules[source]![b, in: f].scope)
+      rewrittenBlock[b] = modules[target]![result].appendBlock(in: modules[source]![b, in: f].scope)
     }
 
     let rewrittenGenericValue = modules[target]!.defineGenericValueArguments(z, in: result)

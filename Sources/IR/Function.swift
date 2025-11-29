@@ -117,7 +117,7 @@ public struct Function: Sendable {
   ///
   /// The first block appended becomes the entry point block.
   /// The first block takes the parameters of the function; other blocks take no parameters.
-  mutating func append<T: ScopeID>(
+  mutating func appendBlock<T: ScopeID>(
     in scope: T, taking parameters: [IR.`Type`] = []
   ) -> Block.ID {
     // For the entry block we also need parameters.

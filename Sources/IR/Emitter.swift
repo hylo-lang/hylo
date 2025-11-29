@@ -116,7 +116,7 @@ struct Emitter: Sendable {
 
   /// Appends a new basic block at the end of `self.insertionFunction`, defined in s.
   private mutating func appendBlock<T: ScopeID>(in s: T) -> Block.ID {
-    module[insertionFunction!].append(in: s)
+    module[insertionFunction!].appendBlock(in: s)
   }
 
   /// Appends a new basic block at the end of `self.insertionFunction`, defined in the same scope
@@ -232,7 +232,7 @@ struct Emitter: Sendable {
     insertionFunction = f
 
     // Configure the emitter context.
-    let entry = module[f].append(in: program.scopeContainingBody(of: d)!)
+    let entry = module[f].appendBlock(in: program.scopeContainingBody(of: d)!)
     let bodyFrame = outermostFrame(of: d, entering: entry)
     self.insertionPoint = .end(of: entry)
 
@@ -296,7 +296,7 @@ struct Emitter: Sendable {
     insertionFunction = f
 
     // Configure the emitter context.
-    let entry = module[f].append(in: d)
+    let entry = module[f].appendBlock(in: d)
 
     self.insertionPoint = .end(of: entry)
     self.frames.push()
@@ -346,7 +346,7 @@ struct Emitter: Sendable {
     insertionFunction = f
 
     // Create the function entry.
-    let entry = module[f].append(in: ast[d].body!)
+    let entry = module[f].appendBlock(in: ast[d].body!)
 
     // Configure the locals.
     var locals = DeclProperty<Operand>()
@@ -388,7 +388,7 @@ struct Emitter: Sendable {
     insertionFunction = f
 
     // Create the function entry.
-    let entry = module[f].append(in: program.scopeContainingBody(of: d)!)
+    let entry = module[f].appendBlock(in: program.scopeContainingBody(of: d)!)
 
     // Configure the locals.
     var parameters = DeclProperty<Operand>()
@@ -430,7 +430,7 @@ struct Emitter: Sendable {
     insertionFunction = f
 
     // Create the function entry.
-    let entry = module[f].append(in: program.scopeContainingBody(of: d)!)
+    let entry = module[f].appendBlock(in: program.scopeContainingBody(of: d)!)
 
     // Configure the locals.
     var locals = DeclProperty<Operand>()
@@ -884,7 +884,7 @@ struct Emitter: Sendable {
       let f = me.module.demandDeclaration(lowering: d)
       if me.shouldEmitBody(of: d, loweredTo: f) {
         me.insertionFunction = f
-        let entry = me.module[f].append(in: d.scope)
+        let entry = me.module[f].appendBlock(in: d.scope)
         me.insertionPoint = .end(of: entry)
         me.frames.push()
 
@@ -990,7 +990,7 @@ struct Emitter: Sendable {
     guard case .autoclosure(let argument) = d.kind else { unreachable() }
     let f = module.demandDeclaration(lowering: d)
     insertionFunction = f
-    let entry = module[f].append(in: d.scope)
+    let entry = module[f].appendBlock(in: d.scope)
 
     insertionPoint = .end(of: entry)
     self.frames.push()
@@ -2446,7 +2446,7 @@ struct Emitter: Sendable {
       allocations.append(emitAllocation(binding: d))
     }
 
-    let failure = module[insertionFunction!].append(in: scope)
+    let failure = module[insertionFunction!].appendBlock(in: scope)
     var nextAllocation = 0
     for item in condition {
       switch item {
