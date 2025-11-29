@@ -102,10 +102,10 @@ public struct Function: Sendable {
   /// Returns the control flow graph of `self`.
   func cfg() -> ControlFlowGraph {
     var result = ControlFlowGraph()
-    for source in blocks.indices {
-      guard let s = self[blocks[source].last!] as? Terminator else { continue }
+    for source in blockIDs {
+      guard let s = self[blocks[source.address].last!] as? Terminator else { continue }
       for target in s.successors {
-        result.define(source.address, predecessorOf: target.address)
+        result.define(source, predecessorOf: target)
       }
     }
 
@@ -406,7 +406,7 @@ public struct Function: Sendable {
 
     // Slow path: use the dominator tree.
     let d = DominatorTree(function: self, cfg: cfg())
-    return d.dominates(blockForInstruction[lhs]!.address, blockForInstruction[rhs]!.address)
+    return d.dominates(blockForInstruction[lhs]!, blockForInstruction[rhs]!)
   }
 
   /// Returns the global identity of `block`'s terminator, if it exists.

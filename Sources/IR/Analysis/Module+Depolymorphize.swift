@@ -138,12 +138,11 @@ extension IR.Program {
     // Iterate over the basic blocks of the source function in a way that guarantees we always
     // visit definitions before their uses.
     let cfg = modules[source]![f].cfg()
-    let sourceBlocks = DominatorTree(function: f, cfg: cfg, in: modules[source]!).bfs
+    let sourceBlocks = DominatorTree(function: modules[source]![f], cfg: cfg).bfs
     for b in sourceBlocks {
-      let s = Block.ID(b)
-      let t = rewrittenBlock[s]!
+      let t = rewrittenBlock[b]!
 
-      for i in modules[source]![f].instructions(in: s) {
+      for i in modules[source]![f].instructions(in: b) {
         switch modules[source]![i, in: f] {
         case is GenericParameter:
           rewrite(genericParameter: i)

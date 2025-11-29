@@ -14,7 +14,7 @@ extension Module {
     // Verify that access instructions in `b` satisfy the Law of Exclusivity given `context`,
     // reporting violations of exclusivity in `diagnostics`.
     machine.fixedPoint { (b, context) in
-      for user in self[f].instructions(in: Block.ID(b)) {
+      for user in self[f].instructions(in: b) {
         switch self[f][user] {
         case is Access:
           interpret(access: user, from: f, in: &context)

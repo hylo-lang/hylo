@@ -9,7 +9,7 @@ import Utils
 /// - Note: The definition of an operand `o` isn't part of `o`'s lifetime.
 struct Lifetime: Sendable {
 
-  fileprivate typealias Coverage = [Function.Blocks.Address: BlockCoverage]
+  fileprivate typealias Coverage = [Block.ID: BlockCoverage]
 
   /// A data structure encoding how a block covers the lifetime.
   enum BlockCoverage: Sendable {
@@ -71,7 +71,7 @@ struct Lifetime: Sendable {
     coverage.lazy.compactMap { (b, c) -> InsertionPoint? in
       switch c {
       case .liveIn(let use):
-        return use.map({ .after($0.user) }) ?? .start(of: Block.ID(b))
+        return use.map({ .after($0.user) }) ?? .start(of: b)
       case .closed(let use):
         return use.map({ .after($0.user) }) ?? .after(operand.instruction!)
       case .liveInAndOut, .liveOut:
@@ -95,17 +95,17 @@ extension Module {
 
     // Find all blocks in which the operand is being used.
     var occurrences = functions[f]!.uses[operand, default: []].reduce(
-      into: Set<Function.Blocks.Address>(),
-      { (blocks, use) in blocks.insert(functions[f]!.block(of: use.user).address) })
+      into: Set<Block.ID>(),
+      { (blocks, use) in blocks.insert(functions[f]!.block(of: use.user)) })
 
     // Propagate liveness starting from the blocks in which the operand is being used.
     let cfg = functions[f]!.cfg()
-    var approximateCoverage: [Function.Blocks.Address: (isLiveIn: Bool, isLiveOut: Bool)] = [:]
+    var approximateCoverage: [Block.ID: (isLiveIn: Bool, isLiveOut: Bool)] = [:]
     while true {
       guard let occurrence = occurrences.popFirst() else { break }
 
       // `occurrence` is the defining block.
-      if site.address == occurrence { continue }
+      if site == occurrence { continue }
 
       // We already propagated liveness to the block's live-in set.
       if approximateCoverage[occurrence]?.isLiveIn ?? false { continue }
@@ -122,12 +122,12 @@ extension Module {
 
     // If the operand isn't live out of its defining block, its last use is in that block.
     if approximateCoverage.isEmpty {
-      coverage[site.address] = .closed(lastUse: lastUse(of: operand, in: site, from: f))
+      coverage[site] = .closed(lastUse: lastUse(of: operand, in: site, from: f))
       return Lifetime(operand: operand, coverage: coverage)
     }
 
     // Find the last use in each block for which the operand is not live out.
-    var successors: Set<Function.Blocks.Address> = []
+    var successors: Set<Block.ID> = []
     for (block, bounds) in approximateCoverage {
       switch bounds {
       case (true, true):
@@ -137,7 +137,7 @@ extension Module {
         coverage[block] = .liveOut
         successors.formUnion(cfg.successors(of: block))
       case (true, false):
-        coverage[block] = .liveIn(lastUse: lastUse(of: operand, in: Block.ID(block), from: f))
+        coverage[block] = .liveIn(lastUse: lastUse(of: operand, in: block, from: f))
       case (false, false):
         continue
       }
@@ -156,7 +156,7 @@ extension Module {
   /// - Requires: The definition of `l` dominates `u`.
   func extend(lifetime l: Lifetime, toInclude u: Use, in f: Function.ID) -> Lifetime {
     var coverage = l.coverage
-    let block = functions[f]!.block(of: u.user).address
+    let block = functions[f]!.block(of: u.user)
     switch coverage[block] {
     case .closed(let lastUser):
       coverage[block] = .closed(lastUse: last(lastUser, u, in: f))
