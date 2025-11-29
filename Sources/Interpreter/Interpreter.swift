@@ -325,7 +325,7 @@ public struct Interpreter {
     case .constant(let c):
       switch c {
       case let x as IntegerConstant:
-        return BuiltinValue(withIntegerConstant: x)
+        return BuiltinValue(x)
       default:
         fatalError("unimplemented constant parsing!!!")
       }
