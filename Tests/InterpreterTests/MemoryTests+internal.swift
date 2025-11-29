@@ -34,4 +34,16 @@ final class InterpreterMemoryInternalTests: XCTestCase {
     }
   }
 
+  func testFormingPointerToLastByteOfAllocation() throws {
+    var memory = Memory()
+    let a = memory.allocate(1, bytesWithAlignment: 1)
+
+    memory[a.allocation].withUnsafeMutablePointer(to: UInt8.self, at: 0) { p in
+      p.pointee = 2
+    }
+    memory[a.allocation].withUnsafePointer(to: UInt8.self, at: 0) { p in
+      XCTAssertEqual(p.pointee, 2)
+    }
+
+  }
 }
