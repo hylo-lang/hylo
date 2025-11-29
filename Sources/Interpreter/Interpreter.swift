@@ -2,6 +2,7 @@ import Foundation
 import FrontEnd
 import Collections
 import IR
+import Utils
 
 struct CodePointer {
 
@@ -14,7 +15,7 @@ struct CodePointer {
 typealias InstructionResult = Any
 
 /// A typed location in memory.
-struct Address {
+struct Address: Regular {
 
   /// The position in memory.
   public let startLocation: Memory.Address
@@ -35,7 +36,7 @@ struct StackFrame {
   var returnAddress: CodePointer
 
   /// The allocations in this stack frame.
-  var allocations: [Memory.Allocation.ID] = []
+  var allocations: [Address] = []
 
   /// Function parameters
   var parameters: [Address]
@@ -136,7 +137,7 @@ public struct Interpreter {
 
     case let x as AllocStack:
       let a = allocate(typeLayout[x.allocatedType])
-      topOfStack.allocations.append(a.startLocation.allocation)
+      topOfStack.allocations.append(a)
       currentRegister = a
 
     case let x as Branch:
@@ -161,8 +162,7 @@ public struct Interpreter {
       currentRegister = x.value
     case let x as DeallocStack:
       let a = addressProduced(by: x.location.instruction!)!
-      try deallocate(a)
-      topOfStack.allocations.removeLast()
+      try deallocateStack(a)
     case is EndAccess:
       // No effect on program state
       break
@@ -274,6 +274,15 @@ public struct Interpreter {
       memory.allocation[a.startLocation.allocation]?.size == a.type.size,
       "Deallocating using address of the wrong type.")
     try memory.deallocate(a.startLocation)
+  }
+
+  /// Deallocates `a` allocated on stack.
+  mutating func deallocateStack(_ a: Address) throws {
+    precondition(
+      a == topOfStack.allocations.last!,
+      "The latest allocation that has not been deallocated must be deallocated first.")
+    try deallocate(a)
+    topOfStack.allocations.removeLast()
   }
 
   /// Returns the address produced by executing instruction identified by `i` in the current frame,
