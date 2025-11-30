@@ -388,7 +388,7 @@ jobs:
         with:
           cmakeVersion: 'latest'
       - name: Print ninja version
-        run: ninja --version
+        run: ninja  --version
       - name: Print cmake version
         run: cmake --version
 
