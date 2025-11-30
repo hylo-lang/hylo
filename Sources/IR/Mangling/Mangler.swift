@@ -218,6 +218,8 @@ struct Mangler: Sendable {
       append(unqualified: TypeAliasDecl.ID(s)!, to: &output)
     case WhileStmt.self:
       append(anonymous: s, to: &output)
+    case UnrollStmt.self:
+      append(anonymous: s, to: &output)
     default:
       unexpected(s, in: program.ast)
     }

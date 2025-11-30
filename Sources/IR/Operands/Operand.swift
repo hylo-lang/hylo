@@ -1,3 +1,5 @@
+import Utils
+
 /// An instruction operand.
 public enum Operand: Sendable {
 
@@ -110,6 +112,21 @@ extension Operand: CustomStringConvertible {
       return "%\(b)#\(k)"
     case .constant(let c):
       return "\(c)"
+    }
+  }
+
+}
+
+extension Operand: ColoredDescribable {
+
+  public var coloredDescription: String {
+    switch self {
+    case .register(let i):
+      return styledRegister("%\(i)")
+    case .parameter(let b, let k):
+      return styledRegister("%\(b)#\(k)")
+    case .constant(let c):
+      return c.coloredDescription
     }
   }
 

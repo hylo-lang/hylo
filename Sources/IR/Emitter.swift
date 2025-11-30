@@ -1,7 +1,7 @@
 import BigInt
+import Foundation
 import FrontEnd
 import Utils
-import Foundation
 
 /// Hylo's IR emitter.
 ///
@@ -57,7 +57,7 @@ struct Emitter: Sendable {
   private var loops = LoopIDs()
 
   /// For each block, the state of `frames` where the block was first entered.
-  private var stackOnEntry: [ Block.ID: Stack ] = [:]
+  private var stackOnEntry: [Block.ID: Stack] = [:]
 
   /// Where new instructions are inserted.
   var insertionPoint: InsertionPoint?
@@ -303,10 +303,13 @@ struct Emitter: Sendable {
 
       // Return type must be foreign convertible unless it is `Void` or `Never`.
       let t = me.module.functions[f]!.output
-      let returnType = t.isVoidOrNever ? t
+      let returnType =
+        t.isVoidOrNever
+        ? t
         : me.program.foreignRepresentation(of: t, exposedTo: me.insertionScope!)
 
-      let foreignResult = me._call_ffi(me.program[d].attributes.foreignName!, on: arguments, returning: returnType)
+      let foreignResult = me._call_ffi(
+        me.program[d].attributes.foreignName!, on: arguments, returning: returnType)
 
       // Convert the result of the FFI to its Hylo representation and return it.
       switch returnType {
@@ -1090,6 +1093,8 @@ struct Emitter: Sendable {
         return e._emit(returnStmt: .init(s)!)
       case WhileStmt.self:
         return e.emit(whileStmt: .init(s)!)
+      case UnrollStmt.self:
+        return e.emit(unrollStmt: .init(s)!)
       case YieldStmt.self:
         return e.emit(yieldStmt: .init(s)!)
       default:
@@ -1170,7 +1175,8 @@ struct Emitter: Sendable {
 
   private mutating func emit(conditionalStmt s: ConditionalStmt.ID) -> ControlFlow {
     lowering(s) { me in
-      let (firstBranch, secondBranch) = me.emitTest(condition: me.ast[s].condition, in: AnyScopeID(s))
+      let (firstBranch, secondBranch) = me.emitTest(
+        condition: me.ast[s].condition, in: AnyScopeID(s))
       let tail = me.appendBlock()
 
       me.insertionPoint = .end(of: firstBranch)
@@ -1276,7 +1282,7 @@ struct Emitter: Sendable {
     // The collection on which the loop iterates.
     let domain = emitLValue(program[s].domain.value)
     // The element extracted before each iteration.
-    let element =  lowering(at: introducer) {
+    let element = lowering(at: introducer) {
       $0._alloc_stack(^$0.ast.optional(witness.element))
     }
     // The storage containing the result of binding each element.
@@ -1465,6 +1471,19 @@ struct Emitter: Sendable {
 
     // Exit.
     insertionPoint = .end(of: exit)
+    return .next
+  }
+
+  private mutating func emit(unrollStmt s: UnrollStmt.ID) -> ControlFlow {
+    for _ in 0..<ast[s].count {
+      let flow: Emitter.ControlFlow = emit(braceStmt: ast[s].body)
+      if flow != .next {
+        report(
+          .error(
+            "The unroll statment must not have diverging control flow", at: ast[ast[s].body].site))
+        return .next
+      }
+    }
     return .next
   }
 
@@ -1680,9 +1699,8 @@ struct Emitter: Sendable {
       }
     }
 
-
     // Arguments are evaluated first, from left to right; callee and captures are evaluated next
-    let arguments = lowering(after: e)  {
+    let arguments = lowering(after: e) {
       $0._emitArguments(to: $0.ast[e].callee, in: CallID(e), usingExplicit: $0.ast[e].arguments)
     }
     let m = ast.isMarkedForMutation(ast[e].callee)
@@ -2175,7 +2193,7 @@ struct Emitter: Sendable {
     _ e: SubscriptCallExpr.ID
   ) -> (callee: BundleReference<SubscriptDecl>, arguments: [Operand]) {
     let arguments = lowering(after: e) {
-    // Arguments are evaluated first, from left to right; callee and captures are evaluated next.
+      // Arguments are evaluated first, from left to right; callee and captures are evaluated next.
       $0._emitArguments(to: $0.ast[e].callee, in: CallID(e), usingExplicit: $0.ast[e].arguments)
     }
     let (callee, captures) = emitSubscriptCallee(ast[e].callee)
@@ -2202,7 +2220,8 @@ struct Emitter: Sendable {
   }
 
   /// Emits the IR of a call to `f` with given `arguments`.
-  private mutating func _emit(apply f: BuiltinFunction, to arguments: [LabeledArgument]) -> Operand {
+  private mutating func _emit(apply f: BuiltinFunction, to arguments: [LabeledArgument]) -> Operand
+  {
     switch f {
     case .addressOf:
       let source = emitLValue(arguments[0].value)
@@ -2414,7 +2433,6 @@ struct Emitter: Sendable {
       return (entityToCall, [c])
     }
   }
-
 
   /// Returns `(success: a, failure: b)` where `a` is the basic block reached if all items in
   /// `condition` hold and `b` is the basic block reached otherwise, creating new basic blocks
@@ -3469,10 +3487,14 @@ struct Emitter: Sendable {
   }
 
   /// Inserts a `cond_branch` instruction that jumps to `targetIfTrue` if `condition` is true or `targetIfFalse` otherwise.
-  mutating func _cond_branch(if condition: Operand, then targetIfTrue: Block.ID, else targetIfFalse: Block.ID) {
+  mutating func _cond_branch(
+    if condition: Operand, then targetIfTrue: Block.ID, else targetIfFalse: Block.ID
+  ) {
     checkEntryStack(targetIfTrue)
     checkEntryStack(targetIfFalse)
-    insert(module.makeCondBranch(if: condition, then: targetIfTrue, else: targetIfFalse, at: currentSource))
+    insert(
+      module.makeCondBranch(
+        if: condition, then: targetIfTrue, else: targetIfFalse, at: currentSource))
   }
 
 }
@@ -3584,8 +3606,7 @@ extension Emitter {
     modify(&stackOnEntry[b]) { x in
       if let y = x {
         assert(y.hasSameAllocations(as: frames))
-      }
-      else {
+      } else {
         x = frames
       }
     }
@@ -3638,31 +3659,33 @@ extension Emitter {
 
   /// Calls `body(&self)` with `currentSource` set to the lexical
   /// location of `x`, returning the result.
-  mutating func lowering<ASTNode: NodeIDProtocol, R>(_ x: ASTNode, _ body: (inout Emitter)->R) -> R {
+  mutating func lowering<ASTNode: NodeIDProtocol, R>(_ x: ASTNode, _ body: (inout Emitter) -> R)
+    -> R
+  {
     lowering(at: ast[x].site, body)
   }
 
   /// Calls `body(&self)` with `currentSource` set to the lexical
   /// location of `x`, returning the result.
-  mutating func lowering<T, R>(_ x: SourceRepresentable<T>, _ body: (inout Emitter)->R) -> R {
+  mutating func lowering<T, R>(_ x: SourceRepresentable<T>, _ body: (inout Emitter) -> R) -> R {
     lowering(at: x.site, body)
   }
 
   /// Calls `body(&self)` with `currentSource` set to the lexical
   /// beginning of `x`, returning the result.
-  mutating func lowering<ID: NodeIDProtocol, R>(before x: ID, _ body: (inout Emitter)->R) -> R {
+  mutating func lowering<ID: NodeIDProtocol, R>(before x: ID, _ body: (inout Emitter) -> R) -> R {
     lowering(at: .empty(at: ast[x].site.start), body)
   }
 
   /// Calls `body(&self)` with `currentSource` set to the lexical
   /// end of `x`, returning the result.
-  mutating func lowering<ID: NodeIDProtocol, R>(after x: ID, _ body: (inout Emitter)->R) -> R {
+  mutating func lowering<ID: NodeIDProtocol, R>(after x: ID, _ body: (inout Emitter) -> R) -> R {
     lowering(at: .empty(at: ast[x].site.end), body)
   }
 
   /// Calls `body(&self)` with `currentSource` set to `x`, returning
   /// the result.
-  mutating func lowering<R>(at x: SourceRange, _ body: (inout Emitter)->R) -> R {
+  mutating func lowering<R>(at x: SourceRange, _ body: (inout Emitter) -> R) -> R {
     let savedSite = currentSource
     defer { currentSource = savedSite }
     currentSource = x
@@ -3696,7 +3719,9 @@ extension Emitter {
     insert(module.makeMarkState(op!, initialized: x == .initialized, at: currentSource))
   }
 
-  fileprivate mutating func _call_ffi<T: TypeProtocol>(_ foreignName: String, on arguments: [Operand], returning returnType: T) -> Operand {
+  fileprivate mutating func _call_ffi<T: TypeProtocol>(
+    _ foreignName: String, on arguments: [Operand], returning returnType: T
+  ) -> Operand {
     insert(
       module.makeCallFFI(
         returning: .object(returnType), applying: foreignName, to: arguments, at: currentSource))!
@@ -3738,7 +3763,7 @@ extension Emitter {
         container, as: payload, forInitialization: option == .forInitialization, at: currentSource))!
   }
 
-  fileprivate mutating func _close_union(_ x: Operand  ) {
+  fileprivate mutating func _close_union(_ x: Operand) {
     insert(module.makeCloseUnion(x, at: currentSource))
   }
 
@@ -3758,7 +3783,6 @@ extension Emitter {
   fileprivate mutating func _load(_ source: Operand) -> Operand {
     insert(module.makeLoad(source, at: currentSource))!
   }
-
 
   fileprivate mutating func _address_to_pointer(_ source: Operand) -> Operand {
     insert(module.makeAddressToPointer(source, at: currentSource))!
@@ -3802,7 +3826,8 @@ extension Emitter {
   fileprivate mutating func _call(
     _ callee: Operand, _ arguments: [Operand], to output: Operand
   ) {
-    insert(module.makeCall(applying: callee, to: arguments, writingResultTo: output, at: currentSource))
+    insert(
+      module.makeCall(applying: callee, to: arguments, writingResultTo: output, at: currentSource))
   }
 
   fileprivate mutating func _call_bundle(
@@ -3810,9 +3835,10 @@ extension Emitter {
     to o: Operand,
     scopeOfUse: AnyScopeID
   ) {
-    insert(module.makeCallBundle(
-      applying: m, to: a, writingResultTo: o, at: currentSource,
-      canonicalizingTypesIn: scopeOfUse))
+    insert(
+      module.makeCallBundle(
+        applying: m, to: a, writingResultTo: o, at: currentSource,
+        canonicalizingTypesIn: scopeOfUse))
   }
 
   fileprivate mutating func _wrap_existential_addr(
@@ -3837,7 +3863,9 @@ extension Emitter {
     insert(module.makeMemoryCopy(source, target, at: currentSource))
   }
 
-  fileprivate mutating func _move(_ source: Operand, _ target: Operand, via movability: FrontEnd.Conformance) {
+  fileprivate mutating func _move(
+    _ source: Operand, _ target: Operand, via movability: FrontEnd.Conformance
+  ) {
     insert(module.makeMove(source, to: target, usingConformance: movability, at: currentSource))
   }
 
@@ -3845,7 +3873,9 @@ extension Emitter {
     insert(module.makeUnionDiscriminator(x, at: currentSource))!
   }
 
-  fileprivate mutating func _union_switch(case discriminator: Operand, of u: UnionType, _ targets: UnionSwitch.Targets) {
+  fileprivate mutating func _union_switch(
+    case discriminator: Operand, of u: UnionType, _ targets: UnionSwitch.Targets
+  ) {
     insert(module.makeUnionSwitch(over: discriminator, of: u, toOneOf: targets, at: currentSource))
   }
 

@@ -1,0 +1,9 @@
+//- parse expecting: .success
+
+public fun main() {
+  var a = 5
+  unroll 5 {
+    let x = 4
+    &a += x
+  }
+}

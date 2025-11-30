@@ -3,14 +3,18 @@ import IR
 import Utils
 import XCTest
 
-/// Returns a hosted standard library after typechecking and any diagnostics generated.
+/// Returns a standard library after typechecking and any diagnostics generated.
 ///
 /// The resulting program may be empty if typechecking fails.
-private func makeTypecheckedStandardLibrary()
+///
+/// - Parameter freestanding: `true` to use the freestanding standard library,
+///   `false` to use the hosted standard library.
+private func makeTypecheckedStandardLibrary(freestanding: Bool)
   -> (program: TypedProgram, diagnostics: DiagnosticSet)
 {
   var log = DiagnosticSet()
-  let p = Utils.Host.hostedLibraryAST
+  let libraryAST = freestanding ? Utils.Host.freestandingLibraryAST : Utils.Host.hostedLibraryAST
+  let p = libraryAST
     .map { ScopedProgram($0) }
     .flatMap { p in
       Result { try TypedProgram(annotating: p, reportingDiagnosticsTo: &log) }
@@ -26,8 +30,23 @@ private func makeTypecheckedStandardLibrary()
   return (p.success!, log)
 }
 
-/// The standard library after typechecking, plus any diagnostics generated.
-internal let typecheckedStandardLibrary = makeTypecheckedStandardLibrary()
+/// Returns the standard library after typechecking, plus any diagnostics generated.
+///
+/// - Parameter freestanding: `true` to use the freestanding standard library,
+///   `false` to use the hosted standard library.
+internal func typecheckedStandardLibrary(freestanding: Bool = false)
+  -> (program: TypedProgram, diagnostics: DiagnosticSet)
+{
+  if freestanding {
+    return cachedFreestandingStandardLibrary
+  } else {
+    return cachedHostedStandardLibrary
+  }
+}
+
+/// The hosted standard library after typechecking, plus any diagnostics generated.
+internal let cachedHostedStandardLibrary = makeTypecheckedStandardLibrary(freestanding: false)
+internal let cachedFreestandingStandardLibrary = makeTypecheckedStandardLibrary(freestanding: true)
 
 /// A test driver for executing test cases generated from Hylo source files.
 ///
@@ -52,9 +71,9 @@ open class HyloTestCase: XCTestCase {
   private func checkedBaseProgram() throws -> TypedProgram {
     return try self.checkNoDiagnostic { (d) in
       assert(d.isEmpty)
-      d = typecheckedStandardLibrary.diagnostics
+      d = cachedHostedStandardLibrary.diagnostics
       try d.throwOnError()
-      return typecheckedStandardLibrary.program
+      return cachedHostedStandardLibrary.program
     }
   }
 

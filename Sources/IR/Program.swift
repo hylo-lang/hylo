@@ -44,8 +44,8 @@ public struct Program: FrontEnd.Program {
     switch f.value {
     case .lowered(let d):
       return base.module(containing: base[d].scope)
-    case .monomorphized:
-      UNIMPLEMENTED()
+    case .monomorphized(let base, _):
+      return module(defining: base)
     case .existentialized(let i):
       return module(defining: i)
     case .synthesized(let d):

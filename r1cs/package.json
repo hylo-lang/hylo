@@ -1,0 +1,15 @@
+{
+  "name": "r1cs",
+  "version": "1.0.0",
+  "description": "This directory contains R1CS (Rank-1 Constraint System) files generated from Hylo programs for zero-knowledge proof circuits.",
+  "license": "ISC",
+  "author": "",
+  "type": "commonjs",
+  "main": "Example.witnessgen.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "snarkjs": "^0.7.5"
+  }
+}

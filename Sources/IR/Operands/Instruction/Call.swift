@@ -56,6 +56,15 @@ extension Call: CustomStringConvertible {
 
 }
 
+extension Call: ColoredDescribable {
+
+  public var coloredDescription: String {
+    let coloredArguments = arguments.map(\.coloredDescription).joined(separator: ", ")
+    return "\(styledInstruction("call")) \(callee.coloredDescription)(\(coloredArguments)) \(styledKeyword("to")) \(output.coloredDescription)"
+  }
+
+}
+
 extension Module {
 
   /// Creates a `call` anchored at `site` that applies `callee` on `arguments` and writes its

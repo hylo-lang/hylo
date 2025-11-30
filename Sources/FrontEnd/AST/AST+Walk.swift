@@ -195,6 +195,8 @@ extension AST {
       traverse(self[n] as! ReturnStmt, notifying: &o)
     case WhileStmt.self:
       traverse(self[n] as! WhileStmt, notifying: &o)
+    case UnrollStmt.self:
+      traverse(self[n] as! UnrollStmt, notifying: &o)
     case YieldStmt.self:
       traverse(self[n] as! YieldStmt, notifying: &o)
 
@@ -760,6 +762,13 @@ extension AST {
     _ n: WhileStmt, notifying o: inout O
   ) {
     walk(conditionItems: n.condition, notifying: &o)
+    walk(n.body, notifying: &o)
+  }
+
+  /// Visits the children of `n` in pre-order, notifying `o` when a node is entered or left.
+  public func traverse<O: ASTWalkObserver>(
+    _ n: UnrollStmt, notifying o: inout O
+  ) {
     walk(n.body, notifying: &o)
   }
 
