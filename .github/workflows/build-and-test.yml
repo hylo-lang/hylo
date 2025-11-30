@@ -386,25 +386,33 @@ jobs:
       - name: Set up CMake and Ninja
         uses: lukka/get-cmake@latest
         with:
-          cmakeVersion: '4.2.0'
-          ninjaVersion: '1.13.2'
+          cmakeVersion: 'latest'
+      - name: Print ninja version
+        run: ninja --version
+      
+      - name: Print cmake version
+        run: cmake --version
 
       - name: CMake Configure
         shell: bash
-        run: >-
-          set -euxo pipefail # fail fast, print commands before executing, treat unset variables as an error, fail on pipe errors
+        run: >
+          set -exu # fail fast, print commands before executing, treat unset variables as an error
 
-          LLVM_DIR="$(llvm-config --prefix)/lib/cmake/llvm"
+          LLVM_DIR="${{ steps.get-llvm.outputs.llvmCmakeDirectory }}"
 
-          echo "Using LLVM_DIR: $LLVM_DIR"
-          
-          ls "$LLVM_DIR"
+          [ -f "$LLVM_DIR/LLVMConfig.cmake" ] || 
+          (echo "LLVMConfig.cmake not found in '$LLVM_DIR'. Available files are:"; 
+          ls "$LLVM_DIR"; 
+          exit 1)
 
-          cmake -G '${{ matrix.cmake-generator }}' -S . -B .cmake-build
+          cmake -G '${{ matrix.cmake-generator }}'
+          -S .
+          -B .cmake-build
           ${{ matrix.cmake-generator != 'Xcode' && format('-DCMAKE_BUILD_TYPE={0}', matrix.cmake-build-type) || '' }}
           -DBUILD_TESTING=YES
           -DLLVM_DIR="$LLVM_DIR"
-          ${{ runner.os == 'macOS' && '-DCMAKE_Swift_COMPILER=$(xcrun -f swiftc) -DCMAKE_OSX_SYSROOT=$(xcrun --show-sdk-path)' || '' }}
+          ${{ runner.os == 'macOS' && '-DCMAKE_Swift_COMPILER=swiftc -DCMAKE_OSX_SYSROOT=$(xcrun --show-sdk-path)' || '' }}
+
         working-directory: hylo
 
       - name: Build
