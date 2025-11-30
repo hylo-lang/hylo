@@ -319,6 +319,28 @@ jobs:
           show-progress: false
           path: hylo
 
+      # https://github.com/actions/runner-images/issues/2840#issuecomment-790492173
+      - name: Free up disk space for debug builds
+        if: ${{ runner.os == 'Linux' && matrix.config == 'debug' }}
+        run: |
+          echo "Available disk space before cleanup:"
+          df -h
+          
+          # Remove .NET and related tools
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf "/usr/local/share/boost"
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          
+          # Remove additional large packages and caches
+          sudo rm -rf /usr/local/lib/node_modules
+          sudo rm -rf /usr/share/swift
+          sudo rm -rf /usr/local/lib/heroku
+          
+          echo "Available disk space after cleanup:"
+          df -h
+
       - name: Set compiler version
         working-directory: hylo
         run: ./Tools/set-hc-version.sh ${{ needs.determine-version.outputs.version }}
@@ -384,4 +406,4 @@ jobs:
         run: ctest --output-on-failure --parallel --test-dir hylo/.cmake-build ${{ matrix.cmake-generator == 'Xcode' && format('-C {0}', matrix.cmake-build-type) || '' }}
 
       - name: Output compiler version
-        run: cmake --build hylo/.cmake-build --target output_compiler_version -- --quiet
+        run: cmake --build hylo/.cmake-build --target output_compiler_version -- --quiet&
