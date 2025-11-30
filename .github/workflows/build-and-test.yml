@@ -385,8 +385,6 @@ jobs:
 
       - name: Set up CMake and Ninja
         uses: lukka/get-cmake@latest
-        with:
-          cmakeVersion: 'latest'
       - name: Print ninja version
         run: ninja  --version
       - name: Print cmake version
