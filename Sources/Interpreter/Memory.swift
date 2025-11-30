@@ -125,14 +125,14 @@ public struct Memory {
     }
 
     mutating func withUnsafeMutablePointer<T, R>(to _: T.Type, at a: Offset, _ body: (UnsafeMutablePointer<T>)->R) -> R {
-      precondition(a + MemoryLayout<T>.size < size)
+      precondition(a + MemoryLayout<T>.size <= size)
       return storage.withUnsafeMutableBytes { p in
         body((p.baseAddress! + baseOffset + a).assumingMemoryBound(to: T.self))
       }
     }
 
     func withUnsafePointer<T, R>(to _: T.Type, at a: Offset, _ body: (UnsafePointer<T>)->R) -> R {
-      precondition(a + MemoryLayout<T>.size < size)
+      precondition(a + MemoryLayout<T>.size <= size)
       return storage.withUnsafeBytes { p in
         body((p.baseAddress! + baseOffset + a).assumingMemoryBound(to: T.self))
       }
@@ -171,7 +171,7 @@ public struct Memory {
       }
     }
 
-    /// Returns true if `o` is alinged to an `n` byte boundary.
+    /// Returns true if `o` is aligned to an `n` byte boundary.
     public func offset(_ o: Offset, hasAlignment n: Int) -> Bool {
       storage.withUnsafeBytes {
         UInt(bitPattern: $0.baseAddress! + baseOffset + o) % UInt(n) == 0
@@ -257,7 +257,7 @@ public struct Memory {
     try allocation[a.allocation]!.compose(t, at: a.offset)
   }
 
-  /// Returns true if `a` is alinged to an `n` byte boundary.
+  /// Returns true if `a` is aligned to an `n` byte boundary.
   public func address(_ a: Address, hasAlignment n: Int) -> Bool {
     allocation[a.allocation]!.offset(a.offset, hasAlignment: n)
   }
@@ -276,6 +276,16 @@ public struct Memory {
     try block.checkAlignmentAndAllocationBounds(at: a.offset, for: t)
     if let i = block.decomposable(t, at: a.offset) { return i }
     throw Error.noDecomposable(t, at: a)
+  }
+
+  /// The allocation identified by `i`.
+  public subscript(_ i: Allocation.ID) -> Allocation {
+    _read {
+      yield allocation[i]!
+    }
+    _modify {
+      yield &allocation[i]!
+    }
   }
 
 }
