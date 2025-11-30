@@ -64,7 +64,7 @@ Methods in Hylo may be defined outside of the primary type declaration, in a typ
 Those cannot be retroactively added to a C++ type declaration.
 
 ** Operators are different
-Hylo suppots the definition of custom operators.
+Hylo supports the definition of custom operators.
 Further, even implementation-provided opetators do not necessarily have the same precedence and associativity as in C++.
 
 * Transpiling Hylo Types

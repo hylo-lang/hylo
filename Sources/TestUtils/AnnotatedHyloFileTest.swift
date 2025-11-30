@@ -68,7 +68,7 @@ extension XCTestCase {
   /// ... diagnostic ..."), and returning any error thrown by `processAndCheck`.
   ///
   /// - Parameters:
-  ///   - checkedCommands: the annnotation commands to be validated by `processAndCheck`.
+  ///   - checkedCommands: the annotation commands to be validated by `processAndCheck`.
   ///   - processAndCheck: applies some compilation phases to `file`, updating `diagnostics`
   ///     with any generated diagnostics, then checks `annotationsToCheck` against the results,
   ///     returning corresponding test failures. Throws an `Error` if any phases failed.

@@ -450,7 +450,7 @@ final class ParserTests: XCTestCase {
     }
   }
 
-  func testPostifxFunctionDecl() throws {
+  func testPostfixFunctionDecl() throws {
     let input: SourceFile = "fun postfix+ () -> T { x }"
     let (declID, ast) = try input.parseWithDeclPrologue(with: Parser.parseFunctionOrMethodDecl)
     let decl = try XCTUnwrap(ast[declID] as? FunctionDecl)
