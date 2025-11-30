@@ -331,7 +331,21 @@ jobs:
           sudo rm -rf /usr/local/lib/android
           sudo rm -rf /opt/ghc
           sudo rm -rf "/usr/local/share/boost"
-          
+
+          echo "Available disk space after cleanup:"
+          df -h
+
+      - name: Free Disk Space (macOS)
+        if: ${{ runner.os == 'macOS' && matrix.config == 'debug'}}
+        run: |
+          echo "Available disk space before cleanup:"
+          df -h
+          sudo rm -rf $ANDROID_HOME
+          sudo rm -rf /Users/runner/Library/Android
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/.ghcup
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo rm -rf /usr/local/share/chromium
           echo "Available disk space after cleanup:"
           df -h
 
