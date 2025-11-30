@@ -6,7 +6,7 @@ name: Build and test
 # The semantics for running shell commands in GitHub actions is non-obvious. Please read
 # https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsshell
 # before modifying this file. Our strategy is to rely on the built-in (unspecified) shell, and
-# explicitly set the shell settings we want (with `set -eo pipefail`) at the beginning of any
+# explicitly set the shell settings we want (with `set -euxo pipefail`) at the beginning of any
 # bash script. For more information on these settings, see `man bash`.
 #
 # GitHub Actions files can be difficult to modify with confidence, because testing changes often
@@ -51,7 +51,7 @@ env:
 jobs:
   determine-version:
     name: "Determine compiler version from git tag"
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       version: ${{ steps.get-tag.outputs.version }}
     steps:
@@ -112,7 +112,7 @@ jobs:
           HYLO_LLVM_BUILD_TYPE: ${{ matrix.HYLO_LLVM_BUILD_TYPE }}
         with:
           runCmd: >-
-            set -exu # fail fast, print commands before executing, treat unset variables as an error
+            set -euxo pipefail # fail fast, print commands before executing, treat unset variables as an error, fail on pipe errors
 
             LLVM_DIR="$(llvm-config --prefix)/lib/cmake/llvm"
 
@@ -138,12 +138,12 @@ jobs:
       # SPM BASED BUILD =================================================================
       - name: Restore Cache for SPM
         if: ${{ matrix.build-system == 'spm' }}
-        uses: actions/cache@v4
+        uses: actions/cache@v4.2.2
         with:
           path: .build
           key: devcontainer-${{ matrix.config }}-spm-${{ hashFiles('**/Package.resolved') }}
           restore-keys: |
-            ${{ runner.os }}-spm-
+            devcontainer-${{ matrix.config }}-spm-
 
       - name: Build and Test via SPM
         if: ${{ matrix.build-system == 'spm' }}
@@ -192,6 +192,14 @@ jobs:
         exact-os: [macos-15, ubuntu-24.04, windows-2025]
         config: [debug, release]
 
+        include:
+          # Map config to LLVM build type
+          - config: debug
+            HYLO_LLVM_BUILD_TYPE: Debug
+
+          - config: release
+            HYLO_LLVM_BUILD_TYPE: MinSizeRel
+
     runs-on: ${{ matrix.exact-os }}
     steps:
       - name: Checkout
@@ -216,7 +224,7 @@ jobs:
           addToPkgConfigPath: true
           addToPath: true
 
-      - name: Set up swift
+      - name: Set up Swift
         uses: SwiftyLab/setup-swift@latest
         with:
           swift-version: ${{ env.swift-version }} # already verifies Swift version
@@ -276,14 +284,23 @@ jobs:
 
   native-cmake:
     needs: determine-version
-    name: "Native: ${{ matrix.exact-os }}/CMake/${{ matrix.cmake-build-type }}/${{ matrix.cmake-generator }}"
+    name: "Native: ${{ matrix.exact-os }}/CMake/${{ matrix.config }}/${{ matrix.cmake-generator }}"
     strategy:
       fail-fast: false
       matrix:
-        # Temporarily disable CMake builds on macOS because of some compilation issues regarding tgmath.h used by the Algorithms library transitively.
-        exact-os: [ubuntu-24.04, windows-2025, macos-15] # macos-15
+        exact-os: [ubuntu-24.04, windows-2025, macos-15]
         cmake-generator: [Ninja, Xcode]
-        cmake-build-type: [Debug, Release]
+        config: [debug, release]
+
+        include:
+          # Map config to cmake build type
+          - config: debug
+            cmake-build-type: Debug
+            HYLO_LLVM_BUILD_TYPE: Debug
+
+          - config: release
+            cmake-build-type: Release
+            HYLO_LLVM_BUILD_TYPE: MinSizeRel
 
         exclude:
           # Exclude Xcode for non-macOS platforms
@@ -292,12 +309,6 @@ jobs:
 
           - exact-os: windows-2025
             cmake-generator: Xcode
-
-#          - exact-os: macos-15
-#            cmake-generator: Xcode
-          # Todo add back Xcode after migrating to macos-15. See compatibility table at
-          # https://developer.apple.com/support/xcode/#:~:text=and%20other%C2%A0developers.-,Xcode%20Releases,-Latest%20Xcode%20versions 
-          # Note: there are some breaking changes between macos 14 and 15 regarding the Encoder/Decoder protocols.
 
     runs-on: ${{ matrix.exact-os }}
     steps:
@@ -314,7 +325,14 @@ jobs:
         shell: bash
 
       - name: Set up LLVM
-        uses: hylo-lang/get-llvm@v0.2.2
+        uses: hylo-lang/get-llvm@v0.3.0
+        id: get-llvm
+        with:
+          llvmVersion: ${{ env.HYLO_LLVM_VERSION }}
+          llvmBuildRelease: ${{ env.HYLO_LLVM_BUILD_RELEASE }}
+          llvmBuildConfig: ${{ matrix.HYLO_LLVM_BUILD_TYPE }}
+          addToPkgConfigPath: true
+          addToPath: true
 
       - name: Set up Swift
         uses: SwiftyLab/setup-swift@latest
@@ -335,15 +353,16 @@ jobs:
         with:
           xcode-version: '26.0.1'
 
-      - name: Set up latest CMake and Ninja
+      - name: Set up CMake and Ninja
         uses: lukka/get-cmake@latest
         with:
-          cmakeVersion: latestrc
+          cmakeVersion: '4.2.0'
+          ninjaVersion: '1.13.2'
 
       - name: CMake Configure
         shell: bash
         run: >-
-          set -exu # fail fast, print commands before executing, treat unset variables as an error
+          set -euxo pipefail # fail fast, print commands before executing, treat unset variables as an error, fail on pipe errors
 
           LLVM_DIR="$(llvm-config --prefix)/lib/cmake/llvm"
 
@@ -365,4 +384,4 @@ jobs:
         run: ctest --output-on-failure --parallel --test-dir hylo/.cmake-build ${{ matrix.cmake-generator == 'Xcode' && format('-C {0}', matrix.cmake-build-type) || '' }}
 
       - name: Output compiler version
-        run: cmake --build hylo/.cmake-build --target output_compiler_version -- --quiet&
+        run: cmake --build hylo/.cmake-build --target output_compiler_version -- --quiet
