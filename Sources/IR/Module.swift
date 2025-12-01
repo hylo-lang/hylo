@@ -202,7 +202,7 @@ public struct Module: Sendable {
     }
   }
 
-  /// Returns the register asssigned by `i`, if any.
+  /// Returns the register assigned by `i`, if any.
   func result(of i: InstructionID) -> Operand? {
     if self[i].result != nil {
       return .register(i)
