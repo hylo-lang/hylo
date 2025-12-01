@@ -3,9 +3,13 @@ import FrontEnd
 import Collections
 import IR
 
+/// The position of an instruction in the program.
 struct CodePointer {
 
+  /// The module containing `self`.
   var module: Module.ID
+
+  /// The position relative to `module` indicated by `self`.
   var instructionInModule: InstructionID
 
 }
@@ -13,6 +17,7 @@ struct CodePointer {
 /// The local variables, parameters, and return address for a function
 /// call.
 struct StackFrame {
+
   /// An identifier by which we can look up a frame in a given
   /// Stack.
   // We could just use the frame's index on the stack but we'd like
@@ -31,8 +36,12 @@ struct StackFrame {
 
   /// The allocations in this stack frame.
   var allocations: [StackAllocation] = []
-  var allocationIDToIndex: [UUID: Int] = [:]
 
+  /// The position in `allocations` where each allocation could be found (when live).
+  var allocationIDToIndex: [StackAllocation.ID: Int] = [:]
+
+  /// Returns the position of the first byte of a newly-allocated block of memory suitable for
+  /// storing a `t`.
   mutating func allocate(_ t: TypeLayout) -> Stack.Address {
     let a = StackAllocation(t)
     allocationIDToIndex[a.id] = allocations.count
@@ -40,6 +49,10 @@ struct StackFrame {
     return Stack.Address(memoryLayout: t, frame: id, allocation: a.id, byteOffset: 0)
   }
 
+  /// Deallocates the memory starting at `a`.
+  ///
+  /// - Precondition: `a` is the most recent address returned by `self.allocate` that has not been
+  ///   `deallocate`d.
   mutating func deallocate(_ a: Stack.Address) {
     precondition(
       a.allocation == allocations.last!.id,
@@ -77,15 +90,28 @@ extension UnsafeRawBufferPointer {
 
 }
 
+/// A region of stack memory.
 struct StackAllocation {
+
+  /// The identity of some allocation, unique throughout time.
   typealias ID = UUID
 
+  /// The bytes, preceded by zero or more bytes of initial padding for alignment purposes.
   let storage: [UInt8]
+
+  /// The number of bytes in `storage` before `self` logically begins.
   let baseOffset: Int
+
+  /// The number of `bytes` in `self`.
   let size: Int
+
+  /// The layout for which this allocation was made.
   let structure: TypeLayout
+
+  /// An identity, unique throughout time.
   let id = ID()
 
+  /// An instance suitable for storing a value with the given `structure`.
   init(_ structure: TypeLayout) {
     size = structure.bytes.size
     storage = .init(repeating: 0, count: max(0, size + structure.bytes.alignment - 1))
@@ -96,12 +122,16 @@ struct StackAllocation {
     self.structure = structure
   }
 
+  /// Returns the result calling `body` on the bytes.
   func withUnsafeBytes<R>(_ body: (UnsafeRawBufferPointer)->R) -> R {
     storage.withUnsafeBytes { b in body(.init(rebasing: b[baseOffset..<baseOffset+size])) }
   }
+
 }
 
+/// A thread's call stack.
 struct Stack {
+
   /// Local variables, parameters, and return addresses.
   public fileprivate(set) var frames: [StackFrame] = []
 
@@ -133,10 +163,19 @@ struct Stack {
     return f.returnAddress
   }
 
+  /// A typed memory location in the stack.
   struct Address {
+
+    /// The type.
     let memoryLayout: TypeLayout
+
+    /// The frame containing the `allocation`.
     let frame: StackFrame.ID
+
+    /// The allocation containing the memory.
     let allocation: StackAllocation.ID
+
+    /// The offset in the allocation.
     let byteOffset: Int
   }
 }
@@ -162,12 +201,16 @@ public struct Interpreter {
   /// True iff the program is still running.
   public private(set) var isRunning: Bool = true
 
+  /// Text written so far to the process' standard output stream.
   public private(set) var standardOutput: String = ""
 
+  /// Text written so far to the process' standard error stream.
   public private(set) var standardError: String = ""
 
+  /// The type layouts that have been computed so far.
   private var typeLayout: TypeLayoutCache
 
+  /// The top stack frame.
   private var topOfStack: StackFrame {
     get { stack.frames.last! }
     _modify {
@@ -196,8 +239,9 @@ public struct Interpreter {
     typeLayout = .init(typesIn: p.base, for: UnrealABI())
   }
 
+  /// The value of the current instruction's result, if it has been computed.
   private var currentRegister: Any? {
-    get { topOfStack.registers[programCounter.instructionInModule]! }
+    get { topOfStack.registers[programCounter.instructionInModule] }
     set { topOfStack.registers[programCounter.instructionInModule] = newValue }
   }
 
@@ -339,4 +383,5 @@ public struct Interpreter {
 
 }
 
+/// An indication of malformed IR.
 struct IRError: Error {}

@@ -13,7 +13,7 @@ final class InterpreterMemoryInternalTests: XCTestCase {
     var m = Memory()
     let p = m.allocate(voidPair.size, bytesWithAlignment: voidPair.alignment)
 
-    let voidPairPart0 = voidPair.partIDs.first!
+    let voidPairPart0 = voidPair.partParentages.first!
 
     check(throws: Memory.Error.noComposedPart(at: p, voidPairPart0)) {
       try m.allocation[p.allocation]!
@@ -26,7 +26,7 @@ final class InterpreterMemoryInternalTests: XCTestCase {
     try m.compose(voidPair, at: p)
 
     let i8Pair = layouts[^TupleType(types: [.builtin(.i(8)), .builtin(.i(8))])]
-    let i8PairPart0 = i8Pair.partIDs.first!
+    let i8PairPart0 = i8Pair.partParentages.first!
 
     check(throws: Memory.Error.partType(voidPair.type, part: i8PairPart0)) {
       try m.allocation[p.allocation]!

@@ -47,14 +47,19 @@ public struct TypeLayout: Regular {
   /// The type whose layout is described by `self`.
   public let type: AnyType
 
-  /// The sub-structure of `self`.
+  /// The structure.
   ///
   /// For product types, info for each stored property in storage order.
   /// For union types, info for each case when it is active, followed by info for the discriminator.
   /// Empty otherwise (built-in types).
   public let parts: [Part]
 
-  public var partIDs: some Collection<Part.ID> {
+  /// The parentage of the parts.
+  ///
+  /// For product types, the parentage of each stored property in storage order.
+  /// For union types, the parentage of each case when it is active, followed by the parentage of the discriminator.
+  /// Empty otherwise (built-in types).
+  public var partParentages: some Collection<Part.Parentage> {
     parts.indices.lazy.map { .init(self, $0) }
   }
 
@@ -65,16 +70,19 @@ public struct TypeLayout: Regular {
 
 extension TypeLayout {
 
+  /// The discriminator of a union layout.,
   public var discriminator: Part {
     precondition(isUnionLayout)
     return parts.last!
   }
 
-  public var discriminatorID: Part.ID {
+  /// The id of the discriminator of a union layout.,
+  public var discriminatorParentage: Part.Parentage {
     precondition(isUnionLayout)
     return .init(self, parts.count - 1)
   }
 
+  /// The number of parts that will be stored at one time for a given instance.
   public var storedPartCount: Int {
     isUnionLayout ? 2 : parts.count
   }
@@ -95,18 +103,21 @@ extension TypeLayout.Bytes {
 
 extension TypeLayout.Part {
 
-  public struct ID: Regular, CustomStringConvertible {
+  public struct Parentage: Regular, CustomStringConvertible {
 
-    public let layout: TypeLayout
-    public let part: Int
+    /// The type in which the part exists.
+    public let parent: TypeLayout
+
+    /// The part index in the parent.
+    public let partIndex: Int
 
     init(_ layout: TypeLayout, _ part: Int) {
-      self.layout = layout
-      self.part = part
+      self.parent = layout
+      self.partIndex = part
     }
 
     public var description: String {
-      "{part \(part) of \(layout.type)}"
+      "{part \(partIndex) of \(parent.type)}"
     }
   }
 
