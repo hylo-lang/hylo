@@ -79,8 +79,8 @@ extension BuiltinValue {
   /// Boolean value, if present.
   var bool: Bool? { i1 }
 
-  /// Creates instance of builtin value with `c`.
-  public init(withIntegerConstant c: IntegerConstant) {
+  /// An instance with value `c`.
+  public init(_ c: IntegerConstant) {
     self =
       switch c.value.bitWidth {
       case 1: .i1(Bool(c.value != 0))

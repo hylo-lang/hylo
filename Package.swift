@@ -19,7 +19,7 @@ let allTargetsSwiftSettings: [SwiftSetting] = [
 /// environment if you do.
 let docGenerationDependency: [Package.Dependency] =
   ProcessInfo.processInfo.environment["HYLO_ENABLE_DOC_GENERATION"] != nil
-  ? [.package(url: "https://github.com/apple/swift-docc-plugin.git", from: "1.1.0")] : []
+  ? [.package(url: "https://github.com/apple/swift-docc-plugin.git", revision: "1.4.5")] : []
 
 let package = Package(
   name: "Hylo",
