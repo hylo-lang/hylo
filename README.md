@@ -1,6 +1,5 @@
 # Hylo (formerly Val)
 
-
 [![codecov](https://codecov.io/gh/hylo-lang/hylo/graph/badge.svg?token=YF1Q8W88VN)](https://codecov.io/gh/hylo-lang/hylo)
 
 Hylo is a programming language that leverages [mutable value semantics](Docs/ImplementationStrategiesForMutableValueSemantics.pdf) and [generic programming](https://fm2gp.com) for high-level systems programming.
@@ -11,7 +10,7 @@ Please visit our **[website](https://hylo-lang.org)** to get more information ab
 ## Development/Use Requirements
 
 This project is written in [Swift](https://swift.org) and distributed in the form of a package, built with either [Swift Package Manager](https://swift.org/package-manager/) or CMake.
-You will need Swift 6.1 or higher to build the compiler from sources.
+You will need Swift 6.2 or higher to build the compiler from sources.
 **This repository contains
 [submodules](https://git-scm.com/book/en/v2/Git-Tools-Submodules)**,
 so after cloning, issue `git submodule update --init` to populate

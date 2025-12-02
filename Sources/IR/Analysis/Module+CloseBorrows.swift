@@ -61,7 +61,7 @@ extension Module {
   }
 
   /// Closes the access formed by `i` at the boundaries of `region`, calling `make` to create the
-  /// appropriate lifetiem closer instruction.
+  /// appropriate lifetime closer instruction.
   ///
   /// No instruction is inserted at after already existing lifetime closers for `i`.
   private mutating func insertClose<T: LifetimeCloser>(
