@@ -331,6 +331,23 @@ public struct Memory {
     }
   }
 
+  /// Copies `n` bytes from `source` to `destination`.
+  public mutating func copy(
+    byteCount n: Int, from source: Memory.Address, to destination: Memory.Address
+  ) {
+    precondition(source.offset + n <= self[source.allocation].size)
+    precondition(destination.offset + n <= self[destination.allocation].size)
+    let i = self[source.allocation].baseOffset
+    let j = self[destination.allocation].baseOffset
+    self[source.allocation].storage.withUnsafeBytes { a in
+      self[destination.allocation].storage.withUnsafeMutableBytes { b in
+        let s = a.baseAddress! + i + source.offset
+        let d = b.baseAddress! + j + destination.offset
+        d.copyMemory(from: s, byteCount: n)
+      }
+    }
+  }
+
 }
 
 public extension Memory.Address {
