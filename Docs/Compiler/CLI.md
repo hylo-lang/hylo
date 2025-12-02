@@ -52,9 +52,13 @@ Do not include the standard library module.
 
 Compile in freestanding mode (don't use libc).
 
-### `--typecheck`
+### `--last-phase=type-checking`
 
-Type-check the input file(s).  Exits the compilation pipeline after type-checking and does not produce an output file.
+Type-check the input file(s)and exit the compilation pipeline without producing an output file.
+
+### `--last-phase=lowering`
+
+Lower the input file(s) to Hylo IR and exit the compilation pipeline without producing an output file.
 
 ### `--trace-inference <file:line>`
 
