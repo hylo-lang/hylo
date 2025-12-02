@@ -149,7 +149,8 @@ public struct Interpreter {
       currentRegister = a
 
     case let x as Branch:
-      _ = x
+      jump(to: x.target)
+      return
     case let x as Call:
       _ = x
     case let x as CallBuiltinFunction:
@@ -165,7 +166,13 @@ public struct Interpreter {
     case let x as CloseUnion:
       _ = x
     case let x as CondBranch:
-      _ = x
+      let c = builtinValue(x.condition)!
+      if c.bool! {
+        jump(to: x.targetIfTrue)
+      } else {
+        jump(to: x.targetIfFalse)
+      }
+      return
     case let x as ConstantString:
       currentRegister = x.value
     case let x as DeallocStack:
@@ -181,7 +188,7 @@ public struct Interpreter {
     case let x as GlobalAddr:
       _ = x
     case let x as Load:
-      _ = x
+      currentRegister = builtinValue(at: address(x.source)!)
     case is MarkState:
       // No effect on program state
       break
@@ -346,11 +353,35 @@ public struct Interpreter {
     }
   }
 
+  /// Returns builtin value stored at `a`.
+  func builtinValue(at a: Address) -> BuiltinValue {
+    precondition(a.type.type.isBuiltin)
+    let i = a.startLocation.allocation
+    let o = a.startLocation.offset
+    let t = a.type.type.base as! BuiltinType
+    return memory[i].builtinValue(at: o, ofType: t)
+  }
+
   /// Stores `v` at `a`.
   mutating func store(_ v: BuiltinValue, at a: Address) {
     let allocation = a.startLocation.allocation
     let offset = a.startLocation.offset
     memory[allocation].store(v, at: offset)
+  }
+
+  /// Sets the program counter to the start of `b`.
+  mutating func jump(to b: Block.ID) {
+    let f = b.function
+    let m = program.module(defining: f)
+    let a = b.address;
+    let i = program.modules[m]![b.function]
+      .blocks[a]
+      .instructions
+      .firstAddress!
+    programCounter = CodePointer(
+      module: m,
+      instructionInModule: InstructionID(f, a, i)
+    )
   }
 
 }
