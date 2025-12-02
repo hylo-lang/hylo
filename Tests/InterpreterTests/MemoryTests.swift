@@ -51,7 +51,7 @@ final class InterpreterMemoryTests: XCTestCase {
     }
 
     let parts = i16Pair.parts
-    let partIDs = Array(i16Pair.partIDs)
+    let partIDs = Array(i16Pair.partParentages)
     check(throws: Memory.Error.noComposedPart(at: p, partIDs[0])) {
       try m.compose(i16Pair, at: p)
     }
@@ -112,7 +112,7 @@ final class InterpreterMemoryTests: XCTestCase {
     }
 
     let parts = i16i32Union.parts
-    let partIDs = Array(i16i32Union.partIDs)
+    let partIDs = Array(i16i32Union.partParentages)
     let discriminator = parts.last!
     check(throws: Memory.Error.noComposedPart(at: p + discriminator.offset, partIDs.last!)) {
       try m.compose(i16i32Union, at: p)

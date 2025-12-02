@@ -49,6 +49,8 @@ function(hylo_common_target_setup target)
         VERBATIM)
     endif()
   endif()
+
+  hylo_propagate_swift_modules("${target}")
 endfunction()
 
 # add_hylo_executable(<target-name>
@@ -73,10 +75,6 @@ function(add_hylo_executable result_target)
   target_link_libraries(${result_target} PRIVATE ${_DEPENDENCIES})
 
   hylo_common_target_setup(${result_target})
-  
-  # Ensure Swift module dependencies are properly accessible for all generators,
-  # especially Xcode which has path issues with transitive dependencies  
-  hylo_propagate_swift_modules(${result_target})
 endfunction()
 
 # add_hylo_library(<target-name>
@@ -108,13 +106,14 @@ function(add_hylo_library result_target)
     FRAMEWORK $<BOOL:${BUILD_TESTING}>)
 
   hylo_common_target_setup(${result_target})
-  
-  # Ensure Swift module dependencies are properly accessible for all generators,
-  # especially Xcode which has path issues with transitive dependencies
-  hylo_propagate_swift_modules(${result_target})
 endfunction()
 
-# Ensures that Swift module search paths are properly propagated for Xcode builds
+# hylo_propagate_swift_modules(<target-name>)
+#
+# Ensures that Swift module search paths of dependencies are propagated to the 
+# given target during Xcode builds.
+# 
+# This is a hack to get Xcode working, see: https://github.com/hylo-lang/hylo/issues/1797
 function(hylo_propagate_swift_modules target)
   # Avoid infinite recursion by checking if we've already processed this target
   get_target_property(already_processed ${target} HYLO_SWIFT_MODULES_PROPAGATED)
@@ -225,10 +224,6 @@ function(add_hylo_test_of testee)
     add_swift_xctest("${top_target}" ${testee} ${swift_files})
     target_link_libraries("${top_target}" PRIVATE ${_DEPENDENCIES})
     hylo_common_target_setup("${top_target}")
-    
-    # Ensure Swift module dependencies are properly accessible for all generators,
-    # especially Xcode which has path issues with transitive dependencies
-    hylo_propagate_swift_modules("${top_target}")
   endif()
 
   set_recursive_file_glob(hylo_files "${_PATH}/*.hylo")
@@ -281,11 +276,6 @@ function(add_hylo_test_of testee)
       add_swift_xctest("${hylo_test_target}" ${testee} ${generated_swift_file})
       target_link_libraries(${hylo_test_target} PRIVATE ${_DEPENDENCIES})
       hylo_common_target_setup(${hylo_test_target})
-      
-      # Ensure Swift module dependencies are properly accessible for all generators,
-      # especially Xcode which has path issues with transitive dependencies
-      hylo_propagate_swift_modules("${hylo_test_target}")
-
       endforeach()
   endforeach()
 

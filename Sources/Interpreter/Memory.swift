@@ -1,34 +1,48 @@
 import FrontEnd
 import Utils
 
+/// The memory of an interpreted process.
 public struct Memory {
 
+  /// An empty instance.
   public init() {}
 
+  /// An incorrect use of memory.
   public enum Error: Swift.Error, Regular {
-    case noComposedPart(at: Address, TypeLayout.Part.ID)
+    case noComposedPart(at: Address, TypeLayout.Part.Parentage)
     case alignment(Address, for: TypeLayout)
     case bounds(Address, for: TypeLayout, allocationSize: Int)
-    case partType(AnyType, part: TypeLayout.Part.ID)
-    case partOffset(Int, part: TypeLayout.Part.ID)
+    case partType(AnyType, part: TypeLayout.Part.Parentage)
+    case partOffset(Int, part: TypeLayout.Part.Parentage)
     case deallocationNotAtStartOfAllocation(Address)
     case noLongerAllocated(Address)
     case noDecomposable(TypeLayout, at: Address)
   }
 
+  /// A position in some allocation.
   public typealias Offset = Int
 
-  /// A region of raw memory in the interpreter
+  /// The bytes of an `Allocation` preceded by zero or more bytes of initial padding for alignment
+  /// purposes.
   public typealias Storage = [UInt8]
 
+  /// A usable region.
   public struct Allocation {
-    public typealias ID = Offset
 
+    /// A unique `Allocation` identifier.
+    public typealias ID = Int
+
+    /// The bytes preceded by zero or more bytes of initial padding for alignment purposes.
     var storage: Storage
-    public let baseOffset: Offset
-    public let size: Int
-    public let id: ID
 
+    /// The number of bytes in `storage` before `self` logically begins.
+    public let baseOffset: Offset
+
+    /// The number of usable bytes of `self`.
+    public let size: Int
+
+    /// The identity of `self`, unique throughout time for a given `Memory`.
+    public let id: ID
 
     /// A region of some allocation that contains a complete instance of
     /// some type, ready to be a part of a new composition.
@@ -44,10 +58,13 @@ public struct Memory {
 
     }
 
+    /// The composed regions of an `Allocation`.
     fileprivate typealias ComposedRegions = [ComposedRegion]
+
+    /// The composed regions, in ascending order.
     private var composedRegions = ComposedRegions()
 
-    /// `n` bytes with alignment `m`.
+    /// `n` bytes with alignment `m` and the given `id`.
     public init(_ n: Int, bytesWithAlignment m: Int, id: ID) {
       precondition(n >= 0)
       precondition(m > 0)
@@ -64,25 +81,30 @@ public struct Memory {
       self.id = id
     }
 
+    /// The address of the `o`th byte.
     private func address(at o: Offset) -> Address { .init(allocation: id, offset: o) }
 
+    /// Throws iff the given `part` of some type at `baseOffset` is not represented as the `n`th
+    /// composed region.
     public func requireComposed(
-      part partID: TypeLayout.Part.ID,
+      part: TypeLayout.Part.Parentage,
       baseOffset: Offset,
       region n: Int
     ) throws {
-      let part = partID.layout.parts[partID.part]
-      let partOffset = baseOffset + part.offset
+      let p = part.parent.parts[part.partIndex]
+      let partOffset = baseOffset + p.offset
       let partAddress = address(at: partOffset)
       guard let r = composedRegions.dropFirst(n).first,
             r.offset == partOffset else {
-        throw Error.noComposedPart(at: partAddress, partID)
+        throw Error.noComposedPart(at: partAddress, part)
       }
-      if r.type != part.type {
-        throw Error.partType(r.type, part: partID)
+      if r.type != p.type {
+        throw Error.partType(r.type, part: part)
       }
     }
 
+    /// Throws iff there is not enough allocated space for a `t` at `a`, or if it would not be
+    /// properly aligned.
     fileprivate func checkAlignmentAndAllocationBounds(at a: Offset, for t: TypeLayout) throws {
       guard offset(a, hasAlignment: t.alignment) else {
         throw Error.alignment(address(at: a), for: t)
@@ -93,7 +115,7 @@ public struct Memory {
     }
 
     /// Replaces the initialization records starting at `a` for the
-    /// parts of a `t` instance, with the initialization record for a
+    /// parts of a `t` instance with the initialization record for a
     /// `t` instance.
     public mutating func compose(_ t: TypeLayout, at a: Offset) throws {
       try checkAlignmentAndAllocationBounds(at: a, for: t)
@@ -103,7 +125,7 @@ public struct Memory {
       if t.isUnionLayout {
         let dc = t.discriminator
         try requireComposed(
-          part: t.discriminatorID, baseOffset: a,
+          part: t.discriminatorParentage, baseOffset: a,
           region: dc.offset == 0 ? i : i + 1)
 
         let dv = unsignedIntValue(
@@ -124,14 +146,25 @@ public struct Memory {
         with: CollectionOfOne(.init(offset: a, type: t.type)))
     }
 
-    mutating func withUnsafeMutablePointer<T, R>(to _: T.Type, at a: Offset, _ body: (UnsafeMutablePointer<T>)->R) -> R {
+    /// Returns the result of calling `body` on the storage for a `T` instance at `a`.
+    ///
+    /// - Precondition: the storage exists and is properly aligned.
+    mutating func withUnsafeMutablePointer<T, R>(
+      to _: T.Type, at a: Offset, _ body: (UnsafeMutablePointer<T>)->R
+    ) -> R {
       precondition(a + MemoryLayout<T>.size <= size)
+      precondition(offset(a, hasAlignment: MemoryLayout<T>.alignment))
       return storage.withUnsafeMutableBytes { p in
         body((p.baseAddress! + baseOffset + a).assumingMemoryBound(to: T.self))
       }
     }
 
-    func withUnsafePointer<T, R>(to _: T.Type, at a: Offset, _ body: (UnsafePointer<T>)->R) -> R {
+    /// Returns the result of calling `body` on the storage for a `T` instance at `a`.
+    ///
+    /// - Precondition: the storage exists and is properly aligned.
+    func withUnsafePointer<T, R>(
+      to _: T.Type, at a: Offset, _ body: (UnsafePointer<T>)->R
+    ) -> R {
       precondition(a + MemoryLayout<T>.size <= size)
       return storage.withUnsafeBytes { p in
         body((p.baseAddress! + baseOffset + a).assumingMemoryBound(to: T.self))
@@ -171,13 +204,15 @@ public struct Memory {
       }
     }
 
-    /// Returns true if `o` is aligned to an `n` byte boundary.
+    /// Returns `true` iff `o` is aligned to an `n` byte boundary.
     public func offset(_ o: Offset, hasAlignment n: Int) -> Bool {
       storage.withUnsafeBytes {
         UInt(bitPattern: $0.baseAddress! + baseOffset + o) % UInt(n) == 0
       }
     }
 
+    /// Returns the region index of the top-level composed instance of `t` at `a`, if any, or `nil`
+    /// otherwise.
     fileprivate func decomposable(_ t: TypeLayout, at a: Offset) -> ComposedRegions.Index? {
       let i = composedRegions.partitioningIndex { $0.offset >= a }
       guard let r0 = composedRegions[i...].first,
@@ -215,11 +250,16 @@ public struct Memory {
     }
   }
 
+  /// A memory location.
   public struct Address: Regular, CustomStringConvertible {
 
+    /// The containing allocation.
     public let allocation: Allocation.ID
+
+    /// The offset from the beginning of that `allocation`.
     public let offset: Storage.Index
 
+    /// An instance in the given `allocation` at `offset`.
     public init(allocation: Allocation.ID, offset: Storage.Index) {
       self.allocation = allocation
       self.offset = offset
@@ -228,8 +268,11 @@ public struct Memory {
     public var description: String { "@\(allocation):0x\(String(offset, radix: 16))" }
   }
 
+  /// The live allocations, by ID
   public private(set) var allocation: [Allocation.ID: Allocation] = [:]
-  var nextAllocation = 0
+
+  /// The ID of the next allocated block.
+  private var nextAllocation = 0
 
   /// Allocates `n` bytes with alignment `m`.
   public mutating func allocate(_ n: Int, bytesWithAlignment m: Int) -> Address {
@@ -292,20 +335,25 @@ public struct Memory {
 
 public extension Memory.Address {
 
+  /// Returns `l` offset by `r` bytes.
   static func +(l: Self, r: Int) -> Self {
     .init(allocation: l.allocation, offset: l.offset + r)
   }
 
+  /// Returns `l` offset by `-r` bytes.
   static func -(l: Self, r: Int) -> Self {
     .init(allocation: l.allocation, offset: l.offset - r)
   }
 
+  /// Returns `r` offset by `l` bytes.
   static func +(l: Int, r: Self) -> Self {
     .init(allocation: r.allocation, offset: l + r.offset)
   }
 
+  ///  Offsets `l` by `r` bytes.
   static func +=(l: inout Self, r: Int) { l = l + r }
 
+  ///  Offsets `l` by `-r` bytes.
   static func -=(l: inout Self, r: Int)  { l = l - r }
 
 }
