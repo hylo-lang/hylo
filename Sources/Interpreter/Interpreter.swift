@@ -2,10 +2,15 @@ import Foundation
 import FrontEnd
 import Collections
 import IR
+import Utils
 
+/// The position of an instruction in the program.
 struct CodePointer {
 
+  /// The module containing `self`.
   var module: Module.ID
+
+  /// The position relative to `module` indicated by `self`.
   var instructionInModule: InstructionID
 
 }
@@ -14,7 +19,7 @@ struct CodePointer {
 typealias InstructionResult = Any
 
 /// A typed location in memory.
-struct Address {
+struct Address: Regular {
 
   /// The position in memory.
   public let startLocation: Memory.Address
@@ -35,7 +40,7 @@ struct StackFrame {
   var returnAddress: CodePointer
 
   /// The allocations in this stack frame.
-  var allocations: [Memory.Allocation.ID] = []
+  var allocations: [Address] = []
 
   /// Function parameters
   var parameters: [Address]
@@ -82,12 +87,16 @@ public struct Interpreter {
   /// True iff the program is still running.
   public private(set) var isRunning: Bool = true
 
+  /// Text written so far to the process' standard output stream.
   public private(set) var standardOutput: String = ""
 
+  /// Text written so far to the process' standard error stream.
   public private(set) var standardError: String = ""
 
+  /// The type layouts that have been computed so far.
   private var typeLayout: TypeLayoutCache
 
+  /// The top stack frame.
   private var topOfStack: StackFrame {
     get { callStack.last! }
     _modify {
@@ -136,7 +145,7 @@ public struct Interpreter {
 
     case let x as AllocStack:
       let a = allocate(typeLayout[x.allocatedType])
-      topOfStack.allocations.append(a.startLocation.allocation)
+      topOfStack.allocations.append(a)
       currentRegister = a
 
     case let x as Branch:
@@ -161,8 +170,7 @@ public struct Interpreter {
       currentRegister = x.value
     case let x as DeallocStack:
       let a = addressProduced(by: x.location.instruction!)!
-      try deallocate(a)
-      topOfStack.allocations.removeLast()
+      try deallocateStack(a)
     case is EndAccess:
       // No effect on program state
       break
@@ -282,6 +290,15 @@ public struct Interpreter {
     try memory.deallocate(a.startLocation)
   }
 
+  /// Deallocates `a` allocated on stack.
+  mutating func deallocateStack(_ a: Address) throws {
+    precondition(
+      a == topOfStack.allocations.last!,
+      "The latest allocation that has not been deallocated must be deallocated first.")
+    try deallocate(a)
+    topOfStack.allocations.removeLast()
+  }
+
   /// Returns the address produced by executing instruction identified by `i` in the current frame,
   /// or `nil` if it didn't produce an address.
   func addressProduced(by i: InstructionID) -> Address? {
@@ -322,7 +339,7 @@ public struct Interpreter {
     case .constant(let c):
       switch c {
       case let x as IntegerConstant:
-        return BuiltinValue(withIntegerConstant: x)
+        return BuiltinValue(x)
       default:
         fatalError("unimplemented constant parsing!!!")
       }
@@ -338,4 +355,5 @@ public struct Interpreter {
 
 }
 
+/// An indication of malformed IR.
 struct IRError: Error {}
