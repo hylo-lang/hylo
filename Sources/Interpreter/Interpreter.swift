@@ -41,6 +41,9 @@ struct StackFrame {
 
   /// The allocations in this stack frame.
   var allocations: [Address] = []
+
+  /// Function parameters
+  var parameters: [Address]
 }
 
 extension UnsafeRawPointer {
@@ -118,7 +121,7 @@ public struct Interpreter {
 
     // The return address of the bottom-most frame will never be used,
     // so we fill it with something arbitrary.
-    callStack.append(StackFrame(returnAddress: programCounter))
+    callStack.append(StackFrame(returnAddress: programCounter, parameters: []))
     typeLayout = .init(typesIn: p.base, for: UnrealABI())
   }
 
@@ -131,9 +134,8 @@ public struct Interpreter {
   public mutating func step() throws {
     print("\(currentInstruction.site.gnuStandardText): \(currentInstruction)")
     switch currentInstruction {
-    case is Access:
-      // No effect on program state
-      break
+    case let x as Access:
+      currentRegister = address(x.source)!
     case let x as AddressToPointer:
       _ = x
     case let x as AdvancedByBytes:
@@ -204,9 +206,10 @@ public struct Interpreter {
       popStackFrame()
       return
     case let x as Store:
-      _ = x
+      store(builtinValue(x.object)!, at: address(x.target)!)
     case let x as SubfieldView:
-      _ = x
+      let p = address(x.recordAddress)!;
+      currentRegister = address(of: x.subfield, in: p)
     case let x as Switch:
       _ = x
     case let x as UnionDiscriminator:
@@ -294,6 +297,54 @@ public struct Interpreter {
   /// or `nil` if it didn't produce an address.
   func addressProduced(by i: InstructionID) -> Address? {
     topOfStack.registers[i] as? Address
+  }
+
+  /// Returns the value of `x` if it has a address, or `nil` if it does not.
+  func address(_ x: Operand) -> Address? {
+    switch x {
+    case .register(let instruction):
+      return topOfStack.registers[instruction] as? Address
+    case .parameter(_, let i):
+      return topOfStack.parameters[i]
+    case .constant:
+      return nil
+    }
+  }
+
+  /// Returns the address of `subField` in the object  at `origin`.
+  mutating func address(of subField: RecordPath, in origin: Address) -> Address {
+    let l = origin.startLocation;
+    var o = l.offset;
+    var t = origin.type;
+    for i in subField {
+      o += t.parts[i].offset
+      t = typeLayout[t.parts[i].type]
+    }
+    return .init(startLocation: .init(allocation: l.allocation, offset: o), type: t)
+  }
+
+  /// Returns the value of `x` if it has a builtin type, or `nil` if it does not.
+  func builtinValue(_ x: Operand) -> BuiltinValue? {
+    switch x {
+    case .register(let instruction):
+      return topOfStack.registers[instruction] as? BuiltinValue
+    case .parameter:
+      return nil;
+    case .constant(let c):
+      switch c {
+      case let x as IntegerConstant:
+        return BuiltinValue(x)
+      default:
+        fatalError("unimplemented constant parsing!!!")
+      }
+    }
+  }
+
+  /// Stores `v` at `a`.
+  mutating func store(_ v: BuiltinValue, at a: Address) {
+    let allocation = a.startLocation.allocation
+    let offset = a.startLocation.offset
+    memory[allocation].store(v, at: offset)
   }
 
 }
