@@ -1,17 +1,24 @@
 import FrontEnd
 
+/// Types that describe the ABI for which we might interpret code.
 public protocol TargetABI {
 
-  func layout(_ t: BuiltinType) ->TypeLayout.Bytes
+  /// Returns the layout of `t`.
+  func layout(_ t: BuiltinType) -> TypeLayout.Bytes
 
 }
 
+/// An ABI we can use to interpret code when matching some real ABI doesn't matter.
 public struct UnrealABI: TargetABI {
 
+  /// An instance.
   public init() {}
 
-  let bitsInAWord = 64
-  let maxAlignment = 128 / 8
+  /// The size of a word in `bits`
+  private let bitsInAWord = 64
+
+  /// The maximal alignment of a builtin type in bytes.
+  private let maxAlignment = 128 / 8
 
   /// Returns the layout for a `bitWidth`-bit type.
   ///

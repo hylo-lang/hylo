@@ -52,7 +52,7 @@ You will need to manually [synchronize it](https://docs.github.com/en/pull-reque
 Make sure your changes do not break anything by running all existing tests.
 We also ask that you write tests for the code you want to contribute.
 
-Ensure your changes do not intruduce any spelling errors. We use [typos-action]
+Ensure your changes do not introduce any spelling errors. We use [typos-action]
 to ensure no mistakes creep in. To run locally, [install typos] and run `typos`
 to run a check and `typos -w` to automatically apply suggestions. If you run
 into any false positives see the [typos false positives documentation].

@@ -4,9 +4,13 @@ import Collections
 import IR
 import Utils
 
+/// The position of an instruction in the program.
 struct CodePointer {
 
+  /// The module containing `self`.
   var module: Module.ID
+
+  /// The position relative to `module` indicated by `self`.
   var instructionInModule: InstructionID
 
 }
@@ -80,12 +84,16 @@ public struct Interpreter {
   /// True iff the program is still running.
   public private(set) var isRunning: Bool = true
 
+  /// Text written so far to the process' standard output stream.
   public private(set) var standardOutput: String = ""
 
+  /// Text written so far to the process' standard error stream.
   public private(set) var standardError: String = ""
 
+  /// The type layouts that have been computed so far.
   private var typeLayout: TypeLayoutCache
 
+  /// The top stack frame.
   private var topOfStack: StackFrame {
     get { callStack.last! }
     _modify {
@@ -290,4 +298,5 @@ public struct Interpreter {
 
 }
 
+/// An indication of malformed IR.
 struct IRError: Error {}
