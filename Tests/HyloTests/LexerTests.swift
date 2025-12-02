@@ -128,6 +128,43 @@ final class LexerTests: XCTestCase {
       ],
       in: input)
   }
+  
+  func testMultilineString() {
+    let input: SourceFile = """
+      \"\"\"single line\"\"\" 
+      
+      \"\"\"
+      multi
+        line
+      \"\"\"
+
+      \"\"\"\"\"\"
+      
+      \"\"\"
+      escape\\tcodes\\nnewline
+      and another
+      \"\"\"
+
+       \"\"\"
+        Escaped escape: \\\\t
+      \"\"\"
+
+      \"\"\"
+      Hello, \"World!\"!
+      \"\"\"
+      """
+    assert(
+      tokenize(input),
+      matches: [
+        TokenSpecification(.multilineString, "\"\"\"single line\"\"\""),
+        TokenSpecification(.multilineString, "\"\"\"\nmulti\n  line\n\"\"\""),
+        TokenSpecification(.emptyMultilineString, "\"\"\"\"\"\""),
+        TokenSpecification(.multilineString, "\"\"\"\nescape\\tcodes\\nnewline\nand another\n\"\"\""),
+        TokenSpecification(.multilineString, "\"\"\"\n  Escaped escape: \\\\t\n\"\"\""),
+        TokenSpecification(.multilineString, "\"\"\"\nHello, \"World!\"!\n\"\"\""),
+      ],
+      in: input)
+  }
 
   func testKeywords() {
     let input: SourceFile = """

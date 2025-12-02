@@ -8,12 +8,14 @@ public struct Token: Sendable {
     case invalid = 0
     case unterminatedString
     case unterminatedBlockComment
+    case emptyMultilineString
 
     // Scalar literals
     case bool = 1000
     case exponent
     case int
     case string
+    case multilineString
 
     // Identifiers
     case name = 2000

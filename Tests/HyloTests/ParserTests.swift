@@ -1157,6 +1157,88 @@ final class ParserTests: XCTestCase {
     XCTAssertEqual(expr.value, "Hylo")
   }
 
+  func testStringLiteralWithEscapedContent() throws {
+    let input: SourceFile = #""Hy\"l\no""#
+    let (exprID, ast) = try input.parse(with: Parser.parseExpr(in:))
+    let expr = try XCTUnwrap(ast[exprID] as? StringLiteralExpr)
+    XCTAssertEqual(expr.value, "Hy\"l\no")
+  }
+
+  func testUnescape() throws {
+    let inputsAndOutputs: [String: String] = [
+      #"Hello, World!"#: "Hello, World!",
+      #"\n"#: "\n",
+      #"\r"#: "\r",
+      #"\t"#: "\t",
+      #"\0"#: "\0",
+      #"\""#: "\"",
+      #"\'"#: "'",
+      #"\\"#: "\\",
+      #"\u171"#: "ű",
+      #"\u0171"#: "ű",
+      #"0\u0171"#: "0ű",
+      #"h\u00e9k\uE1s"#: "hékás",
+      "\n\\n": "\n\n"
+    ]
+
+    let dummySourceFile: SourceFile = ""
+
+    for (input, expected) in inputsAndOutputs {
+      let result = try Parser.unescape(string: input, site: .empty(at: .init(dummySourceFile.text.startIndex, in: dummySourceFile)))
+      XCTAssertEqual(result, expected)
+    }
+  }
+
+  func testMultilineStringLiteral0() throws {
+    let input: SourceFile = #"""
+      """
+       This is a
+       multiline string
+       """
+      """#
+    let (exprID, ast) = try input.parse(with: Parser.parseExpr(in:))
+    let expr = try XCTUnwrap(ast[exprID] as? StringLiteralExpr)
+    XCTAssertEqual(expr.value, "This is a\nmultiline string")
+  }
+
+  func testMultilineStringLiteral1() throws {
+    let input: SourceFile = #"""
+      """
+       This is a
+         multiline string
+       """
+      """#
+    let (exprID, ast) = try input.parse(with: Parser.parseExpr(in:))
+    let expr = try XCTUnwrap(ast[exprID] as? StringLiteralExpr)
+    XCTAssertEqual(expr.value, "This is a\n  multiline string")
+  }
+  func testMultilineStringLiteral2() throws {
+    let input: SourceFile = #"""
+         """
+
+         This is a
+        multiline string
+      """
+      """#
+    let (exprID, ast) = try input.parse(with: Parser.parseExpr(in:))
+    let expr = try XCTUnwrap(ast[exprID] as? StringLiteralExpr)
+    XCTAssertEqual(expr.value, "\n   This is a\n  multiline string")
+  }
+
+  func testMultilineStringLiteral3() throws {
+    let input: SourceFile = #"""
+         """
+
+        This is a
+
+          multiline string
+        """
+      """#
+    let (exprID, ast) = try input.parse(with: Parser.parseExpr(in:))
+    let expr = try XCTUnwrap(ast[exprID] as? StringLiteralExpr)
+    XCTAssertEqual(expr.value, "\nThis is a\n\n  multiline string")
+  }
+
   func testPragmaLiteralExpr() throws {
     let input: SourceFile = "#file"
     let (exprID, ast) = try input.parse(with: Parser.parseExpr(in:))

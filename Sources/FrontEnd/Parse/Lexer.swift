@@ -184,23 +184,51 @@ public struct Lexer: IteratorProtocol, Sequence, Sendable {
     if head == "\"" {
       discard()
 
-      var escape = false
-      while index < sourceCode.text.endIndex {
-        if !escape && (take("\"") != nil) {
-          token.kind = .string
-          token.site.extend(upTo: index)
-          return token
-        } else if take("\\") != nil {
-          escape = !escape
-        } else {
-          discard()
-          escape = false
+      if take(prefix: "\"\"") != nil {
+        // Multiline string literal.
+        var escape = false
+        var foundAtLeastOneCharacter = false // Needed to satisfy `multiline-quoted-text-item+`
+        while index < sourceCode.text.endIndex {
+          if !escape && take(prefix: "\"\"\"") != nil {
+            token.kind = if foundAtLeastOneCharacter {
+              .multilineString
+            } else {
+              .emptyMultilineString
+            }
+            token.site.extend(upTo: index)
+            return token
+          } else if take("\"") != nil {
+            escape = !escape
+          } else {
+            discard()
+            escape = false
+            foundAtLeastOneCharacter = true
+          }
         }
-      }
+        token.kind = .multilineString
+        token.site.extend(upTo: index)
+        return token
+      } else {
+        // Single-line string literal.
+        var escape = false
+        while index < sourceCode.text.endIndex {
 
-      token.kind = .unterminatedString
-      token.site.extend(upTo: index)
-      return token
+          if !escape && (take("\"") != nil) {
+            token.kind = .string
+            token.site.extend(upTo: index)
+            return token
+          } else if take("\\") != nil {
+            escape = !escape
+          } else {
+            discard()
+            escape = false
+          }
+        }
+
+        token.kind = .unterminatedString
+        token.site.extend(upTo: index)
+        return token
+      }
     }
 
     // Scan attributes.

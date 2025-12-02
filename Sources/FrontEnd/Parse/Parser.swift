@@ -76,6 +76,11 @@ public enum Parser: Sendable {
           .error(unterminatedStringStartingAt: head.site.start))
         break
 
+      case .emptyMultilineString:
+        state.diagnostics.insert(.error(emptyMultilineStringAt: head.site))
+        // Already at a valid position, continue parsing.
+        break
+
       default:
         state.diagnostics.insert(.error(unexpectedToken: head))
 
@@ -1689,12 +1694,31 @@ public enum Parser: Sendable {
     case .string:
       // String literal.
       _ = state.take()
-      let expr = state.insert(
-        StringLiteralExpr(
-          value: String(state.lexer.sourceCode[head.site].dropFirst().dropLast()),
-          site: head.site))
-      return AnyExprID(expr)
 
+      do {
+        let expr = state.insert(
+          StringLiteralExpr(// todo parse contents properly
+            value: try unescape(string: state.lexer.sourceCode[head.site].dropFirst().dropLast(), site: head.site),
+            site: head.site))
+        return AnyExprID(expr)
+      } catch let diagnostic {
+        state.diagnostics.insert(diagnostic)
+        throw state.diagnostics
+      }
+    case .multilineString:
+      _ = state.take()
+      do {
+        let expr = state.insert(
+          StringLiteralExpr(
+            value: try parseMultilineStringLiteralContents(contents: state.lexer.sourceCode[head.site].dropFirst(3).dropLast(3), site: head.site),
+            site: head.site
+          )
+        )
+        return AnyExprID(expr)
+      } catch let diagnostic {
+        state.diagnostics.insert(diagnostic)
+        throw state.diagnostics
+      }
     case .under:
       // Wildcard expression.
       _ = state.take()
@@ -1771,6 +1795,155 @@ public enum Parser: Sendable {
         value: state.lexer.sourceCode[integer.site].filter({ $0 != "_" }),
         site: integer.site))
     return AnyExprID(e)
+  }
+
+  /// Returns the real string value of a multiline string literal given its
+  /// raw `contents` excluding the triple quotes.
+  /// 
+  /// The first new-line delimiter in a multiline string literal is not part 
+  /// of the value of that literal if it immediately succeeds the opening 
+  /// delimiter. The last new-line delimiter that is succeeded by a contiguous
+  /// sequence of inline spaces followed by the closing delimiter is called 
+  /// the indentation marker. The indentation marker and the succeeding inline 
+  /// spaces specify the indentation pattern of the literal and are not part 
+  /// of its value. The pattern is defined as the sequence of inline spaces 
+  /// between the indentation marker and the closing delimiter. That sequence 
+  /// must be homogeneous. If the literal has no indentation marker, its 
+  /// indentation pattern is an empty sequence. Each line of a multiline 
+  /// string literal must begin with the indentation pattern of that literal. 
+  /// That prefix is not part of the value of the literal.
+  internal static func parseMultilineStringLiteralContents(contents: Substring, site: SourceRange) throws(Diagnostic) -> String {
+    let contents = if contents.starts(with: "\r\n") {
+      contents.dropFirst(2)
+    } else if contents.starts(with: "\n") || contents.starts(with: "\r") {
+      contents.dropFirst()
+    } else {
+      contents
+    }
+
+    let lines = contents.split(separator: "\n", omittingEmptySubsequences: false) // todo handle other line endings
+    guard let lastLine = lines.last else {
+      return String(contents) // Single line; no indentation marker
+    }
+
+    let firstNonWhitespaceIndex = lastLine.firstIndex(where: { !$0.isWhitespace }) ?? lastLine.endIndex
+    let indentationMarker = lastLine[..<firstNonWhitespaceIndex]
+    
+    if !indentationMarker.homogeneous {
+      // Calculate the range of the indentation pattern in the last line
+      let lastLineStartInContents = lastLine.startIndex
+      let indentationEndInContents = firstNonWhitespaceIndex
+      
+      // Map to source file indices - add 3 to account for the leading """ that was dropped
+      let contentsStartInSource = site.file.text.index(site.startIndex, offsetBy: 3)
+      let lastLineStartInSource = site.file.text.index(contentsStartInSource, offsetBy: contents.distance(from: contents.startIndex, to: lastLineStartInContents))
+      let indentationEndInSource = site.file.text.index(contentsStartInSource, offsetBy: contents.distance(from: contents.startIndex, to: indentationEndInContents))
+      
+      let indentationRange = SourceRange(lastLineStartInSource..<indentationEndInSource, in: site.file)
+      throw .error(nonHomogeneousIndentationInMultilineStringEndingAt: indentationRange)
+    }
+
+    #if os(Windows)
+    let nativeLineSeparator = "\r\n"
+    #else
+    let nativeLineSeparator = "\n"
+    #endif
+
+    var contentLines: [Substring] = []
+    for (i, line) in lines.enumerated().dropLast() {
+      guard line.isEmpty || line.starts(with: indentationMarker) else {
+        // TODO: Improve the error message to explain the issue better when tabs/spaces 
+        // are inconsistent (Swift does this extremely well).
+        throw .error("inconsistent indentation of line \(i) in multiline string literal. Expected start '\(indentationMarker)', got '\(line)'", at: site)
+      }
+
+      contentLines.append(line.dropFirst(indentationMarker.count))
+    }
+    return try unescape(string: contentLines.joined(separator: nativeLineSeparator), site: site)
+  }
+
+  internal static func unescapeSequence<S: StringProtocol>(stringType: S.Type, afterBackslash it: inout S.Iterator, 
+    appendingTo result: inout String, site: SourceRange) throws(Diagnostic) -> Void {
+    guard let next = it.next() else {
+      throw Diagnostic(
+        level: .error, message: "Invalid escape sequence at end of string", 
+        site: SourceRange(site.text.index(before: site.endIndex)..<site.endIndex, in: site.file))
+    }
+    switch next {
+    case "n":
+      result.append("\n")
+    case "r":
+      result.append("\r")
+    case "t":
+      result.append("\t")
+    case "\\":
+      result.append("\\")
+    case "'":
+      result.append("'")
+    case "\"":
+      result.append("\"")
+    case "0":
+      result.append("\0")
+    case "u":
+      // Unicode scalar escape sequence.
+      var hexDigits = ""
+      // At least one, at most 4 hex digits required.
+      var prevIt: S.Iterator
+      var foundNonzero = false
+      var foundAny = false
+
+      // TODO: change syntax to \u{XXXX} to allow variable-length sequences
+      for _ in 0..<4 {
+        prevIt = it
+        guard let digit = it.next(), digit.isHexDigit else { 
+          it = prevIt // revert iterator
+          break
+        }
+        foundAny = true
+        if digit != "0" {
+          foundNonzero = true
+        }
+        if foundNonzero {
+          hexDigits.append(digit)
+        }
+      }
+      if !foundAny {
+        throw Diagnostic(
+          level: .error, message: "empty unicode escape sequence", 
+          site: site) // todo more precise site
+      }
+      if foundNonzero {
+        guard let scalarValue = UInt32(hexDigits, radix: 16),
+              let scalar = UnicodeScalar(scalarValue) else {
+          throw Diagnostic(
+            level: .error, message: "invalid unicode escape sequence: \\u{\(hexDigits)}", 
+            site: site) // todo more precise site
+        }
+        result.append(Character(scalar))
+      } else {
+        result.append(Character(UnicodeScalar(0)))
+      }
+    default:
+      throw Diagnostic(
+        level: .error, message: "unknown escape sequence: \\(next)", 
+        site: site) // todo more precise site
+    }
+  }
+
+  internal static func unescape<S: StringProtocol>(string: S, site: SourceRange) throws (Diagnostic) -> String {
+    var result = ""
+    result.reserveCapacity(string.count)
+
+    var it = string.makeIterator() 
+    while let c = it.next() {
+      if c == "\\" {
+        try unescapeSequence(stringType: S.self, afterBackslash: &it, appendingTo: &result, site: site)
+      } else {
+        result.append(c)
+      }
+    }
+
+    return result
   }
 
   /// Parses a float literal expression from `state`, assuming it has the given `integerPart`.
@@ -3812,4 +3985,16 @@ extension ParserState {
     .init(value: String(lexer.sourceCode[t.site]), range: t.site)
   }
 
+}
+
+extension Collection where Element: Equatable {
+  /// Whether all elements in this collection are identical.
+  var homogeneous: Bool {
+    guard let firstElement = self.first else { return true }
+    return allSatisfy({ $0 == firstElement })
+  }
+}
+
+/// Conforms `Diagnostic` to `Error` so that it can be thrown.
+extension Diagnostic : Error {
 }

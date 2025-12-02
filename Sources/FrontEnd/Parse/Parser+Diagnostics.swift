@@ -48,6 +48,14 @@ extension Diagnostic {
     .error("unterminated string", at: p ..< p)
   }
 
+  static func error(emptyMultilineStringAt site: SourceRange) -> Diagnostic {
+    .error("multiline string literal cannot be empty", at: site)
+  }
+
+  static func error(nonHomogeneousIndentationInMultilineStringEndingAt site: SourceRange) -> Diagnostic {
+    .error("indentation characters (tabs/spaces) must be homogeneous", at: site)
+  }
+
   static func error(duplicateAccessModifier m: SourceRepresentable<AccessModifier>) -> Diagnostic {
     .error("duplicate access modifier '\(m.value)'", at: m.site)
   }
