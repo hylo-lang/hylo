@@ -2757,7 +2757,7 @@ struct Emitter: Sendable {
     }
   }
 
-  /// Returns an existential container of type `t` wrappring `witness`.
+  /// Returns an existential container of type `t` wrapping `witness`.
   private mutating func _emitExistential(
     _ t: ExistentialType, wrapping witness: Operand
   ) -> Operand {
