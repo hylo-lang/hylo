@@ -31,10 +31,7 @@ public struct Block: Sendable {
   }
 
   /// Creates a block for scope `scope` with the given `inputs` and `instructions`.
-  public init(
-    scope: AnyScopeID,
-    inputs: [IR.`Type`]
-  ) {
+  public init(scope: AnyScopeID, inputs: [IR.`Type`]) {
     self.scope = scope
     self.inputs = inputs
     self.first = nil
