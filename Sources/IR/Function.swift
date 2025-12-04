@@ -359,13 +359,13 @@ public struct Function: Sendable {
   }
 
   /// Returns the ID the instruction after `i`, in block `b`.
-  func instruction(after i: InstructionID, in b: Block.ID) -> InstructionID? {
+  public func instruction(after i: InstructionID, in b: Block.ID) -> InstructionID? {
     if self[b].last == i { return nil }
     return instructions.address(after: i.address).map({ InstructionID($0) })
   }
 
   /// Returns the block corresponding to `i`.
-  func block(of i: InstructionID) -> Block.ID {
+  public func block(of i: InstructionID) -> Block.ID {
     blockForInstruction[i]!
   }
 
