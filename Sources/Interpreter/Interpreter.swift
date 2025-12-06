@@ -9,8 +9,11 @@ struct CodePointer {
   /// The module containing `self`.
   var module: Module.ID
 
-  /// The position relative to `module` indicated by `self`.
-  var instructionInModule: InstructionID
+  /// The function in `module` indicated by `self`.
+  var functionInModule: Function.ID
+
+  /// The position relative to `functionInModule` indicated by `self`.
+  var instructionInFunction: InstructionID
 
 }
 
@@ -228,10 +231,10 @@ public struct Interpreter {
     let entryFunctionID = entryModule.entryFunction!
     let entryFunction = entryModule.functions[entryFunctionID]!
     let entryBlockID = entryFunction.entry!
-    let entryInstructionAddress = entryFunction.blocks[entryBlockID].instructions.firstAddress!
     programCounter = .init(
       module: entryModuleID,
-      instructionInModule: InstructionID(entryFunctionID, entryBlockID, entryInstructionAddress))
+      functionInModule: entryFunctionID,
+      instructionInFunction: entryFunction.firstInstruction(in: entryBlockID)!)
 
     // The return address of the bottom-most frame will never be used,
     // so we fill it with something arbitrary.
@@ -241,8 +244,8 @@ public struct Interpreter {
 
   /// The value of the current instruction's result, if it has been computed.
   private var currentRegister: Any? {
-    get { topOfStack.registers[programCounter.instructionInModule] }
-    set { topOfStack.registers[programCounter.instructionInModule] = newValue }
+    get { topOfStack.registers[programCounter.instructionInFunction] }
+    set { topOfStack.registers[programCounter.instructionInFunction] = newValue }
   }
 
   /// Executes a single instruction.
@@ -350,24 +353,18 @@ public struct Interpreter {
   /// - Precondition: the program is running.
   public var currentInstruction: any Instruction {
     _read {
-      yield program.modules[programCounter.module]!
-      .functions[programCounter.instructionInModule.function]!
-      .blocks[programCounter.instructionInModule.block][programCounter.instructionInModule.address]
+      yield program.modules[programCounter.module]![programCounter.instructionInFunction, in: programCounter.functionInModule]
     }
   }
 
   /// Moves the program counter to the next instruction.
   mutating func advanceProgramCounter() throws {
-    let b = program.modules[programCounter.module]!
-      .functions[programCounter.instructionInModule.function]!
-      .blocks[programCounter.instructionInModule.block].instructions
-    guard let a = b.address(after: programCounter.instructionInModule.address) else {
+    let f = program.modules[programCounter.module]![programCounter.functionInModule]
+    let b = f.block(of: programCounter.instructionInFunction)
+    guard let a = f.instruction(after: programCounter.instructionInFunction, in: b) else {
       throw IRError()
     }
-    programCounter.instructionInModule = InstructionID(
-      programCounter.instructionInModule.function,
-      programCounter.instructionInModule.block,
-      a)
+    programCounter.instructionInFunction = a
   }
 
   /// Removes topmost stack frame and points `programCounter` to next instruction

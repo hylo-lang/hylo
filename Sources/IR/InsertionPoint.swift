@@ -13,17 +13,15 @@ enum InsertionPoint: Sendable {
   /// After another instruction.
   case after(InstructionID)
 
-  /// The block in which this insertion point falls.
-  var block: Block.ID {
+  /// The block in which this insertion point falls, if a block is our anchor.
+  var block: Block.ID? {
     switch self {
     case .start(let b):
       return b
     case .end(let b):
       return b
-    case .before(let i):
-      return .init(i.function, i.block)
-    case .after(let i):
-      return .init(i.function, i.block)
+    default:
+      return nil
     }
   }
 

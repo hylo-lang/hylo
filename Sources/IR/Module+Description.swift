@@ -52,20 +52,20 @@ extension Module: TextOutputStreamable {
     if function.entry == nil { return }
     output.write(" {\n")
 
-    for i in blocks(in: f) {
+    for i in self[f].blockIDs {
       output.write("\(i)(")
       output.write(
-        self[i].inputs.enumerated().lazy
+        self[i, in: f].inputs.enumerated().lazy
           .map({ (j, t) in "\(Operand.parameter(i, j)) : \(t)" })
           .joined(separator: ", "))
       output.write("):\n")
 
-      for j in instructions(in: i) {
+      for j in self[f].instructions(in: i) {
         output.write("  ")
-        if let t = self[j].result {
+        if let t = self[j, in: f].result {
           output.write("\(Operand.register(j)): \(t) = ")
         }
-        output.write("\(self[j])\n")
+        output.write("\(self[j, in: f])\n")
       }
     }
 
