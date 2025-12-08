@@ -1,0 +1,8 @@
+//- lowerToFinishedIR expecting: .failure
+
+public type A: Deinitializable {
+
+  public property p: Int {
+  } //! diagnostic not all paths of the projection contain a yield
+
+}
