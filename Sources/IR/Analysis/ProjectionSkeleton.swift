@@ -4,10 +4,10 @@ internal struct ProjectionSkeleton {
   /// The yield points in the projection, in the order they appear in the function.
   public let yieldPoints: [InstructionID]
 
-  /// The blocks that are part of the ramp, i.e., the blocks that must be executed before an yield instruction.
+  /// The blocks that are part of the ramp, i.e., the blocks that must be executed before a yield instruction.
   public let rampBlocks: [Block.ID]
 
-  /// The blocks that are part of the slide, i.e., the blocks that must be executed after an yield instruction.
+  /// The blocks that are part of the slide, i.e., the blocks that must be executed after a yield instruction.
   public let slideBlocks: [Block.ID]
 
 }

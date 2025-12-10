@@ -2,9 +2,9 @@
 
 public type A: Deinitializable {
 
-  public property p: Int { //! diagnostic multiple yields on the same path
+  public property p: Int {
     yield 1
-    yield 2
+    yield 2 //! diagnostic multiple yields on the same path
   }
 
 }

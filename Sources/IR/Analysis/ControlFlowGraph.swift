@@ -107,6 +107,57 @@ struct ControlFlowGraph: Sendable {
     return result
   }
 
+  /// The type of action to perform after exploring a vertex.
+  enum ExplorationContinuation {
+
+    /// Continue exploring the successors of the vertex.
+    case `continue`
+
+    /// Skip exploring the successors of the vertex.
+    case skip
+
+    /// Stop exploring the graph.
+    case stop
+
+  }
+
+  /// Explores the graph in a breadth-first manner starting from `start`, calling `handlingBlock`
+  /// for each visited block.
+  ///
+  /// When calling `handlingBlock`, the block's ID and its successors are passed as arguments. The
+  /// return value of `handlingBlock` determines how the exploration continues.
+  ///
+  /// If `forward` is `false`, the graph is explored in the reverse direction, following
+  /// predecessor edges instead of successor edges.
+  func exploreFrom(
+    _ start: [Block.ID],
+    forward: Bool = true,
+    handlingBlock: (Block.ID, [Block.ID]) -> ExplorationContinuation
+  ) {
+    var work = start
+    var visited: Set<Block.ID> = []
+
+    while let b = work.popLast() {
+      if visited.contains(b) {
+        continue
+      }
+      visited.insert(b)
+
+      let successors = forward ? successors(of: b) : predecessors(of: b)
+
+      switch handlingBlock(b, successors) {
+      case .continue:
+        for s in successors where !visited.contains(s) {
+          work.append(s)
+        }
+      case .skip:
+        continue
+      case .stop:
+        break
+      }
+    }
+  }
+
 }
 
 extension ControlFlowGraph: CustomStringConvertible {

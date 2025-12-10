@@ -38,9 +38,8 @@ extension Function {
         if yieldBlocks[i] == yieldBlocks[i - 1] {
           log.insert(
             .multipleYields(
-              at: site,
-              firstYieldSite: self[yieldPoints[i - 1]].site,
-              secondYieldSite: self[yieldPoints[i]].site))
+              at: self[yieldPoints[i]].site,
+              previousYieldSite: self[yieldPoints[i - 1]].site))
         }
       }
     }
@@ -48,53 +47,76 @@ extension Function {
     // From now on, we can perform all the checks on blocks.
     let cfg = cfg()
 
-    // Find the ramp and slide blocks.
-    let rampBlocks = Set(yieldBlocks.lazy.flatMap({ cfg.predecessors(of: $0) }))
-    let slideBlocks = Set(yieldBlocks.lazy.flatMap({ cfg.successors(of: $0) }))
+    // The slide blocks (every block reachable from a yield block).
+    var slide: [Block.ID] = []
+    // The ramp blocks (every block reachable before a yield block).
+    var ramp: [Block.ID] = []
 
-    // If we have any blocks that are not in either the ramp or the slide, the projection is ill-formed.
-    let rest = Set(blockIDs).subtracting(slideBlocks).subtracting(rampBlocks).subtracting(yieldBlocks)
-    if !rest.isEmpty {
-      let b = lastBlock(start: rest.first!, cfg: cfg)
-      log.insert(.pathWithoutYield(at: self[terminator(of: b)!].site))
-      try log.throwOnError()
+    // Phase 1: Fully explore the ramp blocks.
+    // Check for any paths that don't contain yields.
+    // Also compute the direct successors for all encountered yield blocks.
+    cfg.exploreFrom([entry!]) { (b, successors) in
+      // Have we encountered a yield block?
+      if yieldBlocks.contains(b) {
+        // Move the direct successors to the slide.
+        for s in successors { slide.appendUnique(s) }
+        // Don't follow this path any further.
+        return .skip
+      }
+
+      // If this is not a yield block, then it's part of the ramp (we don't explore past yield blocks).
+      ramp.appendUnique(b)
+
+      // If we reached the end of the exploration, this is a terminal ramp block.
+      // This means that there is a path without yields.
+      if successors.isEmpty {
+        log.insert(.pathWithoutYield(at: self[terminator(of: b)!].site))
+        return .stop
+      }
+      return .continue
     }
+    try log.throwOnError()
 
-    // If we have any yields on the slide blocks, the projection is ill-formed.
-    let slidesWithYields = slideBlocks.intersection(yieldBlocks)
-    if !slidesWithYields.isEmpty {
-      // We have slide blocks that contain yields.
-      // Reconstruct the yield information and report diagnostics.
-      let b2 = slidesWithYields.first!
-      let b1 = Set(yieldBlocks).intersection(cfg.predecessors(of: b2)).first!
+    // Phase 2: Fully explore the slide.
+    // Make sure that the slide blocks don't contain yields.
+    cfg.exploreFrom(slide) { (b, successors) in
+      slide.appendUnique(b)
+      // Make sure there isn't another yield in the block.
+      if yieldBlocks.contains(b) {
+        // We have slide blocks that contain yields.
+        // Reconstruct the yield information and report diagnostics.
+        let site = self[yieldForBlock(b)!].site
+        let previousYieldBlock = yieldBlockForSlide(b, cfg: cfg, yieldBlocks: yieldBlocks)!
+        let previousSite = self[yieldForBlock(previousYieldBlock)!].site
 
-      log.insert(
-        .multipleYields(
-          at: site,
-          firstYieldSite: self[yieldForBlock(b1)!].site,
-          secondYieldSite: self[yieldForBlock(b2)!].site))
-      try log.throwOnError()
+        log.insert(.multipleYields(at: site, previousYieldSite: previousSite))
+        return .stop
+      }
+
+      return .continue
     }
+    try log.throwOnError()
 
     return ProjectionSkeleton(
       yieldPoints: yieldPoints,
-      rampBlocks: Array(rampBlocks),
-      slideBlocks: Array(slideBlocks),
+      rampBlocks: ramp,
+      slideBlocks: slide,
     )
   }
 
-  /// Returns the last block reachable from `b` by following the first successor.
-  private func lastBlock(start b: Block.ID, cfg: ControlFlowGraph) -> Block.ID {
-    var current = b
-    var visited: Set<Block.ID> = []
-    while true {
-      visited.insert(current)
-      let ss = Set(cfg.successors(of: current)).subtracting(visited)
-      if ss.isEmpty {
-        return current
+  /// Returns the block containing a yield that has `b` as a slide block, if any.
+  ///
+  /// - Complexity: O(n) in the number of blocks in the CFG.
+  private func yieldBlockForSlide(_ b: Block.ID, cfg: ControlFlowGraph, yieldBlocks: [Block.ID]) -> Block.ID? {
+    var r: Block.ID? = nil
+    cfg.exploreFrom([b], forward: false) { (b, _) in
+      if yieldBlocks.contains(b) {
+        r = b
+        return .stop
       }
-      current = ss.first!
+      return .continue
     }
+    return r
   }
 
   /// Returns the first yield instruction in block `b`.
@@ -104,17 +126,20 @@ extension Function {
 
 }
 
+extension Array where Element : Equatable {
+  fileprivate mutating func appendUnique(_ element: Element) {
+    if !self.contains(element) {
+      self.append(element)
+    }
+  }
+}
+
 extension Diagnostic {
 
-  fileprivate static func multipleYields(
-    at site: SourceRange, firstYieldSite: SourceRange, secondYieldSite: SourceRange
-  ) -> Diagnostic {
+  fileprivate static func multipleYields(at site: SourceRange, previousYieldSite: SourceRange) -> Diagnostic {
     .error(
       "multiple yields on the same path", at: site,
-      notes: [
-        .note("see first yield", at: firstYieldSite),
-        .note("and second yield", at: secondYieldSite),
-      ])
+      notes: [.note("see previous yield", at: previousYieldSite)])
   }
 
   fileprivate static func pathWithoutYield(at site: SourceRange) -> Diagnostic {
