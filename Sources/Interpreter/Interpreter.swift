@@ -16,7 +16,10 @@ struct CodePointer {
 }
 
 /// The value produced by executing an instruction.
-typealias InstructionResult = Any
+struct InstructionResult {
+  /// The instruction's output as an opaque, type-erased value.
+  var payload: Any
+}
 
 /// A typed location in memory.
 struct Address: Regular {
@@ -123,7 +126,7 @@ public struct Interpreter {
   }
 
   private var currentRegister: InstructionResult? {
-    get { topOfStack.registers[programCounter.instructionInModule]! }
+    get { topOfStack.registers[programCounter.instructionInModule] }
     set { topOfStack.registers[programCounter.instructionInModule] = newValue }
   }
 
@@ -144,7 +147,7 @@ public struct Interpreter {
     case let x as AllocStack:
       let a = allocate(typeLayout[x.allocatedType])
       topOfStack.allocations.append(a)
-      currentRegister = a
+      currentRegister = .init(payload: a)
 
     case let x as Branch:
       _ = x
@@ -165,7 +168,7 @@ public struct Interpreter {
     case let x as CondBranch:
       _ = x
     case let x as ConstantString:
-      currentRegister = x.value
+      currentRegister = .init(payload: x.value)
     case let x as DeallocStack:
       let a = addressProduced(by: x.location.instruction!)!
       try deallocateStack(a)
@@ -293,7 +296,7 @@ public struct Interpreter {
   /// Returns the address produced by executing instruction identified by `i` in the current frame,
   /// or `nil` if it didn't produce an address.
   func addressProduced(by i: InstructionID) -> Address? {
-    topOfStack.registers[i] as? Address
+    topOfStack.registers[i]?.payload as? Address
   }
 
 }
