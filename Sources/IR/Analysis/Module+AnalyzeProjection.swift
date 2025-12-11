@@ -9,9 +9,8 @@ extension Module {
   mutating func analyzeProjection(
     _ f: Function.ID, reportingDiagnosticsTo log: inout DiagnosticSet
   ) {
-    if !self[f].isSubscript {
-      return
-    }
+    // Nothing to do if `f` is not a subscript.
+    if !self[f].isSubscript { return }
 
     if let p = try? self[f].analyzeProjection(reportingDiagnosticsTo: &log) {
       projectionSkeletons[f] = p
@@ -29,12 +28,12 @@ extension Function {
   ) throws -> ProjectionSkeleton {
     // Gather all the yield points in the projection.
     let yieldPoints: [InstructionID] = instructionIdentities.filter({ self[$0] is Yield })
-    let yieldBlocks = yieldPoints.map({ block(of: $0) })
+    let yieldBlocks = yieldPoints.map(block(of:_))
 
     // Check that there aren't two yields in the same block.
     // In that case, we would get two yield blocks one after the other.
     if yieldBlocks.count >= 2 {
-      for i in 1..<yieldBlocks.count {
+      for i in 1 ..< yieldBlocks.count {
         if yieldBlocks[i] == yieldBlocks[i - 1] {
           log.insert(
             .multipleYields(
@@ -100,8 +99,7 @@ extension Function {
     return ProjectionSkeleton(
       yieldPoints: yieldPoints,
       rampBlocks: ramp,
-      slideBlocks: slide,
-    )
+      slideBlocks: slide)
   }
 
   /// Returns the block containing a yield that has `b` as a slide block, if any.
@@ -127,10 +125,15 @@ extension Function {
 }
 
 extension Array where Element : Equatable {
-  fileprivate mutating func appendUnique(_ element: Element) {
+
+    /// Appends `element` to `self` iff it is not already contained in `self`.
+    ///
+    /// - Complexity: O(n) where n is the length of `self`.
+    fileprivate mutating func appendUnlessContained(_ element: Element) {
     if !self.contains(element) {
       self.append(element)
     }
+
   }
 }
 

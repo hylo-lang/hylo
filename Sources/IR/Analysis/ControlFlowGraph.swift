@@ -121,7 +121,7 @@ struct ControlFlowGraph: Sendable {
 
   }
 
-  /// Explores the graph in a breadth-first manner starting from `start`, calling `handlingBlock`
+  /// Explores the graph in a breadth-first manner starting from `start`, calling `handleBlock`
   /// for each visited block.
   ///
   /// When calling `handlingBlock`, the block's ID and its successors are passed as arguments. The
@@ -132,24 +132,19 @@ struct ControlFlowGraph: Sendable {
   func exploreFrom(
     _ start: [Block.ID],
     forward: Bool = true,
-    handlingBlock: (Block.ID, [Block.ID]) -> ExplorationContinuation
+    _ handleBlock: (Block.ID, [Block.ID]) -> ExplorationContinuation
   ) {
     var work = start
     var visited: Set<Block.ID> = []
 
-    while let b = work.popLast() {
-      if visited.contains(b) {
-        continue
-      }
+    while let b = work.popLast() where !visited.contains(b) {
       visited.insert(b)
 
       let successors = forward ? successors(of: b) : predecessors(of: b)
 
       switch handlingBlock(b, successors) {
       case .continue:
-        for s in successors where !visited.contains(s) {
-          work.append(s)
-        }
+        work.append(contentsOf: successors.filter({ !visited.contains($0) }))
       case .skip:
         continue
       case .stop:
