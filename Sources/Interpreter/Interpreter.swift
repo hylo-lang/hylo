@@ -263,6 +263,8 @@ public struct Interpreter {
   ///
   /// - Precondition: the program is running.
   mutating func popStackFrame() {
+    precondition(topOfStack.allocations.isEmpty,
+        "All local variables allocations for function must be deallocated before returning.")
     programCounter = callStack.popLast()!.returnAddress
     if callStack.isEmpty {
       isRunning = false
