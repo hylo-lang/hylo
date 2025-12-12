@@ -28,7 +28,7 @@ extension Function {
   ) throws -> ProjectionSkeleton {
     // Gather all the yield points in the projection.
     let yieldPoints: [InstructionID] = instructionIdentities.filter({ self[$0] is Yield })
-    let yieldBlocks = yieldPoints.map(block(of:_))
+    let yieldBlocks = yieldPoints.map({ block(of: $0) })
 
     // Check that there aren't two yields in the same block.
     // In that case, we would get two yield blocks one after the other.
@@ -58,13 +58,13 @@ extension Function {
       // Have we encountered a yield block?
       if yieldBlocks.contains(b) {
         // Move the direct successors to the slide.
-        for s in successors { slide.appendUnique(s) }
+        for s in successors { slide.appendUnlessContained(s) }
         // Don't follow this path any further.
         return .skip
       }
 
       // If this is not a yield block, then it's part of the ramp (we don't explore past yield blocks).
-      ramp.appendUnique(b)
+      ramp.appendUnlessContained(b)
 
       // If we reached the end of the exploration, this is a terminal ramp block.
       // This means that there is a path without yields.
@@ -79,7 +79,7 @@ extension Function {
     // Phase 2: Fully explore the slide.
     // Make sure that the slide blocks don't contain yields.
     cfg.exploreFrom(slide) { (b, successors) in
-      slide.appendUnique(b)
+      slide.appendUnlessContained(b)
       // Make sure there isn't another yield in the block.
       if yieldBlocks.contains(b) {
         // We have slide blocks that contain yields.
