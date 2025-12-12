@@ -6,13 +6,13 @@ extension Module {
   /// the relevant information for expanding projections.
   ///
   /// A well formed projection must have exactly one yield on each path through the function.
-  mutating func analyzeProjection(
+  mutating func checkYieldCoherence(
     _ f: Function.ID, reportingDiagnosticsTo log: inout DiagnosticSet
   ) {
     // Nothing to do if `f` is not a subscript.
     if !self[f].isSubscript { return }
 
-    if let p = try? self[f].analyzeProjection(reportingDiagnosticsTo: &log) {
+    if let p = try? self[f].checkYieldCoherence(reportingDiagnosticsTo: &log) {
       projectionSkeletons[f] = p
     }
   }
@@ -23,7 +23,7 @@ extension Function {
 
   /// Check if projection `self` is well-formed, raising diagnostics to `log` as needed,
   /// and returns the relevant information for expanding projections.
-  fileprivate func analyzeProjection(
+  fileprivate func checkYieldCoherence(
     reportingDiagnosticsTo log: inout DiagnosticSet
   ) throws -> ProjectionSkeleton {
     // Gather all the yield points in the projection.

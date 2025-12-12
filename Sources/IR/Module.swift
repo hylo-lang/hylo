@@ -141,7 +141,7 @@ public struct Module: Sendable {
     try run({ closeBorrows(in: $0, diagnostics: &log) })
     try run({ normalizeObjectStates(in: $0, diagnostics: &log) })
     try run({ ensureExclusivity(in: $0, diagnostics: &log) })
-    try run({ analyzeProjection($0, reportingDiagnosticsTo: &log) })
+    try run({ checkYieldCoherence($0, reportingDiagnosticsTo: &log) })
 
     try generateSyntheticImplementations(reportingDiagnosticsTo: &log)
   }
