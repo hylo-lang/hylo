@@ -106,15 +106,7 @@ extension Function {
   ///
   /// - Complexity: O(n) in the number of blocks in the CFG.
   private func yieldBlockForSlide(_ b: Block.ID, cfg: ControlFlowGraph, yieldBlocks: [Block.ID]) -> Block.ID? {
-    var r: Block.ID? = nil
-    cfg.exploreFrom([b], forward: false) { (b, _) in
-      if yieldBlocks.contains(b) {
-        r = b
-        return .stop
-      }
-      return .continue
-    }
-    return r
+    cfg.iterateFrom([b], forward: false).first(where: { yieldBlocks.contains($0) })
   }
 
   /// Returns the first yield instruction in block `b`.

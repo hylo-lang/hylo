@@ -154,6 +154,27 @@ struct ControlFlowGraph: Sendable {
     }
   }
 
+  /// Iterates over all blocks reachable from `start`, in the direction indicated by `Forward`.
+  func iterateFrom(_ start: [Block.ID], forward: Bool = true) -> AnySequence<Block.ID> {
+    AnySequence { () -> AnyIterator<Block.ID> in
+      var work = start
+      var visited: Set<Block.ID> = []
+
+      return AnyIterator {
+        while let b = work.popLast() {
+          if visited.contains(b) { continue }
+          visited.insert(b)
+
+          let successors = forward ? self.successors(of: b) : self.predecessors(of: b)
+          work.append(contentsOf: successors.filter({ !visited.contains($0) }))
+
+          return b
+        }
+        return nil
+      }
+    }
+  }
+
 }
 
 extension ControlFlowGraph: CustomStringConvertible {
