@@ -170,7 +170,7 @@ public struct Interpreter {
     case let x as ConstantString:
       currentRegister = .init(payload: x.value)
     case let x as DeallocStack:
-      let a = addressProduced(by: x.location.instruction!)!
+      let a = addressToBeDeallocated(by: x)
       try deallocateStack(a)
     case is EndAccess:
       // No effect on program state
@@ -299,6 +299,14 @@ public struct Interpreter {
   /// or `nil` if it didn't produce an address.
   func addressProduced(by i: InstructionID) -> Address? {
     topOfStack.registers[i]?.payload as? Address
+  }
+
+  /// Returns the address to be deallocated by `i`.
+  func addressToBeDeallocated(by i: DeallocStack) -> Address {
+    precondition(i.location.instruction != nil, "DeallocStack must reference a valid instruction.")
+    let a = addressProduced(by: i.location.instruction!)
+    precondition(a != nil, "Referenced instruction must produce an address.")
+    return a!
   }
 
 }
