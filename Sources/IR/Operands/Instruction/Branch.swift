@@ -22,7 +22,6 @@ public struct Branch: Terminator {
   }
 
   mutating func replaceSuccessor(_ old: Block.ID, with new: Block.ID) -> Bool {
-    precondition(new.function == target.function)
     if target == old {
       target = new
       return true

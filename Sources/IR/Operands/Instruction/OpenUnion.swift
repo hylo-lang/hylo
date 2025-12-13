@@ -72,9 +72,9 @@ extension Module {
   func makeOpenUnion(
     _ container: Operand, as payload: AnyType,
     forInitialization isUsedForInitialization: Bool = false,
-    at site: SourceRange
+    in f: Function.ID, at site: SourceRange
   ) -> OpenUnion {
-    precondition(type(of: container).isAddress)
+    precondition(self[f].type(of: container).isAddress)
     precondition(payload.isCanonical)
     return .init(
       container: container,

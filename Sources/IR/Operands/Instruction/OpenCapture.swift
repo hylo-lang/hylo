@@ -36,8 +36,8 @@ public struct OpenCapture: RegionEntry {
 extension Module {
 
   /// Creates an `open_capture` anchored at `site` that loads the address stored at `source`.
-  func makeOpenCapture(_ source: Operand, at site: SourceRange) -> OpenCapture {
-    let t = RemoteType(type(of: source).ast) ?? preconditionFailure()
+  func makeOpenCapture(_ source: Operand, in f: Function.ID, at site: SourceRange) -> OpenCapture {
+    let t = RemoteType(self[f].type(of: source).ast) ?? preconditionFailure()
     return .init(result: .address(t.bareType), source: source, site: site)
   }
 

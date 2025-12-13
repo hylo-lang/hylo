@@ -62,9 +62,9 @@ extension Module {
   ///   - table: The witness table of the wrapped value. Must be a pointer to a witness table.
   func makeWrapExistentialAddr(
     _ witness: Operand, _ table: Operand, as interface: ExistentialType,
-    at site: SourceRange
+    in f: Function.ID, at site: SourceRange
   ) -> WrapExistentialAddr {
-    precondition(type(of: witness).isAddress)
+    precondition(self[f].type(of: witness).isAddress)
     return .init(witness: witness, table: table, interface: .address(interface), site: site)
   }
 
