@@ -69,6 +69,46 @@ extension UnsafeRawBufferPointer {
 
 }
 
+/// A thread's call stack.
+struct Stack {
+
+  /// Local variables, parameters, and return addresses.
+  private var frames: [StackFrame] = []
+
+  /// Adds a new frame on top with the given `returnAddress`.
+  mutating func push(returnAddress: CodePointer) {
+    let f = StackFrame(returnAddress: returnAddress)
+    frames.append(f)
+  }
+
+  /// Removes the top frame and returns its `returnAddress`.
+  mutating func pop() -> CodePointer {
+    let f = frames.last!
+    defer {
+      frames.removeLast()
+    }
+    return f.returnAddress
+  }
+
+  /// The top stack frame.
+  ///
+  /// - Precondition: `!frames.isEmpty`
+  var top: StackFrame {
+    _read {
+      yield frames[frames.count - 1]
+    }
+    _modify {
+      yield &frames[frames.count - 1]
+    }
+  }
+
+  /// Boolean indicating whether stack contains atleast 1 stack frame.
+  var isEmpty: Bool {
+    frames.isEmpty
+  }
+
+}
+
 /// A virtual machine that executes Hylo's in-memory IR representation.
 public struct Interpreter {
 
@@ -79,7 +119,7 @@ public struct Interpreter {
   private var memory = Memory()
 
   /// Local variables, parameters, and return addresses.
-  private var callStack: [StackFrame] = []
+  private var callStack = Stack()
 
   /// Identity of the next instruction to be executed.
   private var programCounter: CodePointer
@@ -98,9 +138,11 @@ public struct Interpreter {
 
   /// The top stack frame.
   private var topOfStack: StackFrame {
-    get { callStack.last! }
+    _read {
+      yield callStack.top
+    }
     _modify {
-      yield &callStack[callStack.count - 1]
+      yield &callStack.top
     }
   }
 
@@ -121,7 +163,7 @@ public struct Interpreter {
 
     // The return address of the bottom-most frame will never be used,
     // so we fill it with something arbitrary.
-    callStack.append(StackFrame(returnAddress: programCounter))
+    callStack.push(returnAddress: programCounter)
     typeLayout = .init(typesIn: p.base, for: UnrealABI())
   }
 
@@ -265,7 +307,7 @@ public struct Interpreter {
   mutating func popStackFrame() {
     precondition(topOfStack.allocations.isEmpty,
         "All local variables allocations for function must be deallocated before returning.")
-    programCounter = callStack.popLast()!.returnAddress
+    programCounter = callStack.pop()
     if callStack.isEmpty {
       isRunning = false
     }
