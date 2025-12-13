@@ -99,7 +99,7 @@ necessary depending on the target.
 | [Parse] | The lexer and the parser for the Hylo source files. |
 | [TypeChecking] | Implements the type checking of the Hylo programs. |
 | [Types] | Defines the possible types that a Hylo entity might have. |
-| [IR] | Defines the intermediate representation of Hylo programs, and the operarations associated with it. |
+| [IR] | Defines the intermediate representation of Hylo programs, and the operations associated with it. |
 | [Analysis] | The analysis phases that can be run on the IR. |
 | [Mangling] | The name-mangling algorithm used by Hylo. |
 | [CodeGen] | Implements the code-generation phase for Hylo compiler. Currently only implements LLVM code generation. |

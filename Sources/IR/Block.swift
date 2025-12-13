@@ -7,8 +7,10 @@ import Utils
 /// arguments representing values that are notionally defined before its first instruction.
 public struct Block: Sendable {
 
-  /// A collection of instructions with stable identities.
-  public typealias Instructions = DoublyLinkedList<Instruction>
+  /// The first instruction in `self`, if any.
+  public fileprivate(set) var first: InstructionID?
+  /// The last instruction in `self`, if any.
+  public fileprivate(set) var last: InstructionID?
 
   /// The innermost lexical scope corresponding to the block's instructions.
   public let scope: AnyScopeID
@@ -16,15 +18,24 @@ public struct Block: Sendable {
   /// The type input parameters of the block.
   public let inputs: [IR.`Type`]
 
-  /// The instructions in the block.
-  public internal(set) var instructions: Instructions = []
+  /// Assigns the first instruction of `self`.
+  internal mutating func setFirst(_ i: InstructionID?) {
+    first = i
+    if last == nil { last = i }
+  }
 
-  /// Accesses the instruction at `address`.
-  ///
-  /// - Requires: `address` must be a valid address in `self`.
-  public subscript(_ address: Instructions.Address) -> Instruction {
-    get { instructions[address] }
-    set { instructions[address] = newValue }
+  /// Assigns the last instruction of `self`.
+  internal mutating func setLast(_ i: InstructionID?) {
+    last = i
+    if first == nil { first = i }
+  }
+
+  /// Creates a block for scope `scope` with the given `inputs` and `instructions`.
+  public init(scope: AnyScopeID, inputs: [IR.`Type`]) {
+    self.scope = scope
+    self.inputs = inputs
+    self.first = nil
+    self.last = nil
   }
 
 }

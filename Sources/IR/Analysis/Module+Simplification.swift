@@ -4,10 +4,10 @@ extension Module {
 
   /// Eliminates redundant instructions and fold address computations in `f`.
   public mutating func simplify(_ f: Function.ID) {
-    for b in blocks(in: f) {
-      var i = instructions(in: b).first
+    for b in self[f].blockIDs {
+      var i = self[f].firstInstruction(in: b)
       while let n = i {
-        i = eliminateRedundantAccess(n)
+        i = eliminateRedundantAccess(n, of: b, in: f)
       }
     }
   }
@@ -17,22 +17,24 @@ extension Module {
   /// An access is redundant if its source is another access requesting the same capability. When
   /// that occurs, instructions closing the redundant access can be removed and uses be replaced by
   /// uses of its source.
-  private mutating func eliminateRedundantAccess(_ i: InstructionID) -> InstructionID? {
+  ///
+  /// Replaces all the uses of `i`, not just the ones in `b`.
+  private mutating func eliminateRedundantAccess(_ i: InstructionID, of b: Block.ID, in f: Function.ID) -> InstructionID? {
     guard
-      let s = self[i] as? Access,
-      let r = self[s.source] as? Access,
+      let s = self[i, in: f] as? Access,
+      let r = self[s.source, in: f] as? Access,
       s.capabilities == r.capabilities, s.binding == nil
     else {
-      return instruction(after: i)
+      return self[f].instruction(after: i, in: b)
     }
 
-    for u in allUses(of: i) where self[u.user] is EndAccess {
-      removeInstruction(u.user)
+    for u in self[f].allUses(of: i) where self[f][u.user] is EndAccess {
+      self[f].remove(u.user)
     }
-    replaceUses(of: .register(i), with: s.source, in: i.function)
+    self[f].replaceUses(of: .register(i), with: s.source)
 
-    defer { removeInstruction(i) }
-    return instruction(after: i)
+    defer { self[f].remove(i) }
+    return self[f].instruction(after: i, in: b)
   }
 
 }

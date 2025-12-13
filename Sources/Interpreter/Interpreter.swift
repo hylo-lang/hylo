@@ -10,13 +10,19 @@ struct CodePointer {
   /// The module containing `self`.
   var module: Module.ID
 
-  /// The position relative to `module` indicated by `self`.
-  var instructionInModule: InstructionID
+  /// The function in `module` indicated by `self`.
+  var functionInModule: Function.ID
+
+  /// The position relative to `functionInModule` indicated by `self`.
+  var instructionInFunction: InstructionID
 
 }
 
 /// The value produced by executing an instruction.
-typealias InstructionResult = Any
+struct InstructionResult {
+  /// The instruction's output as an opaque, type-erased value.
+  var payload: Any
+}
 
 /// A typed location in memory.
 struct Address: Regular {
@@ -69,6 +75,46 @@ extension UnsafeRawBufferPointer {
 
 }
 
+/// A thread's call stack.
+struct Stack {
+
+  /// Local variables, parameters, and return addresses.
+  private var frames: [StackFrame] = []
+
+  /// Adds a new frame on top with the given `returnAddress` and `parameters`.
+  mutating func push(returnAddress: CodePointer, parameters: [Address]) {
+    let f = StackFrame(returnAddress: returnAddress, parameters: parameters)
+    frames.append(f)
+  }
+
+  /// Removes the top frame and returns its `returnAddress`.
+  mutating func pop() -> CodePointer {
+    let f = frames.last!
+    defer {
+      frames.removeLast()
+    }
+    return f.returnAddress
+  }
+
+  /// The top stack frame.
+  var top: StackFrame {
+    _read {
+      precondition(!isEmpty)
+      yield frames[frames.count - 1]
+    }
+    _modify {
+      precondition(!isEmpty)
+      yield &frames[frames.count - 1]
+    }
+  }
+
+  /// Boolean indicating whether stack contains atleast 1 stack frame.
+  var isEmpty: Bool {
+    frames.isEmpty
+  }
+
+}
+
 /// A virtual machine that executes Hylo's in-memory IR representation.
 public struct Interpreter {
 
@@ -79,7 +125,7 @@ public struct Interpreter {
   private var memory = Memory()
 
   /// Local variables, parameters, and return addresses.
-  private var callStack: [StackFrame] = []
+  private var callStack = Stack()
 
   /// Identity of the next instruction to be executed.
   private var programCounter: CodePointer
@@ -98,9 +144,11 @@ public struct Interpreter {
 
   /// The top stack frame.
   private var topOfStack: StackFrame {
-    get { callStack.last! }
+    _read {
+      yield callStack.top
+    }
     _modify {
-      yield &callStack[callStack.count - 1]
+      yield &callStack.top
     }
   }
 
@@ -114,20 +162,21 @@ public struct Interpreter {
     let entryFunctionID = entryModule.entryFunction!
     let entryFunction = entryModule.functions[entryFunctionID]!
     let entryBlockID = entryFunction.entry!
-    let entryInstructionAddress = entryFunction.blocks[entryBlockID].instructions.firstAddress!
     programCounter = .init(
       module: entryModuleID,
-      instructionInModule: InstructionID(entryFunctionID, entryBlockID, entryInstructionAddress))
+      functionInModule: entryFunctionID,
+      instructionInFunction: entryFunction.firstInstruction(in: entryBlockID)!)
 
     // The return address of the bottom-most frame will never be used,
     // so we fill it with something arbitrary.
-    callStack.append(StackFrame(returnAddress: programCounter, parameters: []))
+    callStack.push(returnAddress: programCounter, parameters: [])
     typeLayout = .init(typesIn: p.base, for: UnrealABI())
   }
 
+  /// The value of the current instruction's result, if it has been computed.
   private var currentRegister: InstructionResult? {
-    get { topOfStack.registers[programCounter.instructionInModule]! }
-    set { topOfStack.registers[programCounter.instructionInModule] = newValue }
+    get { topOfStack.registers[programCounter.instructionInFunction] }
+    set { topOfStack.registers[programCounter.instructionInFunction] = newValue }
   }
 
   /// Executes a single instruction.
@@ -135,7 +184,7 @@ public struct Interpreter {
     print("\(currentInstruction.site.gnuStandardText): \(currentInstruction)")
     switch currentInstruction {
     case let x as Access:
-      currentRegister = address(x.source)!
+      currentRegister = .init(payload: address(x.source)!)
     case let x as AddressToPointer:
       _ = x
     case let x as AdvancedByBytes:
@@ -146,7 +195,7 @@ public struct Interpreter {
     case let x as AllocStack:
       let a = allocate(typeLayout[x.allocatedType])
       topOfStack.allocations.append(a)
-      currentRegister = a
+      currentRegister = .init(payload: a)
 
     case let x as Branch:
       _ = x
@@ -167,9 +216,9 @@ public struct Interpreter {
     case let x as CondBranch:
       _ = x
     case let x as ConstantString:
-      currentRegister = x.value
+      currentRegister = .init(payload: x.value)
     case let x as DeallocStack:
-      let a = addressProduced(by: x.location.instruction!)!
+      let a = addressToBeDeallocated(by: x)
       try deallocateStack(a)
     case is EndAccess:
       // No effect on program state
@@ -209,7 +258,7 @@ public struct Interpreter {
       store(builtinValue(x.object)!, at: address(x.target)!)
     case let x as SubfieldView:
       let p = address(x.recordAddress)!;
-      currentRegister = address(of: x.subfield, in: p)
+      currentRegister = .init(payload: address(of: x.subfield, in: p))
     case let x as Switch:
       _ = x
     case let x as UnionDiscriminator:
@@ -238,24 +287,19 @@ public struct Interpreter {
   /// - Precondition: the program is running.
   public var currentInstruction: any Instruction {
     _read {
-      yield program.modules[programCounter.module]!
-      .functions[programCounter.instructionInModule.function]!
-      .blocks[programCounter.instructionInModule.block][programCounter.instructionInModule.address]
+      yield program.modules[programCounter.module]![
+        programCounter.instructionInFunction, in: programCounter.functionInModule]
     }
   }
 
   /// Moves the program counter to the next instruction.
   mutating func advanceProgramCounter() throws {
-    let b = program.modules[programCounter.module]!
-      .functions[programCounter.instructionInModule.function]!
-      .blocks[programCounter.instructionInModule.block].instructions
-    guard let a = b.address(after: programCounter.instructionInModule.address) else {
+    let f = program.modules[programCounter.module]![programCounter.functionInModule]
+    let b = f.block(of: programCounter.instructionInFunction)
+    guard let a = f.instruction(after: programCounter.instructionInFunction, in: b) else {
       throw IRError()
     }
-    programCounter.instructionInModule = InstructionID(
-      programCounter.instructionInModule.function,
-      programCounter.instructionInModule.block,
-      a)
+    programCounter.instructionInFunction = a
   }
 
   /// Removes topmost stack frame and points `programCounter` to next instruction
@@ -263,7 +307,10 @@ public struct Interpreter {
   ///
   /// - Precondition: the program is running.
   mutating func popStackFrame() {
-    programCounter = callStack.popLast()!.returnAddress
+    precondition(
+      topOfStack.allocations.isEmpty,
+      "All local variables allocations for function must be deallocated before returning.")
+    programCounter = callStack.pop()
     if callStack.isEmpty {
       isRunning = false
     }
@@ -296,14 +343,22 @@ public struct Interpreter {
   /// Returns the address produced by executing instruction identified by `i` in the current frame,
   /// or `nil` if it didn't produce an address.
   func addressProduced(by i: InstructionID) -> Address? {
-    topOfStack.registers[i] as? Address
+    topOfStack.registers[i]?.payload as? Address
+  }
+
+  /// Returns the address to be deallocated by `i`.
+  func addressToBeDeallocated(by i: DeallocStack) -> Address {
+    precondition(i.location.instruction != nil, "DeallocStack must reference a valid instruction.")
+    let a = addressProduced(by: i.location.instruction!)
+    precondition(a != nil, "Referenced instruction must produce an address.")
+    return a!
   }
 
   /// Returns the value of `x` if it has a address, or `nil` if it does not.
   func address(_ x: Operand) -> Address? {
     switch x {
     case .register(let instruction):
-      return topOfStack.registers[instruction] as? Address
+      return topOfStack.registers[instruction]?.payload as? Address
     case .parameter(_, let i):
       return topOfStack.parameters[i]
     case .constant:
@@ -327,7 +382,7 @@ public struct Interpreter {
   func builtinValue(_ x: Operand) -> BuiltinValue? {
     switch x {
     case .register(let instruction):
-      return topOfStack.registers[instruction] as? BuiltinValue
+      return topOfStack.registers[instruction]?.payload as? BuiltinValue
     case .parameter:
       return nil;
     case .constant(let c):
