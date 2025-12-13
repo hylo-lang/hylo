@@ -287,8 +287,7 @@ public struct Interpreter {
   /// - Precondition: the program is running.
   public var currentInstruction: any Instruction {
     _read {
-      yield program.modules[programCounter.module]![
-        programCounter.instructionInFunction, in: programCounter.functionInModule]
+      yield program.modules[programCounter.module]![programCounter.instructionInFunction, in: programCounter.functionInModule]
     }
   }
 
@@ -307,8 +306,7 @@ public struct Interpreter {
   ///
   /// - Precondition: the program is running.
   mutating func popStackFrame() {
-    precondition(
-      topOfStack.allocations.isEmpty,
+    precondition(topOfStack.allocations.isEmpty,
       "All local variables allocations for function must be deallocated before returning.")
     programCounter = callStack.pop()
     if callStack.isEmpty {
