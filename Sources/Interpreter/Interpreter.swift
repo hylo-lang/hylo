@@ -91,13 +91,13 @@ struct Stack {
   }
 
   /// The top stack frame.
-  ///
-  /// - Precondition: `!frames.isEmpty`
   var top: StackFrame {
     _read {
+      precondition(!isEmpty)
       yield frames[frames.count - 1]
     }
     _modify {
+      precondition(!isEmpty)
       yield &frames[frames.count - 1]
     }
   }
