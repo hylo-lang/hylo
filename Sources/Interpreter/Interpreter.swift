@@ -48,7 +48,7 @@ struct StackFrame {
   /// The allocations in this stack frame.
   var allocations: [Address] = []
 
-  /// Function parameters
+  /// Location of values passed to the function.
   var parameters: [Address]
 }
 
@@ -184,7 +184,7 @@ public struct Interpreter {
     print("\(currentInstruction.site.gnuStandardText): \(currentInstruction)")
     switch currentInstruction {
     case let x as Access:
-      currentRegister = .init(payload: address(x.source)!)
+      currentRegister = .init(payload: asAddress(x.source)!)
     case let x as AddressToPointer:
       _ = x
     case let x as AdvancedByBytes:
@@ -255,9 +255,9 @@ public struct Interpreter {
       popStackFrame()
       return
     case let x as Store:
-      store(builtinValue(x.object)!, at: address(x.target)!)
+      store(asBuiltinValue(x.object)!, at: asAddress(x.target)!)
     case let x as SubfieldView:
-      let p = address(x.recordAddress)!;
+      let p = asAddress(x.recordAddress)!
       currentRegister = .init(payload: address(of: x.subfield, in: p))
     case let x as Switch:
       _ = x
@@ -355,22 +355,22 @@ public struct Interpreter {
   }
 
   /// Returns the value of `x` if it has a address, or `nil` if it does not.
-  func address(_ x: Operand) -> Address? {
+  func asAddress(_ x: Operand) -> Address? {
     switch x {
     case .register(let instruction):
-      return topOfStack.registers[instruction]?.payload as? Address
+      topOfStack.registers[instruction]?.payload as? Address
     case .parameter(_, let i):
-      return topOfStack.parameters[i]
+      topOfStack.parameters[i]
     case .constant:
-      return nil
+      nil
     }
   }
 
   /// Returns the address of `subField` in the object  at `origin`.
   mutating func address(of subField: RecordPath, in origin: Address) -> Address {
-    let l = origin.startLocation;
-    var o = l.offset;
-    var t = origin.type;
+    let l = origin.startLocation
+    var o = l.offset
+    var t = origin.type
     for i in subField {
       o += t.parts[i].offset
       t = typeLayout[t.parts[i].type]
@@ -379,7 +379,7 @@ public struct Interpreter {
   }
 
   /// Returns the value of `x` if it has a builtin type, or `nil` if it does not.
-  func builtinValue(_ x: Operand) -> BuiltinValue? {
+  func asBuiltinValue(_ x: Operand) -> BuiltinValue? {
     switch x {
     case .register(let instruction):
       return topOfStack.registers[instruction]?.payload as? BuiltinValue
@@ -390,7 +390,7 @@ public struct Interpreter {
       case let x as IntegerConstant:
         return BuiltinValue(x)
       default:
-        fatalError("unimplemented constant parsing!!!")
+        UNIMPLEMENTED("non-integer constant parsing!!!")
       }
     }
   }
