@@ -75,6 +75,19 @@ extension UnsafeRawBufferPointer {
 
 }
 
+extension TypeLayoutCache {
+
+  /// Returns the address of `subField` in the object at `origin`.
+  mutating func address(of subField: RecordPath, in origin: Address) -> Address {
+    let l = origin.startLocation
+    let (o, t) = self.layout(of: subField, in: origin.type)
+    return .init(
+      startLocation: .init(allocation: l.allocation, offset: o + origin.startLocation.offset),
+      type: t)
+  }
+
+}
+
 /// A thread's call stack.
 struct Stack {
 
@@ -258,7 +271,7 @@ public struct Interpreter {
       store(asBuiltinValue(x.object)!, at: asAddress(x.target)!)
     case let x as SubfieldView:
       let p = asAddress(x.recordAddress)!
-      currentRegister = .init(payload: address(of: x.subfield, in: p))
+      currentRegister = .init(payload: typeLayout.address(of: x.subfield, in: p))
     case let x as Switch:
       _ = x
     case let x as UnionDiscriminator:
@@ -362,17 +375,6 @@ public struct Interpreter {
     case .constant:
       nil
     }
-  }
-
-  /// Returns the address of `subField` in the object  at `origin`.
-  mutating func address(of subField: RecordPath, in origin: Address) -> Address {
-    let l = origin.startLocation
-    let (o, t) = subField.reduce(into: (l.offset, origin.type)) { (s, i) in
-      let p = s.1.parts[i]
-      s.0 += p.offset
-      s.1 = typeLayout[p.type]
-    }
-    return .init(startLocation: .init(allocation: l.allocation, offset: o), type: t)
   }
 
   /// Returns the value of `x` if it has a builtin type, or `nil` if it does not.
