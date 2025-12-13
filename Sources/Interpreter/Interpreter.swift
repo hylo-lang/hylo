@@ -367,9 +367,10 @@ public struct Interpreter {
   /// Returns the address of `subField` in the object  at `origin`.
   mutating func address(of subField: RecordPath, in origin: Address) -> Address {
     let l = origin.startLocation
-    let (o, t) = subField.reduce((l.offset, origin.type)) { (s, i) in
+    let (o, t) = subField.reduce(into: (l.offset, origin.type)) { (s, i) in
       let p = s.1.parts[i]
-      return (s.0 + p.offset, typeLayout[p.type])
+      s.0 += p.offset
+      s.1 = typeLayout[p.type]
     }
     return .init(startLocation: .init(allocation: l.allocation, offset: o), type: t)
   }
