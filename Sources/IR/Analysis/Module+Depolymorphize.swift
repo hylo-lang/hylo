@@ -35,16 +35,14 @@ extension IR.Program {
   /// Replaces uses of parametric types and functions in `f` with their monomorphic or existential
   /// counterparts.
   private mutating func depolymorphize(_ f: Function.ID, definedIn m: Module.ID) {
-    for b in modules[m]!.blocks(in: f) {
-      for i in modules[m]!.instructions(in: b) {
-        switch modules[m]![i] {
-        case is Call:
-          depolymorphize(call: i, definedIn: m)
-        case is Project:
-          depolymorphize(project: i, definedIn: m)
-        default:
-          continue
-        }
+    for i in modules[m]![f].instructionIdentities {
+      switch modules[m]![i, in: f] {
+      case is Call:
+        depolymorphize(call: i, from: f, definedIn: m)
+      case is Project:
+        depolymorphize(project: i, from: f, definedIn: m)
+      default:
+        continue
       }
     }
   }
@@ -53,8 +51,8 @@ extension IR.Program {
   /// depolymorphized version of its callee.
   ///
   /// - Requires: `i` identifies a `CallInstruction`
-  private mutating func depolymorphize(call i: InstructionID, definedIn m: Module.ID) {
-    let s = modules[m]![i] as! Call
+  private mutating func depolymorphize(call i: InstructionID, from f: Function.ID, definedIn m: Module.ID) {
+    let s = modules[m]![i, in: f] as! Call
     guard
       let callee = s.callee.constant as? FunctionReference,
       !callee.specialization.isEmpty
@@ -62,28 +60,28 @@ extension IR.Program {
 
     // TODO: Use existentialization unless the function is inlinable
 
-    let g = monomorphize(callee, usedIn: modules[m]!.scope(containing: i))
+    let g = monomorphize(callee, usedIn: modules[m]![f].scope(containing: i))
     let r = FunctionReference(to: g, in: modules[m]!)
     let new = modules[m]!.makeCall(
-      applying: .constant(r), to: Array(s.arguments), writingResultTo: s.output, at: s.site)
-    modules[m]!.replace(i, with: new)
+      applying: .constant(r), to: Array(s.arguments), writingResultTo: s.output, in: f, at: s.site)
+    modules[m]![f].replace(i, with: new)
   }
 
   /// Iff `i` is the projection through a generic subscript, replaces it by an instruction applying
   /// a depolymorphized version of its callee.
   ///
   /// - Requires: `i` identifies a `ProjectInstruction`
-  private mutating func depolymorphize(project i: InstructionID, definedIn m: Module.ID) {
-    let s = modules[m]![i] as! Project
+  private mutating func depolymorphize(project i: InstructionID, from f: Function.ID, definedIn m: Module.ID) {
+    let s = modules[m]![i, in: f] as! Project
     guard !s.specialization.isEmpty else { return }
 
     // TODO: Use existentialization unless the subscript is inlinable
 
-    let z = base.canonical(s.specialization, in: modules[m]!.scope(containing: i))
-    let g = monomorphize(s.callee, for: z, usedIn: modules[m]!.scope(containing: i))
+    let z = base.canonical(s.specialization, in: modules[m]![f].scope(containing: i))
+    let g = monomorphize(s.callee, for: z, usedIn: modules[m]![f].scope(containing: i))
     let new = modules[m]!.makeProject(
       s.projection, applying: g, specializedBy: .empty, to: s.operands, at: s.site)
-    modules[m]!.replace(i, with: new)
+    modules[m]![f].replace(i, with: new)
   }
 
   /// Returns a depolymorphized copy of `base` in which parametric parameters have been notionally
@@ -128,13 +126,8 @@ extension IR.Program {
 
     let source = module(defining: f)
     var rewrittenBlock: [Block.ID: Block.ID] = [:]
-    for b in modules[source]![f].blocks.addresses {
-      let s = Block.ID(f, b)
-      let inputs = modules[source]![s].inputs.map { (t) in
-        monomorphize(t, for: z, usedIn: scopeOfUse)
-      }
-      let t = modules[target]![result].appendBlock(in: modules[source]![s].scope, taking: inputs)
-      rewrittenBlock[s] = Block.ID(result, t)
+    for b in modules[source]![f].blockIDs {
+      rewrittenBlock[b] = modules[target]![result].appendBlock(in: modules[source]![b, in: f].scope)
     }
 
     let rewrittenGenericValue = modules[target]!.defineGenericValueArguments(z, in: result)
@@ -145,16 +138,14 @@ extension IR.Program {
     // Iterate over the basic blocks of the source function in a way that guarantees we always
     // visit definitions before their uses.
     let cfg = modules[source]![f].cfg()
-    let sourceBlocks = DominatorTree(function: f, cfg: cfg, in: modules[source]!).bfs
+    let sourceBlocks = DominatorTree(function: modules[source]![f], cfg: cfg).bfs
     for b in sourceBlocks {
-      let s = Block.ID(f, b)
-      let t = rewrittenBlock[s]!
+      let t = rewrittenBlock[b]!
 
-      for a in modules[source]![s].instructions.addresses {
-        let i = InstructionID(s, a)
-        switch modules[source]![i] {
+      for i in modules[source]![f].instructions(in: b) {
+        switch modules[source]![i, in: f] {
         case is GenericParameter:
-          rewrite(genericParameter: i, to: t)
+          rewrite(genericParameter: i)
         case is Return:
           rewrite(return: i, to: t)
         default:
@@ -168,25 +159,25 @@ extension IR.Program {
     /// Rewrites `i`, which is in `source`, at the end of `b`, which is in `target`.
     func rewrite(_ i: InstructionID, to b: Block.ID) {
       let j = self.rewrite(
-        i, from: source, transformedBy: &monomorphizer,
-        at: .end(of: b), in: target)
+        i, in: f, from: source, transformedBy: &monomorphizer,
+        at: .end(of: b), targeting: result, in: target)
       monomorphizer.rewrittenInstruction[i] = j
     }
 
     /// Rewrites `i`, which is in `source`, at the end of `b`, which is in `target`.
-    func rewrite(genericParameter i: InstructionID, to b: Block.ID) {
-      let s = modules[source]![i] as! GenericParameter
+    func rewrite(genericParameter i: InstructionID) {
+      let s = modules[source]![i, in: f] as! GenericParameter
       monomorphizer.rewrittenInstruction[i] = monomorphizer.rewrittenGenericValue[s.parameter]!
     }
 
     /// Rewrites `i`, which is in `source`, at the end of `b`, which is in `target`.
     func rewrite(return i: InstructionID, to b: Block.ID) {
-      let s = modules[source]![i] as! Return
+      let s = modules[source]![i, in: f] as! Return
       let j = modify(&modules[target]!) { (m) in
         for i in rewrittenGenericValue.values.reversed() {
-          m.append(m.makeDeallocStack(for: .register(i), at: s.site), to: b)
+          m[result].insert(m.makeDeallocStack(for: .register(i), in: result, at: s.site), at: .end(of: b))
         }
-        return m.append(m.makeReturn(at: s.site), to: b)
+        return m[result].insert(m.makeReturn(at: s.site), at: .end(of: b))
       }
       monomorphizer.rewrittenInstruction[i] = j
     }
@@ -289,7 +280,7 @@ extension Module {
     in monomorphized: Function.ID
   ) -> OrderedDictionary<GenericParameterDecl.ID, InstructionID> {
     let insertionSite = SourceRange.empty(at: self[monomorphized].site.start)
-    let entry = Block.ID(monomorphized, self[monomorphized].entry!)
+    let entry = self[monomorphized].entry!
 
     var genericValues = OrderedDictionary<GenericParameterDecl.ID, InstructionID>()
 
@@ -300,10 +291,11 @@ extension Module {
         UNIMPLEMENTED("arbitrary compile-time values")
       }
 
-      let s = append(makeAllocStack(^program.ast.coreType("Int")!, at: insertionSite), to: entry)
+      let s = self[monomorphized].insert(makeAllocStack(^program.ast.coreType("Int")!, at: insertionSite), at: .end(of: entry))
 
       var log = DiagnosticSet()
       Emitter.withInstance(insertingIn: &self, reportingDiagnosticsTo: &log) { (e) in
+        e.insertionFunction = monomorphized
         e.insertionPoint = .end(of: entry)
         e.lowering(at: insertionSite) { e in
           e._emitStore(int: w, to: .register(s))

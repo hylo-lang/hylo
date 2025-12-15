@@ -8,7 +8,7 @@ import Utils
 struct ControlFlowGraph: Sendable {
 
   /// A node in the graph.
-  typealias Vertex = Function.Blocks.Address
+  typealias Vertex = Block.ID
 
   /// An control edge label.
   enum Label: Sendable {
