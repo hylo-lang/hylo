@@ -65,7 +65,7 @@ jobs:
         HYLO_ENABLE_DOC_GENERATION=1
         " >> "${GITHUB_ENV}"
 
-    - uses: actions/cache@v4
+    - uses: actions/cache@v5
       with:
         path: .build
         key: ${{ runner.os }}-debug-spm-${{ hashFiles('./**/Package.resolved') }}
