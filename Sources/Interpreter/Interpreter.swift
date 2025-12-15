@@ -381,13 +381,13 @@ public struct Interpreter {
   func asBuiltinValue(_ x: Operand) -> BuiltinValue? {
     switch x {
     case .register(let instruction):
-      return topOfStack.registers[instruction]?.payload as? BuiltinValue
+      topOfStack.registers[instruction]?.payload as? BuiltinValue
     case .parameter:
-      return nil;
+      nil
     case .constant(let c):
       switch c {
       case let x as IntegerConstant:
-        return BuiltinValue(x)
+        BuiltinValue(x)
       default:
         UNIMPLEMENTED("non-integer constant parsing!!!")
       }

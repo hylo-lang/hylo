@@ -13,9 +13,9 @@ final class InterpreterRunTests: XCTestCase {
       """
         public fun main() { }
       """.asSourceFile()
-    let module = try input.loweredToIRAsMainWithHostedStandardLibrary();
-    let program = IR.Program.init(syntax: module.program, modules: [module.id: module]);
-    var executor = Interpreter(program);
+    let module = try input.loweredToIRAsMainWithHostedStandardLibrary()
+    let program = IR.Program.init(syntax: module.program, modules: [module.id: module])
+    var executor = Interpreter(program)
     while executor.isRunning {
       try executor.step()
     }
@@ -25,13 +25,13 @@ final class InterpreterRunTests: XCTestCase {
     let input =
       """
         public fun main() {
-          let x = 2;
-          let y = 4;
+          let x = 2
+          let y = 4
         }
       """.asSourceFile()
-    let module = try input.loweredToIRAsMainWithHostedStandardLibrary();
-    let program = IR.Program.init(syntax: module.program, modules: [module.id: module]);
-    var executor = Interpreter(program);
+    let module = try input.loweredToIRAsMainWithHostedStandardLibrary()
+    let program = IR.Program.init(syntax: module.program, modules: [module.id: module])
+    var executor = Interpreter(program)
     while executor.isRunning {
       try executor.step()
     }
