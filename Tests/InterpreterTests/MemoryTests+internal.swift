@@ -55,4 +55,14 @@ final class InterpreterMemoryInternalTests: XCTestCase {
       XCTAssertEqual($0.pointee, 2)
     }
   }
+
+  func testStoringBuiltinValueUsingAddress() {
+    var m = Memory()
+    var l = TypeLayoutCache(typesIn: TypedProgram.empty, for: UnrealABI())
+    let a = Address(startLocation: m.allocate(1, bytesWithAlignment: 1), type: l[^BuiltinType.i(8)])
+    m.store(BuiltinValue.i8(2), at: a)
+    m[a.startLocation.allocation].withUnsafePointer(to: UInt8.self, at: 0) {
+      XCTAssertEqual($0.pointee, 2)
+    }
+  }
 }

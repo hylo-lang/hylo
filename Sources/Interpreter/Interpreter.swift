@@ -24,16 +24,23 @@ struct InstructionResult {
   var payload: Any
 }
 
-/// A typed location in memory.
-struct Address: Regular {
+enum ModuleScope {
 
-  /// The position in memory.
-  public let startLocation: Memory.Address
+  /// A typed location in memory.
+  struct Address: Regular {
 
-  /// The type to be accessed at `startLocation`.
-  public let type: TypeLayout
+    /// The position in memory.
+    public let startLocation: Memory.Address
+
+    /// The type to be accessed at `startLocation`.
+    public let type: TypeLayout
+
+  }
 
 }
+
+/// A typed location in memory.
+typealias Address = ModuleScope.Address
 
 /// The local variables, parameters, and return address for a function
 /// call.
@@ -86,6 +93,24 @@ extension TypeLayoutCache {
       type: t)
   }
 
+}
+
+extension Memory {
+  /// Deallocates `a`.
+  mutating func deallocate(_ a: ModuleScope.Address) throws {
+    precondition(a.startLocation.offset == 0, "Can't deallocate the memory of subobject.")
+    precondition(
+      allocation[a.startLocation.allocation]?.size == a.type.size,
+      "Deallocating using address of the wrong type.")
+    try deallocate(a.startLocation)
+  }
+
+  /// Stores `v` at `a`.
+  mutating func store(_ v: BuiltinValue, at a: ModuleScope.Address) {
+    let allocation = a.startLocation.allocation
+    let offset = a.startLocation.offset
+    self[allocation].store(v, at: offset)
+  }
 }
 
 /// A thread's call stack.
@@ -268,7 +293,7 @@ public struct Interpreter {
       popStackFrame()
       return
     case let x as Store:
-      store(asBuiltinValue(x.object)!, at: asAddress(x.target)!)
+      memory.store(asBuiltinValue(x.object)!, at: asAddress(x.target)!)
     case let x as SubfieldView:
       let p = asAddress(x.recordAddress)!
       currentRegister = .init(payload: typeLayout.address(of: x.subfield, in: p))
@@ -333,21 +358,12 @@ public struct Interpreter {
     return .init(startLocation: a, type: t)
   }
 
-  /// Deallocates `a`.
-  mutating func deallocate(_ a: Address) throws {
-    precondition(a.startLocation.offset == 0, "Can't deallocate the memory of subobject.")
-    precondition(
-      memory.allocation[a.startLocation.allocation]?.size == a.type.size,
-      "Deallocating using address of the wrong type.")
-    try memory.deallocate(a.startLocation)
-  }
-
   /// Deallocates `a` allocated on stack.
   mutating func deallocateStack(_ a: Address) throws {
     precondition(
       a == topOfStack.allocations.last!,
       "The latest allocation that has not been deallocated must be deallocated first.")
-    try deallocate(a)
+    try memory.deallocate(a)
     topOfStack.allocations.removeLast()
   }
 
@@ -392,13 +408,6 @@ public struct Interpreter {
         UNIMPLEMENTED("non-integer constant parsing!!!")
       }
     }
-  }
-
-  /// Stores `v` at `a`.
-  mutating func store(_ v: BuiltinValue, at a: Address) {
-    let allocation = a.startLocation.allocation
-    let offset = a.startLocation.offset
-    memory[allocation].store(v, at: offset)
   }
 
 }
