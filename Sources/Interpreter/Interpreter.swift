@@ -34,10 +34,10 @@ enum ModuleScope {
   struct Address: Regular {
 
     /// The position in memory.
-    public let startLocation: Memory.Address
+    let startLocation: Memory.Address
 
     /// The type to be accessed at `startLocation`.
-    public let type: TypeLayout
+    let type: TypeLayout
 
   }
 
