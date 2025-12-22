@@ -24,6 +24,10 @@ struct InstructionResult {
   var payload: Any
 }
 
+/// A namespace for notional module-scope declarations that actually
+/// can't be accessed without ambiguity in some cases.
+///
+/// Aliases for these names are normally placed at module scope for ease-of-use.
 enum ModuleScope {
 
   /// A typed location in memory.
@@ -80,7 +84,8 @@ extension UnsafeRawBufferPointer {
 }
 
 extension Memory {
-  /// Deallocates `a`.
+  /// Deallocates the allocated memory at `a`, leaving it deallocated and
+  /// rendering `a` unusable for any purpose.
   mutating func deallocate(_ a: ModuleScope.Address) throws {
     precondition(a.startLocation.offset == 0, "Can't deallocate the memory of subobject.")
     precondition(
