@@ -141,7 +141,7 @@ struct ControlFlowGraph: Sendable {
 
       let successors = forward ? successors(of: b) : predecessors(of: b)
 
-      switch handleBlock(b, successors) {
+      switch action(b, successors) {
       case .continue:
         work.append(contentsOf: successors.filter({ !visited.contains($0) }))
       case .skip:

@@ -54,7 +54,7 @@ extension Function {
     // Phase 1: Fully explore the ramp blocks.
     // Check for any paths that don't contain yields.
     // Also compute the direct successors for all encountered yield blocks.
-    cfg.exploreFrom([entry!]) { (b, successors) in
+    cfg.withBFS([entry!]) { (b, successors) in
       // Have we encountered a yield block?
       if yieldBlocks.contains(b) {
         // Move the direct successors to the slide.
@@ -78,7 +78,7 @@ extension Function {
 
     // Phase 2: Fully explore the slide.
     // Make sure that the slide blocks don't contain yields.
-    cfg.exploreFrom(slide) { (b, successors) in
+    cfg.withBFS(slide) { (b, successors) in
       slide.appendUnlessContained(b)
       // Make sure there isn't another yield in the block.
       if yieldBlocks.contains(b) {
