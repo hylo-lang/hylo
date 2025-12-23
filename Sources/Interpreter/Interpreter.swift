@@ -110,7 +110,7 @@ extension Memory {
   {
     let allocation = a.startLocation.allocation
     let offset = a.startLocation.offset
-    self[allocation].store(v, at: offset, layouts: &layouts)
+    self[allocation].store(v, at: offset, with: &layouts)
   }
 }
 

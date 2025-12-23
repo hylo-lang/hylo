@@ -131,6 +131,9 @@ extension TypeLayout {
       return false
     }
     let i = parts.partitioningIndex { $0.offset > o } - 1
+    if parts[i].offset == o && parts[i].type == t {
+      return true
+    }
     return layouts[parts[i].type].contains(t, at: o - parts[i].offset, layouts: &layouts)
   }
 

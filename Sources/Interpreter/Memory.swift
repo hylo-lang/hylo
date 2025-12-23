@@ -383,24 +383,30 @@ extension Memory.Allocation {
 
   /// Returns true iff `self` contains object of type `t` starting at offset `o`,
   /// either directly or nested inside composed parts.
-  public func contains(_ t: AnyType, at o: Int, using layouts: inout TypeLayoutCache) -> Bool {
+  ///
+  /// - Precondition: All objects in this allocation are laid out in memory
+  ///   according to the type layouts provided by `layouts`.
+  public func contains(_ t: AnyType, at o: Int, with layouts: inout TypeLayoutCache) -> Bool {
     if o + baseOffset >= storage.count {
       return false
     }
     let r = composedRegion(containingOffset: o)
-    return contains(t, in: r.type, at: o - r.offset, memoryOffset: r.offset, using: &layouts)
+    return contains(t, in: r.type, at: o - r.offset, memoryOffset: r.offset, with: &layouts)
   }
 
   /// Returns true iff `p` contains object of type `t` at offset `o` relative
   /// to position of `p`, given `p` is at offset `a` in memory.
+  ///
+  /// - Precondition: All objects in this allocation are laid out in memory
+  ///   according to the type layouts provided by `layouts`.
   private func contains(
     _ t: AnyType, in p: AnyType, at o: Int,
-    memoryOffset a: Int, using layouts: inout TypeLayoutCache
+    memoryOffset a: Int, with layout: inout TypeLayoutCache
   )
     -> Bool
   {
     if o == 0 && t == p { return true }
-    let l = layouts[p]
+    let l = layout[p]
     if l.parts.isEmpty { return false }
     if l.isUnionLayout {
       if o == l.discriminator.offset {
@@ -413,16 +419,19 @@ extension Memory.Allocation {
         ))
       return contains(
         t, in: l.parts[d].type, at: o - l.parts[d].offset,
-        memoryOffset: a + l.parts[d].offset, using: &layouts)
+        memoryOffset: a + l.parts[d].offset, with: &layout)
     }
     let i = l.parts.partitioningIndex { $0.offset > o } - 1
     return contains(
       t, in: l.parts[i].type, at: o - l.parts[i].offset,
-      memoryOffset: a + l.parts[i].offset, using: &layouts)
+      memoryOffset: a + l.parts[i].offset, with: &layout)
   }
 
   /// Stores `v` at `o`.
-  mutating func store(_ v: BuiltinValue, at o: Memory.Offset, layouts: inout TypeLayoutCache) {
+  ///
+  /// - Precondition: The memory at `o` is intended to represent `v` according to
+  ///   the type layouts provided by `layouts`.
+  mutating func store(_ v: BuiltinValue, at o: Memory.Offset, with layouts: inout TypeLayoutCache) {
     switch v {
     case .i1(let x): withUnsafeMutablePointer(to: Bool.self, at: o) { $0.pointee = x }
     case .i8(let x): withUnsafeMutablePointer(to: UInt8.self, at: o) { $0.pointee = x }

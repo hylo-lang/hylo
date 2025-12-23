@@ -60,7 +60,7 @@ final class InterpreterMemoryInternalTests: XCTestCase {
     var m = Memory()
     var l = TypeLayoutCache(typesIn: TypedProgram.empty, for: UnrealABI())
     let a = m.allocate(1, bytesWithAlignment: 1)
-    m[a.allocation].store(BuiltinValue.i8(2), at: 0, layouts: &l)
+    m[a.allocation].store(BuiltinValue.i8(2), at: 0, with: &l)
     m[a.allocation].withUnsafePointer(to: UInt8.self, at: 0) {
       XCTAssertEqual($0.pointee, 2)
     }
