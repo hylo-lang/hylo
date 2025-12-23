@@ -106,10 +106,11 @@ extension Memory {
   }
 
   /// Stores `v` at `a`.
-  mutating func store(_ v: BuiltinValue, at a: ModuleScope.Address) {
+  mutating func store(_ v: BuiltinValue, at a: ModuleScope.Address, layouts: inout TypeLayoutCache)
+  {
     let allocation = a.startLocation.allocation
     let offset = a.startLocation.offset
-    self[allocation].store(v, at: offset)
+    self[allocation].store(v, at: offset, layouts: &layouts)
   }
 }
 
@@ -293,7 +294,7 @@ public struct Interpreter {
       popStackFrame()
       return
     case let x as Store:
-      memory.store(asBuiltinValue(x.object)!, at: asAddress(x.target)!)
+      memory.store(asBuiltinValue(x.object)!, at: asAddress(x.target)!, layouts: &typeLayout)
     case let x as SubfieldView:
       let p = asAddress(x.recordAddress)!
       currentRegister = .init(payload: typeLayout.address(of: x.subfield, in: p))

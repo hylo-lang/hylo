@@ -58,8 +58,9 @@ final class InterpreterMemoryInternalTests: XCTestCase {
 
   func testStoringBuiltinValueInAllocation() {
     var m = Memory()
+    var l = TypeLayoutCache(typesIn: TypedProgram.empty, for: UnrealABI())
     let a = m.allocate(1, bytesWithAlignment: 1)
-    m[a.allocation].store(BuiltinValue.i8(2), at: 0)
+    m[a.allocation].store(BuiltinValue.i8(2), at: 0, layouts: &l)
     m[a.allocation].withUnsafePointer(to: UInt8.self, at: 0) {
       XCTAssertEqual($0.pointee, 2)
     }
@@ -69,7 +70,7 @@ final class InterpreterMemoryInternalTests: XCTestCase {
     var m = Memory()
     var l = TypeLayoutCache(typesIn: TypedProgram.empty, for: UnrealABI())
     let a = Address(startLocation: m.allocate(1, bytesWithAlignment: 1), type: l[^BuiltinType.i(8)])
-    m.store(BuiltinValue.i8(2), at: a)
+    m.store(BuiltinValue.i8(2), at: a, layouts: &l)
     m[a.startLocation.allocation].withUnsafePointer(to: UInt8.self, at: 0) {
       XCTAssertEqual($0.pointee, 2)
     }
