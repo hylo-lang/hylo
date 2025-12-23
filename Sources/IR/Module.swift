@@ -32,7 +32,7 @@ public struct Module: Sendable {
   public private(set) var functions: [Function.ID: Function] = [:]
 
   /// The skeletons of all the projections in the module.
-  internal var projectionSkeletons: [ Function.ID: ProjectionSkeleton ]
+  internal var projectionSkeletons: [Function.ID: ProjectionSkeleton]
 
   /// The module's entry function, if any.
   ///

@@ -129,10 +129,8 @@ struct ControlFlowGraph: Sendable {
   ///
   /// If `forward` is `false`, the graph is explored in the reverse direction, following
   /// predecessor edges instead of successor edges.
-  func exploreFrom(
-    _ start: [Block.ID],
-    forward: Bool = true,
-    _ handleBlock: (Block.ID, [Block.ID]) -> ExplorationContinuation
+  func withBFS(
+    _ start: [Block.ID], forward: Bool = true, _ action: (Block.ID, [Block.ID]) -> ExplorationContinuation
   ) {
     var work = start
     var visited: Set<Block.ID> = []
