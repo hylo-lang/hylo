@@ -21,7 +21,7 @@ struct CodePointer {
 /// The value produced by executing an instruction.
 struct InstructionResult {
   /// The instruction's output as an opaque, type-erased value.
-  var payload: Any
+  public var payload: Any
 }
 
 /// A namespace for notional module-scope declarations that actually
@@ -31,13 +31,13 @@ struct InstructionResult {
 enum ModuleScope {
 
   /// A typed location in memory.
-  struct Address: Regular {
+  public struct Address: Regular {
 
     /// The position in memory.
-    let startLocation: Memory.Address
+    public let startLocation: Memory.Address
 
     /// The type to be accessed at `startLocation`.
-    let type: TypeLayout
+    public let type: TypeLayout
 
   }
 
@@ -50,14 +50,14 @@ typealias Address = ModuleScope.Address
 /// call.
 struct StackFrame {
   /// The results of instructions.
-  var registers: [InstructionID: InstructionResult] = [:]
+  public var registers: [InstructionID: InstructionResult] = [:]
 
   /// The program counter to which execution should return when
   /// popping this frame.
-  var returnAddress: CodePointer
+  public var returnAddress: CodePointer
 
   /// The allocations in this stack frame.
-  var allocations: [Address] = []
+  public var allocations: [Address] = []
 }
 
 extension UnsafeRawPointer {
@@ -102,13 +102,13 @@ struct Stack {
   private var frames: [StackFrame] = []
 
   /// Adds a new frame on top with the given `returnAddress`.
-  mutating func push(returnAddress: CodePointer) {
+  public mutating func push(returnAddress: CodePointer) {
     let f = StackFrame(returnAddress: returnAddress)
     frames.append(f)
   }
 
   /// Removes the top frame and returns its `returnAddress`.
-  mutating func pop() -> CodePointer {
+  public mutating func pop() -> CodePointer {
     let f = frames.last!
     defer {
       frames.removeLast()
@@ -117,7 +117,7 @@ struct Stack {
   }
 
   /// The top stack frame.
-  var top: StackFrame {
+  public var top: StackFrame {
     _read {
       precondition(!isEmpty)
       yield frames[frames.count - 1]
@@ -129,7 +129,7 @@ struct Stack {
   }
 
   /// Boolean indicating whether stack contains atleast 1 stack frame.
-  var isEmpty: Bool {
+  public var isEmpty: Bool {
     frames.isEmpty
   }
 
