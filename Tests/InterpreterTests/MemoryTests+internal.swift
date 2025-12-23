@@ -5,6 +5,15 @@ import FrontEnd
 
 final class InterpreterMemoryInternalTests: XCTestCase {
 
+  func testTypedAllocation() {
+    var l = TypeLayoutCache(typesIn: TypedProgram.empty, for: UnrealABI())
+    var m = Memory()
+    let a = m.allocate(l[^BuiltinType.i(32)])
+    let e = Memory.Allocation.ComposedRegion(offset: 0, type: ^BuiltinType.i(32))
+    XCTAssertEqual(m[a.allocation].composedRegion(containingOffset: 0), e)
+    XCTAssertEqual(m[a.allocation].composedRegion(containingOffset: 1), e)
+  }
+
   func test_requireInitialized() throws {
     var layouts = TypeLayoutCache(typesIn: TypedProgram.empty, for: UnrealABI())
     let void_ = layouts[AnyType.void]

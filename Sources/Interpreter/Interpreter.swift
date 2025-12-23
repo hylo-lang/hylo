@@ -354,7 +354,7 @@ public struct Interpreter {
 
   /// Allocates memory for an object of type `t` and returns the address.
   mutating func allocate(_ t: TypeLayout) -> Address {
-    let a = memory.allocate(t.size, bytesWithAlignment: t.alignment)
+    let a = memory.allocate(t)
     return .init(startLocation: a, type: t)
   }
 

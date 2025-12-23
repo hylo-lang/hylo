@@ -81,6 +81,12 @@ public struct Memory {
       self.id = id
     }
 
+    /// Allocation for type having type layout `t` and the given `id`.
+    public init(_ t: TypeLayout, id: ID) {
+      self.init(t.size, bytesWithAlignment: t.alignment, id: id)
+      composedRegions.append(.init(offset: 0, type: t.type))
+    }
+
     /// The address of the `o`th byte.
     private func address(at o: Offset) -> Address { .init(allocation: id, offset: o) }
 
@@ -282,6 +288,14 @@ public struct Memory {
     return .init(allocation: a, offset: 0)
   }
 
+  /// Allocates memory for type having type layout `t`.
+  public mutating func allocate(_ t: TypeLayout) -> Address {
+    let a = nextAllocation
+    nextAllocation += 1
+    allocation[a] = Allocation(t, id: a)
+    return .init(allocation: a, offset: 0)
+  }
+
   /// Deallocates the allocated memory starting at `a`.
   public mutating func deallocate(_ a: Address) throws {
     if a.offset != 0 {
@@ -359,6 +373,13 @@ public extension Memory.Address {
 }
 
 extension Memory.Allocation {
+
+  /// Returns initaialized region containing offset `o`.
+  func composedRegion(containingOffset o: Int) -> ComposedRegion {
+    precondition(o + baseOffset < storage.count)
+    let i = composedRegions.partitioningIndex { $0.offset > o } - 1
+    return composedRegions[i]
+  }
 
   /// Stores `v` at `o`.
   mutating func store(_ v: BuiltinValue, at o: Memory.Offset) {
