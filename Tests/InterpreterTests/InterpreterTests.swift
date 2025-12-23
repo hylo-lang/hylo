@@ -25,8 +25,8 @@ final class InterpreterRunTests: XCTestCase {
     let input =
       """
         public fun main() {
-          let x = 2
-          let y = 4
+          let x = 2 as Int32
+          let y = 4 as Int64
         }
       """.asSourceFile()
     let module = try input.loweredToIRAsMainWithHostedStandardLibrary()

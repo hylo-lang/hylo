@@ -56,23 +56,31 @@ final class InterpreterMemoryInternalTests: XCTestCase {
 
   }
 
-  func testStoringBuiltinValueInAllocation() {
+  private func assertStoring<T: Equatable>(_ v: BuiltinValue, asType t: BuiltinType, yields e: T)
+    throws
+  {
     var m = Memory()
     var l = TypeLayoutCache(typesIn: TypedProgram.empty, for: UnrealABI())
-    let a = m.allocate(1, bytesWithAlignment: 1)
-    m[a.allocation].store(BuiltinValue.i8(2), at: 0, with: &l)
-    m[a.allocation].withUnsafePointer(to: UInt8.self, at: 0) {
-      XCTAssertEqual($0.pointee, 2)
+    let a = Address(startLocation: m.allocate(l[^t]), type: l[^t])
+    try m.store(v, at: a, with: &l)
+    m[a.startLocation.allocation].withUnsafePointer(to: T.self, at: 0) {
+      XCTAssertEqual($0.pointee, e)
     }
   }
 
-  func testStoringBuiltinValueUsingAddress() {
+  func testStoringBuiltinValueInAllocation() throws {
+    try assertStoring(BuiltinValue.i1(true), asType: BuiltinType.i(1), yields: true)
+    try assertStoring(BuiltinValue.i8(8), asType: BuiltinType.i(8), yields: UInt8(8))
+    try assertStoring(BuiltinValue.i16(8), asType: BuiltinType.i(16), yields: UInt16(8))
+    try assertStoring(BuiltinValue.i32(8), asType: BuiltinType.i(32), yields: UInt32(8))
+    try assertStoring(BuiltinValue.i64(8), asType: BuiltinType.i(64), yields: UInt64(8))
+    try assertStoring(BuiltinValue.i128(8), asType: BuiltinType.i(128), yields: UInt128(8))
+
     var m = Memory()
     var l = TypeLayoutCache(typesIn: TypedProgram.empty, for: UnrealABI())
-    let a = Address(startLocation: m.allocate(1, bytesWithAlignment: 1), type: l[^BuiltinType.i(8)])
-    m.store(BuiltinValue.i8(2), at: a, layouts: &l)
-    m[a.startLocation.allocation].withUnsafePointer(to: UInt8.self, at: 0) {
-      XCTAssertEqual($0.pointee, 2)
+    let a = Address(startLocation: m.allocate(l[^BuiltinType.i(8)]), type: l[^BuiltinType.i(8)])
+    check(throws: Memory.Error.invalidTypeAccess(l[^BuiltinType.i(1)], at: a.startLocation)) {
+      try m.store(BuiltinValue.i1(true), at: a, with: &l)
     }
   }
 }

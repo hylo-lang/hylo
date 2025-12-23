@@ -17,6 +17,7 @@ public struct Memory {
     case deallocationNotAtStartOfAllocation(Address)
     case noLongerAllocated(Address)
     case noDecomposable(TypeLayout, at: Address)
+    case invalidTypeAccess(TypeLayout, at: Address)
   }
 
   /// A position in some allocation.
@@ -401,12 +402,12 @@ extension Memory.Allocation {
   ///   according to the type layouts provided by `layouts`.
   private func contains(
     _ t: AnyType, in p: AnyType, at o: Int,
-    memoryOffset a: Int, with layout: inout TypeLayoutCache
+    memoryOffset a: Int, with layouts: inout TypeLayoutCache
   )
     -> Bool
   {
     if o == 0 && t == p { return true }
-    let l = layout[p]
+    let l = layouts[p]
     if l.parts.isEmpty { return false }
     if l.isUnionLayout {
       if o == l.discriminator.offset {
@@ -419,26 +420,41 @@ extension Memory.Allocation {
         ))
       return contains(
         t, in: l.parts[d].type, at: o - l.parts[d].offset,
-        memoryOffset: a + l.parts[d].offset, with: &layout)
+        memoryOffset: a + l.parts[d].offset, with: &layouts)
     }
     let i = l.parts.partitioningIndex { $0.offset > o } - 1
     return contains(
       t, in: l.parts[i].type, at: o - l.parts[i].offset,
-      memoryOffset: a + l.parts[i].offset, with: &layout)
+      memoryOffset: a + l.parts[i].offset, with: &layouts)
+  }
+
+  /// Stores `x` at `o`.
+  ///
+  /// - Precondition: The memory at `o` is intended to represent `v` according to
+  ///   the type layouts provided by `layouts`.
+  private mutating func store<T>(
+    _ x: T, at o: Memory.Offset, asType t: BuiltinType, with layouts: inout TypeLayoutCache
+  ) throws {
+    if !contains(^t, at: o, with: &layouts) {
+      throw Memory.Error.invalidTypeAccess(layouts[^t], at: address(at: o))
+    }
+    withUnsafeMutablePointer(to: T.self, at: o) { $0.pointee = x }
   }
 
   /// Stores `v` at `o`.
   ///
   /// - Precondition: The memory at `o` is intended to represent `v` according to
   ///   the type layouts provided by `layouts`.
-  mutating func store(_ v: BuiltinValue, at o: Memory.Offset, with layouts: inout TypeLayoutCache) {
+  mutating func store(
+    _ v: BuiltinValue, at o: Memory.Offset, with layouts: inout TypeLayoutCache
+  ) throws {
     switch v {
-    case .i1(let x): withUnsafeMutablePointer(to: Bool.self, at: o) { $0.pointee = x }
-    case .i8(let x): withUnsafeMutablePointer(to: UInt8.self, at: o) { $0.pointee = x }
-    case .i16(let x): withUnsafeMutablePointer(to: UInt16.self, at: o) { $0.pointee = x }
-    case .i32(let x): withUnsafeMutablePointer(to: UInt32.self, at: o) { $0.pointee = x }
-    case .i64(let x): withUnsafeMutablePointer(to: UInt64.self, at: o) { $0.pointee = x }
-    case .i128(let x): withUnsafeMutablePointer(to: UInt128.self, at: o) { $0.pointee = x }
+    case .i1(let x): try store(x, at: o, asType: BuiltinType.i(1), with: &layouts)
+    case .i8(let x): try store(x, at: o, asType: BuiltinType.i(8), with: &layouts)
+    case .i16(let x): try store(x, at: o, asType: BuiltinType.i(16), with: &layouts)
+    case .i32(let x): try store(x, at: o, asType: BuiltinType.i(32), with: &layouts)
+    case .i64(let x): try store(x, at: o, asType: BuiltinType.i(64), with: &layouts)
+    case .i128(let x): try store(x, at: o, asType: BuiltinType.i(128), with: &layouts)
     }
   }
 
