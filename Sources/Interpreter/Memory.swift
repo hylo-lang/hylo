@@ -382,50 +382,59 @@ extension Memory.Allocation {
     return composedRegions[i]
   }
 
+  /// Returns the immediate subobject of `t` which contains offset `o` in `self`,
+  /// or `nil` if no such subobject exists.
+  ///
+  /// - Precondition: The storage of `t` begins at offset `i` in `self`.
+  /// - Precondition: `o` lies within the storage of `t`.
+  /// - Precondition: All the objects in `self` are laid out in memory according
+  ///   to the type layouts provided by `layouts`.
+  private func immediateSubobject(
+    of t: AnyType,
+    withOffset i: Int,
+    containingOffset o: Int,
+    using layouts: inout TypeLayoutCache
+  ) -> (type: AnyType, offset: Int)? {
+    let l = layouts[t]
+    if l.parts.isEmpty { return nil }
+
+    if !l.isUnionLayout {
+      let j = l.parts.partitioningIndex { $0.offset > o } - 1
+      let part = l.parts[j]
+      return (part.type, i + part.offset)
+    }
+    if o == i + l.discriminator.offset {
+      return (l.discriminator.type, i + l.discriminator.offset)
+    }
+    let d = Int(
+      unsignedIntValue(
+        at: i + l.discriminator.offset,
+        ofType: l.discriminator.type.base as! BuiltinType
+      )
+    )
+    let part = l.parts[d]
+    return (part.type, i + part.offset)
+  }
+
   /// Returns true iff `self` contains object of type `t` starting at offset `o`,
   /// either directly or nested inside composed parts.
   ///
-  /// - Precondition: All objects in this allocation are laid out in memory
-  ///   according to the type layouts provided by `layouts`.
+  /// - Precondition: All the objects in `self` are laid out in memory according
+  ///   to the type layouts provided by `layouts`.
   public func contains(_ t: AnyType, at o: Int, with layouts: inout TypeLayoutCache) -> Bool {
     if o + baseOffset >= storage.count {
       return false
     }
     let r = composedRegion(containingOffset: o)
-    return contains(t, in: r.type, at: o - r.offset, memoryOffset: r.offset, with: &layouts)
-  }
-
-  /// Returns true iff `p` contains object of type `t` at offset `o` relative
-  /// to position of `p`, given `p` is at offset `a` in memory.
-  ///
-  /// - Precondition: All objects in this allocation are laid out in memory
-  ///   according to the type layouts provided by `layouts`.
-  private func contains(
-    _ t: AnyType, in p: AnyType, at o: Int,
-    memoryOffset a: Int, with layouts: inout TypeLayoutCache
-  )
-    -> Bool
-  {
-    if o == 0 && t == p { return true }
-    let l = layouts[p]
-    if l.parts.isEmpty { return false }
-    if l.isUnionLayout {
-      if o == l.discriminator.offset {
-        return t == l.discriminator.type
-      }
-      let d = Int(
-        unsignedIntValue(
-          at: a + l.discriminator.offset,
-          ofType: l.discriminator.type.base as! BuiltinType
-        ))
-      return contains(
-        t, in: l.parts[d].type, at: o - l.parts[d].offset,
-        memoryOffset: a + l.parts[d].offset, with: &layouts)
+    var p = r.type
+    var i = r.offset
+    while true {
+      if i == o && t == p { return true }
+      guard let n = immediateSubobject(of: p, withOffset: i, containingOffset: o, using: &layouts)
+      else { return false }
+      p = n.type
+      i = n.offset
     }
-    let i = l.parts.partitioningIndex { $0.offset > o } - 1
-    return contains(
-      t, in: l.parts[i].type, at: o - l.parts[i].offset,
-      memoryOffset: a + l.parts[i].offset, with: &layouts)
   }
 
   /// Stores `x` at `o`.
