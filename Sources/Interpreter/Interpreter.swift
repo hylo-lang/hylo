@@ -185,7 +185,7 @@ public struct Interpreter {
   public private(set) var standardError: String = ""
 
   /// The type layouts that have been computed so far.
-  private var typeLayout: TypeLayoutCache
+  private var typeLayouts: TypeLayoutCache
 
   /// The top stack frame.
   private var topOfStack: StackFrame {
@@ -215,7 +215,7 @@ public struct Interpreter {
     // The return address of the bottom-most frame will never be used,
     // so we fill it with something arbitrary.
     callStack.push(returnAddress: programCounter, parameters: [])
-    typeLayout = .init(typesIn: p.base, for: UnrealABI())
+    typeLayouts = .init(typesIn: p.base, for: UnrealABI())
   }
 
   /// The value of the current instruction's result, if it has been computed.
@@ -238,7 +238,7 @@ public struct Interpreter {
       _ = x
 
     case let x as AllocStack:
-      let a = allocate(typeLayout[x.allocatedType])
+      let a = allocate(typeLayouts[x.allocatedType])
       topOfStack.allocations.append(a)
       currentRegister = .init(payload: a)
 
@@ -300,10 +300,10 @@ public struct Interpreter {
       popStackFrame()
       return
     case let x as Store:
-      try memory.store(asBuiltinValue(x.object)!, at: asAddress(x.target)!, with: &typeLayout)
+      try memory.store(asBuiltinValue(x.object)!, at: asAddress(x.target)!, with: &typeLayouts)
     case let x as SubfieldView:
       let p = asAddress(x.recordAddress)!
-      currentRegister = .init(payload: typeLayout.address(of: x.subfield, in: p))
+      currentRegister = .init(payload: typeLayouts.address(of: x.subfield, in: p))
     case let x as Switch:
       _ = x
     case let x as UnionDiscriminator:
