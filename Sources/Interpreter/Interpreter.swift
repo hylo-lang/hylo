@@ -223,10 +223,9 @@ public struct Interpreter {
     typeLayouts = .init(typesIn: p.base, for: UnrealABI())
   }
 
-  /// The value of the current instruction's result, if it has been computed.
-  private var currentRegister: InstructionResult? {
-    get { topOfStack.registers[programCounter.instructionInFunction] }
-    set { topOfStack.registers[programCounter.instructionInFunction] = newValue }
+  /// Sets the result of the current instruction to `r`.
+  private mutating func setCurrentRegister(to r: InstructionResult) {
+    topOfStack.registers[programCounter.instructionInFunction] = r 
   }
 
   /// Executes a single instruction.
@@ -234,7 +233,7 @@ public struct Interpreter {
     print("\(currentInstruction.site.gnuStandardText): \(currentInstruction)")
     switch currentInstruction {
     case let x as Access:
-      currentRegister = .init(payload: asAddress(x.source)!)
+      setCurrentRegister(to: .init(payload: asAddress(x.source)!))
     case let x as AddressToPointer:
       _ = x
     case let x as AdvancedByBytes:
@@ -245,7 +244,7 @@ public struct Interpreter {
     case let x as AllocStack:
       let a = allocate(typeLayouts[x.allocatedType])
       topOfStack.allocations.append(a)
-      currentRegister = .init(payload: a)
+      setCurrentRegister(to: .init(payload: a))
 
     case let x as Branch:
       _ = x
@@ -266,7 +265,7 @@ public struct Interpreter {
     case let x as CondBranch:
       _ = x
     case let x as ConstantString:
-      currentRegister = .init(payload: x.value)
+      setCurrentRegister(to: .init(payload: x.value))
     case let x as DeallocStack:
       let a = addressToBeDeallocated(by: x)
       try deallocateStack(a)
@@ -308,7 +307,7 @@ public struct Interpreter {
       try memory.store(asBuiltinValue(x.object)!, at: asAddress(x.target)!, with: &typeLayouts)
     case let x as SubfieldView:
       let p = asAddress(x.recordAddress)!
-      currentRegister = .init(payload: typeLayouts.address(of: x.subfield, in: p))
+      setCurrentRegister(to: .init(payload: typeLayouts.address(of: x.subfield, in: p)))
     case let x as Switch:
       _ = x
     case let x as UnionDiscriminator:
