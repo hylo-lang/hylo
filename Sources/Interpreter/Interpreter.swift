@@ -21,13 +21,17 @@ struct CodePointer {
 /// The value produced by executing an instruction.
 struct InstructionResult {
   /// The instruction's output as an opaque, type-erased value.
-  var payload: Any
+  public var payload: Any
 }
 
+/// A namespace for notional module-scope declarations that actually
+/// can't be accessed without ambiguity in some cases.
+///
+/// Aliases for these names are normally placed at module scope for ease-of-use.
 enum ModuleScope {
 
   /// A typed location in memory.
-  struct Address: Regular {
+  public struct Address: Regular {
 
     /// The position in memory.
     public let startLocation: Memory.Address
@@ -46,11 +50,11 @@ typealias Address = ModuleScope.Address
 /// call.
 struct StackFrame {
   /// The results of instructions.
-  var registers: [InstructionID: InstructionResult] = [:]
+  public var registers: [InstructionID: InstructionResult] = [:]
 
   /// The program counter to which execution should return when
   /// popping this frame.
-  var returnAddress: CodePointer
+  public var returnAddress: CodePointer
 
   /// The allocations in this stack frame.
   var allocations: [Address] = []
@@ -96,7 +100,8 @@ extension TypeLayoutCache {
 }
 
 extension Memory {
-  /// Deallocates `a`.
+  /// Deallocates the allocated memory at `a`, leaving it deallocated and
+  /// rendering `a` unusable for any purpose.
   mutating func deallocate(_ a: ModuleScope.Address) throws {
     precondition(a.startLocation.offset == 0, "Can't deallocate the memory of subobject.")
     precondition(
@@ -133,7 +138,7 @@ struct Stack {
   }
 
   /// Removes the top frame and returns its `returnAddress`.
-  mutating func pop() -> CodePointer {
+  public mutating func pop() -> CodePointer {
     let f = frames.last!
     defer {
       frames.removeLast()
@@ -142,7 +147,7 @@ struct Stack {
   }
 
   /// The top stack frame.
-  var top: StackFrame {
+  public var top: StackFrame {
     _read {
       precondition(!isEmpty)
       yield frames[frames.count - 1]
@@ -154,7 +159,7 @@ struct Stack {
   }
 
   /// Boolean indicating whether stack contains atleast 1 stack frame.
-  var isEmpty: Bool {
+  public var isEmpty: Bool {
     frames.isEmpty
   }
 
