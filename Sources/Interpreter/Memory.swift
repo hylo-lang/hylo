@@ -17,7 +17,7 @@ public struct Memory {
     case deallocationNotAtStartOfAllocation(Address)
     case noLongerAllocated(Address)
     case noDecomposable(TypeLayout, at: Address)
-    case invalidTypeAccess(TypeLayout, at: Address)
+    case invalidTypeAccess(AnyType, at: Address)
   }
 
   /// A position in some allocation.
@@ -445,7 +445,7 @@ extension Memory.Allocation {
     _ x: T, at o: Memory.Offset, asType t: BuiltinType, with layouts: inout TypeLayoutCache
   ) throws {
     if !contains(^t, at: o, with: &layouts) {
-      throw Memory.Error.invalidTypeAccess(layouts[^t], at: address(at: o))
+      throw Memory.Error.invalidTypeAccess(^t, at: address(at: o))
     }
     withUnsafeMutablePointer(to: T.self, at: o) { $0.pointee = x }
   }
