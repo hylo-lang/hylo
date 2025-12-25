@@ -30,6 +30,9 @@ struct ControlFlowGraph: Sendable {
   /// The relation encoded by the graph.
   private var relation: Relation
 
+  /// The type of action to perform after exploring a vertex.
+  typealias ExplorationContinuation = DirectedGraph<Vertex, Label>.ExplorationContinuation
+
   /// Creates an empty control flow graph.
   init() {
     relation = DirectedGraph()
@@ -107,70 +110,25 @@ struct ControlFlowGraph: Sendable {
     return result
   }
 
-  /// The type of action to perform after exploring a vertex.
-  enum ExplorationContinuation {
-
-    /// Continue exploring the successors of the vertex.
-    case `continue`
-
-    /// Skip exploring the successors of the vertex.
-    case skip
-
-    /// Stop exploring the graph.
-    case stop
-
-  }
-
-  /// Explores the graph in a breadth-first manner starting from `start`, calling `handleBlock`
+  /// Explores the graph in a breadth-first manner starting from `start`, calling `action`
   /// for each visited block.
   ///
-  /// When calling `handleBlock`, the block's ID and its successors are passed as arguments. The
-  /// return value of `handleBlock` determines how the exploration continues.
+  /// When calling `action`, the block's ID and its successors are passed as arguments. The
+  /// return value of `action` determines how the exploration continues.
   ///
   /// If `forward` is `false`, the graph is explored in the reverse direction, following
   /// predecessor edges instead of successor edges.
   func withBFS(
     _ start: [Block.ID], forward: Bool = true, _ action: (Block.ID, [Block.ID]) -> ExplorationContinuation
   ) {
-    var work = start
-    var visited: Set<Block.ID> = []
-
-    while let b = work.popLast() {
-      if visited.contains(b) { continue }
-      visited.insert(b)
-
-      let successors = forward ? successors(of: b) : predecessors(of: b)
-
-      switch action(b, successors) {
-      case .continue:
-        work.append(contentsOf: successors.filter({ !visited.contains($0) }))
-      case .skip:
-        continue
-      case .stop:
-        break
-      }
-    }
+    let f = forward ? { (l: Label) in l != .backward } : { (l: Label) in l != .forward }
+    return relation.withBFS(start, edgeFilter: f, action)
   }
 
   /// Iterates over all blocks reachable from `start`, in the direction indicated by `Forward`.
   func iterateFrom(_ start: [Block.ID], forward: Bool = true) -> AnySequence<Block.ID> {
-    AnySequence { () -> AnyIterator<Block.ID> in
-      var work = start
-      var visited: Set<Block.ID> = []
-
-      return AnyIterator {
-        while let b = work.popLast() {
-          if visited.contains(b) { continue }
-          visited.insert(b)
-
-          let successors = forward ? self.successors(of: b) : self.predecessors(of: b)
-          work.append(contentsOf: successors.filter({ !visited.contains($0) }))
-
-          return b
-        }
-        return nil
-      }
-    }
+    let f = forward ? { (l: Label) in l != .backward } : { (l: Label) in l != .forward }
+    return AnySequence(relation.bfs(from: start[0], edgeFilter: f))
   }
 
 }
