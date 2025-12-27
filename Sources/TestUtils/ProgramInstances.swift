@@ -2,6 +2,7 @@ import FrontEnd
 import Driver
 import IR
 import Utils
+import Interpreter
 
 extension AST {
 
@@ -35,6 +36,25 @@ extension SourceFile {
     var target = AST()
     let m = try self.parsedAsMain(into: &target, withBuiltinModuleAccess: needsBuiltins, reportingDiagnosticsTo: &log)
     return .init(program: target, module: m)
+  }
+
+  /// Runs the IR for `self` on `Interpreter` as the `Main` module in the context
+  /// of the hosted standard library.
+  ///
+  /// - Parameter `needsBuiltins`: whether `self` should be allowed access to
+  ///   builtin functions.
+  public func runOnInterpreterAsMainWithHostedStandardLibrary(
+    withBuiltinModuleAccess needsBuiltins: Bool = false
+  ) throws {
+    var log = DiagnosticSet()
+    let module = try self.typecheckedAsMainWithHostedStandardLibrary(
+      reportingDiagnosticsTo: &log, withBuiltinModuleAccess: needsBuiltins
+    ).loweredToIR(reportingDiagnosticsTo: &log)
+    let program = IR.Program.init(syntax: module.program, modules: [module.id: module])
+    var executor = Interpreter(program)
+    while executor.isRunning {
+      try executor.step()
+    }
   }
 
   /// Returns the IR for `self` as the `Main` module in the context of the hosted standard library.

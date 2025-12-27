@@ -19,22 +19,22 @@ final class InterpreterRunTests: XCTestCase {
   }
 
   func testEmptyMain() throws {
-    let input =
+    let p =
       """
         public fun main() { }
-      """.asSourceFile()
-    try run(input)
+      """.asSourceFile();
+    try p.runOnInterpreterAsMainWithHostedStandardLibrary()
   }
 
   func testLocalVariables() throws {
-    let input =
+    let p =
       """
         public fun main() {
           let x = 2 as Int32
           let y = 4 as Int64
         }
       """.asSourceFile()
-    try run(input);
+    try p.runOnInterpreterAsMainWithHostedStandardLibrary()
   }
 
 }
