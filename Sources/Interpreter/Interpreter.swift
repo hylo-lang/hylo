@@ -121,7 +121,7 @@ extension Memory {
   {
     let allocation = a.startLocation.allocation
     let offset = a.startLocation.offset
-    try self[allocation].store(v, at: offset, with: &layouts)
+    try self[allocation].store(v, at: offset, per: &layouts)
   }
 }
 
@@ -132,7 +132,7 @@ struct Stack {
   private var frames: [StackFrame] = []
 
   /// Adds a new frame on top with the given `returnAddress` and `parameters`.
-  mutating func push(returnAddress: CodePointer, parameters: [Address]) {
+  public mutating func push(returnAddress: CodePointer, parameters: [Address]) {
     let f = StackFrame(returnAddress: returnAddress, parameters: parameters)
     frames.append(f)
   }

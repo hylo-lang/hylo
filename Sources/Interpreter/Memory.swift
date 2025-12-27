@@ -442,7 +442,7 @@ extension Memory.Allocation {
   /// - Precondition: The memory at `o` is intended to represent `v` according to
   ///   the type layouts provided by `layouts`.
   private mutating func store<T>(
-    _ x: T, at o: Memory.Offset, asType t: BuiltinType, with layouts: inout TypeLayoutCache
+    _ x: T, at o: Memory.Offset, asType t: BuiltinType, per layouts: inout TypeLayoutCache
   ) throws {
     if !contains(^t, at: o, with: &layouts) {
       throw Memory.Error.invalidTypeAccess(^t, at: address(at: o))
@@ -455,15 +455,15 @@ extension Memory.Allocation {
   /// - Precondition: The memory at `o` is intended to represent `v` according to
   ///   the type layouts provided by `layouts`.
   mutating func store(
-    _ v: BuiltinValue, at o: Memory.Offset, with layouts: inout TypeLayoutCache
+    _ v: BuiltinValue, at o: Memory.Offset, per layouts: inout TypeLayoutCache
   ) throws {
     switch v {
-    case .i1(let x): try store(x, at: o, asType: BuiltinType.i(1), with: &layouts)
-    case .i8(let x): try store(x, at: o, asType: BuiltinType.i(8), with: &layouts)
-    case .i16(let x): try store(x, at: o, asType: BuiltinType.i(16), with: &layouts)
-    case .i32(let x): try store(x, at: o, asType: BuiltinType.i(32), with: &layouts)
-    case .i64(let x): try store(x, at: o, asType: BuiltinType.i(64), with: &layouts)
-    case .i128(let x): try store(x, at: o, asType: BuiltinType.i(128), with: &layouts)
+    case .i1(let x): try store(x, at: o, asType: BuiltinType.i(1), per: &layouts)
+    case .i8(let x): try store(x, at: o, asType: BuiltinType.i(8), per: &layouts)
+    case .i16(let x): try store(x, at: o, asType: BuiltinType.i(16), per: &layouts)
+    case .i32(let x): try store(x, at: o, asType: BuiltinType.i(32), per: &layouts)
+    case .i64(let x): try store(x, at: o, asType: BuiltinType.i(64), per: &layouts)
+    case .i128(let x): try store(x, at: o, asType: BuiltinType.i(128), per: &layouts)
     }
   }
 
