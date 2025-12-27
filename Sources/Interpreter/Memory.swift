@@ -82,7 +82,7 @@ public struct Memory {
       self.id = id
     }
 
-    /// Allocation for type having type layout `t` and the given `id`.
+    /// An allocation for `t` with the given `id`.
     public init(_ t: TypeLayout, id: ID) {
       self.init(t.size, bytesWithAlignment: t.alignment, id: id)
       composedRegions.append(.init(offset: 0, type: t.type))
