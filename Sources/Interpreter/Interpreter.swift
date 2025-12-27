@@ -230,10 +230,10 @@ public struct Interpreter {
 
   /// Executes a single instruction.
   public mutating func step() throws {
-    print("\(currentInstruction.site.gnuStandardText): \(currentInstruction)")
+    print("\(currentInstruction.site): \(currentInstruction)")
     switch currentInstruction {
     case let x as Access:
-      setCurrentRegister(to: .init(payload: asAddress(x.source)!))
+      setCurrentRegister(to: .init(payload: asAddress(x.source)))
     case let x as AddressToPointer:
       _ = x
     case let x as AdvancedByBytes:
@@ -304,9 +304,9 @@ public struct Interpreter {
       popStackFrame()
       return
     case let x as Store:
-      try memory.store(asBuiltinValue(x.object)!, at: asAddress(x.target)!, with: &typeLayouts)
+      try memory.store(asBuiltinValue(x.object), at: asAddress(x.target), with: &typeLayouts)
     case let x as SubfieldView:
-      let p = asAddress(x.recordAddress)!
+      let p = asAddress(x.recordAddress)
       setCurrentRegister(to: .init(payload: typeLayouts.address(of: x.subfield, in: p)))
     case let x as Switch:
       _ = x
@@ -392,25 +392,29 @@ public struct Interpreter {
     return a!
   }
 
-  /// Returns the value of `x` if it has a address, or `nil` if it does not.
-  func asAddress(_ x: Operand) -> Address? {
+  /// Interpret `x` as an Address.
+  ///
+  /// - Precondition: `x` is an Address.
+  func asAddress(_ x: Operand) -> Address {
     switch x {
     case .register(let instruction):
-      topOfStack.registers[instruction]?.payload as? Address
+      topOfStack.registers[instruction]!.payload as! Address
     case .parameter(_, let i):
       topOfStack.parameters[i]
     case .constant:
-      nil
+      preconditionFailure("Constant operand is not an Address.")
     }
   }
 
-  /// Returns the value of `x` if it has a builtin type, or `nil` if it does not.
-  func asBuiltinValue(_ x: Operand) -> BuiltinValue? {
+  /// Interpret `x` as a builtin value.
+  ///
+  /// - Precondition: `x` is builtin value.
+  func asBuiltinValue(_ x: Operand) -> BuiltinValue {
     switch x {
     case .register(let instruction):
-      topOfStack.registers[instruction]?.payload as? BuiltinValue
+      topOfStack.registers[instruction]!.payload as! BuiltinValue
     case .parameter:
-      nil
+      preconditionFailure("Parameter operand doesn't have builtin value.")
     case .constant(let c):
       switch c {
       case let x as IntegerConstant:
