@@ -110,6 +110,12 @@ struct ControlFlowGraph: Sendable {
     return result
   }
 
+  /// Iterates over all blocks reachable from `start`, in the direction indicated by `forward`.
+  func iterateFrom(_ start: [Block.ID], forward: Bool = true) -> AnySequence<Block.ID> {
+    let f = forward ? { (l: Label) in l != .backward } : { (l: Label) in l != .forward }
+    return AnySequence(relation.bfs(from: start[0], edgeFilter: f))
+  }
+
   /// Explores the graph in a breadth-first manner starting from `start`, calling `action`
   /// for each visited block.
   ///
@@ -118,17 +124,14 @@ struct ControlFlowGraph: Sendable {
   ///
   /// If `forward` is `false`, the graph is explored in the reverse direction, following
   /// predecessor edges instead of successor edges.
+  /// 
+  /// Use this method when a simple exploration with `iterateFrom()` is not sufficient, for example
+  /// to skip parts of the graph or to stop the exploration early.
   func withBFS(
     _ start: [Block.ID], forward: Bool = true, _ action: (Block.ID, [Block.ID]) -> ExplorationContinuation
   ) {
     let f = forward ? { (l: Label) in l != .backward } : { (l: Label) in l != .forward }
     return relation.withBFS(start, edgeFilter: f, action)
-  }
-
-  /// Iterates over all blocks reachable from `start`, in the direction indicated by `Forward`.
-  func iterateFrom(_ start: [Block.ID], forward: Bool = true) -> AnySequence<Block.ID> {
-    let f = forward ? { (l: Label) in l != .backward } : { (l: Label) in l != .forward }
-    return AnySequence(relation.bfs(from: start[0], edgeFilter: f))
   }
 
 }

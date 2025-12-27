@@ -82,6 +82,9 @@ public struct DirectedGraph<Vertex: Hashable & Sendable, Label: Sendable>: Senda
   ///
   /// When calling `action`, the vertex and its successors are passed as arguments. The
   /// return value of `action` determines how the exploration continues.
+  /// 
+  /// Use this method when a simple exploration with `bfs(from:)` is not sufficient, for example
+  /// to skip parts of the graph or to stop the exploration early.
   public func withBFS<C: Collection<Vertex>>(
     _ start: C,
     edgeFilter: ((Label) -> Bool)? = nil,
