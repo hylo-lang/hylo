@@ -79,7 +79,7 @@ final class InterpreterMemoryInternalTests: XCTestCase {
     var m = Memory()
     var l = TypeLayoutCache(typesIn: TypedProgram.empty, for: UnrealABI())
     let a = Address(startLocation: m.allocate(l[^BuiltinType.i(8)]), type: l[^BuiltinType.i(8)])
-    check(throws: Memory.Error.invalidTypeAccess(^BuiltinType.i(1), at: a.startLocation)) {
+    check(throws: Memory.Error.invalidStore(of: ^BuiltinType.i(1), at: a.startLocation)) {
       try m.store(BuiltinValue.i1(true), at: a, with: &l)
     }
   }

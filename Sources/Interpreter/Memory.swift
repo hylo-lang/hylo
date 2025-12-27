@@ -17,7 +17,7 @@ public struct Memory {
     case deallocationNotAtStartOfAllocation(Address)
     case noLongerAllocated(Address)
     case noDecomposable(TypeLayout, at: Address)
-    case invalidTypeAccess(AnyType, at: Address)
+    case invalidStore(of: AnyType, at: Address)
   }
 
   /// A position in some allocation.
@@ -375,7 +375,7 @@ public extension Memory.Address {
 
 extension Memory.Allocation {
 
-  /// Returns initaialized region containing offset `o`.
+  /// Returns the composed region containing offset `o`.
   func composedRegion(containingOffset o: Int) -> ComposedRegion {
     precondition(o + baseOffset < storage.count)
     let i = composedRegions.partitioningIndex { $0.offset > o } - 1
@@ -393,7 +393,7 @@ extension Memory.Allocation {
     of t: AnyType,
     withOffset i: Int,
     containingOffset o: Int,
-    using layouts: inout TypeLayoutCache
+    per layouts: inout TypeLayoutCache
   ) -> (type: AnyType, offset: Int)? {
     let l = layouts[t]
     if l.parts.isEmpty { return nil }
@@ -416,12 +416,12 @@ extension Memory.Allocation {
     return (part.type, i + part.offset)
   }
 
-  /// Returns true iff `self` contains object of type `t` starting at offset `o`,
+  /// Returns true iff `self` contains an object of type `t` starting at offset `o`,
   /// either directly or nested inside composed parts.
   ///
   /// - Precondition: All the objects in `self` are laid out in memory according
   ///   to the type layouts provided by `layouts`.
-  public func contains(_ t: AnyType, at o: Int, with layouts: inout TypeLayoutCache) -> Bool {
+  public func contains(_ t: AnyType, at o: Int, per layouts: inout TypeLayoutCache) -> Bool {
     if o + baseOffset >= storage.count {
       return false
     }
@@ -430,7 +430,7 @@ extension Memory.Allocation {
     var i = r.offset
     while true {
       if i == o && t == p { return true }
-      guard let n = immediateSubobject(of: p, withOffset: i, containingOffset: o, using: &layouts)
+      guard let n = immediateSubobject(of: p, withOffset: i, containingOffset: o, per: &layouts)
       else { return false }
       p = n.type
       i = n.offset
@@ -439,21 +439,19 @@ extension Memory.Allocation {
 
   /// Stores `x` at `o`.
   ///
-  /// - Precondition: The memory at `o` is intended to represent `v` according to
-  ///   the type layouts provided by `layouts`.
+  /// - Precondition: The storage of `self` conforms to type layouts provided by `layouts`.
   private mutating func store<T>(
     _ x: T, at o: Memory.Offset, asType t: BuiltinType, per layouts: inout TypeLayoutCache
   ) throws {
-    if !contains(^t, at: o, with: &layouts) {
-      throw Memory.Error.invalidTypeAccess(^t, at: address(at: o))
+    if !contains(^t, at: o, per: &layouts) {
+      throw Memory.Error.invalidStore(of: ^t, at: address(at: o))
     }
     withUnsafeMutablePointer(to: T.self, at: o) { $0.pointee = x }
   }
 
   /// Stores `v` at `o`.
   ///
-  /// - Precondition: The memory at `o` is intended to represent `v` according to
-  ///   the type layouts provided by `layouts`.
+  /// - Precondition: The storage of `self` conforms to type layouts provided by `layouts`.
   mutating func store(
     _ v: BuiltinValue, at o: Memory.Offset, per layouts: inout TypeLayoutCache
   ) throws {

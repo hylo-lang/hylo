@@ -158,13 +158,13 @@ final class InterpreterMemoryTests: XCTestCase {
     let inner = ^TupleType(types: [^BuiltinType.i(1)])
     let outer = ^TupleType(types: [^BuiltinType.i(1), inner])
     let a = m.allocate(c[outer])
-    XCTAssertTrue(m[a.allocation].contains(outer, at: 0, with: &c))
-    XCTAssertTrue(m[a.allocation].contains(^BuiltinType.i(1), at: 0, with: &c))
-    XCTAssertTrue(m[a.allocation].contains(inner, at: 1, with: &c))
-    XCTAssertTrue(m[a.allocation].contains(^BuiltinType.i(1), at: 1, with: &c))
-    XCTAssertFalse(m[a.allocation].contains(inner, at: 0, with: &c))
-    XCTAssertFalse(m[a.allocation].contains(outer, at: 1, with: &c))
-    XCTAssertFalse(m[a.allocation].contains(inner, at: 2, with: &c))
+    XCTAssertTrue(m[a.allocation].contains(outer, at: 0, per: &c))
+    XCTAssertTrue(m[a.allocation].contains(^BuiltinType.i(1), at: 0, per: &c))
+    XCTAssertTrue(m[a.allocation].contains(inner, at: 1, per: &c))
+    XCTAssertTrue(m[a.allocation].contains(^BuiltinType.i(1), at: 1, per: &c))
+    XCTAssertFalse(m[a.allocation].contains(inner, at: 0, per: &c))
+    XCTAssertFalse(m[a.allocation].contains(outer, at: 1, per: &c))
+    XCTAssertFalse(m[a.allocation].contains(inner, at: 2, per: &c))
 
     // TODO: tests for union case. Need to support open_union instruction for the same.
   }
