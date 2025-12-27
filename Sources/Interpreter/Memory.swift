@@ -289,7 +289,7 @@ public struct Memory {
     return .init(allocation: a, offset: 0)
   }
 
-  /// Allocates memory for type having type layout `t`.
+  /// Returns new memory for an instance of `t`.
   public mutating func allocate(_ t: TypeLayout) -> Address {
     let a = nextAllocation
     nextAllocation += 1
