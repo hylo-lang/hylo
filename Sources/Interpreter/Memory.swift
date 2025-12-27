@@ -376,13 +376,15 @@ public extension Memory.Address {
 extension Memory.Allocation {
 
   /// Returns the composed region containing offset `o`.
+  ///
+  /// - Precondition: `o` should lie inside a valid composed region of `self`.
   func composedRegion(containingOffset o: Int) -> ComposedRegion {
     precondition(o + baseOffset < storage.count)
     let i = composedRegions.partitioningIndex { $0.offset > o } - 1
     return composedRegions[i]
   }
 
-  /// Returns the immediate subobject of `t` which contains offset `o` in `self`,
+  /// Returns the immediate subobject of `t` that contains offset `o` in `self`,
   /// or `nil` if no such subobject exists.
   ///
   /// - Precondition: The storage of `t` begins at offset `i` in `self`.
