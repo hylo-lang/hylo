@@ -63,6 +63,9 @@ extension IR.Program {
 extension IR.Module {
 
   /// Returns the IR function representing the ramp of projection `f`.
+  ///
+  /// Signature:
+  /// > fun Projection.ramp(let Continuation, <parameters>, set <yield-type>) -> Continuation
   fileprivate mutating func demandRampDeclaration(for f: Function.ID) -> Function.ID {
     let result = Function.ID(projectionRamp: f)
     if functions[result] != nil {
@@ -71,9 +74,9 @@ extension IR.Module {
 
     let source = self[f]
     var inputs = source.inputs
-    // TODO: add extra parameters: caller plateau continuation & yield value
+    let c = continuationType()
+    inputs.insert(Parameter(decl: nil, type: ParameterType(.`let`, c)), at: 0)
     inputs.append(Parameter(decl: nil, type: ParameterType(.`set`, source.output)))
-    // TODO: set output type to Continuation
 
     let entity = Function(
       isSubscript: false,
@@ -81,13 +84,16 @@ extension IR.Module {
       linkage: .module,
       genericParameters: source.genericParameters,
       inputs: inputs,
-      output: source.output,
+      output: c,
       blocks: [])
     addFunction(entity, for: result)
     return result
   }
 
   /// Returns the IR function representing the slide of projection `f`.
+  ///
+  /// Signature:
+  /// > fun Projection.slide(let Builtin.ptr, let Continuation) -> {}
   fileprivate mutating func demandSlideDeclaration(for f: Function.ID) -> Function.ID {
     let result = Function.ID(projectionSlide: f)
     if self.functions[result] != nil {
@@ -95,9 +101,10 @@ extension IR.Module {
     }
 
     let source = self[f]
-    let inputs: [Parameter] = []
-    // TODO: add caller slide continuation parameter
-    // TODO: set output type to Continuation
+    let inputs: [Parameter] = [
+      Parameter(decl: nil, type: ParameterType(.`let`, AnyType(BuiltinType.ptr))),
+      Parameter(decl: nil, type: ParameterType(.`let`, continuationType()))
+    ]
 
     let entity = Function(
       isSubscript: false,
@@ -109,6 +116,15 @@ extension IR.Module {
       blocks: [])
     addFunction(entity, for: result)
     return result
+  }
+
+  /// Returns the type of a continuation.
+  private func continuationType() -> AnyType {
+    let t = AnyType(BuiltinType.ptr)
+    return AnyType(TupleType([
+      TupleType.Element(label: "resumeFunction", type: t),
+      TupleType.Element(label: "stackBase", type: t)
+    ]))
   }
 
 }
