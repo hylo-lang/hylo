@@ -1,0 +1,13 @@
+//- lowerToFinishedIR expecting: .success
+
+public type A: Deinitializable {
+
+  public property p: Int {
+    var s = 0
+    for sink let i in 0 ..< 10 {
+      &s += i
+    }
+    yield s
+  }
+
+}
