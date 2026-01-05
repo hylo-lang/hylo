@@ -54,6 +54,8 @@ public struct Program: FrontEnd.Program {
       return module(defining: b)
     case .projectionSlide(let b):
       return module(defining: b)
+    case .projectionCallerPlateau(let b, _):
+      return module(defining: b)  
     }
   }
 

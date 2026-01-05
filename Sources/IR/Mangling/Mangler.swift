@@ -367,6 +367,8 @@ struct Mangler: Sendable {
       append(projectionRamp: b, to: &output)
     case .projectionSlide(let b):
       append(projectionSlide: b, to: &output)
+    case .projectionCallerPlateau(let b, let r):
+      append(projectionCallerPlateau: b, region: r, to: &output)
     case .existentialized:
       UNIMPLEMENTED()
     }
@@ -395,6 +397,15 @@ struct Mangler: Sendable {
   ) {
     append(operator: .projectionSlideFunctionDecl, to: &output)
     append(function: s, to: &output)
+  }
+
+  /// Writes the mangled representation of `s` to `output`.
+  private mutating func append(
+    projectionCallerPlateau s: Function.ID, region: Int, to output: inout Output
+  ) {
+    append(operator: .projectionCallerPlateauFunctionDecl, to: &output)
+    append(function: s, to: &output)
+    append(integer: region, to: &output)
   }
 
   /// Writes the mangled representation of `z` to `output`.

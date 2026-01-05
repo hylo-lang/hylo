@@ -94,6 +94,8 @@ struct Demangler: Sendable {
         demangled = takeProjectionRampDecl(qualifiedBy: qualification, from: &stream)
       case .projectionSlideFunctionDecl:
         demangled = takeProjectionSlideDecl(qualifiedBy: qualification, from: &stream)
+      case .projectionCallerPlateauFunctionDecl:
+        demangled = takeProjectionCallerPlateauDecl(qualifiedBy: qualification, from: &stream)
       case .remoteType:
         demangled = takeRemoteType(from: &stream)
       case .reserved:
@@ -446,6 +448,26 @@ struct Demangler: Sendable {
       qualification: q,
       kind: NodeKind(SubscriptDecl.self),
       name: Name(stem: String(stem) + ".slide"),
+      type: type)
+    return .entity(e)
+  }
+
+  /// Demangles a projection caller declaration from `stream`.
+  private mutating func takeProjectionCallerPlateauDecl(
+    qualifiedBy qualification: DemangledQualification?,
+    from stream: inout Substring
+  ) -> DemangledSymbol? {
+    guard
+      let q = qualification,
+      let stem = takeString(from: &stream),
+      let region = takeInteger(from: &stream),
+      let type = demangleType(from: &stream)
+    else { return nil }
+
+    let e = DemangledEntity(
+      qualification: q,
+      kind: NodeKind(FunctionDecl.self),
+      name: Name(stem: String(stem) + ".plateau\(region)"),
       type: type)
     return .entity(e)
   }

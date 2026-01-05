@@ -87,6 +87,8 @@ extension Module: TextOutputStreamable {
       return "Projection ramp of '\(debugDescription(b))'"
     case .projectionSlide(let b):
       return "Projection slide of '\(debugDescription(b))'"
+    case .projectionCallerPlateau(let b, let r):
+      return "Projection caller plateau of '\(debugDescription(b))' for region \(r)"
     }
   }
 

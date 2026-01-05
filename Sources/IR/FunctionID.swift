@@ -27,6 +27,9 @@ extension Function {
       /// The identity of a slide function generated for a projection.
       indirect case projectionSlide(base: ID)
 
+      /// The identity of a projection caller function.
+      indirect case projectionCallerPlateau(base: ID, region: Int)
+
     }
 
     /// The value of this identity.
@@ -73,6 +76,11 @@ extension Function {
       self.value = .projectionSlide(base: base)
     }
 
+    /// Creates the identity of the slide created for projection `base`.
+    init(projectionCallerPlateau base: Function.ID, region index: Int) {
+      self.value = .projectionCallerPlateau(base: base, region: index)
+    }
+
     /// `true` if `self` is the identity of a synthesized function.
     public var isSynthesized: Bool {
       if case .synthesized = value {
@@ -112,6 +120,8 @@ extension Function.ID: CustomStringConvertible {
       return "\(b).ramp"
     case .projectionSlide(let b):
       return "\(b).slide"
+    case .projectionCallerPlateau(let b, let r):
+      return "\(b).plateau\(r)"
     }
   }
 
