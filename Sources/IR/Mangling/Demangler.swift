@@ -90,6 +90,12 @@ struct Demangler: Sendable {
         demangled = takePropertyDecl(qualifiedBy: qualification, from: &stream)
       case .productTypeDecl:
         demangled = take(ProductTypeDecl.self, qualifiedBy: qualification, from: &stream)
+      case .projectionRampFunctionDecl:
+        demangled = takeProjectionRampDecl(qualifiedBy: qualification, from: &stream)
+      case .projectionSlideFunctionDecl:
+        demangled = takeProjectionSlideDecl(qualifiedBy: qualification, from: &stream)
+      case .projectionCallerPlateauFunctionDecl:
+        demangled = takeProjectionCallerPlateauDecl(qualifiedBy: qualification, from: &stream)
       case .remoteType:
         demangled = takeRemoteType(from: &stream)
       case .reserved:
@@ -405,6 +411,64 @@ struct Demangler: Sendable {
       qualification: q,
       kind: NodeKind(SubscriptImpl.self),
       name: Name(stem: "\(a)"))
+    return .entity(e)
+  }
+
+  /// Demangles a projection ramp declaration from `stream`.
+  private mutating func takeProjectionRampDecl(
+    qualifiedBy qualification: DemangledQualification?,
+    from stream: inout Substring
+  ) -> DemangledSymbol? {
+    guard
+      let q = qualification,
+      let stem = takeString(from: &stream),
+      let type = demangleType(from: &stream)
+    else { return nil }
+
+    let e = DemangledEntity(
+      qualification: q,
+      kind: NodeKind(SubscriptDecl.self),
+      name: Name(stem: String(stem) + ".ramp"),
+      type: type)
+    return .entity(e)
+  }
+
+  /// Demangles a projection slide declaration from `stream`.
+  private mutating func takeProjectionSlideDecl(
+    qualifiedBy qualification: DemangledQualification?,
+    from stream: inout Substring
+  ) -> DemangledSymbol? {
+    guard
+      let q = qualification,
+      let stem = takeString(from: &stream),
+      let type = demangleType(from: &stream)
+    else { return nil }
+
+    let e = DemangledEntity(
+      qualification: q,
+      kind: NodeKind(SubscriptDecl.self),
+      name: Name(stem: String(stem) + ".slide"),
+      type: type)
+    return .entity(e)
+  }
+
+  /// Demangles a projection caller declaration from `stream`.
+  private mutating func takeProjectionCallerPlateauDecl(
+    qualifiedBy qualification: DemangledQualification?,
+    from stream: inout Substring
+  ) -> DemangledSymbol? {
+    guard
+      let q = qualification,
+      let stem = takeString(from: &stream),
+      let region = takeInteger(from: &stream),
+      let type = demangleType(from: &stream)
+    else { return nil }
+
+    let e = DemangledEntity(
+      qualification: q,
+      kind: NodeKind(FunctionDecl.self),
+      name: Name(stem: String(stem) + ".plateau\(region)"),
+      type: type)
     return .entity(e)
   }
 

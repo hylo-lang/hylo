@@ -102,6 +102,8 @@ public struct Module: Sendable {
       return isDeinit(j)
     case .synthesized(let d):
       return d.kind == .deinitialize
+    case .projectionRamp(_), .projectionSlide(_), .projectionCallerPlateau(_, _):
+      return false
     }
   }
 

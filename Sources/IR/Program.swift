@@ -50,6 +50,12 @@ public struct Program: FrontEnd.Program {
       return module(defining: i)
     case .synthesized(let d):
       return base.module(containing: d.scope)
+    case .projectionRamp(let b):
+      return module(defining: b)
+    case .projectionSlide(let b):
+      return module(defining: b)
+    case .projectionCallerPlateau(let b, _):
+      return module(defining: b)  
     }
   }
 
