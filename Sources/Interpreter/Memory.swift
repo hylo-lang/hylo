@@ -17,7 +17,6 @@ public struct Memory {
     case deallocationNotAtStartOfAllocation(Address)
     case noLongerAllocated(Address)
     case noDecomposable(TypeLayout, at: Address)
-    case invalidStore(of: AnyType, at: Address)
   }
 
   /// A position in some allocation.
@@ -85,7 +84,6 @@ public struct Memory {
     /// An allocation for `t` with the given `id`.
     public init(_ t: TypeLayout, id: ID) {
       self.init(t.size, bytesWithAlignment: t.alignment, id: id)
-      composedRegions.append(.init(offset: 0, type: t.type))
     }
 
     /// The address of the `o`th byte.
@@ -289,14 +287,6 @@ public struct Memory {
     return .init(allocation: a, offset: 0)
   }
 
-  /// Returns new memory for an instance of `t`.
-  public mutating func allocate(_ t: TypeLayout) -> Address {
-    let a = nextAllocation
-    nextAllocation += 1
-    allocation[a] = Allocation(t, id: a)
-    return .init(allocation: a, offset: 0)
-  }
-
   /// Deallocates the allocated memory starting at `a`.
   public mutating func deallocate(_ a: Address) throws {
     if a.offset != 0 {
@@ -375,95 +365,21 @@ public extension Memory.Address {
 
 extension Memory.Allocation {
 
-  /// Returns the composed region containing offset `o`.
-  ///
-  /// - Precondition: `o` should lie inside a valid composed region of `self`.
-  func composedRegion(containingOffset o: Int) -> ComposedRegion {
-    precondition(o + baseOffset < storage.count)
-    let i = composedRegions.partitioningIndex { $0.offset > o } - 1
-    return composedRegions[i]
-  }
-
-  /// Returns the immediate subobject of `t` that contains offset `o` in `self`,
-  /// or `nil` if no such subobject exists.
-  ///
-  /// - Precondition: The storage of `t` begins at offset `i` in `self`.
-  /// - Precondition: `o` lies within the storage of `t`.
-  /// - Precondition: All the objects in `self` are laid out in memory according
-  ///   to the type layouts provided by `layouts`.
-  private func immediateSubobject(
-    of t: AnyType,
-    withOffset i: Int,
-    containingOffset o: Int,
-    per layouts: inout TypeLayoutCache
-  ) -> (type: AnyType, offset: Int)? {
-    let l = layouts[t]
-    if l.parts.isEmpty { return nil }
-
-    if !l.isUnionLayout {
-      let j = l.parts.partitioningIndex { $0.offset > o } - 1
-      let part = l.parts[j]
-      return (part.type, i + part.offset)
-    }
-    if o == i + l.discriminator.offset {
-      return (l.discriminator.type, i + l.discriminator.offset)
-    }
-    let d = Int(
-      unsignedIntValue(
-        at: i + l.discriminator.offset,
-        ofType: l.discriminator.type.base as! BuiltinType
-      )
-    )
-    let part = l.parts[d]
-    return (part.type, i + part.offset)
-  }
-
-  /// Returns true iff `self` contains an object of type `t` starting at offset `o`,
-  /// either directly or nested inside composed parts.
-  ///
-  /// - Precondition: All the objects in `self` are laid out in memory according
-  ///   to the type layouts provided by `layouts`.
-  public func contains(_ t: AnyType, at o: Int, per layouts: inout TypeLayoutCache) -> Bool {
-    if o + baseOffset >= storage.count {
-      return false
-    }
-    let r = composedRegion(containingOffset: o)
-    var p = r.type
-    var i = r.offset
-    while true {
-      if i == o && t == p { return true }
-      guard let n = immediateSubobject(of: p, withOffset: i, containingOffset: o, per: &layouts)
-      else { return false }
-      p = n.type
-      i = n.offset
-    }
-  }
-
-  /// Stores `x` at `o`.
-  ///
-  /// - Precondition: The storage of `self` conforms to type layouts provided by `layouts`.
-  private mutating func store<T>(
-    _ x: T, at o: Memory.Offset, asType t: BuiltinType, per layouts: inout TypeLayoutCache
-  ) throws {
-    if !contains(^t, at: o, per: &layouts) {
-      throw Memory.Error.invalidStore(of: ^t, at: address(at: o))
-    }
-    withUnsafeMutablePointer(to: T.self, at: o) { $0.pointee = x }
+  /// Stores `v` at `o`.
+  private mutating func store<T>(_ v: T, at o: Memory.Offset) throws {
+    // TODO: throw in case of call to store with wrong type by unsafe code.
+    withUnsafeMutablePointer(to: T.self, at: o) { $0.pointee = v }
   }
 
   /// Stores `v` at `o`.
-  ///
-  /// - Precondition: The storage of `self` conforms to type layouts provided by `layouts`.
-  mutating func store(
-    _ v: BuiltinValue, at o: Memory.Offset, per layouts: inout TypeLayoutCache
-  ) throws {
+  mutating func store(_ v: BuiltinValue, at o: Memory.Offset) throws {
     switch v {
-    case .i1(let x): try store(x, at: o, asType: BuiltinType.i(1), per: &layouts)
-    case .i8(let x): try store(x, at: o, asType: BuiltinType.i(8), per: &layouts)
-    case .i16(let x): try store(x, at: o, asType: BuiltinType.i(16), per: &layouts)
-    case .i32(let x): try store(x, at: o, asType: BuiltinType.i(32), per: &layouts)
-    case .i64(let x): try store(x, at: o, asType: BuiltinType.i(64), per: &layouts)
-    case .i128(let x): try store(x, at: o, asType: BuiltinType.i(128), per: &layouts)
+    case .i1(let x): try store(x, at: o)
+    case .i8(let x): try store(x, at: o)
+    case .i16(let x): try store(x, at: o)
+    case .i32(let x): try store(x, at: o)
+    case .i64(let x): try store(x, at: o)
+    case .i128(let x): try store(x, at: o)
     }
   }
 

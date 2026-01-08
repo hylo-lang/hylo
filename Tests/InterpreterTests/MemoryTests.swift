@@ -151,21 +151,4 @@ final class InterpreterMemoryTests: XCTestCase {
       try m.decompose(i16, at: p + parts[1].offset)
      */
   }
-
-  func testCheckingAllocationContainsAType() {
-    var m = Memory()
-    var c = TypeLayoutCache(typesIn: emptyProgram, for: UnrealABI())
-    let inner = ^TupleType(types: [^BuiltinType.i(1)])
-    let outer = ^TupleType(types: [^BuiltinType.i(1), inner])
-    let a = m.allocate(c[outer])
-    XCTAssertTrue(m[a.allocation].contains(outer, at: 0, per: &c))
-    XCTAssertTrue(m[a.allocation].contains(^BuiltinType.i(1), at: 0, per: &c))
-    XCTAssertTrue(m[a.allocation].contains(inner, at: 1, per: &c))
-    XCTAssertTrue(m[a.allocation].contains(^BuiltinType.i(1), at: 1, per: &c))
-    XCTAssertFalse(m[a.allocation].contains(inner, at: 0, per: &c))
-    XCTAssertFalse(m[a.allocation].contains(outer, at: 1, per: &c))
-    XCTAssertFalse(m[a.allocation].contains(inner, at: 2, per: &c))
-
-    // TODO: tests for union case. Need to support open_union instruction for the same.
-  }
 }

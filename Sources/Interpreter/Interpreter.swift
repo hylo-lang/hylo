@@ -111,17 +111,10 @@ extension Memory {
   }
 
   /// Stores `v` at `a`.
-  ///
-  /// - Precondition: The memory at `a` is intended to represent `v` according to
-  ///   the type layouts provided by `layouts`.
-  mutating func store(
-    _ v: BuiltinValue, at a: ModuleScope.Address, with layouts: inout TypeLayoutCache
-  )
-    throws
-  {
+  mutating func store(_ v: BuiltinValue, at a: ModuleScope.Address) throws {
     let allocation = a.startLocation.allocation
     let offset = a.startLocation.offset
-    try self[allocation].store(v, at: offset, per: &layouts)
+    try self[allocation].store(v, at: offset)
   }
 }
 
@@ -304,7 +297,7 @@ public struct Interpreter {
       popStackFrame()
       return
     case let x as Store:
-      try memory.store(asBuiltinValue(x.object), at: asAddress(x.target), with: &typeLayouts)
+      try memory.store(asBuiltinValue(x.object), at: asAddress(x.target))
     case let x as SubfieldView:
       let p = asAddress(x.recordAddress)
       setCurrentRegister(.init(payload: typeLayouts.address(of: x.subfield, in: p)))
@@ -365,7 +358,7 @@ public struct Interpreter {
 
   /// Allocates memory for an object of type `t` and returns the address.
   mutating func allocate(_ t: TypeLayout) -> Address {
-    let a = memory.allocate(t)
+    let a = memory.allocate(t.size, bytesWithAlignment: t.alignment)
     return .init(startLocation: a, type: t)
   }
 
