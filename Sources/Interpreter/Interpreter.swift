@@ -18,10 +18,23 @@ struct CodePointer {
 
 }
 
-/// The value produced by executing an instruction.
-struct InstructionResult {
-  /// The instruction's output as an opaque, type-erased value.
+/// Represents value at IR level.
+struct Value {
+  /// The underlying type-erased representation of value.
   public var payload: Any
+}
+
+/// The value produced by executing an instruction.
+enum InstructionResult {
+
+  /// Produces a value.
+  ///
+  /// Execution continues at the next instruction in sequence.
+  case value(Value)
+
+  /// Transfer control to specific instruction.
+  case jump(CodePointer)
+
 }
 
 /// A namespace for notional module-scope declarations that actually
@@ -50,7 +63,7 @@ typealias Address = ModuleScope.Address
 /// call.
 struct StackFrame {
   /// The results of instructions.
-  public var registers: [InstructionID: InstructionResult] = [:]
+  public var registers: [InstructionID: Value] = [:]
 
   /// The program counter to which execution should return when
   /// popping this frame.
@@ -216,17 +229,31 @@ public struct Interpreter {
     typeLayouts = .init(typesIn: p.base, for: UnrealABI())
   }
 
-  /// Sets the result of the current instruction to `r`.
-  private mutating func setCurrentRegister(_ r: InstructionResult) {
-    topOfStack.registers[programCounter.instructionInFunction] = r 
-  }
-
   /// Executes a single instruction.
   public mutating func step() throws {
+    let r = try stepResult()
+
+    if case .value(let v) = r {
+      topOfStack.registers[programCounter.instructionInFunction] = v
+    }
+
+    if case .jump(let pc) = r {
+      programCounter = pc
+      if callStack.isEmpty {
+        isRunning = false
+      }
+      return
+    }
+
+    try advanceProgramCounter()
+  }
+
+  /// Executes a single instruction without recording its result.
+  private mutating func stepResult() throws -> InstructionResult? {
     print("\(currentInstruction.site): \(currentInstruction)")
     switch currentInstruction {
     case let x as Access:
-      setCurrentRegister(.init(payload: asAddress(x.source)))
+      return .value(.init(payload: asAddress(x.source)))
     case let x as AddressToPointer:
       _ = x
     case let x as AdvancedByBytes:
@@ -237,7 +264,7 @@ public struct Interpreter {
     case let x as AllocStack:
       let a = allocate(typeLayouts[x.allocatedType])
       topOfStack.allocations.append(a)
-      setCurrentRegister(.init(payload: a))
+      return .value(.init(payload: a))
 
     case let x as Branch:
       _ = x
@@ -258,13 +285,14 @@ public struct Interpreter {
     case let x as CondBranch:
       _ = x
     case let x as ConstantString:
-      setCurrentRegister(.init(payload: x.value))
+      return .value(.init(payload: x.value))
     case let x as DeallocStack:
       let a = addressToBeDeallocated(by: x)
       try deallocateStack(a)
+      return nil
     case is EndAccess:
       // No effect on program state
-      break
+      return nil
     case let x as EndProject:
       _ = x
     case let x as GenericParameter:
@@ -275,7 +303,7 @@ public struct Interpreter {
       _ = x
     case is MarkState:
       // No effect on program state
-      break
+      return nil
     case let x as MemoryCopy:
       _ = x
     case is Move:
@@ -292,15 +320,15 @@ public struct Interpreter {
       fatalError("Interpreter: ProjectBundle instructions have not been removed.")
     case is ReleaseCaptures:
       // No effect on program state
-      break
+      return nil
     case is Return:
-      popStackFrame()
-      return
+      return .jump(popStackFrame())
     case let x as Store:
       try memory.store(asBuiltinValue(x.object), at: asAddress(x.target))
+      return .none
     case let x as SubfieldView:
       let p = asAddress(x.recordAddress)
-      setCurrentRegister(.init(payload: typeLayouts.address(of: x.subfield, in: p)))
+      return .value(.init(payload: typeLayouts.address(of: x.subfield, in: p)))
     case let x as Switch:
       _ = x
     case let x as UnionDiscriminator:
@@ -316,12 +344,8 @@ public struct Interpreter {
     default:
       fatalError("Interpreter: unimplemented instruction")
     }
-    if callStack.isEmpty {
-      isRunning = false
-    }
-    else {
-      try advanceProgramCounter()
-    }
+
+    unreachable("Unimplemented processing of instruction")
   }
 
   /// The instruction at which the program counter points.
@@ -343,17 +367,14 @@ public struct Interpreter {
     programCounter.instructionInFunction = a
   }
 
-  /// Removes topmost stack frame and points `programCounter` to next instruction
-  /// of any previous stack frame, or stops the program if the stack is now empty.
+  /// Removes topmost stack frame and return code pointer to next instruction of any
+  /// previous stack frame.
   ///
   /// - Precondition: the program is running.
-  mutating func popStackFrame() {
+  mutating func popStackFrame() -> CodePointer {
     precondition(topOfStack.allocations.isEmpty,
         "All local variables allocations for function must be deallocated before returning.")
-    programCounter = callStack.pop()
-    if callStack.isEmpty {
-      isRunning = false
-    }
+    return callStack.pop()
   }
 
   /// Allocates memory for an object of type `t` and returns the address.
