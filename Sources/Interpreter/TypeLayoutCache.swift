@@ -101,3 +101,18 @@ public struct TypeLayoutCache {
     }
   }
 }
+
+public extension TypeLayoutCache {
+
+  /// Returns the byte offset and layout of `subField` within `type`.
+  mutating func layout(of subField: RecordPath, in type: TypeLayout)
+    -> (offset: Int, structure: TypeLayout)
+  {
+    subField.reduce(into: (0, type)) { (s, i) in
+      let p = s.1.parts[i]
+      s.0 += p.offset
+      s.1 = self[p.type]
+    }
+  }
+
+}

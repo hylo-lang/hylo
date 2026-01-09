@@ -81,6 +81,11 @@ public struct Memory {
       self.id = id
     }
 
+    /// An allocation for `t` with the given `id`.
+    public init(_ t: TypeLayout, id: ID) {
+      self.init(t.size, bytesWithAlignment: t.alignment, id: id)
+    }
+
     /// The address of the `o`th byte.
     private func address(at o: Offset) -> Address { .init(allocation: id, offset: o) }
 
@@ -355,5 +360,27 @@ public extension Memory.Address {
 
   ///  Offsets `l` by `-r` bytes.
   static func -=(l: inout Self, r: Int)  { l = l - r }
+
+}
+
+extension Memory.Allocation {
+
+  /// Stores `v` at `o`.
+  private mutating func store<T>(_ v: T, at o: Memory.Offset) throws {
+    // TODO: throw in case of call to store with wrong type by unsafe code.
+    withUnsafeMutablePointer(to: T.self, at: o) { $0.pointee = v }
+  }
+
+  /// Stores `v` at `o`.
+  mutating func store(_ v: BuiltinValue, at o: Memory.Offset) throws {
+    switch v {
+    case .i1(let x): try store(x, at: o)
+    case .i8(let x): try store(x, at: o)
+    case .i16(let x): try store(x, at: o)
+    case .i32(let x): try store(x, at: o)
+    case .i64(let x): try store(x, at: o)
+    case .i128(let x): try store(x, at: o)
+    }
+  }
 
 }
