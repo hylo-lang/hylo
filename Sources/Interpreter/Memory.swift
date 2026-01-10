@@ -417,25 +417,25 @@ extension Memory {
 public extension Memory.Address {
 
   /// Returns `l` offset by `r` bytes.
-  static func + (l: Self, r: Int) -> Self {
+  static func +(l: Self, r: Int) -> Self {
     .init(allocation: l.allocation, offset: l.offset + r)
   }
 
   /// Returns `l` offset by `-r` bytes.
-  static func - (l: Self, r: Int) -> Self {
+  static func -(l: Self, r: Int) -> Self {
     .init(allocation: l.allocation, offset: l.offset - r)
   }
 
   /// Returns `r` offset by `l` bytes.
-  static func + (l: Int, r: Self) -> Self {
+  static func +(l: Int, r: Self) -> Self {
     .init(allocation: r.allocation, offset: l + r.offset)
   }
 
   ///  Offsets `l` by `r` bytes.
-  static func += (l: inout Self, r: Int) { l = l + r }
+  static func +=(l: inout Self, r: Int) { l = l + r }
 
   ///  Offsets `l` by `-r` bytes.
-  static func -= (l: inout Self, r: Int) { l = l - r }
+  static func -=(l: inout Self, r: Int) { l = l - r }
 
 }
 
