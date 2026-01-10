@@ -402,15 +402,15 @@ extension Memory.Allocation {
 }
 
 extension Memory {
-  /// Returns the address of `subField` in the object at `origin`.
-  public mutating func place(of subField: RecordPath, in origin: Place) -> Place {
-    let (o, t) = typeLayouts.layout(of: subField, in: typeLayouts[origin.type])
-    return .init(allocation: origin.allocation, offset: o + origin.offset, type: t.type)
+  /// Returns the address of `subPart` in `whole`.
+  public mutating func place(of subPart: RecordPath, in whole: Place) -> Place {
+    let (o, t) = typeLayouts.layout(of: subPart, in: typeLayouts[whole.type])
+    return .init(allocation: whole.allocation, offset: o + whole.offset, type: t.type)
   }
 
-  /// Stores `v` at `a`.
-  mutating func store(_ v: BuiltinValue, at a: Place) throws {
-    try self[a.allocation].store(v, at: a.offset)
+  /// Stores `v` in `target`.
+  mutating func store(_ v: BuiltinValue, in target: Place) throws {
+    try self[target.allocation].store(v, at: target.offset)
   }
 }
 

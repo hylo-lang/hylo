@@ -267,7 +267,7 @@ public struct Interpreter {
     case is Return:
       return .jump(popStackFrame())
     case let x as Store:
-      try memory.store(asBuiltinValue(x.object), at: asPlace(x.target))
+      try memory.store(asBuiltinValue(x.object), in: asPlace(x.target))
       return .none
     case let x as SubfieldView:
       let p = asPlace(x.recordAddress)
