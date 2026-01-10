@@ -4,8 +4,10 @@ import Utils
 /// The memory of an interpreted process.
 public struct Memory {
 
-  /// An empty instance.
-  public init() {}
+  /// An empty instance whose allocation layout semantics are defined by `typeLayouts`.
+  public init(_ typeLayouts: TypeLayoutCache) {
+    self.typeLayouts = typeLayouts
+  }
 
   /// An incorrect use of memory.
   public enum Error: Swift.Error, Regular {
@@ -18,6 +20,11 @@ public struct Memory {
     case noLongerAllocated(Address)
     case noDecomposable(TypeLayout, at: Address)
   }
+
+  /// The type layouts that been computed so far.
+  ///
+  /// Invariant: All allocations in `self` obeys type layout from `typeLayouts`.
+  var typeLayouts: TypeLayoutCache
 
   /// A position in some allocation.
   public typealias Offset = Int
@@ -65,7 +72,7 @@ public struct Memory {
     private var composedRegions = ComposedRegions()
 
     /// `n` bytes with alignment `m` and the given `id`.
-    public init(_ n: Int, bytesWithAlignment m: Int, id: ID) {
+    private init(_ n: Int, bytesWithAlignment m: Int, id: ID) {
       precondition(n >= 0)
       precondition(m > 0)
 
@@ -81,13 +88,15 @@ public struct Memory {
       self.id = id
     }
 
-    /// An allocation for `t` with the given `id`.
-    public init(_ t: TypeLayout, id: ID) {
+    /// An allocation for `n` contiguous `t`s with the given `id`.
+    public init(_ t: TypeLayout, count n: Int, id: ID) {
       self.init(t.size, bytesWithAlignment: t.alignment, id: id)
     }
 
-    /// The address of the `o`th byte.
-    private func address(at o: Offset) -> Address { .init(allocation: id, offset: o) }
+    /// The address of the `o`th byte to be accessed as type `t`.
+    private func address(at o: Offset, havingType t: AnyType) -> Address {
+      .init(allocation: id, offset: o, type: t)
+    }
 
     /// Throws iff the given `part` of some type at `baseOffset` is not represented as the `n`th
     /// composed region.
@@ -98,7 +107,7 @@ public struct Memory {
     ) throws {
       let p = part.parent.parts[part.partIndex]
       let partOffset = baseOffset + p.offset
-      let partAddress = address(at: partOffset)
+      let partAddress = address(at: partOffset, havingType: p.type)
       guard let r = composedRegions.dropFirst(n).first,
             r.offset == partOffset else {
         throw Error.noComposedPart(at: partAddress, part)
@@ -112,10 +121,10 @@ public struct Memory {
     /// properly aligned.
     fileprivate func checkAlignmentAndAllocationBounds(at a: Offset, for t: TypeLayout) throws {
       guard offset(a, hasAlignment: t.alignment) else {
-        throw Error.alignment(address(at: a), for: t)
+        throw Error.alignment(address(at: a, havingType: t.type), for: t)
       }
       guard a + t.size <= self.size else {
-        throw Error.bounds(address(at: a), for: t, allocationSize: self.size)
+        throw Error.bounds(address(at: a, havingType: t.type), for: t, allocationSize: self.size)
       }
     }
 
@@ -264,13 +273,17 @@ public struct Memory {
     /// The offset from the beginning of that `allocation`.
     public let offset: Storage.Index
 
+    /// The type to be accessed at `offset` in `allocation`.
+    public let type: AnyType
+
     /// An instance in the given `allocation` at `offset`.
-    public init(allocation: Allocation.ID, offset: Storage.Index) {
+    public init(allocation: Allocation.ID, offset: Storage.Index, type: AnyType) {
       self.allocation = allocation
       self.offset = offset
+      self.type = type
     }
 
-    public var description: String { "@\(allocation):0x\(String(offset, radix: 16))" }
+    public var description: String { "@\(allocation):0x\(String(offset, radix: 16))[\(type)]" }
   }
 
   /// The live allocations, by ID
@@ -279,16 +292,18 @@ public struct Memory {
   /// The ID of the next allocated block.
   private var nextAllocation = 0
 
-  /// Allocates `n` bytes with alignment `m`.
-  public mutating func allocate(_ n: Int, bytesWithAlignment m: Int) -> Address {
+  public mutating func allocate(_ t: AnyType, count n: Int = 1) -> Address {
     let a = nextAllocation
     nextAllocation += 1
-    allocation[a] = Allocation(n, bytesWithAlignment: m, id: a)
-    return .init(allocation: a, offset: 0)
+    allocation[a] = Allocation(typeLayouts[t], count: n, id: a)
+    return .init(allocation: a, offset: 0, type: t)
   }
 
   /// Deallocates the allocated memory starting at `a`.
   public mutating func deallocate(_ a: Address) throws {
+    precondition(
+      allocation[a.allocation]?.size == typeLayouts[a.type].size,
+      "Deallocating using address of the wrong type.")
     if a.offset != 0 {
       throw Error.deallocationNotAtStartOfAllocation(a)
     }
@@ -299,10 +314,10 @@ public struct Memory {
   }
 
   /// Replaces the initialization records starting at `a` for the
-  /// parts of a `t` instance, with the initialization record for a
-  /// `t` instance.
-  public mutating func compose(_ t: TypeLayout, at a: Address) throws {
-    try allocation[a.allocation]!.compose(t, at: a.offset)
+  /// parts of a `a.type` instance, with the initialization record for a
+  /// `a.type` instance.
+  public mutating func compose(_ a: Address) throws {
+    try allocation[a.allocation]!.compose(typeLayouts[a.type], at: a.offset)
   }
 
   /// Returns true if `a` is aligned to an `n` byte boundary.
@@ -310,9 +325,10 @@ public struct Memory {
     allocation[a.allocation]!.offset(a.offset, hasAlignment: n)
   }
 
-  /// Replaces the initialization record for a `t` instance at `a` with
+  /// Replaces the initialization record for an `a.type` instance at `a` with
   /// the initialization records for any parts of that instance.
-  public mutating func decompose(_ t: TypeLayout, at a: Address) throws {
+  public mutating func decompose(_ a: Address) throws {
+    let t = typeLayouts[a.type]
     let i = try checkDecomposable(t, at: a)
     allocation[a.allocation]!.decompose(t, inRegion: i)
   }
@@ -338,31 +354,6 @@ public struct Memory {
 
 }
 
-public extension Memory.Address {
-
-  /// Returns `l` offset by `r` bytes.
-  static func +(l: Self, r: Int) -> Self {
-    .init(allocation: l.allocation, offset: l.offset + r)
-  }
-
-  /// Returns `l` offset by `-r` bytes.
-  static func -(l: Self, r: Int) -> Self {
-    .init(allocation: l.allocation, offset: l.offset - r)
-  }
-
-  /// Returns `r` offset by `l` bytes.
-  static func +(l: Int, r: Self) -> Self {
-    .init(allocation: r.allocation, offset: l + r.offset)
-  }
-
-  ///  Offsets `l` by `r` bytes.
-  static func +=(l: inout Self, r: Int) { l = l + r }
-
-  ///  Offsets `l` by `-r` bytes.
-  static func -=(l: inout Self, r: Int)  { l = l - r }
-
-}
-
 extension Memory.Allocation {
 
   /// Stores `v` at `o`.
@@ -383,4 +374,34 @@ extension Memory.Allocation {
     }
   }
 
+}
+
+extension Memory {
+  /// Returns the address of `subField` in the object at `origin`.
+  public mutating func address(of subField: RecordPath, in origin: Address) -> Address {
+    let (o, t) = typeLayouts.layout(of: subField, in: typeLayouts[origin.type])
+    return .init(allocation: origin.allocation, offset: o + origin.offset, type: t.type)
+  }
+
+  /// Stores `v` at `a`.
+  mutating func store(_ v: BuiltinValue, at a: Address) throws {
+    try self[a.allocation].store(v, at: a.offset)
+  }
+}
+
+public extension Memory.Address {
+  /// Returns `self` offset by `n` bytes having type `t`.
+  func after(_ n: Int, bytesHavingType t: AnyType) -> Self {
+    return Self(allocation: self.allocation, offset: self.offset + n, type: t)
+  }
+
+  /// Returns `self` offset by `-n` bytes having type `t`.
+  func before(_ n: Int, bytesHavingType t: AnyType) -> Self {
+    return Self(allocation: self.allocation, offset: self.offset - n, type: t)
+  }
+
+  /// Returns `self` having type `t`.
+  func withType(_ t: AnyType) -> Self {
+    return Self(allocation: self.allocation, offset: self.offset, type: t)
+  }
 }

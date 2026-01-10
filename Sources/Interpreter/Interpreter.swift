@@ -37,28 +37,6 @@ enum InstructionResult {
 
 }
 
-/// A namespace for notional module-scope declarations that actually
-/// can't be accessed without ambiguity in some cases.
-///
-/// Aliases for these names are normally placed at module scope for ease-of-use.
-enum ModuleScope {
-
-  /// A typed location in memory.
-  public struct Address: Regular {
-
-    /// The position in memory.
-    public let startLocation: Memory.Address
-
-    /// The type to be accessed at `startLocation`.
-    public let type: TypeLayout
-
-  }
-
-}
-
-/// A typed location in memory.
-typealias Address = ModuleScope.Address
-
 /// The local variables, parameters, and return address for a function
 /// call.
 struct StackFrame {
@@ -70,10 +48,10 @@ struct StackFrame {
   public var returnAddress: CodePointer
 
   /// The allocations in this stack frame.
-  var allocations: [Address] = []
+  var allocations: [Memory.Address] = []
 
   /// Location of values passed to the function.
-  var parameters: [Address]
+  var parameters: [Memory.Address]
 }
 
 extension UnsafeRawPointer {
@@ -99,38 +77,6 @@ extension UnsafeRawBufferPointer {
 
 }
 
-extension TypeLayoutCache {
-
-  /// Returns the address of `subField` in the object at `origin`.
-  mutating func address(of subField: RecordPath, in origin: Address) -> Address {
-    let l = origin.startLocation
-    let (o, t) = self.layout(of: subField, in: origin.type)
-    return .init(
-      startLocation: .init(allocation: l.allocation, offset: o + origin.startLocation.offset),
-      type: t)
-  }
-
-}
-
-extension Memory {
-  /// Deallocates the allocated memory at `a`, leaving it deallocated and
-  /// rendering `a` unusable for any purpose.
-  mutating func deallocate(_ a: ModuleScope.Address) throws {
-    precondition(a.startLocation.offset == 0, "Can't deallocate the memory of subobject.")
-    precondition(
-      allocation[a.startLocation.allocation]?.size == a.type.size,
-      "Deallocating using address of the wrong type.")
-    try deallocate(a.startLocation)
-  }
-
-  /// Stores `v` at `a`.
-  mutating func store(_ v: BuiltinValue, at a: ModuleScope.Address) throws {
-    let allocation = a.startLocation.allocation
-    let offset = a.startLocation.offset
-    try self[allocation].store(v, at: offset)
-  }
-}
-
 /// A thread's call stack.
 struct Stack {
 
@@ -138,7 +84,7 @@ struct Stack {
   private var frames: [StackFrame] = []
 
   /// Adds a new frame on top with the given `returnAddress` and `parameters`.
-  public mutating func push(returnAddress: CodePointer, parameters: [Address]) {
+  public mutating func push(returnAddress: CodePointer, parameters: [Memory.Address]) {
     let f = StackFrame(returnAddress: returnAddress, parameters: parameters)
     frames.append(f)
   }
@@ -178,7 +124,7 @@ public struct Interpreter {
   private let program: IR.Program
 
   /// The stack- and dynamically-allocated memory in use by the program.
-  private var memory = Memory()
+  private var memory: Memory
 
   /// Local variables, parameters, and return addresses.
   private var callStack = Stack()
@@ -194,9 +140,6 @@ public struct Interpreter {
 
   /// Text written so far to the process' standard error stream.
   public private(set) var standardError: String = ""
-
-  /// The type layouts that have been computed so far.
-  private var typeLayouts: TypeLayoutCache
 
   /// The top stack frame.
   private var topOfStack: StackFrame {
@@ -226,7 +169,7 @@ public struct Interpreter {
     // The return address of the bottom-most frame will never be used,
     // so we fill it with something arbitrary.
     callStack.push(returnAddress: programCounter, parameters: [])
-    typeLayouts = .init(typesIn: p.base, for: UnrealABI())
+    memory = Memory(.init(typesIn: p.base, for: UnrealABI()))
   }
 
   /// Executes a single instruction.
@@ -262,7 +205,7 @@ public struct Interpreter {
       _ = x
 
     case let x as AllocStack:
-      let a = allocate(typeLayouts[x.allocatedType])
+      let a = memory.allocate(x.allocatedType)
       topOfStack.allocations.append(a)
       return .value(.init(payload: a))
 
@@ -328,7 +271,7 @@ public struct Interpreter {
       return .none
     case let x as SubfieldView:
       let p = asAddress(x.recordAddress)
-      return .value(.init(payload: typeLayouts.address(of: x.subfield, in: p)))
+      return .value(.init(payload: memory.address(of: x.subfield, in: p)))
     case let x as Switch:
       _ = x
     case let x as UnionDiscriminator:
@@ -377,14 +320,8 @@ public struct Interpreter {
     return callStack.pop()
   }
 
-  /// Allocates memory for an object of type `t` and returns the address.
-  mutating func allocate(_ t: TypeLayout) -> Address {
-    let a = memory.allocate(t.size, bytesWithAlignment: t.alignment)
-    return .init(startLocation: a, type: t)
-  }
-
   /// Deallocates `a` allocated on stack.
-  mutating func deallocateStack(_ a: Address) throws {
+  mutating func deallocateStack(_ a: Memory.Address) throws {
     precondition(
       a == topOfStack.allocations.last!,
       "The latest allocation that has not been deallocated must be deallocated first.")
@@ -394,12 +331,12 @@ public struct Interpreter {
 
   /// Returns the address produced by executing instruction identified by `i` in the current frame,
   /// or `nil` if it didn't produce an address.
-  func addressProduced(by i: InstructionID) -> Address? {
-    topOfStack.registers[i]?.payload as? Address
+  func addressProduced(by i: InstructionID) -> Memory.Address? {
+    topOfStack.registers[i]?.payload as? Memory.Address
   }
 
   /// Returns the address to be deallocated by `i`.
-  func addressToBeDeallocated(by i: DeallocStack) -> Address {
+  func addressToBeDeallocated(by i: DeallocStack) -> Memory.Address {
     precondition(i.location.instruction != nil, "DeallocStack must reference a valid instruction.")
     let a = addressProduced(by: i.location.instruction!)
     precondition(a != nil, "Referenced instruction must produce an address.")
@@ -409,10 +346,10 @@ public struct Interpreter {
   /// Interpret `x` as an Address.
   ///
   /// - Precondition: `x` is an Address.
-  func asAddress(_ x: Operand) -> Address {
+  func asAddress(_ x: Operand) -> Memory.Address {
     switch x {
     case .register(let instruction):
-      topOfStack.registers[instruction]!.payload as! Address
+      topOfStack.registers[instruction]!.payload as! Memory.Address
     case .parameter(_, let i):
       topOfStack.parameters[i]
     case .constant:
