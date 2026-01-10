@@ -95,7 +95,7 @@ public struct Memory {
 
     /// The address of the `o`th byte to be accessed as type `t`.
     private func address(at o: Offset, havingType t: AnyType) -> Address {
-      .init(allocation: id, offset: o, type: t)
+      .init(allocation: id, offset: o)
     }
 
     /// Throws iff the given `part` of some type at `baseOffset` is not represented as the `n`th
@@ -273,8 +273,30 @@ public struct Memory {
     /// The offset from the beginning of that `allocation`.
     public let offset: Storage.Index
 
+    /// An instance in the given `allocation` at `offset`.
+    public init(allocation: Allocation.ID, offset: Storage.Index) {
+      self.allocation = allocation
+      self.offset = offset
+    }
+
+    public var description: String { "@\(allocation):0x\(String(offset, radix: 16))" }
+  }
+
+  /// A typed location in memory.
+  public struct Place: Regular, CustomStringConvertible {
+
+    /// The containing allocation.
+    public let allocation: Allocation.ID
+
+    /// The offset from the beginning of that `allocation`.
+    public let offset: Storage.Index
+
     /// The type to be accessed at `offset` in `allocation`.
     public let type: AnyType
+
+    public var address: Address {
+      .init(allocation: allocation, offset: offset)
+    }
 
     /// An instance in the given `allocation` at `offset`.
     public init(allocation: Allocation.ID, offset: Storage.Index, type: AnyType) {
@@ -292,7 +314,7 @@ public struct Memory {
   /// The ID of the next allocated block.
   private var nextAllocation = 0
 
-  public mutating func allocate(_ t: AnyType, count n: Int = 1) -> Address {
+  public mutating func allocate(_ t: AnyType, count n: Int = 1) -> Place {
     let a = nextAllocation
     nextAllocation += 1
     allocation[a] = Allocation(typeLayouts[t], count: n, id: a)
@@ -300,24 +322,26 @@ public struct Memory {
   }
 
   /// Deallocates the allocated memory starting at `a`.
-  public mutating func deallocate(_ a: Address) throws {
-    precondition(
-      allocation[a.allocation]?.size == typeLayouts[a.type].size,
-      "Deallocating using address of the wrong type.")
+  public mutating func deallocate(_ a: Place) throws {
     if a.offset != 0 {
-      throw Error.deallocationNotAtStartOfAllocation(a)
+      throw Error.deallocationNotAtStartOfAllocation(a.address)
     }
     let v = allocation.removeValue(forKey: a.allocation)
     if v == nil {
-      throw Error.noLongerAllocated(a)
+      throw Error.noLongerAllocated(a.address)
     }
   }
 
   /// Replaces the initialization records starting at `a` for the
-  /// parts of a `a.type` instance, with the initialization record for a
-  /// `a.type` instance.
-  public mutating func compose(_ a: Address) throws {
-    try allocation[a.allocation]!.compose(typeLayouts[a.type], at: a.offset)
+  /// parts of a `t` instance, with the initialization record for a
+  /// `t` instance.
+  public mutating func compose(_ t: TypeLayout, at a: Address) throws {
+    try allocation[a.allocation]!.compose(t, at: a.offset)
+  }
+
+  /// Returns true if `a` is aligned to an `n` byte boundary.
+  public func place(_ a: Place, hasAlignment n: Int) -> Bool {
+    allocation[a.allocation]!.offset(a.offset, hasAlignment: n)
   }
 
   /// Returns true if `a` is aligned to an `n` byte boundary.
@@ -325,15 +349,16 @@ public struct Memory {
     allocation[a.allocation]!.offset(a.offset, hasAlignment: n)
   }
 
-  /// Replaces the initialization record for an `a.type` instance at `a` with
+  /// Replaces the initialization record for a `t` instance at `a` with
   /// the initialization records for any parts of that instance.
-  public mutating func decompose(_ a: Address) throws {
-    let t = typeLayouts[a.type]
+  public mutating func decompose(_ t: TypeLayout, at a: Address) throws {
     let i = try checkDecomposable(t, at: a)
     allocation[a.allocation]!.decompose(t, inRegion: i)
   }
 
-  private func checkDecomposable(_ t: TypeLayout, at a: Address) throws -> Allocation.ComposedRegions.Index {
+  private func checkDecomposable(_ t: TypeLayout, at a: Address) throws
+    -> Allocation.ComposedRegions.Index
+  {
     guard let block = allocation[a.allocation] else {
       throw Error.noLongerAllocated(a)
     }
@@ -378,18 +403,43 @@ extension Memory.Allocation {
 
 extension Memory {
   /// Returns the address of `subField` in the object at `origin`.
-  public mutating func address(of subField: RecordPath, in origin: Address) -> Address {
+  public mutating func place(of subField: RecordPath, in origin: Place) -> Place {
     let (o, t) = typeLayouts.layout(of: subField, in: typeLayouts[origin.type])
     return .init(allocation: origin.allocation, offset: o + origin.offset, type: t.type)
   }
 
   /// Stores `v` at `a`.
-  mutating func store(_ v: BuiltinValue, at a: Address) throws {
+  mutating func store(_ v: BuiltinValue, at a: Place) throws {
     try self[a.allocation].store(v, at: a.offset)
   }
 }
 
 public extension Memory.Address {
+
+  /// Returns `l` offset by `r` bytes.
+  static func + (l: Self, r: Int) -> Self {
+    .init(allocation: l.allocation, offset: l.offset + r)
+  }
+
+  /// Returns `l` offset by `-r` bytes.
+  static func - (l: Self, r: Int) -> Self {
+    .init(allocation: l.allocation, offset: l.offset - r)
+  }
+
+  /// Returns `r` offset by `l` bytes.
+  static func + (l: Int, r: Self) -> Self {
+    .init(allocation: r.allocation, offset: l + r.offset)
+  }
+
+  ///  Offsets `l` by `r` bytes.
+  static func += (l: inout Self, r: Int) { l = l + r }
+
+  ///  Offsets `l` by `-r` bytes.
+  static func -= (l: inout Self, r: Int) { l = l - r }
+
+}
+
+public extension Memory.Place {
   /// Returns `self` offset by `n` bytes having type `t`.
   func after(_ n: Int, bytesHavingType t: AnyType) -> Self {
     return Self(allocation: self.allocation, offset: self.offset + n, type: t)

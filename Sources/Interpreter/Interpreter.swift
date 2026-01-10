@@ -48,10 +48,10 @@ struct StackFrame {
   public var returnAddress: CodePointer
 
   /// The allocations in this stack frame.
-  var allocations: [Memory.Address] = []
+  var allocations: [Memory.Place] = []
 
   /// Location of values passed to the function.
-  var parameters: [Memory.Address]
+  var parameters: [Memory.Place]
 }
 
 extension UnsafeRawPointer {
@@ -84,7 +84,7 @@ struct Stack {
   private var frames: [StackFrame] = []
 
   /// Adds a new frame on top with the given `returnAddress` and `parameters`.
-  public mutating func push(returnAddress: CodePointer, parameters: [Memory.Address]) {
+  public mutating func push(returnAddress: CodePointer, parameters: [Memory.Place]) {
     let f = StackFrame(returnAddress: returnAddress, parameters: parameters)
     frames.append(f)
   }
@@ -196,7 +196,7 @@ public struct Interpreter {
     print("\(currentInstruction.site): \(currentInstruction)")
     switch currentInstruction {
     case let x as Access:
-      return .value(.init(payload: asAddress(x.source)))
+      return .value(.init(payload: asPlace(x.source)))
     case let x as AddressToPointer:
       _ = x
     case let x as AdvancedByBytes:
@@ -230,7 +230,7 @@ public struct Interpreter {
     case let x as ConstantString:
       return .value(.init(payload: x.value))
     case let x as DeallocStack:
-      let a = addressToBeDeallocated(by: x)
+      let a = placeToBeDeallocated(by: x)
       try deallocateStack(a)
       return nil
     case is EndAccess:
@@ -267,11 +267,11 @@ public struct Interpreter {
     case is Return:
       return .jump(popStackFrame())
     case let x as Store:
-      try memory.store(asBuiltinValue(x.object), at: asAddress(x.target))
+      try memory.store(asBuiltinValue(x.object), at: asPlace(x.target))
       return .none
     case let x as SubfieldView:
-      let p = asAddress(x.recordAddress)
-      return .value(.init(payload: memory.address(of: x.subfield, in: p)))
+      let p = asPlace(x.recordAddress)
+      return .value(.init(payload: memory.place(of: x.subfield, in: p)))
     case let x as Switch:
       _ = x
     case let x as UnionDiscriminator:
@@ -321,7 +321,7 @@ public struct Interpreter {
   }
 
   /// Deallocates `a` allocated on stack.
-  mutating func deallocateStack(_ a: Memory.Address) throws {
+  mutating func deallocateStack(_ a: Memory.Place) throws {
     precondition(
       a == topOfStack.allocations.last!,
       "The latest allocation that has not been deallocated must be deallocated first.")
@@ -329,31 +329,31 @@ public struct Interpreter {
     topOfStack.allocations.removeLast()
   }
 
-  /// Returns the address produced by executing instruction identified by `i` in the current frame,
-  /// or `nil` if it didn't produce an address.
-  func addressProduced(by i: InstructionID) -> Memory.Address? {
-    topOfStack.registers[i]?.payload as? Memory.Address
+  /// Returns the place produced by executing instruction identified by `i` in the current frame,
+  /// or `nil` if it didn't produce a place.
+  func placeProduced(by i: InstructionID) -> Memory.Place? {
+    topOfStack.registers[i]?.payload as? Memory.Place
   }
 
-  /// Returns the address to be deallocated by `i`.
-  func addressToBeDeallocated(by i: DeallocStack) -> Memory.Address {
+  /// Returns the place to be deallocated by `i`.
+  func placeToBeDeallocated(by i: DeallocStack) -> Memory.Place {
     precondition(i.location.instruction != nil, "DeallocStack must reference a valid instruction.")
-    let a = addressProduced(by: i.location.instruction!)
-    precondition(a != nil, "Referenced instruction must produce an address.")
+    let a = placeProduced(by: i.location.instruction!)
+    precondition(a != nil, "Referenced instruction must produce an place.")
     return a!
   }
 
-  /// Interpret `x` as an Address.
+  /// Interpret `x` as a Place.
   ///
-  /// - Precondition: `x` is an Address.
-  func asAddress(_ x: Operand) -> Memory.Address {
+  /// - Precondition: `x` is a Place.
+  func asPlace(_ x: Operand) -> Memory.Place {
     switch x {
     case .register(let instruction):
-      topOfStack.registers[instruction]!.payload as! Memory.Address
+      topOfStack.registers[instruction]!.payload as! Memory.Place
     case .parameter(_, let i):
       topOfStack.parameters[i]
     case .constant:
-      preconditionFailure("Constant operand is not an Address.")
+      preconditionFailure("Constant operand is not a Place.")
     }
   }
 
