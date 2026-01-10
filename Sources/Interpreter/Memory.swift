@@ -335,8 +335,8 @@ public struct Memory {
   /// Replaces the initialization records starting at `a` for the
   /// parts of a `t` instance, with the initialization record for a
   /// `t` instance.
-  public mutating func compose(_ t: TypeLayout, at a: Address) throws {
-    try allocation[a.allocation]!.compose(t, at: a.offset)
+  public mutating func compose(_ t: AnyType, at a: Address) throws {
+    try allocation[a.allocation]!.compose(typeLayouts[t], at: a.offset)
   }
 
   /// Returns true if `a` is aligned to an `n` byte boundary.
@@ -351,9 +351,9 @@ public struct Memory {
 
   /// Replaces the initialization record for a `t` instance at `a` with
   /// the initialization records for any parts of that instance.
-  public mutating func decompose(_ t: TypeLayout, at a: Address) throws {
-    let i = try checkDecomposable(t, at: a)
-    allocation[a.allocation]!.decompose(t, inRegion: i)
+  public mutating func decompose(_ t: AnyType, at a: Address) throws {
+    let i = try checkDecomposable(typeLayouts[t], at: a)
+    allocation[a.allocation]!.decompose(typeLayouts[t], inRegion: i)
   }
 
   private func checkDecomposable(_ t: TypeLayout, at a: Address) throws

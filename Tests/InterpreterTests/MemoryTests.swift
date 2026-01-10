@@ -41,7 +41,7 @@ final class InterpreterMemoryTests: XCTestCase {
     let p = m.allocate(i16Pair.type).address
 
     check(throws: Memory.Error.alignment(p + 1, for: i16)) {
-      try m.compose(i16, at: p + 1)
+      try m.compose(i16.type, at: p + 1)
     }
 
     // An address that would be suitably aligned, but out of bounds for
@@ -51,42 +51,42 @@ final class InterpreterMemoryTests: XCTestCase {
     check(
       throws: Memory.Error.bounds(outOfBoundsFori16Pair, for: i16Pair, allocationSize: i16Pair.size)
     ) {
-      try m.compose(i16Pair, at: outOfBoundsFori16Pair)
+      try m.compose(i16Pair.type, at: outOfBoundsFori16Pair)
     }
 
     let parts = i16Pair.parts
     let partIDs = Array(i16Pair.partParentages)
     check(throws: Memory.Error.noComposedPart(at: p, partIDs[0])) {
-      try m.compose(i16Pair, at: p)
+      try m.compose(i16Pair.type, at: p)
     }
 
-    try m.compose(i16, at: p + parts[0].offset)
+    try m.compose(i16.type, at: p + parts[0].offset)
 
     check(throws: Memory.Error.noComposedPart(at: p + parts[1].offset, partIDs[1])) {
-      try m.compose(i16Pair, at: p)
+      try m.compose(i16Pair.type, at: p)
     }
 
-    try m.compose(i16, at: p + parts[1].offset)
+    try m.compose(i16.type, at: p + parts[1].offset)
 
-    try m.compose(i16Pair, at: p)
+    try m.compose(i16Pair.type, at: p)
 
     check(throws: Memory.Error.noDecomposable(i16, at: p)) {
-      try m.decompose(i16, at: p)
+      try m.decompose(i16.type, at: p)
     }
 
-    try m.decompose(i16Pair, at: p)
+    try m.decompose(i16Pair.type, at: p)
 
     check(throws:Memory.Error.noDecomposable(i16Pair, at: p)) {
-      try m.decompose(i16Pair, at: p)
+      try m.decompose(i16Pair.type, at: p)
     }
 
-    try m.decompose(i16, at: p + parts[0].offset)
+    try m.decompose(i16.type, at: p + parts[0].offset)
 
     check(throws: Memory.Error.noDecomposable(i16, at: p + parts[0].offset)) {
-      try m.decompose(i16, at: p)
+      try m.decompose(i16.type, at: p)
     }
 
-    try m.decompose(i16, at: p + parts[1].offset)
+    try m.decompose(i16.type, at: p + parts[1].offset)
   }
 
   func testUnionComposeDecompose() throws {
@@ -101,7 +101,7 @@ final class InterpreterMemoryTests: XCTestCase {
     assert(i16i32Union.alignment > 1)
 
     check(throws: Memory.Error.alignment(p + 1, for: i16i32Union)) {
-      try m.compose(i16i32Union, at: p + 1)
+      try m.compose(i16i32Union.type, at: p + 1)
     }
 
     // An address that would be suitably aligned, but out of bounds for
@@ -112,14 +112,14 @@ final class InterpreterMemoryTests: XCTestCase {
       throws: Memory.Error.bounds(
         outOfBoundsFori16i32Union, for: i16i32Union, allocationSize: i16i32Union.size)
     ) {
-      try m.compose(i16i32Union, at: outOfBoundsFori16i32Union)
+      try m.compose(i16i32Union.type, at: outOfBoundsFori16i32Union)
     }
 
     let parts = i16i32Union.parts
     let partIDs = Array(i16i32Union.partParentages)
     let discriminator = parts.last!
     check(throws: Memory.Error.noComposedPart(at: p + discriminator.offset, partIDs.last!)) {
-      try m.compose(i16i32Union, at: p)
+      try m.compose(i16i32Union.type, at: p)
     }
     _ = i16
     /*
