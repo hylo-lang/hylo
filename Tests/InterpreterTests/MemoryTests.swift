@@ -153,4 +153,16 @@ final class InterpreterMemoryTests: XCTestCase {
       try m.decompose(i16, at: p + parts[1].offset)
      */
   }
+
+  
+  func testSubPartLayout() throws {
+    var m = Memory(TypeLayoutCache(typesIn: TypedProgram.empty, for: UnrealABI()))
+    let t = ^TupleType(types: [
+      ^BuiltinType.i(32), ^TupleType(types: [^BuiltinType.i(32), ^BuiltinType.i(8)]),
+    ])
+    let a = m.allocate(^t)
+    let x = m.place(of: [1, 1], in: a)
+    XCTAssertEqual(x, .init(allocation: a.allocation, offset: 8, type: ^BuiltinType.i(8)))
+    // TODO: add test for union case.
+  }
 }
