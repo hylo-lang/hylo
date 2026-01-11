@@ -94,7 +94,7 @@ public struct Memory {
     }
 
     /// The address of the `o`th byte to be accessed as type `t`.
-    private func address(at o: Offset, havingType t: AnyType) -> Address {
+    private func address(at o: Offset) -> Address {
       .init(allocation: id, offset: o)
     }
 
@@ -107,7 +107,7 @@ public struct Memory {
     ) throws {
       let p = part.parent.parts[part.partIndex]
       let partOffset = baseOffset + p.offset
-      let partAddress = address(at: partOffset, havingType: p.type)
+      let partAddress = address(at: partOffset)
       guard let r = composedRegions.dropFirst(n).first,
             r.offset == partOffset else {
         throw Error.noComposedPart(at: partAddress, part)
@@ -121,10 +121,10 @@ public struct Memory {
     /// properly aligned.
     fileprivate func checkAlignmentAndAllocationBounds(at a: Offset, for t: TypeLayout) throws {
       guard offset(a, hasAlignment: t.alignment) else {
-        throw Error.alignment(address(at: a, havingType: t.type), for: t)
+        throw Error.alignment(address(at: a), for: t)
       }
       guard a + t.size <= self.size else {
-        throw Error.bounds(address(at: a, havingType: t.type), for: t, allocationSize: self.size)
+        throw Error.bounds(address(at: a), for: t, allocationSize: self.size)
       }
     }
 
