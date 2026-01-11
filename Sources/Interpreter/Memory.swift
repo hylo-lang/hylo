@@ -93,10 +93,8 @@ public struct Memory {
       self.init(t.size, bytesWithAlignment: t.alignment, id: id)
     }
 
-    /// The address of the `o`th byte to be accessed as type `t`.
-    private func address(at o: Offset) -> Address {
-      .init(allocation: id, offset: o)
-    }
+    /// The address of the `o`th byte.
+    private func address(at o: Offset) -> Address { .init(allocation: id, offset: o) }
 
     /// Throws iff the given `part` of some type at `baseOffset` is not represented as the `n`th
     /// composed region.
