@@ -8,23 +8,25 @@ final class InterpreterMemoryTests: XCTestCase {
   let emptyProgram = makeEmptyProgram()
 
   func testAllocation() throws {
-    var m = Memory()
-    var allocations: [Memory.Address] = []
-    for alignmentPower in 0..<8 {
-      let alignment = 1 << alignmentPower
-      let p = m.allocate(3, bytesWithAlignment: alignment)
+    var l = TypeLayoutCache(typesIn: TypedProgram.empty, for: UnrealABI())
+    var m = Memory(l)
+    var allocations: [Memory.Place] = []
+    for sizeInBits in [8, 16, 32, 64, 128] {
+      let t = BuiltinType.i(sizeInBits)
+      let alignment = l[^t].alignment
+      let p = m.allocate(^t)
       allocations.append(p)
-      XCTAssertEqual(m.allocation[p.allocation]!.size, 3, "alignment \(alignment)")
-      XCTAssert(m.address(p, hasAlignment: alignment))
+      XCTAssertEqual(m.allocation[p.allocation]!.size, sizeInBits / 8, "alignment \(alignment)")
+      XCTAssert(m.place(p, hasAlignment: alignment))
     }
 
     for p in allocations {
       try m.deallocate(p)
 
-      check(throws: Memory.Error.noLongerAllocated(p)) { try m.deallocate(p) }
+      check(throws: Memory.Error.noLongerAllocated(p.address)) { try m.deallocate(p) }
 
-      let q = Memory.Address(allocation: p.allocation, offset: p.offset + 1)
-      check(throws: Memory.Error.deallocationNotAtStartOfAllocation(q)) { try m.deallocate(q) }
+      let q = p.after(1, bytesHavingType: p.type)
+      check(throws: Memory.Error.deallocationNotAtStartOfAllocation(q.address)) { try m.deallocate(q) }
     }
   }
 
@@ -35,11 +37,11 @@ final class InterpreterMemoryTests: XCTestCase {
 
     assert(i16Pair.alignment > 1, "Need to produce misaligned access for testing")
 
-    var m = Memory()
-    let p = m.allocate(i16Pair.size, bytesWithAlignment: i16Pair.alignment)
+    var m = Memory(layouts)
+    let p = m.allocate(i16Pair.type).address
 
     check(throws: Memory.Error.alignment(p + 1, for: i16)) {
-      try m.compose(i16, at: p + 1)
+      try m.compose(i16.type, at: p + 1)
     }
 
     // An address that would be suitably aligned, but out of bounds for
@@ -49,42 +51,42 @@ final class InterpreterMemoryTests: XCTestCase {
     check(
       throws: Memory.Error.bounds(outOfBoundsFori16Pair, for: i16Pair, allocationSize: i16Pair.size)
     ) {
-      try m.compose(i16Pair, at: outOfBoundsFori16Pair)
+      try m.compose(i16Pair.type, at: outOfBoundsFori16Pair)
     }
 
     let parts = i16Pair.parts
     let partIDs = Array(i16Pair.partParentages)
     check(throws: Memory.Error.noComposedPart(at: p, partIDs[0])) {
-      try m.compose(i16Pair, at: p)
+      try m.compose(i16Pair.type, at: p)
     }
 
-    try m.compose(i16, at: p + parts[0].offset)
+    try m.compose(i16.type, at: p + parts[0].offset)
 
     check(throws: Memory.Error.noComposedPart(at: p + parts[1].offset, partIDs[1])) {
-      try m.compose(i16Pair, at: p)
+      try m.compose(i16Pair.type, at: p)
     }
 
-    try m.compose(i16, at: p + parts[1].offset)
+    try m.compose(i16.type, at: p + parts[1].offset)
 
-    try m.compose(i16Pair, at: p)
+    try m.compose(i16Pair.type, at: p)
 
     check(throws: Memory.Error.noDecomposable(i16, at: p)) {
-      try m.decompose(i16, at: p)
+      try m.decompose(i16.type, at: p)
     }
 
-    try m.decompose(i16Pair, at: p)
+    try m.decompose(i16Pair.type, at: p)
 
     check(throws:Memory.Error.noDecomposable(i16Pair, at: p)) {
-      try m.decompose(i16Pair, at: p)
+      try m.decompose(i16Pair.type, at: p)
     }
 
-    try m.decompose(i16, at: p + parts[0].offset)
+    try m.decompose(i16.type, at: p + parts[0].offset)
 
     check(throws: Memory.Error.noDecomposable(i16, at: p + parts[0].offset)) {
-      try m.decompose(i16, at: p)
+      try m.decompose(i16.type, at: p)
     }
 
-    try m.decompose(i16, at: p + parts[1].offset)
+    try m.decompose(i16.type, at: p + parts[1].offset)
   }
 
   func testUnionComposeDecompose() throws {
@@ -93,13 +95,13 @@ final class InterpreterMemoryTests: XCTestCase {
     let i16 = layouts[.builtin(.i(16))]
     let i32 = layouts[.builtin(.i(32))]
 
-    var m = Memory()
-    let p = m.allocate(i16i32Union.size, bytesWithAlignment: i16i32Union.alignment)
+    var m = Memory(layouts)
+    let p = m.allocate(i16i32Union.type).address
 
     assert(i16i32Union.alignment > 1)
 
     check(throws: Memory.Error.alignment(p + 1, for: i16i32Union)) {
-      try m.compose(i16i32Union, at: p + 1)
+      try m.compose(i16i32Union.type, at: p + 1)
     }
 
     // An address that would be suitably aligned, but out of bounds for
@@ -110,14 +112,14 @@ final class InterpreterMemoryTests: XCTestCase {
       throws: Memory.Error.bounds(
         outOfBoundsFori16i32Union, for: i16i32Union, allocationSize: i16i32Union.size)
     ) {
-      try m.compose(i16i32Union, at: outOfBoundsFori16i32Union)
+      try m.compose(i16i32Union.type, at: outOfBoundsFori16i32Union)
     }
 
     let parts = i16i32Union.parts
     let partIDs = Array(i16i32Union.partParentages)
     let discriminator = parts.last!
     check(throws: Memory.Error.noComposedPart(at: p + discriminator.offset, partIDs.last!)) {
-      try m.compose(i16i32Union, at: p)
+      try m.compose(i16i32Union.type, at: p)
     }
     _ = i16
     /*
@@ -150,5 +152,17 @@ final class InterpreterMemoryTests: XCTestCase {
 
       try m.decompose(i16, at: p + parts[1].offset)
      */
+  }
+
+  
+  func testSubPartLayout() throws {
+    var m = Memory(TypeLayoutCache(typesIn: TypedProgram.empty, for: UnrealABI()))
+    let t = ^TupleType(types: [
+      ^BuiltinType.i(32), ^TupleType(types: [^BuiltinType.i(32), ^BuiltinType.i(8)]),
+    ])
+    let a = m.allocate(^t)
+    let x = m.place(of: [1, 1], in: a)
+    XCTAssertEqual(x, .init(allocation: a.allocation, offset: 8, type: ^BuiltinType.i(8)))
+    // TODO: add test for union case.
   }
 }
