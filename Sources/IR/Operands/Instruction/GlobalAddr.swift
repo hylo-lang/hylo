@@ -1,7 +1,7 @@
 import FrontEnd
 
-/// Returns the address of a global binding.
-public struct GlobalAddr: Instruction {
+/// Returns the place of a global binding.
+public struct GlobalPlace: Instruction {
 
   /// The ID of the global global binding to access.
   public let binding: BindingDecl.ID
@@ -33,18 +33,18 @@ public struct GlobalAddr: Instruction {
 
 }
 
-extension GlobalAddr: CustomStringConvertible {
+extension GlobalPlace: CustomStringConvertible {
 
   public var description: String {
-    "global_addr @\(binding)"
+    "global_place @\(binding)"
   }
 
 }
 
 extension Module {
 
-  /// Creates an `global_addr` anchored at `site` that returns the address of `binding`.
-  func makeGlobalAddr(of binding: BindingDecl.ID, at anchor: SourceRange) -> GlobalAddr {
+  /// Creates an `global_place` anchored at `site` that returns the place of `binding`.
+  func makeGlobalPlace(of binding: BindingDecl.ID, at anchor: SourceRange) -> GlobalPlace {
     let t = program.canonical(program[binding].type, in: program[binding].scope)
     return .init(binding: binding, valueType: t, site: anchor)
   }

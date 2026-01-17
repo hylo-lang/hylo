@@ -737,8 +737,8 @@ extension SwiftyLLVM.Module {
         return
       case is IR.EndProject:
         insert(endProjection: i)
-      case is IR.GlobalAddr:
-        insert(globalAddr: i)
+      case is IR.GlobalPlace:
+        insert(globalPlace: i)
       case is IR.CallBuiltinFunction:
         insert(llvm: i)
       case is IR.Load:
@@ -955,8 +955,8 @@ extension SwiftyLLVM.Module {
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insert(globalAddr i: IR.InstructionID) {
-      let s = context.source[i, in: f] as! IR.GlobalAddr
+    func insert(globalPlace i: IR.InstructionID) {
+      let s = context.source[i, in: f] as! IR.GlobalPlace
       let n = context.ir.base.mangled(s.binding)
       let a = declareFunction(n, .init(from: [], to: ptr, in: &self))
       register[.register(i)] = insertCall(a, on: [], at: insertionPoint)

@@ -2909,7 +2909,7 @@ struct Emitter: Sendable {
 
     case VarDecl.self:
       let (root, subfied) = program.subfieldRelativeToRoot(of: .init(d)!)
-      let s = _global_addr(at: root)
+      let s = _global_place(at: root)
       return _subfield_view(s, at: subfied)
 
     default:
@@ -3852,8 +3852,8 @@ extension Emitter {
     insert(module.makeGenericParameter(passedTo: x, at: currentSource))!
   }
 
-  fileprivate mutating func _global_addr(at x: BindingDecl.ID) -> Operand {
-    insert(module.makeGlobalAddr(of: x, at: currentSource))!
+  fileprivate mutating func _global_place(at x: BindingDecl.ID) -> Operand {
+    insert(module.makeGlobalPlace(of: x, at: currentSource))!
   }
 
   fileprivate mutating func _memory_copy(_ source: Operand, _ target: Operand) {

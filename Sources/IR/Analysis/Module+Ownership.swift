@@ -32,8 +32,8 @@ extension Module {
           interpret(endProject: user, from: f, in: &context)
         case is GenericParameter:
           interpret(genericParameter: user, from: f, in: &context)
-        case is GlobalAddr:
-          interpret(globalAddr: user, from: f, in: &context)
+        case is GlobalPlace:
+          interpret(globalPlace: user, from: f, in: &context)
         case is OpenCapture:
           interpret(openCapture: user, from: f, in: &context)
         case is OpenUnion:
@@ -223,7 +223,7 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(globalAddr i: InstructionID, from f: Function.ID, in context: inout Context) {
+    func interpret(globalPlace i: InstructionID, from f: Function.ID, in context: inout Context) {
       context.declareStorage(assignedTo: i, from: f, in: self, initially: .unique)
     }
 

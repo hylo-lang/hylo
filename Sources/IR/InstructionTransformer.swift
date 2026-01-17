@@ -141,7 +141,7 @@ extension IR.Program {
     case let s as GenericParameter:
       return modules[n]![g].insert(s, at: p)
 
-    case let s as GlobalAddr:
+    case let s as GlobalPlace:
       return modules[n]![g].insert(s, at: p)
 
     case let s as CallBuiltinFunction:

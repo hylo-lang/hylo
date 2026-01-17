@@ -56,8 +56,8 @@ extension Module {
           pc = interpret(endProject: user, from: b, in: &context)
         case is GenericParameter:
           pc = interpret(genericParameter: user, from: b, in: &context)
-        case is GlobalAddr:
-          pc = interpret(globalAddr: user, from: b, in: &context)
+        case is GlobalPlace:
+          pc = interpret(globalPlace: user, from: b, in: &context)
         case is CallBuiltinFunction:
           pc = interpret(callBuiltin: user, from: b, in: &context)
         case is Load:
@@ -329,7 +329,7 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(globalAddr i: InstructionID, from b: Block.ID, in context: inout Context) -> PC? {
+    func interpret(globalPlace i: InstructionID, from b: Block.ID, in context: inout Context) -> PC? {
       context.declareStorage(assignedTo: i, from: f, in: self, initially: .initialized)
       return successor(of: i, in: b)
     }

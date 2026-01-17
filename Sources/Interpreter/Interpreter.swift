@@ -246,7 +246,7 @@ public struct Interpreter {
       _ = x
     case let x as GenericParameter:
       _ = x
-    case let x as GlobalAddr:
+    case let x as GlobalPlace:
       _ = x
     case let x as Load:
       _ = x
