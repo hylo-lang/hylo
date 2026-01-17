@@ -147,6 +147,7 @@ final class TypeLayoutTests: XCTestCase {
         type: c[^BuiltinType.i(8)]
       )
     )
+    // TODO: add test for union case.
   }
 
 }

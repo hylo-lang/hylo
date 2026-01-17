@@ -55,9 +55,61 @@ public struct DirectedGraph<Vertex: Hashable & Sendable, Label: Sendable>: Senda
       .joined()
   }
 
-  /// Returns the vertices in `self` gathered in a breadth-first manner from `root`.
-  public func bfs(from root: Vertex) -> BreadthFirstSequence<Vertex, Label> {
-    .init(from: root, in: self)
+  /// Returns the vertices in `self` gathered in a breadth-first manner from `root`,
+  /// applying `edgeFilter` to edges.
+  public func bfs(
+    from root: Vertex, edgeFilter: ((Label) -> Bool)? = nil
+  ) -> BreadthFirstSequence<Vertex, Label> {
+    .init(from: root, in: self, edgeFilter: edgeFilter)
+  }
+
+  /// The type of action to perform after exploring a vertex.
+  public enum ExplorationContinuation {
+
+    /// Continue exploring the successors of the vertex.
+    case `continue`
+
+    /// Skip exploring the successors of the vertex.
+    case skip
+
+    /// Stop exploring the graph.
+    case stop
+
+  }
+
+  /// Explores the graph in a breadth-first manner starting from `start`, considering the edges
+  /// indicated by `edgeFilter`, calling `action` for each visited vertex.
+  ///
+  /// When calling `action`, the vertex and its successors are passed as arguments. The
+  /// return value of `action` determines how the exploration continues.
+  /// 
+  /// Use this method when a simple exploration with `bfs(from:)` is not sufficient, for example
+  /// to skip parts of the graph or to stop the exploration early.
+  public func withBFS<C: Collection<Vertex>>(
+    _ start: C,
+    edgeFilter: ((Label) -> Bool)? = nil,
+    _ action: (Vertex, [Vertex]) -> ExplorationContinuation
+  ) {
+    var work: Deque<Vertex> = Deque(start)
+    var visited: Set<Vertex> = []
+
+    while let b = work.popLast() {
+      if visited.contains(b) { continue }
+      visited.insert(b)
+
+      let successors = self[from: b].compactMap({ e in
+        (edgeFilter?(e.value) ?? true) ? e.key : nil
+      })
+      
+      switch action(b, successors) {
+      case .continue:
+        work.append(contentsOf: successors.filter({ !visited.contains($0) }))
+      case .skip:
+        continue
+      case .stop:
+        break
+      }
+    }
   }
 
   /// Returns `true` iff there exists a path from `u` to `v` in the graph.
@@ -212,18 +264,23 @@ public struct BreadthFirstSequence<Vertex: Hashable & Sendable, Label: Sendable>
   /// The vertices that have been returned already.
   private var visited = Set<Vertex>()
 
+  /// The filter applied to edges when exploring the graph.
+  private var edgeFilter: ((Label) -> Bool)? = nil
+
   /// Creates an instance containing the vertices in `graph` gathered in a breadth-first manner
   /// from `root`.
-  public init(from root: Vertex, in graph: DirectedGraph<Vertex, Label>) {
+  public init(from root: Vertex, in graph: DirectedGraph<Vertex, Label>, edgeFilter: ((Label) -> Bool)? = nil) {
     self.graph = graph
     self.toVisit.append(root)
+    self.edgeFilter = edgeFilter
   }
 
   /// Returns the next vertex, or `nil` if all vertices have been returned already.
   public mutating func next() -> Vertex? {
     guard let v = toVisit.popFirst() else { return nil }
     visited.insert(v)
-    for e in graph[from: v] where !visited.contains(e.key) {
+    for e in graph[from: v]
+    where (edgeFilter?(e.value) ?? true) && !visited.contains(e.key) && !toVisit.contains(e.key) {
       toVisit.append(e.key)
     }
     return v

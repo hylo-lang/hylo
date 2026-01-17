@@ -22,14 +22,9 @@ for them before checking it out.
 
 ### LLVM
 
-This package requires LLVM 20. Major versions of LLVM are not
+This package requires LLVM 20 packaged by Hylo, which includes a `.pc` pkgconfig file for SPM, and has assertions enabled to help notice mistakes during development. Note: Major versions of LLVM are not
 interchangeable or backward-compatible.
 
-If you are using this package for development, we strongly recommend
-the use of an LLVM with assertions enabled; otherwise it's too
-easy to violate LLVM's preconditions without knowing it. 
-You can download such a prebuilt LLVM package from Hylo's 
-[LLVM builds](https://github.com/hylo-lang/llvm-build).
 If you are using development containers, this is already installed preinstalled on the system. Run `llvm-config --prefix` to see where.
 
 On **Windows**, set the environment variable `VSINSTALLDIR` to your visual studio installation path, e.g. `C:/Program Files/Microsoft Visual Studio/2022/Community`, without `/` at the end, so LLVM's CMake files can locate the DIA SDK.

@@ -122,3 +122,19 @@ extension TypeLayout.Part {
   }
 
 }
+
+extension TypeLayout {
+
+  public func contains(_ t: AnyType, at o: Int, layouts: inout TypeLayoutCache) -> Bool {
+    if o == 0 && t == self.type { return true }
+    if isUnionLayout {
+      return false
+    }
+    let i = parts.partitioningIndex { $0.offset > o } - 1
+    if parts[i].offset == o && parts[i].type == t {
+      return true
+    }
+    return layouts[parts[i].type].contains(t, at: o - parts[i].offset, layouts: &layouts)
+  }
+
+}

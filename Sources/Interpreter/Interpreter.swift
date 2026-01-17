@@ -18,32 +18,56 @@ struct CodePointer {
 
 }
 
+/// A value manipulated by the IR.
+struct Value {
+  /// The underlying type-erased representation of value.
+  public var payload: Any
+}
+
 /// The value produced by executing an instruction.
-struct InstructionResult {
-  /// The instruction's output as an opaque, type-erased value.
-  var payload: Any
+enum InstructionResult {
+
+  /// Produces a value.
+  ///
+  /// Execution continues at the next instruction in sequence.
+  case value(Value)
+
+  /// Transfer control to specific instruction.
+  case jump(CodePointer)
+
+}
+
+/// A namespace for notional module-scope declarations that actually
+/// can't be accessed without ambiguity in some cases.
+///
+/// Aliases for these names are normally placed at module scope for ease-of-use.
+enum ModuleScope {
+
+  /// A typed location in memory.
+  public struct Address: Regular {
+
+    /// The position in memory.
+    public let startLocation: Memory.Address
+
+    /// The type to be accessed at `startLocation`.
+    public let type: TypeLayout
+
+  }
+
 }
 
 /// A typed location in memory.
-struct Address: Regular {
-
-  /// The position in memory.
-  public let startLocation: Memory.Address
-
-  /// The type to be accessed at `startLocation`.
-  public let type: TypeLayout
-
-}
+typealias Address = ModuleScope.Address
 
 /// The local variables, parameters, and return address for a function
 /// call.
 struct StackFrame {
   /// The results of instructions.
-  var registers: [InstructionID: InstructionResult] = [:]
+  public var registers: [InstructionID: Value] = [:]
 
   /// The program counter to which execution should return when
   /// popping this frame.
-  var returnAddress: CodePointer
+  public var returnAddress: CodePointer
 
   /// The allocations in this stack frame.
   var allocations: [Address] = []
@@ -88,6 +112,25 @@ extension TypeLayoutCache {
 
 }
 
+extension Memory {
+  /// Deallocates the allocated memory at `a`, leaving it deallocated and
+  /// rendering `a` unusable for any purpose.
+  mutating func deallocate(_ a: ModuleScope.Address) throws {
+    precondition(a.startLocation.offset == 0, "Can't deallocate the memory of subobject.")
+    precondition(
+      allocation[a.startLocation.allocation]?.size == a.type.size,
+      "Deallocating using address of the wrong type.")
+    try deallocate(a.startLocation)
+  }
+
+  /// Stores `v` at `a`.
+  mutating func store(_ v: BuiltinValue, at a: ModuleScope.Address) throws {
+    let allocation = a.startLocation.allocation
+    let offset = a.startLocation.offset
+    try self[allocation].store(v, at: offset)
+  }
+}
+
 /// A thread's call stack.
 struct Stack {
 
@@ -95,13 +138,13 @@ struct Stack {
   private var frames: [StackFrame] = []
 
   /// Adds a new frame on top with the given `returnAddress` and `parameters`.
-  mutating func push(returnAddress: CodePointer, parameters: [Address]) {
+  public mutating func push(returnAddress: CodePointer, parameters: [Address]) {
     let f = StackFrame(returnAddress: returnAddress, parameters: parameters)
     frames.append(f)
   }
 
   /// Removes the top frame and returns its `returnAddress`.
-  mutating func pop() -> CodePointer {
+  public mutating func pop() -> CodePointer {
     let f = frames.last!
     defer {
       frames.removeLast()
@@ -110,7 +153,7 @@ struct Stack {
   }
 
   /// The top stack frame.
-  var top: StackFrame {
+  public var top: StackFrame {
     _read {
       precondition(!isEmpty)
       yield frames[frames.count - 1]
@@ -122,7 +165,7 @@ struct Stack {
   }
 
   /// Boolean indicating whether stack contains atleast 1 stack frame.
-  var isEmpty: Bool {
+  public var isEmpty: Bool {
     frames.isEmpty
   }
 
@@ -153,7 +196,7 @@ public struct Interpreter {
   public private(set) var standardError: String = ""
 
   /// The type layouts that have been computed so far.
-  private var typeLayout: TypeLayoutCache
+  private var typeLayouts: TypeLayoutCache
 
   /// The top stack frame.
   private var topOfStack: StackFrame {
@@ -183,21 +226,34 @@ public struct Interpreter {
     // The return address of the bottom-most frame will never be used,
     // so we fill it with something arbitrary.
     callStack.push(returnAddress: programCounter, parameters: [])
-    typeLayout = .init(typesIn: p.base, for: UnrealABI())
-  }
-
-  /// The value of the current instruction's result, if it has been computed.
-  private var currentRegister: InstructionResult? {
-    get { topOfStack.registers[programCounter.instructionInFunction] }
-    set { topOfStack.registers[programCounter.instructionInFunction] = newValue }
+    typeLayouts = .init(typesIn: p.base, for: UnrealABI())
   }
 
   /// Executes a single instruction.
   public mutating func step() throws {
-    print("\(currentInstruction.site.gnuStandardText): \(currentInstruction)")
+    let r = try stepResult()
+
+    if case .value(let v) = r {
+      topOfStack.registers[programCounter.instructionInFunction] = v
+    }
+
+    if case .jump(let pc) = r {
+      programCounter = pc
+      if callStack.isEmpty {
+        isRunning = false
+      }
+      return
+    }
+
+    try advanceProgramCounter()
+  }
+
+  /// Executes a single instruction without recording its result.
+  private mutating func stepResult() throws -> InstructionResult? {
+    print("\(currentInstruction.site): \(currentInstruction)")
     switch currentInstruction {
     case let x as Access:
-      currentRegister = .init(payload: asAddress(x.source)!)
+      return .value(.init(payload: asAddress(x.source)))
     case let x as AddressToPointer:
       _ = x
     case let x as AdvancedByBytes:
@@ -206,9 +262,9 @@ public struct Interpreter {
       _ = x
 
     case let x as AllocStack:
-      let a = allocate(typeLayout[x.allocatedType])
+      let a = allocate(typeLayouts[x.allocatedType])
       topOfStack.allocations.append(a)
-      currentRegister = .init(payload: a)
+      return .value(.init(payload: a))
 
     case let x as Branch:
       _ = x
@@ -229,13 +285,14 @@ public struct Interpreter {
     case let x as CondBranch:
       _ = x
     case let x as ConstantString:
-      currentRegister = .init(payload: x.value)
+      return .value(.init(payload: x.value))
     case let x as DeallocStack:
       let a = addressToBeDeallocated(by: x)
       try deallocateStack(a)
+      return nil
     case is EndAccess:
       // No effect on program state
-      break
+      return nil
     case let x as EndProject:
       _ = x
     case let x as GenericParameter:
@@ -246,7 +303,7 @@ public struct Interpreter {
       _ = x
     case is MarkState:
       // No effect on program state
-      break
+      return nil
     case let x as MemoryCopy:
       let s = asAddress(x.source)!
       let t = asAddress(x.target)!
@@ -269,15 +326,15 @@ public struct Interpreter {
       fatalError("Interpreter: ProjectBundle instructions have not been removed.")
     case is ReleaseCaptures:
       // No effect on program state
-      break
+      return nil
     case is Return:
-      popStackFrame()
-      return
+      return .jump(popStackFrame())
     case let x as Store:
-      store(asBuiltinValue(x.object)!, at: asAddress(x.target)!)
+      try memory.store(asBuiltinValue(x.object), at: asAddress(x.target))
+      return .none
     case let x as SubfieldView:
-      let p = asAddress(x.recordAddress)!
-      currentRegister = .init(payload: typeLayout.address(of: x.subfield, in: p))
+      let p = asAddress(x.recordAddress)
+      return .value(.init(payload: typeLayouts.address(of: x.subfield, in: p)))
     case let x as Switch:
       _ = x
     case let x as UnionDiscriminator:
@@ -293,12 +350,8 @@ public struct Interpreter {
     default:
       fatalError("Interpreter: unimplemented instruction")
     }
-    if callStack.isEmpty {
-      isRunning = false
-    }
-    else {
-      try advanceProgramCounter()
-    }
+
+    unreachable("Unimplemented processing of instruction")
   }
 
   /// The instruction at which the program counter points.
@@ -320,17 +373,14 @@ public struct Interpreter {
     programCounter.instructionInFunction = a
   }
 
-  /// Removes topmost stack frame and points `programCounter` to next instruction
-  /// of any previous stack frame, or stops the program if the stack is now empty.
+  /// Removes topmost stack frame and return code pointer to next instruction of any
+  /// previous stack frame.
   ///
   /// - Precondition: the program is running.
-  mutating func popStackFrame() {
+  mutating func popStackFrame() -> CodePointer {
     precondition(topOfStack.allocations.isEmpty,
         "All local variables allocations for function must be deallocated before returning.")
-    programCounter = callStack.pop()
-    if callStack.isEmpty {
-      isRunning = false
-    }
+    return callStack.pop()
   }
 
   /// Allocates memory for an object of type `t` and returns the address.
@@ -339,21 +389,12 @@ public struct Interpreter {
     return .init(startLocation: a, type: t)
   }
 
-  /// Deallocates `a`.
-  mutating func deallocate(_ a: Address) throws {
-    precondition(a.startLocation.offset == 0, "Can't deallocate the memory of subobject.")
-    precondition(
-      memory.allocation[a.startLocation.allocation]?.size == a.type.size,
-      "Deallocating using address of the wrong type.")
-    try memory.deallocate(a.startLocation)
-  }
-
   /// Deallocates `a` allocated on stack.
   mutating func deallocateStack(_ a: Address) throws {
     precondition(
       a == topOfStack.allocations.last!,
       "The latest allocation that has not been deallocated must be deallocated first.")
-    try deallocate(a)
+    try memory.deallocate(a)
     topOfStack.allocations.removeLast()
   }
 
@@ -371,25 +412,29 @@ public struct Interpreter {
     return a!
   }
 
-  /// Returns the value of `x` if it has a address, or `nil` if it does not.
-  func asAddress(_ x: Operand) -> Address? {
+  /// Interpret `x` as an Address.
+  ///
+  /// - Precondition: `x` is an Address.
+  func asAddress(_ x: Operand) -> Address {
     switch x {
     case .register(let instruction):
-      topOfStack.registers[instruction]?.payload as? Address
+      topOfStack.registers[instruction]!.payload as! Address
     case .parameter(_, let i):
       topOfStack.parameters[i]
     case .constant:
-      nil
+      preconditionFailure("Constant operand is not an Address.")
     }
   }
 
-  /// Returns the value of `x` if it has a builtin type, or `nil` if it does not.
-  func asBuiltinValue(_ x: Operand) -> BuiltinValue? {
+  /// Interpret `x` as a builtin value.
+  ///
+  /// - Precondition: `x` is builtin value.
+  func asBuiltinValue(_ x: Operand) -> BuiltinValue {
     switch x {
     case .register(let instruction):
-      topOfStack.registers[instruction]?.payload as? BuiltinValue
+      topOfStack.registers[instruction]!.payload as! BuiltinValue
     case .parameter:
-      nil
+      preconditionFailure("Parameter operand doesn't have builtin value.")
     case .constant(let c):
       switch c {
       case let x as IntegerConstant:
@@ -398,13 +443,6 @@ public struct Interpreter {
         UNIMPLEMENTED("non-integer constant parsing!!!")
       }
     }
-  }
-
-  /// Stores `v` at `a`.
-  mutating func store(_ v: BuiltinValue, at a: Address) {
-    let allocation = a.startLocation.allocation
-    let offset = a.startLocation.offset
-    memory[allocation].store(v, at: offset)
   }
 
 }

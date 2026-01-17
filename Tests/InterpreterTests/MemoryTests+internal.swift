@@ -47,12 +47,25 @@ final class InterpreterMemoryInternalTests: XCTestCase {
 
   }
 
-  func testStoringBuiltinValueInAllocation() {
+  private func assertStoring<T: Equatable>(_ v: BuiltinValue, asType t: BuiltinType, yields e: T)
+    throws
+  {
     var m = Memory()
-    let a = m.allocate(1, bytesWithAlignment: 1)
-    m[a.allocation].store(BuiltinValue.i8(2), at: 0)
-    m[a.allocation].withUnsafePointer(to: UInt8.self, at: 0) {
-      XCTAssertEqual($0.pointee, 2)
+    var l = TypeLayoutCache(typesIn: TypedProgram.empty, for: UnrealABI())
+    let a = Address(
+      startLocation: m.allocate(l[^t].size, bytesWithAlignment: l[^t].alignment), type: l[^t])
+    try m.store(v, at: a)
+    m[a.startLocation.allocation].withUnsafePointer(to: T.self, at: 0) {
+      XCTAssertEqual($0.pointee, e)
     }
+  }
+
+  func testStoringBuiltinValueInAllocation() throws {
+    try assertStoring(BuiltinValue.i1(true), asType: BuiltinType.i(1), yields: true)
+    try assertStoring(BuiltinValue.i8(8), asType: BuiltinType.i(8), yields: UInt8(8))
+    try assertStoring(BuiltinValue.i16(8), asType: BuiltinType.i(16), yields: UInt16(8))
+    try assertStoring(BuiltinValue.i32(8), asType: BuiltinType.i(32), yields: UInt32(8))
+    try assertStoring(BuiltinValue.i64(8), asType: BuiltinType.i(64), yields: UInt64(8))
+    try assertStoring(BuiltinValue.i128(8), asType: BuiltinType.i(128), yields: UInt128(8))
   }
 }

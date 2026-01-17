@@ -31,6 +31,9 @@ public struct Module: Sendable {
   /// The functions in the module.
   public private(set) var functions: [Function.ID: Function] = [:]
 
+  /// The skeletons of all the projections in the module.
+  internal var projectionSkeletons: [Function.ID: ProjectionSkeleton]
+
   /// The module's entry function, if any.
   ///
   /// An entry function is the lowered form of a program's entry point, that is the `main` function
@@ -48,6 +51,7 @@ public struct Module: Sendable {
   ) throws {
     self.program = p
     self.id = m
+    self.projectionSkeletons = [:]
 
     Emitter.withInstance(insertingIn: &self, reportingDiagnosticsTo: &log) { (e) in
       e.incorporateTopLevelDeclarations()
@@ -137,6 +141,7 @@ public struct Module: Sendable {
     try run({ closeBorrows(in: $0, diagnostics: &log) })
     try run({ normalizeObjectStates(in: $0, diagnostics: &log) })
     try run({ ensureExclusivity(in: $0, diagnostics: &log) })
+    try run({ checkYieldCoherence($0, reportingDiagnosticsTo: &log) })
 
     try generateSyntheticImplementations(reportingDiagnosticsTo: &log)
   }

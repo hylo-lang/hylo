@@ -5,6 +5,8 @@ import Interpreter
 
 final class InterpreterMemoryTests: XCTestCase {
 
+  let emptyProgram = makeEmptyProgram()
+
   func testAllocation() throws {
     var m = Memory()
     var allocations: [Memory.Address] = []
