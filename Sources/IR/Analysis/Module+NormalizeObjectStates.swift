@@ -464,17 +464,17 @@ extension Module {
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(subfieldView i: InstructionID, from b: Block.ID, in context: inout Context) -> PC? {
-      let addr = self[i, in: f] as! SubfieldView
+      let place = self[i, in: f] as! SubfieldView
 
       // Operand must a location.
       let locations: [AbstractLocation]
-      if case .constant = addr.recordAddress {
+      if case .constant = place.recordPlace {
         // Operand is a constant.
         UNIMPLEMENTED()
       } else {
         locations =
-          context.locals[addr.recordAddress]!.unwrapLocations()!.map({
-            $0.appending(addr.subfield)
+          context.locals[place.recordPlace]!.unwrapLocations()!.map({
+            $0.appending(place.subfield)
           })
       }
 

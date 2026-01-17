@@ -966,8 +966,8 @@ extension SwiftyLLVM.Module {
     func insert(subfieldView i: IR.InstructionID) {
       let s = context.source[i, in: f] as! SubfieldView
 
-      let base = llvm(s.recordAddress)
-      let baseType = context.ir.llvm(context.source[f].type(of: s.recordAddress).ast, in: &self)
+      let base = llvm(s.recordPlace)
+      let baseType = context.ir.llvm(context.source[f].type(of: s.recordPlace).ast, in: &self)
       let indices = [i32.constant(0)] + s.subfield.map({ i32.constant(UInt64($0)) })
       let v = insertGetElementPointerInBounds(
         of: base, typed: baseType, indices: indices, at: insertionPoint)

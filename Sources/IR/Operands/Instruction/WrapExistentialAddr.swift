@@ -60,7 +60,7 @@ extension Module {
   ///   - witness: The address of the object wrapped in the container.
   ///   - interface: The type of the container.
   ///   - table: The witness table of the wrapped value. Must be a pointer to a witness table.
-  func makeWrapExistentialAddr(
+  func makeWrapExistentialPlace(
     _ witness: Operand, _ table: Operand, as interface: ExistentialType,
     in f: Function.ID, at site: SourceRange
   ) -> WrapExistentialAddr {

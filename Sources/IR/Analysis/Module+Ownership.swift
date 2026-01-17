@@ -280,13 +280,13 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(subfieldView i: InstructionID, from f: Function.ID, in context: inout Context) {
       let s = self[i, in: f] as! SubfieldView
-      if case .constant = s.recordAddress {
+      if case .constant = s.recordPlace {
         // Operand is a constant.
         UNIMPLEMENTED()
       }
 
       // Skip the instruction if an error occurred upstream.
-      guard let base = context.locals[s.recordAddress] else {
+      guard let base = context.locals[s.recordPlace] else {
         assert(diagnostics.containsError)
         return
       }
@@ -399,7 +399,7 @@ extension Module {
     case let a as OpenUnion:
       return accessSource(a.container, in: f)
     case let a as SubfieldView:
-      return accessSource(a.recordAddress, in: f)
+      return accessSource(a.recordPlace, in: f)
     case let a as WrapExistentialAddr:
       return accessSource(a.witness, in: f)
     default:

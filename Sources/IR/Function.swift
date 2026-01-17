@@ -467,7 +467,7 @@ public struct Function: Sendable {
     case let s as Project:
       return s.projection.access == .let
     case let s as SubfieldView:
-      return isBoundImmutably(s.recordAddress)
+      return isBoundImmutably(s.recordPlace)
     case let s as WrapExistentialAddr:
       return isBoundImmutably(s.witness)
     default:
@@ -495,11 +495,11 @@ public struct Function: Sendable {
     result(of: i).map(default: [], { uses[$0, default: []] })
   }
 
-  /// Returns the operands from which the address denoted by `a` derives.
+  /// Returns the operands from which the place denoted by `a` derives.
   ///
-  /// The (static) provenances of an address denote the original operands from which it derives.
-  /// They form a set because an address computed by a projection depends on that projection's
-  /// arguments and because an address defined as a parameter of a basic block with multiple
+  /// The (static) provenances of a place denote the original operands from which it derives.
+  /// They form a set because a place computed by a projection depends on that projection's
+  /// arguments and because a place defined as a parameter of a basic block with multiple
   /// predecessors depends on that bock's arguments.
   func provenances(_ a: Operand) -> Set<Operand> {
     // TODO: Block arguments
@@ -515,7 +515,7 @@ public struct Function: Sendable {
         if type(of: o).isPlace { p.formUnion(provenances(o)) }
       }
     case let s as SubfieldView:
-      return provenances(s.recordAddress)
+      return provenances(s.recordPlace)
     case let s as WrapExistentialAddr:
       return provenances(s.witness)
     default:

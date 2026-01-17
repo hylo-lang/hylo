@@ -3419,7 +3419,7 @@ struct Emitter: Sendable {
 
     if let r = module[recordPlace, in: insertionFunction!] as? SubfieldView {
       let p = r.subfield + subfield
-      let s = module.makeSubfieldView(of: r.recordAddress, subfield: p, in: insertionFunction!, at: currentSource)
+      let s = module.makeSubfieldView(of: r.recordPlace, subfield: p, in: insertionFunction!, at: currentSource)
       return insert(s)!
     } else {
       let s = module.makeSubfieldView(of: recordPlace, subfield: subfield, in: insertionFunction!, at: currentSource)

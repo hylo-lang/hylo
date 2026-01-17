@@ -221,7 +221,7 @@ extension IR.Program {
       }
 
     case let s as SubfieldView:
-      let x0 = t.transform(s.recordAddress, in: &self)
+      let x0 = t.transform(s.recordPlace, in: &self)
       return insert(at: p, in: g, in: n) { (target) in
         target.makeSubfieldView(of: x0, subfield: s.subfield, in: g, at: s.site)
       }
