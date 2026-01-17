@@ -287,7 +287,7 @@ public struct Interpreter {
       _ = x
     case let x as Unreachable:
       _ = x
-    case let x as WrapExistentialAddr:
+    case let x as WrapExistentialPlace:
       _ = x
     case let x as Yield:
       _ = x

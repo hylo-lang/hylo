@@ -468,7 +468,7 @@ public struct Function: Sendable {
       return s.projection.access == .let
     case let s as SubfieldView:
       return isBoundImmutably(s.recordPlace)
-    case let s as WrapExistentialAddr:
+    case let s as WrapExistentialPlace:
       return isBoundImmutably(s.witness)
     default:
       return true
@@ -516,7 +516,7 @@ public struct Function: Sendable {
       }
     case let s as SubfieldView:
       return provenances(s.recordPlace)
-    case let s as WrapExistentialAddr:
+    case let s as WrapExistentialPlace:
       return provenances(s.witness)
     default:
       return [a]

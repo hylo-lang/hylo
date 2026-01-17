@@ -771,8 +771,8 @@ extension SwiftyLLVM.Module {
         insert(unionSwitch: i)
       case is IR.Unreachable:
         insert(unreachable: i)
-      case is IR.WrapExistentialAddr:
-        insert(wrapAddr: i)
+      case is IR.WrapExistentialPlace:
+        insert(wrapPlace: i)
       case is IR.Yield:
         insert(yield: i)
       default:
@@ -1759,8 +1759,8 @@ extension SwiftyLLVM.Module {
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insert(wrapAddr i: IR.InstructionID) {
-      let s = context.source[i, in: f] as! IR.WrapExistentialAddr
+    func insert(wrapPlace i: IR.InstructionID) {
+      let s = context.source[i, in: f] as! IR.WrapExistentialPlace
       let t = containerType()
       let a = insertAlloca(t, atEntryOf: transpilation)
       insertStore(container(witness: s.witness, table: s.table), to: a, at: insertionPoint)

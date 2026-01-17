@@ -181,7 +181,7 @@ extension Instruction {
       return true
     case is SubfieldView:
       return true
-    case is WrapExistentialAddr:
+    case is WrapExistentialPlace:
       return true
     default:
       return false

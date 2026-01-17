@@ -44,8 +44,8 @@ extension Module {
           interpret(project: user, from: f, in: &context)
         case is SubfieldView:
           interpret(subfieldView: user, from: f, in: &context)
-        case is WrapExistentialAddr:
-          interpret(wrapExistentialAddr: user, from: f, in: &context)
+        case is WrapExistentialPlace:
+          interpret(wrapExistentialPlace: user, from: f, in: &context)
         default:
           continue
         }
@@ -296,8 +296,10 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(wrapExistentialAddr i: InstructionID, from f: Function.ID, in context: inout Context) {
-      let s = self[i, in: f] as! WrapExistentialAddr
+    func interpret(
+      wrapExistentialPlace i: InstructionID, from f: Function.ID, in context: inout Context
+    ) {
+      let s = self[i, in: f] as! WrapExistentialPlace
       if case .constant = s.witness {
         // Operand is a constant.
         UNIMPLEMENTED()
@@ -400,7 +402,7 @@ extension Module {
       return accessSource(a.container, in: f)
     case let a as SubfieldView:
       return accessSource(a.recordPlace, in: f)
-    case let a as WrapExistentialAddr:
+    case let a as WrapExistentialPlace:
       return accessSource(a.witness, in: f)
     default:
       return o

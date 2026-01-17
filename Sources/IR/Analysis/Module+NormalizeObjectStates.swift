@@ -90,8 +90,8 @@ extension Module {
           pc = successor(of: user, in: b)
         case is Unreachable:
           pc = successor(of: user, in: b)
-        case is WrapExistentialAddr:
-          pc = interpret(wrapExistentialAddr: user, from: b, in: &context)
+        case is WrapExistentialPlace:
+          pc = interpret(wrapExistentialPlace: user, from: b, in: &context)
         case is Yield:
           pc = interpret(yield: user, from: b, in: &context)
         default:
@@ -489,8 +489,8 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(wrapExistentialAddr i: InstructionID, from b: Block.ID, in context: inout Context) -> PC? {
-      let s = self[i, in: f] as! WrapExistentialAddr
+    func interpret(wrapExistentialPlace i: InstructionID, from b: Block.ID, in context: inout Context) -> PC? {
+      let s = self[i, in: f] as! WrapExistentialPlace
       if case .constant = s.witness {
         // Operand is a constant.
         UNIMPLEMENTED()
