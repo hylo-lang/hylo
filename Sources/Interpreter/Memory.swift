@@ -354,9 +354,7 @@ public struct Memory {
     allocation[a.allocation]!.decompose(typeLayouts[t], inRegion: i)
   }
 
-  private func checkDecomposable(_ t: TypeLayout, at a: Address) throws
-    -> Allocation.ComposedRegions.Index
-  {
+  private func checkDecomposable(_ t: TypeLayout, at a: Address) throws -> Allocation.ComposedRegions.Index {
     guard let block = allocation[a.allocation] else {
       throw Error.noLongerAllocated(a)
     }
@@ -399,19 +397,6 @@ extension Memory.Allocation {
 
 }
 
-extension Memory {
-  /// Returns the address of `subPart` in `whole`.
-  public mutating func place(of subPart: RecordPath, in whole: Place) -> Place {
-    let (o, t) = typeLayouts.layout(of: subPart, in: typeLayouts[whole.type])
-    return .init(allocation: whole.allocation, offset: o + whole.offset, type: t.type)
-  }
-
-  /// Stores `v` in `target`.
-  mutating func store(_ v: BuiltinValue, in target: Place) throws {
-    try self[target.allocation].store(v, at: target.offset)
-  }
-}
-
 public extension Memory.Address {
 
   /// Returns `l` offset by `r` bytes.
@@ -433,7 +418,7 @@ public extension Memory.Address {
   static func +=(l: inout Self, r: Int) { l = l + r }
 
   ///  Offsets `l` by `-r` bytes.
-  static func -=(l: inout Self, r: Int) { l = l - r }
+  static func -=(l: inout Self, r: Int)  { l = l - r }
 
 }
 
@@ -453,3 +438,17 @@ public extension Memory.Place {
     return Self(allocation: self.allocation, offset: self.offset, type: t)
   }
 }
+
+extension Memory {
+  /// Returns the address of `subPart` in `whole`.
+  public mutating func place(of subPart: RecordPath, in whole: Place) -> Place {
+    let (o, t) = typeLayouts.layout(of: subPart, in: typeLayouts[whole.type])
+    return .init(allocation: whole.allocation, offset: o + whole.offset, type: t.type)
+  }
+
+  /// Stores `v` in `target`.
+  mutating func store(_ v: BuiltinValue, in target: Place) throws {
+    try self[target.allocation].store(v, at: target.offset)
+  }
+}
+
