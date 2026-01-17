@@ -2,7 +2,7 @@ import FrontEnd
 
 extension Module {
 
-  /// Eliminates redundant instructions and fold address computations in `f`.
+  /// Eliminates redundant instructions and fold place computations in `f`.
   public mutating func simplify(_ f: Function.ID) {
     for b in self[f].blockIDs {
       var i = self[f].firstInstruction(in: b)
