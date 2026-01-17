@@ -49,8 +49,8 @@ extension Module {
   /// assignment of `storage`, depending on its initialization state.
   ///
   /// - Parameters:
-  ///   - value: The object to move. Must have an address type.
-  ///   - storage: The location to initialize or assign. Must have an address type.
+  ///   - value: The object to move. Must have a place type.
+  ///   - storage: The location to initialize or assign. Must have a place type.
   func makeMove(
     _ value: Operand, to storage: Operand, usingConformance movable: FrontEnd.Conformance,
     in f: Function.ID, at site: SourceRange

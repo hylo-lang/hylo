@@ -39,7 +39,7 @@ extension GenericParameter: CustomStringConvertible {
 
 extension Module {
 
-  /// Creates an `generic_parameter` anchored at `site` that returns the address of the generic
+  /// Creates an `generic_parameter` anchored at `site` that returns the place of the generic
   /// argument passed to `p`.
   func makeGenericParameter(
     passedTo p: GenericParameterDecl.ID, at site: SourceRange

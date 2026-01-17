@@ -40,7 +40,7 @@ extension Module {
   ///
   /// - Parameters:
   ///   - object: The object to store. Must have an object type.
-  ///   - target: The location at which `object` is stored. Must have an address type.
+  ///   - target: The location at which `object` is stored. Must have an place type.
   func makeStore(_ object: Operand, at target: Operand, in f: Function.ID, at site: SourceRange) -> Store {
     precondition(self[f].type(of: object).isObject)
     precondition(self[f].type(of: target).isPlace)

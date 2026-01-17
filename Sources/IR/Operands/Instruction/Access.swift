@@ -20,7 +20,7 @@ public struct Access: RegionEntry {
   /// The type of the accessed type.
   public let accessedType: AnyType
 
-  /// The address from which the capability is borrowed.
+  /// The place from which the capability is borrowed.
   public private(set) var source: Operand
 
   /// The binding in source program to which the instruction corresponds, if any.

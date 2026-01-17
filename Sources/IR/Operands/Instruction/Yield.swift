@@ -1,12 +1,12 @@
 import FrontEnd
 
-/// Projects the address of an object.
+/// Projects the place of an object.
 public struct Yield: Instruction {
 
   /// The capability being projected.
   public let capability: AccessEffect
 
-  /// The returned address.
+  /// The returned place.
   public private(set) var projection: Operand
 
   /// The site of the code corresponding to that instruction.

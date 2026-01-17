@@ -6,7 +6,7 @@ public struct OpenCapture: RegionEntry {
 
   public typealias Exit = CloseCapture
 
-  /// The type of the address being loaded.
+  /// The type of the place being loaded.
   public let result: IR.`Type`?
 
   /// The operands of the instruction.
@@ -22,7 +22,7 @@ public struct OpenCapture: RegionEntry {
     self.site = site
   }
 
-  /// The location of the storage containing the address to load.
+  /// The location of the storage containing the place to load.
   public var source: Operand {
     operands[0]
   }
@@ -35,7 +35,7 @@ public struct OpenCapture: RegionEntry {
 
 extension Module {
 
-  /// Creates an `open_capture` anchored at `site` that loads the address stored at `source`.
+  /// Creates an `open_capture` anchored at `site` that loads the place stored at `source`.
   func makeOpenCapture(_ source: Operand, in f: Function.ID, at site: SourceRange) -> OpenCapture {
     let t = RemoteType(self[f].type(of: source).ast) ?? preconditionFailure()
     return .init(result: .place(t.bareType), source: source, site: site)
