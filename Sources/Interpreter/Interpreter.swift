@@ -18,7 +18,7 @@ struct CodePointer {
 
 }
 
-/// Represents value at IR level.
+/// A value manipulated by the IR.
 struct Value {
   /// The underlying type-erased representation of value.
   public var payload: Any
