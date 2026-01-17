@@ -62,14 +62,14 @@ extension Module {
   func makeSubfieldView(
     of recordAddress: Operand, subfield elementPath: RecordPath, in f: Function.ID, at site: SourceRange
   ) -> SubfieldView {
-    precondition(self[f].type(of: recordAddress).isAddress)
+    precondition(self[f].type(of: recordAddress).isPlace)
     let l = AbstractTypeLayout(of: self[f].type(of: recordAddress).ast, definedIn: program)
     let t = l[elementPath].type
 
     return .init(
       base: recordAddress,
       subfield: elementPath,
-      subfieldType: .address(t),
+      subfieldType: .place(t),
       site: site)
   }
 

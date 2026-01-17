@@ -44,7 +44,7 @@ extension Module {
   func makeGenericParameter(
     passedTo p: GenericParameterDecl.ID, at site: SourceRange
   ) -> GenericParameter {
-    .init(parameter: p, result: .address(program[p].type), site: site)
+    .init(parameter: p, result: .place(program[p].type), site: site)
   }
 
 }

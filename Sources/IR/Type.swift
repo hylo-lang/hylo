@@ -9,29 +9,29 @@ public struct Type: Hashable, Sendable {
   /// A high-level representation of the type.
   public let ast: AnyType
 
-  /// Indicates whether this is an address type.
-  public let isAddress: Bool
+  /// Indicates whether this is a place type.
+  public let isPlace: Bool
 
   /// Creates a lowered type.
   ///
   /// - Requires: `ast` must be canonical.
-  public init<T: TypeProtocol>(ast: T, isAddress: Bool) {
+  public init<T: TypeProtocol>(ast: T, isPlace: Bool) {
     precondition(ast.isCanonical, "source type is not canonical")
     self.ast = ^ast
-    self.isAddress = isAddress
+    self.isPlace = isPlace
   }
 
   /// Indicates whether this is an object type.
-  public var isObject: Bool { !isAddress }
+  public var isObject: Bool { !isPlace }
 
   /// Creates an object type.
   public static func object<T: TypeProtocol>(_ type: T) -> Self {
-    IR.`Type`(ast: type, isAddress: false)
+    IR.`Type`(ast: type, isPlace: false)
   }
 
-  /// Creates and address type.
-  public static func address<T: TypeProtocol>(_ type: T) -> Self {
-    IR.`Type`(ast: type, isAddress: true)
+  /// Creates a place type.
+  public static func place<T: TypeProtocol>(_ type: T) -> Self {
+    IR.`Type`(ast: type, isPlace: true)
   }
 
 }
@@ -39,7 +39,7 @@ public struct Type: Hashable, Sendable {
 extension IR.`Type`: CustomStringConvertible {
 
   public var description: String {
-    if isAddress {
+    if isPlace {
       return "&" + String(describing: ast)
     } else {
       return String(describing: ast)

@@ -705,8 +705,8 @@ extension SwiftyLLVM.Module {
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(_ i: IR.InstructionID) {
       switch context.source[i, in: f] {
-      case is IR.AddressToPointer:
-        insert(addressToPointer: i)
+      case is IR.PlaceToPointer:
+        insert(placeToPointer: i)
       case is IR.AdvancedByBytes:
         insert(advancedByBytes: i)
       case is IR.AdvancedByStrides:
@@ -751,8 +751,8 @@ extension SwiftyLLVM.Module {
         insert(openCapture: i)
       case is IR.OpenUnion:
         insert(openUnion: i)
-      case is IR.PointerToAddress:
-        insert(pointerToAddress: i)
+      case is IR.PointerToPlace:
+        insert(pointerToPlace: i)
       case is IR.Project:
         insert(project: i)
       case is IR.ReleaseCaptures:
@@ -781,8 +781,8 @@ extension SwiftyLLVM.Module {
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insert(addressToPointer i: IR.InstructionID) {
-      let s = context.source[i, in: f] as! AddressToPointer
+    func insert(placeToPointer i: IR.InstructionID) {
+      let s = context.source[i, in: f] as! PlaceToPointer
       register[.register(i)] = llvm(s.source)
     }
 
@@ -1648,8 +1648,8 @@ extension SwiftyLLVM.Module {
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insert(pointerToAddress i: IR.InstructionID) {
-      let s = context.source[i, in: f] as! IR.PointerToAddress
+    func insert(pointerToPlace i: IR.InstructionID) {
+      let s = context.source[i, in: f] as! IR.PointerToPlace
       register[.register(i)] = llvm(s.source)
     }
 

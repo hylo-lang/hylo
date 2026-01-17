@@ -36,7 +36,7 @@ extension Module {
   ///   `source` and `target` have the same type.
   func makeMemoryCopy(_ source: Operand, _ target: Operand, in f: Function.ID, at site: SourceRange) -> MemoryCopy {
     let s = self[f].type(of: source)
-    precondition(s.isAddress && (s == self[f].type(of: target)))
+    precondition(s.isPlace && (s == self[f].type(of: target)))
     return .init(source: source, target: target, site: site)
   }
 

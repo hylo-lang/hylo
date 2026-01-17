@@ -64,8 +64,8 @@ extension Module {
     _ witness: Operand, _ table: Operand, as interface: ExistentialType,
     in f: Function.ID, at site: SourceRange
   ) -> WrapExistentialAddr {
-    precondition(self[f].type(of: witness).isAddress)
-    return .init(witness: witness, table: table, interface: .address(interface), site: site)
+    precondition(self[f].type(of: witness).isPlace)
+    return .init(witness: witness, table: table, interface: .place(interface), site: site)
   }
 
 }

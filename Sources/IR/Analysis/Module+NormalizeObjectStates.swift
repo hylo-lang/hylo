@@ -24,8 +24,8 @@ extension Module {
         switch self[f][user] {
         case is Access:
           pc = interpret(access: user, from: b, in: &context)
-        case is AddressToPointer:
-          pc = interpret(addressToPointer: user, from: b, in: &context)
+        case is PlaceToPointer:
+          pc = interpret(placeToPointer: user, from: b, in: &context)
         case is AdvancedByBytes:
           pc = interpret(advancedByBytes: user, from: b, in: &context)
         case is AdvancedByStrides:
@@ -72,8 +72,8 @@ extension Module {
           pc = interpret(openCapture: user, from: b, in: &context)
         case is OpenUnion:
           pc = interpret(openUnion: user, from: b, in: &context)
-        case is PointerToAddress:
-          pc = interpret(pointerToAddress: user, from: b, in: &context)
+        case is PointerToPlace:
+          pc = interpret(pointerToPlace: user, from: b, in: &context)
         case is Project:
           pc = interpret(project: user, from: b, in: &context)
         case is ReleaseCaptures:
@@ -141,7 +141,7 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(addressToPointer i: InstructionID, from b: Block.ID, in context: inout Context) -> PC? {
+    func interpret(placeToPointer i: InstructionID, from b: Block.ID, in context: inout Context) -> PC? {
       initializeRegister(createdBy: i, from: f, in: &context)
       return successor(of: i, in: b)
     }
@@ -412,8 +412,8 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(pointerToAddress i: InstructionID, from b: Block.ID, in context: inout Context) -> PC? {
-      let s = self[i, in: f] as! PointerToAddress
+    func interpret(pointerToPlace i: InstructionID, from b: Block.ID, in context: inout Context) -> PC? {
+      let s = self[i, in: f] as! PointerToPlace
       consume(s.source, with: i, at: s.site, in: &context)
       initializeRegister(createdBy: i, projecting: s.target, from: f, in: &context)
       return successor(of: i, in: b)

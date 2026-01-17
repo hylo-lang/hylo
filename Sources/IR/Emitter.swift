@@ -1721,7 +1721,7 @@ struct Emitter: Sendable {
       to: callee, in: module,
       specializedBy: module.specialization(in: insertionFunction!), in: insertionScope!)
 
-    let x0 = _address_to_pointer(.constant(r))
+    let x0 = _place_to_pointer(.constant(r))
     let x1 = _subfield_view(storage, at: [0])
     _emitInitialize(storage: x1, to: x0)
 
@@ -2172,7 +2172,7 @@ struct Emitter: Sendable {
       to: callee, in: module,
       specializedBy: module.specialization(in: insertionFunction!), in: insertionScope!)
 
-    let x0 = _address_to_pointer(.constant(r))
+    let x0 = _place_to_pointer(.constant(r))
     let x1 = _alloc_stack(p.bareType)
     _emitInitialize(storage: x1, to: x0)
     return _access([p.access], from: x1)
@@ -2223,7 +2223,7 @@ struct Emitter: Sendable {
     switch f {
     case .addressOf:
       let source = emitLValue(arguments[0].value)
-      return _address_to_pointer(source)
+      return _place_to_pointer(source)
 
     case .markUninitialized:
       let source = emitLValue(arguments[0].value)
@@ -2573,7 +2573,7 @@ struct Emitter: Sendable {
 
   /// Inserts the IR for extracting the built-in value stored in an instance of `Hylo.Bool`.
   private mutating func _emitLoadBuiltinBool(_ wrapper: Operand) -> Operand {
-    precondition(module[insertionFunction!].type(of: wrapper) == .address(ast.coreType("Bool")!))
+    precondition(module[insertionFunction!].type(of: wrapper) == .place(ast.coreType("Bool")!))
     let x0 = _subfield_view(wrapper, at: [0])
     let x1 = _access(.sink, from: x0)
     let x2 = _load(x1)
@@ -2726,7 +2726,7 @@ struct Emitter: Sendable {
   /// The returned operand is the result of a `load` instruction.
   private mutating func _emitConvertToForeign(_ o: Operand) -> Operand {
     let t = module[insertionFunction!].type(of: o)
-    precondition(t.isAddress)
+    precondition(t.isPlace)
 
     let foreignConvertible = ast.core.foreignConvertible.type
     let foreignConvertibleConformance = program.conformance(
@@ -2821,7 +2821,7 @@ struct Emitter: Sendable {
       let x1 = me._access(.sink, from: x0)
       let x2 = me._load(x1)
       me._end_access(x1)
-      return me._pointer_to_address(x2, as: t)
+      return me._pointer_to_place(x2, as: t)
     }
   }
 
@@ -3783,8 +3783,8 @@ extension Emitter {
   }
 
 
-  fileprivate mutating func _address_to_pointer(_ source: Operand) -> Operand {
-    insert(module.makeAddressToPointer(source, at: currentSource))!
+  fileprivate mutating func _place_to_pointer(_ source: Operand) -> Operand {
+    insert(module.makePlaceToPointer(source, at: currentSource))!
   }
 
   fileprivate mutating func _call_builtin(
@@ -3844,8 +3844,8 @@ extension Emitter {
     insert(module.makeWrapExistentialAddr(witness, table, as: interface, in: insertionFunction!, at: currentSource))!
   }
 
-  fileprivate mutating func _pointer_to_address(_ x: Operand, as t: RemoteType) -> Operand {
-    insert(module.makePointerToAddress(x, to: t, at: currentSource))!
+  fileprivate mutating func _pointer_to_place(_ x: Operand, as t: RemoteType) -> Operand {
+    insert(module.makePointerToPlace(x, to: t, at: currentSource))!
   }
 
   fileprivate mutating func _generic_parameter(at x: GenericParameterDecl.ID) -> Operand {

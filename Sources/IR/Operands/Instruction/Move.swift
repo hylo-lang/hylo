@@ -55,8 +55,8 @@ extension Module {
     _ value: Operand, to storage: Operand, usingConformance movable: FrontEnd.Conformance,
     in f: Function.ID, at site: SourceRange
   ) -> Move {
-    precondition(self[f].type(of: value).isAddress)
-    precondition(self[f].type(of: storage).isAddress)
+    precondition(self[f].type(of: value).isPlace)
+    precondition(self[f].type(of: storage).isPlace)
     return .init(object: value, target: storage, movable: movable, site: site)
   }
 

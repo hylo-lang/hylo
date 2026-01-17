@@ -123,9 +123,9 @@ public struct Function: Sendable {
     // For the entry block we also need parameters.
     var parameters: [IR.`Type`] = []
     if blocks.isEmpty {
-      parameters = inputs.map({ `Type`.address($0.type.bareType) })
+      parameters = inputs.map({ `Type`.place($0.type.bareType) })
       if !isSubscript {
-        parameters.append(.address(output))
+        parameters.append(.place(output))
       }
     }
     return Block.ID(blocks.append(Block(scope: AnyScopeID(scope), inputs: parameters)))
@@ -462,7 +462,7 @@ public struct Function: Sendable {
       return s.isAccess(.let)
     case is OpenUnion:
       return false
-    case let s as PointerToAddress:
+    case let s as PointerToPlace:
       return s.isAccess(.let)
     case let s as Project:
       return s.projection.access == .let
@@ -512,7 +512,7 @@ public struct Function: Sendable {
       return provenances(s.source)
     case let s as Project:
       return s.operands.reduce(into: []) { (p, o) in
-        if type(of: o).isAddress { p.formUnion(provenances(o)) }
+        if type(of: o).isPlace { p.formUnion(provenances(o)) }
       }
     case let s as SubfieldView:
       return provenances(s.recordAddress)

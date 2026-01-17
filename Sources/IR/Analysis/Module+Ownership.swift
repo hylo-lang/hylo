@@ -38,8 +38,8 @@ extension Module {
           interpret(openCapture: user, from: f, in: &context)
         case is OpenUnion:
           interpret(openUnion: user, from: f, in: &context)
-        case is PointerToAddress:
-          interpret(pointerToAddress: user, from: f, in: &context)
+        case is PointerToPlace:
+          interpret(pointerToPlace: user, from: f, in: &context)
         case is Project:
           interpret(project: user, from: f, in: &context)
         case is SubfieldView:
@@ -254,8 +254,9 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(pointerToAddress i: InstructionID, from f: Function.ID, in context: inout Context) {
-      let s = self[i, in: f] as! PointerToAddress
+    func interpret(pointerToPlace i: InstructionID, from f: Function.ID, in context: inout Context)
+    {
+      let s = self[i, in: f] as! PointerToPlace
       let l = AbstractLocation.root(.register(i))
 
       context.memory[l] = .init(

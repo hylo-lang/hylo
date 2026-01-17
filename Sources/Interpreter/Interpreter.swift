@@ -206,8 +206,6 @@ public struct Interpreter {
     case is Access:
       // No effect on program state
       break
-    case let x as AddressToPointer:
-      _ = x
     case let x as AdvancedByBytes:
       _ = x
     case let x as AdvancedByStrides:
@@ -263,7 +261,9 @@ public struct Interpreter {
       _ = x
     case let x as OpenUnion:
       _ = x
-    case let x as PointerToAddress:
+    case let x as PlaceToPointer:
+      _ = x
+    case let x as PointerToPlace:
       _ = x
     case let x as Project:
       _ = x

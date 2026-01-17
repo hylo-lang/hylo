@@ -48,7 +48,7 @@ public struct ProjectBundle: Instruction {
 
   /// The types of the instruction's results.
   public var result: IR.`Type`? {
-    .address(projection)
+    .place(projection)
   }
 
   public mutating func replaceOperand(at i: Int, with new: Operand) {

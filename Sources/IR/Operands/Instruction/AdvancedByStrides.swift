@@ -61,13 +61,13 @@ extension Module {
       preconditionFailure("source must be the address of a buffer")
     }
 
-    return .init(source: source, offset: n, result: .address(b.element), site: site)
+    return .init(source: source, offset: n, result: .place(b.element), site: site)
   }
 
   /// Returns the AST type of `source` iff it is the address of a buffer.
   private func sourceType(_ source: Operand, in f: Function.ID) -> BufferType? {
     let s = self[f].type(of: source)
-    if s.isAddress {
+    if s.isPlace {
       return BufferType(s.ast)
     } else {
       return nil

@@ -40,7 +40,7 @@ extension Module {
 
   /// Creates a `yield` anchored at `site` that projects `a` with capability `c`.
   func makeYield(_ c: AccessEffect, _ a: Operand, in f: Function.ID, at site: SourceRange) -> Yield {
-    precondition(self[f].type(of: a).isAddress)
+    precondition(self[f].type(of: a).isPlace)
     return .init(capability: c, projection: a, site: site)
   }
 

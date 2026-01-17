@@ -24,7 +24,7 @@ public struct GlobalAddr: Instruction {
   }
 
   public var result: IR.`Type`? {
-    .address(valueType)
+    .place(valueType)
   }
 
   public mutating func replaceOperand(at i: Int, with new: Operand) {

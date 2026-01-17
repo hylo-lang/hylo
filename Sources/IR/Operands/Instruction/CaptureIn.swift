@@ -46,8 +46,8 @@ extension Module {
   /// Creates a `capture ... in` anchored at `site` that captures `source`, which is an access, and
   /// stores it in `target`.
   func makeCapture(_ source: Operand, in target: Operand, in f: Function.ID, at site: SourceRange) -> CaptureIn {
-    precondition(self[f].type(of: source).isAddress)
-    precondition(self[f].type(of: target).isAddress)
+    precondition(self[f].type(of: source).isPlace)
+    precondition(self[f].type(of: target).isPlace)
     return .init(source: source, target: target, site: site)
   }
 

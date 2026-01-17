@@ -36,7 +36,7 @@ public struct OpenUnion: RegionEntry {
   }
 
   public var result: IR.`Type`? {
-    .address(payloadType)
+    .place(payloadType)
   }
 
   public var operands: [Operand] {
@@ -74,7 +74,7 @@ extension Module {
     forInitialization isUsedForInitialization: Bool = false,
     in f: Function.ID, at site: SourceRange
   ) -> OpenUnion {
-    precondition(self[f].type(of: container).isAddress)
+    precondition(self[f].type(of: container).isPlace)
     precondition(payload.isCanonical)
     return .init(
       container: container,

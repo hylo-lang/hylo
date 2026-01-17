@@ -40,7 +40,7 @@ public struct Project: RegionEntry {
 
   /// The types of the instruction's results.
   public var result: IR.`Type`? {
-    .address(projection.bareType)
+    .place(projection.bareType)
   }
 
   public mutating func replaceOperand(at i: Int, with new: Operand) {
