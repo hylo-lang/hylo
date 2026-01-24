@@ -9,7 +9,7 @@ final class InterpreterMemoryTests: XCTestCase {
 
   func testAllocation() throws {
     var l = TypeLayoutCache(typesIn: TypedProgram.empty, for: UnrealABI())
-    var m = Memory(l)
+    var m = Memory(typesIn: TypedProgram.empty, for: UnrealABI())
     var allocations: [Memory.Place] = []
     for sizeInBits in [8, 16, 32, 64, 128] {
       let t = BuiltinType.i(sizeInBits)
@@ -25,101 +25,100 @@ final class InterpreterMemoryTests: XCTestCase {
 
       check(throws: Memory.Error.noLongerAllocated(p.address)) { try m.deallocate(p) }
 
-      let q = p.after(1, bytesHavingType: p.type)
+      let q = (p.address + 1).asPlace(of: p.type)
       check(throws: Memory.Error.deallocationNotAtStartOfAllocation(q.address)) { try m.deallocate(q) }
     }
   }
 
   func testTupleComposeDecompose() throws {
-    var layouts = TypeLayoutCache(typesIn: TypedProgram.empty, for: UnrealABI())
-    let i16Pair = layouts[^TupleType(types: [.builtin(.i(16)), .builtin(.i(16))])]
-    let i16 = layouts[.builtin(.i(16))]
+    var l = TypeLayoutCache(typesIn: TypedProgram.empty, for: UnrealABI())
+    let i16Pair = ^TupleType(types: [.builtin(.i(16)), .builtin(.i(16))])
+    let i16 = ^BuiltinType.i(16)
 
-    assert(i16Pair.alignment > 1, "Need to produce misaligned access for testing")
+    assert(l[i16Pair].alignment > 1, "Need to produce misaligned access for testing")
 
-    var m = Memory(layouts)
-    let p = m.allocate(i16Pair.type).address
+    var m = Memory(typesIn: TypedProgram.empty, for: UnrealABI())
+    let p = m.allocate(i16Pair).address
 
-    check(throws: Memory.Error.alignment(p + 1, for: i16)) {
-      try m.compose(i16.type, at: p + 1)
+    check(throws: Memory.Error.alignment(p + 1, for: l[i16])) {
+      try m.compose(i16, at: p + 1)
     }
 
     // An address that would be suitably aligned, but out of bounds for
     // i16Pair initialization.  The initialized object would extend past
     // the end of the allocation.
-    let outOfBoundsFori16Pair = p + i16.size
+    let outOfBoundsFori16Pair = p + l[i16].size
     check(
-      throws: Memory.Error.bounds(outOfBoundsFori16Pair, for: i16Pair, allocationSize: i16Pair.size)
+      throws: Memory.Error.bounds(outOfBoundsFori16Pair, for: l[i16Pair], allocationSize: l[i16Pair].size)
     ) {
-      try m.compose(i16Pair.type, at: outOfBoundsFori16Pair)
+      try m.compose(i16Pair, at: outOfBoundsFori16Pair)
     }
 
-    let parts = i16Pair.parts
-    let partIDs = Array(i16Pair.partParentages)
+    let parts = l[i16Pair].parts
+    let partIDs = Array(l[i16Pair].partParentages)
     check(throws: Memory.Error.noComposedPart(at: p, partIDs[0])) {
-      try m.compose(i16Pair.type, at: p)
+      try m.compose(i16Pair, at: p)
     }
 
-    try m.compose(i16.type, at: p + parts[0].offset)
+    try m.compose(i16, at: p + parts[0].offset)
 
     check(throws: Memory.Error.noComposedPart(at: p + parts[1].offset, partIDs[1])) {
-      try m.compose(i16Pair.type, at: p)
+      try m.compose(i16Pair, at: p)
     }
 
-    try m.compose(i16.type, at: p + parts[1].offset)
+    try m.compose(i16, at: p + parts[1].offset)
 
-    try m.compose(i16Pair.type, at: p)
+    try m.compose(i16Pair, at: p)
 
-    check(throws: Memory.Error.noDecomposable(i16, at: p)) {
-      try m.decompose(i16.type, at: p)
+    check(throws: Memory.Error.noDecomposable(l[i16], at: p)) {
+      try m.decompose(i16, at: p)
     }
 
-    try m.decompose(i16Pair.type, at: p)
+    try m.decompose(i16Pair, at: p)
 
-    check(throws:Memory.Error.noDecomposable(i16Pair, at: p)) {
-      try m.decompose(i16Pair.type, at: p)
+    check(throws:Memory.Error.noDecomposable(l[i16Pair], at: p)) {
+      try m.decompose(i16Pair, at: p)
     }
 
-    try m.decompose(i16.type, at: p + parts[0].offset)
+    try m.decompose(i16, at: p + parts[0].offset)
 
-    check(throws: Memory.Error.noDecomposable(i16, at: p + parts[0].offset)) {
-      try m.decompose(i16.type, at: p)
+    check(throws: Memory.Error.noDecomposable(l[i16], at: p + parts[0].offset)) {
+      try m.decompose(i16, at: p)
     }
 
-    try m.decompose(i16.type, at: p + parts[1].offset)
+    try m.decompose(i16, at: p + parts[1].offset)
   }
 
   func testUnionComposeDecompose() throws {
-    var layouts = TypeLayoutCache(typesIn: TypedProgram.empty, for: UnrealABI())
-    let i16i32Union = layouts[^UnionType([.builtin(.i(16)), .builtin(.i(32))])]
-    let i16 = layouts[.builtin(.i(16))]
-    let i32 = layouts[.builtin(.i(32))]
+    var l = TypeLayoutCache(typesIn: TypedProgram.empty, for: UnrealABI())
+    let i16 = ^BuiltinType.i(16)
+    let i32 = ^BuiltinType.i(32)
+    let i16i32Union = ^UnionType([i16, i32])
 
-    var m = Memory(layouts)
-    let p = m.allocate(i16i32Union.type).address
+    var m = Memory(typesIn: TypedProgram.empty, for: UnrealABI())
+    let p = m.allocate(i16i32Union).address
 
-    assert(i16i32Union.alignment > 1)
+    assert(l[i16i32Union].alignment > 1)
 
-    check(throws: Memory.Error.alignment(p + 1, for: i16i32Union)) {
-      try m.compose(i16i32Union.type, at: p + 1)
+    check(throws: Memory.Error.alignment(p + 1, for: l[i16i32Union])) {
+      try m.compose(i16i32Union, at: p + 1)
     }
 
     // An address that would be suitably aligned, but out of bounds for
     // i16i32Union initialization.  The initialized object would extend past
     // the end of the allocation.
-    let outOfBoundsFori16i32Union = p + i32.size
+    let outOfBoundsFori16i32Union = p + l[i32].size
     check(
-      throws: Memory.Error.bounds(
-        outOfBoundsFori16i32Union, for: i16i32Union, allocationSize: i16i32Union.size)
+      throws: Memory.Error.bounds(outOfBoundsFori16i32Union, for: l[i16i32Union], allocationSize: l[i16i32Union].size)
     ) {
-      try m.compose(i16i32Union.type, at: outOfBoundsFori16i32Union)
+      try m.compose(i16i32Union, at: outOfBoundsFori16i32Union)
     }
 
-    let parts = i16i32Union.parts
-    let partIDs = Array(i16i32Union.partParentages)
+    let parts = l[i16i32Union].parts
+    let partIDs = Array(l[i16i32Union].partParentages)
     let discriminator = parts.last!
     check(throws: Memory.Error.noComposedPart(at: p + discriminator.offset, partIDs.last!)) {
-      try m.compose(i16i32Union.type, at: p)
+      try m.compose(i16i32Union, at: p)
     }
     _ = i16
     /*
@@ -156,13 +155,25 @@ final class InterpreterMemoryTests: XCTestCase {
 
   
   func testSubPartLayout() throws {
-    var m = Memory(TypeLayoutCache(typesIn: TypedProgram.empty, for: UnrealABI()))
-    let t = ^TupleType(types: [
-      ^BuiltinType.i(32), ^TupleType(types: [^BuiltinType.i(32), ^BuiltinType.i(8)]),
-    ])
-    let a = m.allocate(^t)
-    let x = m.place(of: [1, 1], in: a)
-    XCTAssertEqual(x, .init(allocation: a.allocation, offset: 8, type: ^BuiltinType.i(8)))
+    var m = Memory(typesIn: TypedProgram.empty, for: UnrealABI())
+    let i8 = ^BuiltinType.i(8);
+    let i32 = ^BuiltinType.i(32);
+    let inner = ^TupleType(types: [i32, i8])
+    let t = ^TupleType(types: [i32, inner])
+    let a = m.allocate(t)
+    XCTAssertEqual(m.location(of: [], in: a), a)
+    XCTAssertEqual(
+      m.location(of: [0], in: a),
+      .init(allocation: a.allocation, offset: 0, type: i32))
+    XCTAssertEqual(
+      m.location(of: [1], in: a),
+      .init(allocation: a.allocation, offset: 4, type: inner))
+    XCTAssertEqual(
+      m.location(of: [1, 0], in: a),
+      .init(allocation: a.allocation, offset: 4, type: i32))
+    XCTAssertEqual(
+      m.location(of: [1, 1], in: a),
+      .init(allocation: a.allocation, offset: 8, type: i8))
     // TODO: add test for union case.
   }
 }

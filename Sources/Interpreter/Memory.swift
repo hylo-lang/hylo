@@ -4,9 +4,10 @@ import Utils
 /// The memory of an interpreted process.
 public struct Memory {
 
-  /// An empty instance whose allocation layout semantics are defined by `typeLayouts`.
-  public init(_ typeLayouts: TypeLayoutCache) {
-    self.typeLayouts = typeLayouts
+  /// An empty instance whose allocation and access semantics are defined by
+  /// the types in `p` and the target `abi`.
+  public init(typesIn p: TypedProgram, for abi: any TargetABI) {
+    typeLayouts = .init(typesIn: p, for: abi)
   }
 
   /// An incorrect use of memory.
@@ -278,6 +279,12 @@ public struct Memory {
     }
 
     public var description: String { "@\(allocation):0x\(String(offset, radix: 16))" }
+
+    /// Returns a `Place` referring to the same `allocation` and `offset` as `self`,
+    /// viewed as having type `t`.
+    public func asPlace(of t: AnyType) -> Place {
+      Place(allocation: allocation, offset: offset, type: t)
+    }
   }
 
   /// A typed location in memory.
@@ -292,11 +299,12 @@ public struct Memory {
     /// The type to be accessed at `offset` in `allocation`.
     public let type: AnyType
 
+    /// Address having same `allocation` and `offset` as of `self`.
     public var address: Address {
       .init(allocation: allocation, offset: offset)
     }
 
-    /// An instance in the given `allocation` at `offset`.
+    /// An instance in the given `allocation` at `offset` to be accessed as `type`.
     public init(allocation: Allocation.ID, offset: Storage.Index, type: AnyType) {
       self.allocation = allocation
       self.offset = offset
@@ -441,7 +449,7 @@ public extension Memory.Place {
 
 extension Memory {
   /// Returns the address of `subPart` in `whole`.
-  public mutating func place(of subPart: RecordPath, in whole: Place) -> Place {
+  public mutating func location(of subPart: RecordPath, in whole: Place) -> Place {
     let (o, t) = typeLayouts.layout(of: subPart, in: typeLayouts[whole.type])
     return .init(allocation: whole.allocation, offset: o + whole.offset, type: t.type)
   }

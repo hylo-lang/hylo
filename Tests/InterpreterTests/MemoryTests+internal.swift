@@ -10,7 +10,7 @@ final class InterpreterMemoryInternalTests: XCTestCase {
     let void_ = AnyType.void
     let voidPair = ^TupleType(types: [.void, .void])
 
-    var m = Memory(layouts)
+    var m = Memory(typesIn: TypedProgram.empty, for: UnrealABI())
     let p = m.allocate(voidPair).address
 
     let voidPairPart0 = layouts[voidPair].partParentages.first!
@@ -35,7 +35,7 @@ final class InterpreterMemoryInternalTests: XCTestCase {
   }
 
   func testFormingPointerToLastByteOfAllocation() throws {
-    var memory = Memory(TypeLayoutCache(typesIn: TypedProgram.empty, for: UnrealABI()))
+    var memory = Memory(typesIn: TypedProgram.empty, for: UnrealABI())
     let a = memory.allocate(^BuiltinType.i(8))
 
     memory[a.allocation].withUnsafeMutablePointer(to: UInt8.self, at: 0) { p in
@@ -50,7 +50,7 @@ final class InterpreterMemoryInternalTests: XCTestCase {
   private func assertStoring<T: Equatable>(_ v: BuiltinValue, asType t: BuiltinType, yields e: T)
     throws
   {
-    var m = Memory(TypeLayoutCache(typesIn: TypedProgram.empty, for: UnrealABI()))
+    var m = Memory(typesIn: TypedProgram.empty, for: UnrealABI())
     let a = m.allocate(^t)
     try m.store(v, in: a)
     m[a.allocation].withUnsafePointer(to: T.self, at: 0) {

@@ -169,7 +169,7 @@ public struct Interpreter {
     // The return address of the bottom-most frame will never be used,
     // so we fill it with something arbitrary.
     callStack.push(returnAddress: programCounter, parameters: [])
-    memory = Memory(.init(typesIn: p.base, for: UnrealABI()))
+    memory = Memory(typesIn: p.base, for: UnrealABI())
   }
 
   /// Executes a single instruction.
@@ -230,8 +230,8 @@ public struct Interpreter {
     case let x as ConstantString:
       return .value(.init(payload: x.value))
     case let x as DeallocStack:
-      let a = placeToBeDeallocated(by: x)
-      try deallocateStack(a)
+      let p = asPlace(x.location)
+      try deallocateStack(p)
       return nil
     case is EndAccess:
       // No effect on program state
@@ -271,7 +271,7 @@ public struct Interpreter {
       return .none
     case let x as SubfieldView:
       let p = asPlace(x.recordAddress)
-      return .value(.init(payload: memory.place(of: x.subfield, in: p)))
+      return .value(.init(payload: memory.location(of: x.subfield, in: p)))
     case let x as Switch:
       _ = x
     case let x as UnionDiscriminator:
@@ -327,20 +327,6 @@ public struct Interpreter {
       "The latest allocation that has not been deallocated must be deallocated first.")
     try memory.deallocate(a)
     topOfStack.allocations.removeLast()
-  }
-
-  /// Returns the place produced by executing instruction identified by `i` in the current frame,
-  /// or `nil` if it didn't produce a place.
-  func placeProduced(by i: InstructionID) -> Memory.Place? {
-    topOfStack.registers[i]?.payload as? Memory.Place
-  }
-
-  /// Returns the place to be deallocated by `i`.
-  func placeToBeDeallocated(by i: DeallocStack) -> Memory.Place {
-    precondition(i.location.instruction != nil, "DeallocStack must reference a valid instruction.")
-    let a = placeProduced(by: i.location.instruction!)
-    precondition(a != nil, "Referenced instruction must produce an place.")
-    return a!
   }
 
   /// Interpret `x` as a Place.
