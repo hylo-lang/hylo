@@ -705,8 +705,8 @@ extension SwiftyLLVM.Module {
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(_ i: IR.InstructionID) {
       switch context.source[i, in: f] {
-      case is IR.AddressToPointer:
-        insert(addressToPointer: i)
+      case is IR.PlaceToPointer:
+        insert(placeToPointer: i)
       case is IR.AdvancedByBytes:
         insert(advancedByBytes: i)
       case is IR.AdvancedByStrides:
@@ -737,8 +737,8 @@ extension SwiftyLLVM.Module {
         return
       case is IR.EndProject:
         insert(endProjection: i)
-      case is IR.GlobalAddr:
-        insert(globalAddr: i)
+      case is IR.GlobalPlace:
+        insert(globalPlace: i)
       case is IR.CallBuiltinFunction:
         insert(llvm: i)
       case is IR.Load:
@@ -751,8 +751,8 @@ extension SwiftyLLVM.Module {
         insert(openCapture: i)
       case is IR.OpenUnion:
         insert(openUnion: i)
-      case is IR.PointerToAddress:
-        insert(pointerToAddress: i)
+      case is IR.PointerToPlace:
+        insert(pointerToPlace: i)
       case is IR.Project:
         insert(project: i)
       case is IR.ReleaseCaptures:
@@ -771,8 +771,8 @@ extension SwiftyLLVM.Module {
         insert(unionSwitch: i)
       case is IR.Unreachable:
         insert(unreachable: i)
-      case is IR.WrapExistentialAddr:
-        insert(wrapAddr: i)
+      case is IR.WrapExistentialPlace:
+        insert(wrapPlace: i)
       case is IR.Yield:
         insert(yield: i)
       default:
@@ -781,8 +781,8 @@ extension SwiftyLLVM.Module {
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insert(addressToPointer i: IR.InstructionID) {
-      let s = context.source[i, in: f] as! AddressToPointer
+    func insert(placeToPointer i: IR.InstructionID) {
+      let s = context.source[i, in: f] as! PlaceToPointer
       register[.register(i)] = llvm(s.source)
     }
 
@@ -955,8 +955,8 @@ extension SwiftyLLVM.Module {
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insert(globalAddr i: IR.InstructionID) {
-      let s = context.source[i, in: f] as! IR.GlobalAddr
+    func insert(globalPlace i: IR.InstructionID) {
+      let s = context.source[i, in: f] as! IR.GlobalPlace
       let n = context.ir.base.mangled(s.binding)
       let a = declareFunction(n, .init(from: [], to: ptr, in: &self))
       register[.register(i)] = insertCall(a, on: [], at: insertionPoint)
@@ -966,8 +966,8 @@ extension SwiftyLLVM.Module {
     func insert(subfieldView i: IR.InstructionID) {
       let s = context.source[i, in: f] as! SubfieldView
 
-      let base = llvm(s.recordAddress)
-      let baseType = context.ir.llvm(context.source[f].type(of: s.recordAddress).ast, in: &self)
+      let base = llvm(s.recordPlace)
+      let baseType = context.ir.llvm(context.source[f].type(of: s.recordPlace).ast, in: &self)
       let indices = [i32.constant(0)] + s.subfield.map({ i32.constant(UInt64($0)) })
       let v = insertGetElementPointerInBounds(
         of: base, typed: baseType, indices: indices, at: insertionPoint)
@@ -1648,8 +1648,8 @@ extension SwiftyLLVM.Module {
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insert(pointerToAddress i: IR.InstructionID) {
-      let s = context.source[i, in: f] as! IR.PointerToAddress
+    func insert(pointerToPlace i: IR.InstructionID) {
+      let s = context.source[i, in: f] as! IR.PointerToPlace
       register[.register(i)] = llvm(s.source)
     }
 
@@ -1759,8 +1759,8 @@ extension SwiftyLLVM.Module {
     }
 
     /// Inserts the transpilation of `i` at `insertionPoint`.
-    func insert(wrapAddr i: IR.InstructionID) {
-      let s = context.source[i, in: f] as! IR.WrapExistentialAddr
+    func insert(wrapPlace i: IR.InstructionID) {
+      let s = context.source[i, in: f] as! IR.WrapExistentialPlace
       let t = containerType()
       let a = insertAlloca(t, atEntryOf: transpilation)
       insertStore(container(witness: s.witness, table: s.table), to: a, at: insertionPoint)

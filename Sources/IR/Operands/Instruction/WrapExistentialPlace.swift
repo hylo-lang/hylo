@@ -1,10 +1,10 @@
 import FrontEnd
 import Utils
 
-/// Creates existential container wrapping the address of a witness.
-public struct WrapExistentialAddr: Instruction {
+/// Creates existential container wrapping the place of a witness.
+public struct WrapExistentialPlace: Instruction {
 
-  /// The address wrapped in the existential container.
+  /// The place wrapped in the existential container.
   public private(set) var witness: Operand
 
   /// The witness table of the wrapped value.
@@ -43,29 +43,29 @@ public struct WrapExistentialAddr: Instruction {
 
 }
 
-extension WrapExistentialAddr: CustomStringConvertible {
+extension WrapExistentialPlace: CustomStringConvertible {
 
   public var description: String {
-    "wrap_existential_addr \(witness), \(table) as \(interface)"
+    "wrap_existential_place \(witness), \(table) as \(interface)"
   }
 
 }
 
 extension Module {
 
-  /// Creates a `wrap_existential_addr` anchored at `site` that creates an existential container of
+  /// Creates a `wrap_existential_place` anchored at `site` that creates an existential container of
   /// type `interface` wrapping `witness` and `table`.
   ///
   /// - Parameters:
-  ///   - witness: The address of the object wrapped in the container.
+  ///   - witness: The place of the object wrapped in the container.
   ///   - interface: The type of the container.
   ///   - table: The witness table of the wrapped value. Must be a pointer to a witness table.
-  func makeWrapExistentialAddr(
+  func makeWrapExistentialPlace(
     _ witness: Operand, _ table: Operand, as interface: ExistentialType,
     in f: Function.ID, at site: SourceRange
-  ) -> WrapExistentialAddr {
-    precondition(self[f].type(of: witness).isAddress)
-    return .init(witness: witness, table: table, interface: .address(interface), site: site)
+  ) -> WrapExistentialPlace {
+    precondition(self[f].type(of: witness).isPlace)
+    return .init(witness: witness, table: table, interface: .place(interface), site: site)
   }
 
 }

@@ -16,7 +16,7 @@ public struct AllocStack: Instruction {
   }
 
   public var result: IR.`Type`? {
-    .address(allocatedType)
+    .place(allocatedType)
   }
 
   public func replaceOperand(at i: Int, with new: Operand) {

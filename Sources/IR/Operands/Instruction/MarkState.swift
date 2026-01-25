@@ -44,7 +44,7 @@ extension Module {
   /// Creates a `mark_state` instruction anchored at `site` that marks `storage` has being fully
   /// initialized if `initialized` is `true` or fully uninitialized otherwise.
   func makeMarkState(_ storage: Operand, initialized: Bool, in f: Function.ID, at site: SourceRange) -> MarkState {
-    precondition(self[f].type(of: storage).isAddress)
+    precondition(self[f].type(of: storage).isPlace)
     return .init(storage: storage, initialized: initialized, site: site)
   }
 

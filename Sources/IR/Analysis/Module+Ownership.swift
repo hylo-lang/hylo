@@ -32,20 +32,20 @@ extension Module {
           interpret(endProject: user, from: f, in: &context)
         case is GenericParameter:
           interpret(genericParameter: user, from: f, in: &context)
-        case is GlobalAddr:
-          interpret(globalAddr: user, from: f, in: &context)
+        case is GlobalPlace:
+          interpret(globalPlace: user, from: f, in: &context)
         case is OpenCapture:
           interpret(openCapture: user, from: f, in: &context)
         case is OpenUnion:
           interpret(openUnion: user, from: f, in: &context)
-        case is PointerToAddress:
-          interpret(pointerToAddress: user, from: f, in: &context)
+        case is PointerToPlace:
+          interpret(pointerToPlace: user, from: f, in: &context)
         case is Project:
           interpret(project: user, from: f, in: &context)
         case is SubfieldView:
           interpret(subfieldView: user, from: f, in: &context)
-        case is WrapExistentialAddr:
-          interpret(wrapExistentialAddr: user, from: f, in: &context)
+        case is WrapExistentialPlace:
+          interpret(wrapExistentialPlace: user, from: f, in: &context)
         default:
           continue
         }
@@ -223,7 +223,7 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(globalAddr i: InstructionID, from f: Function.ID, in context: inout Context) {
+    func interpret(globalPlace i: InstructionID, from f: Function.ID, in context: inout Context) {
       context.declareStorage(assignedTo: i, from: f, in: self, initially: .unique)
     }
 
@@ -254,8 +254,9 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(pointerToAddress i: InstructionID, from f: Function.ID, in context: inout Context) {
-      let s = self[i, in: f] as! PointerToAddress
+    func interpret(pointerToPlace i: InstructionID, from f: Function.ID, in context: inout Context)
+    {
+      let s = self[i, in: f] as! PointerToPlace
       let l = AbstractLocation.root(.register(i))
 
       context.memory[l] = .init(
@@ -279,13 +280,13 @@ extension Module {
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(subfieldView i: InstructionID, from f: Function.ID, in context: inout Context) {
       let s = self[i, in: f] as! SubfieldView
-      if case .constant = s.recordAddress {
+      if case .constant = s.recordPlace {
         // Operand is a constant.
         UNIMPLEMENTED()
       }
 
       // Skip the instruction if an error occurred upstream.
-      guard let base = context.locals[s.recordAddress] else {
+      guard let base = context.locals[s.recordPlace] else {
         assert(diagnostics.containsError)
         return
       }
@@ -295,8 +296,10 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(wrapExistentialAddr i: InstructionID, from f: Function.ID, in context: inout Context) {
-      let s = self[i, in: f] as! WrapExistentialAddr
+    func interpret(
+      wrapExistentialPlace i: InstructionID, from f: Function.ID, in context: inout Context
+    ) {
+      let s = self[i, in: f] as! WrapExistentialPlace
       if case .constant = s.witness {
         // Operand is a constant.
         UNIMPLEMENTED()
@@ -398,8 +401,8 @@ extension Module {
     case let a as OpenUnion:
       return accessSource(a.container, in: f)
     case let a as SubfieldView:
-      return accessSource(a.recordAddress, in: f)
-    case let a as WrapExistentialAddr:
+      return accessSource(a.recordPlace, in: f)
+    case let a as WrapExistentialPlace:
       return accessSource(a.witness, in: f)
     default:
       return o

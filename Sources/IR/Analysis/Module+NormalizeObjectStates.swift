@@ -24,8 +24,8 @@ extension Module {
         switch self[f][user] {
         case is Access:
           pc = interpret(access: user, from: b, in: &context)
-        case is AddressToPointer:
-          pc = interpret(addressToPointer: user, from: b, in: &context)
+        case is PlaceToPointer:
+          pc = interpret(placeToPointer: user, from: b, in: &context)
         case is AdvancedByBytes:
           pc = interpret(advancedByBytes: user, from: b, in: &context)
         case is AdvancedByStrides:
@@ -56,8 +56,8 @@ extension Module {
           pc = interpret(endProject: user, from: b, in: &context)
         case is GenericParameter:
           pc = interpret(genericParameter: user, from: b, in: &context)
-        case is GlobalAddr:
-          pc = interpret(globalAddr: user, from: b, in: &context)
+        case is GlobalPlace:
+          pc = interpret(globalPlace: user, from: b, in: &context)
         case is CallBuiltinFunction:
           pc = interpret(callBuiltin: user, from: b, in: &context)
         case is Load:
@@ -72,8 +72,8 @@ extension Module {
           pc = interpret(openCapture: user, from: b, in: &context)
         case is OpenUnion:
           pc = interpret(openUnion: user, from: b, in: &context)
-        case is PointerToAddress:
-          pc = interpret(pointerToAddress: user, from: b, in: &context)
+        case is PointerToPlace:
+          pc = interpret(pointerToPlace: user, from: b, in: &context)
         case is Project:
           pc = interpret(project: user, from: b, in: &context)
         case is ReleaseCaptures:
@@ -90,8 +90,8 @@ extension Module {
           pc = successor(of: user, in: b)
         case is Unreachable:
           pc = successor(of: user, in: b)
-        case is WrapExistentialAddr:
-          pc = interpret(wrapExistentialAddr: user, from: b, in: &context)
+        case is WrapExistentialPlace:
+          pc = interpret(wrapExistentialPlace: user, from: b, in: &context)
         case is Yield:
           pc = interpret(yield: user, from: b, in: &context)
         default:
@@ -141,7 +141,7 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(addressToPointer i: InstructionID, from b: Block.ID, in context: inout Context) -> PC? {
+    func interpret(placeToPointer i: InstructionID, from b: Block.ID, in context: inout Context) -> PC? {
       initializeRegister(createdBy: i, from: f, in: &context)
       return successor(of: i, in: b)
     }
@@ -329,7 +329,7 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(globalAddr i: InstructionID, from b: Block.ID, in context: inout Context) -> PC? {
+    func interpret(globalPlace i: InstructionID, from b: Block.ID, in context: inout Context) -> PC? {
       context.declareStorage(assignedTo: i, from: f, in: self, initially: .initialized)
       return successor(of: i, in: b)
     }
@@ -412,8 +412,8 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(pointerToAddress i: InstructionID, from b: Block.ID, in context: inout Context) -> PC? {
-      let s = self[i, in: f] as! PointerToAddress
+    func interpret(pointerToPlace i: InstructionID, from b: Block.ID, in context: inout Context) -> PC? {
+      let s = self[i, in: f] as! PointerToPlace
       consume(s.source, with: i, at: s.site, in: &context)
       initializeRegister(createdBy: i, projecting: s.target, from: f, in: &context)
       return successor(of: i, in: b)
@@ -464,17 +464,17 @@ extension Module {
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
     func interpret(subfieldView i: InstructionID, from b: Block.ID, in context: inout Context) -> PC? {
-      let addr = self[i, in: f] as! SubfieldView
+      let place = self[i, in: f] as! SubfieldView
 
       // Operand must a location.
       let locations: [AbstractLocation]
-      if case .constant = addr.recordAddress {
+      if case .constant = place.recordPlace {
         // Operand is a constant.
         UNIMPLEMENTED()
       } else {
         locations =
-          context.locals[addr.recordAddress]!.unwrapLocations()!.map({
-            $0.appending(addr.subfield)
+          context.locals[place.recordPlace]!.unwrapLocations()!.map({
+            $0.appending(place.subfield)
           })
       }
 
@@ -489,8 +489,8 @@ extension Module {
     }
 
     /// Interprets `i` in `context`, reporting violations into `diagnostics`.
-    func interpret(wrapExistentialAddr i: InstructionID, from b: Block.ID, in context: inout Context) -> PC? {
-      let s = self[i, in: f] as! WrapExistentialAddr
+    func interpret(wrapExistentialPlace i: InstructionID, from b: Block.ID, in context: inout Context) -> PC? {
+      let s = self[i, in: f] as! WrapExistentialPlace
       if case .constant = s.witness {
         // Operand is a constant.
         UNIMPLEMENTED()

@@ -24,7 +24,7 @@ public struct FunctionReference: Constant, Hashable, Sendable {
     assert(t.isCanonical)
 
     self.function = f
-    self.type = .address(t)
+    self.type = .place(t)
     self.specialization = .empty
   }
 
@@ -48,7 +48,7 @@ public struct FunctionReference: Constant, Hashable, Sendable {
       module.program.specialize(^t, for: a, in: scopeOfUse), in: scopeOfUse)
 
     self.function = f
-    self.type = .address(u)
+    self.type = .place(u)
     self.specialization = a
   }
 

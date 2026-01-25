@@ -24,6 +24,6 @@ store Int, %i0.0#0
 Would become
 
 ```
-%i0.0#0: &Metatype<Int> = global_addr Int.metatype
+%i0.0#0: &Metatype<Int> = global_place Int.metatype
 %i0.2#0: &Metatype<T> = borrow [let] %i0.0#0
 ```
