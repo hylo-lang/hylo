@@ -123,9 +123,9 @@ public struct Function: Sendable {
     // For the entry block we also need parameters.
     var parameters: [IR.`Type`] = []
     if blocks.isEmpty {
-      parameters = inputs.map({ `Type`.address($0.type.bareType) })
+      parameters = inputs.map({ `Type`.place($0.type.bareType) })
       if !isSubscript {
-        parameters.append(.address(output))
+        parameters.append(.place(output))
       }
     }
     return Block.ID(blocks.append(Block(scope: AnyScopeID(scope), inputs: parameters)))
@@ -462,13 +462,13 @@ public struct Function: Sendable {
       return s.isAccess(.let)
     case is OpenUnion:
       return false
-    case let s as PointerToAddress:
+    case let s as PointerToPlace:
       return s.isAccess(.let)
     case let s as Project:
       return s.projection.access == .let
     case let s as SubfieldView:
-      return isBoundImmutably(s.recordAddress)
-    case let s as WrapExistentialAddr:
+      return isBoundImmutably(s.recordPlace)
+    case let s as WrapExistentialPlace:
       return isBoundImmutably(s.witness)
     default:
       return true
@@ -495,11 +495,11 @@ public struct Function: Sendable {
     result(of: i).map(default: [], { uses[$0, default: []] })
   }
 
-  /// Returns the operands from which the address denoted by `a` derives.
+  /// Returns the operands from which the place denoted by `a` derives.
   ///
-  /// The (static) provenances of an address denote the original operands from which it derives.
-  /// They form a set because an address computed by a projection depends on that projection's
-  /// arguments and because an address defined as a parameter of a basic block with multiple
+  /// The (static) provenances of a place denote the original operands from which it derives.
+  /// They form a set because a place computed by a projection depends on that projection's
+  /// arguments and because a place defined as a parameter of a basic block with multiple
   /// predecessors depends on that bock's arguments.
   func provenances(_ a: Operand) -> Set<Operand> {
     // TODO: Block arguments
@@ -512,11 +512,11 @@ public struct Function: Sendable {
       return provenances(s.source)
     case let s as Project:
       return s.operands.reduce(into: []) { (p, o) in
-        if type(of: o).isAddress { p.formUnion(provenances(o)) }
+        if type(of: o).isPlace { p.formUnion(provenances(o)) }
       }
     case let s as SubfieldView:
-      return provenances(s.recordAddress)
-    case let s as WrapExistentialAddr:
+      return provenances(s.recordPlace)
+    case let s as WrapExistentialPlace:
       return provenances(s.witness)
     default:
       return [a]

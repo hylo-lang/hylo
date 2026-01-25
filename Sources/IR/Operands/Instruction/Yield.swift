@@ -1,12 +1,12 @@
 import FrontEnd
 
-/// Projects the address of an object.
+/// Projects the place of an object.
 public struct Yield: Instruction {
 
   /// The capability being projected.
   public let capability: AccessEffect
 
-  /// The returned address.
+  /// The returned place.
   public private(set) var projection: Operand
 
   /// The site of the code corresponding to that instruction.
@@ -40,7 +40,7 @@ extension Module {
 
   /// Creates a `yield` anchored at `site` that projects `a` with capability `c`.
   func makeYield(_ c: AccessEffect, _ a: Operand, in f: Function.ID, at site: SourceRange) -> Yield {
-    precondition(self[f].type(of: a).isAddress)
+    precondition(self[f].type(of: a).isPlace)
     return .init(capability: c, projection: a, site: site)
   }
 

@@ -1,15 +1,15 @@
 import FrontEnd
 
-/// Converts a built-in pointer value to an address.
+/// Converts a built-in pointer value to a place.
 ///
-/// This instruction doesn't extend the lifetime of its operand. The address unsafely refers to the
+/// This instruction doesn't extend the lifetime of its operand. The place unsafely refers to the
 /// memory referenced by the pointer.
-public struct PointerToAddress: Instruction {
+public struct PointerToPlace: Instruction {
 
   /// The pointer to convert.
   public private(set) var source: Operand
 
-  /// The type of the converted address.
+  /// The type of the converted place.
   public let target: RemoteType
 
   /// The site of the code corresponding to that instruction.
@@ -23,7 +23,7 @@ public struct PointerToAddress: Instruction {
   }
 
   public var result: IR.`Type`? {
-    .address(target.bareType)
+    .place(target.bareType)
   }
 
   public var operands: [Operand] {
@@ -37,21 +37,21 @@ public struct PointerToAddress: Instruction {
 
 }
 
-extension PointerToAddress: CustomStringConvertible {
+extension PointerToPlace: CustomStringConvertible {
 
   public var description: String {
-    "pointer_to_address \(source) as \(target)"
+    "pointer_to_place \(source) as \(target)"
   }
 
 }
 
 extension Module {
 
-  /// Creates a `pointer_to_address` anchored at `site` that converts `source`, which is a
-  /// built-in pointer value, to an address of type `target`.
-  func makePointerToAddress(
+  /// Creates a `pointer_to_place` anchored at `site` that converts `source`, which is a
+  /// built-in pointer value, to a place of type `target`.
+  func makePointerToPlace(
     _ source: Operand, to target: RemoteType, at site: SourceRange
-  ) -> PointerToAddress {
+  ) -> PointerToPlace {
     precondition(target.access != .yielded)
     return .init(source: source, target: target, site: site)
   }

@@ -53,8 +53,8 @@ extension Module {
   func makeAdvancedByBytes(
     source: Operand, offset: Operand, in f: Function.ID, at site: SourceRange
   ) -> AdvancedByBytes {
-    precondition(self[f].type(of: source).isAddress)
-    precondition(self[f].type(of: offset).isAddress)
+    precondition(self[f].type(of: source).isPlace)
+    precondition(self[f].type(of: offset).isPlace)
     return .init(
       source: source,
       offset: offset,

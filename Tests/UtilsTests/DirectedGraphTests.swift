@@ -105,6 +105,116 @@ final class DirectedGraphTests: XCTestCase {
     XCTAssertEqual(vertices.last, 3)
   }
 
+  func testBFSWithEdgeFilter() {
+    var g = DirectedGraph<Int, String>()
+    g.insertEdge(from: 0, to: 1, labeledBy: "a")
+    g.insertEdge(from: 0, to: 2, labeledBy: "b")
+    g.insertEdge(from: 1, to: 3, labeledBy: "a")
+    g.insertEdge(from: 2, to: 3, labeledBy: "b")
+
+    let vertices = Array(g.bfs(from: 0, edgeFilter: { $0 == "a" }))
+    XCTAssertEqual(Set(vertices), [0, 1, 3])
+    XCTAssertEqual(vertices.first, 0)
+    XCTAssertEqual(vertices.last, 3)
+  }
+
+  func testBFSWithEdgeFilterOnBidirectionalGraph() {
+    enum Label {
+      case forward
+      case backward
+      case bidirectional
+    }
+    var g = DirectedGraph<Int, Label>()
+    g.insertEdge(from: 0, to: 1, labeledBy: .forward)
+    g.insertEdge(from: 1, to: 0, labeledBy: .backward)
+    g.insertEdge(from: 0, to: 2, labeledBy: .bidirectional)
+    g.insertEdge(from: 2, to: 0, labeledBy: .bidirectional)
+    g.insertEdge(from: 1, to: 3, labeledBy: .forward)
+    g.insertEdge(from: 3, to: 1, labeledBy: .backward)
+    g.insertEdge(from: 2, to: 3, labeledBy: .forward)
+    g.insertEdge(from: 3, to: 2, labeledBy: .backward)
+
+    let forwardPass = Array(g.bfs(from: 0, edgeFilter: { $0 != .backward }))
+    XCTAssertEqual(Set(forwardPass), [0, 1, 2, 3])
+    let backwardPass = Array(g.bfs(from: 0, edgeFilter: { $0 != .forward }))
+    XCTAssertEqual(Set(backwardPass), [0, 2])
+  }
+
+  func testWithBFSCanFullyExploreTheGraph() {
+    var g = DirectedGraph<Int, NoLabel>()
+    g.insertEdge(from: 0, to: 1)
+    g.insertEdge(from: 0, to: 2)
+    g.insertEdge(from: 1, to: 3)
+    g.insertEdge(from: 2, to: 3)
+    g.insertEdge(from: 2, to: 4)
+
+    var visited: [Int] = []
+    g.withBFS([0]) { (v, successors) in
+      visited.append(v)
+      return .continue
+    }
+    XCTAssertEqual(Set(visited), [0, 1, 2, 3, 4])
+  }
+
+  func testWithBFSCanSkipExploringPartsOfTheGraph() {
+    var g = DirectedGraph<Int, NoLabel>()
+    g.insertEdge(from: 0, to: 1)
+    g.insertEdge(from: 0, to: 2)
+    g.insertEdge(from: 1, to: 3)
+    g.insertEdge(from: 2, to: 4)
+    g.insertEdge(from: 2, to: 5)
+
+    var visited: [Int] = []
+    g.withBFS([0]) { (v, successors) in
+      visited.append(v)
+      if v == 2 {
+        return .skip
+      }
+      return .continue
+    }
+    XCTAssertEqual(Set(visited), [0, 1, 2, 3])
+  }
+
+  func testWithBFSCanStopExploringPartsOfTheGraph() {
+    var g = DirectedGraph<Int, NoLabel>()
+    g.insertEdge(from: 0, to: 1)
+    g.insertEdge(from: 0, to: 2)
+    g.insertEdge(from: 1, to: 3)
+    g.insertEdge(from: 2, to: 4)
+    g.insertEdge(from: 2, to: 5)
+
+    var visited: [Int] = []
+    g.withBFS([0]) { (v, successors) in
+      visited.append(v)
+      if v == 0 {
+        return .stop
+      }
+      return .continue
+    }
+    XCTAssertEqual(Set(visited), [0])
+  }
+
+  func testWithBFSCorrectlyCapturesSuccessors() {
+    var g = DirectedGraph<Int, NoLabel>()
+    g.insertEdge(from: 0, to: 1)
+    g.insertEdge(from: 0, to: 2)
+    g.insertEdge(from: 1, to: 3)
+    g.insertEdge(from: 2, to: 4)
+    g.insertEdge(from: 2, to: 5)
+
+    var recordedSuccessors: [Int: [Int]] = [:]
+    g.withBFS([0]) { (v, successors) in
+      recordedSuccessors[v] = successors
+      return .continue
+    }
+    XCTAssertEqual(recordedSuccessors[0]?.sorted(), [1, 2])
+    XCTAssertEqual(recordedSuccessors[1], [3])
+    XCTAssertEqual(recordedSuccessors[2]?.sorted(), [4, 5])
+    XCTAssertEqual(recordedSuccessors[3], [])
+    XCTAssertEqual(recordedSuccessors[4], [])
+    XCTAssertEqual(recordedSuccessors[5], [])
+  }
+
   func testIsReachable() {
     var g = DirectedGraph<Int, NoLabel>()
     g.insertEdge(from: 0, to: 1)

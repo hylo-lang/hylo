@@ -22,7 +22,7 @@ import Utils
 ///
 /// Step 2b is implemented by `Module.forEachClient(of:)` and `Module.requests(_:)`. The former
 /// iterates over all the uses of an instruction, traversing instructions that compute derived
-/// addresses (.e.g., `subfield_view`). The latter returns the set of requested capabilities for
+/// places (.e.g., `subfield_view`). The latter returns the set of requested capabilities for
 /// each user. As well-formed accesses to memory must be done via `access`, there's a fairly small
 /// number of instructions to consider.
 ///
@@ -169,7 +169,7 @@ extension ProjectBundle: ReifiableAccess {}
 
 extension Instruction {
 
-  /// `true` iff `self` is an instruction computing an address derived from its operand without
+  /// `true` iff `self` is an instruction computing a place derived from its operand without
   /// accessing them.
   fileprivate var isTransparentOffset: Bool {
     switch self {
@@ -181,7 +181,7 @@ extension Instruction {
       return true
     case is SubfieldView:
       return true
-    case is WrapExistentialAddr:
+    case is WrapExistentialPlace:
       return true
     default:
       return false

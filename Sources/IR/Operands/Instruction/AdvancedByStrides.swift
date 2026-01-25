@@ -1,12 +1,12 @@
 import FrontEnd
 
-/// Computes a `source` address advanced by `count` strides of its referred type.
+/// Computes a `source` place advanced by `count` strides of its referred type.
 ///
 /// The stride of a type is the number of bytes from the start of an instance to the start of the
 /// next when stored in contiguous memory.
 public struct AdvancedByStrides: Instruction {
 
-  /// The address to be advanced.
+  /// The place to be advanced.
   public private(set) var base: Operand
 
   /// The number of strides by which to advance the source value.
@@ -53,21 +53,21 @@ extension AdvancedByStrides: CustomStringConvertible {
 extension Module {
 
   /// Creates an `advanced by strides` instruction anchored at `site` computing the `source`
-  /// address advanced by `n` strides of its referred type.
+  /// place advanced by `n` strides of its referred type.
   func makeAdvanced(
     _ source: Operand, byStrides n: Int, in f: Function.ID, at site: SourceRange
   ) -> AdvancedByStrides {
     guard let b = sourceType(source, in: f) else {
-      preconditionFailure("source must be the address of a buffer")
+      preconditionFailure("source must be the place of a buffer")
     }
 
-    return .init(source: source, offset: n, result: .address(b.element), site: site)
+    return .init(source: source, offset: n, result: .place(b.element), site: site)
   }
 
-  /// Returns the AST type of `source` iff it is the address of a buffer.
+  /// Returns the AST type of `source` iff it is the place of a buffer.
   private func sourceType(_ source: Operand, in f: Function.ID) -> BufferType? {
     let s = self[f].type(of: source)
-    if s.isAddress {
+    if s.isPlace {
       return BufferType(s.ast)
     } else {
       return nil

@@ -30,6 +30,9 @@ struct ControlFlowGraph: Sendable {
   /// The relation encoded by the graph.
   private var relation: Relation
 
+  /// The type of action to perform after exploring a vertex.
+  typealias ExplorationContinuation = DirectedGraph<Vertex, Label>.ExplorationContinuation
+
   /// Creates an empty control flow graph.
   init() {
     relation = DirectedGraph()
@@ -105,6 +108,30 @@ struct ControlFlowGraph: Sendable {
 
     cache[destination] = result
     return result
+  }
+
+  /// Iterates over all blocks reachable from `start`, in the direction indicated by `forward`.
+  func iterateFrom(_ start: [Block.ID], forward: Bool = true) -> AnySequence<Block.ID> {
+    let f = forward ? { (l: Label) in l != .backward } : { (l: Label) in l != .forward }
+    return AnySequence(relation.bfs(from: start[0], edgeFilter: f))
+  }
+
+  /// Explores the graph in a breadth-first manner starting from `start`, calling `action`
+  /// for each visited block.
+  ///
+  /// When calling `action`, the block's ID and its successors are passed as arguments. The
+  /// return value of `action` determines how the exploration continues.
+  ///
+  /// If `forward` is `false`, the graph is explored in the reverse direction, following
+  /// predecessor edges instead of successor edges.
+  /// 
+  /// Use this method when a simple exploration with `iterateFrom()` is not sufficient, for example
+  /// to skip parts of the graph or to stop the exploration early.
+  func withBFS(
+    _ start: [Block.ID], forward: Bool = true, _ action: (Block.ID, [Block.ID]) -> ExplorationContinuation
+  ) {
+    let f = forward ? { (l: Label) in l != .backward } : { (l: Label) in l != .forward }
+    return relation.withBFS(start, edgeFilter: f, action)
   }
 
 }

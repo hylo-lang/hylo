@@ -20,7 +20,7 @@ public struct Access: RegionEntry {
   /// The type of the accessed type.
   public let accessedType: AnyType
 
-  /// The address from which the capability is borrowed.
+  /// The place from which the capability is borrowed.
   public private(set) var source: Operand
 
   /// The binding in source program to which the instruction corresponds, if any.
@@ -45,7 +45,7 @@ public struct Access: RegionEntry {
   }
 
   public var result: IR.`Type`? {
-    .address(accessedType)
+    .place(accessedType)
   }
 
   public var operands: [Operand] {
@@ -77,7 +77,7 @@ extension Module {
     in f: Function.ID, at site: SourceRange
   ) -> Access {
     precondition(!capabilities.isEmpty)
-    precondition(self[f].type(of: source).isAddress)
+    precondition(self[f].type(of: source).isPlace)
     return .init(
       capabilities: capabilities,
       accessedType: self[f].type(of: source).ast,

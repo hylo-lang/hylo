@@ -18,7 +18,7 @@ struct CodePointer {
 
 }
 
-/// Represents value at IR level.
+/// A value manipulated by the IR.
 struct Value {
   /// The underlying type-erased representation of value.
   public var payload: Any
@@ -197,8 +197,6 @@ public struct Interpreter {
     switch currentInstruction {
     case let x as Access:
       return .value(.init(payload: asPlace(x.source)))
-    case let x as AddressToPointer:
-      _ = x
     case let x as AdvancedByBytes:
       _ = x
     case let x as AdvancedByStrides:
@@ -240,7 +238,7 @@ public struct Interpreter {
       _ = x
     case let x as GenericParameter:
       _ = x
-    case let x as GlobalAddr:
+    case let x as GlobalPlace:
       _ = x
     case let x as Load:
       _ = x
@@ -255,7 +253,9 @@ public struct Interpreter {
       _ = x
     case let x as OpenUnion:
       _ = x
-    case let x as PointerToAddress:
+    case let x as PlaceToPointer:
+      _ = x
+    case let x as PointerToPlace:
       _ = x
     case let x as Project:
       _ = x
@@ -270,7 +270,7 @@ public struct Interpreter {
       try memory.store(asBuiltinValue(x.object), in: asPlace(x.target))
       return .none
     case let x as SubfieldView:
-      let p = asPlace(x.recordAddress)
+      let p = asPlace(x.recordPlace)
       return .value(.init(payload: memory.location(of: x.subfield, in: p)))
     case let x as Switch:
       _ = x
@@ -280,7 +280,7 @@ public struct Interpreter {
       _ = x
     case let x as Unreachable:
       _ = x
-    case let x as WrapExistentialAddr:
+    case let x as WrapExistentialPlace:
       _ = x
     case let x as Yield:
       _ = x
