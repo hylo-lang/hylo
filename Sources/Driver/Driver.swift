@@ -415,8 +415,8 @@ public struct Driver: ParsableCommand, Sendable {
 
     if outputType != .rawIR {
       // Mandatory passes at the Program level.
-      ir.lowerProjections()
-      ir.lowerProjectionCallers()
+      ir.elaborateProjections()
+      ir.elaborateProjectionCallers()
     }
 
     if let t = transforms {

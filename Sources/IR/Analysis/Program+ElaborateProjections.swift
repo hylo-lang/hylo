@@ -2,26 +2,26 @@ import FrontEnd
 
 extension IR.Program {
 
-  /// Lower all projections in `self` into ramp + slide functions.
-  public mutating func lowerProjections() {
+  /// Elaborates all projections in `self` into ramp + slide functions.
+  public mutating func elaborateProjections() {
     for m in modules.values {
-      lowerProjections(in: m.id)
+      elaborateProjections(in: m.id)
+
     }
   }
-
-  /// Lowers the projections in `m` into a pair of ramp+slide functions.
-  private mutating func lowerProjections(in m: Module.ID) {
+  /// Elaborates the projections in `m` into a pair of ramp+slide functions.
+  private mutating func elaborateProjections(in m: Module.ID) {
     for f in modules[m]!.functions.keys where modules[m]![f].isSubscript {
       guard !modules[m]![f].blockIDs.isEmpty else { continue }
       guard let p = modules[m]!.projectionSkeletons[f] else {
         fatalError("missing projection skeleton for projection function \(modules[m]!.debugDescription(f))")
       }
-      lowerProjection(f, skeleton: p, in: m)
+      elaborateProjection(f, skeleton: p, in: m)
     }
   }
 
-  /// Lowers the projection function `f` with skeleton `skeleton` in module `m`.
-  private mutating func lowerProjection(
+  /// Elaborates the projection function `f` with skeleton `skeleton` in module `m`.
+  private mutating func elaborateProjection(
     _ f: Function.ID, skeleton s: IR.ProjectionSkeleton, in m: Module.ID
   ) {
     generateRamp(for: f, skeleton: s, in: m)
