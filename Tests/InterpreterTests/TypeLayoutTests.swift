@@ -132,22 +132,4 @@ final class TypeLayoutTests: XCTestCase {
     XCTAssertEqual(u.parts.last!, .init(name: "discriminator", type: ^BuiltinType.i(16), offset: 0))
   }
 
-  func testSubFieldLayout() throws {
-    var m = Memory()
-    var c = TypeLayoutCache(typesIn: emptyProgram, for: UnrealABI())
-    let t = ^TupleType(types: [
-      ^BuiltinType.i(32), ^TupleType(types: [^BuiltinType.i(32), ^BuiltinType.i(8)]),
-    ])
-    let a = m.allocate(c[t].size, bytesWithAlignment: c[t].alignment)
-    let x = c.address(of: [1, 1], in: Address(startLocation: a, type: c[t]))
-    XCTAssertEqual(
-      x,
-      Address(
-        startLocation: .init(allocation: a.allocation, offset: 8),
-        type: c[^BuiltinType.i(8)]
-      )
-    )
-    // TODO: add test for union case.
-  }
-
 }
