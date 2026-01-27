@@ -100,7 +100,7 @@ struct Emitter: Sendable {
     return insertionPoint.map({ insertionIR[insertionIR.block(of: $0)!].scope })
   }
 
-  /// The address of the return value in the current function, if any.
+  /// The place of the return value in the current function, if any.
   private var returnValue: Operand? {
     if let f = insertionFunction, let b = module[f].entry, !module[f].isSubscript {
       return .parameter(b, module[f].inputs.count)
@@ -308,7 +308,7 @@ struct Emitter: Sendable {
     lowering(d) { me in
 
       // Convert Hylo arguments to their foreign representation. Note that the last parameter of the
-      // entry is the address of the FFI's return value.
+      // entry is the place of the FFI's return value.
       let arguments = me.module[entry, in: f].inputs.indices.dropLast().map {
         me._emitConvertToForeign(.parameter(entry, $0))
       }
@@ -1506,7 +1506,7 @@ struct Emitter: Sendable {
   }
 
   /// Inserts the IR for storing the value of `e` to a fresh stack allocation, returning the
-  /// address of this allocation.
+  /// place of this allocation.
   @discardableResult
   private mutating func emitStore<T: ExprID>(value e: T) -> Operand {
     let r = lowering(e) {
@@ -1518,7 +1518,7 @@ struct Emitter: Sendable {
 
   /// Inserts the IR for storing the value of `e` to `storage`.
   ///
-  /// - Requires: `storage` is the address of some uninitialized memory block capable of storing
+  /// - Requires: `storage` is the place of some uninitialized memory block capable of storing
   ///   the value of `e`.
   private mutating func emitStore<T: ExprID>(value e: T, to storage: Operand) {
     lowering(e) { me in
@@ -1721,7 +1721,7 @@ struct Emitter: Sendable {
       to: callee, in: module,
       specializedBy: module.specialization(in: insertionFunction!), in: insertionScope!)
 
-    let x0 = _address_to_pointer(.constant(r))
+    let x0 = _place_to_pointer(.constant(r))
     let x1 = _subfield_view(storage, at: [0])
     _emitInitialize(storage: x1, to: x0)
 
@@ -1947,7 +1947,7 @@ struct Emitter: Sendable {
 
   /// Writes an instance of `Hylo.Bool` with value `v` to `storage`.
   ///
-  /// - Requires: `storage` is the address of uninitialized memory of type `Hylo.Int`.
+  /// - Requires: `storage` is the place of uninitialized memory of type `Hylo.Int`.
   private mutating func _emitStore(boolean v: Bool, to storage: Operand) {
     let x0 = _subfield_view(storage, at: [0])
     let x1 = _access(.set, from: x0)
@@ -1957,7 +1957,7 @@ struct Emitter: Sendable {
 
   /// Writes an instance of `Hylo.Int` with value `v` to `storage`.
   ///
-  /// - Requires: `storage` is the address of uninitialized memory of type `Hylo.Int`.
+  /// - Requires: `storage` is the place of uninitialized memory of type `Hylo.Int`.
   mutating func _emitStore(int v: Int, to storage: Operand) {
     let x0 = _subfield_view(storage, at: [0])
     let x1 = _access(.set, from: x0)
@@ -1967,7 +1967,7 @@ struct Emitter: Sendable {
 
   /// Writes an instance of `Hylo.String` with value `v` to `storage`.
   ///
-  /// - Requires: `storage` is the address of uninitialized memory of type `Hylo.String`.
+  /// - Requires: `storage` is the place of uninitialized memory of type `Hylo.String`.
   private mutating func _emitStore(utf8 v: String.UTF8View, to storage: Operand) {
     let x0 = _constant_string(utf8: Data(v))
     let x1 = _subfield_view(storage, at: [0, 0])
@@ -1978,7 +1978,7 @@ struct Emitter: Sendable {
 
   /// Inserts the IR for storing `a`, which is an `access`, to `storage`.
   ///
-  /// - Parameter storage: an address derived from an `alloc_stack` that is outlived by the
+  /// - Parameter storage: a place derived from an `alloc_stack` that is outlived by the
   ///   provenances of `a`.
   private mutating func _emitStore(
     access a: Operand, to storage: Operand
@@ -2034,7 +2034,7 @@ struct Emitter: Sendable {
   ///
   /// - Parameters:
   ///   - call: The syntax of the call.
-  ///   - s: The address of uninitialized storage typed by the receiver of `call`. This storage is
+  ///   - s: The place of uninitialized storage typed by the receiver of `call`. This storage is
   ///     borrowed for initialization after evaluating `call`'s arguments and before the call.
   private mutating func _emit(constructorCall call: FunctionCallExpr.ID, initializing s: Operand) {
     let callee = NameExpr.ID(ast[call].callee)!
@@ -2070,7 +2070,7 @@ struct Emitter: Sendable {
   ///
   /// - Parameters:
   ///   - call: The syntax of the call.
-  ///   - receiver: The address of uninitialized storage typed by the receiver of `d`. This storage
+  ///   - receiver: The place of uninitialized storage typed by the receiver of `d`. This storage
   ///     is borrowed for initialization after evaluating `call`'s arguments.
   private mutating func _emit(
     memberwiseInitializerCall call: FunctionCallExpr.ID, initializing receiver: Operand
@@ -2172,7 +2172,7 @@ struct Emitter: Sendable {
       to: callee, in: module,
       specializedBy: module.specialization(in: insertionFunction!), in: insertionScope!)
 
-    let x0 = _address_to_pointer(.constant(r))
+    let x0 = _place_to_pointer(.constant(r))
     let x1 = _alloc_stack(p.bareType)
     _emitInitialize(storage: x1, to: x0)
     return _access([p.access], from: x1)
@@ -2223,7 +2223,7 @@ struct Emitter: Sendable {
     switch f {
     case .addressOf:
       let source = emitLValue(arguments[0].value)
-      return _address_to_pointer(source)
+      return _place_to_pointer(source)
 
     case .markUninitialized:
       let source = emitLValue(arguments[0].value)
@@ -2471,7 +2471,7 @@ struct Emitter: Sendable {
   }
 
   /// If `d` declares stored bindings, inserts the IR for allocating
-  /// their storage and returns a the address of that
+  /// their storage and returns a the place of that
   /// storage. Otherwise, returns `nil`.
   private mutating func emitAllocation(binding d: BindingDecl.ID) -> Operand? {
     if program[d].pattern.introducer.value.isConsuming {
@@ -2573,7 +2573,7 @@ struct Emitter: Sendable {
 
   /// Inserts the IR for extracting the built-in value stored in an instance of `Hylo.Bool`.
   private mutating func _emitLoadBuiltinBool(_ wrapper: Operand) -> Operand {
-    precondition(module[insertionFunction!].type(of: wrapper) == .address(ast.coreType("Bool")!))
+    precondition(module[insertionFunction!].type(of: wrapper) == .place(ast.coreType("Bool")!))
     let x0 = _subfield_view(wrapper, at: [0])
     let x1 = _access(.sink, from: x0)
     let x2 = _load(x1)
@@ -2591,10 +2591,10 @@ struct Emitter: Sendable {
     }
   }
 
-  /// Inserts the IR for coercing `source` to an address of type `target`.
+  /// Inserts the IR for coercing `source` to a place of type `target`.
   ///
   /// `source` is returned unchanged if it stores an instance of `target`. Otherwise, the IR
-  /// producing an address of type `target` is inserted, consuming `source` if necessary.
+  /// producing a place of type `target` is inserted, consuming `source` if necessary.
   private mutating func _emitCoerce(_ source: Operand, to target: AnyType) -> Operand {
     let lhs = module[insertionFunction!].type(of: source).ast
     let rhs = program.canonical(target, in: insertionScope!)
@@ -2620,7 +2620,7 @@ struct Emitter: Sendable {
     }
   }
 
-  /// Inserts the IR for coercing `source` to an address of type `target`.
+  /// Inserts the IR for coercing `source` to a place of type `target`.
   ///
   /// - Requires: `target` is canonical.
   private mutating func _emitCoerce(
@@ -2634,7 +2634,7 @@ struct Emitter: Sendable {
     return _emitExistential(target, wrapping: source)
   }
 
-  /// Inserts the IR for coercing `source` to an address of type `target`.
+  /// Inserts the IR for coercing `source` to a place of type `target`.
   ///
   /// - Requires: `target` is canonical.
   private mutating func _emitCoerce(
@@ -2660,7 +2660,7 @@ struct Emitter: Sendable {
     return source
   }
 
-  /// Inserts the IR for coercing `source` to an address of type `target`.
+  /// Inserts the IR for coercing `source` to a place of type `target`.
   ///
   /// - Requires: `target` is canonical.
   private mutating func _emitCoerce(
@@ -2726,7 +2726,7 @@ struct Emitter: Sendable {
   /// The returned operand is the result of a `load` instruction.
   private mutating func _emitConvertToForeign(_ o: Operand) -> Operand {
     let t = module[insertionFunction!].type(of: o)
-    precondition(t.isAddress)
+    precondition(t.isPlace)
 
     let foreignConvertible = ast.core.foreignConvertible.type
     let foreignConvertibleConformance = program.conformance(
@@ -2763,7 +2763,7 @@ struct Emitter: Sendable {
   ) -> Operand {
     let w = module[insertionFunction!].type(of: witness).ast
     let table = Operand.constant(module.demandWitnessTable(w, in: insertionScope!))
-    return _wrap_existential_addr(witness, table, as: t)
+    return _wrap_existential_place(witness, table, as: t)
   }
 
   // MARK: l-values
@@ -2821,7 +2821,7 @@ struct Emitter: Sendable {
       let x1 = me._access(.sink, from: x0)
       let x2 = me._load(x1)
       me._end_access(x1)
-      return me._pointer_to_address(x2, as: t)
+      return me._pointer_to_place(x2, as: t)
     }
   }
 
@@ -2909,7 +2909,7 @@ struct Emitter: Sendable {
 
     case VarDecl.self:
       let (root, subfied) = program.subfieldRelativeToRoot(of: .init(d)!)
-      let s = _global_addr(at: root)
+      let s = _global_place(at: root)
       return _subfield_view(s, at: subfied)
 
     default:
@@ -2917,7 +2917,7 @@ struct Emitter: Sendable {
     }
   }
 
-  /// Inserts the IR to return the address of the member declared by `d`, bound to `r`, and
+  /// Inserts the IR to return the place of the member declared by `d`, bound to `r`, and
   /// specialized by `z`.
   private mutating func _emitProperty(
     boundTo r: Operand, declaredBy d: AnyDeclID, specializedBy z: GenericArguments
@@ -3410,24 +3410,24 @@ struct Emitter: Sendable {
     insert(module.makeDeallocStack(for: source, in: insertionFunction!, at: currentSource))
   }
 
-  /// Appends the IR for computing the address of the given `subfield` of the record at
-  /// `recordAddress` and returns the resulting address.
+  /// Appends the IR for computing the place of the given `subfield` of the record at
+  /// `recordPlace` and returns the resulting place.
   mutating func _subfield_view(
-    _ recordAddress: Operand, at subfield: RecordPath
+    _ recordPlace: Operand, at subfield: RecordPath
   ) -> Operand {
-    if subfield.isEmpty { return recordAddress }
+    if subfield.isEmpty { return recordPlace }
 
-    if let r = module[recordAddress, in: insertionFunction!] as? SubfieldView {
+    if let r = module[recordPlace, in: insertionFunction!] as? SubfieldView {
       let p = r.subfield + subfield
-      let s = module.makeSubfieldView(of: r.recordAddress, subfield: p, in: insertionFunction!, at: currentSource)
+      let s = module.makeSubfieldView(of: r.recordPlace, subfield: p, in: insertionFunction!, at: currentSource)
       return insert(s)!
     } else {
-      let s = module.makeSubfieldView(of: recordAddress, subfield: subfield, in: insertionFunction!, at: currentSource)
+      let s = module.makeSubfieldView(of: recordPlace, subfield: subfield, in: insertionFunction!, at: currentSource)
       return insert(s)!
     }
   }
 
-  /// Emits the IR for copying the union discriminator of `container`, which is the address of
+  /// Emits the IR for copying the union discriminator of `container`, which is the place of
   /// a union container.
   private mutating func _emitUnionDiscriminator(
     _ container: Operand
@@ -3783,8 +3783,8 @@ extension Emitter {
   }
 
 
-  fileprivate mutating func _address_to_pointer(_ source: Operand) -> Operand {
-    insert(module.makeAddressToPointer(source, at: currentSource))!
+  fileprivate mutating func _place_to_pointer(_ source: Operand) -> Operand {
+    insert(module.makePlaceToPointer(source, at: currentSource))!
   }
 
   fileprivate mutating func _call_builtin(
@@ -3838,22 +3838,22 @@ extension Emitter {
       canonicalizingTypesIn: scopeOfUse))
   }
 
-  fileprivate mutating func _wrap_existential_addr(
+  fileprivate mutating func _wrap_existential_place(
     _ witness: Operand, _ table: Operand, as interface: ExistentialType
   ) -> Operand {
-    insert(module.makeWrapExistentialAddr(witness, table, as: interface, in: insertionFunction!, at: currentSource))!
+    insert(module.makeWrapExistentialPlace(witness, table, as: interface, in: insertionFunction!, at: currentSource))!
   }
 
-  fileprivate mutating func _pointer_to_address(_ x: Operand, as t: RemoteType) -> Operand {
-    insert(module.makePointerToAddress(x, to: t, at: currentSource))!
+  fileprivate mutating func _pointer_to_place(_ x: Operand, as t: RemoteType) -> Operand {
+    insert(module.makePointerToPlace(x, to: t, at: currentSource))!
   }
 
   fileprivate mutating func _generic_parameter(at x: GenericParameterDecl.ID) -> Operand {
     insert(module.makeGenericParameter(passedTo: x, at: currentSource))!
   }
 
-  fileprivate mutating func _global_addr(at x: BindingDecl.ID) -> Operand {
-    insert(module.makeGlobalAddr(of: x, at: currentSource))!
+  fileprivate mutating func _global_place(at x: BindingDecl.ID) -> Operand {
+    insert(module.makeGlobalPlace(of: x, at: currentSource))!
   }
 
   fileprivate mutating func _memory_copy(_ source: Operand, _ target: Operand) {

@@ -1,17 +1,17 @@
 import FrontEnd
 
-/// Computes the address of storage for a field or sub-field of a record, given the record's address.
+/// Computes the place of storage for a field or sub-field of a record, given the record's place.
 ///
 /// Does not access memory.
 public struct SubfieldView: Instruction {
 
-  /// The address of the whole record.
-  public private(set) var recordAddress: Operand
+  /// The place of the whole record.
+  public private(set) var recordPlace: Operand
 
-  /// The subfield of the whole record whose address is computed.
+  /// The subfield of the whole record whose place is computed.
   public let subfield: RecordPath
 
-  /// The type of the resulting address.
+  /// The type of the resulting place.
   public let resultType: IR.`Type`
 
   /// The site of the code corresponding to that instruction.
@@ -24,7 +24,7 @@ public struct SubfieldView: Instruction {
     subfieldType: IR.`Type`,
     site: SourceRange
   ) {
-    self.recordAddress = base
+    self.recordPlace = base
     self.subfield = subfield
     self.resultType = subfieldType
     self.site = site
@@ -35,12 +35,12 @@ public struct SubfieldView: Instruction {
   }
 
   public var operands: [Operand] {
-    [recordAddress]
+    [recordPlace]
   }
 
   public mutating func replaceOperand(at i: Int, with new: Operand) {
     precondition(i == 0)
-    recordAddress = new
+    recordPlace = new
   }
 
 }
@@ -48,28 +48,28 @@ public struct SubfieldView: Instruction {
 extension SubfieldView: CustomStringConvertible {
 
   public var description: String {
-    "subfield_view \(recordAddress)\(subfield.isEmpty ? "" : ", ")\(list: subfield)"
+    "subfield_view \(recordPlace)\(subfield.isEmpty ? "" : ", ")\(list: subfield)"
   }
 
 }
 
 extension Module {
 
-  /// Creates a `subfield_view` anchored at `site` computing the address of the given `subfield` of
-  /// some record at `recordAddress`.
+  /// Creates a `subfield_view` anchored at `site` computing the place of the given `subfield` of
+  /// some record at `recordPlace`.
   ///
   /// - Note: `base` is returned unchanged if `elementPath` is empty.
   func makeSubfieldView(
-    of recordAddress: Operand, subfield elementPath: RecordPath, in f: Function.ID, at site: SourceRange
+    of recordPlace: Operand, subfield elementPath: RecordPath, in f: Function.ID, at site: SourceRange
   ) -> SubfieldView {
-    precondition(self[f].type(of: recordAddress).isAddress)
-    let l = AbstractTypeLayout(of: self[f].type(of: recordAddress).ast, definedIn: program)
+    precondition(self[f].type(of: recordPlace).isPlace)
+    let l = AbstractTypeLayout(of: self[f].type(of: recordPlace).ast, definedIn: program)
     let t = l[elementPath].type
 
     return .init(
-      base: recordAddress,
+      base: recordPlace,
       subfield: elementPath,
-      subfieldType: .address(t),
+      subfieldType: .place(t),
       site: site)
   }
 

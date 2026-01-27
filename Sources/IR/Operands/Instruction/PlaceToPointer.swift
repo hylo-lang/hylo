@@ -1,12 +1,12 @@
 import FrontEnd
 
-/// Converts an address to a built-in pointer value.
+/// Converts a place to a built-in pointer value.
 ///
 /// This instruction doesn't extend the lifetime of its operand. The value of the converted pointer
-/// is only valid within the scope of the source address.
-public struct AddressToPointer: Instruction {
+/// is only valid within the scope of the source place.
+public struct PlaceToPointer: Instruction {
 
-  /// The address to convert.
+  /// The place to convert.
   public private(set) var source: Operand
 
   /// The site of the code corresponding to that instruction.
@@ -35,9 +35,9 @@ public struct AddressToPointer: Instruction {
 
 extension Module {
 
-  /// Creates an `address_to_pointer` anchored at `site` that converts `source` to a built-in
+  /// Creates a `place_to_pointer` anchored at `site` that converts `source` to a built-in
   /// pointer value.
-  func makeAddressToPointer(_ source: Operand, at site: SourceRange) -> AddressToPointer {
+  func makePlaceToPointer(_ source: Operand, at site: SourceRange) -> PlaceToPointer {
     .init(source: source, site: site)
   }
 

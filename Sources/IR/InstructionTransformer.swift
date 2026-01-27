@@ -19,7 +19,7 @@ extension InstructionTransformer {
 
   /// Returns a transformed copy of `t` for use in `ir`.
   func transform(_ t: IR.`Type`, in ir: inout IR.Program) -> IR.`Type` {
-    .init(ast: transform(t.ast, in: &ir), isAddress: t.isAddress)
+    .init(ast: transform(t.ast, in: &ir), isPlace: t.isPlace)
   }
 
   /// Returns a transformed copy of the elements in `s` for use in `ir`.
@@ -44,10 +44,10 @@ extension IR.Program {
         target.makeAccess(s.capabilities, from: x0, in: g, at: s.site)
       }
 
-    case let s as AddressToPointer:
+    case let s as PlaceToPointer:
       let x0 = t.transform(s.source, in: &self)
       return insert(at: p, in: g, in: n) { (target) in
-        target.makeAddressToPointer(x0, at: s.site)
+        target.makePlaceToPointer(x0, at: s.site)
       }
 
     case let s as AdvancedByBytes:
@@ -141,7 +141,7 @@ extension IR.Program {
     case let s as GenericParameter:
       return modules[n]![g].insert(s, at: p)
 
-    case let s as GlobalAddr:
+    case let s as GlobalPlace:
       return modules[n]![g].insert(s, at: p)
 
     case let s as CallBuiltinFunction:
@@ -182,11 +182,11 @@ extension IR.Program {
         target.makeOpenUnion(x0, as: x1, forInitialization: s.isUsedForInitialization, in: g, at: s.site)
       }
 
-    case let s as PointerToAddress:
+    case let s as PointerToPlace:
       let x0 = t.transform(s.source, in: &self)
       let x1 = RemoteType(t.transform(^s.target, in: &self))!
       return insert(at: p, in: g, in: n) { (target) in
-        target.makePointerToAddress(x0, to: x1, at: s.site)
+        target.makePointerToPlace(x0, to: x1, at: s.site)
       }
 
     case let s as Project:
@@ -221,7 +221,7 @@ extension IR.Program {
       }
 
     case let s as SubfieldView:
-      let x0 = t.transform(s.recordAddress, in: &self)
+      let x0 = t.transform(s.recordPlace, in: &self)
       return insert(at: p, in: g, in: n) { (target) in
         target.makeSubfieldView(of: x0, subfield: s.subfield, in: g, at: s.site)
       }

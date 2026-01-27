@@ -1,6 +1,6 @@
 import FrontEnd
 
-/// The address of some statically allocated storage.
+/// The place of some statically allocated storage.
 public struct StaticStorage: Sendable {
 
   /// The identifier of the storage.

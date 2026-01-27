@@ -157,7 +157,7 @@ extension ProjectBundle: LifetimeExtender {}
 
 extension SubfieldView: LifetimeExtender {}
 
-extension WrapExistentialAddr: LifetimeExtender {}
+extension WrapExistentialPlace: LifetimeExtender {}
 
 /// An instruction that ends the lifetime of a borrow.
 private protocol LifetimeCloser: Instruction {

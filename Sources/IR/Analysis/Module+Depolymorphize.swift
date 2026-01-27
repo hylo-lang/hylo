@@ -231,7 +231,7 @@ extension IR.Program {
     _ t: IR.`Type`, for z: GenericArguments, usedIn scopeOfUse: AnyScopeID
   ) -> IR.`Type` {
     let u = monomorphize(t.ast, for: z, usedIn: scopeOfUse)
-    return .init(ast: u, isAddress: t.isAddress)
+    return .init(ast: u, isPlace: t.isPlace)
   }
 
   /// Returns the IR function monomorphizing `f` for specialization `z` in `scopeOfUse`.
