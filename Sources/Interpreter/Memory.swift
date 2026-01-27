@@ -441,5 +441,22 @@ extension Memory {
   mutating func store(_ v: BuiltinValue, in target: Place) throws {
     try self[target.allocation].store(v, at: target.offset)
   }
+
+  /// Copies bytes of `source` to `destination`.
+  public mutating func copy(_ source: Place, to destination: Place) throws {
+    precondition(
+      source.type == destination.type, "source and destination should have same type for copying.")
+    // TODO: throw when source or destination is not in composed regions.
+    let n = typeLayouts[source.type].size
+    let i = self[source.allocation].baseOffset
+    let j = self[destination.allocation].baseOffset
+    self[source.allocation].storage.withUnsafeBytes { a in
+      self[destination.allocation].storage.withUnsafeMutableBytes { b in
+        let s = a.baseAddress! + i + source.offset
+        let d = b.baseAddress! + j + destination.offset
+        d.copyMemory(from: s, byteCount: n)
+      }
+    }
+  }
 }
 
