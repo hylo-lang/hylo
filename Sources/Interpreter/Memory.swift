@@ -430,23 +430,6 @@ extension Memory.Allocation {
 
 }
 
-public extension Memory.Place {
-  /// Returns `self` offset by `n` bytes having type `t`.
-  func after(_ n: Int, bytesHavingType t: AnyType) -> Self {
-    return Self(allocation: self.allocation, offset: self.offset + n, type: t)
-  }
-
-  /// Returns `self` offset by `-n` bytes having type `t`.
-  func before(_ n: Int, bytesHavingType t: AnyType) -> Self {
-    return Self(allocation: self.allocation, offset: self.offset - n, type: t)
-  }
-
-  /// Returns `self` having type `t`.
-  func withType(_ t: AnyType) -> Self {
-    return Self(allocation: self.allocation, offset: self.offset, type: t)
-  }
-}
-
 extension Memory {
   /// Returns the address of `subPart` in `whole`.
   public mutating func location(of subPart: RecordPath, in whole: Place) -> Place {
