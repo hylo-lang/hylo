@@ -101,7 +101,7 @@ struct Emitter: Sendable {
   }
 
   /// The place of the return value in the current function, if any.
-  private var returnValue: Operand? {
+  var returnValue: Operand? {
     if let f = insertionFunction, let b = module[f].entry, !module[f].isSubscript {
       return .parameter(b, module[f].inputs.count)
     } else {
@@ -1508,7 +1508,7 @@ struct Emitter: Sendable {
   /// Inserts the IR for storing the value of `e` to a fresh stack allocation, returning the
   /// place of this allocation.
   @discardableResult
-  private mutating func emitStore<T: ExprID>(value e: T) -> Operand {
+  mutating func emitStore<T: ExprID>(value e: T) -> Operand {
     let r = lowering(e) {
       $0._alloc_stack($0.program[e].type)
     }
@@ -1980,7 +1980,7 @@ struct Emitter: Sendable {
   ///
   /// - Parameter storage: a place derived from an `alloc_stack` that is outlived by the
   ///   provenances of `a`.
-  private mutating func _emitStore(
+  mutating func _emitStore(
     access a: Operand, to storage: Operand
   ) {
     guard let s = module[insertionFunction!].provenances(storage).uniqueElement, module[s, in: insertionFunction!] is AllocStack else {
@@ -2010,7 +2010,7 @@ struct Emitter: Sendable {
   }
 
   /// Inserts the IR for calling `callee` on `arguments`, storing the result to `storage`.
-  private mutating func _emitApply(
+  mutating func _emitApply(
     _ callee: Operand, to arguments: [Operand],
     writingResultTo storage: Operand
   ) {
@@ -3377,7 +3377,7 @@ struct Emitter: Sendable {
   }
 
   /// Inserts a stack allocation for an object of type `t`.
-  private mutating func _alloc_stack(_ t: AnyType) -> Operand {
+  mutating func _alloc_stack(_ t: AnyType) -> Operand {
     // This is a temporary hack to deal with the fact that later passes come
     // back and start emitting code in the middle of a block without
     // having set up a record of frames and allocations.  When we recompute
@@ -3733,13 +3733,13 @@ extension Emitter {
     insert(module.makeReturn(at: currentSource))
   }
 
-  fileprivate mutating func _access(
+  mutating func _access(
     _ capabilities: AccessEffectSet, from s: Operand, correspondingTo binding: VarDecl.ID? = nil
   ) -> Operand {
     insert(module.makeAccess(capabilities, from: s, correspondingTo: binding, in: insertionFunction!, at: currentSource))!
   }
 
-  fileprivate mutating func _end_access(_ x: Operand) {
+  mutating func _end_access(_ x: Operand) {
     insert(module.makeEndAccess(x, in: insertionFunction!, at: currentSource))
   }
 
@@ -3747,7 +3747,7 @@ extension Emitter {
     _ = insert(module.makeYield(c, a, in: insertionFunction!, at: currentSource))
   }
 
-  fileprivate mutating func _branch(to x: Block.ID) {
+  mutating func _branch(to x: Block.ID) {
     checkEntryStack(x)
     _ = insert(module.makeBranch(to: x, at: currentSource))
   }
@@ -3773,21 +3773,21 @@ extension Emitter {
       module.makeProject(t, applying: s, specializedBy: z, to: arguments, at: currentSource))!
   }
 
-  fileprivate mutating func _store(_ source: Operand, _ target: Operand) {
+  mutating func _store(_ source: Operand, _ target: Operand) {
     insert(module.makeStore(source, at: target, in: insertionFunction!, at: currentSource))
   }
 
   /// Inserts a `load` instruction reading from `source`.
-  fileprivate mutating func _load(_ source: Operand) -> Operand {
+  mutating func _load(_ source: Operand) -> Operand {
     insert(module.makeLoad(source, in: insertionFunction!, at: currentSource))!
   }
 
 
-  fileprivate mutating func _place_to_pointer(_ source: Operand) -> Operand {
+  mutating func _place_to_pointer(_ source: Operand) -> Operand {
     insert(module.makePlaceToPointer(source, at: currentSource))!
   }
 
-  fileprivate mutating func _call_builtin(
+  mutating func _call_builtin(
     _ f: BuiltinFunction, _ arguments: [Operand]
   ) -> Operand {
     insert(module.makeCallBuiltin(applying: f, to: arguments, in: insertionFunction!, at: currentSource))!
@@ -3814,7 +3814,7 @@ extension Emitter {
     insert(module.makeAdvanced(source, byStrides: n, in: insertionFunction!, at: currentSource))!
   }
 
-  fileprivate mutating func _constant_string(utf8 value: Data) -> Operand {
+  mutating func _constant_string(utf8 value: Data) -> Operand {
     insert(module.makeConstantString(utf8: value, at: currentSource))!
   }
 
@@ -3822,7 +3822,7 @@ extension Emitter {
     insert(module.makeCapture(source, in: target, in: insertionFunction!, at: currentSource))
   }
 
-  fileprivate mutating func _call(
+  mutating func _call(
     _ callee: Operand, _ arguments: [Operand], to output: Operand
   ) {
     insert(module.makeCall(applying: callee, to: arguments, writingResultTo: output, in: insertionFunction!, at: currentSource))

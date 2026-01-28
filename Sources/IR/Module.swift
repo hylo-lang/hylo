@@ -184,6 +184,11 @@ public struct Module: Sendable {
     }
   }
 
+  /// Removes the function with identity `f` from `self`.
+  mutating func removeFunction(_ f: Function.ID) {
+    functions.removeValue(forKey: f)
+  }
+
   /// Returns the identity of the IR function corresponding to `i`.
   mutating func demandDeclaration(lowering i: FrontEnd.Conformance.Implementation) -> Function.ID {
     switch i {
