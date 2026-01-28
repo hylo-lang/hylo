@@ -129,15 +129,4 @@ extension Module {
     }
   }
 
-  // TODO: remove this
-  /// Generates an empty body for `f` by copying the block's scope from `g`.
-  mutating func generateEmptyBody(for f: Function.ID, copying g: Function.ID) {
-    precondition(f != g)
-    let source = self[g]
-    let b = self[f].appendBlock(in: source[source.entry!].scope)
-    self.modifyIR(of: f, at: .end(of: b)) { (e) in
-      e._return()
-    }
-  }
-
 }
