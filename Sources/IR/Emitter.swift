@@ -3729,7 +3729,7 @@ extension Emitter {
     insert(module.makeUnreachable(at: currentSource))
   }
 
-  fileprivate mutating func _return() {
+  mutating func _return() {
     insert(module.makeReturn(at: currentSource))
   }
 

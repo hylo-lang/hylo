@@ -83,6 +83,12 @@ extension Module: TextOutputStreamable {
       return "Monomorphized form of '\(debugDescription(base))' for <\(list: arguments.values)>"
     case .synthesized(let d):
       return debugDescription(d)
+    case .projectionRamp(let b):
+      return "Projection ramp of '\(debugDescription(b))'"
+    case .projectionSlide(let b):
+      return "Projection slide of '\(debugDescription(b))'"
+    case .projectionCallerPlateau(let b, let r):
+      return "Projection caller plateau of '\(debugDescription(b))' for region \(r)"
     }
   }
 

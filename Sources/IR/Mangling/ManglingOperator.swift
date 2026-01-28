@@ -30,6 +30,12 @@ public enum ManglingOperator: String, Sendable {
 
   case monomorphizedFunctionDecl = "mF"
 
+  case projectionRampFunctionDecl = "pR"
+
+  case projectionSlideFunctionDecl = "pS"
+
+  case projectionCallerPlateauFunctionDecl = "pC"
+
   case staticFunctionDecl = "sF"
 
   case synthesizedFunctionDecl = "xF"
