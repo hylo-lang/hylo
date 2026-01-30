@@ -66,4 +66,35 @@ final class InterpreterMemoryInternalTests: XCTestCase {
     try assertStoring(BuiltinValue.i64(8), asType: BuiltinType.i(64), yields: UInt64(8))
     try assertStoring(BuiltinValue.i128(8), asType: BuiltinType.i(128), yields: UInt128(8))
   }
+
+  func assertCopying<T: Equatable>(_ v: BuiltinValue, asType t: BuiltinType, yields e: T) throws {
+    var m = Memory(typesIn: TypedProgram.empty, for: UnrealABI())
+    let s = m.allocate(^t)
+    let d = m.allocate(^t)
+
+    try m.store(v, in: s)
+    try m.compose(^t, at: s.address)  // FIXME: This should not be needed after store.
+    try m.copy(s, to: d)
+
+    m[d.allocation].withUnsafePointer(to: T.self, at: 0) {
+      XCTAssertEqual($0.pointee, e)
+    }
+  }
+
+  func testMemoryCopy() throws {
+    try assertCopying(.i1(true), asType: .i(1), yields: true)
+    try assertCopying(.i8(8), asType: .i(8), yields: UInt8(8))
+    try assertCopying(.i16(8), asType: .i(16), yields: UInt16(8))
+    try assertCopying(.i32(8), asType: .i(32), yields: UInt32(8))
+    try assertCopying(.i64(8), asType: .i(64), yields: UInt64(8))
+    try assertCopying(.i128(8), asType: .i(128), yields: UInt128(8))
+
+    // TODO: should throw when try to copy from non-composed region.
+    // var m = Memory(typesIn: TypedProgram.empty, for: UnrealABI())
+    // let s = m.allocate(^BuiltinType.i(8))
+    // let d = m.allocate(^BuiltinType.i(8))
+    // check(throws: Memory.Error.noComposedPart(at: s.address)) {
+    //   try m.copy(s, to: d)
+    // }
+  }
 }

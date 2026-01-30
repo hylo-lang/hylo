@@ -446,7 +446,7 @@ extension Memory {
   public mutating func copy(_ source: Place, to destination: Place) throws {
     precondition(
       source.type == destination.type, "source and destination should have same type for copying.")
-    // TODO: throw when source or destination is not in composed regions.
+    // TODO: throw when source is not in composed regions.
     let n = typeLayouts[source.type].size
     let i = self[source.allocation].baseOffset
     let j = self[destination.allocation].baseOffset
