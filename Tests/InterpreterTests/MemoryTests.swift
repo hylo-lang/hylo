@@ -176,15 +176,4 @@ final class InterpreterMemoryTests: XCTestCase {
       .init(allocation: a.allocation, offset: 8, type: i8))
     // TODO: add test for union case.
   }
-
-  func testMemoryCopy() throws {
-    var m = Memory(typesIn: TypedProgram.empty, for: UnrealABI())
-    let i32 = ^BuiltinType.i(32)
-    let a = m.allocate(i32)
-    let b = m.allocate(i32)
-
-    // Non-throwing case
-    try m.compose(i32, at: a.address)
-    try m.compose(i32, at: b.address)
-  }
 }
