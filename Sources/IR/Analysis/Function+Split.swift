@@ -1,17 +1,19 @@
 extension Function {
 
-  /// Split instructions `a` at all the points where `isSplit` returns `true`, returning the parts.
+  /// Splits `a` at all the points where `isSplit` returns `true`, returning the parts.
   ///
-  /// - Precondition: there is at least one instruction after each `splitPoint` in `a`.
+  /// - Precondition: `!a.isEmpty`.
+  /// - Precondition: `!isSplit(a.last!)`
   /// - Postcondition: if `isSplit` returns `true` for `n` instructions, the returned array has
   ///   `n + 1` elements.
-  /// - Postcondition: for non-final parts, `before + [splitPoint] + tail` is the slice up to (but
-  ///   not including) the next split point.
-  /// - Postcondition: for the final part, `splitPoint` is `nil` and `tail` is empty.
+  /// - Postcondition: all elements in `a` appear in exactly one part of the returned array.
+  /// - Postcondition: if `p` is the last returned part, `p.splitPoint` is `nil` and `p.tail` is empty.
   internal func split(
     instructions a: [InstructionID], when isSplit: (InstructionID) -> Bool
   ) -> [SplitPart]
   {
+    precondition(!a.isEmpty)
+    precondition(!isSplit(a.last!), "final instruction cannot be a split point")
     var parts: [SplitPart] = []
     var remaining = a.dropFirst(0)
     while true {
@@ -32,12 +34,11 @@ extension Function {
     return parts
   }
 
-  /// Splits the instructions `a` at the instruction `splitPoint`, returning the three parts
-  /// (before, tail, after).
+  /// Splits `a` at the instruction `splitPoint`, returning the three parts (before, tail, after).
   ///
   /// - Precondition: `splitPoint` is contained in `a`.
   /// - Precondition: there is at least one instruction after `splitPoint` in `a`.
-  /// - Postcondition: `before + [splitPoint] + tail + after == a`
+  /// - Postcondition: `r.before + [splitPoint] + r.tail + r.after == a`
   internal func split(instructions a: [InstructionID], at splitPoint: InstructionID) -> SplitTriplet {
     let (splitIndex, tailEndIndex) = splitIndices(in: a.dropFirst(0), splittingAt: splitPoint)
     return SplitTriplet(
@@ -51,8 +52,8 @@ extension Function {
   /// (before, tail, after).
   ///
   /// - Precondition: `splitPoint` is an instruction in block `b`.
-  /// - Precondition: there is at least one instruction after `splitPoint` (the block terminator).
-  /// - Postcondition: `before + [splitPoint] + tail + after == instructions(in: b)`
+  /// - Precondition: there is at least one instruction after `splitPoint` in `b` (the block terminator).
+  /// - Postcondition: `r.before + [splitPoint] + r.tail + r.after == instructions(in: b)`
   internal func split(block b: Block.ID, at splitPoint: InstructionID) -> SplitTriplet {
     split(instructions: Array(instructions(in: b)), at: splitPoint)
   }
@@ -70,7 +71,7 @@ extension Function {
   }
 
   /// Returns `true` if the instruction `i` can be part of the yield tail,
-  /// i.e., it appears after a yield, but still belong to the ramp of the projection.
+  /// e.g., it appears after a yield, but still belong to the ramp of the projection.
   ///
   /// Tail instructions: `MarkState` (uninitialized), `DeallocStack`, `EndAccess`.
   private static func canBeTail(_ i: Instruction) -> Bool {
