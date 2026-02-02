@@ -68,8 +68,7 @@ extension IR.Program {
     let toIgnore = source.allUses(of: oldProjectAccess).map({ $0.user })
 
     var transformer = DictionaryInstructionTransformer(
-      rewrittenBlocks: rewrittenBlocks, rewrittenRegisters: rewrittenRegisters
-    )
+      rewrittenBlocks: rewrittenBlocks, rewrittenRegisters: rewrittenRegisters)
 
     // Copy all the relevant instructions to the new plateau function.
     rewrite(d.regions[index].before, in: d.id, from: m, transformedBy: &transformer, to: plateau)
@@ -99,7 +98,6 @@ extension Module {
     let t = oldProjectIR.result!.ast
     let ramp = Function.ID(projectionRamp: (oldProjectIR as! Project).callee)
     let rampReference = FunctionReference(to: ramp, in: self)
-
     let plateauReference = FunctionReference(to: p, in: self)
 
     modifyIR(of: d.id, at: .before(oldEndProject)) { (e) in
@@ -154,8 +152,7 @@ extension Emitter {
   /// Allocates and initializes a continuation to call `plateau` with frame pointer `f`.
   fileprivate mutating func _plateau_continuation(
     calling plateau: FunctionReference, frame f: Operand
-  ) -> Operand
-  {
+  ) -> Operand {
     let x0 = _place_to_pointer(Operand.constant(plateau))
     let x1 = _alloc_stack(Module.callerContinuationType())
     let x2 = _access(.set, from: _subfield_view(x1, at: [0, 0]))
@@ -190,6 +187,7 @@ extension Emitter {
     _end_access(x1)
     _end_access(x0)
   }
+
 }
 
 extension Function {
@@ -210,8 +208,7 @@ private struct ScopeDetails {
   /// The identifier for the original caller function to be elaborated.
   let id: Function.ID
 
-  /// All the blocks that need to be elaborated.
-  /// Blocks are in dominance order.
+  /// All the blocks that need to be elaborated, which are in dominance order.
   let blocks: [Block.ID]
 
   /// The regions of the caller that need to be elaborated.

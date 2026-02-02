@@ -30,7 +30,6 @@ extension IR.Program {
 
     let ramp = modules[m]!.demandProjectionRampDeclaration(for: f)
     let slide = modules[m]!.demandProjectionSlideDeclaration(for: f)
-
     let source = modules[m]![f]
     let details = ProjectionDetails(f, source: source, skeleton: s, of: base)
 
@@ -71,7 +70,6 @@ extension IR.Program {
 
     // Create the entry block.
     let slideEntry = modules[m]!.createSlideEntryBlock(slide: slide, for: d)
-
     var transformer = DictionaryInstructionTransformer()
 
     // Copy the slide instructions, creating blocks for them as needed.
@@ -183,8 +181,7 @@ extension Module {
   /// Creates entry block in `slide`, copying the scope from the projection `d`, returning its identity.
   fileprivate mutating func createSlideEntryBlock(
     slide: Function.ID, for d: ProjectionDetails
-  ) -> Block.ID
-  {
+  ) -> Block.ID {
     let source = self[d.id]
     return self[slide].appendBlock(in: source[source.entry!].scope)
   }
@@ -209,9 +206,9 @@ extension Module {
 extension Emitter {
 
   /// Allocates and initializes a continuation to call `slide` with frame pointer `f`.
-  fileprivate mutating func _slide_continuation(calling slide: FunctionReference, frame f: Operand)
-    -> Operand
-  {
+  fileprivate mutating func _slide_continuation(
+    calling slide: FunctionReference, frame f: Operand
+  ) -> Operand {
     let x0 = _place_to_pointer(Operand.constant(slide))
     let x1 = _alloc_stack(Module.projectionContinuationType())
     let x2 = _access(.set, from: _subfield_view(x1, at: [0, 0]))
@@ -257,8 +254,9 @@ private struct ProjectionDetails {
   let slideInstructions: [InstructionID]
 
   /// An instance describing projection `p`, with IR `source` and skeleton `s`.
-  init(_ p: Function.ID, source: Function, skeleton s: ProjectionSkeleton, of program: TypedProgram)
-  {
+  init(
+    _ p: Function.ID, source: Function, skeleton s: ProjectionSkeleton, of program: TypedProgram
+  ) {
     let yieldBlocksSplits = Self.yieldBlocksSplits(s, in: source)
 
     self.id = p
@@ -275,9 +273,9 @@ private struct ProjectionDetails {
   }
 
   /// Returns the yield block splits for projection with skeleton `s`, and IR `source`.
-  private static func yieldBlocksSplits(_ s: ProjectionSkeleton, in source: Function)
-    -> [InstructionID: SplitTriplet]
-  {
+  private static func yieldBlocksSplits(
+    _ s: ProjectionSkeleton, in source: Function
+  ) -> [InstructionID: SplitTriplet] {
     var splits: [InstructionID: SplitTriplet] = [:]
     for y in s.yieldPoints {
       let b = source.block(of: y)

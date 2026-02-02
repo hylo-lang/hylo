@@ -28,10 +28,7 @@ struct DictionaryInstructionTransformer: InstructionTransformer {
     case .constant(let c):
       return .constant(c)
     case .parameter(let b, let i):
-      if let rewritten = rewrittenParameters[o] {
-        return rewritten
-      }
-      return .parameter(rewrittenBlocks[b]!, i)
+      return rewrittenParameters[o] ?? .parameter(rewrittenBlocks[b]!, i)
     case .register(let s):
       if let rewritten = rewrittenRegisters[o] {
         return rewritten

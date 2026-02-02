@@ -2,31 +2,27 @@ extension Function {
 
   /// Splits `a` at all the points where `isSplit` returns `true`, returning the parts.
   ///
-  /// - Precondition: `!a.isEmpty`.
-  /// - Precondition: `!isSplit(a.last!)`
-  /// - Postcondition: if `isSplit` returns `true` for `n` instructions, the returned array has
+  /// - Requires:
+  ///   * `!a.isEmpty`.
+  ///   * `!isSplit(a.last!)`
+  ///   * if `isSplit` returns `true` for `n` instructions, the returned array has
   ///   `n + 1` elements.
   /// - Postcondition: all elements in `a` appear in exactly one part of the returned array.
   /// - Postcondition: if `p` is the last returned part, `p.splitPoint` is `nil` and `p.tail` is empty.
   internal func split(
     instructions a: [InstructionID], when isSplit: (InstructionID) -> Bool
-  ) -> [SplitPart]
-  {
+  ) -> [SplitPart] {
     precondition(!a.isEmpty)
     precondition(!isSplit(a.last!), "final instruction cannot be a split point")
     var parts: [SplitPart] = []
     var remaining = a.dropFirst(0)
-    while true {
-      guard let splitPoint = remaining.first(where: isSplit) else {
-        break
-      }
+    while let splitPoint = remaining.first(where: isSplit) {
       let (splitIndex, tailEndIndex) = splitIndices(in: remaining, splittingAt: splitPoint)
       parts.append(
         SplitPart(
           before: Array(remaining.prefix(upTo: splitIndex)),
           splitPoint: splitPoint,
-          tail: Array(remaining.suffix(from: splitIndex).dropFirst().prefix(upTo: tailEndIndex))
-        ))
+          tail: Array(remaining.suffix(from: splitIndex).dropFirst().prefix(upTo: tailEndIndex))))
       remaining = remaining.suffix(from: tailEndIndex)
     }
     // Add the last part.
@@ -66,6 +62,7 @@ extension Function {
     precondition(splitIndex != nil, "split point \(s) not found")
     let remaining = a.suffix(from: splitIndex!).dropFirst()
     let tailEndIndex = remaining.firstIndex(where: { !Self.canBeTail(self[$0]) })
+
     // At least the block terminator must be outside the tail, so `tailEndIndex` is never `nil`.
     return (splitIndex!, tailEndIndex!)
   }
@@ -77,8 +74,9 @@ extension Function {
   private static func canBeTail(_ i: Instruction) -> Bool {
     if let x = i as? MarkState {
       return !x.initialized
+    } else {
+      return i is EndAccess || i is DeallocStack
     }
-    return i is EndAccess || i is DeallocStack
   }
 
 }
@@ -94,8 +92,10 @@ internal struct SplitPart {
 
   /// The instructions before the split point.
   internal let before: [InstructionID]
+
   /// The instruction at which the split occurs; nil for the last part.
   internal let splitPoint: InstructionID?
+
   /// The instructions physically after the split point, but logically belonging to before.
   internal let tail: [InstructionID]
 
