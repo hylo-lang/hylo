@@ -113,9 +113,10 @@ extension Module {
     toRemove.append(oldEndProject)
     toRemove.append(contentsOf: d.regions[index].tail)
     // ... including later `dealloc_stack`, corresponding to `alloc_stack` in our region.
-    let deallocs = toRemove.compactMap({ i in
-      self[d.id].allUses(of: i).map({ $0.user }).filter({ self[d.id][$0] is DeallocStack })
-    }).flatMap({ $0 })
+    let deallocs = toRemove.reduce(into: [InstructionID]()) { r, i in
+      let users = self[d.id].allUses(of: i).map(\.user)
+      r.append(contentsOf: users.filter { self[d.id][$0] is DeallocStack })
+    }
     toRemove.append(contentsOf: deallocs.filter({ !toRemove.contains($0) }))
     for i in toRemove.uniqued().reversed() {
       self[d.id].remove(i)
