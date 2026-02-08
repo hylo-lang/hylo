@@ -226,7 +226,7 @@ private struct ScopeDetails {
       source[i] is Project || source[i] is EndProject
     }
     self.regions = source.split(
-      instructions: blocks.flatMap({ source.instructions(in: $0) }), when: isSplit)
+      instructions: blocks.flatMap({ source.instructions(in: $0) }), where: isSplit)
   }
 
 }

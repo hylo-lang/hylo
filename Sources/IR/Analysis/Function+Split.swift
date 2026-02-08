@@ -22,8 +22,8 @@ extension Function {
         SplitPart(
           before: Array(remaining.prefix(upTo: splitIndex)),
           splitPoint: splitPoint,
-          tail: Array(remaining.suffix(from: splitIndex).dropFirst().prefix(upTo: tailEndIndex))))
-      remaining = remaining.suffix(from: tailEndIndex)
+          tail: Array(remaining.suffix(from: splitIndex).dropFirst().prefix(upTo: tailEnd))))
+      remaining = remaining.suffix(from: tailEnd)
     }
     // Add the last part.
     parts.append(SplitPart(before: Array(remaining), splitPoint: nil, tail: []))
@@ -36,11 +36,11 @@ extension Function {
   /// - Precondition: there is at least one instruction after `splitPoint` in `a`.
   /// - Postcondition: `r.before + [splitPoint] + r.tail + r.after == a`
   internal func split(instructions a: [InstructionID], at splitPoint: InstructionID) -> SplitTriplet {
-    let (splitIndex, tailEndIndex) = splitIndices(in: a.dropFirst(0), splittingAt: splitPoint)
+    let (splitIndex, tailEnd) = splitIndices(in: a.dropFirst(0), splittingAt: splitPoint)
     return SplitTriplet(
       before: Array(a.prefix(upTo: splitIndex)),
-      tail: Array(a.suffix(from: splitIndex).dropFirst().prefix(upTo: tailEndIndex)),
-      after: Array(a.suffix(from: tailEndIndex))
+      tail: Array(a.suffix(from: splitIndex).dropFirst().prefix(upTo: tailEnd)),
+      after: Array(a.suffix(from: tailEnd))
     )
   }
 
@@ -57,14 +57,14 @@ extension Function {
   /// Splits `a` instructions at `s`, returning the split index and tail end index.
   private func splitIndices(
     in a: ArraySlice<InstructionID>, splittingAt s: InstructionID
-  ) -> (splitIndex: Int, tailEndIndex: Int) {
+  ) -> (splitIndex: Int, tailEnd: Int) {
     let splitIndex = a.firstIndex(of: s)
     precondition(splitIndex != nil, "split point \(s) not found")
     let remaining = a.suffix(from: splitIndex!).dropFirst()
-    let tailEndIndex = remaining.firstIndex(where: { !Self.canBeTail(self[$0]) })
+    let tailEnd = remaining.firstIndex(where: { !Self.mayBeTail(self[$0]) })
 
-    // At least the block terminator must be outside the tail, so `tailEndIndex` is never `nil`.
-    return (splitIndex!, tailEndIndex!)
+    // At least the block terminator must be outside the tail, so `tailEnd` is never `nil`.
+    return (splitIndex!, tailEnd!)
   }
 
   /// Returns `true` if the instruction `i` can be part of the yield tail,
