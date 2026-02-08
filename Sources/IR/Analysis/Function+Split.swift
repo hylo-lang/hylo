@@ -1,6 +1,6 @@
 extension Function {
 
-  /// Splits `a` at all the points where `isSplit` returns `true`, returning the parts.
+  /// Splits `a` at all the points where `isBoundary` returns `true`, returning the parts.
   ///
   /// - Requires:
   ///   * `!a.isEmpty`.
@@ -10,14 +10,14 @@ extension Function {
   /// - Postcondition: all elements in `a` appear in exactly one part of the returned array.
   /// - Postcondition: if `p` is the last returned part, `p.splitPoint` is `nil` and `p.tail` is empty.
   internal func split(
-    instructions a: [InstructionID], when isSplit: (InstructionID) -> Bool
+    instructions a: [InstructionID], where isSplit: (InstructionID) -> Bool
   ) -> [SplitPart] {
     precondition(!a.isEmpty)
     precondition(!isSplit(a.last!), "final instruction cannot be a split point")
     var parts: [SplitPart] = []
     var remaining = a.dropFirst(0)
     while let splitPoint = remaining.first(where: isSplit) {
-      let (splitIndex, tailEndIndex) = splitIndices(in: remaining, splittingAt: splitPoint)
+      let (splitIndex, tailEnd) = splitIndices(in: remaining, splittingAt: splitPoint)
       parts.append(
         SplitPart(
           before: Array(remaining.prefix(upTo: splitIndex)),
@@ -71,7 +71,7 @@ extension Function {
   /// e.g., it appears after a yield, but still belong to the ramp of the projection.
   ///
   /// Tail instructions: `MarkState` (uninitialized), `DeallocStack`, `EndAccess`.
-  private static func canBeTail(_ i: Instruction) -> Bool {
+  private static func mayBeTail(_ i: Instruction) -> Bool {
     if let x = i as? MarkState {
       return !x.initialized
     } else {
@@ -111,8 +111,10 @@ internal struct SplitTriplet {
 
   /// The instructions before the split point.
   internal let before: [InstructionID]
+
   /// The instructions physically after the split point, but logically belonging to before.
   internal let tail: [InstructionID]
+
   /// The instructions after the split point.
   internal let after: [InstructionID]
 
