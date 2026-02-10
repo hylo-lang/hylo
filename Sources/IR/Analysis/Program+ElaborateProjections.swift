@@ -257,31 +257,25 @@ private struct ProjectionDetails {
   init(
     _ p: Function.ID, source: Function, skeleton s: ProjectionSkeleton, of program: TypedProgram
   ) {
-    let yieldBlocksSplits = Self.yieldBlocksSplits(s, in: source)
+    var rampInstructions = s.rampBlocks.flatMap { source.instructions(in: $0) }
+    var slideInstructions = s.slideBlocks.flatMap { source.instructions(in: $0) }
+    var firstTailInstructions: [InstructionID: InstructionID?] = [:]
+
+    for y in s.yieldPoints {
+      let a = Array(source.instructions(in: source.block(of: y)))
+      let s = source.split(instructions: a, at: y)
+      rampInstructions.append(contentsOf: a.prefix(upTo: s.splitPoint))
+      rampInstructions.append(contentsOf: a[s.splitPoint + 1 ..< s.epilogueEnd])
+      // Note: `yield` is not included in the ramp
+      slideInstructions.append(contentsOf: a.suffix(from: s.epilogueEnd))
+      firstTailInstructions[y] = s.splitPoint + 1 <= s.epilogueEnd ? a[s.splitPoint + 1] : nil
+    }
 
     self.id = p
     self.skeleton = s
-    self.firstTailInstructions =
-      Dictionary(uniqueKeysWithValues:
-        yieldBlocksSplits.map { (y, split) in (y, split.tail.first) })
-    self.rampInstructions =
-      s.rampBlocks.flatMap { source.instructions(in: $0) }
-      + yieldBlocksSplits.flatMap { (y, split) in split.before + split.tail }
-    self.slideInstructions =
-      s.slideBlocks.flatMap { source.instructions(in: $0) }
-      + yieldBlocksSplits.flatMap { (y, split) in split.after }
-  }
-
-  /// Returns the yield block splits for projection with skeleton `s`, and IR `source`.
-  private static func yieldBlocksSplits(
-    _ s: ProjectionSkeleton, in source: Function
-  ) -> [InstructionID: SplitTriplet] {
-    var splits: [InstructionID: SplitTriplet] = [:]
-    for y in s.yieldPoints {
-      let b = source.block(of: y)
-      splits[y] = source.split(block: b, at: y)
-    }
-    return splits
+    self.firstTailInstructions = firstTailInstructions
+    self.rampInstructions = rampInstructions
+    self.slideInstructions = slideInstructions
   }
 
 }

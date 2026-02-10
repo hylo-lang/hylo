@@ -116,17 +116,4 @@ extension Module {
     return result
   }
 
-  /// Creates an `Emitter` instance that can modify the IR of `f`, with the insertion point set at
-  /// `p` and calls `action` to perform IR emission.
-  mutating func modifyIR<T>(
-    of f: Function.ID, at p: InsertionPoint, action: (inout Emitter) -> T
-  ) -> T {
-    var ds = DiagnosticSet()
-    return Emitter.withInstance(insertingIn: &self, reportingDiagnosticsTo: &ds) { (e) in
-      e.insertionFunction = f
-      e.insertionPoint = p
-      return action(&e)
-    }
-  }
-
 }

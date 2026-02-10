@@ -32,7 +32,7 @@ extension IR.Program {
   private mutating func elaborateCallerScope(_ d: ScopeDetails, in m: Module.ID) {
     // TODO: handle cases with more than one plateau.
     precondition(
-      d.regions.count == 3, "multiple projection uses in a caller scope not supported yet")
+      d.regionsCount == 3, "multiple projection uses in a caller scope not supported yet")
     let plateau = generatePlateauFunction(for: d, region: 1, plateauIndex: 0, in: m)
 
     // Replace the old region with the elaborated code that calls the elaborated projection.
@@ -56,7 +56,7 @@ extension IR.Program {
     ]
 
     // Add storage for the projected value in the plateau, to replace the projected value.
-    let oldProject = d.regions[index - 1].splitPoint!
+    let oldProject = d.splitInstruction(endingRegion: index - 1)
     let p = modules[m]!.addStorage(in: entry, of: plateau, replacing: source[oldProject])
     let rewrittenRegisters: [Operand: Operand] = [
       .register(oldProject): .register(p)
@@ -71,8 +71,8 @@ extension IR.Program {
       rewrittenBlocks: rewrittenBlocks, rewrittenRegisters: rewrittenRegisters)
 
     // Copy all the relevant instructions to the new plateau function.
-    rewrite(d.regions[index].before, in: d.id, from: m, transformedBy: &transformer, to: plateau)
-    let tail = d.regions[index].tail.filter({ !toIgnore.contains($0) })
+    rewrite(d.prefixInstructions(region: index), in: d.id, from: m, transformedBy: &transformer, to: plateau)
+    let tail = d.epilogueInstructions(region: index).filter({ !toIgnore.contains($0) })
     rewrite(tail, in: d.id, from: m, transformedBy: &transformer, to: plateau)
 
     // Generate the call to the continuation (which calls the projection slide).
@@ -91,8 +91,8 @@ extension Module {
   fileprivate mutating func replacePlateau(
     _ d: ScopeDetails, region index: Int, withPlateau p: Function.ID
   ) {
-    let oldProject = d.regions[index - 1].splitPoint!
-    let oldEndProject = d.regions[index].splitPoint!
+    let oldProject = d.splitInstruction(endingRegion: index - 1)
+    let oldEndProject = d.splitInstruction(endingRegion: index)
 
     let oldProjectIR = self[d.id][oldProject]
     let t = oldProjectIR.result!.ast
@@ -109,9 +109,7 @@ extension Module {
 
     // Remove old instructions...
     var toRemove = [oldProject]
-    toRemove.append(contentsOf: d.regions[index].before)
-    toRemove.append(oldEndProject)
-    toRemove.append(contentsOf: d.regions[index].tail)
+    toRemove.append(contentsOf: d.instructions(region: index))
     // ... including later `dealloc_stack`, corresponding to `alloc_stack` in our region.
     let deallocs = toRemove.reduce(into: [InstructionID]()) { r, i in
       let users = self[d.id].allUses(of: i).map(\.user)
@@ -212,8 +210,47 @@ private struct ScopeDetails {
   /// All the blocks that need to be elaborated, which are in dominance order.
   let blocks: [Block.ID]
 
-  /// The regions of the caller that need to be elaborated.
-  let regions: [SplitPart]
+  /// All the instructions in `blocks`.
+  let instructions: [InstructionID]
+
+  /// The split positions in `instructions`, corresponding to `project` and `end_project`
+  /// instructions, separating our blocks into regions.
+  let regionSplitPositions: [SplitPosition]
+
+  /// The number of regions in the caller scope.
+  var regionsCount: Int {
+    regionSplitPositions.count + 1
+  }
+
+  /// Returns the split instruction at the end of region `r`.
+  internal func splitInstruction(endingRegion r: Int) -> InstructionID {
+    precondition(r < regionsCount)
+    return instructions[regionSplitPositions[r].splitPoint]
+  }
+
+  /// Returns the instructions in the "prefix" of region `r`, i.e. instructions without the epilogue.
+  internal func prefixInstructions(region r: Int) -> Array<InstructionID>.SubSequence {
+    precondition(r < regionsCount)
+    let start = r == 0 ? instructions.startIndex : regionSplitPositions[r - 1].epilogueEnd
+    let end = regionSplitPositions[r].splitPoint
+    return instructions[start ..< end]
+  }
+
+  /// Returns the "epilogue" instructions of region `r`.
+  internal func epilogueInstructions(region r: Int) -> Array<InstructionID>.SubSequence {
+    precondition(r < regionsCount)
+    let start = regionSplitPositions[r].splitPoint + 1
+    let end = regionSplitPositions[r].epilogueEnd
+    return instructions[start ..< end]
+  }
+
+  /// Returns all the instructions in region `r`.
+  internal func instructions(region r: Int) -> Array<InstructionID>.SubSequence {
+    precondition(r < regionsCount)
+    let start = r == 0 ? instructions.startIndex : regionSplitPositions[r - 1].epilogueEnd
+    let end = regionSplitPositions[r].epilogueEnd
+    return instructions[start ..< end]
+  }
 
   /// An instance describing projection caller `f`, with IR `source`, having `blocks` to be elaborated.
   ///
@@ -222,11 +259,11 @@ private struct ScopeDetails {
   init(_ f: Function.ID, source: Function, blocks: [Block.ID]) {
     self.id = f
     self.blocks = blocks
-    let isSplit = { (i: InstructionID) -> Bool in
+    let isSplitPoint = { (i: InstructionID) -> Bool in
       source[i] is Project || source[i] is EndProject
     }
-    self.regions = source.split(
-      instructions: blocks.flatMap({ source.instructions(in: $0) }), where: isSplit)
+    self.instructions = blocks.flatMap({ source.instructions(in: $0) })
+    self.regionSplitPositions = source.split(instructions: self.instructions, where: isSplitPoint)
   }
 
 }
