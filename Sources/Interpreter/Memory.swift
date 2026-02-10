@@ -442,19 +442,41 @@ extension Memory {
     try self[target.allocation].store(v, at: target.offset)
   }
 
-  /// Copies bytes of `source` to `destination`.
+  /// Returns the result of calling `body` with raw buffer pointer to bytes in `p`.
+  ///
+  /// - Precondition: `typeLayouts[p.type] == l`.
+  private func withUnsafeBytes<R>(
+    _ p: Place, havingLayout l: TypeLayout, _ body: (UnsafeRawBufferPointer) -> R
+  ) -> R {
+    let o = self[p.allocation].baseOffset
+    return self[p.allocation].storage.withUnsafeBytes {
+      let s = $0.baseAddress!.advanced(by: o + p.offset)
+      return body(UnsafeRawBufferPointer(start: s, count: l.size))
+    }
+  }
+
+  /// Returns the result of calling `body` with mutable raw buffer pointer to bytes in `p`.
+  private mutating func withUnsafeMutableBytes<R>(
+    _ p: Place, _ body: (UnsafeMutableRawBufferPointer) -> R
+  ) -> R {
+    let o = self[p.allocation].baseOffset
+    let n = typeLayouts[p.type].size
+    return self[p.allocation].storage.withUnsafeMutableBytes {
+      let s = $0.baseAddress!.advanced(by: o + p.offset)
+      return body(UnsafeMutableRawBufferPointer(start: s, count: n))
+    }
+  }
+
+  /// Copies the bytes of `source` to `destination`.
   public mutating func copy(_ source: Place, to destination: Place) throws {
     precondition(
-      source.type == destination.type, "source and destination should have same type for copying.")
-    // TODO: throw when source is not in composed regions.
-    let n = typeLayouts[source.type].size
-    let i = self[source.allocation].baseOffset
-    let j = self[destination.allocation].baseOffset
-    self[source.allocation].storage.withUnsafeBytes { a in
-      self[destination.allocation].storage.withUnsafeMutableBytes { b in
-        let s = a.baseAddress! + i + source.offset
-        let d = b.baseAddress! + j + destination.offset
-        d.copyMemory(from: s, byteCount: n)
+      source.type == destination.type,
+      "Copy source type \(source.type) must match with destination type \(destination.type).")
+    // TODO: throw when source is not in composed regions and mark destination region composed.
+    self.withUnsafeBytes(source, havingLayout: typeLayouts[source.type]) { a in
+      self.withUnsafeMutableBytes(destination) {
+        var b = $0
+        b.copyElements(from: a)
       }
     }
   }

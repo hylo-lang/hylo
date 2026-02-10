@@ -15,7 +15,7 @@ final class InterpreterMemoryInternalTests: XCTestCase {
 
     let voidPairPart0 = layouts[voidPair].partParentages.first!
 
-    check(throws: Memory.Error.noComposedPart(at: p, voidPairPart0)) {
+    TestUtils.check(throws: Memory.Error.noComposedPart(at: p, voidPairPart0)) {
       try m.allocation[p.allocation]!
         .requireComposed(part: voidPairPart0, baseOffset: 0, region: 0)
     }
@@ -28,7 +28,7 @@ final class InterpreterMemoryInternalTests: XCTestCase {
     let i8Pair = layouts[^TupleType(types: [.builtin(.i(8)), .builtin(.i(8))])]
     let i8PairPart0 = i8Pair.partParentages.first!
 
-    check(throws: Memory.Error.partType(voidPair, part: i8PairPart0)) {
+    TestUtils.check(throws: Memory.Error.partType(voidPair, part: i8PairPart0)) {
       try m.allocation[p.allocation]!
         .requireComposed(part: i8PairPart0, baseOffset: 0, region: 0)
     }
@@ -47,7 +47,7 @@ final class InterpreterMemoryInternalTests: XCTestCase {
 
   }
 
-  private func assertStoring<T: Equatable>(_ v: BuiltinValue, asType t: BuiltinType, yields e: T)
+  private func check<T: Equatable>(storing v: BuiltinValue, asType t: BuiltinType, yields e: T)
     throws
   {
     var m = Memory(typesIn: TypedProgram.empty, for: UnrealABI())
@@ -59,15 +59,15 @@ final class InterpreterMemoryInternalTests: XCTestCase {
   }
 
   func testStoringBuiltinValueInAllocation() throws {
-    try assertStoring(BuiltinValue.i1(true), asType: BuiltinType.i(1), yields: true)
-    try assertStoring(BuiltinValue.i8(8), asType: BuiltinType.i(8), yields: UInt8(8))
-    try assertStoring(BuiltinValue.i16(8), asType: BuiltinType.i(16), yields: UInt16(8))
-    try assertStoring(BuiltinValue.i32(8), asType: BuiltinType.i(32), yields: UInt32(8))
-    try assertStoring(BuiltinValue.i64(8), asType: BuiltinType.i(64), yields: UInt64(8))
-    try assertStoring(BuiltinValue.i128(8), asType: BuiltinType.i(128), yields: UInt128(8))
+    try check(storing: .i1(true), asType: .i(1), yields: true)
+    try check(storing: .i8(8), asType: .i(8), yields: UInt8(8))
+    try check(storing: .i16(8), asType: .i(16), yields: UInt16(8))
+    try check(storing: .i32(8), asType: .i(32), yields: UInt32(8))
+    try check(storing: .i64(8), asType: .i(64), yields: UInt64(8))
+    try check(storing: .i128(8), asType: .i(128), yields: UInt128(8))
   }
 
-  func assertCopying<T: Equatable>(_ v: BuiltinValue, asType t: BuiltinType, yields e: T) throws {
+  func check<T: Equatable>(copying v: BuiltinValue, asType t: BuiltinType, yields e: T) throws {
     var m = Memory(typesIn: TypedProgram.empty, for: UnrealABI())
     let s = m.allocate(^t)
     let d = m.allocate(^t)
@@ -82,12 +82,12 @@ final class InterpreterMemoryInternalTests: XCTestCase {
   }
 
   func testMemoryCopy() throws {
-    try assertCopying(.i1(true), asType: .i(1), yields: true)
-    try assertCopying(.i8(8), asType: .i(8), yields: UInt8(8))
-    try assertCopying(.i16(8), asType: .i(16), yields: UInt16(8))
-    try assertCopying(.i32(8), asType: .i(32), yields: UInt32(8))
-    try assertCopying(.i64(8), asType: .i(64), yields: UInt64(8))
-    try assertCopying(.i128(8), asType: .i(128), yields: UInt128(8))
+    try check(copying: .i1(true), asType: .i(1), yields: true)
+    try check(copying: .i8(8), asType: .i(8), yields: UInt8(8))
+    try check(copying: .i16(8), asType: .i(16), yields: UInt16(8))
+    try check(copying: .i32(8), asType: .i(32), yields: UInt32(8))
+    try check(copying: .i64(8), asType: .i(64), yields: UInt64(8))
+    try check(copying: .i128(8), asType: .i(128), yields: UInt128(8))
 
     // TODO: should throw when try to copy from non-composed region.
     // var m = Memory(typesIn: TypedProgram.empty, for: UnrealABI())
