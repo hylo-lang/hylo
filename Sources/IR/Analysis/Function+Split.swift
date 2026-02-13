@@ -1,6 +1,12 @@
 /// The positions, including epilogue information, at which a sequence of instructions is split.
 /// 
-/// Physically, a split point divides an array of instructions into two parts:
+/// This defines three contiguous regions of instructions:
+///   - the "front" instructions at indices `< splitPoint`
+///   - the "epilogue" instructions at indices in range `splitPoint ..< epilogueEnd`
+///   - the "back" instructions at indices `>= epilogueEnd`
+/// 
+/// If we strictly consider the ordering of instructions, a split point divides an array of
+/// instructions into two parts:
 ///   - the instructions at indices `< splitPoint` -- the "front"
 ///   - the instructions at indices `> splitPoint` -- the physical "back"
 /// 
@@ -8,13 +14,8 @@
 /// appear after the split point. These are the "epilogue" instructions for a split point.
 /// The `epilogueEnd` index indicates where the epilogue ends and the back begins.
 /// 
-/// Thus, a split point defines three contiguous regions of instructions:
-///   - the "front" instructions at indices `< splitPoint`
-///   - the "epilogue" instructions at indices in range `splitPoint ..< epilogueEnd`
-///   - the "back" instructions at indices `>= epilogueEnd`
-/// 
 /// Invariant: `splitPoint < epilogueEnd`
-internal struct SplitPosition {
+internal struct SplitPositions {
 
   /// The index of the instruction at which the split occurs.
   internal let splitPoint: Int
@@ -32,16 +33,16 @@ extension Function {
   /// a contiguous sequence of instructions that appear immediately after a split point but
   /// logically belong before the split point.
   ///
-  /// See also `SplitPosition`.
+  /// See also `SplitPositions`.
   internal func split(
     instructions a: [InstructionID], where isSplitPoint: (InstructionID) -> Bool
-  ) -> [SplitPosition] {
-    var r: [SplitPosition] = []
+  ) -> [SplitPositions] {
+    var r: [SplitPositions] = []
     var remaining = a.dropFirst(0)
     while let splitPointIndex = remaining.firstIndex(where: isSplitPoint) {
       remaining = a.suffix(from: splitPointIndex).dropFirst()
       let epilogueEnd = remaining.firstIndex(where: { !Self.mayBeEpilogue(self[$0]) }) ?? a.count
-      r.append(SplitPosition(splitPoint: splitPointIndex, epilogueEnd: epilogueEnd))
+      r.append(SplitPositions(splitPoint: splitPointIndex, epilogueEnd: epilogueEnd))
 
       remaining = remaining.suffix(from: epilogueEnd)
     }
@@ -52,23 +53,23 @@ extension Function {
   ///
   /// This deals with the epilogue of `splitPoint`.
   ///
-  /// See also `SplitPosition`.
+  /// See also `SplitPositions`.
   internal func split(
     instructions a: [InstructionID], at splitPoint: InstructionID
-  ) -> SplitPosition {
+  ) -> SplitPositions {
     let splitPointIndex = a.firstIndex(of: splitPoint)
     precondition(splitPointIndex != nil, "split point \(splitPoint) not found")
     let remaining = a.suffix(from: splitPointIndex!).dropFirst()
     let epilogueEnd = remaining.firstIndex(where: { !Self.mayBeEpilogue(self[$0]) }) ?? a.count
-    return SplitPosition(splitPoint: splitPointIndex!, epilogueEnd: epilogueEnd)
+    return SplitPositions(splitPoint: splitPointIndex!, epilogueEnd: epilogueEnd)
   }
 
   /// Splits instructions in `b` at `splitPoint`, returning the positions of the resulting partitions.
   ///
   /// This deals with the epilogue of `splitPoint`.
   ///
-  /// See also `SplitPosition`.
-  internal func split(block b: Block.ID, at splitPoint: InstructionID) -> SplitPosition {
+  /// See also `SplitPositions`.
+  internal func split(block b: Block.ID, at splitPoint: InstructionID) -> SplitPositions {
     split(instructions: Array(instructions(in: b)), at: splitPoint)
   }
 

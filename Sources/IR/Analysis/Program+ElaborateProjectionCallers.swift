@@ -20,7 +20,7 @@ extension IR.Program {
 
   /// Elaborates the projection caller function `f` in module `m`.
   private mutating func elaborateProjectionCaller(_ f: Function.ID, in m: Module.ID) {
-    if modules[m]![f].site.file.baseName != "projection" { return }  // TODO: remove this filter.
+    if modules[m]![f].site.file.baseName != "feature-test-projection" { return }  // TODO: remove this filter.
 
     let source = modules[m]![f]
     for d in source.projectionCallingScopes(id: f) {
@@ -215,7 +215,7 @@ private struct ScopeDetails {
 
   /// The split positions in `instructions`, corresponding to `project` and `end_project`
   /// instructions, separating our blocks into regions.
-  let regionSplitPositions: [SplitPosition]
+  let regionSplitPositions: [SplitPositions]
 
   /// The number of regions in the caller scope.
   var regionsCount: Int {

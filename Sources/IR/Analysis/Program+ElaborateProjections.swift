@@ -26,7 +26,7 @@ extension IR.Program {
   private mutating func elaborateProjection(
     _ f: Function.ID, skeleton s: IR.ProjectionSkeleton, in m: Module.ID
   ) {
-    if modules[m]![f].site.file.baseName != "projection" { return }  // TODO: remove this filter.
+    if modules[m]![f].site.file.baseName != "feature-test-projection" { return }  // TODO: remove this filter.
 
     let ramp = modules[m]!.demandProjectionRampDeclaration(for: f)
     let slide = modules[m]!.demandProjectionSlideDeclaration(for: f)
