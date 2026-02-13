@@ -133,7 +133,7 @@ extension Module {
   }
 
   /// Generates the code in block `b` of `f` to call the continuation received as the second
-  /// parameter to `f`, and then return.
+  /// parameter to `f`, followed by a return instruction.
   fileprivate mutating func generateContinuationCall(
     toBlock b: Block.ID, of f: Function.ID
   ) {
@@ -163,7 +163,7 @@ extension Emitter {
     return x1
   }
 
-  /// Emit code that jumps to projection continuation `c`.
+  /// Generates IR for jumping to projection continuation `c`.
   fileprivate mutating func _resume_continuation(_ c: Operand) {
     let x0 = _access(.let, from: _subfield_view(c, at: [0]))  // c.resumeFunction
     let x1 = _access(.let, from: _subfield_view(c, at: [1]))  // c.frame

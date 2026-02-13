@@ -107,7 +107,7 @@ extension Module {
     modifyIR(of: ramp, at: yieldInsertionPoint) { (e) in
       // If we have multiple yields, store the index of the current yield point in the state.
       if d.skeleton.yieldPoints.count > 1 {
-        let _ /*index*/ = d.skeleton.yieldPoints.firstIndex(of: y)!
+        _ /*index*/ = d.skeleton.yieldPoints.firstIndex(of: y)!
         // TODO: store `index` in the frame.
       }
 
