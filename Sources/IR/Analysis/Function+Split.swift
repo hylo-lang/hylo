@@ -1,10 +1,10 @@
-/// The position, including epilogue information, at which a sequence of instructions is split.
+/// The positions, including epilogue information, at which a sequence of instructions is split.
 /// 
 /// Physically, a split point divides an array of instructions into two parts:
 ///   - the instructions at indices `< splitPoint` -- the "front"
 ///   - the instructions at indices `> splitPoint` -- the physical "back"
 /// 
-/// But, there are also instructions that are logically part of the front, even though they
+/// There are also instructions that are logically part of the front, even though they
 /// appear after the split point. These are the "epilogue" instructions for a split point.
 /// The `epilogueEnd` index indicates where the epilogue ends and the back begins.
 /// 
@@ -26,7 +26,7 @@ internal struct SplitPosition {
 extension Function {
 
   /// Splits `a`, instructions pointing into `self`, at all the points where `isSplitPoint` returns
-  /// `true`, returning the split positions.
+  /// `true`, returning the splits.
   ///
   /// This is different from `Array.split(separator:)` as it deals with "epilogues". An epilogue is
   /// a contiguous sequence of instructions that appear immediately after a split point but
@@ -63,7 +63,7 @@ extension Function {
     return SplitPosition(splitPoint: splitPointIndex!, epilogueEnd: epilogueEnd)
   }
 
-  /// Splits instructions in `b` at `splitPoint`, returning the split position.
+  /// Splits instructions in `b` at `splitPoint`, returning the positions of the resulting partitions.
   ///
   /// This deals with the epilogue of `splitPoint`.
   ///

@@ -109,14 +109,14 @@ extension Module {
 
     // Remove old instructions...
     var toRemove = [oldProject]
-    toRemove.append(contentsOf: d.instructions(region: index))
-    // ... including later `dealloc_stack`, corresponding to `alloc_stack` in our region.
-    let deallocs = toRemove.reduce(into: [InstructionID]()) { r, i in
-      let users = self[d.id].allUses(of: i).map(\.user)
-      r.append(contentsOf: users.filter { self[d.id][$0] is DeallocStack })
+    var deallocs: [InstructionID] = []
+    for i in d.instructions(region: index) {
+      toRemove.append(i)
+      for u in self[d.id].allUses(of: i) where self[d.id][u.user] is DeallocStack {
+        deallocs.append(u.user)
+      }
     }
-    toRemove.append(contentsOf: deallocs.filter({ !toRemove.contains($0) }))
-    for i in toRemove.uniqued().reversed() {
+    for i in [toRemove, deallocs].joined().reversed() {
       self[d.id].remove(i)
     }
   }
