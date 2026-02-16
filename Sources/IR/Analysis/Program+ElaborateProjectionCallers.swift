@@ -121,7 +121,7 @@ extension Module {
     }
   }
 
-  /// Creates storage in `f` for the value represented by `i` and returns its identity.
+  /// Creates storage in `f` for the value represented by `i` and returns its address.
   fileprivate mutating func addStorage(
     in b: Block.ID, of f: Function.ID, replacing i: Instruction
   ) -> InstructionID {
