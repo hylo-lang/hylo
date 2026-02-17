@@ -77,7 +77,7 @@ You will need CMake 3.30 or newer.
 2. **Profit**: open the `.xcodeproj` file in the *build-directory* and
    use Xcode's UI to build and test.
 
-## Building with Swift Package Manager
+## Building with Swift Package Manager or Xcode
 
 You can skip the following steps if you are using development containers.
 
@@ -85,18 +85,24 @@ You can skip the following steps if you are using development containers.
   - Ubuntu: `sudo apt install pkg-config`
   - Windows: `choco install pkgconfiglite` ([Chocolatey](https://community.chocolatey.org/packages/pkgconfiglite)) or [install it manually](https://sourceforge.net/projects/pkgconfiglite/)
   - MacOS: `sudo port install pkgconfig` ([Mac Ports](https://ports.macports.org/port/pkgconfig/))
-2. Add your [LLVM installation](https://github.com/hylo-lang/llvm-build)'s `pkgconfig` subfolder to `PKG_CONFIG_PATH`.
+2. a) When not using Xcode: Add your [LLVM installation](https://github.com/hylo-lang/llvm-build)'s `pkgconfig` subfolder to `PKG_CONFIG_PATH` unless you are using Xcode.
+ 
+   b) When using Xcode: You will need to install `llvm.pc` in a directory that's already searched by Xcode, e.g. `/usr/local/lib/pkgconfig/`. The Hylo LLVM installation includes a script in [`<LLVM>/pkgconfig/install-pc.sh`](https://github.com/hylo-lang/llvm-build/blob/main/scripts/install-pc.sh) that helps with this: 
+    ```
+    cd <LLVM>/pkgconfig
+    ./install-pc.sh llvm.pc /usr/local/lib/pkgconfig/
+    ```
 
-Now you should be able to build and test:
-```bash
-swift build -c release
-swift test -c release
-```
+3. Now you should be able to build and test:
+   ```bash
+   swift build -c release
+   swift test -c release
+   ```
 
 That command will create an executable named `hc` in `.build/release`.
 That's Hylo's compiler!
 
-To test your compiler,
+To test your compiler, run
 
 ```bash
 swift test -c release --parallel
@@ -119,7 +125,7 @@ Then, build the Devcontainer with the VSCode command: `> Dev Containers: Rebuild
 Finally, open a new integrated terminal in VSCode and confirm that the shell user is `vscode`. You can run `whoami` to check this.
 
 That integrated terminal is connected to the Devcontainer, as if by ssh.  
-You can now follow the instructions for Building and testing [with CMake and Ninja](#building_with_ cmake_and_ninja) or [with Swift Package Manager](#building_with_swift_package_manager).
+You can now follow the instructions for Building and testing [with CMake and Ninja](#building_with_ cmake_and_ninja) or [with Swift Package Manager](#building-with-swift-package-manager-or-xcode).
 All prerequisites, including the `llvm.pc` file in the default `PKG_CONFIG_PATH`, are preinstalled.
 
 The Hylo repository files are mounted into the container, so any changes made locally (in VSCode or in other editors) will be automatically propagated into the Devcontainer. However, if you need to modify any of the files in the `.devcontainer` directory, you will need to rebuild the container with `> Dev Containers: Rebuild and Reopen in Container`.
