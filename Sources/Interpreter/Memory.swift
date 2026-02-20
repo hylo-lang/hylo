@@ -480,5 +480,25 @@ extension Memory {
       }
     }
   }
+
+  /// Returns builtin value stored in `p`.
+  mutating func builtinValue(in p: Place) throws -> BuiltinValue {
+    precondition(p.type.isBuiltin);
+    precondition(allocation[p.allocation] != nil)
+
+    // TODO: throw if `p` doesn't have a builtin value.
+    let o = p.offset;
+    let a = allocation[p.allocation]!
+    let t = p.type.base as! BuiltinType
+    return switch t {
+    case .i(1): a.withUnsafePointer(to: Bool.self, at: o) { .i1($0.pointee) }
+    case .i(8): a.withUnsafePointer(to: UInt8.self, at: o) { .i8($0.pointee) }
+    case .i(16): a.withUnsafePointer(to: UInt16.self, at: o) { .i16($0.pointee) }
+    case .i(32): a.withUnsafePointer(to: UInt32.self, at: o) { .i32($0.pointee) }
+    case .i(64): a.withUnsafePointer(to: UInt64.self, at: o) { .i64($0.pointee) }
+    case .i(128): a.withUnsafePointer(to: UInt128.self, at: o) { .i128($0.pointee) }
+    default: fatalError("Unsupported builtin type \(t).")
+    }
+  }
 }
 

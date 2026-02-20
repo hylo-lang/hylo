@@ -241,7 +241,8 @@ public struct Interpreter {
     case let x as GlobalPlace:
       _ = x
     case let x as Load:
-      _ = x
+      let v = try memory.builtinValue(in: asPlace(x.source));
+      return .value(.init(payload: v))
     case is MarkState:
       // No effect on program state
       return nil
