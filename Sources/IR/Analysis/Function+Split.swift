@@ -1,9 +1,9 @@
-/// The positions, including epilogue information, at which a sequence of instructions is split.
+/// The positions at which a sequence of instructions is split.
 /// 
-/// This defines three contiguous regions of instructions:
-///   - the "front" instructions at indices `< splitPoint`
-///   - the "epilogue" instructions at indices in range `splitPoint ..< epilogueEnd`
-///   - the "back" instructions at indices `>= epilogueEnd`
+/// An instance defines three contiguous regions of instructions:
+///   - the "front", at positions in the range `..<splitPoint`
+///   - the "epilogue", at positions in the range `splitPoint ..< epilogueEnd`
+///   - the "back", at positions in the range `epilogueEnd...`
 /// 
 /// If we strictly consider the ordering of instructions, a split point divides an array of
 /// instructions into two parts:
@@ -26,10 +26,10 @@ internal struct SplitPositions {
 
 extension Function {
 
-  /// Splits `a`, instructions pointing into `self`, at all the points where `isSplitPoint` returns
+  /// Splits `a`, which is a contiguous sequence of instructions in `self`, at all the points where `isSplitPoint` returns
   /// `true`, returning the splits.
   ///
-  /// This is different from `Array.split(separator:)` as it deals with "epilogues". An epilogue is
+  /// This method is different from `Array.split(separator:)` as it deals with "epilogues". An epilogue is
   /// a contiguous sequence of instructions that appear immediately after a split point but
   /// logically belong before the split point.
   ///
@@ -51,7 +51,7 @@ extension Function {
 
   /// Splits `a`, instructions pointing into `self`, at `splitPoint`, returning the split position.
   ///
-  /// This deals with the epilogue of `splitPoint`.
+  /// This method deals with the epilogue of `splitPoint`.
   ///
   /// See also `SplitPositions`.
   internal func split(
@@ -66,7 +66,7 @@ extension Function {
 
   /// Splits instructions in `b` at `splitPoint`, returning the positions of the resulting partitions.
   ///
-  /// This deals with the epilogue of `splitPoint`.
+  /// This method deals with the epilogue of `splitPoint`.
   ///
   /// See also `SplitPositions`.
   internal func split(block b: Block.ID, at splitPoint: InstructionID) -> SplitPositions {
@@ -74,7 +74,7 @@ extension Function {
   }
 
   /// Returns `true` if the instruction `i` can be part of the yield tail,
-  /// e.g., it appears after a yield, but still belong to the ramp of the projection.
+  /// e.g., it appears after a yield, but still belongs to the ramp of the projection.
   ///
   /// Tail instructions: `MarkState` (uninitialized), `DeallocStack`, `EndAccess`.
   private static func mayBeEpilogue(_ i: Instruction) -> Bool {

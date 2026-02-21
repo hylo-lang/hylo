@@ -149,7 +149,7 @@ extension Module {
 extension Emitter {
 
   /// Allocates and initializes a continuation to call `plateau` with frame pointer `f`.
-  fileprivate mutating func _plateau_continuation(
+  fileprivate mutating func _plateauContinuation(
     calling plateau: FunctionReference, frame f: Operand
   ) -> Operand {
     let x0 = _place_to_pointer(Operand.constant(plateau))
