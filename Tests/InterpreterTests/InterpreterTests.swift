@@ -38,5 +38,26 @@ final class InterpreterRunTests: XCTestCase {
       """.asSourceFile()
     try p.runOnInterpreterAsMainWithHostedStandardLibrary()
   }
+  
+  func testConditionals() throws {
+    let p =
+      """
+        public fun main() {
+          var n = 0
+          if true {
+            &n = 1
+          } else {
+            &n = 2
+          }
+
+          if false {
+            &n = 3
+          }else{
+            &n = 4
+          }
+        }
+      """.asSourceFile()
+    try p.runOnInterpreterAsMainWithHostedStandardLibrary()
+  }
 
 }

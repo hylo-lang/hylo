@@ -481,12 +481,12 @@ extension Memory {
     }
   }
 
-  /// Returns builtin value stored in `p`.
-  mutating func builtinValue(in p: Place) throws -> BuiltinValue {
+  /// Returns the builtin value stored in `p`.
+  func builtinValue(in p: Place) throws -> BuiltinValue {
     precondition(p.type.isBuiltin);
     precondition(allocation[p.allocation] != nil)
 
-    // TODO: throw if `p` doesn't have a builtin value.
+    // TODO: throw if `p` doesn't have a composed builtin value.
     let o = p.offset;
     let a = allocation[p.allocation]!
     let t = p.type.base as! BuiltinType

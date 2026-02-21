@@ -224,7 +224,11 @@ public struct Interpreter {
     case let x as CloseUnion:
       _ = x
     case let x as CondBranch:
-      _ = x
+      if asBool(x.condition) {
+        return .jump(entryPoint(of: x.targetIfTrue))
+      } else {
+        return .jump(entryPoint(of: x.targetIfFalse))
+      }
     case let x as ConstantString:
       return .value(.init(payload: x.value))
     case let x as DeallocStack:
@@ -360,6 +364,25 @@ public struct Interpreter {
         BuiltinValue(x)
       default:
         UNIMPLEMENTED("non-integer constant parsing!!!")
+      }
+    }
+  }
+
+  /// Interpret `x` as a boolean.
+  ///
+  /// - Precondition: `x` is boolean value.
+  func asBool(_ x: Operand) -> Bool {
+    switch x {
+    case .register(let instruction):
+      (topOfStack.registers[instruction]!.payload as! BuiltinValue).i1!
+    case .parameter:
+      preconditionFailure("Parameter operand is never a boolean.")
+    case .constant(let c):
+      switch c {
+      case let x as IntegerConstant:
+        x.value != 0
+      default:
+        preconditionFailure("Non-integer builtin value is never a boolen.")
       }
     }
   }
