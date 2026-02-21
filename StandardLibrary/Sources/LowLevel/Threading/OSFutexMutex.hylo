@@ -1,0 +1,119 @@
+/// The state indicating a mutex that is not locked.
+let UNLOCKED: UInt32 = 0
+/// The state indicating a mutex that is locked, but not contended.
+let LOCKED: UInt32 = 1
+/// The state indicating a mutex that is locked and contended.
+let CONTENDED: UInt32 = 2
+
+// TODO: should be internal, but, currently that leads to a linker error when Mutex<T> tries to use this.
+
+/// A thin mutex implemented in terms of an OS futex.
+///
+/// Behaves like a pthread mutex, but is more efficient, as the operations don't involve a system
+/// call if the mutex is not contended.
+/// In contended cases, the thread is put to sleep and woken up by the OS. This allows efficient
+/// usage of thread resources.
+///
+/// Traps if is moved while locked.
+public type OSFutexMutex: Deinitializable, Movable {
+
+  /// The futex value.
+  // TODO: use atomic value here.
+  var futex: UInt32
+
+  /// Initializes `self` with a new mutex.
+  public init() {
+    &futex = UNLOCKED.copy()
+  }
+
+  /// Deinitializes `self`.
+  public fun deinit() sink {
+    precondition(futex == UNLOCKED, "Mutex is being deinitialized while locked.")
+  }
+
+  /// Locks the mutex.
+  public fun lock() inout {
+    // Use the acquire semantic to create a barrier at the beginning of the critical section.
+    let r = atomic_cmpxchg_acquire_relaxed_i32(&futex, expected: UNLOCKED, desired: LOCKED)
+    if !r.0 {
+      lock_contended()
+    }
+  }
+
+  /// Unlocks the mutex.
+  public fun unlock() inout {
+    // Use the release semantic to create a barrier at the end of the critical section.
+    let old = atomic_swap_release_i32(&futex, UNLOCKED)
+    // precondition(old == LOCKED, "Mutex is being unlocked while not locked.")
+    if old == CONTENDED {
+      // Some thread is sleeping, wake it up.
+      // Waking up one thread is better for concurrency; eventually all threads will be woken up.
+      futex_wake(futex: &futex, threads_to_wake: 1)
+    }
+  }
+
+  /// Attempts to lock the mutex. Returns `true` if the lock was acquired, `false` otherwise.
+  public fun try_lock() inout -> Bool {
+    // Use the acquire semantic to create a barrier at the beginning of the critical section.
+    let r = atomic_cmpxchg_acquire_relaxed_i32(&futex, expected: UNLOCKED, desired: LOCKED)
+    return r.0
+  }
+
+  /// Called when we are in a contended case to lock the mutex.
+  fun lock_contended() inout {
+    // Spin for a little while.
+    // If the mutex is released quickly, we avoid the overhead of a system call.
+    var state = spin()
+
+    // If we are unlocked, attempt to lock the mutex but don't mark it as CONTENDED.
+    if state == UNLOCKED {
+      let r = atomic_cmpxchg_acquire_relaxed_i32(&futex, expected: UNLOCKED, desired: LOCKED)
+      if r.0 {
+        return
+      }
+      &state = r.1
+    }
+
+    // We are now in a contended state.
+    while true {
+      if state != CONTENDED {
+        // Try to mark the mutex as contended.
+        if atomic_swap_acquire_i32(&futex, CONTENDED) == UNLOCKED {
+          // We successfully moved from unlocked to contended, so we successfully locked it.
+          return;
+        }
+      }
+
+      // Wait for the futex to change state, assuming it is still CONTENDED.
+      futex_wait(futex: &futex, expected: CONTENDED)
+
+      // Spin again after waking up.
+      &state = spin()
+    }
+  }
+
+  /// Spins on the CPU to avoid the overhead of a system call.
+  /// Exists early when we are not in the locked state.
+  /// Returns the current state of the mutex.
+  fun spin() inout -> UInt32 {
+    var spin_counter = 16000
+    while true {
+      // Load the current value of the state.
+      // Use the acquire semantic to create a barrier at the beginning of the critical section.
+      // Stop spinning when either:
+      //  - we are unlocked -- thus we can now acquire the lock
+      //  - we are contended -- thus we should wait with a syscall
+      //  - we have spun enough
+      let state = atomic_load_acquire_i32(&futex)
+      if state != LOCKED || spin_counter == 0 {
+        return state
+      }
+
+      // TODO: use spin-waiting-hint to not keep the CPU so busy.
+
+      &spin_counter -= 1
+    }
+    return UNLOCKED.copy() // should never reach here
+  }
+
+}
