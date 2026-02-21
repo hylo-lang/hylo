@@ -208,7 +208,7 @@ public struct Interpreter {
       return .value(.init(payload: a))
 
     case let x as Branch:
-      _ = x
+      return .jump(entryPoint(of: x.target))
     case let x as Call:
       _ = x
     case let x as CallBuiltinFunction:
@@ -362,6 +362,14 @@ public struct Interpreter {
         UNIMPLEMENTED("non-integer constant parsing!!!")
       }
     }
+  }
+
+  /// Returns pointer to first instruction of `b`.
+  func entryPoint(of b: Block.ID) -> CodePointer {
+    let m = programCounter.module
+    let f = programCounter.functionInModule
+    let i = program.modules[m]![f].firstInstruction(in: b)!
+    return .init(module: m, functionInModule: f, instructionInFunction: i)
   }
 
 }
