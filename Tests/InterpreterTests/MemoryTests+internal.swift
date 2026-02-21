@@ -97,4 +97,23 @@ final class InterpreterMemoryInternalTests: XCTestCase {
     //   try m.copy(s, to: d)
     // }
   }
+
+  func check(storeAndLoadSucceeds v: BuiltinValue, asType t: BuiltinType) throws {
+    var m = Memory(typesIn: TypedProgram.empty, for: UnrealABI())
+    let p = m.allocate(^t)
+    try m.store(v, in: p)
+    XCTAssertEqual(try m.builtinValue(in: p), v)
+  }
+
+  func testLoad() throws {
+    try check(storeAndLoadSucceeds: .i1(true), asType: .i(1))
+    try check(storeAndLoadSucceeds: .i8(8), asType: .i(8))
+    try check(storeAndLoadSucceeds: .i16(8), asType: .i(16))
+    try check(storeAndLoadSucceeds: .i32(8), asType: .i(32))
+    try check(storeAndLoadSucceeds: .i64(8), asType: .i(64))
+    try check(storeAndLoadSucceeds: .i128(8), asType: .i(128))
+
+    // TODO: test for loading as different type than stored.
+    // try check(loading: .i1(true), asType: .i(8), throws: .noComposedPart(...))
+  }
 }

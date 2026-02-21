@@ -1,7 +1,8 @@
 import IR
+import Utils
 
 /// The value of a `Builtin` type instance.
-enum BuiltinValue {
+enum BuiltinValue: Regular {
 
   /// 1-bit builtin integer type.
   case i1(Bool)
