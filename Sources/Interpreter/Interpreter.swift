@@ -382,7 +382,7 @@ public struct Interpreter {
       case let x as IntegerConstant:
         x.value != 0
       default:
-        preconditionFailure("Non-integer builtin value is never a boolen.")
+        preconditionFailure("Non-integer builtin value is never a boolean.")
       }
     }
   }
