@@ -441,5 +441,44 @@ extension Memory {
   mutating func store(_ v: BuiltinValue, in target: Place) throws {
     try self[target.allocation].store(v, at: target.offset)
   }
+
+  /// Returns the result of calling `body` with raw buffer pointer to bytes in `p`.
+  ///
+  /// - Precondition: `typeLayouts[p.type] == l`.
+  private func withUnsafeBytes<R>(
+    _ p: Place, havingLayout l: TypeLayout, _ body: (UnsafeRawBufferPointer) -> R
+  ) -> R {
+    let o = self[p.allocation].baseOffset
+    return self[p.allocation].storage.withUnsafeBytes {
+      let s = $0.baseAddress!.advanced(by: o + p.offset)
+      return body(UnsafeRawBufferPointer(start: s, count: l.size))
+    }
+  }
+
+  /// Returns the result of calling `body` with mutable raw buffer pointer to bytes in `p`.
+  private mutating func withUnsafeMutableBytes<R>(
+    _ p: Place, _ body: (UnsafeMutableRawBufferPointer) -> R
+  ) -> R {
+    let o = self[p.allocation].baseOffset
+    let n = typeLayouts[p.type].size
+    return self[p.allocation].storage.withUnsafeMutableBytes {
+      let s = $0.baseAddress!.advanced(by: o + p.offset)
+      return body(UnsafeMutableRawBufferPointer(start: s, count: n))
+    }
+  }
+
+  /// Copies the bytes of `source` to `destination`.
+  public mutating func copy(_ source: Place, to destination: Place) throws {
+    precondition(
+      source.type == destination.type,
+      "Copy source type \(source.type) must match with destination type \(destination.type).")
+    // TODO: throw when source is not in composed regions and mark destination region composed.
+    self.withUnsafeBytes(source, havingLayout: typeLayouts[source.type]) { a in
+      self.withUnsafeMutableBytes(destination) {
+        var b = $0
+        b.copyElements(from: a)
+      }
+    }
+  }
 }
 

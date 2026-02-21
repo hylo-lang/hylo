@@ -246,7 +246,8 @@ public struct Interpreter {
       // No effect on program state
       return nil
     case let x as MemoryCopy:
-      _ = x
+      try memory.copy(asPlace(x.source), to: asPlace(x.target))
+      return nil
     case is Move:
       fatalError("Interpreter: Move instructions have not been removed.")
     case let x as OpenCapture:

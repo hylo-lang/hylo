@@ -29,7 +29,7 @@ jobs:
     runs-on: macos-15
     env:
       swift-version: '6.2.0'
-      HYLO_LLVM_BUILD_RELEASE: 20251018-115119
+      HYLO_LLVM_BUILD_RELEASE: 20251207-115516
       HYLO_LLVM_VERSION: '20.1.6'
 
     steps:
@@ -65,7 +65,7 @@ jobs:
         HYLO_ENABLE_DOC_GENERATION=1
         " >> "${GITHUB_ENV}"
 
-    - uses: actions/cache@v4
+    - uses: actions/cache@v5
       with:
         path: .build
         key: ${{ runner.os }}-debug-spm-${{ hashFiles('./**/Package.resolved') }}
