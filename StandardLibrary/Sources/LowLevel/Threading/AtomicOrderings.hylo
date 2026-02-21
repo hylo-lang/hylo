@@ -1,0 +1,167 @@
+/// Specifies the memory ordering semantics for an atomic load operation.
+public type AtomicLoadOrdering: Regular {
+
+  public memberwise init
+
+  internal let value: Int
+
+}
+
+public extension AtomicLoadOrdering {
+
+  /// Guarantees the atomicity of the load operation, but does not impose any ordering constraints
+  /// on other memory operations.
+  ///
+  /// Corresponds to the `memory_order_relaxed` C++ memory ordering.
+  public static let relaxed: AtomicLoadOrdering = .new(value: 0)
+
+  /// An acquiring load operation syncrhonizes with a releasing store operation on the same atomic
+  /// variable. The thread performing the acquiring operation agrees with the thread performing the
+  /// releasing operation that all the subsequent load operations (atomic or not) on the acquiring
+  /// thread happen after the atomic operation itself.
+  ///
+  /// Provides a barrier that prevents read/write memory operations to be reordered before the
+  /// atomic load. This barrier can be used to acquire a lock.
+  ///
+  /// Corresponds to the `memory_order_acquire` C++ memory ordering.
+  public static let acquiring: AtomicLoadOrdering = .new(value: 1)
+
+  /// A sequentially consistent load operation provides the same guarantees as an acquiring load
+  /// and also guarantees that all sequentially consistent operations on the atomic variable will
+  /// have a total squential order, across all threads.
+  ///
+  /// Provides a barrier that prevents read/write memory operations to be reordered before and
+  /// after the atomic load.
+  ///
+  /// Corresponds to the `memory_order_seq_cst` C++ memory ordering.
+  public static let sequentially_consistent: AtomicLoadOrdering = .new(value: 4)
+
+}
+
+/// Specifies the memory ordering semantics for an atomic store operation.
+public type AtomicStoreOrdering: Regular {
+
+  public memberwise init
+
+  internal let value: Int
+
+}
+
+public extension AtomicStoreOrdering {
+
+  /// Guarantees the atomicity of the store operation, but does not impose any ordering constraints
+  /// on other memory operations.
+  ///
+  /// Corresponds to the `memory_order_relaxed` C++ memory ordering.
+  public static let relaxed: AtomicStoreOrdering = .new(value: 0)
+
+  /// A releasing store operation syncrhonizes with an acquiring load operation on the same atomic
+  /// variable. The thread performing the releasing operation agrees with the thread performing the
+  /// acquiring operation that all the previous store operations (atomic or not) on the releasing
+  /// thread will be seen before the atomic operation itself.
+  ///
+  /// Provides a barrier that prevents read/write memory operations to be reordered after the
+  /// atomic store. This barrier can be used to release a lock.
+  ///
+  /// Corresponds to the `memory_order_release` C++ memory ordering.
+  public static let releasing: AtomicStoreOrdering = .new(value: 2)
+
+  /// A sequentially consistent store operation provides the same guarantees as a releasing store
+  /// and also guarantees that all sequentially consistent operations on the atomic variable will
+  /// have a total squential order, across all threads.
+  ///
+  /// Provides a barrier that prevents read/write memory operations to be reordered before and
+  /// after the atomic store.
+  ///
+  /// Corresponds to the `memory_order_seq_cst` C++ memory ordering.
+  public static let sequentially_consistent: AtomicStoreOrdering = .new(value: 4)
+
+}
+
+/// Specifies the memory ordering semantics for an atomic read-modify-write (update) operation.
+public type AtomicUpdateOrdering: Regular {
+
+  public memberwise init
+
+  internal let value: Int
+
+}
+
+public extension AtomicUpdateOrdering {
+
+  /// Guarantees the atomicity of the load operation, but does not impose any ordering constraints
+  /// on other memory operations.
+  ///
+  /// Corresponds to the `memory_order_relaxed` C++ memory ordering.
+  public static let relaxed: AtomicUpdateOrdering = .new(value: 0)
+
+  /// An acquiring update operation syncrhonizes with a releasing store operation on the same
+  /// atomic variable whose value it reads. The thread performing the acquiring operation agrees
+  /// with the thread performing the releasing operation that all the subsequent load operations
+  /// (atomic or not) on the acquiring thread happen after the atomic operation itself.
+  ///
+  /// Provides a barrier that prevents read/write memory operations to be reordered before the
+  /// atomic operation. This barrier can be used to acquire a lock.
+  ///
+  /// Corresponds to the `memory_order_acquire` C++ memory ordering.
+  public static let acquiring: AtomicUpdateOrdering = .new(value: 1)
+
+  /// A releasing update operation syncrhonizes with an acquiring load operation on the same atomic
+  /// variable that reads the updated value. The thread performing the releasing operation agrees
+  /// with the thread performing the acquiring operation that all the previous store operations
+  /// (atomic or not) on the releasing thread will be seen before the atomic operation itself.
+  ///
+  /// Provides a barrier that prevents read/write memory operations to be reordered after the
+  /// atomic update. This barrier can be used to release a lock.
+  ///
+  /// Corresponds to the `memory_order_release` C++ memory ordering.
+  public static let releasing: AtomicUpdateOrdering = .new(value: 2)
+
+  /// An acquiring and releasing update operation syncrhonizes with both acquiring loads that read
+  /// the updated value and with the releasing stores that update the value that this update reads.
+  /// The thread performing the update operation agrees with the threads performing the acquiring
+  /// load that all the previous store operations (atomic or not) on the releasing thread will be
+  /// seen before the atomic operation itself. The thread performing the update operation also
+  /// agrees with the threads performing the releasing store of the value read by the update that
+  /// all the previous store operations (atomic or not) on the updating thread happen before the
+  /// update.
+  ///
+  /// Provides a barrier that prevents read/write memory operations to be reordered before and
+  /// after the atomic update.
+  ///
+  /// Corresponds to the `memory_order_seq_cst` C++ memory ordering.
+  public static let acquiring_and_releasing: AtomicUpdateOrdering = .new(value: 3)
+
+  /// A sequentially consistent update operation provides the same guarantees as an acquiring and
+  /// releasing update and also guarantees that all sequentially consistent operations on the
+  /// atomic variable will have a total squential order, across all threads.
+  ///
+  /// Provides a barrier that prevents read/write memory operations to be reordered before and
+  /// after the atomic update.
+  ///
+  /// Corresponds to the `memory_order_seq_cst` C++ memory ordering.
+  public static let sequentially_consistent: AtomicUpdateOrdering = .new(value: 4)
+
+}
+
+/// Transforms from an atomic update ordering to a corresponding atomic load ordering, to be used
+/// in `compare_and_exchange` operations to get the failure ordering from the success ordering.
+// TODO: this should be internal, but we have a bug that generates a linker error
+public fun failure_ordering(for ordering: AtomicUpdateOrdering) -> AtomicLoadOrdering {
+  if ordering == /*AtomicUpdateOrdering.relaxed*/ AtomicUpdateOrdering(value: 0) {
+    return /*AtomicLoadOrdering.relaxed.copy()*/ AtomicLoadOrdering(value: 0)
+  }
+  if ordering == /*AtomicUpdateOrdering.acquiring*/  AtomicUpdateOrdering(value: 1) {
+    return /*AtomicLoadOrdering.acquiring.copy()*/ AtomicLoadOrdering(value: 1)
+  }
+  if ordering == /*AtomicUpdateOrdering.releasing*/  AtomicUpdateOrdering(value: 2) {
+    return /*AtomicLoadOrdering.relaxed.copy()*/ AtomicLoadOrdering(value: 0)
+  }
+  if ordering == /*AtomicUpdateOrdering.acquiring_and_releasing*/  AtomicUpdateOrdering(value: 3) {
+    return /*AtomicLoadOrdering.acquiring.copy()*/ AtomicLoadOrdering(value: 1)
+  }
+  if ordering == /*AtomicUpdateOrdering.sequentially_consistent*/  AtomicUpdateOrdering(value: 4) {
+    return /*AtomicLoadOrdering.sequentially_consistent.copy()*/ AtomicLoadOrdering(value: 4)
+  }
+  trap()
+}
