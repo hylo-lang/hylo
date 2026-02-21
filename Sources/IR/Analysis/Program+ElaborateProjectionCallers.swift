@@ -102,7 +102,7 @@ extension Module {
 
     modifyIR(of: d.id, at: .before(oldEndProject)) { (e) in
       let nullCall = e._call_builtin(.zeroinitializer(BuiltinType.ptr), [])
-      let c = e._plateau_continuation(calling: plateauReference, frame: nullCall)
+      let c = e._plateauContinuation(calling: plateauReference, frame: nullCall)
       e._call_projection_ramp(
         rampReference, with: oldProjectIR.operands, frameValueType: t, continuation: c)
     }
