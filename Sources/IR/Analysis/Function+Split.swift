@@ -30,23 +30,20 @@ extension Function {
   /// `true`, returning the splits.
   ///
   /// This method is different from `Array.split(separator:)` as it deals with "epilogues". An epilogue is
-  /// a contiguous sequence of instructions that appear immediately after a split point but
-  /// logically belong before the split point.
+  /// a contiguous sequence of instructions that appears immediately after a split point but
+  /// logically belongs before the split point.
   ///
   /// See also `SplitPositions`.
   internal func split(
-    instructions a: [InstructionID], where isSplitPoint: (InstructionID) -> Bool
+    instructions xs: [InstructionID], where isSplitPoint: (InstructionID) -> Bool
   ) -> [SplitPositions] {
-    var r: [SplitPositions] = []
-    var remaining = a.dropFirst(0)
-    while let splitPointIndex = remaining.firstIndex(where: isSplitPoint) {
-      remaining = a.suffix(from: splitPointIndex).dropFirst()
-      let epilogueEnd = remaining.firstIndex(where: { !Self.mayBeEpilogue(self[$0]) }) ?? a.count
-      r.append(SplitPositions(splitPoint: splitPointIndex, epilogueEnd: epilogueEnd))
-
-      remaining = remaining.suffix(from: epilogueEnd)
+    var splits: [SplitPositions] = []    
+    var end = 0
+    while let p = xs[end...].firstIndex(where: isSplitPoint) {
+      end = xs[(p + 1)...].firstIndex(where: { !self[$0].mayBeEpilogue }) ?? xs.count
+      splits.append(SplitPositions(splitPoint: p + 1, epilogueEnd: end))
     }
-    return r
+    return splits
   }
 
   /// Splits `a`, instructions pointing into `self`, at `splitPoint`, returning the split position.
