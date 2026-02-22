@@ -49,6 +49,7 @@ public type Float32 {
   ///
   /// - Requires: `other` is different from `0`.
   public fun infix/ (_ other: Self) -> Self {
+    // TODO: Add a run-time check to prevent divisions by zero.
     Float32(value: Builtin.fdiv_float32(value, other.value))
   }
 
