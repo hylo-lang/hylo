@@ -1,0 +1,117 @@
+//- compileAndRun expecting: .success
+
+// MARK: Float32
+
+fun test_float32_arithmetic() {
+  let a: Float32 = 3.0
+  let b: Float32 = 2.0
+
+  precondition(a + b == 5.0)
+  precondition(a - b == 1.0)
+  precondition(a * b == 6.0)
+  precondition(a / b == 1.5)
+  precondition(a % b == 1.0)
+}
+
+fun test_float32_compound_assignment() {
+  var x: Float32 = 3.0
+  &x += 2.0
+  precondition(x == 5.0)
+  &x -= 1.0
+  precondition(x == 4.0)
+  &x *= 2.0
+  precondition(x == 8.0)
+  &x /= 4.0
+  precondition(x == 2.0)
+  &x %= 1.5
+  precondition(x == 0.5)
+}
+
+fun test_float32_prefix() {
+  let a: Float32 = 1.0
+  precondition(-a == -1.0)
+  precondition(+a == 1.0)
+}
+
+fun test_float32_comparison() {
+  let a: Float32 = 3.0
+  let b: Float32 = 2.0
+
+  precondition(a > b)
+  precondition(b < a)
+  precondition(a >= a)
+  precondition(b <= b)
+  precondition(a == a)
+  precondition(a != b)
+}
+
+fun test_float32_pi() {
+  let p = Float32.pi()
+  precondition(p > 3.0)
+  precondition(p < 4.0)
+}
+
+// MARK: Float64
+
+fun test_float64_arithmetic() {
+  let a: Float64 = 3.0
+  let b: Float64 = 2.0
+
+  precondition(a + b == 5.0)
+  precondition(a - b == 1.0)
+  precondition(a * b == 6.0)
+  precondition(a / b == 1.5)
+  precondition(a % b == 1.0)
+}
+
+fun test_float64_compound_assignment() {
+  var x: Float64 = 3.0
+  &x += 2.0
+  precondition(x == 5.0)
+  &x -= 1.0
+  precondition(x == 4.0)
+  &x *= 2.0
+  precondition(x == 8.0)
+  &x /= 4.0
+  precondition(x == 2.0)
+  &x %= 1.5
+  precondition(x == 0.5)
+}
+
+fun test_float64_prefix() {
+  let a: Float64 = 1.0
+  precondition(-a == -1.0)
+  precondition(+a == 1.0)
+}
+
+fun test_float64_comparison() {
+  let a: Float64 = 3.0
+  let b: Float64 = 2.0
+
+  precondition(a > b)
+  precondition(b < a)
+  precondition(a >= a)
+  precondition(b <= b)
+  precondition(a == a)
+  precondition(a != b)
+}
+
+fun test_float64_pi() {
+  let p = Float64.pi()
+  precondition(p > 3.0)
+  precondition(p < 4.0)
+}
+
+public fun main() {
+  test_float32_arithmetic()
+  test_float32_compound_assignment()
+  test_float32_prefix()
+  test_float32_comparison()
+  test_float32_pi()
+
+  test_float64_arithmetic()
+  test_float64_compound_assignment()
+  test_float64_prefix()
+  test_float64_comparison()
+  test_float64_pi()
+}
