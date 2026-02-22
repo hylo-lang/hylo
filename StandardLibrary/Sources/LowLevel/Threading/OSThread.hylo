@@ -78,15 +78,18 @@ public type OSThread: Regular {
       var thread_id: pthread_t = invalid_thread_id.copy()
       var attr: pthread_attr_t = .new()
       let pattr = mutable_pointer[to: &attr]
-      if pthread_attr_init(pattr) != 0 { return .new() }
+      var r = pthread_attr_init(pattr)
+      report_errno_failure_if(r != 0, operation: "pthread_attr_init")
       if stack > 0 {
-        if pthread_attr_setstacksize(pattr, C.size_t(truncating_or_extending: stack)) != 0 { return .new() }
+        &r = pthread_attr_setstacksize(pattr, C.size_t(truncating_or_extending: stack))
+        report_errno_failure_if(r != 0, operation: "pthread_attr_setstacksize")
       }
-      if pthread_create(mutable_pointer[to: &thread_id], pattr, function.as_raw_pointer(), a) != 0 { return .new() }
+      &r = pthread_create(mutable_pointer[to: &thread_id], pattr, function.as_raw_pointer(), a)
+      report_errno_failure_if(r != 0, operation: "pthread_create")
 
       return .new(id: thread_id)
     #else
-      return .new()
+      fatal_error("Spawning threads is not supported on this platform.")
     #endif
   }
 
@@ -101,11 +104,10 @@ public type OSThread: Regular {
   public fun join() sink {
     #if os(Linux) || os(macOS)
       precondition(id >= 0, "Thread is not running while attempting to join it.")
-      // TODO: handle errors.
       // TODO: handle return vales from the thread.
       var ret: MemoryAddress = .null()
-      let _ = pthread_join(id, mutable_pointer[to: &ret])
-      let _ = pthread_detach(id)
+      let r = pthread_join(id, mutable_pointer[to: &ret])
+      report_errno_failure_if(r != 0, operation: "pthread_join")
       &id = invalid_thread_id.copy()
     #endif
   }
