@@ -15,6 +15,109 @@ public type Float32 {
     &self = Float32(value: Builtin.fptrunc_float64_float32(other.value))
   }
 
+  /// Returns the sum of `self` and `other`.
+  public fun infix+ (_ other: Self) -> Self {
+    Float32(value: Builtin.fadd_float32(value, other.value))
+  }
+
+  /// Writes the sum of `self` and `other` to `self`.
+  public fun infix+= (_ other: Self) inout {
+    &self.value = Builtin.fadd_float32(value, other.value)
+  }
+
+  /// Returns `self` subtracted by `other`.
+  public fun infix- (_ other: Self) -> Self {
+    Float32(value: Builtin.fsub_float32(value, other.value))
+  }
+
+  /// Writes the result of `self` subtracted by `other` to `self`.
+  public fun infix-= (_ other: Self) inout {
+    &self.value = Builtin.fsub_float32(value, other.value)
+  }
+
+  /// Returns the product of `self` and `other`
+  public fun infix* (_ other: Self) -> Self {
+    Float32(value: Builtin.fmul_float32(value, other.value))
+  }
+
+  /// Writes the product of `self` and `other` to `self`.
+  public fun infix*= (_ other: Self) inout {
+    &self.value = Builtin.fmul_float32(value, other.value)
+  }
+
+  /// Returns the quotient of dividing `self` by `other`
+  ///
+  /// - Requires: `other` is different from `0`.
+  public fun infix/ (_ other: Self) -> Self {
+    Float32(value: Builtin.fdiv_float32(value, other.value))
+  }
+
+  /// Writes the quotient of dividing `self` by `other` to `self`.
+  ///
+  /// - Requires: `other` is different from `0`.
+  public fun infix/= (_ other: Self) inout {
+    &self.value = Builtin.fdiv_float32(value, other.value)
+  }
+
+  /// Returns the remainder of dividing `self` by `other`
+  ///
+  /// - Requires: `other` is different from `0`.
+  public fun infix% (_ other: Self) -> Self {
+    Float32(value: Builtin.frem_float32(value, other.value))
+  }
+
+  /// Writes the remainder of dividing `self` by `other` to `self`.
+  ///
+  /// - Requires: `other` is different from `0`.
+  public fun infix%= (_ other: Self) inout {
+    &self.value = Builtin.frem_float32(value, other.value)
+  }
+
+  /// Returns the additive inverse of `self`.
+  public fun prefix- () -> Self {
+    Float32() - self
+  }
+
+  /// Returns `self`.
+  public fun prefix+ () -> Self {
+    self.copy()
+  }
+
+  /// Returns `true` if `self` is smaller than `other`; returns `false` otherwise.
+  public fun infix< (_ other: Self) -> Bool {
+    Bool(value: Builtin.fcmp_ult_float32(value, other.value))
+  }
+
+  /// Returns `true` if `self` is smaller than or equal to `other`; returns `false` otherwise.
+  public fun infix<= (_ other: Self) -> Bool {
+    Bool(value: Builtin.fcmp_ule_float32(value, other.value))
+  }
+
+  /// Returns `true` if `self` is greater than `other`; returns `false` otherwise.
+  public fun infix> (_ other: Self) -> Bool {
+    Bool(value: Builtin.fcmp_ugt_float32(value, other.value))
+  }
+
+  /// Returns `true` if `self` is greater than or equal to `other`; returns `false` otherwise.
+  public fun infix>= (_ other: Self) -> Bool {
+    Bool(value: Builtin.fcmp_uge_float32(value, other.value))
+  }
+
+  /// Returns `true` if `self` is equal to `other`; returns `false` otherwise.
+  public fun infix== (_ other: Self) -> Bool {
+    Bool(value: Builtin.fcmp_ueq_float32(value, other.value))
+  }
+
+  /// Returns `true` if `self` is not equal to `other`; returns `false` otherwise.
+  public fun infix!= (_ other: Self) -> Bool {
+    Bool(value: Builtin.fcmp_une_float32(value, other.value))
+  }
+
+  /// The mathematical constant pi (π), approximately equal to 3.14159.
+  public static fun pi() -> Self {
+    3.14159
+  }
+
 }
 
 public conformance Float32: ExpressibleByFloatLiteral {}
