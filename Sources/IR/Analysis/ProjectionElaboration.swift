@@ -116,28 +116,4 @@ extension Module {
     return result
   }
 
-  /// Creates an `Emitter` instance that can modify the IR of `f`, with the insertion point set at
-  /// `p` and calls `action` to perform IR emission.
-  mutating func modifyIR<T>(
-    of f: Function.ID, at p: InsertionPoint, action: (inout Emitter) -> T
-  ) -> T {
-    var ds = DiagnosticSet()
-    return Emitter.withInstance(insertingIn: &self, reportingDiagnosticsTo: &ds) { (e) in
-      e.insertionFunction = f
-      e.insertionPoint = p
-      return action(&e)
-    }
-  }
-
-  // TODO: remove this
-  /// Generates an empty body for `f` by copying the block's scope from `g`.
-  mutating func generateEmptyBody(for f: Function.ID, copying g: Function.ID) {
-    precondition(f != g)
-    let source = self[g]
-    let b = self[f].appendBlock(in: source[source.entry!].scope)
-    self.modifyIR(of: f, at: .end(of: b)) { (e) in
-      e._return()
-    }
-  }
-
 }
