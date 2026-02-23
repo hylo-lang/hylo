@@ -133,7 +133,7 @@ extension Module {
   }
 
   /// Generates a new block in `ramp` that calls the continuation received as parameter, passing to
-  /// it the value from `p` and a continuation that calls `slide`; returns the identity of the new block.
+  /// the value from `p` and a continuation that calls `slide`; returns the identity of the new block.
   fileprivate mutating func generateContinuationCall(
     in ramp: Function.ID,
     referencing slide: Function.ID,

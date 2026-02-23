@@ -92,7 +92,7 @@ extension Module {
   ///
   /// Signature:
   /// > fun Caller.plateauN(inout <yield-type>, let Builtin.ptr, let ProjectionContinuation) -> {}
-  mutating func demandCallerPlateauDeclaration(
+  mutating func demandPlateau(
     for f: Function.ID, region index: Int, projectedType t: AnyType,
   ) -> Function.ID {
     let result = Function.ID(projectionCallerPlateau: f, region: index)
