@@ -50,7 +50,8 @@ final class InterpreterRunTests: XCTestCase {
             &n = 2
           }
 
-          if false {
+          let c = false
+          if c {
             &n = 3
           }else{
             &n = 4
