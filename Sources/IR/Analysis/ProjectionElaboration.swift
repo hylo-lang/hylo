@@ -17,7 +17,7 @@ extension Module {
   }
 
   /// Returns the type of a continuation that is able to call a caller plateau, projecting a value of type `p`.
-  static func callerPlateauContinuationType(projectedType p: AnyType) -> AnyType {
+  static func plateauContinuationType(projectedType p: AnyType) -> AnyType {
     let addressType = AnyType(BuiltinType.ptr)
     let t = AnyType(
       ArrowType(
@@ -36,8 +36,13 @@ extension Module {
   /// Returns the IR function representing the ramp of projection `f`.
   ///
   /// Signature:
-  /// > fun Projection.ramp(<parameters>, let CallerPlateauContinuation) -> {}
-  mutating func demandProjectionRampDeclaration(for f: Function.ID) -> Function.ID {
+  /// > fun Projection.ramp(<parameters>, let PlateauContinuation) -> {}
+  ///
+  /// Generated function parameters:
+  ///   - `<parameters>`: the original parameter of the projection
+  ///   - `let PlateauContinuation`: the continuation used to resume the flow in the plateau,
+  ///     containing the function to call and the caller frame pointer.
+  mutating func demandProjectionRamp(for f: Function.ID) -> Function.ID {
     let result = Function.ID(projectionRamp: f)
     if functions[result] != nil {
       return result
@@ -45,7 +50,7 @@ extension Module {
 
     let source = self[f]
     var inputs = source.inputs
-    let c = Self.callerPlateauContinuationType(projectedType: source.output)
+    let c = Self.plateauContinuationType(projectedType: source.output)
     inputs.append(Parameter(decl: nil, type: ParameterType(.`let`, c)))
 
     let entity = Function(
@@ -64,16 +69,17 @@ extension Module {
   ///
   /// Signature:
   /// > fun Projection.slide(let Builtin.ptr) -> {}
-  mutating func demandProjectionSlideDeclaration(for f: Function.ID) -> Function.ID {
+  ///
+  /// Generated function parameters:
+  ///   - `let Builtin.ptr`: the projection frame pointer.
+  mutating func demandProjectionSlide(for f: Function.ID) -> Function.ID {
     let result = Function.ID(projectionSlide: f)
     if self.functions[result] != nil {
       return result
     }
 
     let source = self[f]
-    let inputs: [Parameter] = [
-      Parameter(decl: nil, type: ParameterType(.`let`, AnyType(BuiltinType.ptr)))
-    ]
+    let inputs = [Parameter(decl: nil, type: ParameterType(.`let`, AnyType(BuiltinType.ptr)))]
 
     let entity = Function(
       isSubscript: false,
@@ -92,6 +98,12 @@ extension Module {
   ///
   /// Signature:
   /// > fun Caller.plateauN(inout <yield-type>, let Builtin.ptr, let ProjectionContinuation) -> {}
+  ///
+  /// Generated function parameters:
+  ///   - `inout <yield-type>`: the projected value.
+  ///   - `let Builtin.ptr`: the address of the caller frame.
+  ///   - `let ProjectionContinuation`: the continuation used to resume to the projection's slide,
+  ///     containing the function to call and the projection frame pointer.
   mutating func demandPlateau(
     for f: Function.ID, region index: Int, projectedType t: AnyType,
   ) -> Function.ID {

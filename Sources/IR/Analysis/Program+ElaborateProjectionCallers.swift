@@ -133,6 +133,9 @@ extension Module {
 
   /// Generates the code in block `b` of `f` to call the continuation received as the third
   /// parameter to `f`, followed by a return instruction.
+  ///
+  /// The plateau function for which this is called has the following signature:
+  /// > fun Caller.plateauN(inout <yield-type>, let Builtin.ptr, let ProjectionContinuation) -> {}
   fileprivate mutating func generateContinuationCall(
     toBlock b: Block.ID, of f: Function.ID
   ) {
@@ -154,7 +157,7 @@ extension Emitter {
     projectedType t: AnyType
   ) -> Operand {
     let x0 = _place_to_pointer(Operand.constant(plateau))
-    let x1 = _alloc_stack(Module.callerPlateauContinuationType(projectedType: t))
+    let x1 = _alloc_stack(Module.plateauContinuationType(projectedType: t))
     let x2 = _access(.set, from: _subfield_view(x1, at: [0, 0]))
     _store(x0, x2)
     _end_access(x2)

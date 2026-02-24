@@ -28,8 +28,8 @@ extension IR.Program {
   ) {
     if modules[m]![f].site.file.baseName != "feature-test-projection" { return }  // TODO: remove this filter.
 
-    let ramp = modules[m]!.demandProjectionRampDeclaration(for: f)
-    let slide = modules[m]!.demandProjectionSlideDeclaration(for: f)
+    let ramp = modules[m]!.demandProjectionRamp(for: f)
+    let slide = modules[m]!.demandProjectionSlide(for: f)
     let source = modules[m]![f]
     let details = ProjectionDetails(f, source: source, skeleton: s, of: base)
 
@@ -132,7 +132,7 @@ extension Module {
     }
   }
 
-  /// Generates a new block in `ramp` that calls the continuation received as parameter, passing to
+  /// Generates a new block in `ramp` that calls the continuation received as parameter, passing
   /// the value from `p` and a continuation that calls `slide`; returns the identity of the new block.
   fileprivate mutating func generateContinuationCall(
     in ramp: Function.ID,
@@ -146,8 +146,8 @@ extension Module {
       // TODO: Frame pointer
       let nullFrame = e._call_builtin(.zeroinitializer(BuiltinType.ptr), [])
 
-      let c = e._slide_continuation(calling: slideReference, frame: nullFrame)
-      e._resume_continuation(continuationParameter, with: c, projecting: p)
+      let c = e._slideContinuation(calling: slideReference, frame: nullFrame)
+      e._resumeContinuation(continuationParameter, with: c, projecting: p)
       e._return()
     }
     return b
@@ -155,7 +155,14 @@ extension Module {
 
   /// Returns the operand representing the continuation parameter in ramp `f`.
   ///
-  /// This is the last parameter to `f`; block has the additional return type.
+  /// The ramp function has the following signature:
+  /// > fun Projection.ramp(<parameters>, let PlateauContinuation) -> {}
+  ///
+  /// The entry block of the ramp function will look like:
+  /// > b0(<parameters>, %b0#N1 : &<PlateauContinuation>, %b0#N : &{}):
+  /// adding an extra parameter for the return type.
+  /// 
+  /// We will return the previous-to-last parameter of the block.
   private func continuationParameter(ramp f: Function.ID) -> Operand {
     let source = self[f]
     let entry = source.entry!
@@ -206,7 +213,7 @@ extension Module {
 extension Emitter {
 
   /// Allocates and initializes a continuation to call `slide` with frame pointer `f`.
-  fileprivate mutating func _slide_continuation(
+  fileprivate mutating func _slideContinuation(
     calling slide: FunctionReference, frame f: Operand
   ) -> Operand {
     let x0 = _place_to_pointer(Operand.constant(slide))
@@ -221,7 +228,7 @@ extension Emitter {
   }
 
   /// Emit code that jumps to continuation `c`, passing `slideContinuation` as argument.
-  fileprivate mutating func _resume_continuation(
+  fileprivate mutating func _resumeContinuation(
     _ c: Operand, with slideContinuation: Operand,
     projecting s: Operand
   ) {
