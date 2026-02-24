@@ -48,7 +48,7 @@ extension IR.Program {
 
     // Generate the declaration.
     let oldProject = d.splitInstruction(endingRegion: index - 1)
-    let plateau = modules[m]!.demandCallerPlateauDeclaration(
+    let plateau = modules[m]!.demandPlateau(
       for: d.id, region: plateauIndex, projectedType: source[oldProject].result!.ast)
 
     // Add the entry block in the plateau function.
@@ -138,7 +138,7 @@ extension Module {
   ) {
     let entry = self[f].entry!
     modifyIR(of: f, at: .end(of: b)) { (e) in
-      e._resumeContinuation(Operand.parameter(entryBlock, 2))
+      e._resumeContinuation(Operand.parameter(entry, 2))
       e._return()
     }
   }
@@ -165,7 +165,7 @@ extension Emitter {
   }
 
   /// Generates IR for jumping to projection continuation `c`.
-  fileprivate mutating func _resume_continuation(_ c: Operand) {
+  fileprivate mutating func _resumeContinuation(_ c: Operand) {
     let x0 = _access(.let, from: _subfield_view(c, at: [0]))  // c.resumeFunction
     let x1 = _access(.let, from: _subfield_view(c, at: [1]))  // c.frame
     let x2 = _alloc_stack(.void)
@@ -175,7 +175,7 @@ extension Emitter {
   }
 
   /// Emits a call to the projection ramp `r` with `arguments` and continuation `c`.
-  fileprivate mutating func _call_projection_ramp(
+  fileprivate mutating func _callProjectionRamp(
     _ r: FunctionReference, with arguments: [Operand], continuation c: Operand
   ) {
     let x0 = _access(.let, from: c)
