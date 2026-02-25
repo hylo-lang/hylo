@@ -208,7 +208,7 @@ public struct Interpreter {
       return .value(.init(payload: a))
 
     case let x as Branch:
-      _ = x
+      return .jump(entryPoint(of: x.target))
     case let x as Call:
       _ = x
     case let x as CallBuiltinFunction:
@@ -224,7 +224,11 @@ public struct Interpreter {
     case let x as CloseUnion:
       _ = x
     case let x as CondBranch:
-      _ = x
+      if asBool(x.condition) {
+        return .jump(entryPoint(of: x.targetIfTrue))
+      } else {
+        return .jump(entryPoint(of: x.targetIfFalse))
+      }
     case let x as ConstantString:
       return .value(.init(payload: x.value))
     case let x as DeallocStack:
@@ -241,7 +245,7 @@ public struct Interpreter {
     case let x as GlobalPlace:
       _ = x
     case let x as Load:
-      _ = x
+      return try .value(.init(payload: memory.builtinValue(in: asPlace(x.source))));
     case is MarkState:
       // No effect on program state
       return nil
@@ -361,6 +365,33 @@ public struct Interpreter {
         UNIMPLEMENTED("non-integer constant parsing!!!")
       }
     }
+  }
+
+  /// Interpret `x` as a boolean.
+  ///
+  /// - Precondition: `x` is boolean value.
+  func asBool(_ x: Operand) -> Bool {
+    switch x {
+    case .register(let instruction):
+      (topOfStack.registers[instruction]!.payload as! BuiltinValue).i1!
+    case .parameter:
+      preconditionFailure("Parameter operand is never a boolean.")
+    case .constant(let c):
+      switch c {
+      case let x as IntegerConstant:
+        x.value != 0
+      default:
+        preconditionFailure("Non-integer builtin value is never a boolean.")
+      }
+    }
+  }
+
+  /// Returns pointer to first instruction of `b`.
+  func entryPoint(of b: Block.ID) -> CodePointer {
+    let m = programCounter.module
+    let f = programCounter.functionInModule
+    let i = program.modules[m]![f].firstInstruction(in: b)!
+    return .init(module: m, functionInModule: f, instructionInFunction: i)
   }
 
 }
