@@ -47,7 +47,9 @@ extension IR.Program {
     let source = modules[m]![d.id]
 
     // Generate the declaration.
-    let plateau = modules[m]!.demandCallerPlateauDeclaration(for: d.id, region: plateauIndex)
+    let oldProject = d.splitInstruction(endingRegion: index - 1)
+    let plateau = modules[m]!.demandPlateau(
+      for: d.id, region: plateauIndex, projectedType: source[oldProject].result!.ast)
 
     // Add the entry block in the plateau function.
     let entry = modules[m]![plateau].appendBlock(in: source[d.blocks[0]].scope)
@@ -55,11 +57,8 @@ extension IR.Program {
       d.blocks[0]: entry
     ]
 
-    // Add storage for the projected value in the plateau, to replace the projected value.
-    let oldProject = d.splitInstruction(endingRegion: index - 1)
-    let p = modules[m]!.addStorage(in: entry, of: plateau, replacing: source[oldProject])
     let rewrittenRegisters: [Operand: Operand] = [
-      .register(oldProject): .register(p)
+      .register(oldProject): .parameter(entry, 0)
     ]
 
     // From the tail we need to ignore (not rewrite) the uses of the projected value.
@@ -102,9 +101,9 @@ extension Module {
 
     modifyIR(of: d.id, at: .before(oldEndProject)) { (e) in
       let nullCall = e._call_builtin(.zeroinitializer(BuiltinType.ptr), [])
-      let c = e._plateauContinuation(calling: plateauReference, frame: nullCall)
-      e._call_projection_ramp(
-        rampReference, with: oldProjectIR.operands, frameValueType: t, continuation: c)
+      let c = e._plateauContinuation(calling: plateauReference, frame: nullCall, projectedType: t)
+      e._callProjectionRamp(
+        rampReference, with: oldProjectIR.operands, continuation: c)
     }
 
     // Remove old instructions...
@@ -132,14 +131,17 @@ extension Module {
     return r.instruction!
   }
 
-  /// Generates the code in block `b` of `f` to call the continuation received as the second
+  /// Generates the code in block `b` of `f` to call the continuation received as the third
   /// parameter to `f`, followed by a return instruction.
+  ///
+  /// The plateau function for which this is called has the following signature:
+  /// > fun Caller.plateauN(inout <yield-type>, let Builtin.ptr, let ProjectionContinuation) -> {}
   fileprivate mutating func generateContinuationCall(
     toBlock b: Block.ID, of f: Function.ID
   ) {
-    let entryBlock = self[f].entry!
+    let entry = self[f].entry!
     modifyIR(of: f, at: .end(of: b)) { (e) in
-      e._resume_continuation(Operand.parameter(entryBlock, 1))
+      e._resumeContinuation(Operand.parameter(entry, 2))
       e._return()
     }
   }
@@ -148,12 +150,14 @@ extension Module {
 
 extension Emitter {
 
-  /// Allocates and initializes a continuation to call `plateau` with frame pointer `f`.
+  /// Allocates and initializes a continuation to call `plateau` with frame pointer `f` for a
+  /// projected value of type `t`.
   fileprivate mutating func _plateauContinuation(
-    calling plateau: FunctionReference, frame f: Operand
+    calling plateau: FunctionReference, frame f: Operand,
+    projectedType t: AnyType
   ) -> Operand {
     let x0 = _place_to_pointer(Operand.constant(plateau))
-    let x1 = _alloc_stack(Module.callerContinuationType())
+    let x1 = _alloc_stack(Module.plateauContinuationType(projectedType: t))
     let x2 = _access(.set, from: _subfield_view(x1, at: [0, 0]))
     _store(x0, x2)
     _end_access(x2)
@@ -164,7 +168,7 @@ extension Emitter {
   }
 
   /// Generates IR for jumping to projection continuation `c`.
-  fileprivate mutating func _resume_continuation(_ c: Operand) {
+  fileprivate mutating func _resumeContinuation(_ c: Operand) {
     let x0 = _access(.let, from: _subfield_view(c, at: [0]))  // c.resumeFunction
     let x1 = _access(.let, from: _subfield_view(c, at: [1]))  // c.frame
     let x2 = _alloc_stack(.void)
@@ -173,17 +177,13 @@ extension Emitter {
     _end_access(x0)
   }
 
-  /// Emit code to call the projection ramp `r` with `arguments`, frame value type `t`,
-  /// and continuation `continuation`.
-  fileprivate mutating func _call_projection_ramp(
-    _ r: FunctionReference, with arguments: [Operand], frameValueType t: AnyType,
-    continuation: Operand
+  /// Emits a call to the projection ramp `r` with `arguments` and continuation `c`.
+  fileprivate mutating func _callProjectionRamp(
+    _ r: FunctionReference, with arguments: [Operand], continuation c: Operand
   ) {
-    let x0 = _access(.let, from: continuation)
-    let x1 = _access(.set, from: _alloc_stack(t))
-    let x2 = _alloc_stack(.void)
-    _emitApply(Operand.constant(r), to: arguments + [x0, x1], writingResultTo: x2)
-    _end_access(x1)
+    let x0 = _access(.let, from: c)
+    let x1 = _alloc_stack(.void)
+    _emitApply(Operand.constant(r), to: arguments + [x0], writingResultTo: x1)
     _end_access(x0)
   }
 
