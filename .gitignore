@@ -10,6 +10,7 @@
 # macOS
 .DS_Store
 \#*ediff-merge*#
+/.idea
 
 # Misc
 /Examples/**.vir
