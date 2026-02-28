@@ -53,7 +53,7 @@ struct ConcreteTypeLayout: Sendable {
   /// Creates the layout of `t`, which is defined in `ir`, for use in `m`.
   ///
   /// - Requires: `t` is representable in LLVM.
-  init(of t: AnyType, definedIn ir: IR.Program, forUseIn m: inout SwiftyLLVM.Module) {
+  init(of t: FrontEnd.AnyType, definedIn ir: IR.Program, forUseIn m: inout SwiftyLLVM.Module) {
     self.init(AbstractTypeLayout(of: t, definedIn: ir.base), definedIn: ir, forUseIn: &m)
     checkInvariant()
   }
