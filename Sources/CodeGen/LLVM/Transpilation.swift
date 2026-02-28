@@ -73,7 +73,7 @@ struct CodeGenerationContext {
   let module: ModuleDecl.ID
 
   /// A table from string constant to its representation in LLVM.
-  var strings = Trie<Data, SwiftyLLVM.GlobalVariable.Reference>()
+  var strings = Trie<Data, SwiftyLLVM.GlobalVariable.UnsafeReference>()
 
   /// A table from mangled function name to its transpilation status.
   var transpiled: Set<IR.Function.ID> = []
@@ -206,7 +206,7 @@ extension SwiftyLLVM.Module {
     let int32 = context.ir.ast.coreType("Int32")!
     switch context.source[f].output {
     case int32:
-      let t = StructType.Reference(context.ir.llvm(int32, in: &self))!
+      let t = StructType.UnsafeReference(context.ir.llvm(int32, in: &self))!
       let s = insertAlloca(t, at: p)
       _ = insertCall(transpilation, on: (s), at: p)
 
@@ -223,9 +223,9 @@ extension SwiftyLLVM.Module {
   }
 
   /// Returns the LLVM type of a metatype instance.
-  private mutating func metatypeType() -> SwiftyLLVM.StructType.Reference {
+  private mutating func metatypeType() -> SwiftyLLVM.StructType.UnsafeReference {
     if let t = type(named: "_hylo_metatype") {
-      return StructType.Reference(t)!
+      return StructType.UnsafeReference(t)!
     }
 
     return structType((
@@ -237,15 +237,15 @@ extension SwiftyLLVM.Module {
   }
 
   /// Returns the LLVM type of an existential container.
-  private mutating func containerType() -> SwiftyLLVM.StructType.Reference {
+  private mutating func containerType() -> SwiftyLLVM.StructType.UnsafeReference {
     if let t = type(named: "_val_container") {
-      return SwiftyLLVM.StructType.Reference(t)!
+      return SwiftyLLVM.StructType.UnsafeReference(t)!
     }
     return structType((ptr, ptr))
   }
 
   /// Returns the prototype of subscript slides.
-  private mutating func slidePrototype() -> SwiftyLLVM.Function.Reference {
+  private mutating func slidePrototype() -> SwiftyLLVM.Function.UnsafeReference {
     if let f = function(named: "_val_slide") {
       return f
     }
@@ -259,7 +259,7 @@ extension SwiftyLLVM.Module {
   }
 
   /// Returns the declaration of `malloc`.
-  private mutating func mallocPrototype() -> SwiftyLLVM.Function.Reference {
+  private mutating func mallocPrototype() -> SwiftyLLVM.Function.UnsafeReference {
     if let f = function(named: "malloc") {
       return f
     }
@@ -275,7 +275,7 @@ extension SwiftyLLVM.Module {
   }
 
   /// Returns the declaration of `free`.
-  private mutating func freePrototype() -> SwiftyLLVM.Function.Reference {
+  private mutating func freePrototype() -> SwiftyLLVM.Function.UnsafeReference {
     if let f = function(named: "free") {
       return f
     }
@@ -292,7 +292,7 @@ extension SwiftyLLVM.Module {
   ///
   /// - Note: the type of a function in Hylo IR typically doesn't match the type of its transpiled
   ///   form 1-to-1, as return values are often passed by references.
-  private mutating func transpiledType(_ t: ArrowType) -> SwiftyLLVM.FunctionType.Reference {
+  private mutating func transpiledType(_ t: ArrowType) -> SwiftyLLVM.FunctionType.UnsafeReference {
     // Return value is passed by reference.
     var parameters: Int = t.inputs.count + 1
 
@@ -307,7 +307,7 @@ extension SwiftyLLVM.Module {
   /// Returns the LLVM IR value corresponding to the Hylo IR constant `c` when used in `m` in `ir`.
   private mutating func transpiledConstant(
     _ c: any IR.Constant, in context: inout CodeGenerationContext
-  ) -> SwiftyLLVM.AnyValue.Reference {
+  ) -> SwiftyLLVM.AnyValue.UnsafeReference {
     switch c {
     case let v as IR.WordConstant:
       return transpiledConstant(v, in: &context)
@@ -331,14 +331,14 @@ extension SwiftyLLVM.Module {
   /// Returns the LLVM IR value corresponding to the Hylo IR constant `c` when used in `m` in `ir`.
   private mutating func transpiledConstant(
     _ c: IR.WordConstant, in context: inout CodeGenerationContext
-  ) -> AnyValue.Reference {
+  ) -> AnyValue.UnsafeReference {
     word.with { $0.constant(c.value).erased }
   }
 
   /// Returns the LLVM IR value corresponding to the Hylo IR constant `c` when used in `m` in `ir`.
   private mutating func transpiledConstant(
     _ c: IR.IntegerConstant, in context: inout CodeGenerationContext
-  ) -> AnyValue.Reference {
+  ) -> AnyValue.UnsafeReference {
     guard c.value.bitWidth <= 64 else { UNIMPLEMENTED() }
     let t = integerType(c.value.bitWidth)
     return t.with { $0.constant(c.value.words[0]).erased }
@@ -347,15 +347,15 @@ extension SwiftyLLVM.Module {
   /// Returns the LLVM IR value corresponding to the Hylo IR constant `c` when used in `m` in `ir`.
   private mutating func transpiledConstant(
     _ c: IR.FloatingPointConstant, in context: inout CodeGenerationContext
-  ) -> AnyValue.Reference {
-    let t = SwiftyLLVM.FloatingPointType.Reference(context.ir.llvm(c.type.ast, in: &self))!
+  ) -> AnyValue.UnsafeReference {
+    let t = SwiftyLLVM.FloatingPointType.UnsafeReference(context.ir.llvm(c.type.ast, in: &self))!
     return t.with { $0.constant(parsing: c.value).erased }
   }
 
   /// Returns the LLVM IR value of the witness table `t` used in `m` in `ir`.
   private mutating func transpiledWitnessTable(
     _ t: WitnessTable, in context: inout CodeGenerationContext
-  ) -> AnyValue.Reference {
+  ) -> AnyValue.UnsafeReference {
     // A witness table is composed of a header, a trait map, and a (possibly empty) sequence of
     // implementation maps. All parts are laid out inline without any padding.
     //
@@ -369,14 +369,14 @@ extension SwiftyLLVM.Module {
     // trait requirement identifier and `i` is a pointer to its implementation.
 
     // Encode the table's header.
-    var tableContents: [AnyValue.Reference] = [
+    var tableContents: [AnyValue.UnsafeReference] = [
       demandMetatype(of: t.witness, in: &context).erased,
       word.with { $0.constant(t.conformances.count).erased },
     ]
 
     // Encode the table's trait and implementation maps.
-    var entries: [AnyValue.Reference] = []
-    var implementations: [AnyValue.Reference] = []
+    var entries: [AnyValue.UnsafeReference] = []
+    var implementations: [AnyValue.UnsafeReference] = []
     for c in t.conformances {
       entries.append(
         structConstant(
@@ -387,7 +387,7 @@ extension SwiftyLLVM.Module {
         ).erased)
 
       for (r, d) in c.implementations {
-        let requirement: [AnyValue.Reference] = [
+        let requirement: [AnyValue.UnsafeReference] = [
           word.with { $0.constant(r.rawValue.bits).erased },
           transpiledRequirementImplementation(d, from: context.ir).erased,
         ]
@@ -429,7 +429,7 @@ extension SwiftyLLVM.Module {
   /// Returns the LLVM IR value of the requirement implementation `i`, which is in `ir`.
   private mutating func transpiledRequirementImplementation(
     _ i: IR.Conformance.Implementation, from ir: IR.Program
-  ) -> SwiftyLLVM.Function.Reference {
+  ) -> SwiftyLLVM.Function.UnsafeReference {
     switch i {
     case .function(let f):
       return declare(f, from: ir)
@@ -441,7 +441,7 @@ extension SwiftyLLVM.Module {
   /// Returns the LLVM IR value of the metatype `t` used in `m` in `ir`.
   private mutating func demandMetatype(
     of t: FrontEnd.AnyType, in context: inout CodeGenerationContext
-  ) -> SwiftyLLVM.GlobalVariable.Reference {
+  ) -> SwiftyLLVM.GlobalVariable.UnsafeReference {
     demandMetatype(of: t, in: &context) { (me, c, v) in
       if let u = ProductType(t) {
         me.initializeTranspiledProductTypeMetatype(v, of: u, in: &c)
@@ -453,13 +453,13 @@ extension SwiftyLLVM.Module {
 
   /// Initializes `instance` with the value of the metatype of `t` used in `m` in `ir`.
   private mutating func initializeTranspiledMetatype<T: TypeProtocol>(
-    _ instance: SwiftyLLVM.GlobalVariable.Reference,
+    _ instance: SwiftyLLVM.GlobalVariable.UnsafeReference,
     of t: T, in context: inout CodeGenerationContext
   ) {
     setLinkage(.linkOnce, for: instance)
 
     let layout = ConcreteTypeLayout(of: ^t, definedIn: context.ir, forUseIn: &self)
-    let v = structConstant(of: StructType.Reference(instance.with { $0.valueType })!,
+    let v = structConstant(of: StructType.UnsafeReference(instance.with { $0.valueType })!,
       aggregating: (
         word.with { $0.constant(layout.size) },
         word.with { $0.constant(layout.alignment) },
@@ -473,7 +473,7 @@ extension SwiftyLLVM.Module {
 
   /// Initializes `instance` with the value of the metatype of `t` used in `m` in `ir`.
   private mutating func initializeTranspiledProductTypeMetatype(
-    _ instance: SwiftyLLVM.GlobalVariable.Reference,
+    _ instance: SwiftyLLVM.GlobalVariable.UnsafeReference,
     of t: ProductType, in context: inout CodeGenerationContext
   ) {
     // Initialize the instance if it's being used in the module defining `t`. Otherwise, simply let
@@ -488,7 +488,7 @@ extension SwiftyLLVM.Module {
       layout = ConcreteTypeLayout(of: ^t, definedIn: context.ir, forUseIn: &self)
     }
 
-    let v = structConstant(of: StructType.Reference(instance.with { $0.valueType })!, aggregating: (
+    let v = structConstant(of: StructType.UnsafeReference(instance.with { $0.valueType })!, aggregating: (
       word.with { $0.constant(layout.size) },
       word.with { $0.constant(layout.alignment) },
       word.with { $0.constant(layout.stride) },
@@ -504,9 +504,9 @@ extension SwiftyLLVM.Module {
   private mutating func demandMetatype<T: TypeProtocol>(
     of t: T, in context: inout CodeGenerationContext,
     initializedWith initializeInstance: (
-      inout Self, inout CodeGenerationContext, SwiftyLLVM.GlobalVariable.Reference
+      inout Self, inout CodeGenerationContext, SwiftyLLVM.GlobalVariable.UnsafeReference
     ) -> Void
-  ) -> SwiftyLLVM.GlobalVariable.Reference {
+  ) -> SwiftyLLVM.GlobalVariable.UnsafeReference {
     let globalName = context.ir.base.mangled(t)
     if let g = global(named: globalName) { return g }
 
@@ -519,7 +519,7 @@ extension SwiftyLLVM.Module {
   /// Returns the LLVM IR value of `t` used in `m` in `ir`.
   private mutating func demandTrait(
     _ t: TraitType, in context: inout CodeGenerationContext
-  ) -> SwiftyLLVM.GlobalVariable.Reference {
+  ) -> SwiftyLLVM.GlobalVariable.UnsafeReference {
     // Check if we already created the trait's instance.
     let globalName = context.ir.base.mangled(t)
     if let g = global(named: globalName) {
@@ -547,7 +547,7 @@ extension SwiftyLLVM.Module {
   /// Inserts and returns the transpiled declaration of `ref`, which is in `ir`.
   private mutating func declare(
     _ ref: IR.FunctionReference, from ir: IR.Program
-  ) -> SwiftyLLVM.Function.Reference {
+  ) -> SwiftyLLVM.Function.UnsafeReference {
     let t = transpiledType(ArrowType(ref.type.ast)!)
     return declareFunction(ir.llvmName(of: ref.function), t)
   }
@@ -555,7 +555,7 @@ extension SwiftyLLVM.Module {
   /// Inserts and returns the transpiled declaration of `f`, which is a function of `m` in `ir`.
   private mutating func declareFunction(
     transpiledFrom f: IR.Function.ID, in context: inout CodeGenerationContext
-  ) -> (inserted: Bool, function: SwiftyLLVM.Function.Reference) {
+  ) -> (inserted: Bool, function: SwiftyLLVM.Function.UnsafeReference) {
     precondition(!context.source[f].isSubscript)
 
     // Parameters and return values are passed by reference.
@@ -574,7 +574,7 @@ extension SwiftyLLVM.Module {
   /// Inserts and returns the transpiled declaration of `f`, which is a subscript of `m` in `ir`.
   private mutating func declareSubscript(
     transpiledFrom f: IR.Function.ID, in context: inout CodeGenerationContext
-  ) -> (inserted: Bool, function: SwiftyLLVM.Function.Reference) {
+  ) -> (inserted: Bool, function: SwiftyLLVM.Function.UnsafeReference) {
     precondition(context.source[f].isSubscript)
 
     // Parameters are a buffer for the subscript frame followed by its declared parameters. Return
@@ -595,7 +595,7 @@ extension SwiftyLLVM.Module {
 
   /// Adds to `llvmFunction` the attributes implied by its IR form `f`, which is in `m`.
   private mutating func configureAttributes(
-    _ llvmFunction: SwiftyLLVM.Function.Reference, transpiledFrom f: IR.Function.ID, of m: IR.Module
+    _ llvmFunction: SwiftyLLVM.Function.UnsafeReference, transpiledFrom f: IR.Function.ID, of m: IR.Module
   ) {
     if m[f].linkage == .module {
       setLinkage(.private, for: llvmFunction)
@@ -627,7 +627,7 @@ extension SwiftyLLVM.Module {
 
   /// Adds to `llvmParameter` the attributes implied by its IR form in `m[f].inputs[p]`.
   private mutating func configureInputAttributes(
-    _ llvmParameter: SwiftyLLVM.Parameter.Reference,
+    _ llvmParameter: SwiftyLLVM.Parameter.UnsafeReference,
     transpiledFrom p: Int, in f: IR.Function.ID, in m: IR.Module
   ) {
     addParameterAttribute(named: .noalias, to: llvmParameter)
@@ -648,7 +648,7 @@ extension SwiftyLLVM.Module {
   /// - Requires: `transpilation` contains no instruction.
   private mutating func transpile(
     contentsOf f: IR.Function.ID,
-    into transpilation: SwiftyLLVM.Function.Reference,
+    into transpilation: SwiftyLLVM.Function.UnsafeReference,
     inContext context: inout CodeGenerationContext
   ) {
     assert(transpilation.with { $0.basicBlocks.isEmpty })
@@ -660,20 +660,20 @@ extension SwiftyLLVM.Module {
     var insertionPoint: SwiftyLLVM.InsertionPoint!
 
     /// A map from Hylo IR basic block to its LLVM counterpart.
-    var block: [IR.Block.ID: SwiftyLLVM.BasicBlock.Reference] = [:]
+    var block: [IR.Block.ID: SwiftyLLVM.BasicBlock.UnsafeReference] = [:]
 
     /// A map from Hylo IR register to its LLVM counterpart.
-    var register: [IR.Operand: AnyValue.Reference] = [:]
+    var register: [IR.Operand: AnyValue.UnsafeReference] = [:]
 
     /// A map from projection to its side results in SwiftyLLVM.
     ///
     /// Projection calls is transpiled as coroutine calls, producing a slide and a frame pointer in
     /// addition to the projected value. These values are stored here so that `register` can be a
     /// one-to-one mapping from Hylo registers to LLVM registers.
-    var byproduct: [IR.InstructionID: (slide: AnyValue.Reference, frame: AnyValue.Reference)] = [:]
+    var byproduct: [IR.InstructionID: (slide: AnyValue.UnsafeReference, frame: AnyValue.UnsafeReference)] = [:]
 
     /// The address of the function's frame if `f` is a subscript, or `nil` otherwise.
-    let frame: AnyValue.Reference?
+    let frame: AnyValue.UnsafeReference?
 
     /// The prologue of the transpiled function, which contains its stack allocations.
     let prologue = appendBlock(named: "prologue", to: transpilation)
@@ -840,7 +840,7 @@ extension SwiftyLLVM.Module {
     /// Inserts the transpilation of `i` at `insertionPoint`.
     func insert(call i: IR.InstructionID) {
       let s = context.source[i, in: f] as! Call
-      var arguments: [AnyValue.Reference] = []
+      var arguments: [AnyValue.UnsafeReference] = []
 
       // Callee is evaluated first; environment is passed before explicit arguments.
       let callee = unpackCallee(of: s.callee)
@@ -859,7 +859,7 @@ extension SwiftyLLVM.Module {
         context.ir.llvm(context.source[f].type(of: o).ast, in: &self)
       }
 
-      let returnType: SwiftyLLVM.AnyType.Reference
+      let returnType: SwiftyLLVM.AnyType.UnsafeReference
       if s.returnType.ast.isVoidOrNever {
         returnType = void.erased
       } else {
@@ -1719,7 +1719,7 @@ extension SwiftyLLVM.Module {
       setAlignment(8, for: x0)
 
       // All arguments are passed by reference.
-      var arguments: [AnyValue.Reference] = [x0.erased]
+      var arguments: [AnyValue.UnsafeReference] = [x0.erased]
       for a in s.operands {
         if context.source[f].type(of: a).isObject {
           let t = context.ir.llvm(s.result!.ast, in: &self)
@@ -1842,7 +1842,7 @@ extension SwiftyLLVM.Module {
     }
 
     /// Returns the LLVM IR value corresponding to the Hylo IR operand `o`.
-    func llvm(_ o: IR.Operand) -> AnyValue.Reference {
+    func llvm(_ o: IR.Operand) -> AnyValue.UnsafeReference {
       if case .constant(let c) = o {
         return transpiledConstant(c, in: &context)
       } else {
@@ -1856,13 +1856,13 @@ extension SwiftyLLVM.Module {
         let f = transpiledConstant(f, in: &context)
         
         // note: may be an intrinsic function, not just a function. In general: any Callable
-        let t = SwiftyLLVM.Function.Reference(f)!.with { $0.valueType } 
+        let t = SwiftyLLVM.Function.UnsafeReference(f)!.with { $0.valueType } 
         return .init(function: f, type: t, environment: [])
       }
 
       // `s` is an arrow.
       let hyloType = ArrowType(context.source[f].type(of: s).ast)!
-      let llvmType = StructType.Reference(context.ir.llvm(hyloType, in: &self))!
+      let llvmType = StructType.UnsafeReference(context.ir.llvm(hyloType, in: &self))!
       let lambda = llvm(s)
 
       // The first element of the representation is the function pointer.
@@ -1872,10 +1872,10 @@ extension SwiftyLLVM.Module {
 
       let e = insertGetStructElementPointer(
         of: lambda, typed: llvmType, index: 1, at: insertionPoint)
-      let captures = StructType.Reference(context.ir.llvm(hyloType.environment, in: &self))!
+      let captures = StructType.UnsafeReference(context.ir.llvm(hyloType.environment, in: &self))!
 
       // Following elements constitute the environment.
-      var environment: [AnyValue.Reference] = []
+      var environment: [AnyValue.UnsafeReference] = []
       for (i, c) in hyloType.captures.enumerated() {
         var x = insertGetStructElementPointer(
           of: e, typed: captures, index: i, at: insertionPoint)
@@ -1893,7 +1893,7 @@ extension SwiftyLLVM.Module {
     }
 
     /// Returns an existential container wrapping the given `witness` and witness `table`.
-    func container(witness: Operand, table: Operand) -> AnyValue.Reference {
+    func container(witness: Operand, table: Operand) -> AnyValue.UnsafeReference {
       let t = containerType()
       var v = t.with { $0.null }
       v = insertInsertValue(llvm(witness), at: 0, into: v, at: insertionPoint).erased
@@ -1902,7 +1902,7 @@ extension SwiftyLLVM.Module {
     }
 
     /// Returns the value of `container`'s discriminator.
-    func discriminator(_ container: IR.Operand) -> SwiftyLLVM.Instruction.Reference {
+    func discriminator(_ container: IR.Operand) -> SwiftyLLVM.Instruction.UnsafeReference {
       let union = UnionType(context.source[f].type(of: container).ast)!
       let baseType = context.ir.llvm(unionType: union, in: &self)
       let container = llvm(container)
@@ -1916,8 +1916,8 @@ extension SwiftyLLVM.Module {
   /// Inserts the prologue of the subscript `transpilation` at the end of its entry and returns
   /// a pointer to its stack frame.
   fileprivate mutating func insertSubscriptPrologue(
-    into transpilation: SwiftyLLVM.Function.Reference
-  ) -> AnyValue.Reference {
+    into transpilation: SwiftyLLVM.Function.UnsafeReference
+  ) -> AnyValue.UnsafeReference {
     let insertionPoint = endOf(transpilation.with { $0.entry! })
     let id = insertCall(
       intrinsic(named: IntrinsicFunction.llvm.coro.id.retcon.once)!,
@@ -1947,13 +1947,13 @@ extension LLVMProgram {
 private struct ArrowContents {
 
   /// A pointer to the underlying thin function.
-  let function: SwiftyLLVM.AnyValue.Reference// todo make AnyCallable.Reference
+  let function: SwiftyLLVM.AnyValue.UnsafeReference// todo make AnyCallable.UnsafeReference
 
   /// The type `function`.
-  let type: SwiftyLLVM.AnyType.Reference
+  let type: SwiftyLLVM.AnyType.UnsafeReference
 
   /// The arrow's environment.
-  let environment: [SwiftyLLVM.AnyValue.Reference]
+  let environment: [SwiftyLLVM.AnyValue.UnsafeReference]
 
 }
 
