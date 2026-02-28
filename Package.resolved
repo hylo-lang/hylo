@@ -1,10 +1,10 @@
 {
-  "originHash" : "07e876a23d566ecda110daa6e654422f23973de83af414a750ed4c98559210b6",
+  "originHash" : "9332b8f918ec01c98ce7ac8e527b909b7d34726e2722ac69c6569e2e7effaf6a",
   "pins" : [
     {
       "identity" : "bigint",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/attaswift/BigInt.git",
+      "location" : "https://github.com/attaswift/BigInt",
       "state" : {
         "revision" : "e07e00fa1fd435143a2dcf8b7eec9a7710b2fdfe",
         "version" : "5.7.0"
@@ -88,14 +88,6 @@
       "state" : {
         "revision" : "b464fcd8d884e599e3202d9bd1eee29a9e504069",
         "version" : "0.7.2"
-      }
-    },
-    {
-      "identity" : "swifty-llvm",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/hylo-lang/Swifty-LLVM",
-      "state" : {
-        "revision" : "cff484ecca159d9eec1938cda83a72b57cdfbd08"
       }
     },
     {

@@ -1,3 +1,7 @@
 [submodule "SPMBuildToolSupport"]
 	path = SPMBuildToolSupport
 	url = https://github.com/dabrahams/SPMBuildToolSupport.git
+[submodule "swifty-llvm"]
+	path = Swifty-LLVM
+	url = https://github.com/hylo-lang/Swifty-LLVM
+	branch = ambrus/api-v2
