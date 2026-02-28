@@ -814,7 +814,7 @@ extension SwiftyLLVM.Module {
       let baseType = context.ir.llvm(context.source[f].type(of: s.base).ast, in: &self)
       let v = insertGetElementPointerInBounds(
         of: base, typed: baseType,
-        indices: (i32.pointee.constant(0), i32.pointee.constant(s.offset)), 
+        indices: (i32.pointee.constant(0), i32.pointee.constant(s.offset)),
         at: insertionPoint)
       register[.register(i)] = v.erased
     }
