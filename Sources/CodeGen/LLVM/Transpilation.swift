@@ -206,7 +206,7 @@ extension SwiftyLLVM.Module {
     let int32 = context.ir.ast.coreType("Int32")!
     switch context.source[f].output {
     case int32:
-      let t = StructType.Reference(context.ir.llvm(int32, in: &self))  // todo safety check
+      let t = StructType.Reference(context.ir.llvm(int32, in: &self))!
       let s = insertAlloca(t, at: p)
       _ = insertCall(transpilation, on: (s), at: p)
 
@@ -225,7 +225,7 @@ extension SwiftyLLVM.Module {
   /// Returns the LLVM type of a metatype instance.
   private mutating func metatypeType() -> SwiftyLLVM.StructType.Reference {
     if let t = type(named: "_hylo_metatype") {
-      return .init(t)  // todo safety check
+      return StructType.Reference(t)!
     }
 
     return structType((
@@ -239,7 +239,7 @@ extension SwiftyLLVM.Module {
   /// Returns the LLVM type of an existential container.
   private mutating func containerType() -> SwiftyLLVM.StructType.Reference {
     if let t = type(named: "_val_container") {
-      return .init(t)  // todo safety check
+      return SwiftyLLVM.StructType.Reference(t)!
     }
     return structType((ptr, ptr))
   }
@@ -348,7 +348,7 @@ extension SwiftyLLVM.Module {
   private mutating func transpiledConstant(
     _ c: IR.FloatingPointConstant, in context: inout CodeGenerationContext
   ) -> AnyValue.Reference {
-    let t = SwiftyLLVM.FloatingPointType.Reference(context.ir.llvm(c.type.ast, in: &self))  // todo safety check
+    let t = SwiftyLLVM.FloatingPointType.Reference(context.ir.llvm(c.type.ast, in: &self))!
     return t.with { $0.constant(parsing: c.value).erased }
   }
 
@@ -459,7 +459,7 @@ extension SwiftyLLVM.Module {
     setLinkage(.linkOnce, for: instance)
 
     let layout = ConcreteTypeLayout(of: ^t, definedIn: context.ir, forUseIn: &self)
-    let v = structConstant(of: StructType.Reference(instance.with { $0.valueType }),  // todo safety check when downcasting
+    let v = structConstant(of: StructType.Reference(instance.with { $0.valueType })!,
       aggregating: (
         word.with { $0.constant(layout.size) },
         word.with { $0.constant(layout.alignment) },
@@ -488,7 +488,7 @@ extension SwiftyLLVM.Module {
       layout = ConcreteTypeLayout(of: ^t, definedIn: context.ir, forUseIn: &self)
     }
 
-    let v = structConstant(of: StructType.Reference(instance.with { $0.valueType }), aggregating: (
+    let v = structConstant(of: StructType.Reference(instance.with { $0.valueType })!, aggregating: (
       word.with { $0.constant(layout.size) },
       word.with { $0.constant(layout.alignment) },
       word.with { $0.constant(layout.stride) },
@@ -1856,13 +1856,13 @@ extension SwiftyLLVM.Module {
         let f = transpiledConstant(f, in: &context)
         
         // note: may be an intrinsic function, not just a function. In general: any Callable
-        let t = SwiftyLLVM.Function.Reference(f).with { $0.valueType } 
+        let t = SwiftyLLVM.Function.Reference(f)!.with { $0.valueType } 
         return .init(function: f, type: t, environment: [])
       }
 
       // `s` is an arrow.
       let hyloType = ArrowType(context.source[f].type(of: s).ast)!
-      let llvmType = StructType.Reference(context.ir.llvm(hyloType, in: &self)) // todo safe downcast
+      let llvmType = StructType.Reference(context.ir.llvm(hyloType, in: &self))!
       let lambda = llvm(s)
 
       // The first element of the representation is the function pointer.
@@ -1872,7 +1872,7 @@ extension SwiftyLLVM.Module {
 
       let e = insertGetStructElementPointer(
         of: lambda, typed: llvmType, index: 1, at: insertionPoint)
-      let captures = StructType.Reference(context.ir.llvm(hyloType.environment, in: &self)) // todo safe downcast
+      let captures = StructType.Reference(context.ir.llvm(hyloType.environment, in: &self))!
 
       // Following elements constitute the environment.
       var environment: [AnyValue.Reference] = []

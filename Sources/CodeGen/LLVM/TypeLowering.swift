@@ -146,8 +146,7 @@ extension IR.Program {
     fields: (inout SwiftyLLVM.Module) -> [SwiftyLLVM.AnyType.Reference]
   ) -> SwiftyLLVM.StructType.Reference {
     if let u = module.type(named: n) {
-      _ = u.with { StructType($0) ?? fatalError("'\(n)' is not a struct") }
-      return StructType.Reference(u)
+      return StructType.Reference(u)!
     } else {
       let fs = fields(&module)
       return module.structType(named: n, fs)
