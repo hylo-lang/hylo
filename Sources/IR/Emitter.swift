@@ -1717,8 +1717,8 @@ struct Emitter: Sendable {
   /// Inserts the IR for storing the value of `e` to `storage`.
   private mutating func _emitStore(_ e: LambdaExpr.ID, to storage: Operand) {
     let callee = lower(function: ast[e].decl)
-    let r = FunctionReference(
-      to: callee, in: module,
+    let r = module.makeReference(
+      to: callee,
       specializedBy: module.specialization(in: insertionFunction!), in: insertionScope!)
 
     let x0 = _place_to_pointer(.constant(r))
@@ -2059,7 +2059,7 @@ struct Emitter: Sendable {
 
     // Call is evaluated last.
     let f = Operand.constant(
-      FunctionReference(to: AnyDeclID(d), in: &module, specializedBy: a, in: insertionScope!))
+      module.makeReference(lowering: AnyDeclID(d), specializedBy: a, in: insertionScope!))
     let x0 = _alloc_stack(.void)
     let x1 = _access(.set, from: x0)
 
@@ -2168,8 +2168,8 @@ struct Emitter: Sendable {
     let callee = withClearContext({ $0.lower(syntheticAutoclosure: f) })
 
     // Emit the IR code to reference the function declaration.
-    let r = FunctionReference(
-      to: callee, in: module,
+    let r = module.makeReference(
+      to: callee,
       specializedBy: module.specialization(in: insertionFunction!), in: insertionScope!)
 
     let x0 = _place_to_pointer(.constant(r))
@@ -2276,7 +2276,7 @@ struct Emitter: Sendable {
       guard ArrowType(canonical(program[callee].type))!.environment.isVoid else {
         UNIMPLEMENTED("Generate IR for calls to local functions with captures #1088")
       }
-      let f = FunctionReference(to: d, in: &module, specializedBy: a, in: insertionScope!)
+      let f = module.makeReference(lowering: d, specializedBy: a, in: insertionScope!)
       return (.direct(f), [])
 
     case .member(let d, _, _) where d.isCallable:
@@ -2350,7 +2350,8 @@ struct Emitter: Sendable {
   ) -> (callee: Callee, captures: [Operand]) {
     if let k = b.capabilities.uniqueElement {
       let d = module.demandDeclaration(lowering: program.ast.implementation(k, of: b.bundle)!)
-      let f = FunctionReference(to: d, in: module, specializedBy: b.arguments, in: insertionScope!)
+      let f = module.makeReference(
+        to: d, specializedBy: b.arguments, in: insertionScope!)
       let c = _access([k], from: receiver)
       return (callee: .direct(f), captures: [c])
     } else {
