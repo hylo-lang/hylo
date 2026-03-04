@@ -1,0 +1,31 @@
+@ffi("gpio_reset_pin")
+fun gpio_reset_pin(_ pin: Int32) -> Int32
+
+@ffi("gpio_set_direction")
+fun gpio_set_direction(_ pin: Int32, _ direction: Int32) -> Int32
+
+@ffi("gpio_set_level")
+fun gpio_set_level(_ pin: Int32, _ level: Int32) -> Int32
+
+@ffi("vTaskDelay")
+fun vTaskDelay(ticks: UInt32) -> Void
+
+@ffi("millisToTicks")
+fun millisToTicks(ms: UInt32) -> UInt32
+
+let GPIO_MODE_INPUT: Int32 = 1
+let GPIO_MODE_OUTPUT: Int32 = 2
+let BLINK_GPIO: Int32 = 8
+
+@external("hylo_app_main")
+public fun hylo_app_main() -> Void {
+  gpio_reset_pin(BLINK_GPIO)
+  gpio_set_direction(BLINK_GPIO, GPIO_MODE_OUTPUT)
+
+  while (true) {
+    gpio_set_level(BLINK_GPIO, 1)
+    vTaskDelay(ticks: millisToTicks(ms: 1000))
+    gpio_set_level(BLINK_GPIO, 0)
+    vTaskDelay(ticks: millisToTicks(ms: 500))
+  }
+}

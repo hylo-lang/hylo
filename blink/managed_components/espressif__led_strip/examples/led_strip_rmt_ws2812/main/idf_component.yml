@@ -1,0 +1,3 @@
+dependencies:
+  espressif/led_strip:
+    version: ^3
