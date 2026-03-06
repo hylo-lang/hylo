@@ -162,8 +162,7 @@ A more detailed description of the current implementation status is available on
 We welcome contributions to Hylo.
 Please read through [CONTRIBUTING.md](CONTRIBUTING.md) for details on how to get started.
 
-You can also get in touch with the community by joining our [Slack][join-slack] or one of our [Teams Meetings][join-teams] on Tuesdays and Thursdays, 13:00-13:30 Pacific time or 22:00-22:30 Central
-European time.
+You can also get in touch with the community by joining our [Slack][join-slack] or one of our [Teams Meetings][join-teams] on Tuesdays and Thursdays, 12:00-13:00 Pacific time or 21:00-22:00 Central European time.
 
 [join-slack]: https://join.slack.com/t/val-qs97696/shared_invite/zt-1z3dsblrq-y4qXfEE6wr6uMEJSN9uFyg
 [join-teams]: https://teams.microsoft.com/meet/32857354149266?p=w7gAETVhsCc3U09wPm
