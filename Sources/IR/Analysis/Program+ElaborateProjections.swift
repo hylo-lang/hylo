@@ -49,9 +49,9 @@ extension IR.Program {
     // Copy the ramp instructions, creating blocks for them as needed.
     rewrite(d.rampInstructions, in: d.id, from: m, transformedBy: &transformer, to: ramp)
 
-    // Add projected value storage at the beginning of the entry block
+    // Add the projected value storage at the beginning of the entry block.
     let entry = modules[m]![ramp].entry!
-    let projectedValueStorage = modules[m]!.modifyIR(of: ramp, at: .start(of: entry)) { (e) in
+    let s = modules[m]!.modifyIR(of: ramp, at: .start(of: entry)) { (e) in
       e._alloc_stack(source.output)
     }
 
@@ -156,7 +156,7 @@ extension Module {
   /// Returns the operand representing the continuation parameter in ramp `f`.
   ///
   /// The ramp function has the following signature:
-  /// > fun Projection.ramp(<parameters>, let PlateauContinuation) -> {}
+  ///     fun Projection.ramp(<parameters>, let PlateauContinuation) -> {}
   ///
   /// The entry block of the ramp function will look like:
   /// > b0(<parameters>, %b0#N1 : &<PlateauContinuation>, %b0#N : &{}):
