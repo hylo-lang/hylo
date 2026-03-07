@@ -1,8 +1,8 @@
 /// A trie (a.k.a. prefix tree).
-public struct Trie<Key: Collection & Sendable, Value: Sendable>: Sendable where Key.Element: Hashable & Sendable {
+public struct Trie<Key: Collection & Sendable, Value> where Key.Element: Hashable & Sendable {
 
   /// A node representing either one of the strings in a trie or a prefix thereof.
-  fileprivate struct Node: Sendable {
+  fileprivate struct Node {
 
     /// The identifier of a node in a trie.
     typealias Identifier = Int
@@ -149,6 +149,9 @@ public struct Trie<Key: Collection & Sendable, Value: Sendable>: Sendable where 
   }
 
 }
+
+extension Trie.Node : Sendable where Value: Sendable {}
+extension Trie: Sendable where Value: Sendable {}
 
 extension Trie {
 
@@ -297,7 +300,7 @@ extension Trie: CustomStringConvertible {
 }
 
 /// A part of a trie.
-public struct SubTrie<Key: Collection & Sendable, Value: Sendable>: Sendable where Key.Element: Hashable & Sendable {
+public struct SubTrie<Key: Collection & Sendable, Value> where Key.Element: Hashable & Sendable {
 
   /// The type of a trie projected by an instance of `Self`.
   public typealias Base = Trie<Key, Value>
@@ -364,3 +367,5 @@ extension SubTrie: CustomStringConvertible {
   }
 
 }
+
+extension SubTrie: Sendable where Value: Sendable {}
