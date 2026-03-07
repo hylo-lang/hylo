@@ -1,0 +1,8 @@
+[book]
+title = "LED Strip Documentation"
+language = "en"
+
+[output.html]
+default-theme = "light"
+git-repository-url = "https://github.com/espressif/idf-extra-components/tree/master/led_strip"
+edit-url-template = "https://github.com/espressif/idf-extra-components/edit/master/led_strip/docs/{path}"
