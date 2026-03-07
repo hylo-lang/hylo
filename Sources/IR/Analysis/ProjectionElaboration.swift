@@ -36,11 +36,12 @@ extension Module {
   /// Returns the IR function representing the ramp of projection `f`.
   ///
   /// Signature:
-  /// > fun Projection.ramp(<parameters>, let PlateauContinuation) -> {}
+  ///
+  ///     fun Projection.ramp(<parameters>, _ c: let PlateauContinuation) -> {}
   ///
   /// Generated function parameters:
-  ///   - `<parameters>`: the original parameter of the projection
-  ///   - `let PlateauContinuation`: the continuation used to resume the flow in the plateau,
+  ///   - `<parameters>`: the original parameters of the projection
+  ///   - `c`: the continuation used to resume the flow in the plateau,
   ///     containing the function to call and the caller frame pointer.
   mutating func demandProjectionRamp(for f: Function.ID) -> Function.ID {
     let result = Function.ID(projectionRamp: f)
@@ -68,10 +69,11 @@ extension Module {
   /// Returns the IR function representing the slide of projection `f`.
   ///
   /// Signature:
-  /// > fun Projection.slide(let Builtin.ptr) -> {}
+  ///
+  ///     fun Projection.slide(_ frame: let Builtin.ptr) -> {}
   ///
   /// Generated function parameters:
-  ///   - `let Builtin.ptr`: the projection frame pointer.
+  ///   - `frame`: the projection frame pointer.
   mutating func demandProjectionSlide(for f: Function.ID) -> Function.ID {
     let result = Function.ID(projectionSlide: f)
     if self.functions[result] != nil {
@@ -97,12 +99,13 @@ extension Module {
   /// projected value type `t`.
   ///
   /// Signature:
-  /// > fun Caller.plateauN(inout <yield-type>, let Builtin.ptr, let ProjectionContinuation) -> {}
+  ///
+  ///       fun Caller.plateauN(_ p: inout <yield-type>, _ frame: let Builtin.ptr, _ c: let ProjectionContinuation) -> {}
   ///
   /// Generated function parameters:
-  ///   - `inout <yield-type>`: the projected value.
-  ///   - `let Builtin.ptr`: the address of the caller frame.
-  ///   - `let ProjectionContinuation`: the continuation used to resume to the projection's slide,
+  ///   - `p`: the projected value.
+  ///   - `frame`: the address of the caller frame.
+  ///   - `c`: the continuation used to resume to the projection's slide,
   ///     containing the function to call and the projection frame pointer.
   mutating func demandPlateau(
     for f: Function.ID, region index: Int, projectedType t: AnyType,

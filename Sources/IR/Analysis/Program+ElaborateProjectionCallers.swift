@@ -182,7 +182,7 @@ extension Emitter {
   fileprivate mutating func _callProjectionRamp(
     _ r: FunctionReference, with arguments: [Operand], continuation: Operand
   ) {
-    let x0 = _access(.let, from: c)
+    let x0 = _access(.let, from: continuation)
     let x1 = _alloc_stack(.void)
     _emitApply(Operand.constant(r), to: arguments + [x0], writingResultTo: x1)
     _end_access(x0)

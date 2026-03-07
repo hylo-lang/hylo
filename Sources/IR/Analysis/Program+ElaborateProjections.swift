@@ -56,13 +56,13 @@ extension IR.Program {
     }
 
     // Generate the last block that jumps to the continuation passed in by the caller, and exits.
-    let b = modules[m]!.generateContinuationCall(in: ramp, referencing: slide, projecting: projectedValueStorage)
+    let b = modules[m]!.generateContinuationCall(in: ramp, referencing: slide, projecting: s)
 
     // Add yield replacements.
     for y in d.skeleton.yieldPoints {
       modules[m]!.addYieldReplacement(
         yield: y, for: d, in: ramp, transformedBy: &transformer, jumpingTo: b,
-        projectedValueStorage: projectedValueStorage)
+        projectedValueStorage: s)
     }
   }
 
@@ -156,10 +156,13 @@ extension Module {
   /// Returns the operand representing the continuation parameter in ramp `f`.
   ///
   /// The ramp function has the following signature:
-  ///     fun Projection.ramp(<parameters>, let PlateauContinuation) -> {}
+  ///
+  ///     fun Projection.ramp(<parameters>, _ c: let PlateauContinuation) -> {}
   ///
   /// The entry block of the ramp function will look like:
-  /// > b0(<parameters>, %b0#N1 : &<PlateauContinuation>, %b0#N : &{}):
+  ///
+  ///     b0(<parameters>, %b0#N1 : &<PlateauContinuation>, %b0#N : &{}):
+  ///
   /// adding an extra parameter for the return type.
   /// 
   /// We will return the previous-to-last parameter of the block.
