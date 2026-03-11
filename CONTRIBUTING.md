@@ -65,12 +65,12 @@ Do not hesitate to reach out if you are lost in the process.
 
 
 ## Join the community
-You can also get in touch with the community by joining our [Slack][join-slack] or one of our [Zoom Meetings][join-zoom]
+You can also get in touch with the community by joining our [Slack][join-slack] or one of our [Meetings][join-teams]
 (ID: 633 2146 3694, Passcode: 409180) on Tuesdays and Thursdays, 13:00-13:30 Pacific time or 22:00-22:30 Central
 European time.
 
 [join-slack]: https://join.slack.com/t/val-qs97696/shared_invite/zt-1z3dsblrq-y4qXfEE6wr6uMEJSN9uFyg
-[join-zoom]: https://unige.zoom.us/j/66489601602?pwd=z8jMbhAcbxeZBy9js6YTKOIyfSeRrd.1
+[join-teams]: [https://unige.zoom.us/j/66489601602?pwd=z8jMbhAcbxeZBy9js6YTKOIyfSeRrd.1](https://teams.microsoft.com/meet/32857354149266?p=w7gAETVhsCc3U09wPm)
 
 [typos-action]: https://github.com/marketplace/actions/typos-action
 [install typos]: https://github.com/crate-ci/typos#install
