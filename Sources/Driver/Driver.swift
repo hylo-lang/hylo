@@ -113,7 +113,6 @@ public struct Driver: ParsableCommand, Sendable {
       valueName: "output-type"))
   private var lastCompilationPhase: LastCompilationPhase = .emitting
 
-
   @Option(
     name: [.customLong("trace-inference")],
     help: ArgumentHelp(
@@ -236,6 +235,13 @@ public struct Driver: ParsableCommand, Sendable {
     Driver.exit(withError: status)
   }
 
+  func hostTarget() throws -> TargetMachine {
+    #if os(Windows)
+      return try SwiftyLLVM.TargetMachine(for: .host())
+    #else
+      return try SwiftyLLVM.TargetMachine(for: .host(), relocation: .pic)
+    #endif
+  }
   /// Executes the command, loading modules into `baseProgram` and reporting diagnostics to `log`.
   ///
   /// - Parameters:
@@ -321,14 +327,9 @@ public struct Driver: ParsableCommand, Sendable {
     ir.depolymorphize()
 
     logVerbose("create LLVM target machine.\n")
-    #if os(Windows)
-      let target = try SwiftyLLVM.TargetMachine(for: .host())
-    #else
-      let target = try SwiftyLLVM.TargetMachine(for: .host(), relocation: .pic)
-    #endif
 
     logVerbose("create LLVM program.\n")
-    var llvmProgram = try LLVMProgram(ir, mainModule: sourceModule, for: target)
+    var llvmProgram = try LLVMProgram(ir, mainModule: sourceModule, for: hostTarget())
 
     logVerbose("LLVM mandatory passes.\n")
     llvmProgram.applyMandatoryPasses()
@@ -342,15 +343,15 @@ public struct Driver: ParsableCommand, Sendable {
     if outputType == .llvm {
       let m = llvmProgram.llvmModules[sourceModule]!
       logVerbose("writing LLVM output.")
-      try m.description.write(to: llvmFile(productName), atomically: true, encoding: .utf8)
+      try m.module.description.write(to: llvmFile(productName), atomically: true, encoding: .utf8)
       return ir
     }
 
     // Intel ASM
 
     if outputType == .intelAsm {
-      try llvmProgram.llvmModules[sourceModule]!.write(
-        .assembly, for: target, to: intelASMFile(productName).fileSystemPath)
+      try llvmProgram.llvmModules[sourceModule]!.module.write(
+        .assembly, for: try hostTarget(), to: intelASMFile(productName).fileSystemPath)
       return ir
     }
 
@@ -490,7 +491,10 @@ public struct Driver: ParsableCommand, Sendable {
   ) throws {
     try runCommandLine(
       findExecutable(invokedAs: "lld-link").fileSystemPath,
-      ["-defaultlib:pthreadVCE3", "-defaultlib:msvcrt", "-force:multiple", "-out:" + binaryPath, "-libpath:\(StandardLibrary.externalLibraryRoot.fileSystemPath)"]
+      [
+        "-defaultlib:pthreadVCE3", "-defaultlib:msvcrt", "-force:multiple", "-out:" + binaryPath,
+        "-libpath:\(StandardLibrary.externalLibraryRoot.fileSystemPath)",
+      ]
         + objects.map(\.fileSystemPath),
       diagnostics: &diagnostics)
   }

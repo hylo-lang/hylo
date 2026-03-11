@@ -51,8 +51,9 @@ let package = Package(
       url: "https://github.com/attaswift/BigInt",
       from: "5.7.0"),
     .package(
-      url: "https://github.com/hylo-lang/Swifty-LLVM",
-      revision: "cff484ecca159d9eec1938cda83a72b57cdfbd08"),
+      // url: "https://github.com/hylo-lang/Swifty-LLVM",
+      path: "./Swifty-LLVM"),
+      // revision: "cff484ecca159d9eec1938cda83a72b57cdfbd08"),
     .package(
       url: "https://github.com/apple/swift-format",
       from: "508.0.1"),
