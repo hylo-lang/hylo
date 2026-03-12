@@ -1,0 +1,41 @@
+extension Function {
+
+  /// Remove from `self` all the definitions that are semantically transparent for code generation.
+  ///
+  /// A semantically transparent definition has no operational semantics, and only serves to
+  /// provide information for IR-level analyses and transformations. They can be safely removed
+  /// before code generation.
+  mutating func removeSemanticallyTransparentDefinitions() {
+    // Operate in reverse order to attempt to remove uses of the instructions before removing the instructions themselves.
+    for i in instructionIdentities.reversed() where self[i].isSemanticallyTransparent {
+      fixUses(of: i)
+      remove(i)
+    }
+  }
+
+  /// Ensures that instruction `i` has no uses, replacing them with the appropriate operands if needed.
+  private mutating func fixUses(of i: InstructionID) {
+    switch self[i] {
+    case let x as Access:
+      replaceUses(of: .register(i), with: x.source)
+    case let x as OpenCapture:
+      replaceUses(of: .register(i), with: x.source)
+    default:
+      let uses = allUses(of: i)
+      precondition(
+        uses.isEmpty,
+        "Instruction \(self[i]) should have no uses, but has uses \(uses.map { self[$0.user] })")
+    }
+  }
+
+}
+
+extension Instruction {
+
+  /// Returns `true` if this instruction is a semantically transparent definition.
+  fileprivate var isSemanticallyTransparent: Bool {
+    self is Access || self is EndAccess || self is CloseCapture || self is ReleaseCaptures
+      || self is MarkState || self is DeallocStack
+  }
+
+}
