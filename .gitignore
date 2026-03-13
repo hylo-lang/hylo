@@ -24,3 +24,4 @@
 **.lib
 **.7z
 llvm.pc
+Tools/__pycache__
