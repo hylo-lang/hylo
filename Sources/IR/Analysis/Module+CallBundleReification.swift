@@ -21,8 +21,8 @@ extension Module {
     arguments[0] = .register(self[f].insert(r, at: .before(i)))
 
     let b = self[f].block(of: i)
-    let x = FunctionReference(
-      to: s.variants[k]!, in: self, specializedBy: s.bundle.arguments, in: self[b, in: f].scope)
+    let x = makeReference(
+      to: s.variants[k]!, specializedBy: s.bundle.arguments, in: self[b, in: f].scope)
 
     let reified = makeCall(
       applying: .constant(x), to: arguments, writingResultTo: s.output, in: f, at: s.site)

@@ -61,7 +61,7 @@ extension IR.Program {
     // TODO: Use existentialization unless the function is inlinable
 
     let g = monomorphize(callee, usedIn: modules[m]![f].scope(containing: i))
-    let r = FunctionReference(to: g, in: modules[m]!)
+    let r = modules[m]!.makeReference(to: g)
     let new = modules[m]!.makeCall(
       applying: .constant(r), to: Array(s.arguments), writingResultTo: s.output, in: f, at: s.site)
     modules[m]![f].replace(i, with: new)
@@ -377,7 +377,7 @@ private struct Monomorphizer: InstructionTransformer {
 
     let s = ir.base.module(containing: scopeOfUse)
     let f = transform(c.function, specializedBy: c.specialization, in: &ir)
-    return FunctionReference(to: f, in: ir.modules[s]!)
+    return ir.modules[s]!.makeReference(to: f)
   }
 
   /// Returns a monomorphized copy of `f` specialized by `z` for use in `scopeOfUse`.

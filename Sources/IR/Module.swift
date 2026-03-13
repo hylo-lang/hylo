@@ -427,7 +427,7 @@ public struct Module: Sendable {
       assert(a[r] == nil)
       a[r] = .type(witness.model)
     }
-    return FunctionReference(to: d, in: self, specializedBy: a, in: witness.scope)
+    return makeReference(to: d, specializedBy: a, in: witness.scope)
   }
 
   /// Returns a member reference to `d`, which is member of `receiver` accessed with capabilities
@@ -441,11 +441,11 @@ public struct Module: Sendable {
       let t = program.traitDeclaring(d)!
       let c = program.conformance(of: receiver, to: t, exposedTo: scopeOfUse)!
       let f = demandDeclaration(lowering: c.implementations[d]!)
-      return .direct(FunctionReference(to: f, in: self, specializedBy: a, in: scopeOfUse))
+      return .direct(makeReference(to: f, specializedBy: a, in: scopeOfUse))
     } else if let m = MethodDecl.ID(d) {
       return .bundle(BundleReference(to: m, specializedBy: a, requesting: k))
     } else {
-      return .direct(FunctionReference(to: d, in: &self, specializedBy: a, in: scopeOfUse))
+      return .direct(makeReference(lowering: d, specializedBy: a, in: scopeOfUse))
     }
   }
 
@@ -570,7 +570,7 @@ public struct Module: Sendable {
     var implementations = IR.Conformance.ImplementationMap()
     for (r, i) in c.implementations where (r.kind != AssociatedTypeDecl.self) {
       let f = demandDeclaration(lowering: i)
-      implementations[r] = .function(FunctionReference(to: f, in: self))
+      implementations[r] = .function(makeReference(to: f))
     }
     return .init(concept: c.concept, implementations: implementations)
   }
