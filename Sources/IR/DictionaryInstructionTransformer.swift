@@ -46,6 +46,11 @@ struct DictionaryInstructionTransformer: InstructionTransformer {
     return rewrittenBlocks[b]!
   }
 
+  /// Returns a transformed copy of `b`.
+  func transform(_ b: Block.ID) -> Block.ID {
+    return rewrittenBlocks[b]!
+  }
+
 }
 
 extension IR.Program {

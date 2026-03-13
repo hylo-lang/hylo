@@ -7,7 +7,6 @@ extension IR.Program {
   public mutating func elaborateProjections() {
     for m in modules.values {
       elaborateProjections(in: m.id)
-
     }
   }
   /// Elaborates the projections in `m` into a pair of ramp+slide functions.
@@ -26,24 +25,36 @@ extension IR.Program {
   private mutating func elaborateProjection(
     _ f: Function.ID, skeleton s: IR.ProjectionSkeleton, in m: Module.ID
   ) {
-    if modules[m]![f].site.file.baseName != "feature-test-projection" { return }  // TODO: remove this filter.
+    // TODO: remove this filter.
+    if !Module.canLowerProjections(modules[m]![f].site.file) {
+      return
+    }
 
     // Before doing anything, remove all the instructions not needed for code generation.
     modules[m]![f].removeSemanticallyTransparentDefinitions()
-    
+
     let ramp = modules[m]!.demandProjectionRamp(for: f)
     let slide = modules[m]!.demandProjectionSlide(for: f)
     let source = modules[m]![f]
-    let details = ProjectionDetails(f, source: source, skeleton: s, of: base)
 
-    constructRamp(ramp, for: details, slide: slide, in: m)
-    constructSlide(slide, for: details, in: m)
+    // Create the frame.
+    var details = ProjectionDetails(f, source: source, skeleton: s, of: base)
+    var e = FrameMaterializationInfo()
+    e.collectCrossRegionInstructions(in: source, from: details.slideInstructions, ignoring: [])
+    let frame = modules[m]!.materialize(&e, in: f)
+
+    // The instructions have changed, so we need to recompute the details.
+    details = ProjectionDetails(f, source: modules[m]![f], skeleton: s, of: base)
+
+    constructRamp(ramp, for: details, slide: slide, frame: frame, in: m)
+    constructSlide(slide, for: details, frame: frame, in: m)
     modules[m]!.removeFunction(f)
   }
 
   /// Generate the body of `ramp`, from projection with details `d`, referencing `slide`, in module `m`.
   private mutating func constructRamp(
     _ ramp: Function.ID, for d: ProjectionDetails, slide: Function.ID,
+    frame: Operand?,
     in m: Module.ID
   ) {
     var transformer = DictionaryInstructionTransformer()
@@ -59,7 +70,8 @@ extension IR.Program {
     }
 
     // Generate the last block that jumps to the continuation passed in by the caller, and exits.
-    let b = modules[m]!.generateContinuationCall(in: ramp, referencing: slide, projecting: s)
+    let b = modules[m]!.generateContinuationCall(
+      in: ramp, referencing: slide, projecting: s, frame: frame)
 
     // Add yield replacements.
     for y in d.skeleton.yieldPoints {
@@ -71,7 +83,8 @@ extension IR.Program {
 
   /// Generate the body of `slide`, from projection with details `d`, in module `m`.
   private mutating func constructSlide(
-    _ slide: Function.ID, for d: ProjectionDetails, in m: Module.ID
+    _ slide: Function.ID, for d: ProjectionDetails, frame: Operand?,
+    in m: Module.ID
   ) {
     // If all the slide blocks contain just terminators, the whole slide is empty.
     if modules[m]!.slideIsEmpty(projection: d) {
@@ -81,7 +94,22 @@ extension IR.Program {
 
     // Create the entry block.
     let slideEntry = modules[m]!.createSlideEntryBlock(slide: slide, for: d)
-    var transformer = DictionaryInstructionTransformer()
+
+    var rewrittenRegisters: [Operand: Operand] = [:]
+
+    // If we have a frame, take it from the function parameter.
+    if let f = frame {
+      let t = modules[m]![d.id].type(of: f).ast
+      let frameParameter = Operand.parameter(slideEntry, 0)
+      let ourFrame = modules[m]!.modifyIR(of: slide, at: .end(of: slideEntry)) { (e) in
+        let x0 = e._load(frameParameter)
+        return e._pointer_to_place(x0, as: RemoteType(.inout, t))
+      }
+      rewrittenRegisters[f] = ourFrame
+    }
+
+    var transformer = DictionaryInstructionTransformer(
+      rewrittenRegisters: rewrittenRegisters)
 
     // Copy the slide instructions, creating blocks for them as needed.
     rewrite(d.slideInstructions, in: d.id, from: m, transformedBy: &transformer, to: slide)
@@ -130,16 +158,16 @@ extension Module {
   fileprivate mutating func generateContinuationCall(
     in ramp: Function.ID,
     referencing slide: Function.ID,
-    projecting p: Operand
+    projecting p: Operand,
+    frame: Operand?
   ) -> Block.ID {
     let slideReference = FunctionReference(to: slide, in: self)
     let continuationParameter = continuationParameter(ramp: ramp)
     let b = self[ramp].appendBlock(in: self[ramp][self[ramp].entry!].scope)
     modifyIR(of: ramp, at: .end(of: b)) { (e) in
-      // TODO: Frame pointer
-      let nullFrame = e._call_builtin(.zeroinitializer(BuiltinType.ptr), [])
-
-      let c = e._slideContinuation(calling: slideReference, frame: nullFrame)
+      let x0 = frame ?? e._call_builtin(.zeroinitializer(BuiltinType.ptr), [])
+      let x1 = e._place_to_pointer(x0)
+      let c = e._slideContinuation(calling: slideReference, frame: x1)
       e._resumeContinuation(continuationParameter, with: c, projecting: p)
       e._return()
     }
@@ -157,7 +185,7 @@ extension Module {
   ///     b0(<parameters>, %b0#N1 : &<PlateauContinuation>, %b0#N : &{}):
   ///
   /// adding an extra parameter for the return type.
-  /// 
+  ///
   /// We will return the previous-to-last parameter of the block.
   private func continuationParameter(ramp f: Function.ID) -> Operand {
     let source = self[f]

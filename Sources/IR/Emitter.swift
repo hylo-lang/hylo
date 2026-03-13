@@ -3844,7 +3844,7 @@ extension Emitter {
     insert(module.makeWrapExistentialPlace(witness, table, as: interface, in: insertionFunction!, at: currentSource))!
   }
 
-  fileprivate mutating func _pointer_to_place(_ x: Operand, as t: RemoteType) -> Operand {
+  mutating func _pointer_to_place(_ x: Operand, as t: RemoteType) -> Operand {
     insert(module.makePointerToPlace(x, to: t, at: currentSource))!
   }
 
