@@ -1,0 +1,174 @@
+//- compileAndRun expecting: .success
+
+type ConcurrentIncrementTest: Deinitializable, Movable {
+
+  var mutex: Mutex<Int>
+  
+  public init() {
+    &mutex = .new(0)
+  }
+
+  public fun run() inout {
+    var t1 = spawn_thread(
+      executing: fun[](_ s: inout Self) {
+        s.thread_run()
+      },
+      with_inout_argument: mutable_pointer[to: &self])
+    var t2 = spawn_thread(
+      executing: fun[](_ s: inout Self) {
+        s.thread_run()
+      },
+      with_inout_argument: mutable_pointer[to: &self])
+    var t3 = spawn_thread(
+      executing: fun[](_ s: inout Self) {
+        s.thread_run()
+      },
+      with_inout_argument: mutable_pointer[to: &self])
+
+    t1.await()
+    t2.await()
+    t3.await()
+
+    mutex.access(within: fun(_ data: inout Int) {
+      precondition(data == 300)
+    })
+    let could_lock = mutex.try_access(within: fun(_ data: inout Int) {
+      precondition(data == 300)
+    })
+    precondition(could_lock)
+  }
+
+  fun thread_run() inout {
+    var i = 0
+    while i < 100 {
+      mutex.access(within: fun(_ data: inout Int) {
+        &data += 1
+      })
+      &i += 1
+    }
+  }
+}
+
+type ExclusiveAccessTest: Deinitializable, Movable {
+
+  var mutex: Mutex<Int>
+  var count_entered: UInt32
+  var count_exited: UInt32
+
+  public init() {
+    &mutex = .new(0)
+    &count_entered = 0
+    &count_exited = 0
+  }
+
+  public fun run() inout {
+    var t1 = spawn_thread(
+      executing: fun[](_ s: inout ExclusiveAccessTest) {
+        s.thread_run()
+      },
+      with_inout_argument: mutable_pointer[to: &self])
+    var t2 = spawn_thread(
+      executing: fun[](_ s: inout ExclusiveAccessTest) {
+        s.thread_run()
+      },
+      with_inout_argument: mutable_pointer[to: &self])
+
+    t1.await()
+    t2.await()
+
+    precondition(mutex.copy_data() == 200)
+    precondition(count_entered == 200)
+    precondition(count_exited == 200)
+  }
+
+  fun thread_run() inout {
+    for sink let i in 0 ..< 100 {
+      let p = mutable_pointer[to: &self].copy()
+      mutex.access(within: fun[sink let p2 = p.copy()] (_ value: inout Int) -> Void {
+        // Increment `count_entered`.
+        let r1 = atomic_add_relaxed_i32(&(p2.copy().unsafe[].count_entered), 1)
+        // Increment the value under the lock.
+        let current_value = value.copy()
+        &value += 1
+        yield_now() // Small pause on the thread
+        // Increment `count_exited`.
+        let r2 = atomic_add_relaxed_i32(&(p2.copy().unsafe[].count_exited), 1)
+        // All 3 counters should be equal.
+        // If we would not have exclusive access, this would not be the case.
+        precondition(r1 == r2)
+        precondition(Int(truncating_or_extending: r1) == current_value)
+      })
+    }
+  }
+
+}
+
+type TryAccessSometimesFailsTest: Deinitializable, Movable {
+
+  var mutex: Mutex<Int>
+  var success_count: Int
+
+  public init() {
+    &mutex = .new(0)
+    &success_count = 0
+  }
+
+  public fun run() inout {
+    var t1 = spawn_thread(
+      executing: fun[](_ s: inout Self) {
+        s.thread_run()
+      },
+      with_inout_argument: mutable_pointer[to: &self])
+    var t2 = spawn_thread(
+      executing: fun[](_ s: inout Self) {
+        s.thread_run()
+      },
+      with_inout_argument: mutable_pointer[to: &self])
+    var t3 = spawn_thread(
+      executing: fun[](_ s: inout Self) {
+        s.thread_run()
+      },
+      with_inout_argument: mutable_pointer[to: &self])
+
+    t1.await()
+    t2.await()
+    t3.await()
+
+    let value = mutex.copy_data()
+    precondition(value > 0)
+    precondition(success_count == value)
+  }
+
+  fun thread_run() inout {
+    var i = 0
+    while i < 100 {
+      let could_lock = mutex.try_access(within: fun(_ value: inout Int) -> Void {
+        &value += 1
+        yield_now() // Small pause while holding the lock.
+      })
+      if could_lock {
+        &success_count += 1
+      }
+      &i += 1
+    }
+  }
+
+}
+
+fun test_unwrap_and_copy_data_can_access_data() {
+  var mutex = Mutex<Int>(0)
+  mutex.access(within: fun(_ data: inout Int) -> Void {
+    &data = 13
+  })
+  let data1 = mutex.copy_data()
+  precondition(data1 == 13)
+  let data2 = mutex.unwrap()
+  precondition(data2 == 13)
+}
+
+public fun main() {
+  ConcurrentIncrementTest().run()
+  ExclusiveAccessTest().run()
+  TryAccessSometimesFailsTest().run()
+  test_unwrap_and_copy_data_can_access_data()
+}
