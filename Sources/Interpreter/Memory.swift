@@ -20,6 +20,8 @@ public struct Memory {
     case deallocationNotAtStartOfAllocation(Address)
     case noLongerAllocated(Address)
     case noDecomposable(TypeLayout, at: Address)
+    case typeAlreadyBinded(to: AnyType)
+    case noTypedRegion(at: Address)
   }
 
   /// The type layouts that been computed so far.
@@ -51,6 +53,23 @@ public struct Memory {
 
     /// The identity of `self`, unique throughout time for a given `Memory`.
     public let id: ID
+
+    /// A region of memory that may be accessed as a specific type or its parts.
+    public struct TypedRegion: Regular {
+
+      /// Where the region begins relative to an `Allocation`'s `baseOffset`.
+      let offset: Storage.Index
+
+      /// The type in the region.
+      let type: TypeLayout
+
+    }
+
+    /// The typed regions of an `Allocation`.
+    fileprivate typealias TypedRegions = [TypedRegion]
+
+    /// The typed regions, in ascending order.
+    private var typedRegions = TypedRegions()
 
     /// A region of some allocation that contains a complete instance of
     /// some type, ready to be a part of a new composition.
@@ -91,7 +110,7 @@ public struct Memory {
 
     /// An allocation for `n` contiguous `t`s with the given `id`.
     public init(_ t: TypeLayout, count n: Int, id: ID) {
-      self.init(t.size, bytesWithAlignment: t.alignment, id: id)
+      self.init(t.size * n, bytesWithAlignment: t.alignment, id: id)
     }
 
     /// The address of the `o`th byte.
@@ -261,6 +280,24 @@ public struct Memory {
           i..<i + 1, with: t.parts.lazy.map { .init(offset: a + $0.offset, type: $0.type) })
       }
     }
+
+    /// Constrains accesses to the region starting at `o` only according to
+    /// structure of `t`, disallowing incompatible representations.
+    public mutating func bind(type t: TypeLayout, at o: Offset) throws {
+      try checkAlignmentAndAllocationBounds(at: o, for: t)
+      let i = typedRegions.partitioningIndex { $0.offset > o }
+      if i != 0 && typedRegions[i - 1].offset + typedRegions[i - 1].type.size > o {
+        throw Error.typeAlreadyBinded(to: typedRegions[i - 1].type.type)
+      }
+      typedRegions.insert(.init(offset: o, type: t), at: i)
+    }
+
+    /// Removes the type-based access constraints for the region starting at `o`.
+    public mutating func unbindType(from o: Offset) {
+      let i = typedRegions.partitioningIndex { $0.offset >= 0 }
+      let j = typedRegions.partitioningIndex { $0.offset > 0 }
+      typedRegions.removeSubrange(i..<j)
+    }
   }
 
   /// A memory location.
@@ -381,6 +418,16 @@ public struct Memory {
     }
   }
 
+  /// Constrains accesses to the region at `a` only according to
+  /// structure of `t`, disallowing incompatible representations.
+  public mutating func bind(type t: AnyType, at a: Address) throws {
+    try allocation[a.allocation]!.bind(type: typeLayouts[t], at: a.offset)
+  }
+
+  /// Removes the type-based access constraints for the region starting at `a`.
+  public mutating func unbindType(from a: Address) {
+    allocation[a.allocation]!.unbindType(from: a.offset)
+  }
 }
 
 public extension Memory.Address {
