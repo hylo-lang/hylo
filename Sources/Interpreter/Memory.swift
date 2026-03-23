@@ -116,6 +116,26 @@ public struct Memory {
     /// The address of the `o`th byte.
     private func address(at o: Offset) -> Address { .init(allocation: id, offset: o) }
 
+    /// Returns true iff the given `part` of some type at `baseOffset` is
+    /// represented as the `n`th composed region.
+    public func isComposed(
+      part: TypeLayout.Part.Parentage,
+      baseOffset: Offset,
+      region n: Int
+    ) -> Bool {
+      let p = part.parent.parts[part.partIndex]
+      let partOffset = baseOffset + p.offset
+      guard let r = composedRegions.dropFirst(n).first,
+        r.offset == partOffset
+      else {
+        return false
+      }
+      if r.type != p.type {
+        return false
+      }
+      return true
+    }
+
     /// Throws iff the given `part` of some type at `baseOffset` is not represented as the `n`th
     /// composed region.
     public func requireComposed(
@@ -146,33 +166,43 @@ public struct Memory {
       }
     }
 
-    /// Replaces the initialization records starting at `a` for the
-    /// parts of a `t` instance with the initialization record for a
-    /// `t` instance.
-    public mutating func compose(_ t: TypeLayout, at a: Offset) throws {
-      try checkAlignmentAndAllocationBounds(at: a, for: t)
-
+    /// Returns true iff initialization records starting at `a` for the parts
+    /// of a `t` can be replaced with initialization record of `t` instance.
+    public func canCompose(_ t: TypeLayout, at a: Offset) -> Bool {
       let i = composedRegions.partitioningIndex { $0.offset >= a }
 
       if t.isUnionLayout {
         let dc = t.discriminator
-        try requireComposed(
+        if isComposed(
           part: t.discriminatorParentage, baseOffset: a,
-          region: dc.offset == 0 ? i : i + 1)
+          region: dc.offset == 0 ? i : i + 1) == false
+        {
+          return false
+        }
 
         let dv = unsignedIntValue(
           at: dc.offset + a, ofType: t.discriminator.type.base as! BuiltinType)
 
-        try requireComposed(
+        if isComposed(
           part: .init(t, Int(dv)), baseOffset: a,
-          region: dc.offset == 0 ? i + 1 : i)
-      }
-      else {
-        for n in t.parts.indices {
-          try requireComposed(part: .init(t, n), baseOffset: a, region: i + n)
+          region: dc.offset == 0 ? i + 1 : i) == false
+        {
+          return false
+        }
+
+        return true
+      } else {
+        return t.parts.indices.allSatisfy {
+          isComposed(part: .init(t, $0), baseOffset: a, region: i + $0)
         }
       }
+    }
 
+    /// Replaces the initialization records starting at `a` for the
+    /// parts of a `t` instance with the initialization record for a
+    /// `t` instance.
+    public mutating func compose(_ t: TypeLayout, at a: Offset) throws {
+      let i = composedRegions.partitioningIndex { $0.offset >= a }
       composedRegions.replaceSubrange(
         i..<(i + t.storedPartCount),
         with: CollectionOfOne(.init(offset: a, type: t.type)))
