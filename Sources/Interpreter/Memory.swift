@@ -54,6 +54,11 @@ public struct Memory {
     /// The identity of `self`, unique throughout time for a given `Memory`.
     public let id: ID
 
+    /// The type layouts computed so far.
+    ///
+    /// `self` obeys type layout from `typeLayouts`.
+    let typeLayouts: UnsafeMutablePointer<TypeLayoutCache>
+
     /// A region of memory that may be accessed as a specific type or its parts.
     public struct TypedRegion: Regular {
 
@@ -61,7 +66,7 @@ public struct Memory {
       let offset: Storage.Index
 
       /// The type in the region.
-      let type: TypeLayout
+      let type: AnyType
 
     }
 
@@ -92,7 +97,10 @@ public struct Memory {
     private var composedRegions = ComposedRegions()
 
     /// `n` bytes with alignment `m` and the given `id`.
-    private init(_ n: Int, bytesWithAlignment m: Int, id: ID) {
+    private init(
+      _ n: Int, bytesWithAlignment m: Int, id: ID,
+      havingLayoutsFrom l: UnsafeMutablePointer<TypeLayoutCache>
+    ) {
       precondition(n >= 0)
       precondition(m > 0)
 
@@ -106,11 +114,16 @@ public struct Memory {
       baseOffset = storage.withUnsafeBytes { $0.firstOffsetAligned(to: m) }
       size = n
       self.id = id
+      self.typeLayouts = l
     }
 
     /// An allocation for `n` contiguous `t`s with the given `id`.
-    public init(_ t: TypeLayout, count n: Int, id: ID) {
-      self.init(t.size * n, bytesWithAlignment: t.alignment, id: id)
+    public init(
+      _ t: AnyType, count n: Int, id: ID,
+      havingLayoutsFrom typeLayouts: UnsafeMutablePointer<TypeLayoutCache>
+    ) {
+      let l = typeLayouts.pointee[t]
+      self.init(l.size * n, bytesWithAlignment: l.alignment, id: id, havingLayoutsFrom: typeLayouts)
     }
 
     /// The address of the `o`th byte.
@@ -313,11 +326,16 @@ public struct Memory {
 
     /// Constrains accesses to the region starting at `o` only according to
     /// structure of `t`, disallowing incompatible representations.
-    public mutating func bind(type t: TypeLayout, at o: Offset) throws {
-      try checkAlignmentAndAllocationBounds(at: o, for: t)
+    public mutating func bind(type t: AnyType, at o: Offset) throws {
+      let l = typeLayouts.pointee[t]
+      try checkAlignmentAndAllocationBounds(at: o, for: l)
       let i = typedRegions.partitioningIndex { $0.offset > o }
-      if i != 0 && typedRegions[i - 1].offset + typedRegions[i - 1].type.size > o {
-        throw Error.typeAlreadyBinded(to: typedRegions[i - 1].type.type)
+      if i != 0 {
+        let x = typedRegions[i - 1].offset
+        let n = typeLayouts.pointee[typedRegions[i - 1].type].size
+        if x + n > o {
+          throw Error.typeAlreadyBinded(to: typedRegions[i - 1].type)
+        }
       }
       typedRegions.insert(.init(offset: o, type: t), at: i)
     }
@@ -390,7 +408,9 @@ public struct Memory {
   public mutating func allocate(_ t: AnyType, count n: Int = 1) -> Place {
     let a = nextAllocation
     nextAllocation += 1
-    allocation[a] = Allocation(typeLayouts[t], count: n, id: a)
+    withUnsafeMutablePointer(to: &typeLayouts) {
+      allocation[a] = Allocation(t, count: n, id: a, havingLayoutsFrom: $0)
+    }
     return .init(allocation: a, offset: 0, type: t)
   }
 
@@ -451,7 +471,7 @@ public struct Memory {
   /// Constrains accesses to the region at `a` only according to
   /// structure of `t`, disallowing incompatible representations.
   public mutating func bind(type t: AnyType, at a: Address) throws {
-    try allocation[a.allocation]!.bind(type: typeLayouts[t], at: a.offset)
+    try allocation[a.allocation]!.bind(type: t, at: a.offset)
   }
 
   /// Removes the type-based access constraints for the region starting at `a`.
