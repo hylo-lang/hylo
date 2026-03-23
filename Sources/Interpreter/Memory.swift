@@ -22,6 +22,7 @@ public struct Memory {
     case noDecomposable(TypeLayout, at: Address)
     case typeAlreadyBinded(to: AnyType)
     case noTypedRegion(at: Address)
+    case regionAlreadyComposed(Place)
   }
 
   /// The type layouts that been computed so far.
@@ -129,6 +130,22 @@ public struct Memory {
     /// The address of the `o`th byte.
     private func address(at o: Offset) -> Address { .init(allocation: id, offset: o) }
 
+    /// Throws iff `a` lies inside any composed region.
+    private func requireNotComposed(_ a: Offset) throws {
+      let i = composedRegions.partitioningIndex { $0.offset > a }
+      if i == 0 { return }
+      let o = composedRegions[i - 1].offset
+      let n = typeLayouts.pointee[composedRegions[i - 1].type].size
+      if o + n > a {
+        throw Error.regionAlreadyComposed(
+          .init(
+            allocation: self.id,
+            offset: o,
+            type: composedRegions[i - 1].type)
+        )
+      }
+    }
+
     /// Returns true iff the given `part` of some type at `baseOffset` is
     /// represented as the `n`th composed region.
     public func isComposed(
@@ -215,6 +232,7 @@ public struct Memory {
     /// parts of a `t` instance with the initialization record for a
     /// `t` instance.
     public mutating func compose(_ t: TypeLayout, at a: Offset) throws {
+      try requireNotComposed(a)
       let i = composedRegions.partitioningIndex { $0.offset >= a }
       composedRegions.replaceSubrange(
         i..<(i + t.storedPartCount),
