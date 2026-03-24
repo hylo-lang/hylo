@@ -60,7 +60,7 @@ public struct Memory {
     /// `self` obeys type layout from `typeLayouts`.
     let typeLayouts: UnsafeMutablePointer<TypeLayoutCache>
 
-    /// A region of memory that may be accessed as a specific type or its parts.
+    /// A region of memory that is reserved for storing a specific type.
     public struct TypedRegion: Regular {
 
       /// Where the region begins relative to an `Allocation`'s `baseOffset`.
@@ -258,6 +258,47 @@ public struct Memory {
       composedRegions.replaceSubrange(
         i..<(i + t.storedPartCount),
         with: CollectionOfOne(.init(offset: a, type: t.type)))
+    }
+
+    /// Returns the typed region enclosing `a`.
+    private func typedRegion(enclosing a: Offset) throws -> TypedRegion {
+      let i = typedRegions.partitioningIndex { $0.offset > a }
+      if i == 0
+        || typedRegions[i - 1].offset + typeLayouts.pointee[typedRegions[i - 1].type].size <= a
+      {
+        throw Error.noTypedRegion(at: .init(allocation: self.id, offset: a))
+      }
+      return typedRegions[i - 1]
+    }
+
+    /// Returns the sequence of stored parts from the root type of the enclosing
+    /// `TypedRegion` to `t` at offset `a`.
+    private func pathFromRoot(to t: TypeLayout, at a: Offset) throws -> TypedRegions {
+      var x: TypedRegions = []
+      var r = try typedRegion(enclosing: a)
+      while r.type != t.type && r.offset != a {
+        let l = typeLayouts.pointee[r.type]
+        if r.type.isLeaf || r.offset > a {
+          // TODO: throw error
+        } else if l.isUnionLayout {
+
+        } else {
+
+        }
+      }
+      x.append(r)
+      return x
+    }
+
+    /// Marks region starting at `a` as initialized with `t`.
+    ///
+    /// The operation triggers recursive composition: if the newly
+    /// initialized region completes the requirements of any enclosing
+    /// type, those parts are replaced by their parent, continuing
+    /// transitively up the layout hierarchy as long as possible.
+    public mutating func markInitialized(_ t: TypeLayout, at a: Offset) throws {
+      try checkAlignmentAndAllocationBounds(at: a, for: t)
+      try requireNotComposed(a)
     }
 
     /// Returns the result of calling `body` on the storage for a `T` instance at `a`.
