@@ -23,6 +23,7 @@ public struct Memory {
     case typeAlreadyBinded(to: AnyType)
     case noTypedRegion(at: Address)
     case regionAlreadyComposed(Place)
+    case notContained(Place, in: Place)
   }
 
   /// The type layouts that been computed so far.
@@ -273,17 +274,33 @@ public struct Memory {
 
     /// Returns the sequence of stored parts from the root type of the enclosing
     /// `TypedRegion` to `t` at offset `a`.
-    private func pathFromRoot(to t: TypeLayout, at a: Offset) throws -> TypedRegions {
-      var x: TypedRegions = []
+    func pathFromRoot(to t: TypeLayout, at a: Offset) throws -> [TypedRegion] {
+      var x: [TypedRegion] = []
       var r = try typedRegion(enclosing: a)
-      while r.type != t.type && r.offset != a {
+      let root = Place(allocation: self.id, offset: r.offset, type: r.type)
+      let target = Place(allocation: self.id, offset: a, type: t.type)
+      while !(r.type == t.type && r.offset == a) {
+        x.append(r)
         let l = typeLayouts.pointee[r.type]
         if r.type.isLeaf || r.offset > a {
-          // TODO: throw error
+          throw Error.notContained(target, in: root)
         } else if l.isUnionLayout {
-
+          let d = l.discriminator
+          let i = composedRegions.partitioningIndex { $0.offset >= r.offset + d.offset }
+          if i == composedRegions.endIndex || composedRegions[i].type != d.type {
+            throw Error.notContained(target, in: root)
+          }
+          let dv = unsignedIntValue(
+            at: d.offset + r.offset, ofType: l.discriminator.type.base as! BuiltinType)
+          let p = l.parts[Int(dv)]
+          r = TypedRegion(offset: r.offset + p.offset, type: p.type)
         } else {
-
+          let d = a - r.offset
+          let p = l.parts.partitioningIndex { $0.offset > d } - 1
+          if p < l.parts.startIndex {
+            throw Error.notContained(target, in: root)
+          }
+          r = TypedRegion(offset: r.offset + l.parts[p].offset, type: l.parts[p].type)
         }
       }
       x.append(r)
