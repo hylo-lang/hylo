@@ -232,8 +232,29 @@ public struct Memory {
     /// parts of a `t` instance with the initialization record for a
     /// `t` instance.
     public mutating func compose(_ t: TypeLayout, at a: Offset) throws {
-      try requireNotComposed(a)
+      try checkAlignmentAndAllocationBounds(at: a, for: t)
+
       let i = composedRegions.partitioningIndex { $0.offset >= a }
+
+      if t.isUnionLayout {
+        let dc = t.discriminator
+        try requireComposed(
+          part: t.discriminatorParentage, baseOffset: a,
+          region: dc.offset == 0 ? i : i + 1)
+
+        let dv = unsignedIntValue(
+          at: dc.offset + a, ofType: t.discriminator.type.base as! BuiltinType)
+
+        try requireComposed(
+          part: .init(t, Int(dv)), baseOffset: a,
+          region: dc.offset == 0 ? i + 1 : i)
+      }
+      else {
+        for n in t.parts.indices {
+          try requireComposed(part: .init(t, n), baseOffset: a, region: i + n)
+        }
+      }
+
       composedRegions.replaceSubrange(
         i..<(i + t.storedPartCount),
         with: CollectionOfOne(.init(offset: a, type: t.type)))
