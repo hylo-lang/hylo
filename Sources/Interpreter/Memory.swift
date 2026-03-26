@@ -264,8 +264,12 @@ public struct Memory {
     /// Returns the typed region enclosing `a`.
     private func typedRegion(enclosing a: Offset) throws -> TypedRegion {
       let i = typedRegions.partitioningIndex { $0.offset > a }
-      if i == 0
-        || typedRegions[i - 1].offset + typeLayouts.pointee[typedRegions[i - 1].type].size <= a
+      if i == 0 {
+        throw Error.noTypedRegion(at: .init(allocation: self.id, offset: a))
+      }
+      let n = typedRegions[i - 1].offset + typeLayouts.pointee[typedRegions[i - 1].type].size
+      if n < a
+        || (n == a && typeLayouts.pointee[typedRegions[i - 1].type].size != 0)  // For void types
       {
         throw Error.noTypedRegion(at: .init(allocation: self.id, offset: a))
       }
@@ -282,7 +286,7 @@ public struct Memory {
       while !(r.type == t.type && r.offset == a) {
         x.append(r)
         let l = typeLayouts.pointee[r.type]
-        if r.type.isLeaf || r.offset > a {
+        if r.type.isBuiltin || r.type.isVoidOrNever || r.offset > a {
           throw Error.notContained(target, in: root)
         } else if l.isUnionLayout {
           let d = l.discriminator
