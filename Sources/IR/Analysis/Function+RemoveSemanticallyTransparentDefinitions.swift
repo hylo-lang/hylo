@@ -13,7 +13,10 @@ extension Function {
     }
   }
 
-  /// Ensures that instruction `i` has no uses, replacing them with the appropriate operands if needed.
+  /// Eliminates the semantically transparent `i` from the use-def chain by wiring its uses
+  /// directly to `i`'s source.
+  ///
+  /// Postcondition: `i` has no uses.
   private mutating func fixUses(of i: InstructionID) {
     switch self[i] {
     case let x as Access:
@@ -32,7 +35,7 @@ extension Function {
 
 extension Instruction {
 
-  /// Returns `true` if this instruction is a semantically transparent definition.
+  /// `true` iff this instruction is a semantically transparent definition.
   fileprivate var isSemanticallyTransparent: Bool {
     self is Access || self is EndAccess || self is CloseCapture || self is ReleaseCaptures
       || self is MarkState || self is DeallocStack
