@@ -139,7 +139,7 @@ extension Module {
     referencing slide: Function.ID,
     projecting p: Operand
   ) -> Block.ID {
-    let slideReference = FunctionReference(to: slide, in: self)
+    let slideReference = makeReference(to: slide)
     let continuationParameter = continuationParameter(ramp: ramp)
     let b = self[ramp].appendBlock(in: self[ramp][self[ramp].entry!].scope)
     modifyIR(of: ramp, at: .end(of: b)) { (e) in

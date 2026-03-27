@@ -96,8 +96,8 @@ extension Module {
     let oldProjectIR = self[d.id][oldProject]
     let t = oldProjectIR.result!.ast
     let ramp = Function.ID(projectionRamp: (oldProjectIR as! Project).callee)
-    let rampReference = FunctionReference(to: ramp, in: self)
-    let plateauReference = FunctionReference(to: p, in: self)
+    let rampReference = makeReference(to: ramp)
+    let plateauReference = makeReference(to: p)
 
     modifyIR(of: d.id, at: .before(oldEndProject)) { (e) in
       let nullCall = e._call_builtin(.zeroinitializer(BuiltinType.ptr), [])
