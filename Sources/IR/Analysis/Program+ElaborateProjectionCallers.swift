@@ -217,8 +217,7 @@ private struct ScopeDetails {
 
   /// Returns the split instruction at the start of region `r`.
   ///
-  /// - Requires: `0 < r`.
-  /// - Requires: `r < regionsCount`.
+  /// - Requires: `0 < r < regionsCount`.
   internal func splitInstruction(startingRegion r: Int) -> InstructionID {
     precondition(0 < r && r < regionsCount)
     return instructions[regionSplitPositions[r - 1]]
