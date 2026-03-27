@@ -28,6 +28,9 @@ extension IR.Program {
   ) {
     if modules[m]![f].site.file.baseName != "feature-test-projection" { return }  // TODO: remove this filter.
 
+    // Before doing anything, remove all the instructions not needed for code generation.
+    modules[m]![f].removeSemanticallyTransparentDefinitions()
+    
     let ramp = modules[m]!.demandProjectionRamp(for: f)
     let slide = modules[m]!.demandProjectionSlide(for: f)
     let source = modules[m]![f]
@@ -105,14 +108,8 @@ extension Module {
     let sourceYield = source[y] as! Yield
     let b = t.rewrittenBlocks[source.block(of: y)]!
 
-    // Insert code at the yield point, just before the tail
-    let yieldInsertionPoint: InsertionPoint
-    if let x = d.firstTailInstructions[y]! {
-      yieldInsertionPoint = .before(t.rewrittenInstructions[x]!)
-    } else {
-      yieldInsertionPoint = .end(of: b)
-    }
-    modifyIR(of: ramp, at: yieldInsertionPoint) { (e) in
+    // Insert code at the yield point.
+    modifyIR(of: ramp, at: .end(of: b)) { (e) in
       // If we have multiple yields, store the index of the current yield point in the state.
       if d.skeleton.yieldPoints.count > 1 {
         _ /*index*/ = d.skeleton.yieldPoints.firstIndex(of: y)!
@@ -121,13 +118,9 @@ extension Module {
 
       // Store the yield value in the storage for projected value.
       let x0 = e._load(t.transform(sourceYield.projection))
-      let x1 = e._access(.let, from: projectedValueStorage)
-      e._store(x0, x1)
-      e._end_access(x1)
-    }
+      e._store(x0, projectedValueStorage)
 
-    // After the tail, jump to the continuation block.
-    modifyIR(of: ramp, at: .end(of: b)) { (e) in
+      // Jump to the continuation block.
       e._branch(to: continuationBlock)
     }
   }
@@ -221,12 +214,10 @@ extension Emitter {
   ) -> Operand {
     let x0 = _place_to_pointer(Operand.constant(slide))
     let x1 = _alloc_stack(Module.projectionContinuationType())
-    let x2 = _access(.set, from: _subfield_view(x1, at: [0, 0]))
+    let x2 = _subfield_view(x1, at: [0, 0])
     _store(x0, x2)
-    _end_access(x2)
-    let x3 = _access(.set, from: _subfield_view(x1, at: [0, 1]))
+    let x3 = _subfield_view(x1, at: [0, 1])
     _store(f, x3)
-    _end_access(x3)
     return x1
   }
 
@@ -235,16 +226,10 @@ extension Emitter {
     _ c: Operand, with slideContinuation: Operand,
     projecting s: Operand
   ) {
-    let x0 = _access(.let, from: _subfield_view(c, at: [0]))  // c.resumeFunction
-    let x1 = _access(.inout, from: s)
-    let x2 = _access(.let, from: _subfield_view(c, at: [1]))  // c.frame
-    let x3 = _access(.let, from: slideContinuation)
-    let x4 = _alloc_stack(.void)
-    _emitApply(x0, to: [x1, x2, x3], writingResultTo: x4)
-    _end_access(x3)
-    _end_access(x2)
-    _end_access(x1)
-    _end_access(x0)
+    let x0 = _subfield_view(c, at: [0])  // c.resumeFunction
+    let x1 = _subfield_view(c, at: [1])  // c.frame
+    let x2 = _alloc_stack(.void)
+    _emitApply(x0, to: [s, x1, slideContinuation], writingResultTo: x2)
   }
 }
 
@@ -257,10 +242,7 @@ private struct ProjectionDetails {
   /// The skeleton of the projection.
   let skeleton: ProjectionSkeleton
 
-  /// The first instruction in each tail, corresponding to all our yield points.
-  let firstTailInstructions: [InstructionID: InstructionID?]
-
-  /// All the instructions in the ramp, including the tail instructions.
+  /// All the instructions in the ramp.
   /// May contain instructions from different blocks.
   let rampInstructions: [InstructionID]
 
@@ -274,21 +256,17 @@ private struct ProjectionDetails {
   ) {
     var rampInstructions = s.rampBlocks.flatMap { source.instructions(in: $0) }
     var slideInstructions = s.slideBlocks.flatMap { source.instructions(in: $0) }
-    var firstTailInstructions: [InstructionID: InstructionID?] = [:]
 
     for y in s.yieldPoints {
       let a = Array(source.instructions(in: source.block(of: y)))
-      let s = source.split(instructions: a, at: y)
-      rampInstructions.append(contentsOf: a.prefix(upTo: s.splitPoint))
-      rampInstructions.append(contentsOf: a[s.splitPoint + 1 ..< s.epilogueEnd])
-      // Note: `yield` is not included in the ramp
-      slideInstructions.append(contentsOf: a.suffix(from: s.epilogueEnd))
-      firstTailInstructions[y] = s.splitPoint + 1 <= s.epilogueEnd ? a[s.splitPoint + 1] : nil
+      let s = a.firstIndex(of: y)!
+      rampInstructions.append(contentsOf: a[0 ..< s])
+      // Note: `yield` is not included neither in the ramp nor in the slide.
+      slideInstructions.append(contentsOf: a[(s + 1)...])
     }
 
     self.id = p
     self.skeleton = s
-    self.firstTailInstructions = firstTailInstructions
     self.rampInstructions = rampInstructions
     self.slideInstructions = slideInstructions
   }
