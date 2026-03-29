@@ -6,7 +6,7 @@ import Utils
 public struct ComposedRegion: Regular {
 
   /// A position in some allocation.
-  public typealias Offset = Int
+  public typealias Offset = Memory.Storage.Index
 
   /// Where the region begins relative to an `Allocation`'s `baseOffset`.
   let offset: Offset
