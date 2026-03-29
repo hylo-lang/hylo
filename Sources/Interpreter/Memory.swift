@@ -348,7 +348,7 @@ public struct Memory {
     }
 
     /// Returns the unsigned interpretation of the builtin integer value at `a`;
-    private func unsignedIntValue(at a: Offset, ofType t: BuiltinType) -> UInt {
+    func unsignedIntValue(at a: Offset, ofType t: BuiltinType) -> UInt {
       if case .i(let n) = t {
         return switch n {
         case 8: UInt(withUnsafePointer(to: UInt8.self, at: a) { $0.pointee })
