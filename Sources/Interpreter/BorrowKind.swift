@@ -1,5 +1,5 @@
 /// The kind of borrow applied to a `Place`.
-public enum BorrowedAccess {
+public enum BorrowKind {
 
   /// A shared, read-only borrow. Multiple `let` borrow may coexist, provided
   /// no conflicting `inout` borrow exists.
