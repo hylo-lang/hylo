@@ -2,7 +2,7 @@ import FrontEnd
 import Utils
 
 /// A region of memory that is reserved for storing a specific type.
-public struct ReservedTypedRegion: Regular {
+public struct ReservedTypeRegion: Regular {
 
   /// A position in some allocation.
   public typealias Offset = Memory.Storage.Index
@@ -16,7 +16,7 @@ public struct ReservedTypedRegion: Regular {
 }
 
 /// The non-overlapping regions of an `Allocation` reserved to be interpreted as specific type.
-public struct ReservedTypedRegions {
+public struct ReservedTypeRegions {
 
   /// A position in some allocation.
   public typealias Offset = Memory.Storage.Index
@@ -25,7 +25,7 @@ public struct ReservedTypedRegions {
   private let typeLayouts: UnsafeMutablePointer<TypeLayoutCache>
 
   /// The reserved typed regions, in ascending order.
-  private var reservedTypeRegions: [ReservedTypedRegion]
+  private var reservedTypeRegions: [ReservedTypeRegion]
 
   /// Empty regions ensuring type layouts from `l`.
   public init(
@@ -51,7 +51,7 @@ public struct ReservedTypedRegions {
   }
 
   /// Returns the typed region enclosing `a`.
-  public func region(enclosing a: Offset) -> ReservedTypedRegion? {
+  public func region(enclosing a: Offset) -> ReservedTypeRegion? {
     guard let i = regionIndex(enclosing: a) else {
       return nil
     }
