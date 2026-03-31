@@ -192,7 +192,7 @@ final class InterpreterMemoryTests: XCTestCase {
     }
 
     try m.bind(type: tuple, at: p.address)
-    check(throws: Memory.Error.typeAlreadyReserved(for: tuple)) {
+    check(throws: Memory.Error.regionAlreadyReserved(for: tuple)) {
       try m.bind(type: i64, at: p.address)
     }
     m.unbindType(from: p.address)

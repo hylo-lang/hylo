@@ -15,7 +15,7 @@ public struct ReservedTypedRegion: Regular {
 
 }
 
-/// The reserved typed regions of an `Allocation`.
+/// The non-overlapping regions of an `Allocation` reserved to be interpreted as specific type.
 public struct ReservedTypedRegions {
 
   /// A position in some allocation.
@@ -43,7 +43,7 @@ public struct ReservedTypedRegions {
       return nil
     }
     if reservedTypeRegions[i - 1].offset
-      + typeLayouts.pointee[reservedTypeRegions[i - 1].type].size < a
+      + typeLayouts.pointee[reservedTypeRegions[i - 1].type].size <= a
     {
       return nil
     }
@@ -62,12 +62,16 @@ public struct ReservedTypedRegions {
   /// structure of `t`, disallowing incompatible representations.
   public mutating func reserve(_ t: AnyType, at o: Offset) throws {
     let i = reservedTypeRegions.partitioningIndex { $0.offset > o }
-    if i != 0 {
-      let x = reservedTypeRegions[i - 1].offset
-      let n = typeLayouts.pointee[reservedTypeRegions[i - 1].type].size
-      if x + n > o {
-        throw Memory.Error.typeAlreadyReserved(for: reservedTypeRegions[i - 1].type)
-      }
+    if i != 0
+      && reservedTypeRegions[i - 1].offset
+        + typeLayouts.pointee[reservedTypeRegions[i - 1].type].size > o
+    {
+      throw Memory.Error.regionAlreadyReserved(for: reservedTypeRegions[i - 1].type)
+    }
+    if i != reservedTypeRegions.endIndex
+      && o + typeLayouts.pointee[t].size > reservedTypeRegions[i].offset
+    {
+      throw Memory.Error.regionAlreadyReserved(for: reservedTypeRegions[i].type)
     }
     reservedTypeRegions.insert(.init(offset: o, type: t), at: i)
   }

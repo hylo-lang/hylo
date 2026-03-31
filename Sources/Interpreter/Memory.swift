@@ -20,7 +20,7 @@ public struct Memory {
     case deallocationNotAtStartOfAllocation(Address)
     case noLongerAllocated(Address)
     case noDecomposable(TypeLayout, at: Address)
-    case typeAlreadyReserved(for: AnyType)
+    case regionAlreadyReserved(for: AnyType)
     case noTypedRegion(at: Address)
     case regionAlreadyComposed(Place)
     case notContained(Place, in: Place)
@@ -435,7 +435,7 @@ public struct Memory {
         let x = typedRegions[i - 1].offset
         let n = typeLayouts.pointee[typedRegions[i - 1].type].size
         if x + n > o {
-          throw Error.typeAlreadyReserved(for: typedRegions[i - 1].type)
+          throw Error.regionAlreadyReserved(for: typedRegions[i - 1].type)
         }
       }
       typedRegions.insert(.init(offset: o, type: t), at: i)
