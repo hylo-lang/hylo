@@ -237,6 +237,38 @@ jobs:
       #     # TL;DR: The Windows SDK had a change in 10.0.26100.0 that the Swift compiler didn't account for.
       #     # The Swift compiler team is aware of the issue and they are going to release a fix some time.
 
+      - name: Print Windows SDK version (after vsdevenv setup)
+        if: ${{ runner.os == 'Windows' }}
+        shell: pwsh
+        run: |
+          Write-Host "Windows SDK env vars (if set by VS Dev Env):"
+          "WindowsSdkDir=$env:WindowsSdkDir" | Write-Host
+          "WindowsSDKVersion=$env:WindowsSDKVersion" | Write-Host
+          "UniversalCRTSdkDir=$env:UniversalCRTSdkDir" | Write-Host
+          "UCRTVersion=$env:UCRTVersion" | Write-Host
+
+          Write-Host "" 
+          Write-Host "Windows Kits Installed Roots (registry):"
+          $kitsRootsKey = 'HKLM:\SOFTWARE\Microsoft\Windows Kits\Installed Roots'
+          if (Test-Path $kitsRootsKey) {
+            $kitsRoots = Get-ItemProperty -Path $kitsRootsKey
+            if ($kitsRoots.KitsRoot10) { "KitsRoot10=$($kitsRoots.KitsRoot10)" | Write-Host }
+            if ($kitsRoots.KitsRoot11) { "KitsRoot11=$($kitsRoots.KitsRoot11)" | Write-Host }
+          } else {
+            Write-Host "Registry key not found: $kitsRootsKey"
+          }
+
+          Write-Host "" 
+          Write-Host "Windows SDK versions found under Windows Kits Include directories:"
+          foreach ($base in @($env:WindowsSdkDir, $kitsRoots.KitsRoot10, $kitsRoots.KitsRoot11, 'C:\Program Files (x86)\Windows Kits\10\')) {
+            if (-not $base) { continue }
+            $includeDir = Join-Path $base 'Include'
+            if (Test-Path $includeDir) {
+              Write-Host "IncludeDir=$includeDir"
+              Get-ChildItem -Path $includeDir -Directory | Select-Object -ExpandProperty Name | Sort-Object | ForEach-Object { "  - $_" | Write-Host }
+            }
+          }
+
       - name: Set up specific Xcode version
         uses: maxim-lobanov/setup-xcode@v1
         if: ${{ runner.os == 'macOS' }}
@@ -346,6 +378,38 @@ jobs:
       #     winsdk: "10.0.22621.0" # Workaround for this: https://forums.swift.org/t/swiftpm-plugin-doesnt-work-with-the-latest-visual-studio-version/78183/14
       #     # TL;DR: The Windows SDK had a change in 10.0.26100.0 that the Swift compiler didn't account for.
       #     # The Swift compiler team is aware of the issue and they are going to release a fix some time.
+
+      - name: Print Windows SDK version (after vsdevenv setup)
+        if: ${{ runner.os == 'Windows' }}
+        shell: pwsh
+        run: |
+          Write-Host "Windows SDK env vars (if set by VS Dev Env):"
+          "WindowsSdkDir=$env:WindowsSdkDir" | Write-Host
+          "WindowsSDKVersion=$env:WindowsSDKVersion" | Write-Host
+          "UniversalCRTSdkDir=$env:UniversalCRTSdkDir" | Write-Host
+          "UCRTVersion=$env:UCRTVersion" | Write-Host
+
+          Write-Host "" 
+          Write-Host "Windows Kits Installed Roots (registry):"
+          $kitsRootsKey = 'HKLM:\SOFTWARE\Microsoft\Windows Kits\Installed Roots'
+          if (Test-Path $kitsRootsKey) {
+            $kitsRoots = Get-ItemProperty -Path $kitsRootsKey
+            if ($kitsRoots.KitsRoot10) { "KitsRoot10=$($kitsRoots.KitsRoot10)" | Write-Host }
+            if ($kitsRoots.KitsRoot11) { "KitsRoot11=$($kitsRoots.KitsRoot11)" | Write-Host }
+          } else {
+            Write-Host "Registry key not found: $kitsRootsKey"
+          }
+
+          Write-Host "" 
+          Write-Host "Windows SDK versions found under Windows Kits Include directories:"
+          foreach ($base in @($env:WindowsSdkDir, $kitsRoots.KitsRoot10, $kitsRoots.KitsRoot11, 'C:\Program Files (x86)\Windows Kits\10\')) {
+            if (-not $base) { continue }
+            $includeDir = Join-Path $base 'Include'
+            if (Test-Path $includeDir) {
+              Write-Host "IncludeDir=$includeDir"
+              Get-ChildItem -Path $includeDir -Directory | Select-Object -ExpandProperty Name | Sort-Object | ForEach-Object { "  - $_" | Write-Host }
+            }
+          }
 
       - name: Set up specific Xcode version
         uses: maxim-lobanov/setup-xcode@v1
