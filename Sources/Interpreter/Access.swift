@@ -21,17 +21,17 @@ public enum AccessKind: UInt8, Regular {
 /// A unique access participating in access control.
 public struct Access: Regular {
 
-  /// A unique `Borrow` identifier.
+  /// A unique `Access` identifier.
   public typealias ID = UUID
 
-  /// A unique `Borrow` identifier.
+  /// A unique `Access` identifier.
   public let id: ID
 
-  /// Kind of borrow.
+  /// Kind of access.
   public let kind: AccessKind
 
-  /// A `k` type borrow.
-  public init(_ k: AccessKind) {
+  /// An access of kind `k`.
+  public init(kind k: AccessKind) {
     id = UUID()
     kind = k
   }
