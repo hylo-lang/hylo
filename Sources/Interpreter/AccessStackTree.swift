@@ -19,6 +19,7 @@ public struct AccessStackTree<T: Equatable> {
     /// The indices of this node children.
     public var children: [Index]
 
+    /// Node with no accesses and children.
     public init(_ id: T) {
       self.id = id
       accesses = []
