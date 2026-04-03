@@ -1,61 +1,79 @@
 import FrontEnd
 
 /// A hierarchical composition of access stacks, where each node tracks accesses
-/// for a region in an `Allocation`.
-public struct AccessStackTree<T: Equatable> {
+/// associated with an element.
+public struct AccessStackTree<Element: Equatable> {
 
-  /// Type of index of a node in `nodes`.
+  /// The index of a node in storage.
   private typealias Index = Int
 
-  /// A tree node representing a region and its associated accesses.
+  /// A node in the tree.
   private struct Node {
 
-    /// Identity of the region represented by node.
-    public let id: T
+    /// The element associated with this node.
+    public let element: Element
 
-    /// Accesses currently active on this node.
+    /// The accesses currently active on this node.
     public var accesses: [Access]
 
-    /// The indices of this node children.
+    /// The indices of this node's children.
     public var children: [Index]
 
-    /// Node with no accesses and children.
-    public init(_ id: T) {
-      self.id = id
+    /// Creates a node with no `accesses` or `children`.
+    public init(_ element: Element) {
+      self.element = element
       accesses = []
       children = []
     }
 
   }
 
-  /// Contiguous storage of all nodes in the tree.
-  private var nodes: [Node] = []
+  /// The storage of all nodes in the tree.
+  private var storage: [Node] = []
 
-  /// Position of nodes that has been freed and is available to re-use.
-  private var freeNodes: [Index] = []
+  /// The indices of nodes that may be reused.
+  private var free: [Index] = []
 
-  /// Position of root node.
+  /// The index of the root node.
   private var root: Index
 
-  public init(of allocation: T) {
-    nodes.append(Node(allocation))
-    root = 0
+  /// Creates a tree with `root` as its root element.
+  public init(root: Element) {
+    storage.append(Node(root))
+    self.root = 0
   }
 
-  /// Adds access of kind `a` derived from `p` to `path.last!` element.
-  public mutating func add(_ a: AccessKind, at path: [T], derivedFrom p: Access?) throws
-    -> Access
+  /// A path from the root of the tree to an element.
+  ///
+  /// Given a path `p`, `p[i]` identifies the element reached from the node
+  /// denoted by `p[..<i]`. The empty path `[]` denotes the root element.
+  ///
+  /// For example, for a tree rooted at `A` with children `{B, C}`, where
+  /// `C` has a child `{D}`:
+  /// - `[B]` denotes `B`,
+  /// - `[C, D]` denotes `D`, and
+  /// - `[]` denotes `A`.
+  public typealias Path = [Element]
+
+  /// Adds an access of kind `a` derived from `p` at `path`, creating missing nodes as needed
+  /// and invalidating conflicting accesses in overlapping nodes if necessary.
+  public mutating func add(_ a: AccessKind, at path: Path, derivedFrom p: Access?)
+    throws -> Access
   {
+    precondition(!path.isEmpty)
     UNIMPLEMENTED()
   }
 
-  /// Ends `a` on given path.
-  public mutating func end(_ a: Access, at path: [T]) throws {
+  /// Ends `a` at `path`.
+  public mutating func end(_ a: Access, at path: Path) throws {
+    precondition(!path.isEmpty)
     UNIMPLEMENTED()
   }
 
-  /// Throws iff can't grant to use `a`.
-  public mutating func require(_ a: Access, at path: [T]) throws {
+  /// Requires that the access `a` is valid for use at `path`,
+  /// invalidating conflicting accesses in overlapping nodes if necessary.
+  public mutating func require(_ a: Access, at path: Path) throws {
+    precondition(!path.isEmpty)
     UNIMPLEMENTED()
   }
 
