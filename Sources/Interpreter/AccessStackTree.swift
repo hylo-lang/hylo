@@ -2,7 +2,7 @@ import FrontEnd
 
 /// A hierarchical composition of access stacks, where each node tracks accesses
 /// for a region in an `Allocation`.
-public struct AccessTree<T: Equatable> {
+public struct AccessStackTree<T: Equatable> {
 
   /// Type of index of a node in `nodes`.
   private typealias Index = Int
