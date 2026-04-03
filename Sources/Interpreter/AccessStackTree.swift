@@ -45,8 +45,8 @@ public struct AccessStackTree<Element: Equatable> {
 
   /// A path from the root of the tree to an element.
   ///
-  /// Given a path `p`, `p[i]` identifies the element reached from the node
-  /// denoted by `p[..<i]`. The empty path `[]` denotes the root element.
+  /// Given a path `p`, `p[i]` identifies the element reached by extending
+  /// the path `p[..<i]`. The empty path `[]` denotes the root element.
   ///
   /// For example, for a tree rooted at `A` with children `{B, C}`, where
   /// `C` has a child `{D}`:
@@ -55,8 +55,8 @@ public struct AccessStackTree<Element: Equatable> {
   /// - `[]` denotes `A`.
   public typealias Path = [Element]
 
-  /// Adds an access of kind `a` derived from `p` at `path`, creating missing nodes as needed
-  /// and invalidating conflicting accesses in overlapping nodes if necessary.
+  /// Adds an access of kind `a` derived from `p` at `path`, creating missing elements as needed
+  /// and invalidating conflicting accesses in overlapping parts of the tree.
   public mutating func add(_ a: AccessKind, at path: Path, derivedFrom p: Access?)
     throws -> Access
   {
@@ -71,7 +71,7 @@ public struct AccessStackTree<Element: Equatable> {
   }
 
   /// Requires that the access `a` is valid for use at `path`,
-  /// invalidating conflicting accesses in overlapping nodes if necessary.
+  /// invalidating conflicting accesses in overlapping parts of the tree.
   public mutating func require(_ a: Access, at path: Path) throws {
     precondition(!path.isEmpty)
     UNIMPLEMENTED()
