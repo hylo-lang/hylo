@@ -4,6 +4,7 @@ import Utils
 public enum AccessError<T: Equatable & Sendable>: Error {
   case canNotDerive(AccessKind, for: AccessStackTree<T>.Path, from: Access, at: T)
   case accessNotFound(Access)
+  case pathNotFound(AccessStackTree<T>.Path)
 }
 
 /// A hierarchical composition of access stacks, where each node tracks accesses
@@ -69,42 +70,67 @@ public struct AccessStackTree<Element: Equatable & Sendable> {
   /// - `[]` denotes `A`.
   public typealias Path = [Element]
 
+  /// A path in the tree expressed as node indices.
+  private typealias NodePath = [Index]
+
   /// Adds an access of kind `a` derived from `p` at `path`, creating missing elements as needed
   /// and invalidating conflicting accesses in overlapping parts of the tree.
   public mutating func add(_ a: AccessKind, at path: Path, derivedFrom p: Access?)
     throws -> Access
   {
     precondition(!path.isEmpty)
-    var i = root
-    var d: [Index] = []
-    var foundP = false
-    for e in path {
-      var j = storage[i].children.first { storage[$0].element == e }
-      if j == nil {
-        j = addChild(e, to: i)
-      }
-      i = j!
-      if let p = p {
-        if storage[i].accesses.contains(p) {
-          foundP = true
-        }
-        if foundP {
-          d.append(i)
-        }
-      }
-    }
+    let nodePath = ensureNodePath(for: path)
 
     if let p = p {
-      if d.isEmpty {
+      guard let start = nodePath.firstIndex(where: { storage[$0].accesses.contains(p) }) else {
         throw AccessError<Element>.accessNotFound(p)
-      } else {
-        if !canDerive(a, from: p, at: d) {
-          throw AccessError.canNotDerive(a, for: path, from: p, at: storage[d.first!].element)
-        }
+      }
+
+      let derivedPath = Array(nodePath[start...])
+
+      guard canDerive(a, from: p, at: derivedPath) else {
+        throw AccessError.canNotDerive(
+          a,
+          for: path,
+          from: p,
+          at: storage[derivedPath.first!].element
+        )
       }
     }
 
-    return try add(a, to: i)
+    return try add(a, to: nodePath.last!)
+  }
+
+  /// Returns the `NodePath` corresponding to `p`.
+  private func asNodePath(_ p: Path) throws -> NodePath {
+    var i = root
+    var r: NodePath = []
+
+    for e in p {
+      guard let j = storage[i].children.first(where: { storage[$0].element == e }) else {
+        throw AccessError<Element>.pathNotFound(p)
+      }
+      i = j
+      r.append(i)
+    }
+
+    return r
+  }
+
+  /// Returns the `NodePath` corresponding to `p`, creating missing nodes as needed.
+  private mutating func ensureNodePath(for p: Path) -> NodePath {
+    var i = root
+    var r: NodePath = []
+
+    for e in p {
+      let j =
+        storage[i].children.first(where: { storage[$0].element == e })
+        ?? addChild(e, to: i)
+      i = j
+      r.append(i)
+    }
+
+    return r
   }
 
   /// Ends `a` at `path`.
