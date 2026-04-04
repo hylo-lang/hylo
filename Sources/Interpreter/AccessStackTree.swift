@@ -4,6 +4,14 @@ import FrontEnd
 /// associated with an element.
 public struct AccessStackTree<Element: Equatable> {
 
+  // Invariants:
+  //   - If `i`th node has `let` access on `j`th `accesses` index, then all accesses
+  //     in its descendent subtree and all accesses of `i`th node after `j`th access
+  //     are `let` access.
+  //
+  //  - Every node except `root` node in the tree has atleast one child or has atleast
+  //    one access.
+
   /// The index of a node in storage.
   private typealias Index = Int
 
@@ -62,7 +70,8 @@ public struct AccessStackTree<Element: Equatable> {
   {
     precondition(!path.isEmpty)
     var i = root
-    var d: Index? = nil
+    var d: [Index] = []
+    var foundP = false
     for e in path {
       var j = storage[i].children.first { storage[$0].element == e }
       if j == nil {
@@ -71,16 +80,19 @@ public struct AccessStackTree<Element: Equatable> {
       i = j!
       if let p = p {
         if storage[i].accesses.contains(p) {
-          d = i
+          foundP = true
+        }
+        if foundP {
+          d.append(i)
         }
       }
     }
 
     if let p = p {
-      if let d = d {
-        try requireCanDerive(a, for: i, from: p, at: d)
+      if d.isEmpty {
+        // throw error
       } else {
-        // Throw error
+        try requireCanDerive(a, from: p, at: d)
       }
     }
 
@@ -116,17 +128,56 @@ public struct AccessStackTree<Element: Equatable> {
     return r
   }
 
-  /// Throws iff it is not possible to derive access of kind `a` for `i`th node
-  /// from access `p` of `j`th node.
-  ///
-  /// - Precondition: `j`th node is descendent of `i`th node.
-  private mutating func requireCanDerive(
+  /// Throws iff an access of kind `a` cannot be derived from `p` for `path.last!`
+  /// along `path`, which lists the positions from where `p` is active to the target.
+  private func requireCanDerive(
     _ a: AccessKind,
-    for i: Index,
     from p: Access,
-    at j: Index
+    at path: [Index]
   ) throws {
-    UNIMPLEMENTED()
+    precondition(!path.isEmpty)
+    switch a {
+    case .`let`:
+      try requireCanDeriveLetAccess(from: p, at: path)
+    case .`inout`:
+      try requireCanDeriveInoutAccess(from: p, at: path)
+    case .`set`:
+      try requireCanDeriveSetAccess(from: p, at: path)
+    case .sink:
+      try requireCanDeriveSinkAccess(from: p, at: path)
+    }
+  }
+
+  /// Throws iff `let` access cannot be derived from `p` for `path.last!`
+  /// along `path`, which lists the positions from where `p` is active to the target.
+  private func requireCanDeriveLetAccess(
+    from p: Access,
+    at path: [Index]
+  ) throws {
+  }
+
+  /// Throws iff `inout` access cannot be derived from `p` for `path.last!`
+  /// along `path`, which lists the positions from where `p` is active to the target.
+  private func requireCanDeriveInoutAccess(
+    from p: Access,
+    at path: [Index]
+  ) throws {
+  }
+
+  /// Throws iff `set` access cannot be derived from `p` for `path.last!`
+  /// along `path`, which lists the positions from where `p` is active to the target.
+  private func requireCanDeriveSetAccess(
+    from p: Access,
+    at path: [Index]
+  ) throws {
+  }
+
+  /// Throws iff `sink` access cannot be derived from `p` for `path.last!`
+  /// along `path`, which lists the positions from where `p` is active to the target.
+  private func requireCanDeriveSinkAccess(
+    from p: Access,
+    at path: [Index]
+  ) throws {
   }
 
   /// Adds access of kind `a` to node at `i`.
