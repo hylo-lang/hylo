@@ -62,6 +62,11 @@ extension Collection {
     return candidates[0 ..< end].map({ self[$0] })
   }
 
+  /// Returns true iff no element in `self` satisifes `predicate`.
+  public func noneSatisfy(_ predicate: (Element) throws -> Bool) rethrows -> Bool {
+    try firstIndex(where: predicate) == nil
+  }
+
 }
 
 extension BidirectionalCollection where Element: Equatable {

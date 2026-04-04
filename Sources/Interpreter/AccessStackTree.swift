@@ -1,4 +1,5 @@
 import FrontEnd
+import Utils
 
 public enum AccessError<T: Equatable & Sendable>: Error {
   case canNotDerive(AccessKind, for: AccessStackTree<T>.Path, from: Access, at: T)
@@ -164,13 +165,18 @@ public struct AccessStackTree<Element: Equatable & Sendable> {
   /// Returns true iff `inout` access can be derived from `p` for `path.last!`
   /// along `path`, which lists the positions from where `p` is active to the target.
   private func canDeriveInoutAccess(from p: Access, at path: [Index]) -> Bool {
-    UNIMPLEMENTED()
+    (p.kind == .inout || p.kind == .sink)
+      && storage[path[0]].accesses.noneSatisfy { $0.kind == .let }
+      && storage[path[0]].accesses.last == p
+      && path.dropFirst().allSatisfy { storage[$0].accesses.isEmpty }
   }
 
   /// Returns true iff `set` access can be derived from `p` for `path.last!`
   /// along `path`, which lists the positions from where `p` is active to the target.
   private func canDeriveSetAccess(from p: Access, at path: [Index]) -> Bool {
-    UNIMPLEMENTED()
+    storage[path[0]].accesses.noneSatisfy { $0.kind == .let }
+      && storage[path[0]].accesses.last == p
+      && path.dropFirst().allSatisfy { storage[$0].accesses.isEmpty }
   }
 
   /// Returns true iff `sink` access can be derived from `p` for `path.last!`
