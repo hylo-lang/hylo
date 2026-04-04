@@ -143,12 +143,10 @@ public struct AccessStackTree<Element: Equatable & Sendable> {
     switch a {
     case .`let`:
       return canDeriveLetAccess(from: p, at: path)
-    case .`inout`:
-      return canDeriveInoutAccess(from: p, at: path)
     case .`set`:
       return canDeriveSetAccess(from: p, at: path)
-    case .sink:
-      return canDeriveSinkAccess(from: p, at: path)
+    default:
+      return (p.kind == .inout || p.kind == .sink) && canDeriveSetAccess(from: p, at: path)
     }
   }
 
@@ -162,27 +160,12 @@ public struct AccessStackTree<Element: Equatable & Sendable> {
     }
   }
 
-  /// Returns true iff `inout` access can be derived from `p` for `path.last!`
-  /// along `path`, which lists the positions from where `p` is active to the target.
-  private func canDeriveInoutAccess(from p: Access, at path: [Index]) -> Bool {
-    (p.kind == .inout || p.kind == .sink)
-      && storage[path[0]].accesses.noneSatisfy { $0.kind == .let }
-      && storage[path[0]].accesses.last == p
-      && path.dropFirst().allSatisfy { storage[$0].accesses.isEmpty }
-  }
-
   /// Returns true iff `set` access can be derived from `p` for `path.last!`
   /// along `path`, which lists the positions from where `p` is active to the target.
   private func canDeriveSetAccess(from p: Access, at path: [Index]) -> Bool {
     storage[path[0]].accesses.noneSatisfy { $0.kind == .let }
       && storage[path[0]].accesses.last == p
       && path.dropFirst().allSatisfy { storage[$0].accesses.isEmpty }
-  }
-
-  /// Returns true iff `sink` access can be derived from `p` for `path.last!`
-  /// along `path`, which lists the positions from where `p` is active to the target.
-  private func canDeriveSinkAccess(from p: Access, at path: [Index]) -> Bool {
-    UNIMPLEMENTED()
   }
 
   /// Adds access of kind `a` to node at `i`.
