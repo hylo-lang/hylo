@@ -154,7 +154,11 @@ public struct AccessStackTree<Element: Equatable & Sendable> {
   /// Returns true iff `let` access can be derived from `p` for `path.last!`
   /// along `path`, which lists the positions from where `p` is active to the target.
   private func canDeriveLetAccess(from p: Access, at path: [Index]) -> Bool {
-    UNIMPLEMENTED()
+    switch p.kind {
+    case .set: false
+    case .let: storage[path[0]].accesses.contains(p)
+    default: storage[path[0]].accesses.last { $0.kind == .inout || $0.kind == .sink } == p
+    }
   }
 
   /// Returns true iff `inout` access can be derived from `p` for `path.last!`
