@@ -2,9 +2,8 @@ extension Function {
 
   /// Remove from `self` all the definitions that are semantically transparent for code generation.
   ///
-  /// A semantically transparent definition has no operational semantics, and only serves to
-  /// provide information for IR-level analyses and transformations. They can be safely removed
-  /// before code generation.
+  /// A semantically transparent definition has no operational semantics and only informs
+  /// IR analyses and transformations. They can be ignored for the purpose of code generation.
   mutating func removeSemanticallyTransparentDefinitions() {
     // Operate in reverse order to attempt to remove uses of the instructions before removing the instructions themselves.
     for i in instructionIdentities.reversed() where self[i].isSemanticallyTransparent {
