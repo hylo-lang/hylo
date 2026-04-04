@@ -1,7 +1,8 @@
 import FrontEnd
 import Utils
 
-public enum AccessError<T: Equatable & Sendable>: Error {
+/// An incorrect access operation.
+public enum AccessError<T: Regular>: Error {
   case canNotDerive(AccessKind, for: AccessStackTree<T>.Path, from: Access, at: T)
   case accessNotFound(Access)
   case pathNotFound(AccessStackTree<T>.Path)
@@ -9,7 +10,7 @@ public enum AccessError<T: Equatable & Sendable>: Error {
 
 /// A hierarchical composition of access stacks, where each node tracks accesses
 /// associated with an element.
-public struct AccessStackTree<Element: Equatable & Sendable> {
+public struct AccessStackTree<Element: Regular> {
 
   // Invariants:
   //   - If `i`th node has `let` access on `j`th `accesses` index, then all accesses
@@ -79,14 +80,14 @@ public struct AccessStackTree<Element: Equatable & Sendable> {
     throws -> Access
   {
     precondition(!path.isEmpty)
-    let nodePath = ensureNodePath(for: path)
+    let np = ensureNodePath(for: path)
 
     if let p = p {
-      guard let start = nodePath.firstIndex(where: { storage[$0].accesses.contains(p) }) else {
+      guard let start = np.firstIndex(where: { storage[$0].accesses.contains(p) }) else {
         throw AccessError<Element>.accessNotFound(p)
       }
 
-      let derivedPath = Array(nodePath[start...])
+      let derivedPath = Array(np[start...])
 
       guard canDerive(a, from: p, at: derivedPath) else {
         throw AccessError.canNotDerive(
@@ -98,7 +99,7 @@ public struct AccessStackTree<Element: Equatable & Sendable> {
       }
     }
 
-    return try add(a, to: nodePath.last!)
+    return try add(a, to: np.last!)
   }
 
   /// Returns the `NodePath` corresponding to `p`.
@@ -194,7 +195,8 @@ public struct AccessStackTree<Element: Equatable & Sendable> {
       && path.dropFirst().allSatisfy { storage[$0].accesses.isEmpty }
   }
 
-  /// Adds access of kind `a` to node at `i`.
+  /// Adds access of kind `a` to node at `i`, invalidating conflicting accesses
+  /// in overlapping parts of the tree.
   private mutating func add(_ a: AccessKind, to i: Index) throws -> Access {
     UNIMPLEMENTED()
   }
