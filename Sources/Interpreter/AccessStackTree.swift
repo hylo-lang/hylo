@@ -61,7 +61,30 @@ public struct AccessStackTree<Element: Equatable> {
     throws -> Access
   {
     precondition(!path.isEmpty)
-    UNIMPLEMENTED()
+    var i = root
+    var d: Index? = nil
+    for e in path {
+      var j = storage[i].children.first { storage[$0].element == e }
+      if j == nil {
+        j = addChild(e, to: i)
+      }
+      i = j!
+      if let p = p {
+        if storage[i].accesses.contains(p) {
+          d = i
+        }
+      }
+    }
+
+    if let p = p {
+      if let d = d {
+        try requireCanDerive(a, for: i, from: p, at: d)
+      } else {
+        // Throw error
+      }
+    }
+
+    return try add(a, to: i)
   }
 
   /// Ends `a` at `path`.
@@ -74,6 +97,40 @@ public struct AccessStackTree<Element: Equatable> {
   /// invalidating conflicting accesses in overlapping parts of the tree.
   public mutating func require(_ a: Access, at path: Path) throws {
     precondition(!path.isEmpty)
+    UNIMPLEMENTED()
+  }
+
+  /// Adds `e` as child to node at `i`.
+  private mutating func addChild(_ e: Element, to i: Index) -> Index {
+    let r: Index
+
+    if let last = free.popLast() {
+      r = last
+      storage[r] = Node(e)
+    } else {
+      r = storage.endIndex
+      storage.append(Node(e))
+    }
+
+    storage[i].children.append(r)
+    return r
+  }
+
+  /// Throws iff it is not possible to derive access of kind `a` for `i`th node
+  /// from access `p` of `j`th node.
+  ///
+  /// - Precondition: `j`th node is descendent of `i`th node.
+  private mutating func requireCanDerive(
+    _ a: AccessKind,
+    for i: Index,
+    from p: Access,
+    at j: Index
+  ) throws {
+    UNIMPLEMENTED()
+  }
+
+  /// Adds access of kind `a` to node at `i`.
+  private mutating func add(_ a: AccessKind, to i: Index) throws -> Access {
     UNIMPLEMENTED()
   }
 
