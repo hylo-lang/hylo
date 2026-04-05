@@ -98,6 +98,10 @@ public struct AccessStackTree<Key: Regular> {
           at: storage[derivedPath.first!].id
         )
       }
+    } else {
+      if !canIntroduceAccess(a, at: np.last!) {
+        throw AccessError.overlappingMutableAccessExists(for: storage[np.last!].id)
+      }
     }
 
     return try add(a, to: np.last!)
@@ -183,7 +187,7 @@ public struct AccessStackTree<Key: Regular> {
   private func canDeriveLetAccess(from p: Access, at path: [Index]) -> Bool {
     switch p.kind {
     case .set: false
-    case .let: storage[path[0]].accesses.contains(p)
+    case .let: true
     default: storage[path[0]].accesses.last { $0.kind == .inout || $0.kind == .sink } == p
     }
   }
@@ -194,6 +198,17 @@ public struct AccessStackTree<Key: Regular> {
     storage[path[0]].accesses.noneSatisfy { $0.kind == .let }
       && storage[path[0]].accesses.last == p
       && path.dropFirst().allSatisfy { storage[$0].accesses.isEmpty }
+  }
+
+  /// Returns true iff an access of kind `a` can be introduced at node `i`
+  /// without being derived from an existing access.
+  private func canIntroduceAccess(_ a: AccessKind, at i: Index) -> Bool {
+    switch a {
+    case .let:
+      return storage[i].accesses.allSatisfy { $0.kind == .let }
+    default:
+      return storage[i].accesses.isEmpty
+    }
   }
 
   /// Adds access of kind `a` to node at `i`.
