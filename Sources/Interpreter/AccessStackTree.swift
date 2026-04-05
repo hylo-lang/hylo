@@ -127,7 +127,7 @@ public struct AccessStackTree<Key: Regular> {
       if a.kind != .let && j != storage[i].accesses.endIndex - 1 {
         throw AccessError.activeDerivedAccessExists(for: a, at: storage[i].id)
       }
-      storage[np.last!].accesses.remove(at: j)
+      storage[i].accesses.remove(at: j)
     } else {
       throw AccessError<Key>.accessNotFound(a)
     }
@@ -138,8 +138,7 @@ public struct AccessStackTree<Key: Regular> {
   /// Throws iff using `a` at `path` is conflicting with any other access.
   public func requireIsValid(_ a: Access, at path: Path) throws {
     precondition(!path.isEmpty)
-    let np = try asNodePath(path)
-    let i = np.last!
+    let i = try asNodePath(path).last!
 
     guard let j = storage[i].accesses.firstIndex(of: a) else {
       throw AccessError<Key>.accessNotFound(a)
