@@ -259,29 +259,16 @@ public struct AccessStackTree<Key: Regular> {
     return r
   }
 
-  /// Call `body` with positions of node in subtree at `i` in preorder fashion.
-  ///
-  /// - Precondition: `i`th node is a valid node `self`.
-  private func preorderTraversal(
-    of i: Index,
-    _ body: (Index) throws -> Void
-  ) rethrows {
-    try body(i)
-    try storage[i].children.forEach { try preorderTraversal(of: $0, body) }
-  }
-
   /// Returns true iff all nodes in subtree at `i` satisfies `predicate`.
   private func subtree(
     at i: Index,
     satisfies predicate: (Index) throws -> Bool
   ) rethrows -> Bool {
-    var r = true
-    try preorderTraversal(of: i) {
-      if try predicate($0) == false {
-        r = false
-      }
+    if try !predicate(i) { return false }
+
+    return try storage[i].children.allSatisfy {
+      try subtree(at: $0, satisfies: predicate)
     }
-    return r
   }
 
   /// Removes the maximal suffix of `p` consisting of nodes that have neither
