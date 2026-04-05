@@ -163,11 +163,19 @@ public struct AccessStackTree<Key: Regular> {
     removeEmptySuffix(from: np)
   }
 
-  /// Requires that the access `a` is valid for use at `path`,
-  /// invalidating conflicting accesses in overlapping parts of the tree.
-  public mutating func require(_ a: Access, at path: Path) throws {
+  /// Throws iff using `a` at `path` is conflicting with any other access.
+  public func requireIsValid(_ a: Access, at path: Path) throws {
     precondition(!path.isEmpty)
-    UNIMPLEMENTED()
+    let np = try asNodePath(path)
+    let i = np.last!
+
+    guard let j = storage[i].accesses.firstIndex(of: a) else {
+      throw AccessError<Key>.accessNotFound(a)
+    }
+
+    if a.kind != .let && (j != storage[i].accesses.endIndex - 1 || !storage[i].children.isEmpty) {
+      throw AccessError.activeDerivedAccessExists(for: a, at: storage[i].id)
+    }
   }
 
   /// Adds `k` as child to node at `i`.
