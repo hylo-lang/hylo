@@ -7,6 +7,7 @@ public enum AccessError<Key: Regular>: Error {
   case accessNotFound(Access)
   case pathNotFound(AccessStackTree<Key>.Path)
   case overlappingMutableAccessExists(for: Key)
+  case activeDerivedAccessExists(for: Access, at: Key)
 }
 
 /// A tree indexed by hierarchical keys, where each node maintains a stack of
@@ -143,7 +144,23 @@ public struct AccessStackTree<Key: Regular> {
   /// Ends `a` at `path`.
   public mutating func end(_ a: Access, at path: Path) throws {
     precondition(!path.isEmpty)
-    UNIMPLEMENTED()
+    let np = try asNodePath(path)
+    let i = np.last!
+
+    if a.kind != .let && !storage[i].children.isEmpty {
+      throw AccessError.activeDerivedAccessExists(for: a, at: storage[i].id)
+    }
+
+    if let j = storage[i].accesses.firstIndex(where: { $0 == a }) {
+      if a.kind != .let && j != storage[i].accesses.endIndex - 1 {
+        throw AccessError.activeDerivedAccessExists(for: a, at: storage[i].id)
+      }
+      storage[np.last!].accesses.remove(at: j)
+    } else {
+      throw AccessError<Key>.accessNotFound(a)
+    }
+
+    removeEmptySuffix(from: np)
   }
 
   /// Requires that the access `a` is valid for use at `path`,
@@ -241,6 +258,7 @@ public struct AccessStackTree<Key: Regular> {
     try storage[i].children.forEach { try preorderTraversal(of: $0, body) }
   }
 
+  /// Returns true iff all nodes in subtree at `i` satisfies `predicate`.
   private func subtree(
     at i: Index,
     satisfies predicate: (Index) throws -> Bool
@@ -252,6 +270,24 @@ public struct AccessStackTree<Key: Regular> {
       }
     }
     return r
+  }
+
+  /// Removes the maximal suffix of `p` consisting of nodes that have neither
+  /// active accesses nor children.
+  ///
+  /// - Precondition: `p` never contains 0.
+  private mutating func removeEmptySuffix(from p: NodePath) {
+    var previousRemoved: Index? = nil
+    for i in p.reversed() {
+      if let j = storage[i].children.firstIndex(where: { $0 == previousRemoved }) {
+        storage[i].children.remove(at: j)
+      }
+      if !storage[i].accesses.isEmpty || !storage[i].children.isEmpty {
+        break
+      }
+      free.append(i)
+      previousRemoved = i
+    }
   }
 
 }
