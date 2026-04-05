@@ -2,23 +2,26 @@ import FrontEnd
 import Utils
 
 /// An incorrect access operation.
-public enum AccessError<T: Regular>: Error {
-  case canNotDerive(AccessKind, for: AccessStackTree<T>.Path, from: Access, at: T)
+public enum AccessError<Key: Regular>: Error {
+  case canNotDerive(AccessKind, for: AccessStackTree<Key>.Path, from: Access, at: Key)
   case accessNotFound(Access)
-  case pathNotFound(AccessStackTree<T>.Path)
+  case pathNotFound(AccessStackTree<Key>.Path)
+  case overlappingMutableAccessExists(for: Key)
 }
 
-/// A hierarchical composition of access stacks, where each node tracks accesses
-/// associated with an element.
-public struct AccessStackTree<Element: Regular> {
+/// A tree indexed by hierarchical keys, where each node maintains a stack of
+/// active accesses.
+///
+/// A descendent node is considered as "part-of" its ancestors.
+public struct AccessStackTree<Key: Regular> {
 
   // Invariants:
   //   - If `i`th node has `let` access on `j`th `accesses` index, then all accesses
   //     in its descendent subtree and all accesses of `i`th node after `j`th access
   //     are `let` access.
   //
-  //  - Every node except `root` node in the tree has atleast one child or has atleast
-  //    one access.
+  //  - Every node except `root` node in the tree has at least one child or has
+  //    at least one access.
 
   /// The index of a node in storage.
   private typealias Index = Int
@@ -26,8 +29,8 @@ public struct AccessStackTree<Element: Regular> {
   /// A node in the tree.
   private struct Node {
 
-    /// The element associated with this node.
-    public let element: Element
+    /// Identify of a node.
+    public let id: Key
 
     /// The accesses currently active on this node.
     public var accesses: [Access]
@@ -36,8 +39,8 @@ public struct AccessStackTree<Element: Regular> {
     public var children: [Index]
 
     /// Creates a node with no `accesses` or `children`.
-    public init(_ element: Element) {
-      self.element = element
+    public init(_ key: Key) {
+      self.id = key
       accesses = []
       children = []
     }
@@ -53,29 +56,27 @@ public struct AccessStackTree<Element: Regular> {
   /// The index of the root node.
   private var root: Index
 
-  /// Creates a tree with `root` as its root element.
-  public init(root: Element) {
-    storage.append(Node(root))
+  /// Creates a tree with `r` as root key.
+  public init(root r: Key) {
+    storage.append(Node(r))
     self.root = 0
   }
 
-  /// A path from the root of the tree to an element.
+  /// A sequence of keys identifying a position in the tree.
   ///
-  /// Given a path `p`, `p[i]` identifies the element reached by extending
-  /// the path `p[..<i]`. The empty path `[]` denotes the root element.
+  /// A path `[k0, k1, ..., kn]` denotes the node reached by successively
+  /// extending from the root with each key. The empty path `[]` denotes
+  /// the root.
   ///
-  /// For example, for a tree rooted at `A` with children `{B, C}`, where
-  /// `C` has a child `{D}`:
-  /// - `[B]` denotes `B`,
-  /// - `[C, D]` denotes `D`, and
-  /// - `[]` denotes `A`.
-  public typealias Path = [Element]
+  /// Paths are canonical: a given sequence identifies a unique node.
+  public typealias Path = [Key]
 
   /// A path in the tree expressed as node indices.
   private typealias NodePath = [Index]
 
-  /// Adds an access of kind `a` derived from `p` at `path`, creating missing elements as needed
-  /// and invalidating conflicting accesses in overlapping parts of the tree.
+  /// Adds an access of kind `a` derived from `p` at `path`, creating missing elements as needed.
+  ///
+  /// - Precondition: Each key in `path` appears only along that path.
   public mutating func add(_ a: AccessKind, at path: Path, derivedFrom p: Access?)
     throws -> Access
   {
@@ -84,7 +85,7 @@ public struct AccessStackTree<Element: Regular> {
 
     if let p = p {
       guard let start = np.firstIndex(where: { storage[$0].accesses.contains(p) }) else {
-        throw AccessError<Element>.accessNotFound(p)
+        throw AccessError<Key>.accessNotFound(p)
       }
 
       let derivedPath = Array(np[start...])
@@ -94,7 +95,7 @@ public struct AccessStackTree<Element: Regular> {
           a,
           for: path,
           from: p,
-          at: storage[derivedPath.first!].element
+          at: storage[derivedPath.first!].id
         )
       }
     }
@@ -108,8 +109,8 @@ public struct AccessStackTree<Element: Regular> {
     var r: NodePath = []
 
     for e in p {
-      guard let j = storage[i].children.first(where: { storage[$0].element == e }) else {
-        throw AccessError<Element>.pathNotFound(p)
+      guard let j = storage[i].children.first(where: { storage[$0].id == e }) else {
+        throw AccessError<Key>.pathNotFound(p)
       }
       i = j
       r.append(i)
@@ -125,7 +126,7 @@ public struct AccessStackTree<Element: Regular> {
 
     for e in p {
       let j =
-        storage[i].children.first(where: { storage[$0].element == e })
+        storage[i].children.first(where: { storage[$0].id == e })
         ?? addChild(e, to: i)
       i = j
       r.append(i)
@@ -147,16 +148,16 @@ public struct AccessStackTree<Element: Regular> {
     UNIMPLEMENTED()
   }
 
-  /// Adds `e` as child to node at `i`.
-  private mutating func addChild(_ e: Element, to i: Index) -> Index {
+  /// Adds `k` as child to node at `i`.
+  private mutating func addChild(_ k: Key, to i: Index) -> Index {
     let r: Index
 
     if let last = free.popLast() {
       r = last
-      storage[r] = Node(e)
+      storage[r] = Node(k)
     } else {
       r = storage.endIndex
-      storage.append(Node(e))
+      storage.append(Node(k))
     }
 
     storage[i].children.append(r)
@@ -195,10 +196,46 @@ public struct AccessStackTree<Element: Regular> {
       && path.dropFirst().allSatisfy { storage[$0].accesses.isEmpty }
   }
 
-  /// Adds access of kind `a` to node at `i`, invalidating conflicting accesses
-  /// in overlapping parts of the tree.
+  /// Adds access of kind `a` to node at `i`.
   private mutating func add(_ a: AccessKind, to i: Index) throws -> Access {
-    UNIMPLEMENTED()
+    func p(_ i: Index) -> Bool {
+      switch a {
+      case .let: storage[i].accesses.isEmpty || storage[i].accesses.first!.kind == .let
+      default: storage[i].accesses.isEmpty
+      }
+    }
+    let b = storage[i].children.allSatisfy { subtree(at: $0, satisfies: p) }
+    if !b {
+      throw AccessError.overlappingMutableAccessExists(for: storage[i].id)
+    }
+
+    let r = Access(kind: a)
+    self.storage[i].accesses.append(r)
+    return r
+  }
+
+  /// Call `body` with positions of node in subtree at `i` in preorder fashion.
+  ///
+  /// - Precondition: `i`th node is a valid node `self`.
+  private func preorderTraversal(
+    of i: Index,
+    _ body: (Index) throws -> Void
+  ) rethrows {
+    try body(i)
+    try storage[i].children.forEach { try preorderTraversal(of: $0, body) }
+  }
+
+  private func subtree(
+    at i: Index,
+    satisfies predicate: (Index) throws -> Bool
+  ) rethrows -> Bool {
+    var r = true
+    try preorderTraversal(of: i) {
+      if try predicate($0) == false {
+        r = false
+      }
+    }
+    return r
   }
 
 }
