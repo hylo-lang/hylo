@@ -13,6 +13,7 @@ public enum AccessError<Key: Regular>: Error {
 /// active accesses.
 ///
 /// A descendent node is considered as "part-of" its ancestors.
+/// Hence, ancestor/descendant relationships encode overlap.
 public struct AccessStackTree<Key: Regular> {
 
   // Invariants:
@@ -29,7 +30,7 @@ public struct AccessStackTree<Key: Regular> {
   /// A node in the tree.
   private struct Node {
 
-    /// Identify of a node.
+    /// Identity of a node.
     public let id: Key
 
     /// The accesses currently active on this node.
