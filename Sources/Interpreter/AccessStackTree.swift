@@ -17,13 +17,16 @@ public enum AccessError<Key: Regular>: Error {
 /// Hence, ancestor/descendant relationships encode overlap.
 public struct AccessStackTree<Key: Regular> {
 
-  // Invariants:
-  //   - If `i`th node has `let` access on `j`th `accesses` index, then all accesses
-  //     in its descendent subtree and all accesses of `i`th node after `j`th access
-  //     are `let` access.
+  // Class Invariants:
   //
-  //  - Every node except `root` node in the tree has at least one child or has
-  //    at least one access.
+  // - Every node except the `root` has at least one child or at least one access.
+  //
+  // - If the `i`th node has a `.let` access at index `j`, then all accesses in its
+  //   descendant subtree and all accesses of the `i`th node after index `j` are `.let` accesses.
+  //
+  // - If the `i`th node has an `.inout`, `.set`, or `.sink` access at index `j`, then
+  //   all accesses in its descendant subtree and all accesses of the `i`th node after
+  //   index `j` are directly or indirectly derived from that access.
 
   /// The index of a node in storage.
   private typealias Index = Int
@@ -76,7 +79,8 @@ public struct AccessStackTree<Key: Regular> {
   /// A path in the tree expressed as node indices.
   private typealias NodePath = [Index]
 
-  /// Adds an access of kind `a` derived from `p` at `path`, creating missing elements as needed.
+  /// Adds an access of kind `a` derived from `p` at `path`, creating missing
+  /// elements as needed.
   ///
   /// - Precondition: Each key in `path` appears only along that path.
   public mutating func add(_ a: AccessKind, at path: Path, derivedFrom p: Access?)
@@ -107,38 +111,6 @@ public struct AccessStackTree<Key: Regular> {
     }
 
     return try add(a, to: np.last!)
-  }
-
-  /// Returns the `NodePath` corresponding to `p`.
-  private func asNodePath(_ p: Path) throws -> NodePath {
-    var i = root
-    var r: NodePath = []
-
-    for e in p {
-      guard let j = storage[i].children.first(where: { storage[$0].id == e }) else {
-        throw AccessError<Key>.pathNotFound(p)
-      }
-      i = j
-      r.append(i)
-    }
-
-    return r
-  }
-
-  /// Returns the `NodePath` corresponding to `p`, creating missing nodes as needed.
-  private mutating func ensureNodePath(for p: Path) -> NodePath {
-    var i = root
-    var r: NodePath = []
-
-    for e in p {
-      let j =
-        storage[i].children.first(where: { storage[$0].id == e })
-        ?? addChild(e, to: i)
-      i = j
-      r.append(i)
-    }
-
-    return r
   }
 
   /// Ends `a` at `path`.
@@ -176,6 +148,38 @@ public struct AccessStackTree<Key: Regular> {
     if a.kind != .let && (j != storage[i].accesses.endIndex - 1 || !storage[i].children.isEmpty) {
       throw AccessError.activeDerivedAccessExists(for: a, at: storage[i].id)
     }
+  }
+
+  /// Returns the `NodePath` corresponding to `p`.
+  private func asNodePath(_ p: Path) throws -> NodePath {
+    var i = root
+    var r: NodePath = []
+
+    for e in p {
+      guard let j = storage[i].children.first(where: { storage[$0].id == e }) else {
+        throw AccessError<Key>.pathNotFound(p)
+      }
+      i = j
+      r.append(i)
+    }
+
+    return r
+  }
+
+  /// Returns the `NodePath` corresponding to `p`, creating missing nodes as needed.
+  private mutating func ensureNodePath(for p: Path) -> NodePath {
+    var i = root
+    var r: NodePath = []
+
+    for e in p {
+      let j =
+        storage[i].children.first(where: { storage[$0].id == e })
+        ?? addChild(e, to: i)
+      i = j
+      r.append(i)
+    }
+
+    return r
   }
 
   /// Adds `k` as child to node at `i`.
