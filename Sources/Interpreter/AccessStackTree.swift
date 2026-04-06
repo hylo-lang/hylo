@@ -2,7 +2,7 @@ import FrontEnd
 import Utils
 
 /// An incorrect access operation.
-public enum AccessError<Key: Regular>: Error {
+public enum AccessError<Key: Regular>: Error, Regular {
   case canNotDerive(AccessKind, for: AccessStackTree<Key>.Path, from: Access, at: Key)
   case accessNotFound(Access)
   case pathNotFound(AccessStackTree<Key>.Path)
