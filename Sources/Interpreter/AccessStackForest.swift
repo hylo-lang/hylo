@@ -228,7 +228,7 @@ public struct AccessStackForest<Key: Regular> {
     case .set: false
     case .let: true
     default: storage[path[0]].accesses.last { $0.kind == .inout || $0.kind == .sink } == p
-        && path.dropLast().flatMap { storage[$0].accesses }.allSatisfy { $0.kind == .let }
+        && path.dropFirst().flatMap { storage[$0].accesses }.allSatisfy { $0.kind == .let }
     }
   }
 
