@@ -34,9 +34,9 @@ final class AccessStackForestTests: XCTestCase {
     var t = AccessStackForest<Character>()
     let a1 = try t.add(.let, at: ["a"], derivedFrom: nil)
 
-    let invalidAccess = Access(kind: .let)
-    check(throws: Error.accessNotFound(invalidAccess)) {
-      _ = try t.add(.let, at: ["a"], derivedFrom: invalidAccess)
+    let other = try t.add(.let, at: ["a", "x"], derivedFrom: nil)
+    check(throws: Error.accessNotFound(other, inPathTo: "a")) {
+      _ = try t.add(.let, at: ["a"], derivedFrom: other)
     }
 
     let a2 = try t.add(.let, at: ["a"], derivedFrom: a1)
@@ -75,9 +75,9 @@ final class AccessStackForestTests: XCTestCase {
       var t = AccessStackForest<Character>()
       let a1 = try t.add(a, at: ["a"], derivedFrom: nil)
 
-      let invalidAccess = Access(kind: a)
-      check(throws: Error.accessNotFound(invalidAccess)) {
-        _ = try t.add(a, at: ["a"], derivedFrom: invalidAccess)
+      let other = Access(kind: a)
+      check(throws: Error.accessNotFound(other, inPathTo: "a")) {
+        _ = try t.add(a, at: ["a"], derivedFrom: other)
       }
 
       let a2 = try t.add(a, at: ["a"], derivedFrom: a1)

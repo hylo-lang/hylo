@@ -4,7 +4,7 @@ import Utils
 /// An incorrect access operation.
 public enum AccessError<Key: Regular>: Error, Regular {
   case canNotDerive(AccessKind, for: Key, from: Access, at: Key)
-  case accessNotFound(Access)
+  case accessNotFound(Access, inPathTo: Key)
   case pathNotFound(AccessStackForest<Key>.Path)
   case overlappingMutableAccessExists(for: Key)
   case activeDerivedAccessExists(for: Access, at: Key)
@@ -99,7 +99,7 @@ public struct AccessStackForest<Key: Regular> {
 
     if let p = p {
       guard let start = np.firstIndex(where: { storage[$0].accesses.contains(p) }) else {
-        throw AccessError<Key>.accessNotFound(p)
+        throw AccessError<Key>.accessNotFound(p, inPathTo: path.last!)
       }
 
       let derivedPath = Array(np[start...])
@@ -139,7 +139,7 @@ public struct AccessStackForest<Key: Regular> {
       }
       storage[i].accesses.remove(at: j)
     } else {
-      throw AccessError<Key>.accessNotFound(a)
+      throw AccessError<Key>.accessNotFound(a, inPathTo: path.last!)
     }
 
     removeEmptySuffix(from: np)
@@ -151,7 +151,7 @@ public struct AccessStackForest<Key: Regular> {
     let i = try asNodePath(path).last!
 
     guard let j = storage[i].accesses.firstIndex(of: a) else {
-      throw AccessError<Key>.accessNotFound(a)
+      throw AccessError<Key>.accessNotFound(a, inPathTo: path.last!)
     }
 
     if a.kind != .let && (j != storage[i].accesses.endIndex - 1 || !storage[i].children.isEmpty) {
