@@ -19,7 +19,8 @@ public struct AccessStackTree<Key: Regular> {
 
   // Class Invariants:
   //
-  // - Every node except the `root` has at least one child or at least one access.
+  // - Every node except the `root` has at least one child or at least one access,
+  //   which is there for accomodating multiple trees.
   //
   // - If the `i`th node has a `.let` access at index `j`, then all accesses in its
   //   descendant subtree and all accesses of the `i`th node after index `j` are `.let` accesses.
@@ -35,7 +36,7 @@ public struct AccessStackTree<Key: Regular> {
   private struct Node {
 
     /// Identity of a node.
-    public let id: Key
+    public let id: Key?
 
     /// The accesses currently active on this node.
     public var accesses: [Access]
@@ -44,7 +45,7 @@ public struct AccessStackTree<Key: Regular> {
     public var children: [Index]
 
     /// Creates a node with no `accesses` or `children`.
-    public init(_ key: Key) {
+    public init(_ key: Key?) {
       self.id = key
       accesses = []
       children = []
@@ -61,9 +62,9 @@ public struct AccessStackTree<Key: Regular> {
   /// The index of the root node.
   private var root: Index
 
-  /// Creates a tree with `r` as root key.
-  public init(root r: Key) {
-    storage.append(Node(r))
+  /// Creates an empty tree.
+  public init() {
+    storage.append(Node(nil))
     self.root = 0
   }
 
@@ -83,6 +84,7 @@ public struct AccessStackTree<Key: Regular> {
   /// elements as needed.
   ///
   /// - Precondition: Each key in `path` appears only along that path.
+  /// - Precondition: if `p` is `nil`, then `path.count == 1`
   public mutating func add(_ a: AccessKind, at path: Path, derivedFrom p: Access?)
     throws -> Access
   {
@@ -101,12 +103,12 @@ public struct AccessStackTree<Key: Regular> {
           a,
           for: path,
           from: p,
-          at: storage[derivedPath.first!].id
+          at: storage[derivedPath.first!].id!
         )
       }
     } else {
-      if !canIntroduceAccess(a, at: np.last!) {
-        throw AccessError.overlappingMutableAccessExists(for: storage[np.last!].id)
+      if !canIntroduceAccess(a, at: np[0]) {
+        throw AccessError.overlappingMutableAccessExists(for: storage[np[0]].id!)
       }
     }
 
@@ -120,12 +122,12 @@ public struct AccessStackTree<Key: Regular> {
     let i = np.last!
 
     if a.kind != .let && !storage[i].children.isEmpty {
-      throw AccessError.activeDerivedAccessExists(for: a, at: storage[i].id)
+      throw AccessError.activeDerivedAccessExists(for: a, at: storage[i].id!)
     }
 
     if let j = storage[i].accesses.firstIndex(where: { $0 == a }) {
       if a.kind != .let && j != storage[i].accesses.endIndex - 1 {
-        throw AccessError.activeDerivedAccessExists(for: a, at: storage[i].id)
+        throw AccessError.activeDerivedAccessExists(for: a, at: storage[i].id!)
       }
       storage[i].accesses.remove(at: j)
     } else {
@@ -145,7 +147,7 @@ public struct AccessStackTree<Key: Regular> {
     }
 
     if a.kind != .let && (j != storage[i].accesses.endIndex - 1 || !storage[i].children.isEmpty) {
-      throw AccessError.activeDerivedAccessExists(for: a, at: storage[i].id)
+      throw AccessError.activeDerivedAccessExists(for: a, at: storage[i].id!)
     }
   }
 
@@ -250,7 +252,7 @@ public struct AccessStackTree<Key: Regular> {
     }
     let b = storage[i].children.allSatisfy { subtree(at: $0, satisfies: p) }
     if !b {
-      throw AccessError.overlappingMutableAccessExists(for: storage[i].id)
+      throw AccessError.overlappingMutableAccessExists(for: storage[i].id!)
     }
 
     let r = Access(kind: a)
