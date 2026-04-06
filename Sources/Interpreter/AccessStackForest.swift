@@ -3,7 +3,8 @@ import Utils
 
 /// An incorrect access operation.
 public enum AccessError<Key: Regular>: Error, Regular {
-  case canNotDerive(AccessKind, for: Key, from: Access, at: Key)
+  case incompatibleDerivation(of: AccessKind, from: AccessKind)
+  case cannotDerive(AccessKind, for: Key, from: Access, at: Key, dueToAccess: Access, on: Key)
   case accessNotFound(Access, inPathTo: Key)
   case pathNotFound(AccessStackForest<Key>.Path)
   case overlappingMutableAccessExists(for: Key)
@@ -103,14 +104,10 @@ public struct AccessStackForest<Key: Regular> {
       }
 
       let derivedPath = Array(np[start...])
-
-      guard canDerive(a, from: p, at: derivedPath) else {
-        throw AccessError.canNotDerive(
-          a,
-          for: path.last!,
-          from: p,
-          at: storage[derivedPath.first!].id!
-        )
+      if let i = storage[derivedPath[0]].accesses.firstIndex(of: p) {
+        try requireCanDerive(a, fromAccessAt: i, at: derivedPath)
+      } else {
+        throw AccessError.accessNotFound(p, inPathTo: path.last!)
       }
     } else {
       if !canIntroduceAccess(a, at: np[0]) {
@@ -207,37 +204,36 @@ public struct AccessStackForest<Key: Regular> {
     return r
   }
 
-  /// Returns true iff access of kind `a` can be derived from `p` for `path.last!`
-  /// along `path`, which lists the positions from where `p` is active to the target.
-  private func canDerive(_ a: AccessKind, from p: Access, at path: [Index]) -> Bool {
+  /// Throws iff access of kind `a` can not be derived from `storage[path[0]].accesses[i]`
+  /// for `path.last!` along `path`, which lists the positions from where `p`
+  /// is active to the target.
+  private func requireCanDerive(_ a: AccessKind, fromAccessAt i: Int, at path: [Index]) throws {
     precondition(!path.isEmpty)
-    switch a {
-    case .`let`:
-      return canDeriveLetAccess(from: p, at: path)
-    case .`set`:
-      return canDeriveSetAccess(from: p, at: path)
-    default:
-      return (p.kind == .inout || p.kind == .sink) && canDeriveSetAccess(from: p, at: path)
+    try require(a, canBeDerivedFrom: storage[path[0]].accesses[i].kind)
+
+    let p: (Access) -> Bool =
+      switch a {
+      case .let: { $0.kind != .let }
+      default: { _ in true }
+      }
+    if let (x, y) = firstAccess(along: path, startingFrom: i + 1, where: p) {
+      throw AccessError.cannotDerive(
+        a, for: storage[path.last!].id!, from: storage[path[0]].accesses[i],
+        at: storage[path[0]].id!, dueToAccess: y, on: storage[x].id!)
     }
   }
 
-  /// Returns true iff `let` access can be derived from `p` for `path.last!`
-  /// along `path`, which lists the positions from where `p` is active to the target.
-  private func canDeriveLetAccess(from p: Access, at path: [Index]) -> Bool {
-    switch p.kind {
-    case .set: false
-    case .let: true
-    default: storage[path[0]].accesses.last { $0.kind == .inout || $0.kind == .sink } == p
-        && path.dropFirst().flatMap { storage[$0].accesses }.allSatisfy { $0.kind == .let }
+  /// Throws iff it is access of kind `a` can not be derived from access of kind `p`.
+  private func require(_ a: AccessKind, canBeDerivedFrom p: AccessKind) throws {
+    let areIncompatible =
+      switch a {
+      case .let: p == .set
+      case .set: p == .let
+      default: p == .let || p == .set
+      }
+    if areIncompatible {
+      throw AccessError<Key>.incompatibleDerivation(of: a, from: p)
     }
-  }
-
-  /// Returns true iff `set` access can be derived from `p` for `path.last!`
-  /// along `path`, which lists the positions from where `p` is active to the target.
-  private func canDeriveSetAccess(from p: Access, at path: [Index]) -> Bool {
-    storage[path[0]].accesses.noneSatisfy { $0.kind == .let }
-      && storage[path[0]].accesses.last == p
-      && path.dropFirst().allSatisfy { storage[$0].accesses.isEmpty }
   }
 
   /// Returns true iff an access of kind `a` can be introduced at node `i`
@@ -301,6 +297,28 @@ public struct AccessStackForest<Key: Regular> {
     if let j = storage[0].children.firstIndex(where: { $0 == previousRemoved }) {
       storage[0].children.remove(at: j)
     }
+  }
+
+  /// Returns the first access along `p` satisfying `predicate`, starting at the
+  /// `i`th access of `p[0]`.
+  private func firstAccess(
+    along p: [Index],
+    startingFrom i: Int,
+    where predicate: (Access) -> Bool
+  ) -> (node: Index, access: Access)? {
+    precondition(!p.isEmpty)
+
+    if let r = storage[p[0]].accesses[i...].first(where: { predicate($0) }) {
+      return (p[0], r)
+    }
+
+    for n in p.dropFirst() {
+      if let r = storage[n].accesses.first(where: { predicate($0) }) {
+        return (n, r)
+      }
+    }
+
+    return nil
   }
 
 }

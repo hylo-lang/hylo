@@ -49,7 +49,8 @@ final class AccessStackForestTests: XCTestCase {
       var t = AccessStackForest<Character>()
       let a4 = try t.add(a, at: ["p"], derivedFrom: nil)
       let a5 = try t.add(a, at: ["p"], derivedFrom: a4)
-      check(throws: Error.canNotDerive(.let, for: "p", from: a4, at: "p")) {
+      check(throws: Error.cannotDerive(.let, for: "p", from: a4, at: "p", dueToAccess: a5, on: "p"))
+      {
         _ = try t.add(.let, at: ["p"], derivedFrom: a4)
       }
       let a6 = try t.add(.let, at: ["p"], derivedFrom: a5)
@@ -59,7 +60,8 @@ final class AccessStackForestTests: XCTestCase {
 
       let a7 = try t.add(a, at: ["x"], derivedFrom: nil)
       let a8 = try t.add(a, at: ["x", "y"], derivedFrom: a7)
-      check(throws: Error.canNotDerive(.let, for: "y", from: a7, at: "x")) {
+      check(throws: Error.cannotDerive(.let, for: "y", from: a7, at: "x", dueToAccess: a8, on: "y"))
+      {
         _ = try t.add(.let, at: ["x", "y"], derivedFrom: a7)
       }
       let a9 = try t.add(.let, at: ["x", "y"], derivedFrom: a8)
@@ -81,11 +83,11 @@ final class AccessStackForestTests: XCTestCase {
       }
 
       let a2 = try t.add(a, at: ["a"], derivedFrom: a1)
-      check(throws: Error.canNotDerive(a, for: "a", from: a1, at: "a")) {
+      check(throws: Error.cannotDerive(a, for: "a", from: a1, at: "a", dueToAccess: a2, on: "a")) {
         _ = try t.add(a, at: ["a"], derivedFrom: a1)
       }
       let a3 = try t.add(a, at: ["a"], derivedFrom: a2)
-      check(throws: Error.canNotDerive(a, for: "c", from: a2, at: "a")) {
+      check(throws: Error.cannotDerive(a, for: "c", from: a2, at: "a", dueToAccess: a3, on: "a")) {
         _ = try t.add(a, at: ["a", "b", "c"], derivedFrom: a2)
       }
       let a4 = try t.add(a, at: ["a", "b", "c"], derivedFrom: a3)
@@ -99,11 +101,11 @@ final class AccessStackForestTests: XCTestCase {
   }
 
   func testDerivationKindCompatibility() throws {
-    let r: [(AccessKind, canBeDerivedFrom: [AccessKind], canNotBeDerivedFrom: [AccessKind])] = [
-      (.let, canBeDerivedFrom: [.let, .inout, .sink], canNotBeDerivedFrom: [.set]),
-      (.set, canBeDerivedFrom: [.set, .inout, .sink], canNotBeDerivedFrom: [.let]),
-      (.inout, canBeDerivedFrom: [.inout, .sink], canNotBeDerivedFrom: [.let, .set]),
-      (.sink, canBeDerivedFrom: [.inout, .sink], canNotBeDerivedFrom: [.let, .set]),
+    let r: [(AccessKind, canBeDerivedFrom: [AccessKind], cannotBeDerivedFrom: [AccessKind])] = [
+      (.let, canBeDerivedFrom: [.let, .inout, .sink], cannotBeDerivedFrom: [.set]),
+      (.set, canBeDerivedFrom: [.set, .inout, .sink], cannotBeDerivedFrom: [.let]),
+      (.inout, canBeDerivedFrom: [.inout, .sink], cannotBeDerivedFrom: [.let, .set]),
+      (.sink, canBeDerivedFrom: [.inout, .sink], cannotBeDerivedFrom: [.let, .set]),
     ]
 
     for (a, d, nd) in r {
@@ -116,7 +118,7 @@ final class AccessStackForestTests: XCTestCase {
       for p in nd {
         var t = AccessStackForest<Character>()
         let a1 = try t.add(p, at: ["a"], derivedFrom: nil)
-        check(throws: Error.canNotDerive(a, for: "a", from: a1, at: "a")) {
+        check(throws: Error.incompatibleDerivation(of: a, from: p)) {
           _ = try t.add(a, at: ["a"], derivedFrom: a1)
         }
       }
