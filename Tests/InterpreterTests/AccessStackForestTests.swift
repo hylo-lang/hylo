@@ -209,4 +209,90 @@ final class AccessStackForestTests: XCTestCase {
     }
   }
 
+  func testEndingInvalidAccess() throws {
+    var t = AccessStackForest<Character>()
+    let a1 = try t.add(.let, at: ["a"], derivedFrom: nil)
+    let a2 = try t.add(.let, at: ["a", "b"], derivedFrom: nil)
+    check(throws: Error.pathNotFound(["a", "c"])) {
+      try t.end(a2, at: ["a", "c"])
+    }
+    check(throws: Error.accessNotFound(a1, inPathTo: "b")) {
+      try t.end(a1, at: ["a", "b"])
+    }
+  }
+
+  func testUsingLetAccess() throws {
+    var t = AccessStackForest<Character>()
+    let a1 = try t.add(.inout, at: ["a"], derivedFrom: nil)
+    let a2 = try t.add(.let, at: ["a"], derivedFrom: a1)
+    let a3 = try t.add(.let, at: ["a"], derivedFrom: a2)
+    let a4 = try t.add(.let, at: ["a", "b"], derivedFrom: a1)
+    let a5 = try t.add(.let, at: ["a", "b"], derivedFrom: a4)
+    try t.requireIsUsable(a2, at: ["a"])
+    try t.requireIsUsable(a3, at: ["a"])
+    try t.requireIsUsable(a4, at: ["a", "b"])
+    try t.requireIsUsable(a5, at: ["a", "b"])
+    check(throws: Error.pathNotFound(["a", "c"])) {
+      try t.requireIsUsable(a5, at: ["a", "c"])
+    }
+    check(throws: Error.accessNotFound(a2, inPathTo: "b")) {
+      try t.requireIsUsable(a2, at: ["a", "b"])
+    }
+  }
+
+  func testUsingNonLetAccess() throws {
+    for a in [.set, .sink, .inout] as [AccessKind] {
+      var t = AccessStackForest<Character>()
+      let a1 = try t.add(a, at: ["a"], derivedFrom: nil)
+      let a2 = try t.add(a, at: ["a"], derivedFrom: a1)
+      let a3 = try t.add(a, at: ["a"], derivedFrom: a2)
+      let a4 = try t.add(a, at: ["a", "b"], derivedFrom: a3)
+      let a5 = try t.add(a, at: ["a", "b"], derivedFrom: a4)
+
+      check(throws: Error.pathNotFound(["a", "c"])) {
+        try t.requireIsUsable(a5, at: ["a", "c"])
+      }
+      check(throws: Error.accessNotFound(a2, inPathTo: "b")) {
+        try t.requireIsUsable(a2, at: ["a", "b"])
+      }
+
+      var accessPaths: [(Access, [Character])] = [
+        (a1, ["a"]),
+        (a2, ["a"]),
+        (a3, ["a"]),
+        (a4, ["a", "b"]),
+        (a5, ["a", "b"]),
+      ]
+
+      func checkCanNotUse(till i: Int) throws {
+        for (a, p) in accessPaths[0..<i] {
+          check(throws: Error.activeDerivedAccessExists(for: a, at: p.last!)) {
+            try t.requireIsUsable(a, at: p)
+          }
+        }
+        try t.requireIsUsable(accessPaths[i].0, at: accessPaths[i].1)
+      }
+
+      while !accessPaths.isEmpty {
+        try checkCanNotUse(till: accessPaths.count - 1)
+        let (a, p) = accessPaths.popLast()!
+        try t.end(a, at: p)
+      }
+
+      let a6 = try t.add(a, at: ["a"], derivedFrom: nil)
+      let a7 = try t.add(a, at: ["a", "b"], derivedFrom: a6)
+      let a8 = try t.add(a, at: ["a", "b"], derivedFrom: a7)
+      accessPaths = [
+        (a6, ["a"]),
+        (a7, ["a", "b"]),
+        (a8, ["a", "b"]),
+      ]
+      while !accessPaths.isEmpty {
+        try checkCanNotUse(till: accessPaths.count - 1)
+        let (a, p) = accessPaths.popLast()!
+        try t.end(a, at: p)
+      }
+    }
+  }
+
 }

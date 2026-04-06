@@ -297,6 +297,10 @@ public struct AccessStackForest<Key: Regular> {
       free.append(i)
       previousRemoved = i
     }
+
+    if let j = storage[0].children.firstIndex(where: { $0 == previousRemoved }) {
+      storage[0].children.remove(at: j)
+    }
   }
 
 }
