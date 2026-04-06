@@ -108,18 +108,18 @@ final class AccessStackForestTests: XCTestCase {
       (.sink, canBeDerivedFrom: [.inout, .sink], cannotBeDerivedFrom: [.let, .set]),
     ]
 
-    for (a, d, nd) in r {
-      for p in d {
+    for (x, y, z) in r {
+      for p in y {
         var t = AccessStackForest<Character>()
         let a1 = try t.add(p, at: ["a"], derivedFrom: nil)
-        _ = try t.add(a, at: ["a"], derivedFrom: a1)
+        _ = try t.add(x, at: ["a"], derivedFrom: a1)
       }
 
-      for p in nd {
+      for p in z {
         var t = AccessStackForest<Character>()
         let a1 = try t.add(p, at: ["a"], derivedFrom: nil)
-        check(throws: Error.incompatibleDerivation(of: a, from: p)) {
-          _ = try t.add(a, at: ["a"], derivedFrom: a1)
+        check(throws: Error.incompatibleDerivation(of: x, from: p)) {
+          _ = try t.add(x, at: ["a"], derivedFrom: a1)
         }
       }
     }
