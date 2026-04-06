@@ -3,7 +3,7 @@ import Utils
 
 /// An incorrect access operation.
 public enum AccessError<Key: Regular>: Error, Regular {
-  case canNotDerive(AccessKind, for: AccessStackForest<Key>.Path, from: Access, at: Key)
+  case canNotDerive(AccessKind, for: Key, from: Access, at: Key)
   case accessNotFound(Access)
   case pathNotFound(AccessStackForest<Key>.Path)
   case overlappingMutableAccessExists(for: Key)
@@ -89,6 +89,8 @@ public struct AccessStackForest<Key: Regular> {
   ///
   /// - Precondition: Each key in `path` appears only along that path.
   /// - Precondition: if `p` is `nil`, then `path.count == 1`
+  ///
+  /// - Postcondition: Provides strong exception safety guarantees.
   public mutating func add(_ a: AccessKind, at path: Path, derivedFrom p: Access?)
     throws -> Access
   {
@@ -105,7 +107,7 @@ public struct AccessStackForest<Key: Regular> {
       guard canDerive(a, from: p, at: derivedPath) else {
         throw AccessError.canNotDerive(
           a,
-          for: path,
+          for: path.last!,
           from: p,
           at: storage[derivedPath.first!].id!
         )
@@ -120,6 +122,8 @@ public struct AccessStackForest<Key: Regular> {
   }
 
   /// Ends `a` at `path`.
+  ///
+  /// - Postcondition: Provides strong exception safety guarantees.
   public mutating func end(_ a: Access, at path: Path) throws {
     precondition(!path.isEmpty)
     let np = try asNodePath(path)
@@ -142,7 +146,7 @@ public struct AccessStackForest<Key: Regular> {
   }
 
   /// Throws iff using `a` at `path` is conflicting with any other access.
-  public func requireIsValid(_ a: Access, at path: Path) throws {
+  public func requireIsUsable(_ a: Access, at path: Path) throws {
     precondition(!path.isEmpty)
     let i = try asNodePath(path).last!
 
@@ -224,6 +228,7 @@ public struct AccessStackForest<Key: Regular> {
     case .set: false
     case .let: true
     default: storage[path[0]].accesses.last { $0.kind == .inout || $0.kind == .sink } == p
+        && path.dropLast().flatMap { storage[$0].accesses }.allSatisfy { $0.kind == .let }
     }
   }
 
