@@ -29,7 +29,6 @@ public struct ReservedTypeRegions {
 
   /// Empty regions ensuring type layouts from `l`.
   public init(
-    for a: UnsafePointer<Memory.Allocation>,
     havingLayoutsFrom l: UnsafeMutablePointer<TypeLayoutCache>
   ) {
     typeLayouts = l
