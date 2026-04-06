@@ -5,7 +5,7 @@ import XCTest
 
 extension Character: Regular {}
 
-final class AccessStackTreeTests: XCTestCase {
+final class AccessStackForestTests: XCTestCase {
 
   private typealias Error = AccessError<Character>
 
