@@ -123,4 +123,46 @@ final class AccessStackForestTests: XCTestCase {
     }
   }
 
+  func testAddingLetAccessBlockedByDescendants() throws {
+    for a in [.inout, .sink] as [AccessKind] {
+      var t = AccessStackForest<Character>()
+      let a1 = try t.add(a, at: ["a"], derivedFrom: nil)
+      let a2 = try t.add(a, at: ["a", "b"], derivedFrom: a1)
+      let a3 = try t.add(a, at: ["a", "c", "d"], derivedFrom: a1)
+      check(throws: Error.overlappingMutableAccessExists(for: "a")) {
+        _ = try t.add(.let, at: ["a"], derivedFrom: a1)
+      }
+      try t.end(a2, at: ["a", "b"])
+      check(throws: Error.overlappingMutableAccessExists(for: "a")) {
+        _ = try t.add(a, at: ["a"], derivedFrom: a1)
+      }
+      try t.end(a3, at: ["a", "c", "d"])
+      _ = try t.add(.let, at: ["a"], derivedFrom: a1)
+    }
+
+    var t = AccessStackForest<Character>()
+    let a1 = try t.add(.let, at: ["a"], derivedFrom: nil)
+    _ = try t.add(.let, at: ["a", "b"], derivedFrom: a1)
+    _ = try t.add(.let, at: ["a", "c", "d"], derivedFrom: a1)
+    _ = try t.add(.let, at: ["a"], derivedFrom: a1)
+  }
+
+  func testAddingNonLetAccessBlockedByDescendants() throws {
+    for a in [.set, .inout, .sink] as [AccessKind] {
+      var t = AccessStackForest<Character>()
+      let a1 = try t.add(a, at: ["a"], derivedFrom: nil)
+      let a2 = try t.add(a, at: ["a", "b"], derivedFrom: a1)
+      let a3 = try t.add(a, at: ["a", "c", "d"], derivedFrom: a1)
+      check(throws: Error.overlappingMutableAccessExists(for: "a")) {
+        _ = try t.add(a, at: ["a"], derivedFrom: a1)
+      }
+      try t.end(a2, at: ["a", "b"])
+      check(throws: Error.overlappingMutableAccessExists(for: "a")) {
+        _ = try t.add(a, at: ["a"], derivedFrom: a1)
+      }
+      try t.end(a3, at: ["a", "c", "d"])
+      _ = try t.add(a, at: ["a"], derivedFrom: a1)
+    }
+  }
+
 }
