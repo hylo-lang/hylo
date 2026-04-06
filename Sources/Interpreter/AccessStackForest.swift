@@ -3,24 +3,28 @@ import Utils
 
 /// An incorrect access operation.
 public enum AccessError<Key: Regular>: Error, Regular {
-  case canNotDerive(AccessKind, for: AccessStackTree<Key>.Path, from: Access, at: Key)
+  case canNotDerive(AccessKind, for: AccessStackForest<Key>.Path, from: Access, at: Key)
   case accessNotFound(Access)
-  case pathNotFound(AccessStackTree<Key>.Path)
+  case pathNotFound(AccessStackForest<Key>.Path)
   case overlappingMutableAccessExists(for: Key)
   case activeDerivedAccessExists(for: Access, at: Key)
 }
 
-/// A tree indexed by hierarchical keys, where each node maintains a stack of
-/// active accesses.
+/// A forest of access stacks indexed by hierarchical keys.
 ///
-/// A descendent node is considered as "part-of" its ancestors.
-/// Hence, ancestor/descendant relationships encode overlap.
-public struct AccessStackTree<Key: Regular> {
+/// Each path identifies a node in a conceptual tree. Nodes that do not share
+/// a common prefix are independent, so the structure behaves as a collection
+/// of disjoint trees (a forest).
+///
+/// A descendent node is considered as "part-of" its ancestors. Hence,
+/// ancestor/descendant relationships encode overlap.
+public struct AccessStackForest<Key: Regular> {
 
   // Class Invariants:
   //
-  // - Every node except the `root` has at least one child or at least one access,
-  //   which is there for accomodating multiple trees.
+  // - Every node except the root has at least one child or at least one access.
+  //   The root is a synthetic node that serves as the anchor for otherwise
+  //   independent trees.
   //
   // - If the `i`th node has a `.let` access at index `j`, then all accesses in its
   //   descendant subtree and all accesses of the `i`th node after index `j` are `.let` accesses.
