@@ -165,4 +165,48 @@ final class AccessStackForestTests: XCTestCase {
     }
   }
 
+  func testEndingLetAccess() throws {
+    var t = AccessStackForest<Character>()
+    let r = try t.add(.inout, at: ["r"], derivedFrom: nil)
+    let a1 = try t.add(.let, at: ["r", "a"], derivedFrom: r)
+    let a2 = try t.add(.let, at: ["r", "a", "b"], derivedFrom: a1)
+    let a3 = try t.add(.let, at: ["r", "a", "c", "d"], derivedFrom: a1)
+    try t.end(a2, at: ["r", "a", "b"])  // can end out of order
+    try t.end(a1, at: ["r", "a"])
+    try t.end(a3, at: ["r", "a", "c", "d"])
+    let a4 = try t.add(.inout, at: ["r"], derivedFrom: r)
+    try t.end(a4, at: ["r"])
+    try t.end(r, at: ["r"])
+  }
+
+  func testEndingNonLetAccess() throws {
+    for a in [.set, .sink, .inout] as [AccessKind] {
+      var t = AccessStackForest<Character>()
+      let r = try t.add(a, at: ["r"], derivedFrom: nil)
+      let a1 = try t.add(a, at: ["r", "a", "b"], derivedFrom: r)
+      let a2 = try t.add(a, at: ["r", "a", "b", "c"], derivedFrom: a1)
+      let a3 = try t.add(a, at: ["r", "a", "b", "d", "e"], derivedFrom: a1)
+      check(throws: Error.activeDerivedAccessExists(for: a1, at: "b")) {
+        try t.end(a1, at: ["r", "a", "b"])
+      }
+      try t.end(a2, at: ["r", "a", "b", "c"])
+      check(throws: Error.activeDerivedAccessExists(for: a1, at: "b")) {
+        try t.end(a1, at: ["r", "a", "b"])
+      }
+      try t.end(a3, at: ["r", "a", "b", "d", "e"])
+      try t.end(a1, at: ["r", "a", "b"])
+      let a4 = try t.add(a, at: ["r"], derivedFrom: r)
+      try t.end(a4, at: ["r"])
+      try t.end(r, at: ["r"])
+
+      let a5 = try t.add(a, at: ["x"], derivedFrom: nil)
+      let a6 = try t.add(a, at: ["x"], derivedFrom: a5)
+      check(throws: Error.activeDerivedAccessExists(for: a5, at: "x")) {
+        try t.end(a5, at: ["x"])
+      }
+      try t.end(a6, at: ["x"])
+      try t.end(a5, at: ["x"])
+    }
+  }
+
 }
