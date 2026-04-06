@@ -75,7 +75,8 @@ public struct ComposedRegions {
 
   /// Returns true iff initialization records starting at `a` for the parts
   /// of a `t` can be replaced with initialization record of `t` instance.
-  public func canCompose(_ t: TypeLayout, at a: Offset) -> Bool {
+  public func canCompose(_ t: AnyType, at a: Offset) -> Bool {
+    let t = typeLayouts.pointee[t]
     let i = composedRegions.partitioningIndex { $0.offset >= a }
 
     if t.isUnionLayout {
@@ -110,8 +111,9 @@ public struct ComposedRegions {
   /// `t` instance.
   ///
   /// - Precondition: `canCompose(t, at: a)`.
-  public mutating func composeUnchecked(_ t: TypeLayout, at a: Offset) throws {
+  public mutating func composeUnchecked(_ t: AnyType, at a: Offset) throws {
     precondition(canCompose(t, at: a))
+    let t = typeLayouts.pointee[t]
     let i = composedRegions.partitioningIndex { $0.offset >= a }
     composedRegions.replaceSubrange(
       i..<(i + t.storedPartCount),
@@ -141,7 +143,9 @@ public struct ComposedRegions {
   /// Replaces the initialization records starting at `a` for the
   /// parts of a `t` instance with the initialization record for a
   /// `t` instance.
-  public mutating func compose(_ t: TypeLayout, at a: Offset) throws {
+  public mutating func compose(_ t: AnyType, at a: Offset) throws {
+    try allocation.pointee.checkAlignmentAndAllocationBounds(at: a, for: typeLayouts.pointee[t])
+    let t = typeLayouts.pointee[t]
     let i = composedRegions.partitioningIndex { $0.offset >= a }
 
     if t.isUnionLayout {
@@ -216,7 +220,8 @@ public struct ComposedRegions {
 
   /// Replaces the initialization record for a `t` instance at `a` with
   /// the initialization records for any parts of that instance.
-  public mutating func decompose(_ t: TypeLayout, at a: Offset) throws {
+  public mutating func decompose(_ t: AnyType, at a: Offset) throws {
+    let t = typeLayouts.pointee[t]
     let i = try checkDecomposable(t, at: a)
     decompose(t, inRegion: i)
   }
