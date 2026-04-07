@@ -1,0 +1,20 @@
+//- compileAndRun expecting: .success
+
+subscript neg(_ x: Int): Int {
+  yield -x
+}
+
+type A: Deinitializable {
+  public var x: Int
+  public var y: Int
+
+  public memberwise init
+}
+
+public fun main() {
+  let a = A(x: 3, y: -5) // only part of `a` will be used in plateau
+  let p = neg[5]
+  precondition(p == a.y)
+  let _ = p.copy()
+  precondition(a.x == 3)
+}
