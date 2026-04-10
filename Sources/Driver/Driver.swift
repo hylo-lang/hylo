@@ -46,6 +46,9 @@ public struct Driver: ParsableCommand, Sendable {
     /// Intel ASM
     case intelAsm = "intel-asm"
 
+    /// Object files of all modules.
+    case objectFiles = "object-files"
+
     /// Executable binary.
     case binary = "binary"
   }
@@ -131,7 +134,7 @@ public struct Driver: ParsableCommand, Sendable {
   @Option(
     name: [.customLong("emit")],
     help: ArgumentHelp(
-      "Emit the specified type output files. From: raw-ast, raw-ir, ir, llvm, intel-asm, binary",
+      "Emit the specified type output files. From: raw-ast, raw-ir, ir, llvm, intel-asm, object, binary",
       valueName: "output-type"))
   private var outputType: OutputType = .binary
 
@@ -321,11 +324,9 @@ public struct Driver: ParsableCommand, Sendable {
     ir.depolymorphize()
 
     logVerbose("create LLVM target machine.\n")
-    #if os(Windows)
-      let target = try SwiftyLLVM.TargetMachine(for: .host())
-    #else
-      let target = try SwiftyLLVM.TargetMachine(for: .host(), relocation: .pic)
-    #endif
+
+    let target = try SwiftyLLVM.TargetMachine(forRISCV: .RISCV(triple: "riscv32-none-elf"))
+    // let target = try SwiftyLLVM.TargetMachine(for: .host(), relocation: .static)
 
     logVerbose("create LLVM program.\n")
     var llvmProgram = try LLVMProgram(ir, mainModule: sourceModule, for: target)
@@ -356,10 +357,21 @@ public struct Driver: ParsableCommand, Sendable {
 
     // Executables
 
-    assert(outputType == .binary)
 
-    let objectDir = try FileManager.default.makeTemporaryDirectory()
+    let objectDir = if outputType == .objectFiles {
+      URL(fileURLWithPath: outputURL?.fileSystemPath ?? "./objects", isDirectory: true)
+    } else {
+      try FileManager.default.makeTemporaryDirectory()
+    }
+
     let objectFiles = try llvmProgram.write(.objectFile, to: objectDir)
+    
+    if outputType == .objectFiles {
+      return ir
+    }
+
+    assert(outputType == .binary)
+    
     let binaryPath = executableOutputPath(default: productName)
 
     #if os(macOS)

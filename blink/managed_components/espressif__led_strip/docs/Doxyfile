@@ -1,0 +1,30 @@
+# Set this to the header file you want
+INPUT = \
+    ../include/ \
+    ../interface/
+
+# The output directory for the generated XML documentation
+OUTPUT_DIRECTORY = doxygen_output
+
+# Warning-related settings, it's recommended to keep them enabled
+WARN_IF_UNDOC_ENUM_VAL = YES
+WARN_AS_ERROR = YES
+
+# Other common settings
+FULL_PATH_NAMES = YES
+STRIP_FROM_PATH = ../
+STRIP_FROM_INC_PATH = ../
+ENABLE_PREPROCESSING   = YES
+MACRO_EXPANSION        = YES
+OPTIMIZE_OUTPUT_FOR_C  = YES
+EXPAND_ONLY_PREDEF     = YES
+EXTRACT_ALL            = YES
+PREDEFINED             = $(ENV_DOXYGEN_DEFINES)
+HAVE_DOT = NO
+GENERATE_XML    = YES
+XML_OUTPUT      = xml
+GENERATE_HTML   = NO
+HAVE_DOT        = NO
+GENERATE_LATEX  = NO
+QUIET = YES
+MARKDOWN_SUPPORT = YES
