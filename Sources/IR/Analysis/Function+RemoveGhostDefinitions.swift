@@ -1,19 +1,18 @@
 extension Function {
 
-  /// Remove from `self` all the definitions that are semantically transparent for code generation.
+  /// Remove from `self` all the ghost definitions.
   ///
-  /// A semantically transparent definition has no operational semantics and only informs
-  /// IR analyses and transformations. They can be ignored for the purpose of code generation.
-  mutating func removeSemanticallyTransparentDefinitions() {
+  /// A ghost definition has no operational semantics and only informs IR analyses and
+  /// transformations. They can be ignored for the purpose of code generation.
+  mutating func removeGhostDefinitions() {
     // Operate in reverse order to attempt to remove uses of the instructions before removing the instructions themselves.
-    for i in instructionIdentities.reversed() where self[i].isSemanticallyTransparent {
+    for i in instructionIdentities.reversed() where self[i].isGhost {
       fixUses(of: i)
       remove(i)
     }
   }
 
-  /// Eliminates the semantically transparent `i` from the use-def chain by wiring its uses
-  /// directly to `i`'s source.
+  /// Eliminates the ghost `i` from the use-def chain by wiring its uses directly to `i`'s source.
   ///
   /// Postcondition: `i` has no uses.
   private mutating func fixUses(of i: InstructionID) {
@@ -34,8 +33,8 @@ extension Function {
 
 extension Instruction {
 
-  /// `true` iff this instruction is a semantically transparent definition.
-  fileprivate var isSemanticallyTransparent: Bool {
+  /// `true` iff this instruction is a ghost definition.
+  fileprivate var isGhost: Bool {
     self is Access || self is EndAccess || self is CloseCapture || self is ReleaseCaptures
       || self is MarkState || self is DeallocStack
   }

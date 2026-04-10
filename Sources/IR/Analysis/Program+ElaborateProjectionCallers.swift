@@ -22,8 +22,7 @@ extension IR.Program {
   private mutating func elaborateProjectionCaller(_ f: Function.ID, in m: Module.ID) {
     if modules[m]![f].site.file.baseName != "feature-test-projection" { return }  // TODO: remove this filter.
 
-    // Before doing anything, remove all the instructions not needed for code generation.
-    modules[m]![f].removeSemanticallyTransparentDefinitions()
+    modules[m]![f].removeGhostDefinitions()
 
     let source = modules[m]![f]
     for d in source.projectionCallingScopes(id: f) {

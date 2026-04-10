@@ -28,8 +28,7 @@ extension IR.Program {
   ) {
     if modules[m]![f].site.file.baseName != "feature-test-projection" { return }  // TODO: remove this filter.
 
-    // Before doing anything, remove all the instructions not needed for code generation.
-    modules[m]![f].removeSemanticallyTransparentDefinitions()
+    modules[m]![f].removeGhostDefinitions()
     
     let ramp = modules[m]!.demandProjectionRamp(for: f)
     let slide = modules[m]!.demandProjectionSlide(for: f)
