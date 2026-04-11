@@ -1,6 +1,6 @@
 extension Function {
 
-  /// Remove from `self` all the ghost definitions.
+  /// Removes ghost definitions from `self`.
   ///
   /// A ghost definition has no operational semantics and only informs IR analyses and
   /// transformations. They can be ignored for the purpose of code generation.
