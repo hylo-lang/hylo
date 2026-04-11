@@ -5,8 +5,7 @@ extension Function {
   /// A ghost definition has no operational semantics and only informs IR analyses and
   /// transformations. They can be ignored for the purpose of code generation.
   mutating func removeGhostDefinitions() {
-    // Operate in reverse order to attempt to remove uses of the instructions before removing the instructions themselves.
-    for i in instructionIdentities.reversed() where self[i].isGhost {
+    for i in instructionIdentities where self[i].isGhost {
       fixUses(of: i)
       remove(i)
     }
