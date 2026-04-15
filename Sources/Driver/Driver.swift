@@ -321,11 +321,7 @@ public struct Driver: ParsableCommand, Sendable {
     ir.depolymorphize()
 
     logVerbose("create LLVM target machine.\n")
-    #if os(Windows)
-      let target = try SwiftyLLVM.TargetMachine(for: .host())
-    #else
-      let target = try SwiftyLLVM.TargetMachine(for: .host(), relocation: .pic)
-    #endif
+    let target = try SwiftyLLVM.TargetMachine(for: .host())
 
     logVerbose("create LLVM program.\n")
     var llvmProgram = try LLVMProgram(ir, mainModule: sourceModule, for: target)
