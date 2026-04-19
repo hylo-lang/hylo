@@ -20,6 +20,10 @@ public struct Memory {
     case deallocationNotAtStartOfAllocation(Address)
     case noLongerAllocated(Address)
     case noDecomposable(TypeLayout, at: Address)
+    case regionAlreadyReserved(for: AnyType)
+    case noTypedRegion(at: Address)
+    case regionAlreadyComposed(Place)
+    case notContained(Place, in: Place)
   }
 
   /// The type layouts that been computed so far.
@@ -52,26 +56,6 @@ public struct Memory {
     /// The identity of `self`, unique throughout time for a given `Memory`.
     public let id: ID
 
-    /// A region of some allocation that contains a complete instance of
-    /// some type, ready to be a part of a new composition.
-    ///
-    /// See `compose(:at:)`.
-    public struct ComposedRegion: Regular {
-
-      /// Where the region begins relative to an `Allocation`'s `baseOffset`.
-      let offset: Storage.Index
-
-      /// The type in the region.
-      let type: AnyType
-
-    }
-
-    /// The composed regions of an `Allocation`.
-    fileprivate typealias ComposedRegions = [ComposedRegion]
-
-    /// The composed regions, in ascending order.
-    private var composedRegions = ComposedRegions()
-
     /// `n` bytes with alignment `m` and the given `id`.
     private init(_ n: Int, bytesWithAlignment m: Int, id: ID) {
       precondition(n >= 0)
@@ -91,34 +75,15 @@ public struct Memory {
 
     /// An allocation for `n` contiguous `t`s with the given `id`.
     public init(_ t: TypeLayout, count n: Int, id: ID) {
-      self.init(t.size, bytesWithAlignment: t.alignment, id: id)
+      self.init(t.size * n, bytesWithAlignment: t.alignment, id: id)
     }
 
     /// The address of the `o`th byte.
     private func address(at o: Offset) -> Address { .init(allocation: id, offset: o) }
 
-    /// Throws iff the given `part` of some type at `baseOffset` is not represented as the `n`th
-    /// composed region.
-    public func requireComposed(
-      part: TypeLayout.Part.Parentage,
-      baseOffset: Offset,
-      region n: Int
-    ) throws {
-      let p = part.parent.parts[part.partIndex]
-      let partOffset = baseOffset + p.offset
-      let partAddress = address(at: partOffset)
-      guard let r = composedRegions.dropFirst(n).first,
-            r.offset == partOffset else {
-        throw Error.noComposedPart(at: partAddress, part)
-      }
-      if r.type != p.type {
-        throw Error.partType(r.type, part: part)
-      }
-    }
-
     /// Throws iff there is not enough allocated space for a `t` at `a`, or if it would not be
     /// properly aligned.
-    fileprivate func checkAlignmentAndAllocationBounds(at a: Offset, for t: TypeLayout) throws {
+    internal func checkAlignmentAndAllocationBounds(at a: Offset, for t: TypeLayout) throws {
       guard offset(a, hasAlignment: t.alignment) else {
         throw Error.alignment(address(at: a), for: t)
       }
@@ -127,37 +92,42 @@ public struct Memory {
       }
     }
 
-    /// Replaces the initialization records starting at `a` for the
-    /// parts of a `t` instance with the initialization record for a
-    /// `t` instance.
-    public mutating func compose(_ t: TypeLayout, at a: Offset) throws {
-      try checkAlignmentAndAllocationBounds(at: a, for: t)
-
-      let i = composedRegions.partitioningIndex { $0.offset >= a }
-
-      if t.isUnionLayout {
-        let dc = t.discriminator
-        try requireComposed(
-          part: t.discriminatorParentage, baseOffset: a,
-          region: dc.offset == 0 ? i : i + 1)
-
-        let dv = unsignedIntValue(
-          at: dc.offset + a, ofType: t.discriminator.type.base as! BuiltinType)
-
-        try requireComposed(
-          part: .init(t, Int(dv)), baseOffset: a,
-          region: dc.offset == 0 ? i + 1 : i)
-      }
-      else {
-        for n in t.parts.indices {
-          try requireComposed(part: .init(t, n), baseOffset: a, region: i + n)
-        }
-      }
-
-      composedRegions.replaceSubrange(
-        i..<(i + t.storedPartCount),
-        with: CollectionOfOne(.init(offset: a, type: t.type)))
-    }
+    // TODO: move it to RuntimeSafetyValidator
+    //
+    // /// Returns the sequence of stored parts from the root type of the enclosing
+    // /// `TypedRegion` to `t` at offset `a`.
+    // func pathFromRoot(to t: TypeLayout, at a: Offset) throws -> [TypedRegion] {
+    //   var x: [TypedRegion] = []
+    //   var r = try typedRegion(enclosing: a)
+    //   let root = Place(allocation: self.id, offset: r.offset, type: r.type)
+    //   let target = Place(allocation: self.id, offset: a, type: t.type)
+    //   while !(r.type == t.type && r.offset == a) {
+    //     x.append(r)
+    //     let l = typeLayouts.pointee[r.type]
+    //     if r.type.isBuiltin || r.type.isVoidOrNever || r.offset > a {
+    //       throw Error.notContained(target, in: root)
+    //     } else if l.isUnionLayout {
+    //       let d = l.discriminator
+    //       let i = composedRegions.partitioningIndex { $0.offset >= r.offset + d.offset }
+    //       if i == composedRegions.endIndex || composedRegions[i].type != d.type {
+    //         throw Error.notContained(target, in: root)
+    //       }
+    //       let dv = unsignedIntValue(
+    //         at: d.offset + r.offset, ofType: l.discriminator.type.base as! BuiltinType)
+    //       let p = l.parts[Int(dv)]
+    //       r = TypedRegion(offset: r.offset + p.offset, type: p.type)
+    //     } else {
+    //       let d = a - r.offset
+    //       let p = l.parts.partitioningIndex { $0.offset > d } - 1
+    //       if p < l.parts.startIndex {
+    //         throw Error.notContained(target, in: root)
+    //       }
+    //       r = TypedRegion(offset: r.offset + l.parts[p].offset, type: l.parts[p].type)
+    //     }
+    //   }
+    //   x.append(r)
+    //   return x
+    // }
 
     /// Returns the result of calling `body` on the storage for a `T` instance at `a`.
     ///
@@ -185,7 +155,7 @@ public struct Memory {
     }
 
     /// Returns the unsigned interpretation of the builtin integer value at `a`;
-    private func unsignedIntValue(at a: Offset, ofType t: BuiltinType) -> UInt {
+    func unsignedIntValue(at a: Offset, ofType t: BuiltinType) -> UInt {
       if case .i(let n) = t {
         return switch n {
         case 8: UInt(withUnsafePointer(to: UInt8.self, at: a) { $0.pointee })
@@ -224,43 +194,6 @@ public struct Memory {
       }
     }
 
-    /// Returns the region index of the top-level composed instance of `t` at `a`, if any, or `nil`
-    /// otherwise.
-    fileprivate func decomposable(_ t: TypeLayout, at a: Offset) -> ComposedRegions.Index? {
-      let i = composedRegions.partitioningIndex { $0.offset >= a }
-      guard let r0 = composedRegions[i...].first,
-            r0.offset == a,
-            r0.type == t.type
-      else {
-        return nil
-      }
-      assert(
-        composedRegions[i...].dropFirst().first.map {
-          $0.offset >= r0.offset + t.size
-        } ?? true
-      )
-      return i
-    }
-
-    /// Replaces the initialization record for a `t` instance at `a` with
-    /// the initialization records for any parts of that instance.
-    fileprivate mutating func decompose(_ t: TypeLayout, inRegion i: ComposedRegions.Index) {
-      let a = composedRegions[i].offset
-
-      if t.isUnionLayout {
-        let expectedDiscriminator = t.parts.last!
-        let discriminator = ComposedRegion.init(offset: expectedDiscriminator.offset + a, type: expectedDiscriminator.type)
-        let d = unsignedIntValue(at: discriminator.offset, ofType: discriminator.type.base as! BuiltinType)
-        let expectedPayload = t.parts[Int(d)]
-        let payload = ComposedRegion(offset: expectedPayload.offset + a, type: expectedPayload.type)
-        let newRecords = expectedDiscriminator.offset == 0 ? [discriminator, payload] : [payload, discriminator]
-        composedRegions.replaceSubrange(i..<i + 1, with: newRecords)
-      }
-      else {
-        composedRegions.replaceSubrange(
-          i..<i + 1, with: t.parts.lazy.map { .init(offset: a + $0.offset, type: $0.type) })
-      }
-    }
   }
 
   /// A memory location.
@@ -338,13 +271,6 @@ public struct Memory {
     }
   }
 
-  /// Replaces the initialization records starting at `a` for the
-  /// parts of a `t` instance, with the initialization record for a
-  /// `t` instance.
-  public mutating func compose(_ t: AnyType, at a: Address) throws {
-    try allocation[a.allocation]!.compose(typeLayouts[t], at: a.offset)
-  }
-
   /// Returns true if `a` is aligned to an `n` byte boundary.
   public func place(_ a: Place, hasAlignment n: Int) -> Bool {
     allocation[a.allocation]!.offset(a.offset, hasAlignment: n)
@@ -353,22 +279,6 @@ public struct Memory {
   /// Returns true if `a` is aligned to an `n` byte boundary.
   public func address(_ a: Address, hasAlignment n: Int) -> Bool {
     allocation[a.allocation]!.offset(a.offset, hasAlignment: n)
-  }
-
-  /// Replaces the initialization record for a `t` instance at `a` with
-  /// the initialization records for any parts of that instance.
-  public mutating func decompose(_ t: AnyType, at a: Address) throws {
-    let i = try checkDecomposable(typeLayouts[t], at: a)
-    allocation[a.allocation]!.decompose(typeLayouts[t], inRegion: i)
-  }
-
-  private func checkDecomposable(_ t: TypeLayout, at a: Address) throws -> Allocation.ComposedRegions.Index {
-    guard let block = allocation[a.allocation] else {
-      throw Error.noLongerAllocated(a)
-    }
-    try block.checkAlignmentAndAllocationBounds(at: a.offset, for: t)
-    if let i = block.decomposable(t, at: a.offset) { return i }
-    throw Error.noDecomposable(t, at: a)
   }
 
   /// The allocation identified by `i`.
@@ -380,7 +290,6 @@ public struct Memory {
       yield &allocation[i]!
     }
   }
-
 }
 
 public extension Memory.Address {

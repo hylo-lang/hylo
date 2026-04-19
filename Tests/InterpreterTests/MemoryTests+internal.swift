@@ -5,35 +5,6 @@ import FrontEnd
 
 final class InterpreterMemoryInternalTests: XCTestCase {
 
-  func test_requireInitialized() throws {
-    var layouts = TypeLayoutCache(typesIn: TypedProgram.empty, for: UnrealABI())
-    let void_ = AnyType.void
-    let voidPair = ^TupleType(types: [.void, .void])
-
-    var m = Memory(typesIn: TypedProgram.empty, for: UnrealABI())
-    let p = m.allocate(voidPair).address
-
-    let voidPairPart0 = layouts[voidPair].partParentages.first!
-
-    TestUtils.check(throws: Memory.Error.noComposedPart(at: p, voidPairPart0)) {
-      try m.allocation[p.allocation]!
-        .requireComposed(part: voidPairPart0, baseOffset: 0, region: 0)
-    }
-
-    try m.compose(void_, at: p + layouts[voidPair].parts[0].offset)
-    // It should be possible to initialize both parts at the same address
-    try m.compose(void_, at: p + layouts[voidPair].parts[1].offset)
-    try m.compose(voidPair, at: p)
-
-    let i8Pair = layouts[^TupleType(types: [.builtin(.i(8)), .builtin(.i(8))])]
-    let i8PairPart0 = i8Pair.partParentages.first!
-
-    TestUtils.check(throws: Memory.Error.partType(voidPair, part: i8PairPart0)) {
-      try m.allocation[p.allocation]!
-        .requireComposed(part: i8PairPart0, baseOffset: 0, region: 0)
-    }
-  }
-
   func testFormingPointerToLastByteOfAllocation() throws {
     var memory = Memory(typesIn: TypedProgram.empty, for: UnrealABI())
     let a = memory.allocate(^BuiltinType.i(8))
@@ -73,7 +44,6 @@ final class InterpreterMemoryInternalTests: XCTestCase {
     let d = m.allocate(^t)
 
     try m.store(v, in: s)
-    try m.compose(^t, at: s.address)  // FIXME: This should not be needed after store.
     try m.copy(s, to: d)
 
     m[d.allocation].withUnsafePointer(to: T.self, at: 0) {
@@ -116,4 +86,55 @@ final class InterpreterMemoryInternalTests: XCTestCase {
     // TODO: test for loading as different type than stored.
     // try check(loading: .i1(true), asType: .i(8), throws: .noComposedPart(...))
   }
+
+  // TODO: port it to new component
+  //
+  // func testPathFromRoot() throws {
+  //   var l = TypeLayoutCache(typesIn: TypedProgram.empty, for: UnrealABI())
+  //   var m = Memory(typesIn: TypedProgram.empty, for: UnrealABI())
+  //
+  //   let i8 = ^BuiltinType.i(8)
+  //   let i64 = ^BuiltinType.i(64)
+  //   let i64Tuple = ^TupleType(types: [i64, i64])
+  //
+  //   let p = m.allocate(^i8, count: 256)
+  //   try m.bind(type: i64Tuple, at: p.address)
+  //
+  //   XCTAssertEqual(
+  //     try m[p.allocation].pathFromRoot(to: l[i64], at: 8),
+  //     [.init(offset: 0, type: i64Tuple), .init(offset: 8, type: i64)])
+  //
+  //   XCTAssertEqual(
+  //     try m[p.allocation].pathFromRoot(to: l[i64Tuple], at: 0),
+  //     [.init(offset: 0, type: i64Tuple)])
+  //
+  //   let void_ = ^TupleType(types: [])
+  //   let voidTuple = ^TupleType(types: [void_, void_])
+  //
+  //   try m.bind(type: voidTuple, at: p.address + 128)
+  //
+  //   XCTAssertEqual(
+  //     try m[p.allocation].pathFromRoot(to: l[void_], at: 128),
+  //     [.init(offset: 128, type: voidTuple), .init(offset: 128, type: void_)])
+  //
+  //   TestUtils.check(throws: Memory.Error.noTypedRegion(at: p.address + 48)) {
+  //     try m[p.allocation].pathFromRoot(to: l[i64], at: 48)
+  //   }
+  //
+  //   TestUtils.check(
+  //     throws: Memory.Error.notContained(
+  //       (p.address + 8).asPlace(of: i64Tuple),
+  //       in: p.address.asPlace(of: i64Tuple))
+  //   ) {
+  //     try m[p.allocation].pathFromRoot(to: l[i64Tuple], at: 8)
+  //   }
+  //
+  //   TestUtils.check(
+  //     throws: Memory.Error.notContained(
+  //       (p.address + 8).asPlace(of: i8),
+  //       in: p.address.asPlace(of: i64Tuple))
+  //   ) {
+  //     try m[p.allocation].pathFromRoot(to: l[i8], at: 8)
+  //   }
+  // }
 }
