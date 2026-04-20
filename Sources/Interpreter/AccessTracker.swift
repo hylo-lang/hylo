@@ -61,7 +61,7 @@ public struct AccessTracker<Component: Regular> {
   }
 
   /// An invalid access operation.
-  public enum Error: Swift.Error {
+  public enum Error: Swift.Error, Regular {
     case overlappingExclusiveAccessExists(for: Component)
   }
 
