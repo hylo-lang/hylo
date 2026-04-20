@@ -1,0 +1,55 @@
+
+/// Returns the current value of `errno`.
+///
+/// See: https://www.man7.org/linux/man-pages/man3/errno.3.html
+internal fun errno() -> C.int {
+  #if os(Linux)
+    return Pointer<C.int>(type_punning: __errno_location()).unsafe[].copy()
+  #elseif os(macOS)
+    return Pointer<C.int>(type_punning: __error()).unsafe[].copy()
+  #else
+    return 0
+  #endif
+}
+
+/// If `is_failure`, reports the error stored in `errno` with description `operation` and aborts the program.
+///
+/// TODO: We should not terminate the program on `errno` failure, as these are typically recoverable errors.
+///       However, currently the best way to handle errors is with assertions. To be fixed later.
+internal fun report_errno_failure_if(_ is_failure: Bool, operation: String) {
+  if is_failure {
+    report_errno_failure(operation: operation)
+  }
+}
+
+/// Reports the error stored in `errno` with description `operation` and aborts the program.
+///
+/// TODO: We should not terminate the program on `errno` failure, as these are typically recoverable errors.
+///       However, currently the best way to handle errors is with assertions. To be fixed later.
+internal fun report_errno_failure(operation: String) {
+  let err = errno()
+  print("Error: ", terminator: "")
+  print(operation, terminator: "")
+  print("; errno: ", terminator: "")
+  print(Int(truncating_or_extending: err))
+  perror(.null())
+  fatal_error("Aborting due to error")
+}
+
+/// Returns the current value of `errno`.
+///
+/// On Linux, `errno` is implemented as `__errno_location`.
+@ffi("__errno_location")
+internal fun __errno_location() -> MemoryAddress
+
+/// Returns the current value of `errno`.
+///
+/// On MacOS, `errno` is implemented as `__error`.
+@ffi("__error")
+internal fun __error() -> MemoryAddress
+
+/// Produces a message on standard error describing the last error encountered during a call to a system or library function.
+///
+/// See: https://www.man7.org/linux/man-pages/man3/perror.3.html
+@ffi("perror")
+internal fun perror(_ s: MemoryAddress)
