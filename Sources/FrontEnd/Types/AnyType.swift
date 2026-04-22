@@ -314,6 +314,11 @@ extension AnyType: Equatable {
     l.wrapped.equals(r.wrapped)
   }
 
+  /// Returns whether `l` is not syntactically equal to `r`.
+  public static func != (l: Self, r: Self) -> Bool {
+    !l.wrapped.equals(r.wrapped)
+  }
+
   /// Returns whether `l` is syntactically equal to `r`.
   public static func == <T: TypeProtocol>(l: Self, r: T) -> Bool {
     l.wrapped.unwrap(as: T.self) == r

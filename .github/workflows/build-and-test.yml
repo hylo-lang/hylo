@@ -44,7 +44,7 @@ on:
 env:
   spm-build-options: -Xswiftc -enable-testing --explicit-target-dependency-import-check error
   spm-test-options: --parallel
-  swift-version: '6.2.0'
+  swift-version: '6.2.4'
   HYLO_LLVM_BUILD_RELEASE: 20251207-115516
   HYLO_LLVM_VERSION: '20.1.6'
 
@@ -171,7 +171,7 @@ jobs:
 
       - name: Upload coverage reports to Codecov
         if: ${{ matrix.build-system == 'spm' && contains(matrix.more-spm-test-options, '--enable-code-coverage') }}
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: true
@@ -233,9 +233,7 @@ jobs:
         if: ${{ runner.os == 'Windows' }}
         uses: compnerd/gha-setup-vsdevenv@main
         with:
-          winsdk: "10.0.22621.0" # Workaround for this: https://forums.swift.org/t/swiftpm-plugin-doesnt-work-with-the-latest-visual-studio-version/78183/14
-          # TL;DR: The Windows SDK had a change in 10.0.26100.0 that the Swift compiler didn't account for.
-          # The Swift compiler team is aware of the issue and they are going to release a fix some time.
+          winsdk: "10.0.26100.0" # Workaround for this: https://forums.swift.org/t/swiftpm-plugin-doesnt-work-with-the-latest-visual-studio-version/78183/14
 
       - name: Set up specific Xcode version
         uses: maxim-lobanov/setup-xcode@v1
@@ -343,9 +341,7 @@ jobs:
         if: ${{ runner.os == 'Windows' }}
         uses: compnerd/gha-setup-vsdevenv@main
         with:
-          winsdk: "10.0.22621.0" # Workaround for this: https://forums.swift.org/t/swiftpm-plugin-doesnt-work-with-the-latest-visual-studio-version/78183/14
-          # TL;DR: The Windows SDK had a change in 10.0.26100.0 that the Swift compiler didn't account for.
-          # The Swift compiler team is aware of the issue and they are going to release a fix some time.
+         winsdk: "10.0.26100.0" # Workaround for this: https://forums.swift.org/t/swiftpm-plugin-doesnt-work-with-the-latest-visual-studio-version/78183/14
 
       - name: Set up specific Xcode version
         uses: maxim-lobanov/setup-xcode@v1

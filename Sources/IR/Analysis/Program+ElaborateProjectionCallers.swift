@@ -25,8 +25,7 @@ extension IR.Program {
       return
     }
 
-    // Before doing anything, remove all the instructions not needed for code generation.
-    modules[m]![f].removeSemanticallyTransparentDefinitions()
+    modules[m]![f].removeGhostDefinitions()
 
     // Determine the scopes that need lowering.
     let source = modules[m]![f]
