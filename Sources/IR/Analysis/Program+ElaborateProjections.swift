@@ -61,6 +61,8 @@ extension IR.Program {
 
     // Copy the ramp instructions, creating blocks for them as needed.
     rewrite(d.rampInstructions, in: d.id, from: m, transformedBy: &transformer, to: ramp)
+    // The frame operand is rewritten in the process.
+    let rewrittenFrame = frame.map({ transformer.transform($0) })
 
     // Add the projected value storage at the beginning of the entry block.
     let entry = modules[m]![ramp].entry!
@@ -70,7 +72,7 @@ extension IR.Program {
 
     // Generate the last block that jumps to the continuation passed in by the caller, and exits.
     let b = modules[m]!.generateContinuationCall(
-      in: ramp, referencing: slide, projecting: s, frame: frame)
+      in: ramp, referencing: slide, projecting: s, frame: rewrittenFrame)
 
     // Add yield replacements.
     for y in d.skeleton.yieldPoints {
