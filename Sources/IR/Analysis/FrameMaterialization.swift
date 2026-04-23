@@ -10,8 +10,9 @@ struct FrameMaterializationInfo {
 
   /// Collects instructions in `region` from `f` that must become frame-backed, excluding `ignored`.
   ///
-  /// We collect all instructions from `region` that are used outside `region`, and all the
-  /// instructions outside of `region` that are used by instructions in `region`.
+  /// After this call, `instructionInfo` contains all instructions from `region` that are used
+  /// outside `region`, and all the instructions outside of `region` that are used by instructions
+  /// in `region`.
   public mutating func collectCrossRegionInstructions<C: Sequence>(
     in f: Function, from region: C, ignoring ignored: [InstructionID] = []
   ) where C.Element == InstructionID {
@@ -32,16 +33,10 @@ struct FrameMaterializationInfo {
   private func isUsedOutsideRegion<C: Sequence>(
     _ i: InstructionID, in f: Function, region r: C
   ) -> Bool where C.Element == InstructionID {
-    for u in f.allUses(of: i) {
-      if !r.contains(u.user) {
-        return true
-      }
-    }
-    return false
+    f.allUses(of: i).contains(where: { !r.contains($0.user) })
   }
 
-  /// Checks if the instruction `i` in `f` has operands defined outside the region `r`, and returns
-  /// the instructions that define them.
+  /// Returns the instructions outside `r` that define operands of `i` in `f`.
   private func operandsOutsideOfRegion<C: Sequence>(
     _ i: InstructionID, in f: Function, region r: C
   ) -> [InstructionID] where C.Element == InstructionID {
@@ -66,8 +61,8 @@ struct FrameMaterializationInfo {
 /// If instruction `j` uses instruction `i` and they are in different regions, then we need to
 /// materialize `i` in the frame, and not `j`.
 ///
-/// We keep track of the subfield path to get to the storage of `i` from the frame, and the
-/// instruction that actually allocates the storage.
+/// Includes the subfield path to get to the storage of `i` from the frame, and the instruction
+/// that allocates the storage.
 private struct InstructionMaterializationInfo {
 
   /// The ID of the instruction that must be materialized in the frame.
@@ -76,7 +71,7 @@ private struct InstructionMaterializationInfo {
   /// The subfield path to get to the storage of `id` from the frame, if any.
   let subfield: RecordPath
 
-  /// The instruction that actually allocates the storage.
+  /// The instruction that allocates the storage.
   var storageInstruction: InstructionID
 
   /// Creates metadata for materializing `id` in the frame.
@@ -85,8 +80,8 @@ private struct InstructionMaterializationInfo {
     (self.subfield, self.storageInstruction) = Self.storageTrace(from: id, in: f)
   }
 
-  /// Walks the instruction chain starting from `id` until an `AllocStack` is found,
-  /// accumulating the subfield path, and returning the `(subfield, storageInstruction)` pair.
+  /// Returns the subfield path and the `AllocStack` instruction at the base of the storage chain
+  /// rooted at `id` in `f`.
   private static func storageTrace(
     from id: InstructionID, in f: Function
   ) -> (subfield: RecordPath, storageInstruction: InstructionID) {
@@ -140,10 +135,10 @@ extension Module {
     return r
   }
 
-  /// Returns the type of the frame for the given storage instructions.
-  private static func frameType(for storageInstructions: [InstructionID], in f: Function)
-    -> AnyType
-  {
+  /// Returns the type of the frame needed to store `storageInstructions`.
+  private static func frameType(
+    for storageInstructions: [InstructionID], in f: Function
+  ) -> AnyType {
     var elements: [TupleType.Element] = []
     elements.append(
       contentsOf: storageInstructions.enumerated().lazy.map({ (index, i) -> TupleType.Element in
