@@ -13,13 +13,13 @@ final class ReservedTypeRegionsTests: XCTestCase {
 
     var r = ReservedTypeRegions(havingLayoutsFrom: withUnsafeMutablePointer(to: &l) { $0 })
 
-    try r.reserve(tuple, at: 0)
+    try r.bind(tuple, at: 0)
     check(throws: Memory.Error.regionAlreadyReserved(for: tuple)) {
-      try r.reserve(i64, at: 0)
+      try r.bind(i64, at: 0)
     }
-    r.removeTypeReservation(from: 0)
-    try r.reserve(tuple, at: 0)
-    try r.reserve(tuple, at: 16)
+    r.unbind(at: 0)
+    try r.bind(tuple, at: 0)
+    try r.bind(tuple, at: 16)
   }
 
   // TODO: test regionEnclosing thing

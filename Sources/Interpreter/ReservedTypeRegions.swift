@@ -43,9 +43,9 @@ public struct ReservedTypeRegions {
     return reservedTypeRegions[i]
   }
 
-  /// Constrains accesses to the region starting at `o` only according to
-  /// structure of `t`, disallowing incompatible representations.
-  public mutating func reserve(_ t: AnyType, at o: Offset) throws {
+  /// Binds the region starting at `o` to `t`, constraining accesses to that
+  /// region to the layout of `t`.
+  public mutating func bind(_ t: AnyType, at o: Offset) throws {
     let i = reservedTypeRegions.partitioningIndex { $0.startOffset > o }
     if i != 0
       && reservedTypeRegions[i - 1].startOffset
@@ -61,8 +61,9 @@ public struct ReservedTypeRegions {
     reservedTypeRegions.insert(.init(startOffset: o, type: t), at: i)
   }
 
-  /// Removes the type-based access constraints for the region starting at `o`.
-  public mutating func removeTypeReservation(from o: Offset) {
+  /// Removes the type binding for the region starting at `o`, removing the
+  /// layout constraints previously applied to that region.
+  public mutating func unbind(at o: Offset) {
     let i = reservedTypeRegions.partitioningIndex { $0.startOffset >= o }
     let j = reservedTypeRegions.partitioningIndex { $0.startOffset > o }
     reservedTypeRegions.removeSubrange(i..<j)
