@@ -31,10 +31,10 @@ public struct ComposedRegions {
   /// The composed regions, in ascending order.
   private var composedRegions: [ComposedRegion]
 
-  /// Empty regions ensuring type layouts from `l`.
+  /// Empty regions for `a` ensuring type layouts from `l`.
   public init(
-    for a: UnsafePointer<Memory.Allocation>,
-    havingLayoutsFrom l: UnsafeMutablePointer<TypeLayoutCache>
+    allocation a: UnsafePointer<Memory.Allocation>,
+    typeLayouts l: UnsafeMutablePointer<TypeLayoutCache>
   ) {
     typeLayouts = l
     allocation = a

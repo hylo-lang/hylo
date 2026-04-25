@@ -15,8 +15,8 @@ final class ComposedRegionsTests: XCTestCase {
     let p = m.allocate(voidPair).address
 
     var c = ComposedRegions(
-      for: withUnsafePointer(to: m.allocation[p.allocation]!) { $0 },
-      havingLayoutsFrom: withUnsafeMutablePointer(to: &layouts) { $0 })
+      allocation: withUnsafePointer(to: m.allocation[p.allocation]!) { $0 },
+      typeLayouts: withUnsafeMutablePointer(to: &layouts) { $0 })
 
     let voidPairPart0 = layouts[voidPair].partParentages.first!
     check(throws: Memory.Error.noComposedPart(at: p, voidPairPart0)) {
@@ -46,8 +46,8 @@ final class ComposedRegionsTests: XCTestCase {
     var m = Memory(typesIn: TypedProgram.empty, for: UnrealABI())
     let p = m.allocate(i16Pair).address
     var c = ComposedRegions(
-      for: withUnsafePointer(to: m.allocation[p.allocation]!) { $0 },
-      havingLayoutsFrom: withUnsafeMutablePointer(to: &l) { $0 })
+      allocation: withUnsafePointer(to: m.allocation[p.allocation]!) { $0 },
+      typeLayouts: withUnsafeMutablePointer(to: &l) { $0 })
 
     check(throws: Memory.Error.alignment(p + 1, for: l[i16])) {
       try c.compose(i16, at: p.offset + 1)
@@ -108,8 +108,8 @@ final class ComposedRegionsTests: XCTestCase {
     var m = Memory(typesIn: TypedProgram.empty, for: UnrealABI())
     let p = m.allocate(i16i32Union).address
     var c = ComposedRegions(
-      for: withUnsafePointer(to: m.allocation[p.allocation]!) { $0 },
-      havingLayoutsFrom: withUnsafeMutablePointer(to: &l) { $0 })
+      allocation: withUnsafePointer(to: m.allocation[p.allocation]!) { $0 },
+      typeLayouts: withUnsafeMutablePointer(to: &l) { $0 })
 
     assert(l[i16i32Union].alignment > 1)
 

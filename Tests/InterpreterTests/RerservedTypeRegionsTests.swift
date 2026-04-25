@@ -11,7 +11,7 @@ final class ReservedTypeRegionsTests: XCTestCase {
     let i64 = ^BuiltinType.i(64)
     let tuple = ^TupleType(types: [i64, i64])
 
-    var r = ReservedTypeRegions(havingLayoutsFrom: withUnsafeMutablePointer(to: &l) { $0 })
+    var r = ReservedTypeRegions(typeLayouts: withUnsafeMutablePointer(to: &l) { $0 })
 
     try r.bind(tuple, at: 0)
     check(throws: Memory.Error.regionAlreadyReserved(for: tuple)) {
