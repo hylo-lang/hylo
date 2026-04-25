@@ -56,6 +56,18 @@ public struct Memory {
     /// The identity of `self`, unique throughout time for a given `Memory`.
     public let id: ID
 
+    /// A region within an `Allocation`, identified by a starting offset
+    /// and the type layout associated with that location.
+    public struct TypedRegion: Regular {
+
+      /// Start offset relative to base offset.
+      let startOffset: Offset
+
+      /// The type describing the layout of the region starting at `startOffset`.
+      let type: AnyType
+
+    }
+
     /// `n` bytes with alignment `m` and the given `id`.
     private init(_ n: Int, bytesWithAlignment m: Int, id: ID) {
       precondition(n >= 0)

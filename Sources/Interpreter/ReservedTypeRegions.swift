@@ -1,20 +1,6 @@
 import FrontEnd
 import Utils
 
-/// A region of memory that is reserved for storing a specific type.
-public struct ReservedTypeRegion: Regular {
-
-  /// A position in some allocation.
-  public typealias Offset = Memory.Storage.Index
-
-  /// Where the region begins relative to an `Allocation`'s `baseOffset`.
-  let offset: Offset
-
-  /// The type in the region.
-  let type: AnyType
-
-}
-
 /// The non-overlapping regions of an `Allocation` reserved to be interpreted as specific type.
 public struct ReservedTypeRegions {
 
@@ -25,7 +11,7 @@ public struct ReservedTypeRegions {
   private let typeLayouts: UnsafeMutablePointer<TypeLayoutCache>
 
   /// The reserved typed regions, in ascending order.
-  private var reservedTypeRegions: [ReservedTypeRegion]
+  private var reservedTypeRegions: [Memory.Allocation.TypedRegion]
 
   /// Empty regions ensuring type layouts from `l`.
   public init(
@@ -37,11 +23,11 @@ public struct ReservedTypeRegions {
 
   /// Returns the index of typed region enclosing `a`.
   private func regionIndex(enclosing a: Offset) -> Int? {
-    let i = reservedTypeRegions.partitioningIndex { $0.offset > a }
+    let i = reservedTypeRegions.partitioningIndex { $0.startOffset > a }
     if i == 0 {
       return nil
     }
-    if reservedTypeRegions[i - 1].offset
+    if reservedTypeRegions[i - 1].startOffset
       + typeLayouts.pointee[reservedTypeRegions[i - 1].type].size <= a
     {
       return nil
@@ -50,7 +36,7 @@ public struct ReservedTypeRegions {
   }
 
   /// Returns the typed region enclosing `a`.
-  public func region(enclosing a: Offset) -> ReservedTypeRegion? {
+  public func region(enclosing a: Offset) -> Memory.Allocation.TypedRegion? {
     guard let i = regionIndex(enclosing: a) else {
       return nil
     }
@@ -60,25 +46,25 @@ public struct ReservedTypeRegions {
   /// Constrains accesses to the region starting at `o` only according to
   /// structure of `t`, disallowing incompatible representations.
   public mutating func reserve(_ t: AnyType, at o: Offset) throws {
-    let i = reservedTypeRegions.partitioningIndex { $0.offset > o }
+    let i = reservedTypeRegions.partitioningIndex { $0.startOffset > o }
     if i != 0
-      && reservedTypeRegions[i - 1].offset
+      && reservedTypeRegions[i - 1].startOffset
         + typeLayouts.pointee[reservedTypeRegions[i - 1].type].size > o
     {
       throw Memory.Error.regionAlreadyReserved(for: reservedTypeRegions[i - 1].type)
     }
     if i != reservedTypeRegions.endIndex
-      && o + typeLayouts.pointee[t].size > reservedTypeRegions[i].offset
+      && o + typeLayouts.pointee[t].size > reservedTypeRegions[i].startOffset
     {
       throw Memory.Error.regionAlreadyReserved(for: reservedTypeRegions[i].type)
     }
-    reservedTypeRegions.insert(.init(offset: o, type: t), at: i)
+    reservedTypeRegions.insert(.init(startOffset: o, type: t), at: i)
   }
 
   /// Removes the type-based access constraints for the region starting at `o`.
   public mutating func removeTypeReservation(from o: Offset) {
-    let i = reservedTypeRegions.partitioningIndex { $0.offset >= o }
-    let j = reservedTypeRegions.partitioningIndex { $0.offset > o }
+    let i = reservedTypeRegions.partitioningIndex { $0.startOffset >= o }
+    let j = reservedTypeRegions.partitioningIndex { $0.startOffset > o }
     reservedTypeRegions.removeSubrange(i..<j)
   }
 }
