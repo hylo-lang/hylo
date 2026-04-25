@@ -1,4 +1,3 @@
-import FrontEnd
 import Utils
 
 /// Tracks active accesses to parts of an object. Enforces that no two
@@ -78,7 +77,7 @@ public struct AccessTracker<Component: Regular> {
   ///
   /// For example, given a structure `A { B { C, D }, E }`, the path
   /// `[B, D]` identifies `D`.
-  public typealias Path = [Component]
+  public typealias Path = ArraySlice<Component>
 
   /// Starts a new access of kind `a` at `p`.
   public mutating func begin(_ a: AccessKind, at p: Path) throws -> Access {
