@@ -225,4 +225,43 @@ public struct ComposedRegions {
     let i = try checkDecomposable(t, at: a)
     decompose(t, inRegion: i)
   }
+
+  /// Returns end offset of `i`th composed region.
+  private func endOffset(_ i: Int) -> Offset {
+    composedRegions[i].offset + typeLayouts.pointee[composedRegions[i].type].size
+  }
+}
+
+extension ComposedRegions {
+
+  /// Returns true iff object at `p` is complete.
+  ///
+  /// - Precondition: A type is bound at `p.offset`, and `p` denotes a valid
+  ///   place within that bound region.
+  public func isComplete(_ p: Memory.Place) -> Bool {
+    guard let r = region(enclosing: p.offset) else {
+      return false
+    }
+    return r.offset <= p.offset
+      && (r.offset + typeLayouts.pointee[r.type].size)
+        >= (p.offset + typeLayouts.pointee[p.type].size)
+  }
+
+  /// Returns true iff object at `p` is fully uninitialized.
+  ///
+  /// - Precondition: A type is bound at `p.offset`, and `p` denotes a valid
+  ///   place within that bound region.
+  public func isFullyUninitialized(_ p: Memory.Place) -> Bool {
+    let i = composedRegions.partitioningIndex { $0.offset >= p.offset }
+    if i != 0 && endOffset(i - 1) > p.offset {
+      return false
+    }
+    if i != composedRegions.endIndex
+      && (p.offset + typeLayouts.pointee[p.type].size) > composedRegions[i].offset
+    {
+      return false
+    }
+    return true
+  }
+
 }

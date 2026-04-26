@@ -10,6 +10,7 @@ struct MemorySafetyValidator {
   public enum Error: Regular, Swift.Error {
     case noTypeBound(at: Memory.Address)
     case notContains(Memory.Place, in: Memory.Place)
+    case readFromUninitialized(Memory.Place)
   }
 
   /// A region within an `Allocation`, identified by a starting offset
@@ -52,6 +53,8 @@ struct MemorySafetyValidator {
       let r = TypedRegion(startOffset: p.offset, type: p.type)
       regionAccesses[r] = .init(r, with: .sink)
     }
+    // rules with composed regions
+    //
     let ps = try path(to: p.type, at: p.offset)
     // TODO: handle composed regions for sink.
     return try regionAccesses[ps.first!]!.begin(k, at: ps.dropFirst())
@@ -61,18 +64,31 @@ struct MemorySafetyValidator {
   ///
   /// - Precondition: Access `a` exists at `p`.
   public mutating func endAccess(_ a: Access, at p: Memory.Place) throws {
+    let ps = try path(to: p.type, at: p.offset)
+    try regionAccesses[ps.first!]!.end(a, at: ps.dropFirst())
   }
 
   /// Marks `p` as initialized.
   public mutating func markInitialized(_ p: Memory.Place) throws {
   }
 
-  /// Throws iff it is valid to read bytes from `p` using `a`.
+  /// Throws iff it is not valid to read bytes from `p` using `a`.
+  ///
+  /// - Precondition: Access `a` exists at `p`.
   public func requireCanRead(from p: Memory.Place, using a: Access) throws {
+    let ps = try path(to: p.type, at: p.offset)
+    if !composedRegions.isComplete(p) {
+      throw Error.readFromUninitialized(p)
+    }
+    try regionAccesses[ps.first!]!.requireIsActive(a, at: ps.dropFirst())
   }
 
-  /// Throws iff it is valid to write bytes to `p` using `a`.
+  /// Throws iff it is not valid to write bytes to `p` using `a`.
+  ///
+  /// - Precondition: Access `a` exists at `p`.
   public func requireCanWrite(to p: Memory.Place, using a: Access) throws {
+    let ps = try path(to: p.type, at: p.offset)
+    try regionAccesses[ps.first!]!.requireIsActive(a, at: ps.dropFirst())
   }
 
   /// Returns the sequence of typed regions leading to a value of `t` located at `a`.
