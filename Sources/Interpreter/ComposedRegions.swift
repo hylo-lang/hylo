@@ -241,8 +241,10 @@ extension ComposedRegions {
 
   /// Returns true iff object at `p` is complete.
   ///
-  /// - Precondition: There exists a bound object in `ReservedTypeRegion` of `allocation`
-  ///   that contains `p`.
+  /// - Precondition: For every composed region `r`, one of the following should hold:
+  ///     - `r` and `p` are disjoint, or
+  ///     - `r` fully contains `p`, or
+  ///     - `r` is fully contained within `p`.
   public func isComplete(_ p: Memory.Place) -> Bool {
     guard let r = region(enclosing: p.offset) else {
       return false
@@ -254,8 +256,10 @@ extension ComposedRegions {
 
   /// Returns true iff object at `p` is fully uninitialized.
   ///
-  /// - Precondition: A type is bound at `p.offset`, and `p` denotes a valid
-  ///   place within that bound region.
+  /// - Precondition: For every composed region `r`, one of the following should hold:
+  ///     - `r` and `p` are disjoint, or
+  ///     - `r` fully contains `p`, or
+  ///     - `r` is fully contained within `p`.
   public func isFullyUninitialized(_ p: Memory.Place) -> Bool {
     let i = composedRegions.partitioningIndex { $0.offset >= p.offset }
     if i != 0 && endOffset(i - 1) > p.offset {
@@ -271,10 +275,9 @@ extension ComposedRegions {
 
   /// Removes all composed regions contained in `p`.
   ///
-  /// - Precondition: There exists a bound object in `ReservedTypeRegion` of `allocation`
-  ///   that contains `p`.
-  ///
-  /// - Precondition: No composed region is a strict ancestor of `p`.
+  /// - Precondition: For every composed region `r`, one of the following should hold:
+  ///     - `r` and `p` are disjoint, or
+  ///     - `r` is fully contained within `p`.
   public mutating func decomposeSubtree(of p: Memory.Place) {
     let start = p.offset
     let end = start + typeLayouts.pointee[p.type].size
@@ -287,10 +290,13 @@ extension ComposedRegions {
 
   /// Decomposes composed regions along `path` up to (but not including) `p`.
   ///
-  /// - Precondition: There exists a bound object in `ReservedTypeRegion` of `allocation`
-  ///   that contains `p`.
-  /// - Precondition: `path` describes the structural sequence of regions from
-  ///   the bound object to `p`.
+  /// - Precondition: `path` is the structural path to `p`.
+  /// - Precondition: No composed region strictly contains `path.first`.
+  /// - Precondition: For every element `q` in `path` and every composed region `r`,
+  ///     one of the following holds:
+  ///     - `r` and `q` are disjoint, or
+  ///     - `r` fully contains `q`, or
+  ///     - `r` is fully contained within `q`.
   public mutating func decompose(
     upto p: Memory.Place,
     along path: some Collection<Memory.Allocation.TypedRegion>
@@ -307,8 +313,11 @@ extension ComposedRegions {
   /// Starting from the end of `path`, this operation repeatedly merges each
   /// region into its enclosing context while composition remains possible.
   ///
-  /// - Precondition: `path` describes the structural sequence of regions from
-  ///   the bound object in `ReservedTypeRegion`.
+  /// - Precondition: For every element `q` in `path` and every composed region `r`,
+  ///     one of the following holds:
+  ///     - `r` and `q` are disjoint, or
+  ///     - `r` fully contains `q`, or
+  ///     - `r` is fully contained within `q`.
   public mutating func composeUpwards(
     along path: some BidirectionalCollection<Memory.Allocation.TypedRegion>
   ) {
