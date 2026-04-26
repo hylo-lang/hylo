@@ -7,10 +7,16 @@ import Utils
 /// accesses to an existing allocation.
 struct MemorySafetyValidator {
 
+  /// Class Invariants:
+  ///   - If a region `d` has an active `.sink` access, then no strict ancestor
+  ///     of `d` is present in `composedRegions`.
+
   public enum Error: Regular, Swift.Error {
     case noTypeBound(at: Memory.Address)
     case notContains(Memory.Place, in: Memory.Place)
-    case readFromUninitialized(Memory.Place)
+    case readFromIncomplete(Memory.Place)
+    case accessToIncomplete(Memory.Place, kind: AccessKind)
+    case endAccessToIncomplete(Memory.Place, kind: AccessKind)
   }
 
   /// A region within an `Allocation`, identified by a starting offset
@@ -53,10 +59,15 @@ struct MemorySafetyValidator {
       let r = TypedRegion(startOffset: p.offset, type: p.type)
       regionAccesses[r] = .init(r, with: .sink)
     }
-    // rules with composed regions
-    //
+
     let ps = try path(to: p.type, at: p.offset)
-    // TODO: handle composed regions for sink.
+    if k != .set && !composedRegions.isComplete(p) {
+      throw Error.accessToIncomplete(p, kind: k)
+    }
+
+    if k == .sink {
+    }
+
     return try regionAccesses[ps.first!]!.begin(k, at: ps.dropFirst())
   }
 
@@ -66,6 +77,13 @@ struct MemorySafetyValidator {
   public mutating func endAccess(_ a: Access, at p: Memory.Place) throws {
     let ps = try path(to: p.type, at: p.offset)
     try regionAccesses[ps.first!]!.end(a, at: ps.dropFirst())
+    if a.kind != .sink {
+      if !composedRegions.isComplete(p) {
+        throw Error.endAccessToIncomplete(p, kind: a.kind)
+      }
+    } else {
+      composedRegions.removeSubregions(of: p)
+    }
   }
 
   /// Marks `p` as initialized.
@@ -78,7 +96,7 @@ struct MemorySafetyValidator {
   public func requireCanRead(from p: Memory.Place, using a: Access) throws {
     let ps = try path(to: p.type, at: p.offset)
     if !composedRegions.isComplete(p) {
-      throw Error.readFromUninitialized(p)
+      throw Error.readFromIncomplete(p)
     }
     try regionAccesses[ps.first!]!.requireIsActive(a, at: ps.dropFirst())
   }

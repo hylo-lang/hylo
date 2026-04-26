@@ -41,16 +41,9 @@ public struct ComposedRegions {
     composedRegions = []
   }
 
-  /// Returns the region enclosing the offset
+  /// Returns the region enclosing `a`.
   public func region(enclosing a: Offset) -> ComposedRegion? {
-    let i = composedRegions.partitioningIndex { $0.offset > a }
-    if i == 0 { return nil }
-    let o = composedRegions[i - 1].offset
-    let n = typeLayouts.pointee[composedRegions[i - 1].type].size
-    if o + n > a {
-      return composedRegions[i - 1]
-    }
-    return nil
+    indexOfRegion(enclosing: a).map { composedRegions[$0] }
   }
 
   /// Returns true iff the given `part` of some type at `baseOffset` is
@@ -230,6 +223,19 @@ public struct ComposedRegions {
   private func endOffset(_ i: Int) -> Offset {
     composedRegions[i].offset + typeLayouts.pointee[composedRegions[i].type].size
   }
+
+  /// Returns index of region enclosing `a`.
+  private func indexOfRegion(enclosing a: Offset) -> Int? {
+    let i = composedRegions.partitioningIndex { $0.offset > a }
+    if i == 0 { return nil }
+    let o = composedRegions[i - 1].offset
+    let n = typeLayouts.pointee[composedRegions[i - 1].type].size
+    if o + n > a {
+      return i - 1
+    }
+    return nil
+  }
+
 }
 
 extension ComposedRegions {
@@ -262,6 +268,22 @@ extension ComposedRegions {
       return false
     }
     return true
+  }
+
+  /// Removes all composed regions contained in `p`.
+  ///
+  /// - Precondition: A type is bound at `p.offset`, and `p` denotes a valid
+  ///   place within that bound region.
+  ///
+  /// - Precondition: No composed region is a strict ancestor of `p`.
+  public mutating func removeSubregions(of p: Memory.Place) {
+    let start = p.offset
+    let end = start + typeLayouts.pointee[p.type].size
+
+    let i = composedRegions.partitioningIndex { $0.offset < start }
+    let j = composedRegions.partitioningIndex { $0.offset < end }
+
+    composedRegions.removeSubrange(i..<j)
   }
 
 }
