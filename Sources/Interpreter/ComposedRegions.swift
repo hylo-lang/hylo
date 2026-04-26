@@ -242,8 +242,8 @@ extension ComposedRegions {
 
   /// Returns true iff object at `p` is complete.
   ///
-  /// - Precondition: A type is bound at `p.offset`, and `p` denotes a valid
-  ///   place within that bound region.
+  /// - Precondition: There exists a bound object in `ReservedTypeRegion` of `allocation`
+  ///   that contains `p`.
   public func isComplete(_ p: Memory.Place) -> Bool {
     guard let r = region(enclosing: p.offset) else {
       return false
@@ -272,11 +272,11 @@ extension ComposedRegions {
 
   /// Removes all composed regions contained in `p`.
   ///
-  /// - Precondition: A type is bound at `p.offset`, and `p` denotes a valid
-  ///   place within that bound region.
+  /// - Precondition: There exists a bound object in `ReservedTypeRegion` of `allocation`
+  ///   that contains `p`.
   ///
   /// - Precondition: No composed region is a strict ancestor of `p`.
-  public mutating func removeSubregions(of p: Memory.Place) {
+  public mutating func decomposeSubtree(of p: Memory.Place) {
     let start = p.offset
     let end = start + typeLayouts.pointee[p.type].size
 
@@ -284,6 +284,23 @@ extension ComposedRegions {
     let j = composedRegions.partitioningIndex { $0.offset < end }
 
     composedRegions.removeSubrange(i..<j)
+  }
+
+  /// Decomposes composed regions along `path` up to (but not including) `p`.
+  ///
+  /// - Precondition: There exists a bound object in `ReservedTypeRegion` of `allocation`
+  ///   that contains `p`.
+  /// - Precondition: `path` describes the structural sequence of regions from
+  ///   the bound object to `p`.
+  public mutating func decompose(
+    upto p: Memory.Place,
+    along path: [Memory.Allocation.TypedRegion]
+  ) {
+    for r in path.lazy.dropLast() {
+      if let i = decomposable(typeLayouts.pointee[r.type], at: p.offset) {
+        decompose(typeLayouts.pointee[r.type], inRegion: i)
+      }
+    }
   }
 
 }

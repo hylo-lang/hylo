@@ -16,6 +16,7 @@ struct MemorySafetyValidator {
     case notContains(Memory.Place, in: Memory.Place)
     case readFromIncomplete(Memory.Place)
     case accessToIncomplete(Memory.Place, kind: AccessKind)
+    case setAccessToPartiallyComplete(Memory.Place)
     case endAccessToIncomplete(Memory.Place, kind: AccessKind)
   }
 
@@ -61,11 +62,16 @@ struct MemorySafetyValidator {
     }
 
     let ps = try path(to: p.type, at: p.offset)
+
     if k != .set && !composedRegions.isComplete(p) {
       throw Error.accessToIncomplete(p, kind: k)
     }
+    if k == .set && !composedRegions.isFullyUninitialized(p) {
+      throw Error.setAccessToPartiallyComplete(p)
+    }
 
     if k == .sink {
+      composedRegions.decompose(upto: p, along: ps)
     }
 
     return try regionAccesses[ps.first!]!.begin(k, at: ps.dropFirst())
@@ -82,7 +88,7 @@ struct MemorySafetyValidator {
         throw Error.endAccessToIncomplete(p, kind: a.kind)
       }
     } else {
-      composedRegions.removeSubregions(of: p)
+      composedRegions.decomposeSubtree(of: p)
     }
   }
 
