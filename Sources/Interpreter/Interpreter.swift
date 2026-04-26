@@ -195,7 +195,7 @@ public struct Interpreter {
   private mutating func stepResult() throws -> InstructionResult? {
     print("\(currentInstruction.site): \(currentInstruction)")
     switch currentInstruction {
-    case let x as Access:
+    case let x as IR.Access:
       return .value(.init(payload: asPlace(x.source)))
     case let x as AdvancedByBytes:
       _ = x
