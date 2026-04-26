@@ -58,13 +58,13 @@ extension Function {
       // Have we encountered a yield block?
       if yieldBlocks.contains(b) {
         // Move the direct successors to the slide.
-        for s in successors { slide.appendUnlessContained(s) }
+        for s in successors { _ = slide.appendUnlessContained(s) }
         // Don't follow this path any further.
         return .skip
       }
 
       // If this is not a yield block, then it's part of the ramp (we don't explore past yield blocks).
-      ramp.appendUnlessContained(b)
+      _ = ramp.appendUnlessContained(b)
 
       // If we reached the end of the exploration, this is a terminal ramp block.
       // This means that there is a path without yields.
@@ -79,7 +79,7 @@ extension Function {
     // Phase 2: Fully explore the slide.
     // Make sure that the slide blocks don't contain yields.
     cfg.withBFS(slide) { (b, successors) in
-      slide.appendUnlessContained(b)
+      _ = slide.appendUnlessContained(b)
       // Make sure there isn't another yield in the block.
       if yieldBlocks.contains(b) {
         // We have slide blocks that contain yields.
@@ -114,19 +114,6 @@ extension Function {
     instructions(in: b).first(where: { (s) in self[s] is Yield })
   }
 
-}
-
-extension Array where Element : Equatable {
-
-    /// Appends `element` to `self` iff it is not already contained in `self`.
-    ///
-    /// - Complexity: O(n) where n is the length of `self`.
-    fileprivate mutating func appendUnlessContained(_ element: Element) {
-    if !self.contains(element) {
-      self.append(element)
-    }
-
-  }
 }
 
 extension Diagnostic {

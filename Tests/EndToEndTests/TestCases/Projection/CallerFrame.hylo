@@ -1,0 +1,12 @@
+//- compileAndRun expecting: .success
+
+subscript neg(_ x: Int): Int {
+  yield -x
+}
+
+public fun main() {
+  let x = -5 // requires frame to store this, making it accessible in the plateau
+  let p = neg[5]
+  precondition(p == x)
+  let _ = p.copy()
+}

@@ -20,31 +20,59 @@ extension IR.Program {
 
   /// Elaborates the projection caller function `f` in module `m`.
   private mutating func elaborateProjectionCaller(_ f: Function.ID, in m: Module.ID) {
-    if modules[m]![f].site.file.baseName != "feature-test-projection" { return }  // TODO: remove this filter.
+    // TODO: remove this filter.
+    if !Module.canLowerProjections(modules[m]![f].site.file) {
+      return
+    }
 
     modules[m]![f].removeGhostDefinitions()
 
+    // Determine the scopes that need lowering.
     let source = modules[m]![f]
-    for d in source.projectionCallingScopes(id: f) {
-      elaborateCallerScope(d, in: m)
+    var scopes = source.projectionCallingScopes(id: f)
+
+    // Create the frame; one frame for the entire function.
+    var e = FrameMaterializationInfo()
+    for d in scopes {
+      // Look only in plateau regions; that is skip the first and last regions, which are outside of the plateau.
+      for r in 1 ..< d.regionsCount - 1 {
+        let s = d.splitInstruction(startingRegion: r)
+        let a = d.instructions(region: r)
+        e.collectCrossRegionInstructions(in: source, from: a, ignoring: [s])
+      }
+    }
+    let frame = modules[m]!.materialize(&e, in: f)
+
+    // The instructions have changed, so we need to recompute the scopes.
+    scopes = modules[m]![f].projectionCallingScopes(id: f)
+
+    // Elaborate each caller scope.
+    for d in scopes {
+      elaborateCallerScope(d, frame: frame, in: m)
     }
   }
 
   /// Elaborates the projection calling scope described by `d` in module `m`.
-  private mutating func elaborateCallerScope(_ d: ScopeDetails, in m: Module.ID) {
+  private mutating func elaborateCallerScope(
+    _ d: ScopeDetails, frame: Operand?, in m: Module.ID
+  ) {
     // TODO: handle cases with more than one plateau.
     precondition(
       d.regionsCount == 3, "multiple projection uses in a caller scope not supported yet")
-    let plateau = generatePlateauFunction(for: d, region: 1, plateauIndex: 0, in: m)
+    let plateau = generatePlateauFunction(for: d, region: 1, plateauIndex: 0, frame: frame, in: m)
 
     // Replace the old region with the elaborated code that calls the elaborated projection.
-    modules[m]!.replacePlateau(d, region: 1, withPlateau: plateau)
+    modules[m]!.replacePlateau(d, region: 1, withPlateau: plateau, frame: frame)
   }
 
   /// Generates the plateau function for region `index` of caller scope `d` in module `m`,
   /// returning its identity.
   private mutating func generatePlateauFunction(
-    for d: ScopeDetails, region index: Int, plateauIndex: Int, in m: Module.ID
+    for d: ScopeDetails,
+    region index: Int,
+    plateauIndex: Int,
+    frame: Operand?,
+    in m: Module.ID
   ) -> Function.ID {
     let source = modules[m]![d.id]
 
@@ -59,15 +87,27 @@ extension IR.Program {
       d.blocks[0]: entry
     ]
 
-    let rewrittenRegisters: [Operand: Operand] = [
+    var rewrittenRegisters: [Operand: Operand] = [
       .register(oldProject): .parameter(entry, 0)
     ]
+
+    // If we have a frame, take it from the function parameter.
+    if let f = frame {
+      let t = modules[m]![d.id].type(of: f).ast
+      let frameParameter = Operand.parameter(entry, 1)
+      let ourFrame = modules[m]!.modifyIR(of: plateau, at: .end(of: entry)) { (e) in
+        let x0 = e._load(frameParameter)
+        return e._pointer_to_place(x0, as: RemoteType(.inout, t))
+      }
+      rewrittenRegisters[f] = ourFrame
+    }
 
     var transformer = DictionaryInstructionTransformer(
       rewrittenBlocks: rewrittenBlocks, rewrittenRegisters: rewrittenRegisters)
 
     // Copy all the relevant instructions to the new plateau function.
-    rewrite(d.instructions(region: index), in: d.id, from: m, transformedBy: &transformer, to: plateau)
+    rewrite(
+      d.instructions(region: index), in: d.id, from: m, transformedBy: &transformer, to: plateau)
 
     // Generate the call to the continuation (which calls the projection slide).
     let lastBlock = transformer.rewrittenBlocks[d.blocks.last!]!
@@ -83,7 +123,7 @@ extension Module {
   /// Replaces in scope `d` the region `index` by a call to the appropriate projection ramp,
   /// passing a continuation to the plateau `p` to be executed.
   fileprivate mutating func replacePlateau(
-    _ d: ScopeDetails, region index: Int, withPlateau p: Function.ID
+    _ d: ScopeDetails, region index: Int, withPlateau p: Function.ID, frame: Operand?
   ) {
     let oldProject = d.splitInstruction(startingRegion: index)
     let oldEndProject = d.splitInstruction(endingRegion: index)
@@ -95,8 +135,9 @@ extension Module {
     let plateauReference = FunctionReference(to: p, in: self)
 
     modifyIR(of: d.id, at: .before(oldEndProject)) { (e) in
-      let nullCall = e._call_builtin(.zeroinitializer(BuiltinType.ptr), [])
-      let c = e._plateauContinuation(calling: plateauReference, frame: nullCall, projectedType: t)
+      let x0 = frame ?? e._call_builtin(.zeroinitializer(BuiltinType.ptr), [])
+      let x1 = e._place_to_pointer(x0)
+      let c = e._plateauContinuation(calling: plateauReference, frame: x1, projectedType: t)
       e._callProjectionRamp(
         rampReference, with: oldProjectIR.operands, continuation: c)
     }
@@ -107,17 +148,6 @@ extension Module {
       self[d.id].remove(i)
     }
     self[d.id].remove(oldProject)
-  }
-
-  /// Creates storage in `f` for the value represented by `i` and returns its address.
-  fileprivate mutating func addStorage(
-    in b: Block.ID, of f: Function.ID, replacing i: Instruction
-  ) -> InstructionID {
-    let t = i.result!.ast
-    let r = modifyIR(of: f, at: .end(of: b)) { (e) in
-      e._alloc_stack(t)
-    }
-    return r.instruction!
   }
 
   /// Generates the code in block `b` of `f` to call the continuation received as the third
