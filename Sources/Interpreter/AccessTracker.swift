@@ -108,6 +108,13 @@ public struct AccessTracker<Component: Regular> {
     }
   }
 
+  /// Returns the accesses encountered along the path `p`, including the root.
+  ///
+  /// - Precondition: `p` corresponds to a valid path.
+  public func accesses(along p: Path) -> [[Access]] {
+    nodePath(of: p).lazy.map { storage[$0].accesses }
+  }
+
   /// Returns the node corresponding to path `p`, creating any missing
   /// intermediate nodes along the path if needed.
   private mutating func createNodesIfNeeded(for p: Path) -> Index {

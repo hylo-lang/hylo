@@ -104,8 +104,7 @@ public struct ComposedRegions {
   /// `t` instance.
   ///
   /// - Precondition: `canCompose(t, at: a)`.
-  public mutating func composeUnchecked(_ t: AnyType, at a: Offset) throws {
-    precondition(canCompose(t, at: a))
+  public mutating func composeUnchecked(_ t: AnyType, at a: Offset) {
     let t = typeLayouts.pointee[t]
     let i = composedRegions.partitioningIndex { $0.offset >= a }
     composedRegions.replaceSubrange(
@@ -294,11 +293,34 @@ extension ComposedRegions {
   ///   the bound object to `p`.
   public mutating func decompose(
     upto p: Memory.Place,
-    along path: [Memory.Allocation.TypedRegion]
+    along path: some Collection<Memory.Allocation.TypedRegion>
   ) {
     for r in path.lazy.dropLast() {
       if let i = decomposable(typeLayouts.pointee[r.type], at: p.offset) {
         decompose(typeLayouts.pointee[r.type], inRegion: i)
+      }
+    }
+  }
+
+  /// Attempts to compose regions along `path` by moving upward toward the root.
+  ///
+  /// Starting from the end of `path`, this operation repeatedly merges each
+  /// region into its enclosing context while composition remains possible.
+  ///
+  /// - Precondition: `path` describes the structural sequence of regions from
+  ///   the bound object in `ReservedTypeRegion`.
+  public mutating func composeUpwards(
+    along path: some BidirectionalCollection<Memory.Allocation.TypedRegion>
+  ) {
+    for p in path.reversed() {
+      let r = region(enclosing: p.startOffset)!
+      if r.offset < p.startOffset || (r.offset == p.startOffset && r.type == p.type) {
+        continue
+      }
+      if canCompose(p.type, at: p.startOffset) {
+        composeUnchecked(p.type, at: p.startOffset)
+      } else {
+        break
       }
     }
   }

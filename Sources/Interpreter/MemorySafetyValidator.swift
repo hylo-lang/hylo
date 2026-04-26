@@ -94,6 +94,11 @@ struct MemorySafetyValidator {
 
   /// Marks `p` as initialized.
   public mutating func markInitialized(_ p: Memory.Place) throws {
+    let ps = try path(to: p.type, at: p.offset)
+    let i = regionAccesses[ps.first!]!.accesses(along: ps.dropFirst()).lastIndex {
+      $0.contains { $0.kind == .sink }
+    }!  // unwrap as every allocation base has sink access.
+    composedRegions.composeUpwards(along: ps[i...])
   }
 
   /// Throws iff it is not valid to read bytes from `p` using `a`.
