@@ -4,6 +4,10 @@ import Utils
 /// The non-overlapping regions of an `Allocation` reserved to be interpreted as specific type.
 public struct ReservedTypeRegions {
 
+  public enum Error: Swift.Error, Regular {
+    case regionAlreadyBound(to: AnyType)
+  }
+
   /// A position in some allocation.
   public typealias Offset = Memory.Storage.Index
 
@@ -51,12 +55,12 @@ public struct ReservedTypeRegions {
       && reservedTypeRegions[i - 1].startOffset
         + typeLayouts.pointee[reservedTypeRegions[i - 1].type].size > o
     {
-      throw Memory.Error.regionAlreadyReserved(for: reservedTypeRegions[i - 1].type)
+      throw Error.regionAlreadyBound(to: reservedTypeRegions[i - 1].type)
     }
     if i != reservedTypeRegions.endIndex
       && o + typeLayouts.pointee[t].size > reservedTypeRegions[i].startOffset
     {
-      throw Memory.Error.regionAlreadyReserved(for: reservedTypeRegions[i].type)
+      throw Error.regionAlreadyBound(to: reservedTypeRegions[i].type)
     }
     reservedTypeRegions.insert(.init(startOffset: o, type: t), at: i)
   }

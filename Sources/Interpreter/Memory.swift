@@ -12,18 +12,10 @@ public struct Memory {
 
   /// An incorrect use of memory.
   public enum Error: Swift.Error, Regular {
-    case noComposedPart(at: Address, TypeLayout.Part.Parentage)
     case alignment(Address, for: TypeLayout)
     case bounds(Address, for: TypeLayout, allocationSize: Int)
-    case partType(AnyType, part: TypeLayout.Part.Parentage)
-    case partOffset(Int, part: TypeLayout.Part.Parentage)
     case deallocationNotAtStartOfAllocation(Address)
     case noLongerAllocated(Address)
-    case noDecomposable(TypeLayout, at: Address)
-    case regionAlreadyReserved(for: AnyType)
-    case noTypedRegion(at: Address)
-    case regionAlreadyComposed(Place)
-    case notContained(Place, in: Place)
   }
 
   /// The type layouts that been computed so far.

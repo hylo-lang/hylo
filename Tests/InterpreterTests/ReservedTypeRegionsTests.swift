@@ -14,7 +14,7 @@ final class ReservedTypeRegionsTests: XCTestCase {
     var r = ReservedTypeRegions(typeLayouts: withUnsafeMutablePointer(to: &l) { $0 })
 
     try r.bind(tuple, at: 0)
-    check(throws: Memory.Error.regionAlreadyReserved(for: tuple)) {
+    check(throws: ReservedTypeRegions.Error.regionAlreadyBound(to: tuple)) {
       try r.bind(i64, at: 0)
     }
     let e = Memory.Allocation.TypedRegion(startOffset: 0, type: tuple)
