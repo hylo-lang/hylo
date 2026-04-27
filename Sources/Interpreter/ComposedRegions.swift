@@ -46,26 +46,6 @@ public struct ComposedRegions {
     indexOfRegion(enclosing: a).map { composedRegions[$0] }
   }
 
-  /// Returns true iff the given `part` of some type at `baseOffset` is
-  /// represented as the `n`th composed region.
-  public func isComposed(
-    part: TypeLayout.Part.Parentage,
-    baseOffset: Offset,
-    region n: Int
-  ) -> Bool {
-    let p = part.parent.parts[part.partIndex]
-    let partOffset = baseOffset + p.offset
-    guard let r = composedRegions.dropFirst(n).first,
-      r.offset == partOffset
-    else {
-      return false
-    }
-    if r.type != p.type {
-      return false
-    }
-    return true
-  }
-
   /// Returns true iff initialization records starting at `a` for the parts
   /// of a `t` can be replaced with initialization record of `t` instance.
   public func canCompose(_ t: AnyType, at a: Offset) -> Bool {
@@ -104,7 +84,7 @@ public struct ComposedRegions {
   /// `t` instance.
   ///
   /// - Precondition: `canCompose(t, at: a)`.
-  public mutating func composeUnchecked(_ t: AnyType, at a: Offset) {
+  public mutating func compose(_ t: AnyType, at a: Offset) {
     let t = typeLayouts.pointee[t]
     let i = composedRegions.partitioningIndex { $0.offset >= a }
     composedRegions.replaceSubrange(
@@ -112,55 +92,35 @@ public struct ComposedRegions {
       with: CollectionOfOne(.init(offset: a, type: t.type)))
   }
 
-  /// Throws iff the given `part` of some type at `baseOffset` is not represented as the `n`th
-  /// composed region.
-  public func requireComposed(
+  /// If there exists an initialization record for a `t` instance at `a`, replaces
+  /// it with parts of that instance and returns true. Otherwise, returns false.
+  public mutating func tryDecompose(_ t: AnyType, at a: Offset) -> Bool {
+    let t = typeLayouts.pointee[t]
+    guard let i = decomposable(t, at: a) else {
+      return false
+    }
+    decompose(t, inRegion: i)
+    return true
+  }
+
+  /// Returns true iff the given `part` of some type at `baseOffset` is
+  /// represented as the `n`th composed region.
+  private func isComposed(
     part: TypeLayout.Part.Parentage,
     baseOffset: Offset,
     region n: Int
-  ) throws {
+  ) -> Bool {
     let p = part.parent.parts[part.partIndex]
     let partOffset = baseOffset + p.offset
-    let partAddress = Memory.Address(allocation: allocation.pointee.id, offset: partOffset)
     guard let r = composedRegions.dropFirst(n).first,
       r.offset == partOffset
     else {
-      throw Memory.Error.noComposedPart(at: partAddress, part)
+      return false
     }
     if r.type != p.type {
-      throw Memory.Error.partType(r.type, part: part)
+      return false
     }
-  }
-
-  /// Replaces the initialization records starting at `a` for the
-  /// parts of a `t` instance with the initialization record for a
-  /// `t` instance.
-  public mutating func compose(_ t: AnyType, at a: Offset) throws {
-    try allocation.pointee.checkAlignmentAndAllocationBounds(at: a, for: typeLayouts.pointee[t])
-    let t = typeLayouts.pointee[t]
-    let i = composedRegions.partitioningIndex { $0.offset >= a }
-
-    if t.isUnionLayout {
-      let dc = t.discriminator
-      try requireComposed(
-        part: t.discriminatorParentage, baseOffset: a,
-        region: dc.offset == 0 ? i : i + 1)
-
-      let dv = allocation.pointee.unsignedIntValue(
-        at: dc.offset + a, ofType: t.discriminator.type.base as! BuiltinType)
-
-      try requireComposed(
-        part: .init(t, Int(dv)), baseOffset: a,
-        region: dc.offset == 0 ? i + 1 : i)
-    } else {
-      for n in t.parts.indices {
-        try requireComposed(part: .init(t, n), baseOffset: a, region: i + n)
-      }
-    }
-
-    composedRegions.replaceSubrange(
-      i..<(i + t.storedPartCount),
-      with: CollectionOfOne(.init(offset: a, type: t.type)))
+    return true
   }
 
   /// Returns the region index of the top-level composed instance of `t` at `a`, if any, or `nil`
@@ -201,21 +161,6 @@ public struct ComposedRegions {
       composedRegions.replaceSubrange(
         i..<i + 1, with: t.parts.lazy.map { .init(offset: a + $0.offset, type: $0.type) })
     }
-  }
-
-  private func checkDecomposable(_ t: TypeLayout, at a: Offset) throws -> Int {
-    if let i = decomposable(t, at: a) { return i }
-    throw Memory.Error.noDecomposable(
-      t,
-      at: .init(allocation: allocation.pointee.id, offset: a))
-  }
-
-  /// Replaces the initialization record for a `t` instance at `a` with
-  /// the initialization records for any parts of that instance.
-  public mutating func decompose(_ t: AnyType, at a: Offset) throws {
-    let t = typeLayouts.pointee[t]
-    let i = try checkDecomposable(t, at: a)
-    decompose(t, inRegion: i)
   }
 
   /// Returns end offset of `i`th composed region.
@@ -288,26 +233,6 @@ extension ComposedRegions {
     composedRegions.removeSubrange(i..<j)
   }
 
-  /// Decomposes composed regions along `path` up to (but not including) `p`.
-  ///
-  /// - Precondition: `path` is the structural path to `p`.
-  /// - Precondition: No composed region strictly contains `path.first`.
-  /// - Precondition: For every element `q` in `path` and every composed region `r`,
-  ///     one of the following holds:
-  ///     - `r` and `q` are disjoint, or
-  ///     - `r` fully contains `q`, or
-  ///     - `r` is fully contained within `q`.
-  public mutating func decompose(
-    upto p: Memory.Place,
-    along path: some Collection<Memory.Allocation.TypedRegion>
-  ) {
-    for r in path.lazy.dropLast() {
-      if let i = decomposable(typeLayouts.pointee[r.type], at: p.offset) {
-        decompose(typeLayouts.pointee[r.type], inRegion: i)
-      }
-    }
-  }
-
   /// Attempts to compose regions along `path` by moving upward toward the root.
   ///
   /// Starting from the end of `path`, this operation repeatedly merges each
@@ -327,7 +252,7 @@ extension ComposedRegions {
         continue
       }
       if canCompose(p.type, at: p.startOffset) {
-        composeUnchecked(p.type, at: p.startOffset)
+        compose(p.type, at: p.startOffset)
       } else {
         break
       }

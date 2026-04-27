@@ -73,7 +73,9 @@ struct MemorySafetyValidator {
     }
 
     if k == .sink {
-      composedRegions.decompose(upto: p, along: ps)
+      for e in ps.lazy.dropLast() {
+        _ = composedRegions.tryDecompose(e.type, at: e.startOffset)
+      }
     }
 
     return try regionAccesses[ps.first!]!.begin(k, at: ps.dropFirst())
