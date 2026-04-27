@@ -50,6 +50,7 @@ final class AccessTrackerTests: XCTestCase {
     _ = try t.begin(.let, at: [])
     _ = try t.begin(.let, at: ["b", "p"])
     _ = try t.begin(.let, at: ["b"])
+    _ = try t.begin(.let, at: [])
   }
 
   func testRequireIsActive() throws {
@@ -126,6 +127,23 @@ final class AccessTrackerTests: XCTestCase {
     try t.end(a4, at: ["b", "c"])
     let a5 = try t.begin(.inout, at: [])  // can start new access after no overlapping subpart
     try t.end(a5, at: [])
+  }
+
+  func testCanObserveAccesses() throws {
+    var t = AccessTracker("a", with: .inout)
+    _ = try t.begin(.inout, at: [])
+    _ = try t.begin(.inout, at: ["b"])
+    _ = try t.begin(.let, at: ["b"])
+    _ = try t.begin(.inout, at: ["c", "d"])
+    _ = try t.begin(.inout, at: ["c", "d"])
+
+    XCTAssertEqual(t.accesses(along: []).map { $0.map { $0.kind } }, [[.inout, .inout]])
+    XCTAssertEqual(
+      t.accesses(along: ["b"]).map { $0.map { $0.kind } },
+      [[.inout, .inout], [.inout, .let]])
+    XCTAssertEqual(
+      t.accesses(along: ["c", "d"]).map { $0.map { $0.kind } },
+      [[.inout, .inout], [], [.inout, .inout]])
   }
 
 }
