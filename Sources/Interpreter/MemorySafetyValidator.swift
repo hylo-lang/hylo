@@ -52,6 +52,8 @@ struct MemorySafetyValidator {
 
   /// Starts an access of type `k` at `p`.
   public mutating func beginAccess(_ k: AccessKind, at p: Memory.Place) throws -> Access {
+    if isZeroSized(p) { return Access(kind: k) }
+
     if typeBindings.region(enclosing: p.offset) == nil {
       if k != .set {
         throw Error.noTypeBound(at: .init(allocation: allocation.pointee.id, offset: p.offset))
@@ -81,6 +83,8 @@ struct MemorySafetyValidator {
   ///
   /// - Precondition: Access `a` exists at `p`.
   public mutating func endAccess(_ a: Access, at p: Memory.Place) throws {
+    if isZeroSized(p) { return }
+
     let ps = try path(to: p.type, at: p.offset)
     try regionAccesses[ps.first!]!.end(a, at: ps.dropFirst())
     if a.kind != .sink {
@@ -94,6 +98,8 @@ struct MemorySafetyValidator {
 
   /// Marks `p` as initialized.
   public mutating func markInitialized(_ p: Memory.Place) throws {
+    if isZeroSized(p) { return }
+
     let ps = try path(to: p.type, at: p.offset)
     let i = regionAccesses[ps.first!]!.accesses(along: ps.dropFirst()).lastIndex {
       $0.contains { $0.kind == .sink }
@@ -105,6 +111,8 @@ struct MemorySafetyValidator {
   ///
   /// - Precondition: Access `a` exists at `p`.
   public func requireCanRead(from p: Memory.Place, using a: Access) throws {
+    if isZeroSized(p) { return }
+
     let ps = try path(to: p.type, at: p.offset)
     if !composedRegions.isComplete(p) {
       throw Error.readFromIncomplete(p)
@@ -116,6 +124,8 @@ struct MemorySafetyValidator {
   ///
   /// - Precondition: Access `a` exists at `p`.
   public func requireCanWrite(to p: Memory.Place, using a: Access) throws {
+    if isZeroSized(p) { return }
+
     let ps = try path(to: p.type, at: p.offset)
     try regionAccesses[ps.first!]!.requireIsActive(a, at: ps.dropFirst())
   }
@@ -201,5 +211,10 @@ struct MemorySafetyValidator {
     }
 
     return TypedRegion(startOffset: childStart, type: part.type)
+  }
+
+  /// Returns true iff `p.type` has size `0`.
+  private func isZeroSized(_ p: Memory.Place) -> Bool {
+    typeLayouts.pointee[p.type].size == 0
   }
 }

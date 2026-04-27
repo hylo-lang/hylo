@@ -17,6 +17,11 @@ final class ReservedTypeRegionsTests: XCTestCase {
     check(throws: Memory.Error.regionAlreadyReserved(for: tuple)) {
       try r.bind(i64, at: 0)
     }
+    let e = Memory.Allocation.TypedRegion(startOffset: 0, type: tuple)
+    XCTAssertEqual(r.region(enclosing: 0), e)
+    XCTAssertEqual(r.region(enclosing: 4), e)
+    XCTAssertEqual(r.region(enclosing: 16), nil)
+    XCTAssertEqual(r.region(enclosing: 32), nil)
     r.unbind(at: 0)
     try r.bind(tuple, at: 0)
     try r.bind(tuple, at: 16)
