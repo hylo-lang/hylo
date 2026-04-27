@@ -53,28 +53,4 @@ final class InterpreterMemoryTests: XCTestCase {
     // TODO: add test for union case.
   }
 
-  // TODO: port it to new component
-  //
-  // func testTypeBindUnbind() throws {
-  //   var l = TypeLayoutCache(typesIn: TypedProgram.empty, for: UnrealABI())
-  //   var m = Memory(typesIn: TypedProgram.empty, for: UnrealABI())
-  //   let i64 = ^BuiltinType.i(64)
-  //   let tuple = ^TupleType(types: [i64, i64])
-  //   let p = m.allocate(tuple, count: 2)
-  //
-  //   check(throws: Memory.Error.alignment(p.address + 1, for: l[i64])) {
-  //     try m.bind(type: i64, at: p.address + 1)
-  //   }
-  //   check(throws: Memory.Error.bounds(p.address + 32, for: l[tuple], allocationSize: 32)) {
-  //     try m.bind(type: tuple, at: p.address + 32)
-  //   }
-  //
-  //   try m.bind(type: tuple, at: p.address)
-  //   check(throws: Memory.Error.regionAlreadyReserved(for: tuple)) {
-  //     try m.bind(type: i64, at: p.address)
-  //   }
-  //   m.unbindType(from: p.address)
-  //   try m.bind(type: tuple, at: p.address)
-  //   try m.bind(type: tuple, at: p.address + 16)
-  // }
 }
