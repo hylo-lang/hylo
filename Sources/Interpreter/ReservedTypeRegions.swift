@@ -14,14 +14,19 @@ public struct ReservedTypeRegions {
   /// The type layout, every type follows.
   private let typeLayouts: UnsafeMutablePointer<TypeLayoutCache>
 
+  /// The allocation for which type bindings belong to.
+  private let allocation: UnsafePointer<Memory.Allocation>
+
   /// The reserved typed regions, in ascending order.
   private var reservedTypeRegions: [Memory.Allocation.TypedRegion]
 
   /// Empty regions ensuring type layouts from `l`.
   public init(
+    allocation a: UnsafePointer<Memory.Allocation>,
     typeLayouts l: UnsafeMutablePointer<TypeLayoutCache>
   ) {
     typeLayouts = l
+    allocation = a
     reservedTypeRegions = []
   }
 
@@ -50,6 +55,9 @@ public struct ReservedTypeRegions {
   /// Binds the region starting at `o` to `t`, constraining accesses to that
   /// region to the layout of `t`.
   public mutating func bind(_ t: AnyType, at o: Offset) throws {
+    try allocation.pointee.checkAlignmentAndAllocationBounds(
+      at: o, for: typeLayouts.pointee[t])
+
     let i = reservedTypeRegions.partitioningIndex { $0.startOffset > o }
     if i != 0
       && reservedTypeRegions[i - 1].startOffset

@@ -45,7 +45,7 @@ struct MemorySafetyValidator {
   ) {
     self.allocation = allocation
     self.typeLayouts = typeLayouts
-    typeBindings = ReservedTypeRegions(typeLayouts: typeLayouts)
+    typeBindings = ReservedTypeRegions(allocation: allocation, typeLayouts: typeLayouts)
     composedRegions = ComposedRegions(allocation: allocation, typeLayouts: typeLayouts)
     regionAccesses = [:]
   }

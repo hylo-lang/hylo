@@ -10,8 +10,19 @@ final class ReservedTypeRegionsTests: XCTestCase {
     var l = TypeLayoutCache(typesIn: TypedProgram.empty, for: UnrealABI())
     let i64 = ^BuiltinType.i(64)
     let tuple = ^TupleType(types: [i64, i64])
+    var m = Memory(typesIn: TypedProgram.empty, for: UnrealABI())
+    let p = m.allocate(i64, count: 8).address
 
-    var r = ReservedTypeRegions(typeLayouts: withUnsafeMutablePointer(to: &l) { $0 })
+    var r = ReservedTypeRegions(
+      allocation: withUnsafePointer(to: m.allocation[p.allocation]!) { $0 },
+      typeLayouts: withUnsafeMutablePointer(to: &l) { $0 })
+
+    check(throws: Memory.Error.alignment(p + 1, for: l[i64])) {
+      try r.bind(i64, at: 1)
+    }
+    check(throws: Memory.Error.bounds(p + 64, for: l[i64], allocationSize: l[i64].size * 8)) {
+      try r.bind(i64, at: 64)
+    }
 
     try r.bind(tuple, at: 0)
     check(throws: ReservedTypeRegions.Error.regionAlreadyBound(to: tuple)) {
