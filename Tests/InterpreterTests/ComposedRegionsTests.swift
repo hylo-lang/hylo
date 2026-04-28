@@ -162,4 +162,38 @@ final class ComposedRegionsTests: XCTestCase {
     c.compose(t, at: 0)
     XCTAssertFalse(c.isFullyUninitialized(e))
   }
+
+  func testDecomposeSubtree() {
+    var l = TypeLayoutCache(typesIn: TypedProgram.empty, for: UnrealABI())
+
+    let i8 = ^BuiltinType.i(8)
+    let i8Pair = ^TupleType(types: [i8, i8])
+    let t = ^TupleType(types: [i8, i8Pair])
+
+    let a = l[t].alignment
+
+    var m = Memory(typesIn: TypedProgram.empty, for: UnrealABI())
+    let p = m.allocate(i8, count: 132).address
+    let e = Memory.Place(allocation: p.allocation, offset: a, type: t)
+    var c = ComposedRegions(
+      allocation: withUnsafePointer(to: m.allocation[p.allocation]!) { $0 },
+      typeLayouts: withUnsafeMutablePointer(to: &l) { $0 }
+    )
+
+    c.compose(i8, at: 0)
+    c.compose(i8, at: a + l[t].parts[0].offset)
+    c.compose(i8, at: a + l[t].parts[1].offset + l[i8Pair].parts[0].offset)
+    c.compose(i8, at: a + l[t].parts[1].offset + l[i8Pair].parts[1].offset)
+    c.compose(i8Pair, at: a + l[t].parts[1].offset)
+    c.compose(t, at: a)
+    c.compose(i8, at: a + l[t].size)
+
+    c.decomposeSubtree(of: e)
+    XCTAssertEqual(c.region(enclosing: 0), .init(offset: 0, type: i8))
+    XCTAssertEqual(c.region(enclosing: a), nil)
+    XCTAssertEqual(c.region(enclosing: a + l[t].parts[0].offset), nil)
+    XCTAssertEqual(c.region(enclosing: a + l[t].parts[0].offset + l[i8Pair].parts[0].offset), nil)
+    XCTAssertEqual(c.region(enclosing: a + l[t].parts[0].offset + l[i8Pair].parts[1].offset), nil)
+    XCTAssertEqual(c.region(enclosing: a + l[t].size), .init(offset: a + l[t].size, type: i8))
+  }
 }

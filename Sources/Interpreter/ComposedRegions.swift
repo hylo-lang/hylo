@@ -227,8 +227,8 @@ extension ComposedRegions {
     let start = p.offset
     let end = start + typeLayouts.pointee[p.type].size
 
-    let i = composedRegions.partitioningIndex { $0.offset < start }
-    let j = composedRegions.partitioningIndex { $0.offset < end }
+    let i = composedRegions.partitioningIndex { $0.offset >= start }
+    let j = composedRegions.partitioningIndex { $0.offset >= end }
 
     composedRegions.removeSubrange(i..<j)
   }
