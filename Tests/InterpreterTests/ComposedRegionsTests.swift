@@ -62,50 +62,34 @@ final class ComposedRegionsTests: XCTestCase {
 
   func testUnionComposeDecompose() {
     var l = TypeLayoutCache(typesIn: TypedProgram.empty, for: UnrealABI())
+    let i8 = ^BuiltinType.i(8)
     let i16 = ^BuiltinType.i(16)
     let i32 = ^BuiltinType.i(32)
     let i16i32Union = ^UnionType([i16, i32])
+    let parts = l[i16i32Union].parts
 
     var m = Memory(typesIn: TypedProgram.empty, for: UnrealABI())
     let p = m.allocate(i16i32Union).address
-    let c = ComposedRegions(
+    var c = ComposedRegions(
       allocation: withUnsafePointer(to: m.allocation[p.allocation]!) { $0 },
       typeLayouts: withUnsafeMutablePointer(to: &l) { $0 })
 
     assert(l[i16i32Union].alignment > 1)
 
     XCTAssertFalse(c.canCompose(i16i32Union, at: p.offset))
-    _ = i16
-    /*
-      m.compose()
-      try m.compose(i16, at: p + parts[0].offset)
+
+    c.compose(i16, at: parts[0].offset)
+    XCTAssertFalse(c.canCompose(i16i32Union, at: 0))
+    c.compose(i8, at: parts[2].offset)
+    XCTAssertTrue(c.canCompose(i16i32Union, at: 0))
+    c.compose(i16i32Union, at: 0)
     
-      XCTAssertThrowsError(Memory.Error.noComposedPart(at: p + parts[1].offset, partIDs[1])) {
-        try m.compose(i16i32Union, at: p)
-      }
-    
-      try m.compose(i16, at: p + parts[1].offset)
-    
-      try m.compose(i16i32Union, at: p)
-    
-      XCTAssertThrowsError(Memory.Error.noDecomposable(i16, at: p)) {
-        try m.decompose(i16, at: p)
-      }
-    
-      try m.decompose(i16i32Union, at: p)
-    
-      XCTAssertThrowsError(Memory.Error.noDecomposable(i16i32Union, at: p)) {
-        try m.decompose(i16i32Union, at: p)
-      }
-    
-      try m.decompose(i16, at: p + parts[0].offset)
-    
-      XCTAssertThrowsError(Memory.Error.noDecomposable(i16, at: p + parts[0].offset)) {
-        try m.decompose(i16, at: p)
-      }
-    
-      try m.decompose(i16, at: p + parts[1].offset)
-     */
+    XCTAssertFalse(c.tryDecompose(i16, at: 0))
+    XCTAssertTrue(c.tryDecompose(i16i32Union, at: 0))
+    XCTAssertFalse(c.tryDecompose(i16i32Union, at: 0))
+    XCTAssertTrue(c.tryDecompose(i16, at: parts[0].offset))
+    XCTAssertFalse(c.tryDecompose(i16, at: parts[0].offset))
+    XCTAssertTrue(c.tryDecompose(i8, at: parts[2].offset))
   }
 
   func testIsComplete() {
