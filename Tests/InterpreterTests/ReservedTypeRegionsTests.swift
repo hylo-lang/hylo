@@ -23,6 +23,8 @@ final class ReservedTypeRegionsTests: XCTestCase {
     XCTAssertEqual(r.region(enclosing: 16), nil)
     XCTAssertEqual(r.region(enclosing: 32), nil)
     r.unbind(at: 0)
+    XCTAssertEqual(r.region(enclosing: 0), nil)
+    XCTAssertEqual(r.region(enclosing: 4), nil)
     try r.bind(tuple, at: 0)
     try r.bind(tuple, at: 16)
   }
