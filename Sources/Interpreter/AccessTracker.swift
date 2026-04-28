@@ -9,6 +9,14 @@ import Utils
 ///    object `y`, no other access that includes `y` is active.
 public struct AccessTracker<Component: Regular> {
 
+  // An object A[B[C, D], F] is represented as tree like:
+  //                         A
+  //                        / \
+  //                       B  F
+  //                      / \
+  //                     C  D
+  // where each node has list of accesses it currently has.
+
   // Class invariants:
   //   1. Every node has at least one access or one child.
   //
