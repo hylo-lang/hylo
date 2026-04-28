@@ -106,6 +106,7 @@ struct MemorySafetyValidator {
     let i = regionAccesses[ps.first!]!.accesses(along: ps.dropFirst()).lastIndex {
       $0.contains { $0.kind == .sink }
     }!  // unwrap as every allocation base has sink access.
+    composedRegions.compose(ps.last!.type, at: ps.last!.startOffset)
     composedRegions.composeUpwards(along: ps[i...])
   }
 

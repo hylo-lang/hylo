@@ -196,4 +196,38 @@ final class ComposedRegionsTests: XCTestCase {
     XCTAssertEqual(c.region(enclosing: a + l[t].parts[0].offset + l[i8Pair].parts[1].offset), nil)
     XCTAssertEqual(c.region(enclosing: a + l[t].size), .init(offset: a + l[t].size, type: i8))
   }
+
+  func testComposeUpwards() {
+    var l = TypeLayoutCache(typesIn: TypedProgram.empty, for: UnrealABI())
+
+    let i8 = ^BuiltinType.i(8)
+
+    var m = Memory(typesIn: TypedProgram.empty, for: UnrealABI())
+    let p = m.allocate(i8, count: 132).address
+    var c = ComposedRegions(
+      allocation: withUnsafePointer(to: m.allocation[p.allocation]!) { $0 },
+      typeLayouts: withUnsafeMutablePointer(to: &l) { $0 }
+    )
+    let t1 = ^TupleType(types: [i8, i8])
+    let t2 = ^TupleType(types: [t1, i8])
+    let t3 = ^TupleType(types: [t2, i8])
+
+    c.compose(i8, at: l[t3].parts[0].offset + l[t2].parts[0].offset + l[t1].parts[0].offset)
+    c.compose(i8, at: l[t3].parts[0].offset + l[t2].parts[0].offset + l[t1].parts[1].offset)
+    c.compose(i8, at: l[t3].parts[0].offset + l[t2].parts[1].offset)
+    c.compose(i8, at: l[t3].parts[1].offset)
+
+    c.composeUpwards(along: [
+      .init(startOffset: l[t3].parts[0].offset, type: t2),
+      .init(startOffset: l[t3].parts[0].offset + l[t2].parts[0].offset, type: t1),
+      .init(
+        startOffset: l[t3].parts[0].offset + l[t2].parts[0].offset + l[t1].parts[1].offset, type: i8
+      ),
+    ])
+
+    XCTAssertEqual(
+      c.region(enclosing: l[t3].parts[0].offset), .init(offset: l[t3].parts[0].offset, type: t2))
+    XCTAssertEqual(
+      c.region(enclosing: l[t3].parts[1].offset), .init(offset: l[t3].parts[1].offset, type: i8))
+  }
 }
