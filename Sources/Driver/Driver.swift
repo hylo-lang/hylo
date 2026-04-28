@@ -540,7 +540,13 @@ public struct Driver: ParsableCommand, Sendable {
       ? invocationName : invocationName + Host.executableSuffix
 
     // Search in the PATH.
-    let path = ProcessInfo.processInfo.environment[Host.pathEnvironmentVariable] ?? ""
+    // On Windows, use case-insensitive key lookup to support environments like MSYS2 that use
+    // "PATH" instead of the native Windows "Path".
+    let env = ProcessInfo.processInfo.environment
+    let pathKey = Platform.hostOperatingSystem == .windows
+      ? env.keys.first(where: { $0.caseInsensitiveCompare(Host.pathEnvironmentVariable) == .orderedSame }) ?? Host.pathEnvironmentVariable
+      : Host.pathEnvironmentVariable
+    let path = env[pathKey] ?? ""
     for root in path.split(separator: Host.pathEnvironmentSeparator) {
       let candidate = URL(fileURLWithPath: String(root)).appendingPathComponent(executableFileName)
       if FileManager.default.fileExists(atPath: candidate.fileSystemPath) {

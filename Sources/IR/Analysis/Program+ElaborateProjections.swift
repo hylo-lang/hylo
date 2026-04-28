@@ -28,8 +28,10 @@ extension IR.Program {
   ) {
     if modules[m]![f].site.file.baseName != "feature-test-projection" { return }  // TODO: remove this filter.
 
-    let ramp = modules[m]!.demandProjectionRampDeclaration(for: f)
-    let slide = modules[m]!.demandProjectionSlideDeclaration(for: f)
+    modules[m]![f].removeGhostDefinitions()
+    
+    let ramp = modules[m]!.demandProjectionRamp(for: f)
+    let slide = modules[m]!.demandProjectionSlide(for: f)
     let source = modules[m]![f]
     let details = ProjectionDetails(f, source: source, skeleton: s, of: base)
 
@@ -44,17 +46,25 @@ extension IR.Program {
     in m: Module.ID
   ) {
     var transformer = DictionaryInstructionTransformer()
+    let source = modules[m]![d.id]
 
     // Copy the ramp instructions, creating blocks for them as needed.
     rewrite(d.rampInstructions, in: d.id, from: m, transformedBy: &transformer, to: ramp)
 
+    // Add the projected value storage at the beginning of the entry block.
+    let entry = modules[m]![ramp].entry!
+    let s = modules[m]!.modifyIR(of: ramp, at: .start(of: entry)) { (e) in
+      e._alloc_stack(source.output)
+    }
+
     // Generate the last block that jumps to the continuation passed in by the caller, and exits.
-    let b = modules[m]!.generateContinuationCall(in: ramp, referencing: slide)
+    let b = modules[m]!.generateContinuationCall(in: ramp, referencing: slide, projecting: s)
 
     // Add yield replacements.
     for y in d.skeleton.yieldPoints {
       modules[m]!.addYieldReplacement(
-        yield: y, for: d, in: ramp, transformedBy: &transformer, jumpingTo: b)
+        yield: y, for: d, in: ramp, transformedBy: &transformer, jumpingTo: b,
+        projectedValueStorage: s)
     }
   }
 
@@ -90,45 +100,36 @@ extension Module {
     for d: ProjectionDetails,
     in ramp: Function.ID,
     transformedBy t: inout DictionaryInstructionTransformer,
-    jumpingTo continuationBlock: Block.ID
+    jumpingTo continuationBlock: Block.ID,
+    projectedValueStorage: Operand
   ) {
     let source = self[d.id]
     let sourceYield = source[y] as! Yield
-    let projectedValueParameter = projectedValueParameter(ramp: ramp)
     let b = t.rewrittenBlocks[source.block(of: y)]!
 
-    // Insert code at the yield point, just before the tail
-    let yieldInsertionPoint: InsertionPoint
-    if let x = d.firstTailInstructions[y]! {
-      yieldInsertionPoint = .before(t.rewrittenInstructions[x]!)
-    } else {
-      yieldInsertionPoint = .end(of: b)
-    }
-    modifyIR(of: ramp, at: yieldInsertionPoint) { (e) in
+    // Insert code at the yield point.
+    modifyIR(of: ramp, at: .end(of: b)) { (e) in
       // If we have multiple yields, store the index of the current yield point in the state.
       if d.skeleton.yieldPoints.count > 1 {
         _ /*index*/ = d.skeleton.yieldPoints.firstIndex(of: y)!
         // TODO: store `index` in the frame.
       }
 
-      // Store the yield value in the last parameter.
+      // Store the yield value in the storage for projected value.
       let x0 = e._load(t.transform(sourceYield.projection))
-      let x1 = e._access(.let, from: projectedValueParameter)
-      e._store(x0, x1)
-      e._end_access(x1)
-    }
+      e._store(x0, projectedValueStorage)
 
-    // After the tail, jump to the continuation block.
-    modifyIR(of: ramp, at: .end(of: b)) { (e) in
+      // Jump to the continuation block.
       e._branch(to: continuationBlock)
     }
   }
 
-  /// Generates a new block in `ramp` that calls the continuation received as parameter, passing to
-  /// it a continuation that calls `slide`; returns the identity of the new block.
+  /// Generates a new block in `ramp` that calls the continuation received as parameter, passing
+  /// the value from `p` and a continuation that calls `slide`; returns the identity of the new block.
   fileprivate mutating func generateContinuationCall(
     in ramp: Function.ID,
-    referencing slide: Function.ID
+    referencing slide: Function.ID,
+    projecting p: Operand
   ) -> Block.ID {
     let slideReference = FunctionReference(to: slide, in: self)
     let continuationParameter = continuationParameter(ramp: ramp)
@@ -137,29 +138,30 @@ extension Module {
       // TODO: Frame pointer
       let nullFrame = e._call_builtin(.zeroinitializer(BuiltinType.ptr), [])
 
-      let c = e._slide_continuation(calling: slideReference, frame: nullFrame)
-      e._resume_continuation(continuationParameter, with: c)
+      let c = e._slideContinuation(calling: slideReference, frame: nullFrame)
+      e._resumeContinuation(continuationParameter, with: c, projecting: p)
       e._return()
     }
     return b
   }
 
-  /// Returns the operand representing the projected value parameter in ramp `f`.
-  ///
-  /// This is the last parameter to `f`; block has the additional return type.
-  private func projectedValueParameter(ramp f: Function.ID) -> Operand {
-    let source = self[f]
-    let entry = source.entry!
-    return .parameter(entry, source[entry].inputs.count - 2)
-  }
-
   /// Returns the operand representing the continuation parameter in ramp `f`.
   ///
-  /// This is the previous-to-last parameter to `f`; block has the additional return type.
+  /// The ramp function has the following signature:
+  ///
+  ///     fun Projection.ramp(<parameters>, _ c: let PlateauContinuation) -> {}
+  ///
+  /// The entry block of the ramp function will look like:
+  ///
+  ///     b0(<parameters>, %b0#N1 : &<PlateauContinuation>, %b0#N : &{}):
+  ///
+  /// adding an extra parameter for the return type.
+  /// 
+  /// We will return the previous-to-last parameter of the block.
   private func continuationParameter(ramp f: Function.ID) -> Operand {
     let source = self[f]
     let entry = source.entry!
-    return .parameter(entry, source[entry].inputs.count - 3)
+    return .parameter(entry, source[entry].inputs.count - 2)
   }
 
   /// Returns `true` if there is no useful code to execute in the slide of projection `p`.
@@ -206,30 +208,27 @@ extension Module {
 extension Emitter {
 
   /// Allocates and initializes a continuation to call `slide` with frame pointer `f`.
-  fileprivate mutating func _slide_continuation(
+  fileprivate mutating func _slideContinuation(
     calling slide: FunctionReference, frame f: Operand
   ) -> Operand {
     let x0 = _place_to_pointer(Operand.constant(slide))
     let x1 = _alloc_stack(Module.projectionContinuationType())
-    let x2 = _access(.set, from: _subfield_view(x1, at: [0, 0]))
+    let x2 = _subfield_view(x1, at: [0, 0])
     _store(x0, x2)
-    _end_access(x2)
-    let x3 = _access(.set, from: _subfield_view(x1, at: [0, 1]))
+    let x3 = _subfield_view(x1, at: [0, 1])
     _store(f, x3)
-    _end_access(x3)
     return x1
   }
 
   /// Emit code that jumps to continuation `c`, passing `slideContinuation` as argument.
-  fileprivate mutating func _resume_continuation(_ c: Operand, with slideContinuation: Operand) {
-    let x0 = _access(.let, from: _subfield_view(c, at: [0]))  // c.resumeFunction
-    let x1 = _access(.let, from: _subfield_view(c, at: [1]))  // c.frame
-    let x2 = _access(.let, from: slideContinuation)
-    let x3 = _alloc_stack(.void)
-    _emitApply(x0, to: [x1, x2], writingResultTo: x3)
-    _end_access(x2)
-    _end_access(x1)
-    _end_access(x0)
+  fileprivate mutating func _resumeContinuation(
+    _ c: Operand, with slideContinuation: Operand,
+    projecting s: Operand
+  ) {
+    let x0 = _subfield_view(c, at: [0])  // c.resumeFunction
+    let x1 = _subfield_view(c, at: [1])  // c.frame
+    let x2 = _alloc_stack(.void)
+    _emitApply(x0, to: [s, x1, slideContinuation], writingResultTo: x2)
   }
 }
 
@@ -242,10 +241,7 @@ private struct ProjectionDetails {
   /// The skeleton of the projection.
   let skeleton: ProjectionSkeleton
 
-  /// The first instruction in each tail, corresponding to all our yield points.
-  let firstTailInstructions: [InstructionID: InstructionID?]
-
-  /// All the instructions in the ramp, including the tail instructions.
+  /// All the instructions in the ramp.
   /// May contain instructions from different blocks.
   let rampInstructions: [InstructionID]
 
@@ -259,21 +255,17 @@ private struct ProjectionDetails {
   ) {
     var rampInstructions = s.rampBlocks.flatMap { source.instructions(in: $0) }
     var slideInstructions = s.slideBlocks.flatMap { source.instructions(in: $0) }
-    var firstTailInstructions: [InstructionID: InstructionID?] = [:]
 
     for y in s.yieldPoints {
       let a = Array(source.instructions(in: source.block(of: y)))
-      let s = source.split(instructions: a, at: y)
-      rampInstructions.append(contentsOf: a.prefix(upTo: s.splitPoint))
-      rampInstructions.append(contentsOf: a[s.splitPoint + 1 ..< s.epilogueEnd])
-      // Note: `yield` is not included in the ramp
-      slideInstructions.append(contentsOf: a.suffix(from: s.epilogueEnd))
-      firstTailInstructions[y] = s.splitPoint + 1 <= s.epilogueEnd ? a[s.splitPoint + 1] : nil
+      let s = a.firstIndex(of: y)!
+      rampInstructions.append(contentsOf: a[0 ..< s])
+      // Note: `yield` is not included neither in the ramp nor in the slide.
+      slideInstructions.append(contentsOf: a[(s + 1)...])
     }
 
     self.id = p
     self.skeleton = s
-    self.firstTailInstructions = firstTailInstructions
     self.rampInstructions = rampInstructions
     self.slideInstructions = slideInstructions
   }
