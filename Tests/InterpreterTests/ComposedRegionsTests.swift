@@ -15,8 +15,9 @@ final class ComposedRegionsTests: XCTestCase {
     let p = m.allocate(voidPair).address
 
     var c = ComposedRegions(
-      allocation: withUnsafePointer(to: m.allocation[p.allocation]!) { $0 },
-      typeLayouts: withUnsafeMutablePointer(to: &layouts) { $0 })
+      memory: withUnsafeMutablePointer(to: &m) { $0 },
+      allocation: p.allocation
+    )
 
     XCTAssertFalse(c.canCompose(voidPair, at: 0))
 
@@ -40,8 +41,9 @@ final class ComposedRegionsTests: XCTestCase {
     var m = Memory(typesIn: TypedProgram.empty, for: UnrealABI())
     let p = m.allocate(i16Pair).address
     var c = ComposedRegions(
-      allocation: withUnsafePointer(to: m.allocation[p.allocation]!) { $0 },
-      typeLayouts: withUnsafeMutablePointer(to: &l) { $0 })
+      memory: withUnsafeMutablePointer(to: &m) { $0 },
+      allocation: p.allocation
+    )
 
     let parts = l[i16Pair].parts
     XCTAssertFalse(c.canCompose(i16Pair, at: p.offset))
@@ -71,8 +73,9 @@ final class ComposedRegionsTests: XCTestCase {
     var m = Memory(typesIn: TypedProgram.empty, for: UnrealABI())
     let p = m.allocate(i16i32Union).address
     var c = ComposedRegions(
-      allocation: withUnsafePointer(to: m.allocation[p.allocation]!) { $0 },
-      typeLayouts: withUnsafeMutablePointer(to: &l) { $0 })
+      memory: withUnsafeMutablePointer(to: &m) { $0 },
+      allocation: p.allocation
+    )
 
     assert(l[i16i32Union].alignment > 1)
 
@@ -103,8 +106,8 @@ final class ComposedRegionsTests: XCTestCase {
     let p = m.allocate(i8, count: 132).address
     let e = Memory.Place(allocation: p.allocation, offset: l[t].parts[1].offset, type: i8Pair)
     var c = ComposedRegions(
-      allocation: withUnsafePointer(to: m.allocation[p.allocation]!) { $0 },
-      typeLayouts: withUnsafeMutablePointer(to: &l) { $0 }
+      memory: withUnsafeMutablePointer(to: &m) { $0 },
+      allocation: p.allocation
     )
     XCTAssertFalse(c.isComplete(e))
     c.compose(i8, at: l[t].parts[0].offset)
@@ -130,8 +133,8 @@ final class ComposedRegionsTests: XCTestCase {
     let p = m.allocate(i8, count: 132).address
     let e = Memory.Place(allocation: p.allocation, offset: l[t].parts[1].offset, type: i8Pair)
     var c = ComposedRegions(
-      allocation: withUnsafePointer(to: m.allocation[p.allocation]!) { $0 },
-      typeLayouts: withUnsafeMutablePointer(to: &l) { $0 }
+      memory: withUnsafeMutablePointer(to: &m) { $0 },
+      allocation: p.allocation
     )
 
     XCTAssertTrue(c.isFullyUninitialized(e))
@@ -160,8 +163,8 @@ final class ComposedRegionsTests: XCTestCase {
     let p = m.allocate(i8, count: 132).address
     let e = Memory.Place(allocation: p.allocation, offset: a, type: t)
     var c = ComposedRegions(
-      allocation: withUnsafePointer(to: m.allocation[p.allocation]!) { $0 },
-      typeLayouts: withUnsafeMutablePointer(to: &l) { $0 }
+      memory: withUnsafeMutablePointer(to: &m) { $0 },
+      allocation: p.allocation
     )
 
     c.compose(i8, at: 0)
@@ -189,8 +192,8 @@ final class ComposedRegionsTests: XCTestCase {
     var m = Memory(typesIn: TypedProgram.empty, for: UnrealABI())
     let p = m.allocate(i8, count: 132).address
     var c = ComposedRegions(
-      allocation: withUnsafePointer(to: m.allocation[p.allocation]!) { $0 },
-      typeLayouts: withUnsafeMutablePointer(to: &l) { $0 }
+      memory: withUnsafeMutablePointer(to: &m) { $0 },
+      allocation: p.allocation
     )
     let t1 = ^TupleType(types: [i8, i8])
     let t2 = ^TupleType(types: [t1, i8])

@@ -24,9 +24,18 @@ struct MemorySafetyValidator {
   /// and the type layout associated with that location.
   typealias TypedRegion = Memory.Allocation.TypedRegion
 
-  private let allocation: UnsafePointer<Memory.Allocation>
+  /// Memory where `allocation` lives.
+  private let memory: UnsafeMutablePointer<Memory>
 
-  private let typeLayouts: UnsafeMutablePointer<TypeLayoutCache>
+  /// ID of allocation for which validator belongs to.
+  private let allocationID: Memory.Allocation.ID
+
+  /// The allocation for which validator regions belong to.
+  private var allocation: Memory.Allocation {
+    _read {
+      yield memory.pointee.allocation[allocationID]!
+    }
+  }
 
   /// The type bindings associated with regions of `allocation`.
   private var typeBindings: ReservedTypeRegions
@@ -37,16 +46,14 @@ struct MemorySafetyValidator {
   /// Accesses for each region in `typeBindings`.
   private var regionAccesses: [TypedRegion: AccessTracker<TypedRegion>]
 
-  /// Creates a validator for accesses within `allocation`, using `typeLayouts`
-  /// to resolve layout information.
   public init(
-    allocation: UnsafePointer<Memory.Allocation>,
-    typeLayouts: UnsafeMutablePointer<TypeLayoutCache>
+    memory: UnsafeMutablePointer<Memory>,
+    allocation: Memory.Allocation.ID
   ) {
-    self.allocation = allocation
-    self.typeLayouts = typeLayouts
-    typeBindings = ReservedTypeRegions(allocation: allocation, typeLayouts: typeLayouts)
-    composedRegions = ComposedRegions(allocation: allocation, typeLayouts: typeLayouts)
+    self.memory = memory
+    self.allocationID = allocation
+    typeBindings = ReservedTypeRegions(memory: memory, allocation: allocation)
+    composedRegions = ComposedRegions(memory: memory, allocation: allocation)
     regionAccesses = [:]
   }
 
@@ -56,7 +63,7 @@ struct MemorySafetyValidator {
 
     if typeBindings.region(enclosing: p.offset) == nil {
       if k != .set {
-        throw Error.noTypeBound(at: .init(allocation: allocation.pointee.id, offset: p.offset))
+        throw Error.noTypeBound(at: .init(allocation: allocationID, offset: p.offset))
       }
       try typeBindings.bind(p.type, at: p.offset)
       let r = TypedRegion(startOffset: p.offset, type: p.type)
@@ -136,15 +143,15 @@ struct MemorySafetyValidator {
   /// Returns the sequence of typed regions leading to a value of `t` located at `a`.
   func path(to t: AnyType, at a: Int) throws -> [TypedRegion] {
     guard var r = typeBindings.region(enclosing: a) else {
-      throw Error.noTypeBound(at: .init(allocation: allocation.pointee.id, offset: a))
+      throw Error.noTypeBound(at: .init(allocation: allocationID, offset: a))
     }
     var path: [TypedRegion] = []
     while r.startOffset != a || r.type != t {
       path.append(r)
       guard let c = try childRegion(of: r, containing: a) else {
         throw Error.notContains(
-          .init(allocation: allocation.pointee.id, offset: r.startOffset, type: r.type),
-          in: .init(allocation: allocation.pointee.id, offset: a, type: t),
+          .init(allocation: allocationID, offset: r.startOffset, type: r.type),
+          in: .init(allocation: allocationID, offset: a, type: t),
         )
       }
       r = c
@@ -158,7 +165,7 @@ struct MemorySafetyValidator {
     if r.type.isBuiltin || r.type.isVoidOrNever {
       return nil
     }
-    if typeLayouts.pointee[r.type].isUnionLayout {
+    if memory.pointee.typeLayouts[r.type].isUnionLayout {
       return try unionChildRegion(of: r, containing: a)
     }
     return productChildRegion(of: r, containing: a)
@@ -166,11 +173,11 @@ struct MemorySafetyValidator {
 
   /// Returns the immediate child region of the union `r` that contains `a`.
   private func unionChildRegion(of r: TypedRegion, containing a: Int) throws -> TypedRegion? {
-    let l = typeLayouts.pointee[r.type]
+    let l = memory.pointee.typeLayouts[r.type]
     let d = l.discriminator
 
     let discriminatorStart = r.startOffset + d.offset
-    let discriminatorEnd = discriminatorStart + typeLayouts.pointee[d.type].size
+    let discriminatorEnd = discriminatorStart + memory.pointee.typeLayouts[d.type].size
     if a >= discriminatorStart && a < discriminatorEnd {
       guard
         let c = composedRegions.region(enclosing: discriminatorStart),
@@ -181,13 +188,13 @@ struct MemorySafetyValidator {
       return .init(startOffset: c.offset, type: c.type)
     }
 
-    let dv = allocation.pointee.unsignedIntValue(
+    let dv = allocation.unsignedIntValue(
       at: discriminatorStart,
       ofType: d.type.base as! BuiltinType
     )
     let p = l.parts[Int(dv)]
     let activeCaseStart = r.startOffset + p.offset
-    let activeCaseEnd = activeCaseStart + typeLayouts.pointee[p.type].size
+    let activeCaseEnd = activeCaseStart + memory.pointee.typeLayouts[p.type].size
     guard a >= activeCaseStart && a < activeCaseEnd else {
       return nil
     }
@@ -196,7 +203,7 @@ struct MemorySafetyValidator {
 
   /// Returns the immediate child region of the product `r` that contains `a`.
   private func productChildRegion(of region: TypedRegion, containing offset: Int) -> TypedRegion? {
-    let l = typeLayouts.pointee[region.type]
+    let l = memory.pointee.typeLayouts[region.type]
     let d = offset - region.startOffset
 
     let i = l.parts.partitioningIndex { $0.offset > d } - 1
@@ -208,7 +215,7 @@ struct MemorySafetyValidator {
     let part = l.parts[i]
 
     let childStart = region.startOffset + part.offset
-    let childEnd = childStart + typeLayouts.pointee[part.type].size
+    let childEnd = childStart + memory.pointee.typeLayouts[part.type].size
     guard offset >= childStart && offset < childEnd else {
       return nil
     }
@@ -218,6 +225,6 @@ struct MemorySafetyValidator {
 
   /// Returns true iff `p.type` has size `0`.
   private func isZeroSized(_ p: Memory.Place) -> Bool {
-    typeLayouts.pointee[p.type].size == 0
+    memory.pointee.typeLayouts[p.type].size == 0
   }
 }

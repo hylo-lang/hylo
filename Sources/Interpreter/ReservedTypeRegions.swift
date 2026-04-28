@@ -11,22 +11,29 @@ public struct ReservedTypeRegions {
   /// A position in some allocation.
   public typealias Offset = Memory.Storage.Index
 
-  /// The type layout, every type follows.
-  private let typeLayouts: UnsafeMutablePointer<TypeLayoutCache>
+  /// Memory where `allocation` lives.
+  private let memory: UnsafeMutablePointer<Memory>
+
+  /// ID of allocation for which type bindings belong to.
+  private let allocationID: Memory.Allocation.ID
 
   /// The allocation for which type bindings belong to.
-  private let allocation: UnsafePointer<Memory.Allocation>
+  private var allocation: Memory.Allocation {
+    _read {
+      yield memory.pointee.allocation[allocationID]!
+    }
+  }
 
   /// The reserved typed regions, in ascending order.
   private var reservedTypeRegions: [Memory.Allocation.TypedRegion]
 
-  /// Empty regions ensuring type layouts from `l`.
+  /// Empty regions for `allocation` in `memory`.
   public init(
-    allocation a: UnsafePointer<Memory.Allocation>,
-    typeLayouts l: UnsafeMutablePointer<TypeLayoutCache>
+    memory: UnsafeMutablePointer<Memory>,
+    allocation: Memory.Allocation.ID
   ) {
-    typeLayouts = l
-    allocation = a
+    self.memory = memory
+    self.allocationID = allocation
     reservedTypeRegions = []
   }
 
@@ -37,7 +44,7 @@ public struct ReservedTypeRegions {
       return nil
     }
     if reservedTypeRegions[i - 1].startOffset
-      + typeLayouts.pointee[reservedTypeRegions[i - 1].type].size <= a
+      + memory.pointee.typeLayouts[reservedTypeRegions[i - 1].type].size <= a
     {
       return nil
     }
@@ -55,18 +62,18 @@ public struct ReservedTypeRegions {
   /// Binds the region starting at `o` to `t`, constraining accesses to that
   /// region to the layout of `t`.
   public mutating func bind(_ t: AnyType, at o: Offset) throws {
-    try allocation.pointee.checkAlignmentAndAllocationBounds(
-      at: o, for: typeLayouts.pointee[t])
+    try allocation.checkAlignmentAndAllocationBounds(
+      at: o, for: memory.pointee.typeLayouts[t])
 
     let i = reservedTypeRegions.partitioningIndex { $0.startOffset > o }
     if i != 0
       && reservedTypeRegions[i - 1].startOffset
-        + typeLayouts.pointee[reservedTypeRegions[i - 1].type].size > o
+        + memory.pointee.typeLayouts[reservedTypeRegions[i - 1].type].size > o
     {
       throw Error.regionAlreadyBound(to: reservedTypeRegions[i - 1].type)
     }
     if i != reservedTypeRegions.endIndex
-      && o + typeLayouts.pointee[t].size > reservedTypeRegions[i].startOffset
+      && o + memory.pointee.typeLayouts[t].size > reservedTypeRegions[i].startOffset
     {
       throw Error.regionAlreadyBound(to: reservedTypeRegions[i].type)
     }

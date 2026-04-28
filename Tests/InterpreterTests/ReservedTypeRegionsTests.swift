@@ -14,8 +14,9 @@ final class ReservedTypeRegionsTests: XCTestCase {
     let p = m.allocate(i64, count: 8).address
 
     var r = ReservedTypeRegions(
-      allocation: withUnsafePointer(to: m.allocation[p.allocation]!) { $0 },
-      typeLayouts: withUnsafeMutablePointer(to: &l) { $0 })
+      memory: withUnsafeMutablePointer(to: &m) { $0 },
+      allocation: p.allocation
+    )
 
     check(throws: Memory.Error.alignment(p + 1, for: l[i64])) {
       try r.bind(i64, at: 1)
