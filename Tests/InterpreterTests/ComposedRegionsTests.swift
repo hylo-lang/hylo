@@ -6,7 +6,7 @@ import XCTest
 
 final class ComposedRegionsTests: XCTestCase {
 
-  func test_requireInitialized() throws {
+  func test_requireInitialized() {
     var layouts = TypeLayoutCache(typesIn: TypedProgram.empty, for: UnrealABI())
     let void_ = AnyType.void
     let voidPair = ^TupleType(types: [.void, .void])
@@ -30,7 +30,7 @@ final class ComposedRegionsTests: XCTestCase {
     XCTAssertTrue(c.canCompose(^BuiltinType.i(8), at: 0))
   }
 
-  func testTupleComposeDecompose() throws {
+  func testTupleComposeDecompose() {
     var l = TypeLayoutCache(typesIn: TypedProgram.empty, for: UnrealABI())
     let i16Pair = ^TupleType(types: [.builtin(.i(16)), .builtin(.i(16))])
     let i16 = ^BuiltinType.i(16)
@@ -60,7 +60,7 @@ final class ComposedRegionsTests: XCTestCase {
     XCTAssertTrue(c.tryDecompose(i16, at: p.offset + parts[1].offset))
   }
 
-  func testUnionComposeDecompose() throws {
+  func testUnionComposeDecompose() {
     var l = TypeLayoutCache(typesIn: TypedProgram.empty, for: UnrealABI())
     let i16 = ^BuiltinType.i(16)
     let i32 = ^BuiltinType.i(32)
@@ -106,5 +106,60 @@ final class ComposedRegionsTests: XCTestCase {
     
       try m.decompose(i16, at: p + parts[1].offset)
      */
+  }
+
+  func testIsComplete() {
+    var l = TypeLayoutCache(typesIn: TypedProgram.empty, for: UnrealABI())
+
+    let i8 = ^BuiltinType.i(8)
+    let i8Pair = ^TupleType(types: [i8, i8])
+    let t = ^TupleType(types: [i8, i8Pair])
+
+    var m = Memory(typesIn: TypedProgram.empty, for: UnrealABI())
+    let p = m.allocate(i8, count: 132).address
+    let e = Memory.Place(allocation: p.allocation, offset: l[t].parts[1].offset, type: i8Pair)
+    var c = ComposedRegions(
+      allocation: withUnsafePointer(to: m.allocation[p.allocation]!) { $0 },
+      typeLayouts: withUnsafeMutablePointer(to: &l) { $0 }
+    )
+    XCTAssertFalse(c.isComplete(e))
+    c.compose(i8, at: l[t].parts[0].offset)
+    XCTAssertFalse(c.isComplete(e))
+    c.compose(i8, at: l[t].parts[1].offset + l[i8Pair].parts[0].offset)
+    XCTAssertFalse(c.isComplete(e))
+    c.compose(i8, at: l[t].parts[1].offset + l[i8Pair].parts[1].offset)
+    XCTAssertFalse(c.isComplete(e))
+    c.compose(i8Pair, at: l[t].parts[1].offset)
+    XCTAssertTrue(c.isComplete(e))
+    c.compose(t, at: 0)
+    XCTAssertTrue(c.isComplete(e))
+  }
+
+  func testIsFullyUninitialized() {
+    var l = TypeLayoutCache(typesIn: TypedProgram.empty, for: UnrealABI())
+
+    let i8 = ^BuiltinType.i(8)
+    let i8Pair = ^TupleType(types: [i8, i8])
+    let t = ^TupleType(types: [i8, i8Pair])
+
+    var m = Memory(typesIn: TypedProgram.empty, for: UnrealABI())
+    let p = m.allocate(i8, count: 132).address
+    let e = Memory.Place(allocation: p.allocation, offset: l[t].parts[1].offset, type: i8Pair)
+    var c = ComposedRegions(
+      allocation: withUnsafePointer(to: m.allocation[p.allocation]!) { $0 },
+      typeLayouts: withUnsafeMutablePointer(to: &l) { $0 }
+    )
+
+    XCTAssertTrue(c.isFullyUninitialized(e))
+    c.compose(i8, at: l[t].parts[0].offset)
+    XCTAssertTrue(c.isFullyUninitialized(e))
+    c.compose(i8, at: l[t].parts[1].offset + l[i8Pair].parts[1].offset)
+    XCTAssertFalse(c.isFullyUninitialized(e))
+    c.compose(i8, at: l[t].parts[1].offset + l[i8Pair].parts[0].offset)
+    XCTAssertFalse(c.isFullyUninitialized(e))
+    c.compose(i8Pair, at: l[t].parts[1].offset)
+    XCTAssertFalse(c.isFullyUninitialized(e))
+    c.compose(t, at: 0)
+    XCTAssertFalse(c.isFullyUninitialized(e))
   }
 }
