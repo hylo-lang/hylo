@@ -136,11 +136,6 @@ let package = Package(
       ],
       swiftSettings: allTargetsSwiftSettings),
 
-    .testTarget(
-      name: "TestUtils",
-      dependencies: ["FrontEnd", "Driver", "Utils", "Interpreter"],
-      swiftSettings: allTargetsSwiftSettings),
-
     .target(
       name: "StandardLibrary",
       dependencies: ["FrontEnd", "Utils"],
@@ -161,6 +156,11 @@ let package = Package(
       swiftSettings: allTargetsSwiftSettings),
 
     // Test targets.
+    .testTarget(
+      name: "TestUtils",
+      dependencies: ["FrontEnd", "Driver", "Utils", "Interpreter"],
+      swiftSettings: allTargetsSwiftSettings),
+
     .testTarget(
       name: "UtilsTests",
       dependencies: ["Utils", .product(name: "Algorithms", package: "swift-algorithms")],
