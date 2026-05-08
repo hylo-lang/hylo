@@ -137,7 +137,7 @@ generic function's body will only be reported when it is *used in a
 particular way*. It's very easy to ship an ill-typed generic function
 to users, who will be forced to confront type errors in
 implementations of which they have no knowledge.  In terms of
-programming experience, witing generic code means entering a whole
+programming experience, writing generic code means entering a whole
 new—and much more difficult—world.
 
 When generics cannot be separately *compiled*, they become
