@@ -97,7 +97,7 @@ public struct AccessTracker<Component: Regular> {
   ///
   /// - Precondition: `a` is present at the part identified by `p`.
   public mutating func end(_ a: Access, at p: Path) throws {
-    try requireIsActive(a, at: p)
+    try requireIsActive(a, in: p)
 
     let ns = nodePath(of: p)
     storage[ns.last!].accesses.removeAll { $0 == a }
@@ -107,10 +107,10 @@ public struct AccessTracker<Component: Regular> {
   /// Throws iff `a` at `p` is not active.
   ///
   /// - Precondition: `a` is present at the part identified by `p`.
-  public func requireIsActive(_ a: Access, at p: Path) throws {
+  public func requireIsActive(_ a: Access, in p: Path) throws {
     if a.kind == .let { return }
 
-    let i = index(of: p)
+    let i = nodeIndex(a, in: p)
     if !storage[i].children.isEmpty || storage[i].accesses.last != a {
       throw Error.overlappingExclusiveAccessExists(for: storage[i].component)
     }
@@ -133,24 +133,32 @@ public struct AccessTracker<Component: Regular> {
     }
   }
 
-  /// Returns the index of the node corresponding to `p`.
+  /// Returns the index of the first node along `p` that contains `a`.
   ///
-  /// - Precondition: Nodes for all prefixes of `p` exist in the tree.
-  private func index(of p: Path) -> Index {
-    p.reduce(into: 0) { i, c in
-      i = storage[i].children.first { storage[$0].component == c }!
+  /// - Precondition: Some node visited while traversing `p` from the root
+  ///   contains `a`.
+  private func nodeIndex(_ a: Access, in p: Path) -> Index {
+    var i = 0
+    for c in p {
+      if storage[i].accesses.contains(a) { break }
+      i = storage[i].children.first(where: { storage[$0].component == c })!
     }
+    return i
   }
 
-  /// Returns the indices of nodes along the path `p`, starting from the root.
+  /// Returns the indices of nodes along the longest existing prefix of `p`,
+  /// starting from the root.
   ///
-  /// The returned array has length `p.count + 1`, where the first element
-  /// is the root node.
+  /// The returned array always begins with the root node and has length equal
+  /// to the number of matched path components plus one.
   private func nodePath(of p: Path) -> [Index] {
-    p.reduce(into: [0]) { r, c in
-      let i = storage[r.last!].children.first { storage[$0].component == c }!
+    var r = [0]
+    for c in p {
+      guard let i = storage[r.last!].children.first(where: { storage[$0].component == c })
+      else { break }
       r.append(i)
     }
+    return r
   }
 
   /// Adds `c` as child to node at `i`.

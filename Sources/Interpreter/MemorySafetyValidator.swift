@@ -91,11 +91,12 @@ struct MemorySafetyValidator {
   /// Ends `a` at `p`.
   ///
   /// - Precondition: Access `a` exists at `p`.
+  ///
+  /// - Postcondition: Provides strong exception safety guarantees.
   public mutating func endAccess(_ a: Access, at p: Memory.Place) throws {
     if isZeroSized(p) { return }
 
     let ps = try path(to: p.type, at: p.offset)
-    try regionAccesses[ps.first!]!.end(a, at: ps.dropFirst())
     if a.kind != .sink {
       if !composedRegions.isComplete(p) {
         throw Error.endAccessToIncomplete(p, kind: a.kind)
@@ -103,6 +104,7 @@ struct MemorySafetyValidator {
     } else {
       composedRegions.decomposeSubtree(of: p)
     }
+    try regionAccesses[ps.first!]!.end(a, at: ps.dropFirst())
   }
 
   /// Marks `p` as initialized.
@@ -127,7 +129,7 @@ struct MemorySafetyValidator {
     if !composedRegions.isComplete(p) {
       throw Error.readFromIncomplete(p)
     }
-    try regionAccesses[ps.first!]!.requireIsActive(a, at: ps.dropFirst())
+    try regionAccesses[ps.first!]!.requireIsActive(a, in: ps.dropFirst())
   }
 
   /// Throws iff it is not valid to write bytes to `p` using `a`.
@@ -137,7 +139,7 @@ struct MemorySafetyValidator {
     if isZeroSized(p) { return }
 
     let ps = try path(to: p.type, at: p.offset)
-    try regionAccesses[ps.first!]!.requireIsActive(a, at: ps.dropFirst())
+    try regionAccesses[ps.first!]!.requireIsActive(a, in: ps.dropFirst())
   }
 
   /// Returns the sequence of typed regions leading to a value of `t` located at `a`.

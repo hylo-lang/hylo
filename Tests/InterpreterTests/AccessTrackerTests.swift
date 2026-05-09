@@ -57,40 +57,40 @@ final class AccessTrackerTests: XCTestCase {
     for p in [.inout, .sink, .set] as [AccessKind] {
       var t = AccessTracker("a", with: p)
       let a1 = try t.begin(p, at: ["b"])
-      try t.requireIsActive(a1, at: ["b"])
+      try t.requireIsActive(a1, in: ["b"])
       let a2 = try t.begin(p, at: ["b", "c"])
       check(throws: Error.overlappingExclusiveAccessExists(for: "b")) {
-        try t.requireIsActive(a1, at: ["b"])
+        try t.requireIsActive(a1, in: ["b"])
       }
-      try t.requireIsActive(a2, at: ["b", "c"])
+      try t.requireIsActive(a2, in: ["b", "c"])
       let a3 = try t.begin(p, at: ["b", "c"])
       check(throws: Error.overlappingExclusiveAccessExists(for: "b")) {
-        try t.requireIsActive(a1, at: ["b"])
+        try t.requireIsActive(a1, in: ["b"])
       }
       check(throws: Error.overlappingExclusiveAccessExists(for: "c")) {
-        try t.requireIsActive(a2, at: ["b", "c"])
+        try t.requireIsActive(a2, in: ["b", "c"])
       }
-      try t.requireIsActive(a3, at: ["b", "c"])
+      try t.requireIsActive(a3, in: ["b", "c"])
       // sibling should be active.
       let a4 = try t.begin(p, at: ["b", "d"])
-      try t.requireIsActive(a4, at: ["b", "d"])
-      try t.requireIsActive(a3, at: ["b", "c"])
+      try t.requireIsActive(a4, in: ["b", "d"])
+      try t.requireIsActive(a3, in: ["b", "c"])
     }
 
     var t = AccessTracker("a", with: .let)
     let a1 = try t.begin(.let, at: ["b"])
-    try t.requireIsActive(a1, at: ["b"])
+    try t.requireIsActive(a1, in: ["b"])
     let a2 = try t.begin(.let, at: ["b", "c"])
-    try t.requireIsActive(a1, at: ["b"])
-    try t.requireIsActive(a2, at: ["b", "c"])
+    try t.requireIsActive(a1, in: ["b"])
+    try t.requireIsActive(a2, in: ["b", "c"])
     let a3 = try t.begin(.let, at: ["b", "c"])
-    try t.requireIsActive(a1, at: ["b"])
-    try t.requireIsActive(a2, at: ["b", "c"])
-    try t.requireIsActive(a3, at: ["b", "c"])
+    try t.requireIsActive(a1, in: ["b"])
+    try t.requireIsActive(a2, in: ["b", "c"])
+    try t.requireIsActive(a3, in: ["b", "c"])
     // sibling should be active.
     let a4 = try t.begin(.let, at: ["b", "d"])
-    try t.requireIsActive(a4, at: ["b", "d"])
-    try t.requireIsActive(a3, at: ["b", "c"])
+    try t.requireIsActive(a4, in: ["b", "d"])
+    try t.requireIsActive(a3, in: ["b", "c"])
   }
 
   func testEndAccess() throws {
