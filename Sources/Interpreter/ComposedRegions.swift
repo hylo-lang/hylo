@@ -17,7 +17,7 @@ public struct ComposedRegion: Regular {
 }
 
 /// The composed regions of an `Allocation`.
-public struct ComposedRegions {
+struct ComposedRegions {
 
   /// A position in some allocation.
   public typealias Offset = ComposedRegion.Offset

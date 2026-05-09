@@ -1,8 +1,9 @@
-import Interpreter
 import FrontEnd
 import TestUtils
 import Utils
 import XCTest
+
+@testable import Interpreter
 
 extension String: Regular {}
 
@@ -21,8 +22,7 @@ final class AccessTrackerTests: XCTestCase {
     }
   }
 
-  func testBeginAccessWhenSubPartProjectionExists() throws {
-    // Add invalid access on root
+  func testInvalidBeginAccessOnRootNodeWhenSubPartProjectionExists() throws {
     for p in [.inout, .sink, .set] as [AccessEffect] {
       var t = AccessTracker("a", with: p)
       _ = try t.begin(.sink, at: ["b"])
@@ -32,8 +32,9 @@ final class AccessTrackerTests: XCTestCase {
         }
       }
     }
+  }
 
-    // Add invalid access on non-root
+  func testInvalidBeginAccessOnNonRootNodeWhenSubPartProjectionExists() throws {
     for p in [.inout, .sink, .set] as [AccessEffect] {
       var t = AccessTracker("a", with: p)
       _ = try t.begin(.sink, at: ["b"])
@@ -44,8 +45,9 @@ final class AccessTrackerTests: XCTestCase {
         }
       }
     }
+  }
 
-    // Let supports access to parent when all subpart projection are let.
+  func testBeginAccessForLetAccessWhenSubPartProjectionExists() throws {
     var t = AccessTracker("a", with: .let)
     _ = try t.begin(.let, at: ["b"])
     _ = try t.begin(.let, at: [])

@@ -2,7 +2,7 @@ import FrontEnd
 import Utils
 
 /// The non-overlapping regions of an `Allocation` reserved to be interpreted as specific type.
-public struct ReservedTypeRegions {
+struct ReservedTypeRegions {
 
   public enum Error: Swift.Error, Regular {
     case regionAlreadyBound(to: AnyType)
