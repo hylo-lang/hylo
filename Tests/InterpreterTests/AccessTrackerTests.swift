@@ -1,4 +1,5 @@
 import Interpreter
+import FrontEnd
 import TestUtils
 import Utils
 import XCTest
@@ -10,10 +11,10 @@ final class AccessTrackerTests: XCTestCase {
   typealias Error = AccessTracker<String>.Error
 
   func testBeginAccessWhenSubPartProjectionNotExists() throws {
-    for p in [.let, .inout, .sink, .set] as [AccessKind] {
+    for p in [.let, .inout, .sink, .set] as [AccessEffect] {
       var t = AccessTracker("a", with: .sink)
       _ = try t.begin(p, at: ["b"])
-      for p in [.let, .inout, .sink, .set] as [AccessKind] {
+      for p in [.let, .inout, .sink, .set] as [AccessEffect] {
         _ = try t.begin(p, at: ["b", "x"])
         _ = try t.begin(p, at: ["b", "x"])
       }
@@ -22,10 +23,10 @@ final class AccessTrackerTests: XCTestCase {
 
   func testBeginAccessWhenSubPartProjectionExists() throws {
     // Add invalid access on root
-    for p in [.inout, .sink, .set] as [AccessKind] {
+    for p in [.inout, .sink, .set] as [AccessEffect] {
       var t = AccessTracker("a", with: p)
       _ = try t.begin(.sink, at: ["b"])
-      for a in [.let, .inout, .sink, .set] as [AccessKind] {
+      for a in [.let, .inout, .sink, .set] as [AccessEffect] {
         check(throws: Error.overlappingExclusiveAccessExists(for: "a")) {
           _ = try t.begin(a, at: [])
         }
@@ -33,11 +34,11 @@ final class AccessTrackerTests: XCTestCase {
     }
 
     // Add invalid access on non-root
-    for p in [.inout, .sink, .set] as [AccessKind] {
+    for p in [.inout, .sink, .set] as [AccessEffect] {
       var t = AccessTracker("a", with: p)
       _ = try t.begin(.sink, at: ["b"])
       _ = try t.begin(.sink, at: ["b", "p"])
-      for a in [.let, .inout, .sink, .set] as [AccessKind] {
+      for a in [.let, .inout, .sink, .set] as [AccessEffect] {
         check(throws: Error.overlappingExclusiveAccessExists(for: "b")) {
           _ = try t.begin(a, at: ["b"])
         }
@@ -54,7 +55,7 @@ final class AccessTrackerTests: XCTestCase {
   }
 
   func testRequireIsActive() throws {
-    for p in [.inout, .sink, .set] as [AccessKind] {
+    for p in [.inout, .sink, .set] as [AccessEffect] {
       var t = AccessTracker("a", with: p)
       let a1 = try t.begin(p, at: ["b"])
       try t.requireIsActive(a1, in: ["b"])
@@ -94,7 +95,7 @@ final class AccessTrackerTests: XCTestCase {
   }
 
   func testEndAccess() throws {
-    for p in [.inout, .sink, .set] as [AccessKind] {
+    for p in [.inout, .sink, .set] as [AccessEffect] {
       var t = AccessTracker("a", with: p)
       let a1 = try t.begin(p, at: ["b", "c"])
       let a2 = try t.begin(p, at: ["b", "c", "d"])

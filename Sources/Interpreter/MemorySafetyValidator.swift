@@ -15,9 +15,9 @@ struct MemorySafetyValidator {
     case noTypeBound(at: Memory.Address)
     case notContains(Memory.Place, in: Memory.Place)
     case readFromIncomplete(Memory.Place)
-    case accessToIncomplete(Memory.Place, kind: AccessKind)
+    case accessToIncomplete(Memory.Place, kind: AccessEffect)
     case setAccessToPartiallyComplete(Memory.Place)
-    case endAccessToIncomplete(Memory.Place, kind: AccessKind)
+    case endAccessToIncomplete(Memory.Place, kind: AccessEffect)
   }
 
   /// A region within an `Allocation`, identified by a starting offset
@@ -58,7 +58,7 @@ struct MemorySafetyValidator {
   }
 
   /// Starts an access of type `k` at `p`.
-  public mutating func beginAccess(_ k: AccessKind, at p: Memory.Place) throws -> Access {
+  public mutating func beginAccess(_ k: AccessEffect, at p: Memory.Place) throws -> Access {
     if isZeroSized(p) { return Access(kind: k) }
 
     if typeBindings.region(enclosing: p.offset) == nil {

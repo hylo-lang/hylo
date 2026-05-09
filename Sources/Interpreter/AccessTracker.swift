@@ -1,4 +1,5 @@
 import Utils
+import FrontEnd
 
 /// Tracks active accesses to parts of an object. Enforces that no two
 /// overlapping active exclusive accesses exist simultaneously.
@@ -62,7 +63,7 @@ public struct AccessTracker<Component: Regular> {
   private var freeNodes: [Index] = []
 
   /// Creates a tracker for `object` with an initial access of kind `a`.
-  public init(_ object: Component, with a: AccessKind) {
+  public init(_ object: Component, with a: AccessEffect) {
     self.storage.append(Node(object))
     storage[0].accesses.append(Access(kind: a))
   }
@@ -88,7 +89,7 @@ public struct AccessTracker<Component: Regular> {
   public typealias Path = ArraySlice<Component>
 
   /// Starts a new access of kind `a` at `p`.
-  public mutating func begin(_ a: AccessKind, at p: Path) throws -> Access {
+  public mutating func begin(_ a: AccessEffect, at p: Path) throws -> Access {
     let n = createNodesIfNeeded(for: p)
     return try begin(a, at: n)
   }
@@ -178,7 +179,7 @@ public struct AccessTracker<Component: Regular> {
   }
 
   /// Starts a new access of kind `a` for node at `i`.
-  private mutating func begin(_ a: AccessKind, at i: Index) throws -> Access {
+  private mutating func begin(_ a: AccessEffect, at i: Index) throws -> Access {
     let hasNoOverlap =
       if a == .let {
         storage[i].children.allSatisfy {

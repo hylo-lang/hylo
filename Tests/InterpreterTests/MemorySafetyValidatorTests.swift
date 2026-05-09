@@ -9,7 +9,7 @@ final class MemorySafetyValidatorTests: XCTestCase {
   let i16 = ^BuiltinType.i(16)
   let i32 = ^BuiltinType.i(32)
   let i64 = ^BuiltinType.i(64)
-  let nonSetAccesses: [AccessKind] = [.let, .inout, .sink]
+  let nonSetAccesses: [AccessEffect] = [.let, .inout, .sink]
 
   typealias Error = MemorySafetyValidator.Error
 
@@ -148,7 +148,7 @@ final class MemorySafetyValidatorTests: XCTestCase {
   }
 
   func testEndingAccessOnIncompleteObjects() throws {
-    for k in [.let, .inout] as [AccessKind] {
+    for k in [.let, .inout] as [AccessEffect] {
       var m = Memory(typesIn: TypedProgram.empty, for: UnrealABI())
       let p = m.allocate(i32)
       let a = p.allocation
