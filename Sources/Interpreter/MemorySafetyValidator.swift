@@ -7,13 +7,13 @@ import Utils
 /// accesses to an existing allocation.
 struct MemorySafetyValidator {
 
-  /// Class Invariants:
-  ///   - If a region `d` has an active `.sink` access, then no strict ancestor
-  ///     of `d` is present in `composedRegions`.
+  // Class Invariants:
+  //   - If a region `d` has an active `.sink` access, then no strict ancestor
+  //     of `d` is present in `composedRegions`.
 
   public enum Error: Regular, Swift.Error {
     case noTypeBound(at: Memory.Address)
-    case notContains(Memory.Place, in: Memory.Place)
+    case notContained(Memory.Place, in: Memory.Place)
     case readFromIncomplete(Memory.Place)
     case accessToIncomplete(Memory.Place, kind: AccessEffect)
     case setAccessToPartiallyComplete(Memory.Place)
@@ -151,7 +151,7 @@ struct MemorySafetyValidator {
     while r.startOffset != a || r.type != t {
       path.append(r)
       guard let c = try childRegion(of: r, containing: a) else {
-        throw Error.notContains(
+        throw Error.notContained(
           .init(allocation: allocationID, offset: r.startOffset, type: r.type),
           in: .init(allocation: allocationID, offset: a, type: t),
         )

@@ -10,7 +10,7 @@ final class AccessTrackerTests: XCTestCase {
 
   typealias Error = AccessTracker<String>.Error
 
-  func testBeginAccessWhenSubPartProjectionNotExists() throws {
+  func testBeginAccessWhenSubPartProjectionDoesNotExists() throws {
     for p in [.let, .inout, .sink, .set] as [AccessEffect] {
       var t = AccessTracker("a", with: .sink)
       _ = try t.begin(p, at: ["b"])

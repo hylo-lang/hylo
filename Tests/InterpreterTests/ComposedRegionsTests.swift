@@ -6,9 +6,9 @@ import XCTest
 
 final class ComposedRegionsTests: XCTestCase {
 
-  func test_requireInitialized() {
+  func testRequireInitialized() {
     var layouts = TypeLayoutCache(typesIn: TypedProgram.empty, for: UnrealABI())
-    let void_ = AnyType.void
+    let void = AnyType.void
     let voidPair = ^TupleType(types: [.void, .void])
 
     var m = Memory(typesIn: TypedProgram.empty, for: UnrealABI())
@@ -22,10 +22,10 @@ final class ComposedRegionsTests: XCTestCase {
     XCTAssertFalse(c.canCompose(voidPair, at: 0))
 
     // It should be possible to initialize both parts at the same address
-    XCTAssertTrue(c.canCompose(void_, at: 0))
-    c.compose(void_, at: p.offset + layouts[voidPair].parts[0].offset)
-    XCTAssertTrue(c.canCompose(void_, at: 0))
-    c.compose(void_, at: p.offset + layouts[voidPair].parts[1].offset)
+    XCTAssertTrue(c.canCompose(void, at: 0))
+    c.compose(void, at: p.offset + layouts[voidPair].parts[0].offset)
+    XCTAssertTrue(c.canCompose(void, at: 0))
+    c.compose(void, at: p.offset + layouts[voidPair].parts[1].offset)
     XCTAssertTrue(c.canCompose(voidPair, at: 0))
     c.compose(voidPair, at: p.offset)
     XCTAssertTrue(c.canCompose(^BuiltinType.i(8), at: 0))

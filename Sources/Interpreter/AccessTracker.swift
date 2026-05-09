@@ -1,31 +1,34 @@
 import Utils
 import FrontEnd
 
-/// Tracks active accesses to parts of an object. Enforces that no two
-/// overlapping active exclusive accesses exist simultaneously.
+/// Tracks active accesses to parts of an object.
+///
+/// `PathComponent` describes one step in a path to a subobject. For example,
+/// components for a tuple might be field indices, while components for a
+/// struct might be property names.
 ///
 /// Invariants:
 ///  - Accesses are active when they are created.
 ///  - If `x` is an active exclusive access (`sink`, `set`, or `inout`) of an
 ///    object `y`, no other access that includes `y` is active.
-public struct AccessTracker<Component: Regular> {
+struct AccessTracker<PathComponent: Regular> {
 
-  // An object A[B[C, D], F] is represented as tree like:
-  //                         A
-  //                        / \
-  //                       B  F
-  //                      / \
-  //                     C  D
+  // The object `(b: (c: C, d: D), f: F)` is represented as:
+  //             root
+  //            /    \
+  //           b      f
+  //         /   \
+  //        c     d
   // where each node has list of accesses it currently has.
 
   // Class invariants:
   //   1. Every node has at least one access or one child.
   //
-  //   2. If a node contains an exclusive access `a` at index i in `accesses`,
-  //      then `a` is active iff:
-  //        - there is no access at any index `j` > `i` in `accesses`, and
-  //        - the node has no descendants.
-  //      Otherwise, `a` is inactive.
+  //   2. A `let` access is always active.
+  //
+  //   3. An `inout`/`set`/`sink` access is active iff:
+  //      - it's the last element of `accessStack` of the corresponding node, and
+  //      - the node has no descendants.
 
   /// A node representing a part of an object identified by a path prefix.
   ///
@@ -35,19 +38,19 @@ public struct AccessTracker<Component: Regular> {
   private struct Node {
 
     /// The component that identifies this node relative to its parent.
-    let component: Component
+    let component: PathComponent
 
-    /// The accesses on this node.
-    var accesses: [Access]
+    /// Stack of accesses on the node.
+    var accessStack: [Access]
 
     /// The indices of this node's children, each representing a further
     /// refinement of the current path.
     var children: [Index]
 
     /// Creates a node for `c` with no accesses or children.
-    init(_ c: Component) {
+    init(_ c: PathComponent) {
       self.component = c
-      self.accesses = []
+      self.accessStack = []
       self.children = []
     }
 
@@ -63,14 +66,14 @@ public struct AccessTracker<Component: Regular> {
   private var freeNodes: [Index] = []
 
   /// Creates a tracker for `object` with an initial access of kind `a`.
-  public init(_ object: Component, with a: AccessEffect) {
+  public init(_ object: PathComponent, with a: AccessEffect) {
     self.storage.append(Node(object))
-    storage[0].accesses.append(Access(kind: a))
+    storage[0].accessStack.append(Access(kind: a))
   }
 
   /// An invalid access operation.
   public enum Error: Swift.Error, Regular {
-    case overlappingExclusiveAccessExists(for: Component)
+    case overlappingExclusiveAccessExists(for: PathComponent)
   }
 
   /// A path describing a part of an object.
@@ -84,14 +87,24 @@ public struct AccessTracker<Component: Regular> {
   /// A path therefore describes a sequence of nested components, starting
   /// from a specific object and refining down to a subcomponent.
   ///
-  /// For example, given a structure `A { B { C, D }, E }`, the path
-  /// `[B, D]` identifies `D`.
-  public typealias Path = ArraySlice<Component>
+  /// For example, given a structure `(b: (c: C, d: D), e: E)`, the path
+  /// `[b, d]` identifies `d`.
+  public typealias Path = ArraySlice<PathComponent>
 
   /// Starts a new access of kind `a` at `p`.
   public mutating func begin(_ a: AccessEffect, at p: Path) throws -> Access {
     let n = createNodesIfNeeded(for: p)
     return try begin(a, at: n)
+  }
+
+  /// Starts a new access of kind `a` for node at `i`.
+  private mutating func begin(_ a: AccessEffect, at i: Index) throws -> Access {
+    if !canBegin(a, at: i) {
+      throw Error.overlappingExclusiveAccessExists(for: storage[i].component)
+    }
+    let r = Access(kind: a)
+    self.storage[i].accessStack.append(r)
+    return r
   }
 
   /// Ends `a` at `p`.
@@ -100,8 +113,8 @@ public struct AccessTracker<Component: Regular> {
   public mutating func end(_ a: Access, at p: Path) throws {
     try requireIsActive(a, in: p)
 
-    let ns = nodePath(of: p)
-    storage[ns.last!].accesses.removeAll { $0 == a }
+    let ns = indexPath(p)
+    storage[ns.last!].accessStack.removeAll { $0 == a }
     removeEmptySuffix(from: ns)
   }
 
@@ -112,7 +125,7 @@ public struct AccessTracker<Component: Regular> {
     if a.kind == .let { return }
 
     let i = nodeIndex(a, in: p)
-    if !storage[i].children.isEmpty || storage[i].accesses.last != a {
+    if !storage[i].children.isEmpty || storage[i].accessStack.last != a {
       throw Error.overlappingExclusiveAccessExists(for: storage[i].component)
     }
   }
@@ -121,14 +134,13 @@ public struct AccessTracker<Component: Regular> {
   ///
   /// - Precondition: `p` corresponds to a valid path.
   public func accesses(along p: Path) -> [[Access]] {
-    nodePath(of: p).lazy.map { storage[$0].accesses }
+    indexPath(p).map { storage[$0].accessStack }
   }
 
   /// Returns the node corresponding to path `p`, creating any missing
   /// intermediate nodes along the path if needed.
   private mutating func createNodesIfNeeded(for p: Path) -> Index {
-    p.reduce(into: 0) { i, c in
-      i =
+    p.reduce(0) { i, c in
         storage[i].children.first { storage[$0].component == c }
         ?? addChild(c, to: i)
     }
@@ -141,7 +153,7 @@ public struct AccessTracker<Component: Regular> {
   private func nodeIndex(_ a: Access, in p: Path) -> Index {
     var i = 0
     for c in p {
-      if storage[i].accesses.contains(a) { break }
+      if storage[i].accessStack.contains(a) { break }
       i = storage[i].children.first(where: { storage[$0].component == c })!
     }
     return i
@@ -150,9 +162,9 @@ public struct AccessTracker<Component: Regular> {
   /// Returns the indices of nodes along the longest existing prefix of `p`,
   /// starting from the root.
   ///
-  /// The returned array always begins with the root node and has length equal
+  /// The returned array always begins with the root index and has length equal
   /// to the number of matched path components plus one.
-  private func nodePath(of p: Path) -> [Index] {
+  private func indexPath(_ p: Path) -> [Index] {
     var r = [0]
     for c in p {
       guard let i = storage[r.last!].children.first(where: { storage[$0].component == c })
@@ -162,8 +174,9 @@ public struct AccessTracker<Component: Regular> {
     return r
   }
 
-  /// Adds `c` as child to node at `i`.
-  private mutating func addChild(_ c: Component, to i: Index) -> Index {
+  /// Adds `c` as a child to the `i`th node and returns index of node corresponding
+  /// to `c`.
+  private mutating func addChild(_ c: PathComponent, to i: Index) -> Index {
     let r: Index
 
     if let last = freeNodes.popLast() {
@@ -178,35 +191,14 @@ public struct AccessTracker<Component: Regular> {
     return r
   }
 
-  /// Starts a new access of kind `a` for node at `i`.
-  private mutating func begin(_ a: AccessEffect, at i: Index) throws -> Access {
-    let hasNoOverlap =
-      if a == .let {
-        storage[i].children.allSatisfy {
-          subtree(at: $0) { storage[$0].accesses.first?.kind == .let }
-        }
-      } else {
-        storage[i].children.isEmpty
-      }
-    if !hasNoOverlap {
-      throw Error.overlappingExclusiveAccessExists(for: storage[i].component)
-    }
-
-    let r = Access(kind: a)
-    self.storage[i].accesses.append(r)
-    return r
-  }
-
   /// Returns true iff all nodes in subtree at `i` satisfy `predicate`.
   private func subtree(
     at i: Index,
     satisfies predicate: (Index) throws -> Bool
   ) rethrows -> Bool {
-    if try !predicate(i) { return false }
-
-    return try storage[i].children.allSatisfy {
+    try predicate(i) && (try storage[i].children.allSatisfy {
       try subtree(at: $0, satisfies: predicate)
-    }
+    })
   }
 
   /// Removes the maximal suffix of `p` consisting of nodes that have neither
@@ -215,11 +207,25 @@ public struct AccessTracker<Component: Regular> {
     var previousRemoved: Index? = nil
     for i in p.reversed() {
       storage[i].children.removeAll { $0 == previousRemoved }
-      if !storage[i].accesses.isEmpty || !storage[i].children.isEmpty {
+      if !storage[i].accessStack.isEmpty || !storage[i].children.isEmpty {
         break
       }
       freeNodes.append(i)
       previousRemoved = i
+    }
+  }
+
+  /// Returns whether `a` may begin at `i` without overlapping exclusive
+  /// descendant accesses.
+  private func canBegin(_ a: AccessEffect, at i: Index) -> Bool {
+    if a == .let {
+      return storage[i].children.allSatisfy {
+        subtree(at: $0) {
+          storage[$0].accessStack.first?.kind == .let
+        }
+      }
+    } else {
+      return storage[i].children.isEmpty
     }
   }
 

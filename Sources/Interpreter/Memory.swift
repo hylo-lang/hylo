@@ -220,6 +220,7 @@ public struct Memory {
   /// The ID of the next allocated block.
   private var nextAllocation = 0
 
+  /// Allocates `n` instances of `t` and returns `Place` of first instance.
   public mutating func allocate(_ t: AnyType, count n: Int = 1) -> Place {
     let a = nextAllocation
     nextAllocation += 1
