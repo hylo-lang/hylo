@@ -2,6 +2,8 @@ import FrontEnd
 import Foundation
 import Utils
 
+extension AccessEffect: Regular {}
+
 /// A unique access participating in access control.
 public struct Access: Regular {
 
