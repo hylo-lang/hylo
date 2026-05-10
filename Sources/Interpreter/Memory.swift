@@ -398,5 +398,17 @@ extension Memory {
     default: fatalError("Unsupported builtin type \(t).")
     }
   }
+
+  /// Creates an access on `p` with `capability` and returns the `AccessedPlace`
+  /// corresponding to the access.
+  public mutating func access(_ p: Place, with capability: AccessEffect) throws -> AccessedPlace {
+    let a = try allocationSafetyValidator[p.allocation]!.beginAccess(capability, at: p)
+    return .init(location: p, capability: a)
+  }
+
+  /// Ends `a.capability` at `a.location`.
+  public mutating func end(_ a: AccessedPlace) throws {
+    try allocationSafetyValidator[a.location.allocation]!.endAccess(a.capability, at: a.location)
+  }
 }
 
