@@ -102,7 +102,7 @@ struct MemorySafetyValidator {
         throw Error.endAccessToIncomplete(p, kind: a.kind)
       }
     } else {
-      composedRegions.decomposeSubtree(of: p)
+      markDeinitialized(p)
     }
     try regionAccesses[ps.first!]!.end(a, at: ps.dropFirst())
   }
@@ -115,7 +115,10 @@ struct MemorySafetyValidator {
     let i = regionAccesses[ps.first!]!.accesses(along: ps.dropFirst()).lastIndex {
       $0.contains { $0.kind == .sink }
     }!  // unwrap as every allocation base has sink access.
-    composedRegions.compose(ps.last!.type, at: ps.last!.startOffset)
+    for e in ps.lazy.dropLast() {
+      _ = composedRegions.tryDecompose(e.type, at: e.startOffset)
+    }
+    composedRegions.markInitialized(ps.last!.type, at: ps.last!.startOffset)
     composedRegions.composeUpwards(along: ps[i...])
   }
 
@@ -140,6 +143,13 @@ struct MemorySafetyValidator {
 
     let ps = try path(to: p.type, at: p.offset)
     try regionAccesses[ps.first!]!.requireIsActive(a, in: ps.dropFirst())
+  }
+
+  /// Registers region starting at `p` to be interpreted as `t`.
+  public mutating func bind(_ p: Memory.Address, to t: AnyType) throws {
+    try typeBindings.bind(t, at: p.offset)
+    let r = TypedRegion(startOffset: p.offset, type: t)
+    regionAccesses[r] = AccessTracker(r, with: .sink)
   }
 
   /// Returns the sequence of typed regions leading to a value of `t` located at `a`.
@@ -228,5 +238,10 @@ struct MemorySafetyValidator {
   /// Returns true iff `p.type` has size `0`.
   private func isZeroSized(_ p: Memory.Place) -> Bool {
     memory.pointee.typeLayouts[p.type].size == 0
+  }
+
+  /// Marks `p` as deinitialized.
+  public mutating func markDeinitialized(_ p: Memory.Place) {
+    composedRegions.decomposeSubtree(of: p)
   }
 }

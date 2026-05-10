@@ -165,11 +165,16 @@ public struct Interpreter {
       module: entryModuleID,
       functionInModule: entryFunctionID,
       instructionInFunction: entryFunction.firstInstruction(in: entryBlockID)!)
+    memory = Memory(typesIn: p.base, for: UnrealABI())
+
+    // First argument of main.
+    let a: AccessedPlace
+    do { a = try memory.access(memory.allocate(AnyType.void), with: .sink) } catch { unreachable() }
 
     // The return address of the bottom-most frame will never be used,
     // so we fill it with something arbitrary.
-    callStack.push(returnAddress: programCounter, parameters: [])
-    memory = Memory(typesIn: p.base, for: UnrealABI())
+    callStack.push(
+      returnAddress: programCounter, parameters: [a])
   }
 
   /// Executes a single instruction.
@@ -248,8 +253,11 @@ public struct Interpreter {
       _ = x
     case let x as Load:
       return try .value(.init(payload: memory.builtinValue(in: asAccessedPlace(x.source))));
-    case is MarkState:
-      // No effect on program state
+    case let x as MarkState:
+      let p = asPlace(x.storage)
+      if !x.initialized {
+        try memory.markDeinitialized(p)
+      }
       return nil
     case let x as MemoryCopy:
       try memory.copy(asAccessedPlace(x.source), to: asAccessedPlace(x.target))

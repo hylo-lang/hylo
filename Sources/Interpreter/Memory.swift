@@ -230,6 +230,7 @@ public struct Memory {
     allocation[a] = Allocation(typeLayouts[t], count: n, id: a)
     allocationSafetyValidator[a] =
       MemorySafetyValidator(memory: withUnsafeMutablePointer(to: &self) { $0 }, allocation: a)
+    do { try bindRegions(in: a, as: t, count: n) } catch { unreachable() }
     return .init(allocation: a, offset: 0, type: t)
   }
 
@@ -262,6 +263,15 @@ public struct Memory {
     }
     _modify {
       yield &allocation[i]!
+    }
+  }
+
+  /// Binds the regions of allocation `a` to `count` instances of `t`.
+  private mutating func bindRegions(in a: Allocation.ID, as t: AnyType, count: Int) throws {
+    let s = typeLayouts[t].size
+
+    for i in 0..<count {
+      try allocationSafetyValidator[a]!.bind(.init(allocation: a, offset: i * s), to: t)
     }
   }
 }
@@ -364,7 +374,7 @@ extension Memory {
 
     try allocationSafetyValidator[s.allocation]!
       .requireCanRead(from: s, using: source.capability)
-    try allocationSafetyValidator[s.allocation]!
+    try allocationSafetyValidator[d.allocation]!
       .requireCanWrite(to: d, using: destination.capability)
 
     self.withUnsafeBytes(s, havingLayout: typeLayouts[s.type]) { a in
@@ -409,6 +419,11 @@ extension Memory {
   /// Ends `a.capability` at `a.location`.
   public mutating func end(_ a: AccessedPlace) throws {
     try allocationSafetyValidator[a.location.allocation]!.endAccess(a.capability, at: a.location)
+  }
+
+  /// Marks `p` as deinitialized.
+  public mutating func markDeinitialized(_ p: Place) throws {
+    allocationSafetyValidator[p.allocation]!.markDeinitialized(p)
   }
 }
 

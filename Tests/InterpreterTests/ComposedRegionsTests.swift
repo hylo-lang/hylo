@@ -23,11 +23,11 @@ final class ComposedRegionsTests: XCTestCase {
 
     // It should be possible to initialize both parts at the same address
     XCTAssertTrue(c.canCompose(void, at: 0))
-    c.compose(void, at: p.offset + layouts[voidPair].parts[0].offset)
+    c.markInitialized(void, at: p.offset + layouts[voidPair].parts[0].offset)
     XCTAssertTrue(c.canCompose(void, at: 0))
-    c.compose(void, at: p.offset + layouts[voidPair].parts[1].offset)
+    c.markInitialized(void, at: p.offset + layouts[voidPair].parts[1].offset)
     XCTAssertTrue(c.canCompose(voidPair, at: 0))
-    c.compose(voidPair, at: p.offset)
+    c.markInitialized(voidPair, at: p.offset)
     XCTAssertTrue(c.canCompose(^BuiltinType.i(8), at: 0))
   }
 
@@ -48,11 +48,11 @@ final class ComposedRegionsTests: XCTestCase {
     let parts = l[i16Pair].parts
     XCTAssertFalse(c.canCompose(i16Pair, at: p.offset))
 
-    c.compose(i16, at: p.offset + parts[0].offset)
+    c.markInitialized(i16, at: p.offset + parts[0].offset)
     XCTAssertFalse(c.canCompose(i16Pair, at: p.offset))
-    c.compose(i16, at: p.offset + parts[1].offset)
+    c.markInitialized(i16, at: p.offset + parts[1].offset)
     XCTAssertTrue(c.canCompose(i16Pair, at: p.offset))
-    c.compose(i16Pair, at: p.offset)
+    c.markInitialized(i16Pair, at: p.offset)
 
     XCTAssertFalse(c.tryDecompose(i16, at: p.offset))
     XCTAssertTrue(c.tryDecompose(i16Pair, at: p.offset))
@@ -81,11 +81,11 @@ final class ComposedRegionsTests: XCTestCase {
 
     XCTAssertFalse(c.canCompose(i16i32Union, at: p.offset))
 
-    c.compose(i16, at: parts[0].offset)
+    c.markInitialized(i16, at: parts[0].offset)
     XCTAssertFalse(c.canCompose(i16i32Union, at: 0))
-    c.compose(i8, at: parts[2].offset)
+    c.markInitialized(i8, at: parts[2].offset)
     XCTAssertTrue(c.canCompose(i16i32Union, at: 0))
-    c.compose(i16i32Union, at: 0)
+    c.markInitialized(i16i32Union, at: 0)
     
     XCTAssertFalse(c.tryDecompose(i16, at: 0))
     XCTAssertTrue(c.tryDecompose(i16i32Union, at: 0))
@@ -110,15 +110,15 @@ final class ComposedRegionsTests: XCTestCase {
       allocation: p.allocation
     )
     XCTAssertFalse(c.isComplete(e))
-    c.compose(i8, at: l[t].parts[0].offset)
+    c.markInitialized(i8, at: l[t].parts[0].offset)
     XCTAssertFalse(c.isComplete(e))
-    c.compose(i8, at: l[t].parts[1].offset + l[i8Pair].parts[0].offset)
+    c.markInitialized(i8, at: l[t].parts[1].offset + l[i8Pair].parts[0].offset)
     XCTAssertFalse(c.isComplete(e))
-    c.compose(i8, at: l[t].parts[1].offset + l[i8Pair].parts[1].offset)
+    c.markInitialized(i8, at: l[t].parts[1].offset + l[i8Pair].parts[1].offset)
     XCTAssertFalse(c.isComplete(e))
-    c.compose(i8Pair, at: l[t].parts[1].offset)
+    c.markInitialized(i8Pair, at: l[t].parts[1].offset)
     XCTAssertTrue(c.isComplete(e))
-    c.compose(t, at: 0)
+    c.markInitialized(t, at: 0)
     XCTAssertTrue(c.isComplete(e))
   }
 
@@ -138,15 +138,15 @@ final class ComposedRegionsTests: XCTestCase {
     )
 
     XCTAssertTrue(c.isFullyUninitialized(e))
-    c.compose(i8, at: l[t].parts[0].offset)
+    c.markInitialized(i8, at: l[t].parts[0].offset)
     XCTAssertTrue(c.isFullyUninitialized(e))
-    c.compose(i8, at: l[t].parts[1].offset + l[i8Pair].parts[1].offset)
+    c.markInitialized(i8, at: l[t].parts[1].offset + l[i8Pair].parts[1].offset)
     XCTAssertFalse(c.isFullyUninitialized(e))
-    c.compose(i8, at: l[t].parts[1].offset + l[i8Pair].parts[0].offset)
+    c.markInitialized(i8, at: l[t].parts[1].offset + l[i8Pair].parts[0].offset)
     XCTAssertFalse(c.isFullyUninitialized(e))
-    c.compose(i8Pair, at: l[t].parts[1].offset)
+    c.markInitialized(i8Pair, at: l[t].parts[1].offset)
     XCTAssertFalse(c.isFullyUninitialized(e))
-    c.compose(t, at: 0)
+    c.markInitialized(t, at: 0)
     XCTAssertFalse(c.isFullyUninitialized(e))
   }
 
@@ -167,13 +167,13 @@ final class ComposedRegionsTests: XCTestCase {
       allocation: p.allocation
     )
 
-    c.compose(i8, at: 0)
-    c.compose(i8, at: a + l[t].parts[0].offset)
-    c.compose(i8, at: a + l[t].parts[1].offset + l[i8Pair].parts[0].offset)
-    c.compose(i8, at: a + l[t].parts[1].offset + l[i8Pair].parts[1].offset)
-    c.compose(i8Pair, at: a + l[t].parts[1].offset)
-    c.compose(t, at: a)
-    c.compose(i8, at: a + l[t].size)
+    c.markInitialized(i8, at: 0)
+    c.markInitialized(i8, at: a + l[t].parts[0].offset)
+    c.markInitialized(i8, at: a + l[t].parts[1].offset + l[i8Pair].parts[0].offset)
+    c.markInitialized(i8, at: a + l[t].parts[1].offset + l[i8Pair].parts[1].offset)
+    c.markInitialized(i8Pair, at: a + l[t].parts[1].offset)
+    c.markInitialized(t, at: a)
+    c.markInitialized(i8, at: a + l[t].size)
 
     c.decomposeSubtree(of: e)
     XCTAssertEqual(c.region(enclosing: 0), .init(offset: 0, type: i8))
@@ -199,10 +199,10 @@ final class ComposedRegionsTests: XCTestCase {
     let t2 = ^TupleType(types: [t1, i8])
     let t3 = ^TupleType(types: [t2, i8])
 
-    c.compose(i8, at: l[t3].parts[0].offset + l[t2].parts[0].offset + l[t1].parts[0].offset)
-    c.compose(i8, at: l[t3].parts[0].offset + l[t2].parts[0].offset + l[t1].parts[1].offset)
-    c.compose(i8, at: l[t3].parts[0].offset + l[t2].parts[1].offset)
-    c.compose(i8, at: l[t3].parts[1].offset)
+    c.markInitialized(i8, at: l[t3].parts[0].offset + l[t2].parts[0].offset + l[t1].parts[0].offset)
+    c.markInitialized(i8, at: l[t3].parts[0].offset + l[t2].parts[0].offset + l[t1].parts[1].offset)
+    c.markInitialized(i8, at: l[t3].parts[0].offset + l[t2].parts[1].offset)
+    c.markInitialized(i8, at: l[t3].parts[1].offset)
 
     c.composeUpwards(along: [
       .init(startOffset: l[t3].parts[0].offset, type: t2),

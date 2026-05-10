@@ -86,16 +86,18 @@ struct ComposedRegions {
     }
   }
 
-  /// Replaces the initialization records starting at `a` for the
-  /// parts of a `t` instance with the initialization record for a
-  /// `t` instance.
+  /// Records initialization of the `t` instance at `a`, replacing any
+  /// initialization records for its parts or subparts.
   ///
-  /// - Precondition: `canCompose(t, at: a)`.
-  public mutating func compose(_ t: AnyType, at a: Offset) {
+  /// - Precondition: Any initialization records in the region occupied by
+  ///   the `t` instance at `a` describe parts of that instance or subparts
+  ///   thereof.
+  public mutating func markInitialized(_ t: AnyType, at a: Offset) {
     let t = memory.pointee.typeLayouts[t]
     let i = composedRegions.partitioningIndex { $0.offset >= a }
+    let j = composedRegions.partitioningIndex { $0.offset >= a + t.size }
     composedRegions.replaceSubrange(
-      i..<(i + t.storedPartCount),
+      i..<j,
       with: CollectionOfOne(.init(offset: a, type: t.type)))
   }
 
@@ -259,7 +261,7 @@ extension ComposedRegions {
         continue
       }
       if canCompose(p.type, at: p.startOffset) {
-        compose(p.type, at: p.startOffset)
+        markInitialized(p.type, at: p.startOffset)
       } else {
         break
       }
