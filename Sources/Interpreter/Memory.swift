@@ -217,6 +217,9 @@ public struct Memory {
   /// The live allocations, by ID
   public private(set) var allocation: [Allocation.ID: Allocation] = [:]
 
+  /// Validator ensuring memory safety for an allocation.
+  private var allocationSafetyValidator: [Allocation.ID: MemorySafetyValidator] = [:]
+
   /// The ID of the next allocated block.
   private var nextAllocation = 0
 
@@ -225,6 +228,8 @@ public struct Memory {
     let a = nextAllocation
     nextAllocation += 1
     allocation[a] = Allocation(typeLayouts[t], count: n, id: a)
+    allocationSafetyValidator[a] =
+      MemorySafetyValidator(memory: withUnsafeMutablePointer(to: &self) { $0 }, allocation: a)
     return .init(allocation: a, offset: 0, type: t)
   }
 
@@ -237,6 +242,7 @@ public struct Memory {
     if v == nil {
       throw Error.noLongerAllocated(a.address)
     }
+    allocationSafetyValidator.removeValue(forKey: a.allocation)
   }
 
   /// Returns true if `a` is aligned to an `n` byte boundary.
