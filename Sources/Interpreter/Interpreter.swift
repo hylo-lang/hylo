@@ -51,7 +51,7 @@ struct StackFrame {
   var allocations: [Memory.Place] = []
 
   /// Location of values passed to the function.
-  var parameters: [Memory.Place]
+  var parameters: [AccessedPlace]
 }
 
 extension UnsafeRawPointer {
@@ -84,7 +84,7 @@ struct Stack {
   private var frames: [StackFrame] = []
 
   /// Adds a new frame on top with the given `returnAddress` and `parameters`.
-  public mutating func push(returnAddress: CodePointer, parameters: [Memory.Place]) {
+  public mutating func push(returnAddress: CodePointer, parameters: [AccessedPlace]) {
     let f = StackFrame(returnAddress: returnAddress, parameters: parameters)
     frames.append(f)
   }
@@ -196,7 +196,9 @@ public struct Interpreter {
     print("\(currentInstruction.site): \(currentInstruction)")
     switch currentInstruction {
     case let x as IR.Access:
-      return .value(.init(payload: asPlace(x.source)))
+      let c = x.capabilities.elements.first!  // reifed IR has only one access
+      let a = try memory.access(asPlace(x.source), with: c)
+      return .value(.init(payload: a))
     case let x as AdvancedByBytes:
       _ = x
     case let x as AdvancedByStrides:
@@ -235,8 +237,8 @@ public struct Interpreter {
       let p = asPlace(x.location)
       try deallocateStack(p)
       return nil
-    case is EndAccess:
-      // No effect on program state
+    case let x as EndAccess:
+      try memory.end(asAccessedPlace(x.start))
       return nil
     case let x as EndProject:
       _ = x
@@ -245,12 +247,12 @@ public struct Interpreter {
     case let x as GlobalPlace:
       _ = x
     case let x as Load:
-      return try .value(.init(payload: memory.builtinValue(in: asPlace(x.source))));
+      return try .value(.init(payload: memory.builtinValue(in: asAccessedPlace(x.source))));
     case is MarkState:
       // No effect on program state
       return nil
     case let x as MemoryCopy:
-      try memory.copy(asPlace(x.source), to: asPlace(x.target))
+      try memory.copy(asAccessedPlace(x.source), to: asAccessedPlace(x.target))
       return nil
     case is Move:
       fatalError("Interpreter: Move instructions have not been removed.")
@@ -272,7 +274,7 @@ public struct Interpreter {
     case is Return:
       return .jump(popStackFrame())
     case let x as Store:
-      try memory.store(asBuiltinValue(x.object), in: asPlace(x.target))
+      try memory.store(asBuiltinValue(x.object), in: asAccessedPlace(x.target))
       return .none
     case let x as SubfieldView:
       let p = asPlace(x.recordPlace)
@@ -340,7 +342,22 @@ public struct Interpreter {
   func asPlace(_ x: Operand) -> Memory.Place {
     switch x {
     case .register(let instruction):
-      topOfStack.registers[instruction]!.payload as! Memory.Place
+      let p = topOfStack.registers[instruction]!.payload
+      return (p as? AccessedPlace)?.location ?? (p as! Memory.Place)
+    case .parameter(_, let i):
+      return topOfStack.parameters[i].location
+    case .constant:
+      preconditionFailure("Constant operand is not a Place.")
+    }
+  }
+
+  /// Interpret `x` as an `AccessedPlace`.
+  ///
+  /// - Precondition: `x` is an `AccessedPlace`.
+  func asAccessedPlace(_ x: Operand) -> AccessedPlace {
+    switch x {
+    case .register(let instruction):
+      topOfStack.registers[instruction]!.payload as! AccessedPlace
     case .parameter(_, let i):
       topOfStack.parameters[i]
     case .constant:

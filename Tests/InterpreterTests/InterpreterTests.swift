@@ -32,7 +32,7 @@ final class InterpreterRunTests: XCTestCase {
     let p =
       """
         public fun main() {
-          let x = 2;
+          let x: Int32 = 2;
           var y = x;
         }
       """.asSourceFile()

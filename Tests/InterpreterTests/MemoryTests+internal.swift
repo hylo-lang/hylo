@@ -23,7 +23,9 @@ final class InterpreterMemoryInternalTests: XCTestCase {
   {
     var m = Memory(typesIn: TypedProgram.empty, for: UnrealABI())
     let a = m.allocate(^t)
-    try m.store(v, in: a)
+    let w = try m.access(a, with: .set)
+    try m.store(v, in: w)
+    try m.end(w)
     m[a.allocation].withUnsafePointer(to: T.self, at: 0) {
       XCTAssertEqual($0.pointee, e)
     }
@@ -43,8 +45,15 @@ final class InterpreterMemoryInternalTests: XCTestCase {
     let s = m.allocate(^t)
     let d = m.allocate(^t)
 
-    try m.store(v, in: s)
-    try m.copy(s, to: d)
+    let ws = try m.access(s, with: .set)
+    try m.store(v, in: ws)
+    try m.end(ws)
+
+    let rs = try m.access(s, with: .let)
+    let wd = try m.access(d, with: .set)
+    try m.copy(rs, to: wd)
+    try m.end(wd)
+    try m.end(rs)
 
     m[d.allocation].withUnsafePointer(to: T.self, at: 0) {
       XCTAssertEqual($0.pointee, e)
@@ -71,8 +80,12 @@ final class InterpreterMemoryInternalTests: XCTestCase {
   func check(storeAndLoadSucceeds v: BuiltinValue, asType t: BuiltinType) throws {
     var m = Memory(typesIn: TypedProgram.empty, for: UnrealABI())
     let p = m.allocate(^t)
-    try m.store(v, in: p)
-    XCTAssertEqual(try m.builtinValue(in: p), v)
+    let w = try m.access(p, with: .set)
+    try m.store(v, in: w)
+    try m.end(w)
+    let r = try m.access(p, with: .let)
+    XCTAssertEqual(try m.builtinValue(in: r), v)
+    try m.end(r)
   }
 
   func testLoad() throws {
