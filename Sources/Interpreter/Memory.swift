@@ -378,14 +378,16 @@ extension Memory {
   }
 
   /// Returns the builtin value stored in `p`.
-  func builtinValue(in p: Place) throws -> BuiltinValue {
-    precondition(p.type.isBuiltin);
-    precondition(allocation[p.allocation] != nil)
+  func builtinValue(in p: AccessedPlace) throws -> BuiltinValue {
+    precondition(p.location.type.isBuiltin);
+    precondition(allocation[p.location.allocation] != nil)
 
-    // TODO: throw if `p` doesn't have a composed builtin value.
-    let o = p.offset;
-    let a = allocation[p.allocation]!
-    let t = p.type.base as! BuiltinType
+    try allocationSafetyValidator[p.location.allocation]!
+      .requireCanRead(from: p.location, using: p.capability)
+
+    let o = p.location.offset;
+    let a = allocation[p.location.allocation]!
+    let t = p.location.type.base as! BuiltinType
     return switch t {
     case .i(1): a.withUnsafePointer(to: Bool.self, at: o) { .i1($0.pointee) }
     case .i(8): a.withUnsafePointer(to: UInt8.self, at: o) { .i8($0.pointee) }
