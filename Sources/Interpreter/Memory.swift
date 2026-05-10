@@ -294,20 +294,19 @@ public extension Memory.Address {
 extension Memory.Allocation {
 
   /// Stores `v` at `o`.
-  private mutating func store<T>(_ v: T, at o: Memory.Offset) throws {
-    // TODO: throw in case of call to store with wrong type by unsafe code.
+  private mutating func store<T>(_ v: T, at o: Memory.Offset) {
     withUnsafeMutablePointer(to: T.self, at: o) { $0.pointee = v }
   }
 
   /// Stores `v` at `o`.
-  mutating func store(_ v: BuiltinValue, at o: Memory.Offset) throws {
+  mutating func store(_ v: BuiltinValue, at o: Memory.Offset) {
     switch v {
-    case .i1(let x): try store(x, at: o)
-    case .i8(let x): try store(x, at: o)
-    case .i16(let x): try store(x, at: o)
-    case .i32(let x): try store(x, at: o)
-    case .i64(let x): try store(x, at: o)
-    case .i128(let x): try store(x, at: o)
+    case .i1(let x): store(x, at: o)
+    case .i8(let x): store(x, at: o)
+    case .i16(let x): store(x, at: o)
+    case .i32(let x): store(x, at: o)
+    case .i64(let x): store(x, at: o)
+    case .i128(let x): store(x, at: o)
     }
   }
 
@@ -321,8 +320,11 @@ extension Memory {
   }
 
   /// Stores `v` in `target`.
-  mutating func store(_ v: BuiltinValue, in target: Place) throws {
-    try self[target.allocation].store(v, at: target.offset)
+  mutating func store(_ v: BuiltinValue, in target: AccessedPlace) throws {
+    let p = target.location
+    try allocationSafetyValidator[p.allocation]!.requireCanWrite(to: p, using: target.capability)
+    self[p.allocation].store(v, at: p.offset)
+    try allocationSafetyValidator[p.allocation]!.markInitialized(p)
   }
 
   /// Returns the result of calling `body` with raw buffer pointer to bytes in `p`.
@@ -351,17 +353,28 @@ extension Memory {
   }
 
   /// Copies the bytes of `source` to `destination`.
-  public mutating func copy(_ source: Place, to destination: Place) throws {
+  ///
+  /// - Precondition: Type of `source` should be same as type of `destination`.
+  public mutating func copy(_ source: AccessedPlace, to destination: AccessedPlace) throws {
+    let s = source.location
+    let d = destination.location
     precondition(
-      source.type == destination.type,
-      "Copy source type \(source.type) must match with destination type \(destination.type).")
-    // TODO: throw when source is not in composed regions and mark destination region composed.
-    self.withUnsafeBytes(source, havingLayout: typeLayouts[source.type]) { a in
-      self.withUnsafeMutableBytes(destination) {
+      s.type == d.type,
+      "Copy source type \(s.type) must match with destination type \(d.type).")
+
+    try allocationSafetyValidator[s.allocation]!
+      .requireCanRead(from: s, using: source.capability)
+    try allocationSafetyValidator[s.allocation]!
+      .requireCanWrite(to: d, using: destination.capability)
+
+    self.withUnsafeBytes(s, havingLayout: typeLayouts[s.type]) { a in
+      self.withUnsafeMutableBytes(d) {
         var b = $0
         b.copyElements(from: a)
       }
     }
+
+    try allocationSafetyValidator[d.allocation]!.markInitialized(d)
   }
 
   /// Returns the builtin value stored in `p`.
