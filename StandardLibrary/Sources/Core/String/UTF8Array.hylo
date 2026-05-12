@@ -91,6 +91,11 @@ public type UTF8Array: Regular {
     }
   }
 
+  /// Creates an instance with a single UTF8 code point stored inline.
+  public static fun init(code_point: Int8) {
+    &self.units = (UInt64(truncating_or_extending: code_point) << 8) + 4
+  }
+
   /// Initializes `self` to an instance with the contents of `source` copied to out-of-line storage
   /// capable of holding at least `minimum_capacity` units.
   ///
