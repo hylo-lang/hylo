@@ -70,7 +70,7 @@ extension IR.Program {
   private mutating func generatePlateauFunction(
     for d: ScopeDetails,
     region index: Int,
-    plateauIndex: Int,
+    plateau: Int,
     frame: Operand?,
     in m: Module.ID
   ) -> Function.ID {

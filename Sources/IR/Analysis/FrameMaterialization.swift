@@ -3,10 +3,10 @@ import Utils
 
 /// Tracks cross-region values that must be materialized in a function frame
 /// and provides the metadata required to rewrite their uses.
-struct FrameMaterializationInfo {
+struct FrameMaterialization {
 
   /// Materialization metadata for instructions that must become frame-backed.
-  fileprivate var instructionInfo: [InstructionID: InstructionMaterializationInfo] = [:]
+  fileprivate var instructionMetadata: [InstructionID: InstructionMaterializationInfo] = [:]
 
   /// Collects instructions in `region` from `f` that must become frame-backed, excluding `ignored`.
   ///
@@ -58,12 +58,12 @@ struct FrameMaterializationInfo {
 
 /// Materialization metadata for a value that crosses region boundaries.
 ///
-/// If instruction `j` uses instruction `i` and they are in different regions, then we need to
-/// materialize `i` in the frame, and not `j`.
+/// If instruction `j` uses instruction `i` and they are in different regions,
+/// the storage associated with `i` gets materialized in the frame.
 ///
 /// Includes the subfield path to get to the storage of `i` from the frame, and the instruction
 /// that allocates the storage.
-private struct InstructionMaterializationInfo {
+private struct InstructionMaterialization {
 
   /// The ID of the instruction that must be materialized in the frame.
   let id: InstructionID
@@ -82,8 +82,8 @@ private struct InstructionMaterializationInfo {
 
   /// Returns the subfield path and the `AllocStack` instruction at the base of the storage chain
   /// rooted at `id` in `f`.
-  private static func storageTrace(
-    from id: InstructionID, in f: Function
+  private static func storagePath(
+    _ id: InstructionID, in f: Function
   ) -> (subfield: RecordPath, storageInstruction: InstructionID) {
     var path: RecordPath = []
     var i = id
@@ -109,8 +109,8 @@ extension Module {
   mutating func materialize(
     _ frame: inout FrameMaterializationInfo, in f: Function.ID
   ) -> Operand? {
-    // Get the storage instructions that need to be placed in the frame.
-    // and the dictionary of their indices in the frame.
+    // Get the storage instructions that need to be placed in the frame and the dictionary of their
+    // indices in the frame.
     var storageInstructions: [InstructionID] = []
     var indices: [InstructionID: Int] = [:]
     for i in frame.instructionInfo.values {
