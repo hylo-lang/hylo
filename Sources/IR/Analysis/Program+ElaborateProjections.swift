@@ -38,7 +38,7 @@ extension IR.Program {
 
     // Create the frame.
     var details = ProjectionDetails(f, source: source, skeleton: s, of: base)
-    var e = FrameMaterializationInfo()
+    var e = FrameMaterialization()
     e.collectCrossRegionInstructions(in: source, from: details.slideInstructions, ignoring: [])
     let frame = modules[m]!.materialize(&e, in: f)
 

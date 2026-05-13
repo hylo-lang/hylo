@@ -32,7 +32,7 @@ extension IR.Program {
     var scopes = source.projectionCallingScopes(id: f)
 
     // Create the frame; one frame for the entire function.
-    var e = FrameMaterializationInfo()
+    var e = FrameMaterialization()
     for d in scopes {
       // Look only in plateau regions; that is skip the first and last regions, which are outside of the plateau.
       for r in 1 ..< d.regionsCount - 1 {
@@ -59,7 +59,7 @@ extension IR.Program {
     // TODO: handle cases with more than one plateau.
     precondition(
       d.regionsCount == 3, "multiple projection uses in a caller scope not supported yet")
-    let plateau = generatePlateauFunction(for: d, region: 1, plateauIndex: 0, frame: frame, in: m)
+    let plateau = generatePlateauFunction(for: d, region: 1, plateau: 0, frame: frame, in: m)
 
     // Replace the old region with the elaborated code that calls the elaborated projection.
     modules[m]!.replacePlateau(d, region: 1, withPlateau: plateau, frame: frame)
@@ -70,7 +70,7 @@ extension IR.Program {
   private mutating func generatePlateauFunction(
     for d: ScopeDetails,
     region index: Int,
-    plateau: Int,
+    plateau plateauIndex: Int,
     frame: Operand?,
     in m: Module.ID
   ) -> Function.ID {
