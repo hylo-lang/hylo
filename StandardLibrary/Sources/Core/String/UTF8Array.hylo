@@ -92,7 +92,7 @@ public type UTF8Array: Regular {
   }
 
   /// Creates an instance with a single UTF8 code point stored inline.
-  public static fun init(code_point: Int8) {
+  public init(code_point: Int8) {
     &self.units = (UInt64(truncating_or_extending: code_point) << 8) + 4
   }
 

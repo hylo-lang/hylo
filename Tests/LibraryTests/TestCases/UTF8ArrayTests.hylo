@@ -1,0 +1,11 @@
+//- compileAndRun expecting: .success
+
+fun test_init_from_code_point() {
+  let arr = UTF8Array(code_point: 61)
+  precondition(arr.count() == 1)
+  precondition(arr[0] == 61)
+}
+
+public fun main() {
+  test_init_from_code_point()
+}
