@@ -4,7 +4,7 @@ public type String {
   /// The contents of the string, encoded in UTF8.
   public var utf8: UTF8Array
 
-  memberwise init
+  public memberwise init
 
   /// Returns `true` if `self` is empty.
   public fun is_empty() -> Bool {
@@ -45,8 +45,8 @@ public conformance String: Collection {
   /// Accesses the unit at `position` in `self`.
   public subscript(_ position: Int): String { let {
     let code_point = utf8[position]
-    let arr = UTF8Array.from_int8(code_point: code_point)
-    yield String.from_arr(arr: arr)
+    let arr = UTF8Array(code_point: code_point)
+    yield String(utf8: arr)
   } }
 
 }
