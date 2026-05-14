@@ -2,7 +2,7 @@ import FrontEnd
 
 extension Module {
 
-  // TODO: remove this
+  // TODO: remove this when lowering projections work for all files.
   static func canLowerProjections(_ f: SourceFile) -> Bool {
     let s = f.url.fileSystemPath
     return s.contains("EndToEndTests/TestCases/Projection") && !s.contains("/legacy-")
