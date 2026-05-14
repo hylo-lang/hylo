@@ -62,8 +62,7 @@ struct FrameReification {
       case .register(let def):
         return r.contains(def) ? nil : def
       case .parameter:
-        // We assume parameters are always defined inside the region; emitter will generate local
-        // code for them in the entry block.
+        // TODO: implement this
         return nil
       case .constant:
         return nil
