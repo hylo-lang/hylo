@@ -2,9 +2,22 @@ import OrderedCollections
 import FrontEnd
 import Utils
 
-/// Tracks cross-region values that must be materialized in a function frame
-/// and provides the metadata required to rewrite their uses.
-struct FrameMaterialization {
+/// Tracks cross-region values that must be reified in a function frame and provides the metadata
+/// required to rewrite their uses.
+///
+/// A "region", in this context, is a set of instructions (maybe from different blocks). For
+/// example, the instructions from the beginning of a simple projection to the `yield` form a region
+/// (the ramp), and the instructions from the `yield` to the end of the projection form another
+/// region (the slide).
+/// 
+/// If one instruction from the slide of the projection uses the value of an instruction from the
+/// ramp, the value must be reified in a frame that is passed from the ramp to the slide. The frame
+/// reification is the process of detecting which values need to be reified into a frame and
+/// performing the appropriate transformations, such as creating the frame storage and replacing
+/// the relevant instructions to access the frame.
+///
+/// We say that an instruction is "frame-backed" if its value is stored in the frame.
+struct FrameReification {
 
   /// Materialization metadata for instructions that must become frame-backed.
   fileprivate var instructionMetadata: [InstructionID: InstructionMaterialization] = [:]
@@ -114,7 +127,7 @@ extension Module {
   ///
   /// Returns `nil` if no frame-backed values are required.
   mutating func materialize(
-    _ frame: inout FrameMaterialization, in f: Function.ID
+    _ frame: inout FrameReification, in f: Function.ID
   ) -> Operand? {
     // Get the storage instructions that need to be placed in the frame and the dictionary of their
     // indices in the frame.

@@ -4,6 +4,17 @@ import FrontEnd
 extension IR.Program {
 
   /// Elaborates all projections in `self` into ramp + slide functions.
+  ///
+  /// A projection is always divided into two regions:
+  ///  - The ramp, which contains the instructions that must be executed before the `yield`.
+  ///  - The slide, which contains the instructions that must be executed after the `yield`.
+  ///
+  /// After this call, the original projection functions are removed from the program, and replaced
+  /// by the corresponding ramp and slide functions. The ramps and slides are generated in the same
+  /// module as the original projection.
+  ///
+  /// If there are instructions in the ramp that are used in the slide, they are reified into a
+  /// frame that is passed from the ramp to the slide.
   public mutating func elaborateProjections() {
     for m in modules.values {
       elaborateProjections(in: m.id)
@@ -38,7 +49,7 @@ extension IR.Program {
 
     // Create the frame.
     var details = ProjectionDetails(f, source: source, skeleton: s, of: base)
-    var e = FrameMaterialization()
+    var e = FrameReification()
     e.collectCrossRegionInstructions(in: source, from: details.slideInstructions)
     let frame = modules[m]!.materialize(&e, in: f)
 
