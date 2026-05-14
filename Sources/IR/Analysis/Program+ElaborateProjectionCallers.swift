@@ -20,7 +20,7 @@ extension IR.Program {
 
   /// Elaborates the projection caller function `f` in module `m`.
   private mutating func elaborateProjectionCaller(_ f: Function.ID, in m: Module.ID) {
-    // TODO: remove this filter.
+    // TODO: remove this filter, when lowering projections work for all files.
     if !Module.canLowerProjections(modules[m]![f].site.file) {
       return
     }
@@ -29,25 +29,24 @@ extension IR.Program {
 
     // Determine the scopes that need lowering.
     let source = modules[m]![f]
-    var scopes = source.projectionCallingScopes(id: f)
 
     // Create the frame; one frame for the entire function.
     var e = FrameMaterialization()
-    for d in scopes {
-      // Look only in plateau regions; that is skip the first and last regions, which are outside of the plateau.
-      for r in 1 ..< d.regionsCount - 1 {
+    for d in source.projectionCallingScopes(id: f) {
+      // Look only in regions that are plateau.
+      for r in d.plateauRegions {
         let s = d.splitInstruction(startingRegion: r)
         let a = d.instructions(region: r)
-        e.collectCrossRegionInstructions(in: source, from: a, ignoring: [s])
+        e.collectCrossRegionInstructions(in: source, from: a, ignoring: { (i) -> Bool in
+          return i == s
+        })
       }
     }
     let frame = modules[m]!.materialize(&e, in: f)
 
-    // The instructions have changed, so we need to recompute the scopes.
-    scopes = modules[m]![f].projectionCallingScopes(id: f)
-
     // Elaborate each caller scope.
-    for d in scopes {
+    // The instructions have changed, so we need to recompute the scopes.
+    for d in modules[m]![f].projectionCallingScopes(id: f) {
       elaborateCallerScope(d, frame: frame, in: m)
     }
   }
@@ -234,6 +233,11 @@ private struct ScopeDetails {
   /// The number of regions in the caller scope.
   var regionsCount: Int {
     regionSplitPositions.count + 1
+  }
+
+  /// The regions that are plateau to some projection.
+  var plateauRegions: Range<Int> {
+    1 ..< regionsCount - 1
   }
 
   /// Returns the split instruction at the end of region `r`.

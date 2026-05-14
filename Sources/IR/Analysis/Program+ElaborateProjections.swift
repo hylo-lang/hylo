@@ -25,7 +25,7 @@ extension IR.Program {
   private mutating func elaborateProjection(
     _ f: Function.ID, skeleton s: IR.ProjectionSkeleton, in m: Module.ID
   ) {
-    // TODO: remove this filter.
+    // TODO: remove this filter, when lowering projections work for all files.
     if !Module.canLowerProjections(modules[m]![f].site.file) {
       return
     }
@@ -39,7 +39,7 @@ extension IR.Program {
     // Create the frame.
     var details = ProjectionDetails(f, source: source, skeleton: s, of: base)
     var e = FrameMaterialization()
-    e.collectCrossRegionInstructions(in: source, from: details.slideInstructions, ignoring: [])
+    e.collectCrossRegionInstructions(in: source, from: details.slideInstructions)
     let frame = modules[m]!.materialize(&e, in: f)
 
     // The instructions have changed, so we need to recompute the details.
