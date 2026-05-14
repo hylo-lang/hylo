@@ -1,0 +1,151 @@
+name: Publish release
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  prepare-draft-release:
+    name: Prepare draft release
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          if gh release view "$TAG" --repo "$REPOSITORY" >/dev/null 2>&1; then
+            exit 0
+          fi
+          gh release create "$TAG" --repo "$REPOSITORY" --draft --generate-notes --latest=false --title "$TAG"
+        shell: bash
+
+  build-distributable:
+    name: Build distributable for ${{ matrix.target }}
+    needs: prepare-draft-release
+    strategy: &distributable-strategy
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-24.04,     target: linux-x64 }
+          - { os: ubuntu-24.04-arm, target: linux-arm64 }
+          - { os: macos-15,         target: macos-arm64 }
+          - { os: macos-15-intel,   target: macos-x64 }
+          - { os: windows-2025,     target: windows-x64 }
+          - { os: windows-11-arm,   target: windows-arm64 }
+
+    runs-on: ${{ matrix.os }}
+    env: &distributable-env
+      ARTIFACT_NAME: hylo-${{ github.ref_name }}-${{ matrix.target }}
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: recursive
+
+      - name: Set up Swift
+        uses: SwiftyLab/setup-swift@latest
+        with:
+          swift-version: "6.2.3"
+
+      - name: Set up LLVM
+        uses: hylo-lang/get-llvm@v0.3.0
+        id: get-llvm
+        with:
+          llvmVersion: "20.1.6"
+          llvmBuildRelease: "20260309-221030"
+          llvmBuildConfig: MinSizeRel
+          addToPkgConfigPath: true
+          addToPath: true
+
+      - name: Download Recent Visual Studio and Windows SDK
+        uses: compnerd/gha-setup-vsdevenv@main
+        with:
+          winsdk: "10.0.26100.0"
+          # Note: The GitHub windows-2025 runner has only a very old version of the Windows SDK available by default.
+          #       Swift is said to require version 10.0.22621.0: https://forums.swift.org/t/swiftpm-plugin-doesnt-work-with-the-latest-visual-studio-version/78183/14
+          #       That no longer works, so we had to upgrade to 10.0.26100.0.
+          #       See also: https://github.com/swiftlang/swift/issues/88237
+
+      - name: Build distributable
+        run: swift build -c release --verbose --product hc --static-swift-stdlib -Xswiftc -DUSE_BUNDLED_STANDARD_LIBRARY
+        shell: pwsh
+
+      - name: Locate distributable
+        id: locate-distributable
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $binPath = (swift build -c release --product hc --static-swift-stdlib -Xswiftc -DUSE_BUNDLED_STANDARD_LIBRARY --show-bin-path).Trim()
+          $binaryName = if ($env:RUNNER_OS -eq 'Windows') { 'hc.exe' } else { 'hc' }
+          "bin_path=$binPath" >> $env:GITHUB_OUTPUT
+          "binary_path=$(Join-Path $binPath $binaryName)" >> $env:GITHUB_OUTPUT
+        shell: pwsh
+
+      - name: Assemble portable bundle
+        uses: hylo-lang/swift-portable-tool-bundler@v1.0.0
+        with:
+          products: hc
+          output-directory: ${{ runner.temp }}/bundle
+
+      - name: Archive distributable
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $archivePath = Join-Path $env:RUNNER_TEMP "$env:ARTIFACT_NAME.tar.zst"
+          if (Test-Path $archivePath) {
+            Remove-Item -Force $archivePath
+          }
+          tar --zstd -cf $archivePath -C "${{ runner.temp }}/bundle" .
+        shell: pwsh
+
+      - name: Upload distributable artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: ${{ runner.temp }}/${{ env.ARTIFACT_NAME }}.tar.zst
+          if-no-files-found: error
+          retention-days: 2
+
+  verify-and-publish-distributable:
+    name: Verify and publish distributable for ${{ matrix.target }}
+    needs: build-distributable
+    strategy: *distributable-strategy
+    runs-on: ${{ matrix.os }}
+    env: *distributable-env
+
+    steps:
+      - name: Download distributable artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ env.ARTIFACT_NAME }}
+          path: ${{ runner.temp }}/dist
+
+      - name: Verify distributable in a Swift-free environment
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $archive = Join-Path $env:RUNNER_TEMP "dist/$env:ARTIFACT_NAME.tar.zst"
+          $extractDir = Join-Path $env:RUNNER_TEMP 'extracted'
+          New-Item -ItemType Directory -Force -Path $extractDir | Out-Null
+          tar --zstd -xf $archive -C $extractDir
+
+          $binaryName = if ($env:RUNNER_OS -eq 'Windows') { 'hc.exe' } else { 'hc' }
+          $binary = Join-Path $extractDir $binaryName
+          & $binary --help
+        shell: pwsh
+
+      - name: Upload distributable to draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $archive = Join-Path $env:RUNNER_TEMP "dist/$env:ARTIFACT_NAME.tar.zst"
+          gh release upload $env:TAG $archive --repo '${{ github.repository }}' --clobber
+        shell: pwsh
