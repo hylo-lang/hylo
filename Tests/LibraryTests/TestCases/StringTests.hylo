@@ -1,0 +1,13 @@
+//- compileAndRun expecting: .success
+
+fun test_collection() {
+  let str = "abc"
+  precondition(str.count() == 3)
+  precondition(str[0] == "a")
+  precondition(str[1] == "b")
+  precondition(str[2] == "c")
+}
+
+public fun main() {
+  test_collection()
+}

@@ -23,6 +23,14 @@ public conformance String: Copyable {
 
 }
 
+public conformance String: Equatable {
+
+  public fun infix== (_ other: Self) -> Bool {
+    return self.utf8 == other.utf8
+  }
+
+}
+
 public conformance String: Collection {
 
   /// A position in an String.
