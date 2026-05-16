@@ -19,8 +19,8 @@ import Utils
 /// We say that an instruction is "frame-backed" if its value is stored in the frame.
 struct FrameReification {
 
-  /// Materialization metadata for instructions that must become frame-backed.
-  fileprivate var instructionMetadata: [InstructionID: InstructionMaterialization] = [:]
+  /// Reification metadata for instructions that must become frame-backed.
+  fileprivate var instructionMetadata: [InstructionID: InstructionReification] = [:]
 
   /// Collects instructions in `region` from `f` that must become frame-backed, excluding `ignored`.
   ///
@@ -124,7 +124,7 @@ extension Module {
 
   /// Creates storage for `frame` in `f` and rewrites collected instructions to access it.
   ///
-  /// Returns `nil` if no frame-backed values are required.
+  /// Returns the frame allocation's operand, or `nil` if no frame-backed values were required.
   mutating func materialize(
     _ frame: inout FrameReification, in f: Function.ID
   ) -> Operand? {

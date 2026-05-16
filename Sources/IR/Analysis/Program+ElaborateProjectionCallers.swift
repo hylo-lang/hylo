@@ -49,9 +49,7 @@ extension IR.Program {
       for r in d.plateauRegions {
         let s = d.splitInstruction(startingRegion: r)
         let a = d.instructions(region: r)
-        e.collectCrossRegionInstructions(in: source, from: a, ignoring: { (i) -> Bool in
-          return i == s
-        })
+        e.collectCrossRegionInstructions(in: source, from: a, ignoring: { $0 == s })
       }
     }
     let frame = modules[m]!.materialize(&e, in: f)
@@ -103,7 +101,7 @@ extension IR.Program {
     ]
 
     // If we have a frame, take it from the function parameter.
-    if let f = frame {
+    if let frame {
       let t = modules[m]![d.id].type(of: f).ast
       let frameParameter = Operand.parameter(entry, 1)
       let ourFrame = modules[m]!.modifyIR(of: plateau, at: .end(of: entry)) { (e) in
