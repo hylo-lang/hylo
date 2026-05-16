@@ -51,7 +51,7 @@ extension IR.Program {
     var details = ProjectionDetails(f, source: source, skeleton: s, of: base)
     var e = FrameReification()
     e.collectCrossRegionInstructions(in: source, from: details.slideInstructions)
-    let frame = modules[m]!.materialize(&e, in: f)
+    let frame = modules[m]!.reify(&e, in: f)
 
     // The instructions have changed, so we need to recompute the details.
     details = ProjectionDetails(f, source: modules[m]![f], skeleton: s, of: base)

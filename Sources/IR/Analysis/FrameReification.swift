@@ -35,26 +35,26 @@ struct FrameReification {
     let regionElements = Set(region)
     for i in region where !predicate(i) {
       // Check if this is used outside the region, and thus it must become frame-backed.
-      if isUsedOutsideRegion(i, in: f, region: regionElements) {
-        instructionMetadata.assignIfAbsent(forKey: i, InstructionMaterialization(source: i, in: f))
+      if Self.isUsedOutsideRegion(i, in: f, region: regionElements) {
+        instructionMetadata.assignIfAbsent(forKey: i, InstructionReification(source: i, in: f))
       }
 
       // Check if the defining instructions of operands must become frame-backed.
-      for j in operandsOutsideOfRegion(i, in: f, region: regionElements) where !predicate(j) {
-        instructionMetadata.assignIfAbsent(forKey: j, InstructionMaterialization(source: j, in: f))
+      for j in Self.operandsOutsideOfRegion(i, in: f, region: regionElements) where !predicate(j) {
+        instructionMetadata.assignIfAbsent(forKey: j, InstructionReification(source: j, in: f))
       }
     }
   }
 
   /// Returns `true` if instruction `i` in `f` is used outside the region `r`.
-  private func isUsedOutsideRegion(
+  private static func isUsedOutsideRegion(
     _ i: InstructionID, in f: Function, region r: Set<InstructionID>
   ) -> Bool {
     f.allUses(of: i).contains(where: { (u) in !r.contains(u.user) })
   }
 
   /// Returns the instructions outside `r` that define operands of `i` in `f`.
-  private func operandsOutsideOfRegion(
+  private static func operandsOutsideOfRegion(
     _ i: InstructionID, in f: Function, region r: Set<InstructionID>
   ) -> [InstructionID] {
     f[i].operands.compactMap({ (o) -> InstructionID? in
@@ -72,16 +72,16 @@ struct FrameReification {
 
 }
 
-/// Materialization metadata for a value that crosses region boundaries.
+/// Reification metadata for a value that crosses region boundaries.
 ///
 /// If instruction `j` uses instruction `i` and they are in different regions,
-/// the storage associated with `i` gets materialized in the frame.
+/// the storage associated with `i` gets reified in the frame.
 ///
 /// Includes the subfield path to get to the storage of `i` from the frame, and the instruction
 /// that allocates the storage.
-private struct InstructionMaterialization {
+private struct InstructionReification {
 
-  /// The ID of the instruction that must be materialized in the frame.
+  /// The ID of the instruction that must be reified in the frame.
   fileprivate let source: InstructionID
 
   /// The subfield path to get to the storage of `id` from the frame, if any.
@@ -90,7 +90,7 @@ private struct InstructionMaterialization {
   /// The instruction that allocates the storage.
   fileprivate var storageInstruction: InstructionID
 
-  /// Creates metadata for materializing `id` in the frame.
+  /// Creates metadata for reifying `id` in the frame.
   public init(source: InstructionID, in f: Function) {
     self.source = source
     (self.subfield, self.storageInstruction) = Self.storagePath(of: source, in: f)
@@ -125,7 +125,7 @@ extension Module {
   /// Creates storage for `frame` in `f` and rewrites collected instructions to access it.
   ///
   /// Returns the frame allocation's operand, or `nil` if no frame-backed values were required.
-  mutating func materialize(
+  mutating func reify(
     _ frame: inout FrameReification, in f: Function.ID
   ) -> Operand? {
     // Get the storage instructions that need to be placed in the frame and the dictionary of their
@@ -137,7 +137,7 @@ extension Module {
     }
 
     if storageInstructions.isEmpty {
-      // No instruction needs to be materialized, so no frame is required.
+      // No instruction needs to be reified, so no frame is required.
       return nil
     }
 
@@ -168,7 +168,7 @@ extension Module {
 
   /// Replaces instruction `i` with a subfield view into the `index`th field of `frame`.
   private mutating func replaceInstruction(
-    _ i: InstructionMaterialization, frame: Operand, index: Int, in f: Function.ID
+    _ i: InstructionReification, frame: Operand, index: Int, in f: Function.ID
   ) {
     // Add a SubfieldView before each use of `i`, to load the value from the frame.
     for u in self[f].allUses(of: i.source) {

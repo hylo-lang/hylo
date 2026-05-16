@@ -52,7 +52,7 @@ extension IR.Program {
         e.collectCrossRegionInstructions(in: source, from: a, ignoring: { $0 == s })
       }
     }
-    let frame = modules[m]!.materialize(&e, in: f)
+    let frame = modules[m]!.reify(&e, in: f)
 
     // Elaborate each caller scope.
     // The instructions have changed, so we need to recompute the scopes.
@@ -102,13 +102,13 @@ extension IR.Program {
 
     // If we have a frame, take it from the function parameter.
     if let frame {
-      let t = modules[m]![d.id].type(of: f).ast
+      let t = modules[m]![d.id].type(of: frame).ast
       let frameParameter = Operand.parameter(entry, 1)
       let ourFrame = modules[m]!.modifyIR(of: plateau, at: .end(of: entry)) { (e) in
         let x0 = e._load(frameParameter)
         return e._pointer_to_place(x0, as: RemoteType(.inout, t))
       }
-      rewrittenRegisters[f] = ourFrame
+      rewrittenRegisters[frame] = ourFrame
     }
 
     var transformer = DictionaryInstructionTransformer(
