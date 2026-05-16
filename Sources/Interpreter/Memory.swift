@@ -52,10 +52,10 @@ public struct Memory {
     /// and the type layout associated with that location.
     public struct TypedRegion: Regular {
 
-      /// Start offset relative to base offset.
-      let startOffset: Offset
+      /// The offset from the beginning `self`.
+      let offset: Offset
 
-      /// The type describing the layout of the region starting at `startOffset`.
+      /// The type describing the layout of the region starting at `offset`.
       let type: AnyType
 
     }

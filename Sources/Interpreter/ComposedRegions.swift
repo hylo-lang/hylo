@@ -22,57 +22,42 @@ struct ComposedRegions {
   /// A position in some allocation.
   public typealias Offset = ComposedRegion.Offset
 
-  /// Memory where `allocation` lives.
-  private let memory: UnsafeMutablePointer<Memory>
-
-  /// ID of allocation for which composed regions belong to.
-  private let allocationID: Memory.Allocation.ID
-
-  /// The allocation for which composed regions belong to.
-  private var allocation: Memory.Allocation {
-    _read {
-      yield memory.pointee.allocation[allocationID]!
-    }
-  }
-
   /// The composed regions, in ascending order.
-  private var composedRegions: [ComposedRegion]
-
-  /// Empty regions for `allocation` in `memory`.
-  public init(
-    memory: UnsafeMutablePointer<Memory>,
-    allocation: Memory.Allocation.ID
-  ) {
-    self.memory = memory
-    self.allocationID = allocation
-    composedRegions = []
-  }
+  private var composedRegions: [ComposedRegion] = []
 
   /// Returns the region enclosing `a`.
-  public func region(enclosing a: Offset) -> ComposedRegion? {
-    indexOfRegion(enclosing: a).map { composedRegions[$0] }
+  ///
+  /// - Precondition: Every allocations follow type layouts from `l`.
+  public func region(
+    enclosing a: Offset, typeLayouts l: inout TypeLayoutCache
+  ) -> ComposedRegion? {
+    indexOfRegion(enclosing: a, typeLayouts: &l).map { composedRegions[$0] }
   }
 
-  /// Returns true iff initialization records starting at `a` for the parts
+  /// Returns true iff initialization records starting at `o` for the parts
   /// of a `t` can be replaced with initialization record of `t` instance.
-  public func canCompose(_ t: AnyType, at a: Offset) -> Bool {
-    let t = memory.pointee.typeLayouts[t]
-    let i = composedRegions.partitioningIndex { $0.offset >= a }
+  ///
+  /// - Precondition: Every allocations follow type layouts from `l`.
+  /// - Precondition: `self` stores composed regions of `a`.
+  public func canCompose(
+    _ t: AnyType, at o: Offset, in a: Memory.Allocation, typeLayouts l: inout TypeLayoutCache
+  ) -> Bool {
+    let t = l[t]
+    let i = composedRegions.partitioningIndex { $0.offset >= o }
 
     if t.isUnionLayout {
       let dc = t.discriminator
       if isComposed(
-        part: t.discriminatorParentage, baseOffset: a,
+        part: t.discriminatorParentage, baseOffset: o,
         region: dc.offset == 0 ? i : i + 1) == false
       {
         return false
       }
 
-      let dv = allocation.unsignedIntValue(
-        at: dc.offset + a, ofType: t.discriminator.type.base as! BuiltinType)
-
+      let dv = a.unsignedIntValue(
+        at: dc.offset + o, ofType: t.discriminator.type.base as! BuiltinType)
       if isComposed(
-        part: .init(t, Int(dv)), baseOffset: a,
+        part: .init(t, Int(dv)), baseOffset: o,
         region: dc.offset == 0 ? i + 1 : i) == false
       {
         return false
@@ -81,7 +66,7 @@ struct ComposedRegions {
       return true
     } else {
       return t.parts.indices.allSatisfy {
-        isComposed(part: .init(t, $0), baseOffset: a, region: i + $0)
+        isComposed(part: .init(t, $0), baseOffset: o, region: i + $0)
       }
     }
   }
@@ -90,32 +75,39 @@ struct ComposedRegions {
   /// parts of a `t` instance with the initialization record for a
   /// `t` instance.
   ///
-  /// - Precondition: `canCompose(t, at: a)`.
-  public mutating func compose(_ t: AnyType, at a: Offset) {
-    let t = memory.pointee.typeLayouts[t]
+  /// - Precondition: Every allocations follow type layouts from `l`.
+  /// - Precondition: `canCompose(t, at: a, &l)`.
+  public mutating func compose(
+    _ t: AnyType, at a: Offset, typeLayouts l: inout TypeLayoutCache
+  ) {
+    let t = l[t]
     let i = composedRegions.partitioningIndex { $0.offset >= a }
     composedRegions.replaceSubrange(
       i..<(i + t.storedPartCount),
       with: CollectionOfOne(.init(offset: a, type: t.type)))
   }
 
-  /// If there exists an initialization record for a `t` instance at `a`, replaces
-  /// it with parts of that instance and returns true. Otherwise, returns false.
-  public mutating func tryDecompose(_ t: AnyType, at a: Offset) -> Bool {
-    let t = memory.pointee.typeLayouts[t]
-    guard let i = decomposable(t, at: a) else {
+  /// If there exists an initialization record for a `t` instance at `o` in `a`,
+  /// replaces it with parts of that instance and returns true;
+  /// Otherwise, returns false.
+  ///
+  /// - Precondition: Every allocations follow type layouts from `l`.
+  /// - Precondition: `self` stores composed regions of `a`.
+  public mutating func tryDecompose(
+    _ t: AnyType, at o: Offset, in a: Memory.Allocation, typeLayouts l: inout TypeLayoutCache
+  ) -> Bool {
+    let t = l[t]
+    guard let i = decomposable(t, at: o) else {
       return false
     }
-    decompose(t, inRegion: i)
+    decompose(t, inRegion: i, in: a)
     return true
   }
 
   /// Returns true iff the given `part` of some type at `baseOffset` is
   /// represented as the `n`th composed region.
   private func isComposed(
-    part: TypeLayout.Part.Parentage,
-    baseOffset: Offset,
-    region n: Int
+    part: TypeLayout.Part.Parentage, baseOffset: Offset, region n: Int
   ) -> Bool {
     let p = part.parent.parts[part.partIndex]
     let partOffset = baseOffset + p.offset
@@ -148,39 +140,51 @@ struct ComposedRegions {
     return i
   }
 
-  /// Replaces the initialization record for a `t` instance at `a` with
+  /// Replaces the initialization record for a `t` in `i`th region with
   /// the initialization records for any parts of that instance.
-  private mutating func decompose(_ t: TypeLayout, inRegion i: Int) {
-    let a = composedRegions[i].offset
+  ///
+  /// - Precondition: `self` stores composed regions of `a`.
+  private mutating func decompose(
+    _ t: TypeLayout, inRegion i: Int, in a: Memory.Allocation
+  ) {
+    let o = composedRegions[i].offset
 
     if t.isUnionLayout {
       let expectedDiscriminator = t.parts.last!
       let discriminator = ComposedRegion.init(
-        offset: expectedDiscriminator.offset + a, type: expectedDiscriminator.type)
-      let d = allocation.unsignedIntValue(
+        offset: expectedDiscriminator.offset + o, type: expectedDiscriminator.type)
+      let d = a.unsignedIntValue(
         at: discriminator.offset, ofType: discriminator.type.base as! BuiltinType)
       let expectedPayload = t.parts[Int(d)]
-      let payload = ComposedRegion(offset: expectedPayload.offset + a, type: expectedPayload.type)
+      let payload = ComposedRegion(offset: expectedPayload.offset + o, type: expectedPayload.type)
       let newRecords =
         expectedDiscriminator.offset == 0 ? [discriminator, payload] : [payload, discriminator]
       composedRegions.replaceSubrange(i..<i + 1, with: newRecords)
     } else {
       composedRegions.replaceSubrange(
-        i..<i + 1, with: t.parts.lazy.map { .init(offset: a + $0.offset, type: $0.type) })
+        i..<i + 1, with: t.parts.lazy.map { .init(offset: o + $0.offset, type: $0.type) })
     }
   }
 
   /// Returns end offset of `i`th composed region.
-  private func endOffset(_ i: Int) -> Offset {
-    composedRegions[i].offset + memory.pointee.typeLayouts[composedRegions[i].type].size
+  ///
+  /// - Precondition: All allocations follow type layouts from `l`.
+  private func endOffset(
+    _ i: Int, typeLayouts l: inout TypeLayoutCache
+  ) -> Offset {
+    composedRegions[i].offset + l[composedRegions[i].type].size
   }
 
   /// Returns index of region enclosing `a`.
-  private func indexOfRegion(enclosing a: Offset) -> Int? {
+  ///
+  /// - Precondition: All allocations follow type layouts from `l`.
+  private func indexOfRegion(
+    enclosing a: Offset, typeLayouts l: inout TypeLayoutCache
+  ) -> Int? {
     let i = composedRegions.partitioningIndex { $0.offset > a }
     if i == 0 { return nil }
     let o = composedRegions[i - 1].offset
-    let n = memory.pointee.typeLayouts[composedRegions[i - 1].type].size
+    let n = l[composedRegions[i - 1].type].size
     if o + n > a {
       return i - 1
     }
@@ -197,13 +201,15 @@ extension ComposedRegions {
   ///     - `r` and `p` are disjoint, or
   ///     - `r` fully contains `p`, or
   ///     - `r` is fully contained within `p`.
-  public func isComplete(_ p: Memory.Place) -> Bool {
-    guard let r = region(enclosing: p.offset) else {
+  /// - Precondition: All allocations follow type layouts from `l`.
+  public func isComplete(
+    _ p: Memory.Allocation.TypedRegion, typeLayouts l: inout TypeLayoutCache
+  ) -> Bool {
+    guard let r = region(enclosing: p.offset, typeLayouts: &l) else {
       return false
     }
     return r.offset <= p.offset
-      && (r.offset + memory.pointee.typeLayouts[r.type].size)
-        >= (p.offset + memory.pointee.typeLayouts[p.type].size)
+      && (r.offset + l[r.type].size) >= (p.offset + l[p.type].size)
   }
 
   /// Returns true iff object at `p` is fully uninitialized.
@@ -212,13 +218,16 @@ extension ComposedRegions {
   ///     - `r` and `p` are disjoint, or
   ///     - `r` fully contains `p`, or
   ///     - `r` is fully contained within `p`.
-  public func isFullyUninitialized(_ p: Memory.Place) -> Bool {
+  /// - Precondition: All allocations follow type layouts from `l`.
+  public func isFullyUninitialized(
+    _ p: Memory.Allocation.TypedRegion, typeLayouts l: inout TypeLayoutCache
+  ) -> Bool {
     let i = composedRegions.partitioningIndex { $0.offset >= p.offset }
-    if i != 0 && endOffset(i - 1) > p.offset {
+    if i != 0 && endOffset(i - 1, typeLayouts: &l) > p.offset {
       return false
     }
     if i != composedRegions.endIndex
-      && (p.offset + memory.pointee.typeLayouts[p.type].size) > composedRegions[i].offset
+      && (p.offset + l[p.type].size) > composedRegions[i].offset
     {
       return false
     }
@@ -230,9 +239,12 @@ extension ComposedRegions {
   /// - Precondition: For every composed region `r`, one of the following should hold:
   ///     - `r` and `p` are disjoint, or
   ///     - `r` is fully contained within `p`.
-  public mutating func decomposeSubtree(of p: Memory.Place) {
+  /// - Precondition: All allocations follow type layouts from `l`.
+  public mutating func decomposeSubtree(
+    of p: Memory.Allocation.TypedRegion, typeLayouts l: inout TypeLayoutCache
+  ) {
     let start = p.offset
-    let end = start + memory.pointee.typeLayouts[p.type].size
+    let end = start + l[p.type].size
 
     let i = composedRegions.partitioningIndex { $0.offset >= start }
     let j = composedRegions.partitioningIndex { $0.offset >= end }
@@ -250,16 +262,19 @@ extension ComposedRegions {
   ///     - `r` and `q` are disjoint, or
   ///     - `r` fully contains `q`, or
   ///     - `r` is fully contained within `q`.
+  /// - Precondition: `self` stores composed regions of `a`.
+  /// - Precondition: All allocations follow type layouts from `l`.
   public mutating func composeUpwards(
-    along path: some BidirectionalCollection<Memory.Allocation.TypedRegion>
+    along path: some BidirectionalCollection<Memory.Allocation.TypedRegion>,
+    in a: Memory.Allocation, typeLayouts l: inout TypeLayoutCache
   ) {
     for p in path.reversed() {
-      let r = region(enclosing: p.startOffset)!
-      if r.offset < p.startOffset || (r.offset == p.startOffset && r.type == p.type) {
+      let r = region(enclosing: p.offset, typeLayouts: &l)!
+      if r.offset < p.offset || (r.offset == p.offset && r.type == p.type) {
         continue
       }
-      if canCompose(p.type, at: p.startOffset) {
-        compose(p.type, at: p.startOffset)
+      if canCompose(p.type, at: p.offset, in: a, typeLayouts: &l) {
+        compose(p.type, at: p.offset, typeLayouts: &l)
       } else {
         break
       }
