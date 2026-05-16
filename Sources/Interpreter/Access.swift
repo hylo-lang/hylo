@@ -2,8 +2,6 @@ import FrontEnd
 import Foundation
 import Utils
 
-extension AccessEffect: Regular {}
-
 /// A unique access participating in access control.
 public struct Access: Regular {
 
@@ -13,13 +11,13 @@ public struct Access: Regular {
   /// A unique `Access` identifier.
   public let id: ID
 
-  /// Kind of access.
-  public let kind: AccessEffect
+  /// Effect of access.
+  public let effect: AccessEffect
 
-  /// An access of kind `k`.
-  public init(kind k: AccessEffect) {
+  /// Creates an instance of access of effect `e`.
+  public init(effect e: AccessEffect) {
     id = UUID()
-    kind = k
+    effect = e
   }
 
 }

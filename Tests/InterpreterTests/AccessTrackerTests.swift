@@ -140,12 +140,12 @@ final class AccessTrackerTests: XCTestCase {
     _ = try t.begin(.inout, at: ["c", "d"])
     _ = try t.begin(.inout, at: ["c", "d"])
 
-    XCTAssertEqual(t.accesses(along: []).map { $0.map { $0.kind } }, [[.inout, .inout]])
+    XCTAssertEqual(t.accesses(along: []).map { $0.map { $0.effect } }, [[.inout, .inout]])
     XCTAssertEqual(
-      t.accesses(along: ["b"]).map { $0.map { $0.kind } },
+      t.accesses(along: ["b"]).map { $0.map { $0.effect } },
       [[.inout, .inout], [.inout, .let]])
     XCTAssertEqual(
-      t.accesses(along: ["c", "d"]).map { $0.map { $0.kind } },
+      t.accesses(along: ["c", "d"]).map { $0.map { $0.effect } },
       [[.inout, .inout], [], [.inout, .inout]])
   }
 

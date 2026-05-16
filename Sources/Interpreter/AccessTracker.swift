@@ -68,7 +68,7 @@ struct AccessTracker<PathComponent: Regular> {
   /// Creates a tracker for `object` with an initial access of kind `a`.
   public init(_ object: PathComponent, with a: AccessEffect) {
     self.storage.append(Node(object))
-    storage[0].accessStack.append(Access(kind: a))
+    storage[0].accessStack.append(Access(effect: a))
   }
 
   /// An invalid access operation.
@@ -102,7 +102,7 @@ struct AccessTracker<PathComponent: Regular> {
     if !canBegin(a, at: i) {
       throw Error.overlappingExclusiveAccessExists(for: storage[i].component)
     }
-    let r = Access(kind: a)
+    let r = Access(effect: a)
     self.storage[i].accessStack.append(r)
     return r
   }
@@ -122,7 +122,7 @@ struct AccessTracker<PathComponent: Regular> {
   ///
   /// - Precondition: `a` is present at the part identified by `p`.
   public func requireIsActive(_ a: Access, in p: Path) throws {
-    if a.kind == .let { return }
+    if a.effect == .let { return }
 
     let i = nodeIndex(a, in: p)
     if !storage[i].children.isEmpty || storage[i].accessStack.last != a {
@@ -221,7 +221,7 @@ struct AccessTracker<PathComponent: Regular> {
     if a == .let {
       return storage[i].children.allSatisfy {
         subtree(at: $0) {
-          storage[$0].accessStack.first?.kind == .let
+          storage[$0].accessStack.first?.effect == .let
         }
       }
     } else {

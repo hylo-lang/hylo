@@ -59,7 +59,7 @@ struct MemorySafetyValidator {
 
   /// Starts an access of type `k` at `p`.
   public mutating func beginAccess(_ k: AccessEffect, at p: Memory.Place) throws -> Access {
-    if isZeroSized(p) { return Access(kind: k) }
+    if isZeroSized(p) { return Access(effect: k) }
 
     if typeBindings.region(enclosing: p.offset) == nil {
       if k != .set {
@@ -97,9 +97,9 @@ struct MemorySafetyValidator {
     if isZeroSized(p) { return }
 
     let ps = try path(to: p.type, at: p.offset)
-    if a.kind != .sink {
+    if a.effect != .sink {
       if !composedRegions.isComplete(p) {
-        throw Error.endAccessToIncomplete(p, kind: a.kind)
+        throw Error.endAccessToIncomplete(p, kind: a.effect)
       }
     } else {
       composedRegions.decomposeSubtree(of: p)
@@ -113,7 +113,7 @@ struct MemorySafetyValidator {
 
     let ps = try path(to: p.type, at: p.offset)
     let i = regionAccesses[ps.first!]!.accesses(along: ps.dropFirst()).lastIndex {
-      $0.contains { $0.kind == .sink }
+      $0.contains { $0.effect == .sink }
     }!  // unwrap as every allocation base has sink access.
     composedRegions.compose(ps.last!.type, at: ps.last!.startOffset)
     composedRegions.composeUpwards(along: ps[i...])
