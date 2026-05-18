@@ -50,13 +50,17 @@ public struct Memory {
 
     /// A region within an `Allocation`, identified by a starting offset
     /// and the type layout associated with that location.
-    public struct TypedRegion: Regular {
+    public struct TypedRegion: Regular, Comparable {
 
       /// The offset from the beginning `self`.
       let offset: Offset
 
       /// The type describing the layout of the region starting at `offset`.
       let type: AnyType
+
+      public static func < (lhs: Self, rhs: Self) -> Bool {
+        lhs.offset < rhs.offset
+      }
 
     }
 

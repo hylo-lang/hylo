@@ -12,7 +12,7 @@ import FrontEnd
 ///  - Accesses are active when they are created.
 ///  - If `x` is an active exclusive access (`sink`, `set`, or `inout`) of an
 ///    object `y`, no other access that includes `y` is active.
-struct AccessTracker<PathComponent: Regular> {
+struct AccessTracker<PathComponent: Regular & Comparable> {
 
   // The object `(b: (c: C, d: D), f: F)` is represented as:
   //             root
@@ -143,9 +143,7 @@ struct AccessTracker<PathComponent: Regular> {
   private mutating func demandParts(_ p: Path) -> PartID {
     var i = 0
     for c in p {
-      i =
-        storage[i].subparts.first { storage[$0].step == c }
-        ?? addChild(c, to: i)
+      i = part(reachedBy: c, from: i) ?? addChild(c, to: i)
     }
     return i
   }
@@ -155,7 +153,7 @@ struct AccessTracker<PathComponent: Regular> {
     var i = 0
     for c in p {
       if storage[i].associatedAccesses.contains(a) { break }
-      i = storage[i].subparts.first(where: { storage[$0].step == c })!
+      i = part(reachedBy: c, from: i)!
     }
     return i
   }
@@ -168,7 +166,7 @@ struct AccessTracker<PathComponent: Regular> {
   private func partIDs(_ p: Path) -> [PartID] {
     var r = [0]
     for c in p {
-      guard let i = storage[r.last!].subparts.first(where: { storage[$0].step == c })
+      guard let i = part(reachedBy: c, from: r.last!)
       else { break }
       r.append(i)
     }
@@ -188,7 +186,8 @@ struct AccessTracker<PathComponent: Regular> {
       storage.append(Part(c))
     }
 
-    storage[i].subparts.append(r)
+    let j = storage[i].subparts.partitioningIndex { storage[$0].step >= c }
+    storage[i].subparts.insert(r, at: j)
     return r
   }
 
@@ -231,4 +230,10 @@ struct AccessTracker<PathComponent: Regular> {
     }
   }
 
+  /// Returns the immediate subpart of `i` reached by `step`, if any.
+  private func part(reachedBy step: PathComponent, from i: PartID) -> PartID? {
+    let j = storage[i].subparts.partitioningIndex { storage[$0].step >= step }
+    if j == storage[i].subparts.endIndex { return nil }
+    return storage[i].subparts[j]
+  }
 }
