@@ -15,9 +15,9 @@ struct MemorySafetyValidator {
     case noTypeBound(at: Memory.Address)
     case notContained(Memory.Place, in: Memory.Place)
     case readFromIncomplete(Memory.Place)
-    case accessToIncomplete(Memory.Place, kind: AccessEffect)
+    case accessToIncomplete(Memory.Place, capability: AccessEffect)
     case setAccessToPartiallyComplete(Memory.Place)
-    case endAccessToIncomplete(Memory.Place, kind: AccessEffect)
+    case endAccessToIncomplete(Memory.Place, capability: AccessEffect)
   }
 
   /// A region within an `Allocation`, identified by a starting offset
@@ -65,7 +65,7 @@ struct MemorySafetyValidator {
     let ps = try path(to: p.type, at: p.offset, in: a, typeLayouts: &l)
 
     if k != .set && !composedRegions.isComplete(p.typedRegion, typeLayouts: &l) {
-      throw Error.accessToIncomplete(p, kind: k)
+      throw Error.accessToIncomplete(p, capability: k)
     }
     if k == .set && !composedRegions.isFullyUninitialized(p.typedRegion, typeLayouts: &l) {
       throw Error.setAccessToPartiallyComplete(p)
@@ -98,7 +98,7 @@ struct MemorySafetyValidator {
     let ps = try path(to: p.type, at: p.offset, in: m, typeLayouts: &l)
     if a.effect != .sink {
       if !composedRegions.isComplete(p.typedRegion, typeLayouts: &l) {
-        throw Error.endAccessToIncomplete(p, kind: a.effect)
+        throw Error.endAccessToIncomplete(p, capability: a.effect)
       }
     } else {
       composedRegions.decomposeSubtree(of: p.typedRegion, typeLayouts: &l)

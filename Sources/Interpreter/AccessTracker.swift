@@ -62,7 +62,7 @@ struct AccessTracker<PathComponent: Regular> {
   /// IDs of reusable entries in `storage`.
   private var freeNodes: [PartID] = []
 
-  /// Creates a tracker for `object` with an initial access of kind `c`.
+  /// Creates a tracker for `object` with an initial access having capability `c`.
   public init(_ object: PathComponent, capability c: AccessEffect) {
     self.storage.append(Part(object))
     storage[0].associatedAccesses.append(Access(effect: c))
