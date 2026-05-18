@@ -22,7 +22,7 @@ struct ComposedRegions {
   /// A position in some allocation.
   public typealias Offset = ComposedRegion.Offset
 
-  /// The composed regions, in ascending order based on `offset`.
+  /// Non-overlapping set of composed regions, in ascending order based on `offset`.
   private var composedRegions: [ComposedRegion] = []
 
   /// Returns the region enclosing `a`.
