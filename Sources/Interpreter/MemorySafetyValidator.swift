@@ -59,7 +59,7 @@ struct MemorySafetyValidator {
       }
       try typeBindings.bind(p.type, at: p.offset, in: a, typeLayouts: &l)
       let r = TypedRegion(offset: p.offset, type: p.type)
-      regionAccesses[r] = .init(r, with: .sink)
+      regionAccesses[r] = .init(r, capability: .sink)
     }
 
     let ps = try path(to: p.type, at: p.offset, in: a, typeLayouts: &l)
