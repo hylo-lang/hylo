@@ -36,7 +36,7 @@ struct MemorySafetyValidator {
   /// Allocation whose access is being validated by `self`.
   public var allocation: Memory.Allocation.ID
 
-  /// Creates and instance of validator for `allocation`.
+  /// Creates an instance of validator to enforce memory safety for `allocation`.
   public init(_ allocation: Memory.Allocation.ID) {
     self.allocation = allocation
   }
