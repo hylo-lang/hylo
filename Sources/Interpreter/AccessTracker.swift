@@ -20,16 +20,16 @@ struct AccessTracker<PathComponent: Regular> {
   //           b      f
   //         /   \
   //        c     d
-  // where each node has list of accesses it currently has.
+  // where each part has list of accesses it currently has.
 
   // Class invariants:
-  //   1. Every node has at least one access or one child.
+  //   1. Every part has at least one access or one child.
   //
   //   2. A `let` access is always active.
   //
   //   3. An `inout`/`set`/`sink` access is active iff:
-  //      - it's the last element of `accessStack` of the corresponding node, and
-  //      - the node has no descendants.
+  //      - it's the last element of `associatedAccesses` of the corresponding part, and
+  //      - the part has no descendants.
 
   /// A subobject together with its associated accesses and immediate subparts.
   private struct Part {
@@ -60,7 +60,7 @@ struct AccessTracker<PathComponent: Regular> {
   private typealias PartID = Int
 
   /// IDs of reusable entries in `storage`.
-  private var freeNodes: [PartID] = []
+  private var freeParts: [PartID] = []
 
   /// Creates a tracker for `object` with an initial access having capability `c`.
   public init(_ object: PathComponent, capability c: AccessEffect) {
@@ -90,14 +90,14 @@ struct AccessTracker<PathComponent: Regular> {
 
   /// Starts a new access having capability `a` at `p`.
   public mutating func begin(_ a: AccessEffect, at p: Path) throws -> Access {
-    let n = demandNodes(for: p)
+    let n = demandParts(p)
     guard let r = begin(a, at: n) else {
       throw Error.overlappingExclusiveAccess(p)
     }
     return r
   }
 
-  /// Starts and returns new access having capability `a` for node at `i`;
+  /// Starts and returns new access having capability `a` for part at `i`;
   /// returns nil in case of error.
   private mutating func begin(_ a: AccessEffect, at i: PartID) -> Access? {
     if !canBegin(a, at: i) {
@@ -114,7 +114,7 @@ struct AccessTracker<PathComponent: Regular> {
   public mutating func end(_ a: Access, at p: Path) throws {
     try requireIsActive(a, in: p)
 
-    let ns = nodeIDs(p)
+    let ns = partIDs(p)
     storage[ns.last!].associatedAccesses.removeAll { $0 == a }
     removeEmptySuffix(from: ns)
   }
@@ -125,7 +125,7 @@ struct AccessTracker<PathComponent: Regular> {
   public func requireIsActive(_ a: Access, in p: Path) throws {
     if a.effect == .let { return }
 
-    let i = firstNode(in: p, containing: a)
+    let i = firstPart(in: p, containing: a)
     if !storage[i].subparts.isEmpty || storage[i].associatedAccesses.last != a {
       throw Error.overlappingExclusiveAccess(p)
     }
@@ -135,12 +135,12 @@ struct AccessTracker<PathComponent: Regular> {
   ///
   /// - Precondition: `p` corresponds to a valid path.
   public func accesses(along p: Path) -> [[Access]] {
-    nodeIDs(p).map { storage[$0].associatedAccesses }
+    partIDs(p).map { storage[$0].associatedAccesses }
   }
 
-  /// Returns the node corresponding to path `p`, creating any missing
-  /// intermediate nodes along the path if needed.
-  private mutating func demandNodes(for p: Path) -> PartID {
+  /// Returns the part corresponding to path `p`, creating any missing
+  /// intermediate parts along the path if needed.
+  private mutating func demandParts(_ p: Path) -> PartID {
     var i = 0
     for c in p {
       i =
@@ -150,8 +150,8 @@ struct AccessTracker<PathComponent: Regular> {
     return i
   }
 
-  /// Returns the identity of the first node along `p` that contains `a`.
-  private func firstNode(in p: Path, containing a: Access) -> PartID {
+  /// Returns the identity of the first part along `p` that contains `a`.
+  private func firstPart(in p: Path, containing a: Access) -> PartID {
     var i = 0
     for c in p {
       if storage[i].associatedAccesses.contains(a) { break }
@@ -160,12 +160,12 @@ struct AccessTracker<PathComponent: Regular> {
     return i
   }
 
-  /// Returns the `ID`s of nodes along the longest existing prefix of `p`,
+  /// Returns the `ID`s of parts along the longest existing prefix of `p`,
   /// starting from the root.
   ///
-  /// The returned array always begins with ID of root node and has length equal
+  /// The returned array always begins with ID of root part and has length equal
   /// to the number of matched path components plus one.
-  private func nodeIDs(_ p: Path) -> [PartID] {
+  private func partIDs(_ p: Path) -> [PartID] {
     var r = [0]
     for c in p {
       guard let i = storage[r.last!].subparts.first(where: { storage[$0].step == c })
@@ -175,12 +175,12 @@ struct AccessTracker<PathComponent: Regular> {
     return r
   }
 
-  /// Adds `c` as a child to the `i`th node and returns identity of node corresponding
+  /// Adds `c` as a child to the `i`th part and returns identity of part corresponding
   /// to `c`.
   private mutating func addChild(_ c: PathComponent, to i: PartID) -> PartID {
     let r: PartID
 
-    if let last = freeNodes.popLast() {
+    if let last = freeParts.popLast() {
       r = last
       storage[r] = Part(c)
     } else {
@@ -192,7 +192,7 @@ struct AccessTracker<PathComponent: Regular> {
     return r
   }
 
-  /// Returns true iff all nodes in subtree at `i` satisfy `predicate`.
+  /// Returns true iff all parts in subtree at `i` satisfy `predicate`.
   private func subtree(
     at i: PartID,
     satisfies predicate: (PartID) throws -> Bool
@@ -203,7 +203,7 @@ struct AccessTracker<PathComponent: Regular> {
     })
   }
 
-  /// Removes the maximal suffix of `p` consisting of nodes that have neither
+  /// Removes the maximal suffix of `p` consisting of parts that have neither
   /// active accesses nor children.
   private mutating func removeEmptySuffix(from p: [PartID]) {
     var previousRemoved: PartID? = nil
@@ -212,7 +212,7 @@ struct AccessTracker<PathComponent: Regular> {
       if !storage[i].associatedAccesses.isEmpty || !storage[i].subparts.isEmpty {
         break
       }
-      freeNodes.append(i)
+      freeParts.append(i)
       previousRemoved = i
     }
   }
