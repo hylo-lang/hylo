@@ -1,5 +1,5 @@
-import Utils
 import FrontEnd
+import Utils
 
 /// A record of accesses to an object and its subobjects, where
 /// subobjects are identified by paths of `PathComponent` values.
@@ -39,7 +39,7 @@ struct AccessTracker<PathComponent: Regular & Comparable> {
 
     /// Stack of accesses in creation order, where `let` accesses are always
     /// active and other accesses are active only at the top of the stack.
-    var associatedAccesses: [Access]
+    var associatedAccesses: [Access<PathComponent>]
 
     /// IDs of immediate subparts in global parts storage.
     var subparts: [PartID]
@@ -65,7 +65,7 @@ struct AccessTracker<PathComponent: Regular & Comparable> {
   /// Creates a tracker for `object` with an initial access having capability `c`.
   public init(_ object: PathComponent, capability c: AccessEffect) {
     self.storage.append(Part(object))
-    storage[0].associatedAccesses.append(Access(effect: c))
+    storage[0].associatedAccesses.append(Access<PathComponent>(to: object, effect: c))
   }
 
   /// An invalid access operation.
@@ -89,7 +89,7 @@ struct AccessTracker<PathComponent: Regular & Comparable> {
   public typealias Path = ArraySlice<PathComponent>
 
   /// Starts a new access having capability `a` at `p`.
-  public mutating func begin(_ a: AccessEffect, at p: Path) throws -> Access {
+  public mutating func begin(_ a: AccessEffect, at p: Path) throws -> Access<PathComponent> {
     let n = demandParts(p)
     guard let r = begin(a, at: n) else {
       throw Error.overlappingExclusiveAccess(p)
@@ -99,11 +99,11 @@ struct AccessTracker<PathComponent: Regular & Comparable> {
 
   /// Starts and returns new access having capability `a` for part at `i`;
   /// returns nil in case of error.
-  private mutating func begin(_ a: AccessEffect, at i: PartID) -> Access? {
+  private mutating func begin(_ a: AccessEffect, at i: PartID) -> Access<PathComponent>? {
     if !canBegin(a, at: i) {
       return nil
     }
-    let r = Access(effect: a)
+    let r = Access<PathComponent>(to: storage[i].step, effect: a)
     self.storage[i].associatedAccesses.append(r)
     return r
   }
@@ -111,7 +111,7 @@ struct AccessTracker<PathComponent: Regular & Comparable> {
   /// Ends `a` at `p`.
   ///
   /// - Precondition: `a` is present at the part identified by `p`.
-  public mutating func end(_ a: Access, at p: Path) throws {
+  public mutating func end(_ a: Access<PathComponent>, at p: Path) throws {
     try requireIsActive(a, in: p)
 
     let ns = partIDs(p)
@@ -122,7 +122,7 @@ struct AccessTracker<PathComponent: Regular & Comparable> {
   /// Throws iff `a` at `p` is not active.
   ///
   /// - Precondition: `a` is present at the part identified by `p`.
-  public func requireIsActive(_ a: Access, in p: Path) throws {
+  public func requireIsActive(_ a: Access<PathComponent>, in p: Path) throws {
     if a.effect == .let { return }
 
     let i = firstPart(in: p, containing: a)
@@ -134,7 +134,7 @@ struct AccessTracker<PathComponent: Regular & Comparable> {
   /// Returns the accesses encountered along the path `p`, including the root.
   ///
   /// - Precondition: `p` corresponds to a valid path.
-  public func accesses(along p: Path) -> [[Access]] {
+  public func accesses(along p: Path) -> [[Access<PathComponent>]] {
     partIDs(p).map { storage[$0].associatedAccesses }
   }
 
@@ -149,7 +149,7 @@ struct AccessTracker<PathComponent: Regular & Comparable> {
   }
 
   /// Returns the identity of the first part along `p` that contains `a`.
-  private func firstPart(in p: Path, containing a: Access) -> PartID {
+  private func firstPart(in p: Path, containing a: Access<PathComponent>) -> PartID {
     var i = 0
     for c in p {
       if storage[i].associatedAccesses.contains(a) { break }
@@ -198,8 +198,8 @@ struct AccessTracker<PathComponent: Regular & Comparable> {
   ) rethrows -> Bool {
     try predicate(i)
       && (try storage[i].subparts.allSatisfy {
-      try subtree(at: $0, satisfies: predicate)
-    })
+        try subtree(at: $0, satisfies: predicate)
+      })
   }
 
   /// Removes the maximal suffix of `p` consisting of parts that have neither

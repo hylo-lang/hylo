@@ -47,11 +47,11 @@ struct MemorySafetyValidator {
   public mutating func beginAccess(
     _ k: AccessEffect, at p: Memory.Place,
     in a: Memory.Allocation, typeLayouts l: inout TypeLayoutCache
-  ) throws -> Access {
+  ) throws -> Access<TypedRegion> {
     precondition(allocation == a.id)
     precondition(allocation == p.allocation)
 
-    if isZeroSized(p, typeLayouts: &l) { return Access(effect: k) }
+    if isZeroSized(p, typeLayouts: &l) { return Access<TypedRegion>(to: p.typedRegion, effect: k) }
 
     if typeBindings.region(enclosing: p.offset, typeLayouts: &l) == nil {
       if k != .set {
@@ -87,7 +87,7 @@ struct MemorySafetyValidator {
   ///
   /// - Postcondition: Provides strong exception safety guarantees.
   public mutating func endAccess(
-    _ a: Access, at p: Memory.Place,
+    _ a: Access<TypedRegion>, at p: Memory.Place,
     in m: Memory.Allocation, typeLayouts l: inout TypeLayoutCache
   ) throws {
     precondition(allocation == m.id)
@@ -130,7 +130,7 @@ struct MemorySafetyValidator {
   /// - Precondition: Access `a` exists at `p`.
   /// - Precondition: All allocations follow type layouts from `l`.
   public func requireCanRead(
-    from p: Memory.Place, using a: Access,
+    from p: Memory.Place, using a: Access<TypedRegion>,
     in m: Memory.Allocation, typeLayouts l: inout TypeLayoutCache
   ) throws {
     precondition(allocation == m.id)
@@ -150,7 +150,7 @@ struct MemorySafetyValidator {
   /// - Precondition: Access `a` exists at `p`.
   /// - Precondition: All allocations follow type layouts from `l`.
   public func requireCanWrite(
-    to p: Memory.Place, using a: Access,
+    to p: Memory.Place, using a: Access<TypedRegion>,
     in m: Memory.Allocation, typeLayouts l: inout TypeLayoutCache
   ) throws {
     precondition(allocation == m.id)

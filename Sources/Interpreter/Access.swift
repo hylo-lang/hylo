@@ -2,8 +2,8 @@ import FrontEnd
 import Foundation
 import Utils
 
-/// A unique access participating in access control.
-public struct Access: Regular {
+/// An access to a `Region` occuring during execution.
+public struct Access<Region: Regular>: Regular {
 
   /// A unique `Access` identifier.
   public typealias ID = UUID
@@ -11,12 +11,16 @@ public struct Access: Regular {
   /// A unique `Access` identifier.
   public let id: ID
 
-  /// Effect of access.
+  /// The associated permissions and obligations.
   public let effect: AccessEffect
 
-  /// Creates an instance of access of effect `e`.
-  public init(effect e: AccessEffect) {
+  /// The location to which access applies.
+  public let location: Region
+
+  /// Creates an instance of access to `r` having effect `e`.
+  public init(to r: Region, effect e: AccessEffect) {
     id = UUID()
+    location = r
     effect = e
   }
 
