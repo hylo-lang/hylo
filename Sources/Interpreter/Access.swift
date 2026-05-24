@@ -2,7 +2,7 @@ import FrontEnd
 import Foundation
 import Utils
 
-/// An access to a `Region` occuring during execution.
+/// An access to a `Region` occurring during execution.
 public struct Access<Region: Regular>: Regular {
 
   /// A unique `Access` identifier.
