@@ -31,7 +31,7 @@ struct MemorySafetyValidator {
   private var composedRegions: ComposedRegions = ComposedRegions()
 
   /// Accesses for each region in `typeBindings`.
-  private var regionAccesses: [TypedRegion: AccessTracker<TypedRegion>] = [:]
+  private var regionAccesses: [TypedRegion: AccessValidator<TypedRegion>] = [:]
 
   /// Allocation whose access is being validated by `self`.
   public var allocation: Memory.Allocation.ID

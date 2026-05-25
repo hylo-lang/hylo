@@ -12,7 +12,7 @@ final class MemorySafetyValidatorTests: XCTestCase {
   let nonSetAccesses: [AccessEffect] = [.let, .inout, .sink]
 
   typealias Error = MemorySafetyValidator.Error
-  typealias AccessTrackerError = AccessTracker<Memory.Allocation.TypedRegion>.Error
+  typealias AccessValidatorError = AccessValidator<Memory.Allocation.TypedRegion>.Error
 
   func testBindingTypeToInvalidMemoryRegion() throws {
     var m = Memory(typesIn: TypedProgram.empty, for: UnrealABI())
@@ -266,30 +266,30 @@ final class MemorySafetyValidatorTests: XCTestCase {
 
     let w = try v.beginAccess(.sink, at: whole, in: m[a], typeLayouts: &m.typeLayouts)
     let w1 = try v.beginAccess(.sink, at: whole, in: m[a], typeLayouts: &m.typeLayouts)
-    check(throws: AccessTrackerError.overlappingExclusiveAccess([])) {
+    check(throws: AccessValidatorError.overlappingExclusiveAccess([])) {
       try v.requireCanRead(from: whole, using: w, in: m[a], typeLayouts: &m.typeLayouts)
     }
-    check(throws: AccessTrackerError.overlappingExclusiveAccess([firstPart.typedRegion])) {
+    check(throws: AccessValidatorError.overlappingExclusiveAccess([firstPart.typedRegion])) {
       try v.requireCanRead(from: firstPart, using: w, in: m[a], typeLayouts: &m.typeLayouts)
     }
     try v.requireCanRead(from: whole, using: w1, in: m[a], typeLayouts: &m.typeLayouts)
     try v.requireCanRead(from: firstPart, using: w1, in: m[a], typeLayouts: &m.typeLayouts)
     let f = try v.beginAccess(.sink, at: firstPart, in: m[a], typeLayouts: &m.typeLayouts)
-    check(throws: AccessTrackerError.overlappingExclusiveAccess([firstPart.typedRegion])) {
+    check(throws: AccessValidatorError.overlappingExclusiveAccess([firstPart.typedRegion])) {
       try v.requireCanRead(from: firstPart, using: w, in: m[a], typeLayouts: &m.typeLayouts)
     }
-    check(throws: AccessTrackerError.overlappingExclusiveAccess([firstPart.typedRegion])) {
+    check(throws: AccessValidatorError.overlappingExclusiveAccess([firstPart.typedRegion])) {
       try v.requireCanRead(from: firstPart, using: w1, in: m[a], typeLayouts: &m.typeLayouts)
     }
     try v.requireCanRead(from: firstPart, using: f, in: m[a], typeLayouts: &m.typeLayouts)
     let f1 = try v.beginAccess(.sink, at: firstPart, in: m[a], typeLayouts: &m.typeLayouts)
-    check(throws: AccessTrackerError.overlappingExclusiveAccess([firstPart.typedRegion])) {
+    check(throws: AccessValidatorError.overlappingExclusiveAccess([firstPart.typedRegion])) {
       try v.requireCanRead(from: firstPart, using: w, in: m[a], typeLayouts: &m.typeLayouts)
     }
-    check(throws: AccessTrackerError.overlappingExclusiveAccess([firstPart.typedRegion])) {
+    check(throws: AccessValidatorError.overlappingExclusiveAccess([firstPart.typedRegion])) {
       try v.requireCanRead(from: firstPart, using: w1, in: m[a], typeLayouts: &m.typeLayouts)
     }
-    check(throws: AccessTrackerError.overlappingExclusiveAccess([firstPart.typedRegion])) {
+    check(throws: AccessValidatorError.overlappingExclusiveAccess([firstPart.typedRegion])) {
       try v.requireCanRead(from: firstPart, using: f, in: m[a], typeLayouts: &m.typeLayouts)
     }
     try v.requireCanRead(from: firstPart, using: f1, in: m[a], typeLayouts: &m.typeLayouts)
@@ -341,30 +341,30 @@ final class MemorySafetyValidatorTests: XCTestCase {
 
     let w = try v.beginAccess(.sink, at: whole, in: m[a], typeLayouts: &m.typeLayouts)
     let w1 = try v.beginAccess(.sink, at: whole, in: m[a], typeLayouts: &m.typeLayouts)
-    check(throws: AccessTrackerError.overlappingExclusiveAccess([])) {
+    check(throws: AccessValidatorError.overlappingExclusiveAccess([])) {
       try v.requireCanWrite(to: whole, using: w, in: m[a], typeLayouts: &m.typeLayouts)
     }
-    check(throws: AccessTrackerError.overlappingExclusiveAccess([firstPart.typedRegion])) {
+    check(throws: AccessValidatorError.overlappingExclusiveAccess([firstPart.typedRegion])) {
       try v.requireCanWrite(to: firstPart, using: w, in: m[a], typeLayouts: &m.typeLayouts)
     }
     try v.requireCanWrite(to: whole, using: w1, in: m[a], typeLayouts: &m.typeLayouts)
     try v.requireCanWrite(to: firstPart, using: w1, in: m[a], typeLayouts: &m.typeLayouts)
     let f = try v.beginAccess(.sink, at: firstPart, in: m[a], typeLayouts: &m.typeLayouts)
-    check(throws: AccessTrackerError.overlappingExclusiveAccess([firstPart.typedRegion])) {
+    check(throws: AccessValidatorError.overlappingExclusiveAccess([firstPart.typedRegion])) {
       try v.requireCanWrite(to: firstPart, using: w, in: m[a], typeLayouts: &m.typeLayouts)
     }
-    check(throws: AccessTrackerError.overlappingExclusiveAccess([firstPart.typedRegion])) {
+    check(throws: AccessValidatorError.overlappingExclusiveAccess([firstPart.typedRegion])) {
       try v.requireCanWrite(to: firstPart, using: w1, in: m[a], typeLayouts: &m.typeLayouts)
     }
     try v.requireCanWrite(to: firstPart, using: f, in: m[a], typeLayouts: &m.typeLayouts)
     let f1 = try v.beginAccess(.sink, at: firstPart, in: m[a], typeLayouts: &m.typeLayouts)
-    check(throws: AccessTrackerError.overlappingExclusiveAccess([firstPart.typedRegion])) {
+    check(throws: AccessValidatorError.overlappingExclusiveAccess([firstPart.typedRegion])) {
       try v.requireCanWrite(to: firstPart, using: w, in: m[a], typeLayouts: &m.typeLayouts)
     }
-    check(throws: AccessTrackerError.overlappingExclusiveAccess([firstPart.typedRegion])) {
+    check(throws: AccessValidatorError.overlappingExclusiveAccess([firstPart.typedRegion])) {
       try v.requireCanWrite(to: firstPart, using: w1, in: m[a], typeLayouts: &m.typeLayouts)
     }
-    check(throws: AccessTrackerError.overlappingExclusiveAccess([firstPart.typedRegion])) {
+    check(throws: AccessValidatorError.overlappingExclusiveAccess([firstPart.typedRegion])) {
       try v.requireCanWrite(to: firstPart, using: f, in: m[a], typeLayouts: &m.typeLayouts)
     }
     try v.requireCanWrite(to: firstPart, using: f1, in: m[a], typeLayouts: &m.typeLayouts)

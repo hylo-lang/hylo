@@ -7,13 +7,13 @@ import XCTest
 
 extension String: Regular {}
 
-final class AccessTrackerTests: XCTestCase {
+final class AccessValidatorTests: XCTestCase {
 
-  typealias Error = AccessTracker<String>.Error
+  typealias Error = AccessValidator<String>.Error
 
   func testBeginAccessWhenSubPartProjectionDoesNotExists() throws {
     for p in [.let, .inout, .sink, .set] as [AccessEffect] {
-      var t = AccessTracker("a", capability: .sink)
+      var t = AccessValidator("a", capability: .sink)
       _ = try t.begin(p, at: ["b"])
       for p in [.let, .inout, .sink, .set] as [AccessEffect] {
         _ = try t.begin(p, at: ["b", "x"])
@@ -24,7 +24,7 @@ final class AccessTrackerTests: XCTestCase {
 
   func testInvalidBeginAccessOnRootNodeWhenSubPartProjectionExists() throws {
     for p in [.inout, .sink, .set] as [AccessEffect] {
-      var t = AccessTracker("a", capability: p)
+      var t = AccessValidator("a", capability: p)
       _ = try t.begin(.sink, at: ["b"])
       for a in [.let, .inout, .sink, .set] as [AccessEffect] {
         check(throws: Error.overlappingExclusiveAccess([])) {
@@ -36,7 +36,7 @@ final class AccessTrackerTests: XCTestCase {
 
   func testInvalidBeginAccessOnNonRootNodeWhenSubPartProjectionExists() throws {
     for p in [.inout, .sink, .set] as [AccessEffect] {
-      var t = AccessTracker("a", capability: p)
+      var t = AccessValidator("a", capability: p)
       _ = try t.begin(.sink, at: ["b"])
       _ = try t.begin(.sink, at: ["b", "p"])
       for a in [.let, .inout, .sink, .set] as [AccessEffect] {
@@ -48,7 +48,7 @@ final class AccessTrackerTests: XCTestCase {
   }
 
   func testBeginAccessForLetAccessWhenSubPartProjectionExists() throws {
-    var t = AccessTracker("a", capability: .let)
+    var t = AccessValidator("a", capability: .let)
     _ = try t.begin(.let, at: ["b"])
     _ = try t.begin(.let, at: [])
     _ = try t.begin(.let, at: ["b", "p"])
@@ -58,7 +58,7 @@ final class AccessTrackerTests: XCTestCase {
 
   func testRequireIsActive() throws {
     for p in [.inout, .sink, .set] as [AccessEffect] {
-      var t = AccessTracker("a", capability: p)
+      var t = AccessValidator("a", capability: p)
       let a1 = try t.begin(p, at: ["b"])
       try t.requireIsActive(a1, in: ["b"])
       let a2 = try t.begin(p, at: ["b", "c"])
@@ -80,7 +80,7 @@ final class AccessTrackerTests: XCTestCase {
       try t.requireIsActive(a3, in: ["b", "c"])
     }
 
-    var t = AccessTracker("a", capability: .let)
+    var t = AccessValidator("a", capability: .let)
     let a1 = try t.begin(.let, at: ["b"])
     try t.requireIsActive(a1, in: ["b"])
     let a2 = try t.begin(.let, at: ["b", "c"])
@@ -98,7 +98,7 @@ final class AccessTrackerTests: XCTestCase {
 
   func testEndAccess() throws {
     for p in [.inout, .sink, .set] as [AccessEffect] {
-      var t = AccessTracker("a", capability: p)
+      var t = AccessValidator("a", capability: p)
       let a1 = try t.begin(p, at: ["b", "c"])
       let a2 = try t.begin(p, at: ["b", "c", "d"])
       let a3 = try t.begin(p, at: ["b", "c", "d"])
@@ -119,7 +119,7 @@ final class AccessTrackerTests: XCTestCase {
     }
 
     // Let access allows ending access in arbitrary order as all let access are always active.
-    var t = AccessTracker("a", capability: .let)
+    var t = AccessValidator("a", capability: .let)
     let a1 = try t.begin(.let, at: ["b", "c"])
     let a2 = try t.begin(.let, at: ["b", "c", "d"])
     let a3 = try t.begin(.let, at: ["b", "c", "d"])
@@ -133,7 +133,7 @@ final class AccessTrackerTests: XCTestCase {
   }
 
   func testCanObserveAccesses() throws {
-    var t = AccessTracker("a", capability: .inout)
+    var t = AccessValidator("a", capability: .inout)
     _ = try t.begin(.inout, at: [])
     _ = try t.begin(.inout, at: ["b"])
     _ = try t.begin(.let, at: ["b"])

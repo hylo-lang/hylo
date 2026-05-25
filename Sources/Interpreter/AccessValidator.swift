@@ -1,8 +1,8 @@
 import FrontEnd
 import Utils
 
-/// A record of accesses to an object and its subobjects, where
-/// subobjects are identified by paths of `PathComponent` values.
+/// Validates accesses to an object and its subobjects, where subobjects
+/// are identified by paths of `PathComponent` values.
 ///
 /// `PathComponent` describes one step in a path to a subobject. For example,
 /// components for a tuple might be field indices, while components for a
@@ -12,7 +12,7 @@ import Utils
 ///  - Accesses are active when they are created.
 ///  - If `x` is an active exclusive access (`sink`, `set`, or `inout`) of an
 ///    object `y`, no other access that includes `y` is active.
-struct AccessTracker<PathComponent: Regular & Comparable> {
+struct AccessValidator<PathComponent: Regular & Comparable> {
 
   // The object `(b: (c: C, d: D), f: F)` is represented as:
   //             root
