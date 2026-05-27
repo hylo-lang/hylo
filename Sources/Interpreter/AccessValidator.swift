@@ -181,6 +181,7 @@ struct AccessValidator<PathComponent: Regular & Comparable> {
   ) rethrows
     -> Bool
   {
+    // TODO: this is compute intensive task and would be really bad for performance.
     try predicate(p)
       && (try parts[p].subparts.allSatisfy {
         try allSubparts($0, satisfies: predicate)
@@ -207,6 +208,7 @@ struct AccessValidator<PathComponent: Regular & Comparable> {
   /// not conflict with active accesses in subparts of `p`.
   private func canBegin(_ e: AccessEffect, at p: PartID) -> Bool {
     if e == .let {
+      // TODO: this is compute intensive task and would be really bad for performance.
       return parts[p].subparts.allSatisfy {
         allSubparts($0) {
           parts[$0].accesses.first?.effect == .let
