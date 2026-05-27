@@ -11,6 +11,9 @@ concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
+env:
+  ACTIONS_RUNNER_DISABLE_NODE_MAGLEV: 1 # Workaround for https://github.com/SwiftyLab/setup-swift/issues/506
+
 jobs:
   prepare-draft-release:
     name: Prepare draft release
