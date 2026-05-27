@@ -27,7 +27,8 @@ struct ComposedRegions {
 
   /// Returns the region enclosing `a`.
   ///
-  /// - Precondition: Every allocations follow type layouts from `l`.
+  /// - Precondition: The composed regions in `self` are consistent
+  ///   with the type layouts provided by `l`.
   public func region(
     enclosing a: Offset, typeLayouts l: inout TypeLayoutCache
   ) -> ComposedRegion? {
@@ -37,7 +38,8 @@ struct ComposedRegions {
   /// Returns true iff initialization records starting at `o` for the parts
   /// of a `t` can be replaced with initialization record of `t` instance.
   ///
-  /// - Precondition: Every allocations follow type layouts from `l`.
+  /// - Precondition: The composed regions in `self` are consistent
+  ///   with the type layouts provided by `l`.
   /// - Precondition: `self` stores composed regions of `a`.
   public func canCompose(
     _ t: AnyType, at o: Offset, in a: Memory.Allocation, typeLayouts l: inout TypeLayoutCache
@@ -75,7 +77,8 @@ struct ComposedRegions {
   /// parts of a `t` instance with the initialization record for a
   /// `t` instance.
   ///
-  /// - Precondition: Every allocations follow type layouts from `l`.
+  /// - Precondition: The composed regions in `self` are consistent
+  ///   with the type layouts provided by `l`.
   /// - Precondition: `canCompose(t, at: a, &l)`.
   public mutating func compose(
     _ t: AnyType, at a: Offset, typeLayouts l: inout TypeLayoutCache
@@ -91,7 +94,8 @@ struct ComposedRegions {
   /// replaces it with parts of that instance and returns true;
   /// Otherwise, returns false.
   ///
-  /// - Precondition: Every allocations follow type layouts from `l`.
+  /// - Precondition: The composed regions in `self` are consistent
+  ///   with the type layouts provided by `l`.
   /// - Precondition: `self` stores composed regions of `a`.
   public mutating func tryDecompose(
     _ t: AnyType, at o: Offset, in a: Memory.Allocation, typeLayouts l: inout TypeLayoutCache
@@ -168,7 +172,8 @@ struct ComposedRegions {
 
   /// Returns end offset of `i`th composed region.
   ///
-  /// - Precondition: All allocations follow type layouts from `l`.
+  /// - Precondition: The composed regions in `self` are consistent
+  ///   with the type layouts provided by `l`.
   private func endOffset(
     _ i: Int, typeLayouts l: inout TypeLayoutCache
   ) -> Offset {
@@ -177,7 +182,8 @@ struct ComposedRegions {
 
   /// Returns index of region enclosing `a`.
   ///
-  /// - Precondition: All allocations follow type layouts from `l`.
+  /// - Precondition: The composed regions in `self` are consistent
+  ///   with the type layouts provided by `l`.
   private func indexOfRegion(
     enclosing a: Offset, typeLayouts l: inout TypeLayoutCache
   ) -> Int? {
@@ -197,11 +203,9 @@ extension ComposedRegions {
 
   /// Returns true iff object at `p` is complete.
   ///
-  /// - Precondition: For every composed region `r`, one of the following should hold:
-  ///     - `r` and `p` are disjoint, or
-  ///     - `r` fully contains `p`, or
-  ///     - `r` is fully contained within `p`.
-  /// - Precondition: All allocations follow type layouts from `l`.
+  /// - Precondition: `p` doesn't partially overlap with any composed region in `self`.
+  /// - Precondition: The composed regions in `self` are consistent
+  ///   with the type layouts provided by `l`.
   public func isComplete(
     _ p: Memory.Allocation.TypedRegion, typeLayouts l: inout TypeLayoutCache
   ) -> Bool {
@@ -214,11 +218,9 @@ extension ComposedRegions {
 
   /// Returns true iff object at `p` is fully uninitialized.
   ///
-  /// - Precondition: For every composed region `r`, one of the following should hold:
-  ///     - `r` and `p` are disjoint, or
-  ///     - `r` fully contains `p`, or
-  ///     - `r` is fully contained within `p`.
-  /// - Precondition: All allocations follow type layouts from `l`.
+  /// - Precondition: `p` doesn't partially overlap with any composed region in `self`.
+  /// - Precondition: The composed regions in `self` are consistent
+  ///   with the type layouts provided by `l`.
   public func isFullyUninitialized(
     _ p: Memory.Allocation.TypedRegion, typeLayouts l: inout TypeLayoutCache
   ) -> Bool {
@@ -234,14 +236,14 @@ extension ComposedRegions {
     return true
   }
 
-  /// Removes all composed regions contained in `p`.
+  /// Removes all composed regions contained within `p`.
   ///
-  /// - Precondition: For every composed region `r`, one of the following should hold:
-  ///     - `r` and `p` are disjoint, or
-  ///     - `r` is fully contained within `p`.
-  /// - Precondition: All allocations follow type layouts from `l`.
-  public mutating func decomposeSubtree(
-    of p: Memory.Allocation.TypedRegion, typeLayouts l: inout TypeLayoutCache
+  /// - Precondition: Every composed region in `self` is either
+  ///   disjoint from `p` or fully contained within `p`.
+  /// - Precondition: The composed regions in `self` are consistent
+  ///   with the type layouts provided by `l`.
+  public mutating func removeRegions(
+    in p: Memory.Allocation.TypedRegion, typeLayouts l: inout TypeLayoutCache
   ) {
     let start = p.offset
     let end = start + l[p.type].size
@@ -252,23 +254,18 @@ extension ComposedRegions {
     composedRegions.removeSubrange(i..<j)
   }
 
-  /// Attempts to compose regions along `path` by moving upward toward the root.
+  /// Composes from the end of `regions` while composition remains possible.
   ///
-  /// Starting from the end of `path`, this operation repeatedly merges each
-  /// region into its enclosing context while composition remains possible.
-  ///
-  /// - Precondition: For every element `q` in `path` and every composed region `r`,
-  ///     one of the following holds:
-  ///     - `r` and `q` are disjoint, or
-  ///     - `r` fully contains `q`, or
-  ///     - `r` is fully contained within `q`.
+  /// - Precondition: Any element in `regions` doesn't partially overlap with any
+  ///   composed region in `self`.
   /// - Precondition: `self` stores composed regions of `a`.
-  /// - Precondition: All allocations follow type layouts from `l`.
+  /// - Precondition: The composed regions in `self` are consistent
+  ///   with the type layouts provided by `l`.
   public mutating func composeUpwards(
-    along path: some BidirectionalCollection<Memory.Allocation.TypedRegion>,
+    along regions: some BidirectionalCollection<Memory.Allocation.TypedRegion>,
     in a: Memory.Allocation, typeLayouts l: inout TypeLayoutCache
   ) {
-    for p in path.reversed() {
+    for p in regions.reversed() {
       let r = region(enclosing: p.offset, typeLayouts: &l)!
       if r.offset < p.offset || (r.offset == p.offset && r.type == p.type) {
         continue

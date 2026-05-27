@@ -101,7 +101,7 @@ struct MemorySafetyValidator {
         throw Error.endAccessToIncomplete(p, capability: a.effect)
       }
     } else {
-      composedRegions.decomposeSubtree(of: p.typedRegion, typeLayouts: &l)
+      composedRegions.removeRegions(in: p.typedRegion, typeLayouts: &l)
     }
     try regionAccesses[ps.first!]!.end(a, at: ps.dropFirst())
   }

@@ -167,7 +167,7 @@ final class ComposedRegionsTests: XCTestCase {
     c.compose(t, at: x, typeLayouts: &l)
     c.compose(i8, at: x + l[t].size, typeLayouts: &l)
 
-    c.decomposeSubtree(of: e, typeLayouts: &l)
+    c.removeRegions(in: e, typeLayouts: &l)
     XCTAssertEqual(c.region(enclosing: 0, typeLayouts: &l), .init(offset: 0, type: i8))
     XCTAssertEqual(c.region(enclosing: x, typeLayouts: &l), nil)
     XCTAssertEqual(c.region(enclosing: x + l[t].parts[0].offset, typeLayouts: &l), nil)
