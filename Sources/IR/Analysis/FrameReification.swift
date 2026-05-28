@@ -37,12 +37,12 @@ struct FrameReification {
     for i in region where !predicate(i) {
       // Check if this is used outside the region, and thus it must become frame-backed.
       if Self.isUsedOutsideRegion(i, in: f, region: regionElements) {
-        instructionMetadata.assignIfAbsent(forKey: i, InstructionReification(source: i, in: f))
+        instructionMetadata.assignValueIfAbsent(forKey: i, InstructionReification(source: i, in: f))
       }
 
       // Check if the definitions of the operands must become frame-backed.
-      for j in Self.operandsOutsideOfRegion(i, in: f, region: regionElements) where !predicate(j) {
-        instructionMetadata.assignIfAbsent(forKey: j, InstructionReification(source: j, in: f))
+      for j in Self.operands(of: i, outsideRegion: regionElements, in: f) where !predicate(j) {
+        instructionMetadata.assignValueIfAbsent(forKey: j, InstructionReification(source: j, in: f))
       }
     }
   }
