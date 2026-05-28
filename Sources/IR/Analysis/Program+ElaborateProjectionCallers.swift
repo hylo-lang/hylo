@@ -45,7 +45,7 @@ extension IR.Program {
     // Create the frame; one frame for the entire function.
     var e = FrameReification()
     for d in source.projectionCallingScopes(id: f) {
-      // Look only in regions that are plateau.
+      // Look only in regions that are part of the plateau.
       for r in d.plateauRegions {
         let s = d.splitInstruction(startingRegion: r)
         let a = d.instructions(region: r)

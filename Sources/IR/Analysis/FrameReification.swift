@@ -22,7 +22,8 @@ struct FrameReification {
   /// Reification metadata for instructions that must become frame-backed.
   fileprivate var instructionMetadata: [InstructionID: InstructionReification] = [:]
 
-  /// Collects instructions in `region` from `f` that must become frame-backed, excluding `ignored`.
+  /// Populates `instructionMetadata` with the instructions in `region` from `f` that have to be
+  /// frame-backed, excluding `ignored`.
   ///
   /// After this call, `instructionMetadata` contains all instructions from `region` that are used
   /// outside `region`, and all the instructions outside of `region` that are used by instructions
@@ -39,23 +40,23 @@ struct FrameReification {
         instructionMetadata.assignIfAbsent(forKey: i, InstructionReification(source: i, in: f))
       }
 
-      // Check if the defining instructions of operands must become frame-backed.
+      // Check if the definitions of the operands must become frame-backed.
       for j in Self.operandsOutsideOfRegion(i, in: f, region: regionElements) where !predicate(j) {
         instructionMetadata.assignIfAbsent(forKey: j, InstructionReification(source: j, in: f))
       }
     }
   }
 
-  /// Returns `true` if instruction `i` in `f` is used outside the region `r`.
+  /// Returns `true` iff the instruction `i`, which is in `f`, is used outside the region `r`.
   private static func isUsedOutsideRegion(
     _ i: InstructionID, in f: Function, region r: Set<InstructionID>
   ) -> Bool {
     f.allUses(of: i).contains(where: { (u) in !r.contains(u.user) })
   }
 
-  /// Returns the instructions outside `r` that define operands of `i` in `f`.
-  private static func operandsOutsideOfRegion(
-    _ i: InstructionID, in f: Function, region r: Set<InstructionID>
+  /// Returns the instructions outside `r` that define the operands of `i` in `f`.
+  private static func operands(
+    of i: InstructionID, outsideRegion r: Set<InstructionID>, in f: Function
   ) -> [InstructionID] {
     f[i].operands.compactMap({ (o) -> InstructionID? in
       switch o {
@@ -74,8 +75,8 @@ struct FrameReification {
 
 /// Reification metadata for a value that crosses region boundaries.
 ///
-/// If instruction `j` uses instruction `i` and they are in different regions,
-/// the storage associated with `i` gets reified in the frame.
+/// If instruction `j` uses instruction `i` and they are in different regions, the storage
+/// associated with `i` gets reified in the frame.
 ///
 /// Includes the subfield path to get to the storage of `i` from the frame, and the instruction
 /// that allocates the storage.
@@ -114,7 +115,7 @@ private struct InstructionReification {
         path.insert(contentsOf: s.subfield, at: 0)
         i = s.recordPlace.instruction!
       default:
-        fatalError("Unexpected instruction in storage trace: \(f[i])")
+        fatalError("unexpected instruction in storage trace: \(f[i])")
       }
     }
   }

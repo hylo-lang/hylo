@@ -24,7 +24,7 @@ extension Dictionary {
   ///
   /// - Returns `true` iff the value had to be inserted.
   @discardableResult
-  public mutating func assignIfAbsent(forKey k: Key, _ v: @autoclosure () -> Value) -> Bool {
+  public mutating func assignValueIfAbsent(forKey k: Key, _ v: @autoclosure () -> Value) -> Bool {
     if !keys.contains(k) { 
       self[k] = v()
       return true
