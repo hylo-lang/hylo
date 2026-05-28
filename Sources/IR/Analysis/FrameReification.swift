@@ -85,13 +85,14 @@ private struct InstructionReification {
   /// The ID of the instruction that must be reified in the frame.
   fileprivate let source: InstructionID
 
-  /// The subfield path to get to the storage of `id` from the frame, if any.
+  /// The subfield path to get to the storage of `source` from the frame; empty if `source` is a
+  /// storage instruction.
   fileprivate let subfield: RecordPath
 
   /// The instruction that allocates the storage.
   fileprivate var storageInstruction: InstructionID
 
-  /// Creates metadata for reifying `id` in the frame.
+  /// Creates metadata for reifying `source` in the frame.
   public init(source: InstructionID, in f: Function) {
     self.source = source
     (self.subfield, self.storageInstruction) = Self.storagePath(of: source, in: f)
