@@ -47,6 +47,7 @@ env:
   swift-version: '6.2.4'
   HYLO_LLVM_BUILD_RELEASE: 20251207-115516
   HYLO_LLVM_VERSION: '20.1.6'
+  ACTIONS_RUNNER_DISABLE_NODE_MAGLEV: 1 # Workaround for https://github.com/SwiftyLab/setup-swift/issues/506
 
 jobs:
   determine-version:
