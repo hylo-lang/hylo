@@ -37,11 +37,15 @@ struct AccessValidator<PathComponent: Regular & Comparable> {
     /// The immediate subparts.
     var subparts: [PartID]
 
+    /// Number of non-`let` accesses in `self`'s descendant parts.
+    var descendantExclusiveAccessCount: Int
+
     /// Creates an instance reached from its parent by `step`, having no accesses or subparts.
     init(_ step: PathComponent) {
       self.step = step
       self.accesses = []
       self.subparts = []
+      descendantExclusiveAccessCount = 0
     }
 
   }
@@ -85,6 +89,9 @@ struct AccessValidator<PathComponent: Regular & Comparable> {
     guard let r = begin(e, at: n) else {
       throw Error.overlappingExclusiveAccess(p)
     }
+    if e != .let {
+      incrementExclusiveAccessInAncestors(of: p)
+    }
     return r
   }
 
@@ -108,6 +115,9 @@ struct AccessValidator<PathComponent: Regular & Comparable> {
     let ns = partIDs(p)
     parts[ns.last!].accesses.removeAll { $0 == a }
     releaseMaximalEmptySuffix(ns)
+    if a.effect != .let {
+      decrementExclusiveAccessInAncestors(of: p)
+    }
   }
 
   /// Throws iff `a` at `p` is not active.
@@ -150,12 +160,8 @@ struct AccessValidator<PathComponent: Regular & Comparable> {
   /// The returned array always begins with ID of root part and has length equal
   /// to the number of matched path components plus one.
   private func partIDs(_ p: Path) -> [PartID] {
-    var r = [0]
-    for c in p {
-      guard let i = part(reachedBy: c, from: r.last!)
-      else { break }
-      r.append(i)
-    }
+    var r: [PartID] = []
+    forEachExistingPart(p) { r.append($0) }
     return r
   }
 
@@ -174,20 +180,6 @@ struct AccessValidator<PathComponent: Regular & Comparable> {
     let j = parts[p].subparts.partitioningIndex { parts[$0].step >= c }
     parts[p].subparts.insert(r, at: j)
     return r
-  }
-
-  /// Returns true iff all subparts of `p` including `p` satisfies `predicate`.
-  private func allSubparts(
-    _ p: PartID,
-    satisfies predicate: (PartID) throws -> Bool
-  ) rethrows
-    -> Bool
-  {
-    // TODO: this is compute intensive task and would be really bad for performance.
-    try predicate(p)
-      && (try parts[p].subparts.allSatisfy {
-        try allSubparts($0, satisfies: predicate)
-      })
   }
 
   /// Releases the maximal suffix of parts along `ps` that have neither
@@ -210,14 +202,22 @@ struct AccessValidator<PathComponent: Regular & Comparable> {
   /// not conflict with active accesses in subparts of `p`.
   private func canBegin(_ e: AccessEffect, at p: PartID) -> Bool {
     if e == .let {
-      // TODO: this is compute intensive task and would be really bad for performance.
-      return parts[p].subparts.allSatisfy {
-        allSubparts($0) {
-          parts[$0].accesses.first?.effect == .let
-        }
-      }
+      parts[p].descendantExclusiveAccessCount == 0
     } else {
-      return parts[p].subparts.isEmpty
+      parts[p].subparts.isEmpty
+    }
+  }
+
+  /// Calls `f` with each existing part along `p` in `Path` order, stopping at
+  /// the first missing part.
+  private func forEachExistingPart(_ p: Path, _ f: (PartID) -> ()) {
+    var i = 0
+    f(i)
+    for c in p {
+      guard let j = part(reachedBy: c, from: i)
+      else { break }
+      i = j
+      f(i)
     }
   }
 
@@ -226,5 +226,21 @@ struct AccessValidator<PathComponent: Regular & Comparable> {
     let j = parts[p].subparts.partitioningIndex { parts[$0].step >= step }
     if j == parts[p].subparts.endIndex { return nil }
     return parts[p].subparts[j]
+  }
+
+  /// Increment exclusive access count in ancestors of `p.last`, if any.
+  private mutating func incrementExclusiveAccessInAncestors(of p: Path) {
+    guard !p.isEmpty else { return }
+    forEachExistingPart(p.dropLast()) {
+      parts[$0].descendantExclusiveAccessCount += 1
+    }
+  }
+
+  /// Decrement exclusive access count in ancestors of `p.last`, if any.
+  private mutating func decrementExclusiveAccessInAncestors(of p: Path) {
+    guard !p.isEmpty else { return }
+    forEachExistingPart(p.dropLast()) {
+      parts[$0].descendantExclusiveAccessCount -= 1
+    }
   }
 }
