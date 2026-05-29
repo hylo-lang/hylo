@@ -5,17 +5,20 @@ extension IR.Program {
 
   /// Elaborates all functions in `self` that call projections to use regular function calls.
   ///
-  /// This pass is similar to `elaborateProjections`, but it may be more complex, from multiple
-  /// perspectives:
-  ///  - A simpler projection caller has three regions: ramp, plateau, and slide.
-  ///  - Multiple projections can be called in the same "scope", and the calls may be interleaved.
-  ///  - A single function might contain multiple "scopes" calling projections.
+  /// A "plateau" is the lifetime of a projection.
   ///
-  /// In this context, a "scope" is a set of blocks that call projections and are dominated by the
-  /// same entry block and have a single exit block.
-  ///
-  /// When elaborating a simple projection caller, the ramp and the slide are kept in original
-  /// function, while the plateau is moved to a new function.
+  /// In this context, a "scope" (a non-lexical scope) is a minimal set of block that encloses
+  /// "plateau"s that nest or overlap, which are all dominated by one block and post-dominated by
+  /// another block (which might be a ghost exit block).
+  /// 
+  /// A "region" (segment) is a partition of a "scope" at the points given by the start and the end
+  /// of "plateau"s.
+  /// 
+  /// Limitation: currently we cannot have two non-sequenced and non-overlapping plateaus in the
+  /// same scope.
+  /// 
+  /// When elaborating a simple projection caller, the the plateau is moved to a new function, while
+  /// everything that is not a plateau remain in the original function.
   public mutating func elaborateProjectionCallers() {
     for m in modules.values {
       elaborateProjectionCallers(in: m.id)

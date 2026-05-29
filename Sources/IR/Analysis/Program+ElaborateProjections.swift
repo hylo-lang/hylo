@@ -5,7 +5,7 @@ extension IR.Program {
 
   /// Elaborates all projections in `self` into ramp + slide functions.
   ///
-  /// A projection is always divided into two regions:
+  /// A projection is always divided into two "regions" (segments):
   ///  - The ramp, which contains the instructions that must be executed before the `yield`.
   ///  - The slide, which contains the instructions that must be executed after the `yield`.
   ///
@@ -13,7 +13,7 @@ extension IR.Program {
   /// by the corresponding ramp and slide functions. The ramps and slides are generated in the same
   /// module as the original projection.
   ///
-  /// If there are instructions in the ramp that are used in the slide, they are reified into a
+  /// If there are instructions in the ramp that are used in the slide, they are materialized into a
   /// frame that is passed from the ramp to the slide.
   public mutating func elaborateProjections() {
     for m in modules.values {
