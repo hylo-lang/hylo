@@ -52,10 +52,10 @@ public struct Memory {
     /// and the type layout associated with that location.
     public struct TypedRegion: Regular, Comparable {
 
-      /// The offset from the beginning `self`.
+      /// Where the region begins relative to an `Allocation`'s `baseOffset`.
       let offset: Offset
 
-      /// The type describing the layout of the region starting at `offset`.
+      /// The type in the region.
       let type: AnyType
 
       public static func < (lhs: Self, rhs: Self) -> Bool {

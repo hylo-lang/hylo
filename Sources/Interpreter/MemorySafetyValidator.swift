@@ -1,7 +1,7 @@
 import FrontEnd
 import Utils
 
-/// Validates safe use of memory within an allocation.
+/// Validates safe use of memory within an `Allocation`.
 struct MemorySafetyValidator {
 
   // Class Invariants:
@@ -109,6 +109,8 @@ struct MemorySafetyValidator {
   ///
   /// - Precondition: `a.id == allocation`.
   /// - Precondition: Allocations in `a` conform to type layouts from `l`.
+  ///
+  /// - Postcondition: Provides strong exception safety guarantee.
   public mutating func markInitialized(
     _ r: TypedRegion, in a: Memory.Allocation,
     typeLayouts l: inout TypeLayoutCache
@@ -122,7 +124,7 @@ struct MemorySafetyValidator {
       $0.contains { $0.effect == .sink }
     }!  // unwrap as every allocation base has sink access.
     composedRegions.compose(ps.last!.type, at: ps.last!.offset, typeLayouts: &l)
-    composedRegions.composeUpwards(along: ps[i...], in: a, typeLayouts: &l)
+    composedRegions.composeAncestors(along: ps[i...], in: a, typeLayouts: &l)
   }
 
   /// Throws iff it is not valid to read bytes from `r` in `m` using `a`.
