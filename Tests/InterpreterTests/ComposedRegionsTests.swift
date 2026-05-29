@@ -207,7 +207,7 @@ final class ComposedRegionsTests: XCTestCase {
     c.compose(i8, at: l[t3].parts[0].offset + l[t2].parts[1].offset, typeLayouts: &l)
     c.compose(i8, at: l[t3].parts[1].offset, typeLayouts: &l)
 
-    c.composeUpwards(along: [
+    c.composeAncestors(along: [
         .init(offset: l[t3].parts[0].offset, type: t2),
         .init(offset: l[t3].parts[0].offset + l[t2].parts[0].offset, type: t1),
         .init(

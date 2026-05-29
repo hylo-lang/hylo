@@ -261,7 +261,7 @@ extension ComposedRegions {
   /// - Precondition: `self` stores composed regions of `a`.
   /// - Precondition: The composed regions in `self` are consistent
   ///   with the type layouts provided by `l`.
-  public mutating func composeUpwards(
+  public mutating func composeAncestors(
     along regions: some BidirectionalCollection<Memory.Allocation.TypedRegion>,
     in a: Memory.Allocation, typeLayouts l: inout TypeLayoutCache
   ) {
