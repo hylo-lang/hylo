@@ -29,9 +29,9 @@ struct AccessValidator<PathComponent: Regular & Comparable> {
     /// The step from parent subobject to this subobject.
     let step: PathComponent
 
-    /// Stack of accesses in creation order, where `let` accesses are
-    /// always active, and all other accesses are active only when at the
-    /// top of the stack with no subparts.
+    /// Accesses ordered by creation time, where `let` accesses are
+    /// always active, and all other accesses are active only when they
+    /// are the most recently created access and this part has no subparts.
     var accesses: [Access<PathComponent>]
 
     /// The immediate subparts.
