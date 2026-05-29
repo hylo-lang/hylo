@@ -1,15 +1,12 @@
 import FrontEnd
 import Utils
 
-/// A runtime validator that validates the safe use of memory within an allocation.
-///
-/// The validator does not manage memory. Instead, it observes and validates
-/// accesses to an existing allocation.
+/// Validates safe use of memory within an allocation.
 struct MemorySafetyValidator {
 
   // Class Invariants:
-  //   - If a region `d` has an active `.sink` access, then no strict ancestor
-  //     of `d` is present in `composedRegions`.
+  //   - If a region `r` has an active `.sink` access, then no strict ancestor
+  //     of `r` is present in `composedRegions`.
 
   public enum Error: Regular, Swift.Error {
     case noTypeBound(at: Memory.Address)
@@ -21,164 +18,167 @@ struct MemorySafetyValidator {
   }
 
   /// A region within an `Allocation`, identified by a starting offset
-  /// and the type layout associated with that location.
+  /// and the type associated with that location.
   typealias TypedRegion = Memory.Allocation.TypedRegion
 
-  /// The type bindings associated with regions of `allocation`.
+  /// Non-overlapping type bindings reserving regions of `allocation`
+  /// for values of particular types.
   private var typeBindings: ReservedTypeRegions = ReservedTypeRegions()
 
   /// The composed regions of `allocation`.
   private var composedRegions: ComposedRegions = ComposedRegions()
 
-  /// Accesses for each region in `typeBindings`.
-  private var regionAccesses: [TypedRegion: AccessValidator<TypedRegion>] = [:]
+  /// Validates accesses for objects in `typeBindings`.
+  private var accessValidators: [TypedRegion: AccessValidator<TypedRegion>] = [:]
 
   /// Allocation whose access is being validated by `self`.
-  public var allocation: Memory.Allocation.ID
+  public let allocation: Memory.Allocation.ID
 
-  /// Creates an instance of validator to enforce memory safety for `allocation`.
+  /// Creates an instance to enforce memory safety in `allocation`.
   public init(_ allocation: Memory.Allocation.ID) {
     self.allocation = allocation
   }
 
-  /// Starts an access of type `k` at `p`.
+  /// Starts and returns a new access to `r` in `a` having effect `e`.
   ///
-  /// - Precondition: All allocations follow type layouts from `l`.
-  public mutating func beginAccess(
-    _ k: AccessEffect, at p: Memory.Place,
-    in a: Memory.Allocation, typeLayouts l: inout TypeLayoutCache
+  /// - Precondition: `a.id == allocation`.
+  /// - Precondition: Allocations in `a` conform to type layouts from `l`.
+  public mutating func begin(
+    _ e: AccessEffect,
+    to r: TypedRegion, in a: Memory.Allocation,
+    typeLayouts l: inout TypeLayoutCache
   ) throws -> Access<TypedRegion> {
     precondition(allocation == a.id)
-    precondition(allocation == p.allocation)
 
-    if isZeroSized(p, typeLayouts: &l) { return Access<TypedRegion>(to: p.typedRegion, effect: k) }
+    if isZeroSized(r, typeLayouts: &l) { return Access<TypedRegion>(to: r, effect: e) }
 
-    if typeBindings.region(enclosing: p.offset, typeLayouts: &l) == nil {
-      if k != .set {
-        throw Error.noTypeBound(at: .init(allocation: p.allocation, offset: p.offset))
+    if typeBindings.region(enclosing: r.offset, typeLayouts: &l) == nil {
+      if e != .set {
+        throw Error.noTypeBound(at: .init(allocation: allocation, offset: r.offset))
       }
-      try typeBindings.bind(p.type, at: p.offset, in: a, typeLayouts: &l)
-      let r = TypedRegion(offset: p.offset, type: p.type)
-      regionAccesses[r] = .init(r, effect: .sink)
+      try typeBindings.bind(r.type, at: r.offset, in: a, typeLayouts: &l)
+      let r = TypedRegion(offset: r.offset, type: r.type)
+      accessValidators[r] = .init(r, effect: .sink)
     }
 
-    let ps = try path(to: p.type, at: p.offset, in: a, typeLayouts: &l)
+    let ps = try path(to: r.type, at: r.offset, in: a, typeLayouts: &l)
 
-    if k != .set && !composedRegions.isComplete(p.typedRegion, typeLayouts: &l) {
-      throw Error.accessToIncomplete(p, capability: k)
+    if e != .set && !composedRegions.isComplete(r, typeLayouts: &l) {
+      throw Error.accessToIncomplete(asPlace(r), capability: e)
     }
-    if k == .set && !composedRegions.isFullyUninitialized(p.typedRegion, typeLayouts: &l) {
-      throw Error.setAccessToPartiallyComplete(p)
+    if e == .set && !composedRegions.isFullyUninitialized(r, typeLayouts: &l) {
+      throw Error.setAccessToPartiallyComplete(asPlace(r))
     }
 
-    if k == .sink {
+    if e == .sink {
       for e in ps.lazy.dropLast() {
         _ = composedRegions.tryDecompose(e.type, at: e.offset, in: a, typeLayouts: &l)
       }
     }
 
-    return try regionAccesses[ps.first!]!.begin(k, at: ps.dropFirst())
+    return try accessValidators[ps.first!]!.begin(e, at: ps.dropFirst())
   }
 
-  /// Ends `a` at `p`.
+  /// Ends `a` to `r` in `m`.
   ///
-  /// - Precondition: Access `a` exists at `p`.
-  /// - Precondition: All allocations follow type layouts from `l`.
+  /// - Precondition: `m.id == allocation`.
+  /// - Precondition: Allocations in `m` conform to type layouts from `l`.
   ///
   /// - Postcondition: Provides strong exception safety guarantees.
-  public mutating func endAccess(
-    _ a: Access<TypedRegion>, at p: Memory.Place,
-    in m: Memory.Allocation, typeLayouts l: inout TypeLayoutCache
+  public mutating func end(
+    _ a: Access<TypedRegion>,
+    to r: TypedRegion, in m: Memory.Allocation,
+    typeLayouts l: inout TypeLayoutCache
   ) throws {
     precondition(allocation == m.id)
-    precondition(allocation == p.allocation)
 
-    if isZeroSized(p, typeLayouts: &l) { return }
+    if isZeroSized(r, typeLayouts: &l) { return }
 
-    let ps = try path(to: p.type, at: p.offset, in: m, typeLayouts: &l)
+    let ps = try path(to: r.type, at: r.offset, in: m, typeLayouts: &l)
     if a.effect != .sink {
-      if !composedRegions.isComplete(p.typedRegion, typeLayouts: &l) {
-        throw Error.endAccessToIncomplete(p, capability: a.effect)
+      if !composedRegions.isComplete(r, typeLayouts: &l) {
+        throw Error.endAccessToIncomplete(asPlace(r), capability: a.effect)
       }
     } else {
-      composedRegions.removeRegions(in: p.typedRegion, typeLayouts: &l)
+      composedRegions.removeRegions(in: r, typeLayouts: &l)
     }
-    try regionAccesses[ps.first!]!.end(a, at: ps.dropFirst())
+    try accessValidators[ps.first!]!.end(a, at: ps.dropFirst())
   }
 
-  /// Marks `p` as initialized.
+  /// Marks `r` in `a` as initialized.
   ///
-  /// - Precondition: All allocations follow type layouts from `l`.
+  /// - Precondition: `a.id == allocation`.
+  /// - Precondition: Allocations in `a` conform to type layouts from `l`.
   public mutating func markInitialized(
-    _ p: Memory.Place, in a: Memory.Allocation, typeLayouts l: inout TypeLayoutCache
+    _ r: TypedRegion, in a: Memory.Allocation,
+    typeLayouts l: inout TypeLayoutCache
   ) throws {
     precondition(allocation == a.id)
-    precondition(allocation == p.allocation)
 
-    if isZeroSized(p, typeLayouts: &l) { return }
+    if isZeroSized(r, typeLayouts: &l) { return }
 
-    let ps = try path(to: p.type, at: p.offset, in: a, typeLayouts: &l)
-    let i = regionAccesses[ps.first!]!.accesses(along: ps.dropFirst()).lastIndex {
+    let ps = try path(to: r.type, at: r.offset, in: a, typeLayouts: &l)
+    let i = accessValidators[ps.first!]!.accesses(along: ps.dropFirst()).lastIndex {
       $0.contains { $0.effect == .sink }
     }!  // unwrap as every allocation base has sink access.
     composedRegions.compose(ps.last!.type, at: ps.last!.offset, typeLayouts: &l)
     composedRegions.composeUpwards(along: ps[i...], in: a, typeLayouts: &l)
   }
 
-  /// Throws iff it is not valid to read bytes from `p` using `a`.
+  /// Throws iff it is not valid to read bytes from `r` in `m` using `a`.
   ///
-  /// - Precondition: Access `a` exists at `p`.
-  /// - Precondition: All allocations follow type layouts from `l`.
+  /// - Precondition: `allocation == m.id`.
+  /// - Precondition: Allocations in `m` conform to type layouts from `l`.
   public func requireCanRead(
-    from p: Memory.Place, using a: Access<TypedRegion>,
+    from r: TypedRegion, using a: Access<TypedRegion>,
     in m: Memory.Allocation, typeLayouts l: inout TypeLayoutCache
   ) throws {
     precondition(allocation == m.id)
-    precondition(allocation == p.allocation)
 
-    if isZeroSized(p, typeLayouts: &l) { return }
+    if isZeroSized(r, typeLayouts: &l) { return }
 
-    let ps = try path(to: p.type, at: p.offset, in: m, typeLayouts: &l)
-    if !composedRegions.isComplete(p.typedRegion, typeLayouts: &l) {
-      throw Error.readFromIncomplete(p)
+    let ps = try path(to: r.type, at: r.offset, in: m, typeLayouts: &l)
+    if !composedRegions.isComplete(r, typeLayouts: &l) {
+      throw Error.readFromIncomplete(asPlace(r))
     }
-    try regionAccesses[ps.first!]!.requireIsActive(a, in: ps.dropFirst())
+    try accessValidators[ps.first!]!.requireIsActive(a, in: ps.dropFirst())
   }
 
-  /// Throws iff it is not valid to write bytes to `p` using `a`.
+  /// Throws iff it is not valid to write bytes to `r` in `m` using `a`.
   ///
-  /// - Precondition: Access `a` exists at `p`.
-  /// - Precondition: All allocations follow type layouts from `l`.
+  /// - Precondition: `allocation == m.id`.
+  /// - Precondition: Allocations in `m` conform to type layouts from `l`.
   public func requireCanWrite(
-    to p: Memory.Place, using a: Access<TypedRegion>,
+    to r: TypedRegion, using a: Access<TypedRegion>,
     in m: Memory.Allocation, typeLayouts l: inout TypeLayoutCache
   ) throws {
     precondition(allocation == m.id)
-    precondition(allocation == p.allocation)
 
-    if isZeroSized(p, typeLayouts: &l) { return }
+    if isZeroSized(r, typeLayouts: &l) { return }
 
-    let ps = try path(to: p.type, at: p.offset, in: m, typeLayouts: &l)
-    try regionAccesses[ps.first!]!.requireIsActive(a, in: ps.dropFirst())
+    let ps = try path(to: r.type, at: r.offset, in: m, typeLayouts: &l)
+    try accessValidators[ps.first!]!.requireIsActive(a, in: ps.dropFirst())
   }
 
   /// Returns the sequence of typed regions leading to a value of `t` located at `i`.
   ///
-  /// - Precondition: All allocations follow type layouts from `l`.
+  /// - Precondition: `allocation == a.id`.
+  /// - Precondition: Allocations in `a` conform to type layouts from `l`.
   func path(
-    to t: AnyType, at i: Int, in a: Memory.Allocation, typeLayouts l: inout TypeLayoutCache
+    to t: AnyType, at i: ReservedTypeRegions.Offset, in a: Memory.Allocation,
+    typeLayouts l: inout TypeLayoutCache
   ) throws -> [TypedRegion] {
     precondition(allocation == a.id)
+
     guard var r = typeBindings.region(enclosing: i, typeLayouts: &l) else {
       throw Error.noTypeBound(at: .init(allocation: allocation, offset: i))
     }
     var path: [TypedRegion] = []
     while r.offset != i || r.type != t {
       path.append(r)
-      guard let c = try childRegion(of: r, containing: i, in: a, typeLayouts: &l) else {
+      guard let c = try child(r, enclosing: i, in: a, typeLayouts: &l) else {
         throw Error.notContained(
-          .init(allocation: allocation, offset: r.offset, type: r.type),
-          in: .init(allocation: allocation, offset: i, type: t),
+          asPlace(r), in: .init(allocation: allocation, offset: i, type: t),
         )
       }
       r = c
@@ -187,11 +187,11 @@ struct MemorySafetyValidator {
     return path
   }
 
-  /// Returns the immediate child region of `r` that contains `i`.
+  /// Returns immediate child of `r` in `a` enclosing `i` of `typeBindings`.
   ///
-  /// - Precondition: All allocations follow type layouts from `l`.
-  private func childRegion(
-    of r: TypedRegion, containing i: Int,
+  /// - Precondition: Allocations in `a` conform to type layouts from `l`.
+  private func child(
+    _ r: TypedRegion, enclosing i: ReservedTypeRegions.Offset,
     in a: Memory.Allocation, typeLayouts l: inout TypeLayoutCache
   ) throws -> TypedRegion? {
     precondition(allocation == a.id)
@@ -199,16 +199,17 @@ struct MemorySafetyValidator {
       return nil
     }
     if l[r.type].isUnionLayout {
-      return try unionChildRegion(of: r, containing: i, in: a, typeLayouts: &l)
+      return try child(union: r, enclosing: i, in: a, typeLayouts: &l)
     }
-    return productChildRegion(of: r, containing: i, typeLayouts: &l)
+    return child(product: r, enclosing: i, typeLayouts: &l)
   }
 
-  /// Returns the immediate child region of the union `r` that contains `i`.
+  /// Returns immediate child of `r` in `a` enclosing `i` of `typeBindings`.
   ///
-  /// - Precondition: All allocations follow type layouts from `l`.
-  private func unionChildRegion(
-    of r: TypedRegion, containing i: Int,
+  /// - Precondition: `allocation == a.id`
+  /// - Precondition: Allocations in `a` conform to type layouts from `l`.
+  private func child(
+    union r: TypedRegion, enclosing i: ReservedTypeRegions.Offset,
     in a: Memory.Allocation, typeLayouts l: inout TypeLayoutCache
   ) throws -> TypedRegion? {
     precondition(allocation == a.id)
@@ -239,14 +240,14 @@ struct MemorySafetyValidator {
     return TypedRegion(offset: r.offset + p.offset, type: p.type)
   }
 
-  /// Returns the immediate child region of the product `r` that contains `a`.
+  /// Returns immediate child of `r` enclosing `i` of `typeBindings`.
   ///
-  /// - Precondition: All allocations follow type layouts from `l`.
-  private func productChildRegion(
-    of region: TypedRegion, containing offset: Int, typeLayouts l: inout TypeLayoutCache
+  /// - Precondition: Allocations in `a` conform to type layouts from `l`.
+  private func child(
+    product r: TypedRegion, enclosing offset: Int, typeLayouts l: inout TypeLayoutCache
   ) -> TypedRegion? {
-    let t = l[region.type]
-    let d = offset - region.offset
+    let t = l[r.type]
+    let d = offset - r.offset
 
     let i = t.parts.partitioningIndex { $0.offset > d } - 1
 
@@ -256,7 +257,7 @@ struct MemorySafetyValidator {
 
     let part = t.parts[i]
 
-    let childStart = region.offset + part.offset
+    let childStart = r.offset + part.offset
     let childEnd = childStart + l[part.type].size
     guard offset >= childStart && offset < childEnd else {
       return nil
@@ -265,18 +266,21 @@ struct MemorySafetyValidator {
     return TypedRegion(offset: childStart, type: part.type)
   }
 
-  /// Returns true iff `p.type` has size `0`.
-  ///
-  /// - Precondition: All allocations follow type layouts from `l`.
+  /// Returns true iff `r.type` has size `0` according to `l`.
   private func isZeroSized(
-    _ p: Memory.Place, typeLayouts l: inout TypeLayoutCache
+    _ r: TypedRegion, typeLayouts l: inout TypeLayoutCache
   ) -> Bool {
-    l[p.type].size == 0
+    l[r.type].size == 0
+  }
+
+  /// Interprets `r` as `Memory.Place` using `allocation` for `Memory.Place.allocation`.
+  private func asPlace(_ r: TypedRegion) -> Memory.Place {
+    return .init(allocation: allocation, offset: r.offset, type: r.type)
   }
 }
 
 private extension Memory.Place {
-  /// `TypedRegion` inside `self.allocation`.
+  /// `TypedRegion` inside `allocation`.
   var typedRegion: Memory.Allocation.TypedRegion {
     .init(offset: self.offset, type: self.type)
   }

@@ -100,6 +100,8 @@ struct AccessValidator<PathComponent: Regular & Comparable> {
   }
 
   /// Ends `a` at `p`.
+  ///
+  /// - Postcondition: Provides strong exception safety guarantee.
   public mutating func end(_ a: Access<PathComponent>, at p: Path) throws {
     try requireIsActive(a, in: p)
 
