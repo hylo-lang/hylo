@@ -206,7 +206,7 @@ struct AccessValidator<PathComponent: Regular & Comparable> {
     }
   }
 
-  /// Returns true iff starting an access at `p` with effect `e` would
+  /// Returns true iff starting an access at `p` having effect `e` would
   /// not conflict with active accesses in subparts of `p`.
   private func canBegin(_ e: AccessEffect, at p: PartID) -> Bool {
     if e == .let {
