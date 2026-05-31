@@ -79,19 +79,19 @@ struct MemorySafetyValidator {
     return try accessValidators[ps.first!]!.begin(e, at: ps.dropFirst())
   }
 
-  /// Ends `a` to `r` in `m`.
+  /// Ends `a` in `m`.
   ///
   /// - Precondition: `m.id == allocation`.
   /// - Precondition: Allocations in `m` conform to type layouts from `l`.
   ///
   /// - Postcondition: Provides strong exception safety guarantees.
   public mutating func end(
-    _ a: Access<TypedRegion>,
-    to r: TypedRegion, in m: Memory.Allocation,
+    _ a: Access<TypedRegion>, in m: Memory.Allocation,
     typeLayouts l: inout TypeLayoutCache
   ) throws {
     precondition(allocation == m.id)
 
+    let r = a.location
     if isZeroSized(r, typeLayouts: &l) { return }
 
     let ps = try path(to: r.type, at: r.offset, in: m, typeLayouts: &l)
@@ -130,39 +130,41 @@ struct MemorySafetyValidator {
     composedRegions.composeAncestors(along: ps[i...], in: a, typeLayouts: &l)
   }
 
-  /// Throws iff it is not valid to read bytes from `r` in `m` using `a`.
+  /// Throws iff it is not valid to read from `source` in `m`.
   ///
   /// - Precondition: `allocation == m.id`.
   /// - Precondition: Allocations in `m` conform to type layouts from `l`.
   public func requireCanRead(
-    from r: TypedRegion, using a: Access<TypedRegion>,
-    in m: Memory.Allocation, typeLayouts l: inout TypeLayoutCache
+    from source: Access<TypedRegion>, in m: Memory.Allocation,
+    typeLayouts l: inout TypeLayoutCache
   ) throws {
     precondition(allocation == m.id)
 
+    let r = source.location
     if isZeroSized(r, typeLayouts: &l) { return }
 
     let ps = try path(to: r.type, at: r.offset, in: m, typeLayouts: &l)
     if !composedRegions.isComplete(r, typeLayouts: &l) {
       throw Error.readFromIncomplete(asPlace(r))
     }
-    try accessValidators[ps.first!]!.requireIsActive(a, in: ps.dropFirst())
+    try accessValidators[ps.first!]!.requireIsActive(source, in: ps.dropFirst())
   }
 
-  /// Throws iff it is not valid to write bytes to `r` in `m` using `a`.
+  /// Throws iff it is not valid to write to `destination` in `m`.
   ///
   /// - Precondition: `allocation == m.id`.
   /// - Precondition: Allocations in `m` conform to type layouts from `l`.
   public func requireCanWrite(
-    to r: TypedRegion, using a: Access<TypedRegion>,
-    in m: Memory.Allocation, typeLayouts l: inout TypeLayoutCache
+    to destination: Access<TypedRegion>, in m: Memory.Allocation,
+    typeLayouts l: inout TypeLayoutCache
   ) throws {
     precondition(allocation == m.id)
 
+    let r = destination.location
     if isZeroSized(r, typeLayouts: &l) { return }
 
     let ps = try path(to: r.type, at: r.offset, in: m, typeLayouts: &l)
-    try accessValidators[ps.first!]!.requireIsActive(a, in: ps.dropFirst())
+    try accessValidators[ps.first!]!.requireIsActive(destination, in: ps.dropFirst())
   }
 
   /// Registers region starting at `i` in `a` to be interpreted as `t`.
