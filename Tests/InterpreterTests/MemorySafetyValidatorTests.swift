@@ -14,6 +14,17 @@ final class MemorySafetyValidatorTests: XCTestCase {
   typealias Error = MemorySafetyValidator.Error
   typealias AccessValidatorError = AccessValidator<Memory.Allocation.TypedRegion>.Error
 
+  /// Deinitializes `r` in `a` on `validator` assuming allocations uses layouts
+  /// from `typeLayouts`.
+  func deinitialize(
+    _ r: Memory.Allocation.TypedRegion,
+    in a: Memory.Allocation, validator: inout MemorySafetyValidator,
+    typeLayouts: inout TypeLayoutCache
+  ) throws {
+    let t = try validator.begin(.sink, to: r, in: a, typeLayouts: &typeLayouts)
+    try validator.end(t, in: a, typeLayouts: &typeLayouts)
+  }
+
   func testBindingTypeToInvalidMemoryRegion() throws {
     var m = Memory(typesIn: TypedProgram.empty, for: UnrealABI())
     let p = m.allocate(i32)
@@ -69,7 +80,7 @@ final class MemorySafetyValidatorTests: XCTestCase {
         _ = try v.begin(k, to: whole, in: m[a], typeLayouts: &m.typeLayouts)
       }
       let f = try v.begin(k, to: firstPart, in: m[a], typeLayouts: &m.typeLayouts)
-      try v.end(f, to: firstPart, in: m[a], typeLayouts: &m.typeLayouts)
+      try v.end(f, in: m[a], typeLayouts: &m.typeLayouts)
       check(throws: Error.accessToIncomplete(place(secondPart, in: a), capability: k)) {
         _ = try v.begin(k, to: secondPart, in: m[a], typeLayouts: &m.typeLayouts)
       }
@@ -133,18 +144,18 @@ final class MemorySafetyValidatorTests: XCTestCase {
       let x = try v.begin(.set, to: whole, in: m[a], typeLayouts: &m.typeLayouts)
       try v.markInitialized(firstPart, in: m[a], typeLayouts: &m.typeLayouts)
       try v.markInitialized(secondPart, in: m[a], typeLayouts: &m.typeLayouts)
-      try v.end(x, to: whole, in: m[a], typeLayouts: &m.typeLayouts)
+      try v.end(x, in: m[a], typeLayouts: &m.typeLayouts)
 
       let w = try v.begin(k, to: whole, in: m[a], typeLayouts: &m.typeLayouts)
-      try v.end(w, to: whole, in: m[a], typeLayouts: &m.typeLayouts)
+      try v.end(w, in: m[a], typeLayouts: &m.typeLayouts)
       if k == .sink {
         try v.markInitialized(firstPart, in: m[a], typeLayouts: &m.typeLayouts)
         try v.markInitialized(secondPart, in: m[a], typeLayouts: &m.typeLayouts)
       }
       let f = try v.begin(k, to: firstPart, in: m[a], typeLayouts: &m.typeLayouts)
-      try v.end(f, to: firstPart, in: m[a], typeLayouts: &m.typeLayouts)
+      try v.end(f, in: m[a], typeLayouts: &m.typeLayouts)
       let s = try v.begin(k, to: secondPart, in: m[a], typeLayouts: &m.typeLayouts)
-      try v.end(s, to: secondPart, in: m[a], typeLayouts: &m.typeLayouts)
+      try v.end(s, in: m[a], typeLayouts: &m.typeLayouts)
     }
   }
 
@@ -163,20 +174,20 @@ final class MemorySafetyValidatorTests: XCTestCase {
 
       let x = try v.begin(.set, to: whole, in: m[a], typeLayouts: &m.typeLayouts)
       check(throws: Error.endAccessToIncomplete(place(whole, in: a), capability: .set)) {
-        try v.end(x, to: whole, in: m[a], typeLayouts: &m.typeLayouts)
+        try v.end(x, in: m[a], typeLayouts: &m.typeLayouts)
       }
       try v.markInitialized(firstPart, in: m[a], typeLayouts: &m.typeLayouts)
       check(throws: Error.endAccessToIncomplete(place(whole, in: a), capability: .set)) {
-        try v.end(x, to: whole, in: m[a], typeLayouts: &m.typeLayouts)
+        try v.end(x, in: m[a], typeLayouts: &m.typeLayouts)
       }
       try v.markInitialized(secondPart, in: m[a], typeLayouts: &m.typeLayouts)
-      try v.end(x, to: whole, in: m[a], typeLayouts: &m.typeLayouts)
+      try v.end(x, in: m[a], typeLayouts: &m.typeLayouts)
 
       let w = try v.begin(k, to: whole, in: m[a], typeLayouts: &m.typeLayouts)
       let s = try v.begin(.sink, to: firstPart, in: m[a], typeLayouts: &m.typeLayouts)
-      try v.end(s, to: firstPart, in: m[a], typeLayouts: &m.typeLayouts)
+      try v.end(s, in: m[a], typeLayouts: &m.typeLayouts)
       check(throws: Error.endAccessToIncomplete(place(whole, in: a), capability: k)) {
-        try v.end(w, to: whole, in: m[a], typeLayouts: &m.typeLayouts)
+        try v.end(w, in: m[a], typeLayouts: &m.typeLayouts)
       }
     }
   }
@@ -197,7 +208,7 @@ final class MemorySafetyValidatorTests: XCTestCase {
     try v.markInitialized(firstPart, in: m[a], typeLayouts: &m.typeLayouts)
     try v.markInitialized(secondPart, in: m[a], typeLayouts: &m.typeLayouts)
     try v.markInitialized(firstPart, in: m[a], typeLayouts: &m.typeLayouts)
-    try v.end(x, to: whole, in: m[a], typeLayouts: &m.typeLayouts)
+    try v.end(x, in: m[a], typeLayouts: &m.typeLayouts)
 
     _ = try v.begin(.let, to: whole, in: m[a], typeLayouts: &m.typeLayouts)
   }
@@ -217,33 +228,34 @@ final class MemorySafetyValidatorTests: XCTestCase {
     let x = try v.begin(.set, to: whole, in: m[a], typeLayouts: &m.typeLayouts)
     try v.markInitialized(firstPart, in: m[a], typeLayouts: &m.typeLayouts)
     try v.markInitialized(secondPart, in: m[a], typeLayouts: &m.typeLayouts)
-    try v.end(x, to: whole, in: m[a], typeLayouts: &m.typeLayouts)
+    try v.end(x, in: m[a], typeLayouts: &m.typeLayouts)
 
-    let w = try v.begin(.sink, to: whole, in: m[a], typeLayouts: &m.typeLayouts)
-    try v.requireCanRead(from: whole, using: w, in: m[a], typeLayouts: &m.typeLayouts)
-    try v.requireCanRead(from: firstPart, using: w, in: m[a], typeLayouts: &m.typeLayouts)
-    try v.requireCanRead(from: secondPart, using: w, in: m[a], typeLayouts: &m.typeLayouts)
+    let _ = try v.begin(.sink, to: whole, in: m[a], typeLayouts: &m.typeLayouts)
+    let w = try v.begin(.let, to: whole, in: m[a], typeLayouts: &m.typeLayouts)
+    let f = try v.begin(.let, to: firstPart, in: m[a], typeLayouts: &m.typeLayouts)
+    let s = try v.begin(.let, to: secondPart, in: m[a], typeLayouts: &m.typeLayouts)
+    try v.requireCanRead(from: w, in: m[a], typeLayouts: &m.typeLayouts)
+    try v.requireCanRead(from: f, in: m[a], typeLayouts: &m.typeLayouts)
+    try v.requireCanRead(from: s, in: m[a], typeLayouts: &m.typeLayouts)
 
-    let f = try v.begin(.sink, to: firstPart, in: m[a], typeLayouts: &m.typeLayouts)
-    try v.end(f, to: firstPart, in: m[a], typeLayouts: &m.typeLayouts)
+    try deinitialize(firstPart, in: m[a], validator: &v, typeLayouts: &m.typeLayouts)
     check(throws: Error.readFromIncomplete(place(whole, in: a))) {
-      try v.requireCanRead(from: whole, using: w, in: m[a], typeLayouts: &m.typeLayouts)
+      try v.requireCanRead(from: w, in: m[a], typeLayouts: &m.typeLayouts)
     }
     check(throws: Error.readFromIncomplete(place(firstPart, in: a))) {
-      try v.requireCanRead(from: firstPart, using: w, in: m[a], typeLayouts: &m.typeLayouts)
+      try v.requireCanRead(from: f, in: m[a], typeLayouts: &m.typeLayouts)
     }
-    try v.requireCanRead(from: secondPart, using: w, in: m[a], typeLayouts: &m.typeLayouts)
+    try v.requireCanRead(from: s, in: m[a], typeLayouts: &m.typeLayouts)
 
-    let s = try v.begin(.sink, to: secondPart, in: m[a], typeLayouts: &m.typeLayouts)
-    try v.end(s, to: secondPart, in: m[a], typeLayouts: &m.typeLayouts)
+    try deinitialize(secondPart, in: m[a], validator: &v, typeLayouts: &m.typeLayouts)
     check(throws: Error.readFromIncomplete(place(whole, in: a))) {
-      try v.requireCanRead(from: whole, using: w, in: m[a], typeLayouts: &m.typeLayouts)
+      try v.requireCanRead(from: w, in: m[a], typeLayouts: &m.typeLayouts)
     }
     check(throws: Error.readFromIncomplete(place(firstPart, in: a))) {
-      try v.requireCanRead(from: firstPart, using: w, in: m[a], typeLayouts: &m.typeLayouts)
+      try v.requireCanRead(from: f, in: m[a], typeLayouts: &m.typeLayouts)
     }
     check(throws: Error.readFromIncomplete(place(secondPart, in: a))) {
-      try v.requireCanRead(from: secondPart, using: w, in: m[a], typeLayouts: &m.typeLayouts)
+      try v.requireCanRead(from: s, in: m[a], typeLayouts: &m.typeLayouts)
     }
   }
 
@@ -262,37 +274,22 @@ final class MemorySafetyValidatorTests: XCTestCase {
     let x = try v.begin(.set, to: whole, in: m[a], typeLayouts: &m.typeLayouts)
     try v.markInitialized(firstPart, in: m[a], typeLayouts: &m.typeLayouts)
     try v.markInitialized(secondPart, in: m[a], typeLayouts: &m.typeLayouts)
-    try v.end(x, to: whole, in: m[a], typeLayouts: &m.typeLayouts)
+    try v.end(x, in: m[a], typeLayouts: &m.typeLayouts)
 
     let w = try v.begin(.sink, to: whole, in: m[a], typeLayouts: &m.typeLayouts)
     let w1 = try v.begin(.sink, to: whole, in: m[a], typeLayouts: &m.typeLayouts)
     check(throws: AccessValidatorError.overlappingExclusiveAccess([])) {
-      try v.requireCanRead(from: whole, using: w, in: m[a], typeLayouts: &m.typeLayouts)
+      try v.requireCanRead(from: w, in: m[a], typeLayouts: &m.typeLayouts)
     }
-    check(throws: AccessValidatorError.overlappingExclusiveAccess([firstPart])) {
-      try v.requireCanRead(from: firstPart, using: w, in: m[a], typeLayouts: &m.typeLayouts)
-    }
-    try v.requireCanRead(from: whole, using: w1, in: m[a], typeLayouts: &m.typeLayouts)
-    try v.requireCanRead(from: firstPart, using: w1, in: m[a], typeLayouts: &m.typeLayouts)
+    try v.requireCanRead(from: w1, in: m[a], typeLayouts: &m.typeLayouts)
     let f = try v.begin(.sink, to: firstPart, in: m[a], typeLayouts: &m.typeLayouts)
-    check(throws: AccessValidatorError.overlappingExclusiveAccess([firstPart])) {
-      try v.requireCanRead(from: firstPart, using: w, in: m[a], typeLayouts: &m.typeLayouts)
-    }
-    check(throws: AccessValidatorError.overlappingExclusiveAccess([firstPart])) {
-      try v.requireCanRead(from: firstPart, using: w1, in: m[a], typeLayouts: &m.typeLayouts)
-    }
-    try v.requireCanRead(from: firstPart, using: f, in: m[a], typeLayouts: &m.typeLayouts)
+    try v.requireCanRead(from: f, in: m[a], typeLayouts: &m.typeLayouts)
     let f1 = try v.begin(.sink, to: firstPart, in: m[a], typeLayouts: &m.typeLayouts)
     check(throws: AccessValidatorError.overlappingExclusiveAccess([firstPart])) {
-      try v.requireCanRead(from: firstPart, using: w, in: m[a], typeLayouts: &m.typeLayouts)
+      try v.requireCanRead(from: f, in: m[a], typeLayouts: &m.typeLayouts)
     }
-    check(throws: AccessValidatorError.overlappingExclusiveAccess([firstPart])) {
-      try v.requireCanRead(from: firstPart, using: w1, in: m[a], typeLayouts: &m.typeLayouts)
-    }
-    check(throws: AccessValidatorError.overlappingExclusiveAccess([firstPart])) {
-      try v.requireCanRead(from: firstPart, using: f, in: m[a], typeLayouts: &m.typeLayouts)
-    }
-    try v.requireCanRead(from: firstPart, using: f1, in: m[a], typeLayouts: &m.typeLayouts)
+    try v.requireCanRead(from: f1, in: m[a], typeLayouts: &m.typeLayouts)
+    try v.end(f1, in: m[a], typeLayouts: &m.typeLayouts)
   }
 
   func testRequireWriteToUsingActiveAccess() throws {
@@ -307,19 +304,17 @@ final class MemorySafetyValidatorTests: XCTestCase {
     let firstPart = Memory.Allocation.TypedRegion(offset: 0, type: i8)
     let secondPart = Memory.Allocation.TypedRegion(offset: 1, type: i8)
 
-    let x = try v.begin(.set, to: whole, in: m[a], typeLayouts: &m.typeLayouts)
-    try v.requireCanWrite(to: whole, using: x, in: m[a], typeLayouts: &m.typeLayouts)
-    try v.requireCanWrite(to: firstPart, using: x, in: m[a], typeLayouts: &m.typeLayouts)
-    try v.requireCanWrite(to: secondPart, using: x, in: m[a], typeLayouts: &m.typeLayouts)
+    let w = try v.begin(.set, to: whole, in: m[a], typeLayouts: &m.typeLayouts)
+    try v.requireCanWrite(to: w, in: m[a], typeLayouts: &m.typeLayouts)
     try v.markInitialized(firstPart, in: m[a], typeLayouts: &m.typeLayouts)
-    try v.requireCanWrite(to: whole, using: x, in: m[a], typeLayouts: &m.typeLayouts)
-    try v.requireCanWrite(to: firstPart, using: x, in: m[a], typeLayouts: &m.typeLayouts)
-    try v.requireCanWrite(to: secondPart, using: x, in: m[a], typeLayouts: &m.typeLayouts)
     try v.markInitialized(secondPart, in: m[a], typeLayouts: &m.typeLayouts)
-    try v.requireCanWrite(to: whole, using: x, in: m[a], typeLayouts: &m.typeLayouts)
-    try v.requireCanWrite(to: firstPart, using: x, in: m[a], typeLayouts: &m.typeLayouts)
-    try v.requireCanWrite(to: secondPart, using: x, in: m[a], typeLayouts: &m.typeLayouts)
-    try v.end(x, to: whole, in: m[a], typeLayouts: &m.typeLayouts)
+    let f = try v.begin(.inout, to: firstPart, in: m[a], typeLayouts: &m.typeLayouts)
+    let s = try v.begin(.inout, to: secondPart, in: m[a], typeLayouts: &m.typeLayouts)
+    try v.requireCanWrite(to: f, in: m[a], typeLayouts: &m.typeLayouts)
+    try v.requireCanWrite(to: s, in: m[a], typeLayouts: &m.typeLayouts)
+    try v.end(f, in: m[a], typeLayouts: &m.typeLayouts)
+    try v.end(s, in: m[a], typeLayouts: &m.typeLayouts)
+    try v.end(w, in: m[a], typeLayouts: &m.typeLayouts)
   }
 
   func testRequireWriteToUsingInactiveAccess() throws {
@@ -337,37 +332,21 @@ final class MemorySafetyValidatorTests: XCTestCase {
     let x = try v.begin(.set, to: whole, in: m[a], typeLayouts: &m.typeLayouts)
     try v.markInitialized(firstPart, in: m[a], typeLayouts: &m.typeLayouts)
     try v.markInitialized(secondPart, in: m[a], typeLayouts: &m.typeLayouts)
-    try v.end(x, to: whole, in: m[a], typeLayouts: &m.typeLayouts)
+    try v.end(x, in: m[a], typeLayouts: &m.typeLayouts)
 
     let w = try v.begin(.sink, to: whole, in: m[a], typeLayouts: &m.typeLayouts)
     let w1 = try v.begin(.sink, to: whole, in: m[a], typeLayouts: &m.typeLayouts)
     check(throws: AccessValidatorError.overlappingExclusiveAccess([])) {
-      try v.requireCanWrite(to: whole, using: w, in: m[a], typeLayouts: &m.typeLayouts)
+      try v.requireCanWrite(to: w, in: m[a], typeLayouts: &m.typeLayouts)
     }
-    check(throws: AccessValidatorError.overlappingExclusiveAccess([firstPart])) {
-      try v.requireCanWrite(to: firstPart, using: w, in: m[a], typeLayouts: &m.typeLayouts)
-    }
-    try v.requireCanWrite(to: whole, using: w1, in: m[a], typeLayouts: &m.typeLayouts)
-    try v.requireCanWrite(to: firstPart, using: w1, in: m[a], typeLayouts: &m.typeLayouts)
+    try v.requireCanWrite(to: w1, in: m[a], typeLayouts: &m.typeLayouts)
     let f = try v.begin(.sink, to: firstPart, in: m[a], typeLayouts: &m.typeLayouts)
-    check(throws: AccessValidatorError.overlappingExclusiveAccess([firstPart])) {
-      try v.requireCanWrite(to: firstPart, using: w, in: m[a], typeLayouts: &m.typeLayouts)
-    }
-    check(throws: AccessValidatorError.overlappingExclusiveAccess([firstPart])) {
-      try v.requireCanWrite(to: firstPart, using: w1, in: m[a], typeLayouts: &m.typeLayouts)
-    }
-    try v.requireCanWrite(to: firstPart, using: f, in: m[a], typeLayouts: &m.typeLayouts)
+    try v.requireCanWrite(to: f, in: m[a], typeLayouts: &m.typeLayouts)
     let f1 = try v.begin(.sink, to: firstPart, in: m[a], typeLayouts: &m.typeLayouts)
     check(throws: AccessValidatorError.overlappingExclusiveAccess([firstPart])) {
-      try v.requireCanWrite(to: firstPart, using: w, in: m[a], typeLayouts: &m.typeLayouts)
+      try v.requireCanWrite(to: f, in: m[a], typeLayouts: &m.typeLayouts)
     }
-    check(throws: AccessValidatorError.overlappingExclusiveAccess([firstPart])) {
-      try v.requireCanWrite(to: firstPart, using: w1, in: m[a], typeLayouts: &m.typeLayouts)
-    }
-    check(throws: AccessValidatorError.overlappingExclusiveAccess([firstPart])) {
-      try v.requireCanWrite(to: firstPart, using: f, in: m[a], typeLayouts: &m.typeLayouts)
-    }
-    try v.requireCanWrite(to: firstPart, using: f1, in: m[a], typeLayouts: &m.typeLayouts)
+    try v.requireCanWrite(to: f1, in: m[a], typeLayouts: &m.typeLayouts)
   }
 
   /// Returns `Place` to `r` in `a`.
