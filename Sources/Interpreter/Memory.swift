@@ -233,7 +233,6 @@ public struct Memory {
     nextAllocation += 1
     allocation[a] = Allocation(typeLayouts[t], count: n, id: a)
     allocationSafetyValidator[a] = MemorySafetyValidator(a)
-    do { try bindRegions(in: a, as: t, count: n) } catch { unreachable() }
     return .init(allocation: a, offset: 0, type: t)
   }
 
@@ -269,15 +268,11 @@ public struct Memory {
     }
   }
 
-  /// Binds the regions of allocation `a` to `count` instances of `t`.
-  private mutating func bindRegions(in a: Allocation.ID, as t: AnyType, count: Int) throws {
-    let s = typeLayouts[t].size
-
-    for i in 0..<count {
-      try allocationSafetyValidator[a]!.bindRegion(
-        startingAt: i * s, to: t,
-        in: allocation[a]!, typeLayouts: &typeLayouts)
-    }
+  /// Registers place start from `a` to contain an instance of `t`.
+  public mutating func bind(_ a: Address, to t: AnyType) throws {
+    try allocationSafetyValidator[a.allocation]!.bindRegion(
+      startingAt: a.offset, to: t,
+      in: self[a.allocation], typeLayouts: &typeLayouts)
   }
 }
 

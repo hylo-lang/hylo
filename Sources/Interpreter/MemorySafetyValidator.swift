@@ -209,7 +209,7 @@ struct MemorySafetyValidator {
       path.append(r)
       guard let c = try child(r, enclosing: i, in: a, typeLayouts: &l) else {
         throw Error.notContained(
-          asPlace(r), in: .init(allocation: allocation, offset: i, type: t),
+          .init(allocation: allocation, offset: i, type: t), in: asPlace(r)
         )
       }
       r = c

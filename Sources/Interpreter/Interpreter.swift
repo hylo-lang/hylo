@@ -213,6 +213,7 @@ public struct Interpreter {
 
     case let x as AllocStack:
       let a = memory.allocate(x.allocatedType)
+      try memory.bind(a.address, to: x.allocatedType)
       topOfStack.allocations.append(a)
       return .value(.init(payload: a))
 
