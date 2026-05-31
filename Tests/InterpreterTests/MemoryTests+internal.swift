@@ -72,7 +72,7 @@ final class InterpreterMemoryInternalTests: XCTestCase {
     try check(copying: .i128(8), asType: .i(128), yields: UInt128(8))
   }
 
-  func testCopyingFromUninitalizedObject() throws {
+  func testCopyingFromUninitializedObject() throws {
     var m = Memory(typesIn: TypedProgram.empty, for: UnrealABI())
     let source = m.allocate(i8)
     try m.bind(source.address, to: i8)
