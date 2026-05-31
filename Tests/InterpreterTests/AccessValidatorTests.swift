@@ -7,13 +7,13 @@ import XCTest
 
 extension String: Regular {}
 
-final class AccessTrackerTests: XCTestCase {
+final class AccessValidatorTests: XCTestCase {
 
-  typealias Error = AccessTracker<String>.Error
+  typealias Error = AccessValidator<String>.Error
 
   func testBeginAccessWhenSubPartProjectionDoesNotExists() throws {
     for p in [.let, .inout, .sink, .set] as [AccessEffect] {
-      var t = AccessTracker("a", with: .sink)
+      var t = AccessValidator("a", effect: .sink)
       _ = try t.begin(p, at: ["b"])
       for p in [.let, .inout, .sink, .set] as [AccessEffect] {
         _ = try t.begin(p, at: ["b", "x"])
@@ -24,10 +24,10 @@ final class AccessTrackerTests: XCTestCase {
 
   func testInvalidBeginAccessOnRootNodeWhenSubPartProjectionExists() throws {
     for p in [.inout, .sink, .set] as [AccessEffect] {
-      var t = AccessTracker("a", with: p)
+      var t = AccessValidator("a", effect: p)
       _ = try t.begin(.sink, at: ["b"])
       for a in [.let, .inout, .sink, .set] as [AccessEffect] {
-        check(throws: Error.overlappingExclusiveAccessExists(for: "a")) {
+        check(throws: Error.overlappingExclusiveAccess([])) {
           _ = try t.begin(a, at: [])
         }
       }
@@ -36,11 +36,11 @@ final class AccessTrackerTests: XCTestCase {
 
   func testInvalidBeginAccessOnNonRootNodeWhenSubPartProjectionExists() throws {
     for p in [.inout, .sink, .set] as [AccessEffect] {
-      var t = AccessTracker("a", with: p)
+      var t = AccessValidator("a", effect: p)
       _ = try t.begin(.sink, at: ["b"])
       _ = try t.begin(.sink, at: ["b", "p"])
       for a in [.let, .inout, .sink, .set] as [AccessEffect] {
-        check(throws: Error.overlappingExclusiveAccessExists(for: "b")) {
+        check(throws: Error.overlappingExclusiveAccess(["b"])) {
           _ = try t.begin(a, at: ["b"])
         }
       }
@@ -48,7 +48,7 @@ final class AccessTrackerTests: XCTestCase {
   }
 
   func testBeginAccessForLetAccessWhenSubPartProjectionExists() throws {
-    var t = AccessTracker("a", with: .let)
+    var t = AccessValidator("a", effect: .let)
     _ = try t.begin(.let, at: ["b"])
     _ = try t.begin(.let, at: [])
     _ = try t.begin(.let, at: ["b", "p"])
@@ -58,19 +58,19 @@ final class AccessTrackerTests: XCTestCase {
 
   func testRequireIsActive() throws {
     for p in [.inout, .sink, .set] as [AccessEffect] {
-      var t = AccessTracker("a", with: p)
+      var t = AccessValidator("a", effect: p)
       let a1 = try t.begin(p, at: ["b"])
       try t.requireIsActive(a1, in: ["b"])
       let a2 = try t.begin(p, at: ["b", "c"])
-      check(throws: Error.overlappingExclusiveAccessExists(for: "b")) {
+      check(throws: Error.overlappingExclusiveAccess(["b"])) {
         try t.requireIsActive(a1, in: ["b"])
       }
       try t.requireIsActive(a2, in: ["b", "c"])
       let a3 = try t.begin(p, at: ["b", "c"])
-      check(throws: Error.overlappingExclusiveAccessExists(for: "b")) {
+      check(throws: Error.overlappingExclusiveAccess(["b"])) {
         try t.requireIsActive(a1, in: ["b"])
       }
-      check(throws: Error.overlappingExclusiveAccessExists(for: "c")) {
+      check(throws: Error.overlappingExclusiveAccess(["b", "c"])) {
         try t.requireIsActive(a2, in: ["b", "c"])
       }
       try t.requireIsActive(a3, in: ["b", "c"])
@@ -80,7 +80,7 @@ final class AccessTrackerTests: XCTestCase {
       try t.requireIsActive(a3, in: ["b", "c"])
     }
 
-    var t = AccessTracker("a", with: .let)
+    var t = AccessValidator("a", effect: .let)
     let a1 = try t.begin(.let, at: ["b"])
     try t.requireIsActive(a1, in: ["b"])
     let a2 = try t.begin(.let, at: ["b", "c"])
@@ -98,14 +98,14 @@ final class AccessTrackerTests: XCTestCase {
 
   func testEndAccess() throws {
     for p in [.inout, .sink, .set] as [AccessEffect] {
-      var t = AccessTracker("a", with: p)
+      var t = AccessValidator("a", effect: p)
       let a1 = try t.begin(p, at: ["b", "c"])
       let a2 = try t.begin(p, at: ["b", "c", "d"])
       let a3 = try t.begin(p, at: ["b", "c", "d"])
-      check(throws: Error.overlappingExclusiveAccessExists(for: "d")) {
+      check(throws: Error.overlappingExclusiveAccess(["b", "c", "d"])) {
         try t.end(a2, at: ["b", "c", "d"])
       }
-      check(throws: Error.overlappingExclusiveAccessExists(for: "c")) {
+      check(throws: Error.overlappingExclusiveAccess(["b", "c"])) {
         try t.end(a1, at: ["b", "c"])
       }
       try t.end(a3, at: ["b", "c", "d"])
@@ -119,7 +119,7 @@ final class AccessTrackerTests: XCTestCase {
     }
 
     // Let access allows ending access in arbitrary order as all let access are always active.
-    var t = AccessTracker("a", with: .let)
+    var t = AccessValidator("a", effect: .let)
     let a1 = try t.begin(.let, at: ["b", "c"])
     let a2 = try t.begin(.let, at: ["b", "c", "d"])
     let a3 = try t.begin(.let, at: ["b", "c", "d"])
@@ -133,19 +133,19 @@ final class AccessTrackerTests: XCTestCase {
   }
 
   func testCanObserveAccesses() throws {
-    var t = AccessTracker("a", with: .inout)
+    var t = AccessValidator("a", effect: .inout)
     _ = try t.begin(.inout, at: [])
     _ = try t.begin(.inout, at: ["b"])
     _ = try t.begin(.let, at: ["b"])
     _ = try t.begin(.inout, at: ["c", "d"])
     _ = try t.begin(.inout, at: ["c", "d"])
 
-    XCTAssertEqual(t.accesses(along: []).map { $0.map { $0.kind } }, [[.inout, .inout]])
+    XCTAssertEqual(t.accesses(along: []).map { $0.map { $0.effect } }, [[.inout, .inout]])
     XCTAssertEqual(
-      t.accesses(along: ["b"]).map { $0.map { $0.kind } },
+      t.accesses(along: ["b"]).map { $0.map { $0.effect } },
       [[.inout, .inout], [.inout, .let]])
     XCTAssertEqual(
-      t.accesses(along: ["c", "d"]).map { $0.map { $0.kind } },
+      t.accesses(along: ["c", "d"]).map { $0.map { $0.effect } },
       [[.inout, .inout], [], [.inout, .inout]])
   }
 

@@ -11,80 +11,71 @@ struct ReservedTypeRegions {
   /// A position in some allocation.
   public typealias Offset = Memory.Storage.Index
 
-  /// Memory where `allocation` lives.
-  private let memory: UnsafeMutablePointer<Memory>
+  /// The non-overlapping type bindings that determine how reserved regions
+  /// are to be interpreted, sorted by region offset.
+  private var typeBindings: [Memory.Allocation.TypedRegion] = []
 
-  /// ID of allocation for which type bindings belong to.
-  private let allocationID: Memory.Allocation.ID
-
-  /// The allocation for which type bindings belong to.
-  private var allocation: Memory.Allocation {
-    _read {
-      yield memory.pointee.allocation[allocationID]!
-    }
-  }
-
-  /// The reserved typed regions, in ascending order.
-  private var reservedTypeRegions: [Memory.Allocation.TypedRegion]
-
-  /// Empty regions for `allocation` in `memory`.
-  public init(
-    memory: UnsafeMutablePointer<Memory>,
-    allocation: Memory.Allocation.ID
-  ) {
-    self.memory = memory
-    self.allocationID = allocation
-    reservedTypeRegions = []
-  }
-
-  /// Returns the index of typed region enclosing `a`.
-  private func regionIndex(enclosing a: Offset) -> Int? {
-    let i = reservedTypeRegions.partitioningIndex { $0.startOffset > a }
+  /// Returns the index of region enclosing `a`.
+  ///
+  /// - Precondition: The allocation to which these regions belong is
+  ///   consistent with the type layouts in `l`.
+  private func regionIndex(
+    enclosing a: Offset,
+    typeLayouts l: inout TypeLayoutCache
+  ) -> Int? {
+    let i = typeBindings.partitioningIndex { $0.offset > a }
     if i == 0 {
       return nil
     }
-    if reservedTypeRegions[i - 1].startOffset
-      + memory.pointee.typeLayouts[reservedTypeRegions[i - 1].type].size <= a
-    {
+    if typeBindings[i - 1].offset + l[typeBindings[i - 1].type].size <= a {
       return nil
     }
     return i - 1
   }
 
-  /// Returns the typed region enclosing `a`.
-  public func region(enclosing a: Offset) -> Memory.Allocation.TypedRegion? {
-    guard let i = regionIndex(enclosing: a) else {
+  /// Returns the region enclosing `a`.
+  ///
+  /// - Precondition: The allocation to which these regions belong is
+  ///   consistent with the type layouts in `l`.
+  public func region(enclosing a: Offset, typeLayouts l: inout TypeLayoutCache)
+    -> Memory.Allocation.TypedRegion?
+  {
+    guard let i = regionIndex(enclosing: a, typeLayouts: &l) else {
       return nil
     }
-    return reservedTypeRegions[i]
+    return typeBindings[i]
   }
 
-  /// Binds the region starting at `o` to `t`, constraining accesses to that
+  /// Binds the region starting at `o` in `a` to `t`, constraining accesses to that
   /// region to the layout of `t`.
-  public mutating func bind(_ t: AnyType, at o: Offset) throws {
-    try allocation.checkAlignmentAndAllocationBounds(
-      at: o, for: memory.pointee.typeLayouts[t])
+  ///
+  /// - Precondition: The allocation to which these regions belong is
+  ///   consistent with the type layouts in `l`.
+  /// - Precondition: All previous `bind` calls to `self` were made with same
+  ///   allocation as of `a.
+  public mutating func bind(
+    _ t: AnyType, at o: Offset, in a: Memory.Allocation,
+    typeLayouts l: inout TypeLayoutCache
+  ) throws {
+    try a.checkAlignmentAndAllocationBounds(at: o, for: l[t])
 
-    let i = reservedTypeRegions.partitioningIndex { $0.startOffset > o }
+    let i = typeBindings.partitioningIndex { $0.offset > o }
     if i != 0
-      && reservedTypeRegions[i - 1].startOffset
-        + memory.pointee.typeLayouts[reservedTypeRegions[i - 1].type].size > o
+      && typeBindings[i - 1].offset + l[typeBindings[i - 1].type].size > o
     {
-      throw Error.regionAlreadyBound(to: reservedTypeRegions[i - 1].type)
+      throw Error.regionAlreadyBound(to: typeBindings[i - 1].type)
     }
-    if i != reservedTypeRegions.endIndex
-      && o + memory.pointee.typeLayouts[t].size > reservedTypeRegions[i].startOffset
+    if i != typeBindings.endIndex && o + l[t].size > typeBindings[i].offset
     {
-      throw Error.regionAlreadyBound(to: reservedTypeRegions[i].type)
+      throw Error.regionAlreadyBound(to: typeBindings[i].type)
     }
-    reservedTypeRegions.insert(.init(startOffset: o, type: t), at: i)
+    typeBindings.insert(.init(offset: o, type: t), at: i)
   }
 
-  /// Removes the type binding for the region starting at `o`, removing the
-  /// layout constraints previously applied to that region.
+  /// Removes the binding for region starting at `o`.
   public mutating func unbind(at o: Offset) {
-    let i = reservedTypeRegions.partitioningIndex { $0.startOffset >= o }
-    let j = reservedTypeRegions.partitioningIndex { $0.startOffset > o }
-    reservedTypeRegions.removeSubrange(i..<j)
+    let i = typeBindings.partitioningIndex { $0.offset >= o }
+    let j = typeBindings.partitioningIndex { $0.offset > o }
+    typeBindings.removeSubrange(i..<j)
   }
 }

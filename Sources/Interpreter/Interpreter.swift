@@ -51,7 +51,7 @@ struct StackFrame {
   var allocations: [Memory.Place] = []
 
   /// Location of values passed to the function.
-  var parameters: [AccessedPlace]
+  var parameters: [Access<Memory.Place>]
 }
 
 extension UnsafeRawPointer {
@@ -84,7 +84,7 @@ struct Stack {
   private var frames: [StackFrame] = []
 
   /// Adds a new frame on top with the given `returnAddress` and `parameters`.
-  public mutating func push(returnAddress: CodePointer, parameters: [AccessedPlace]) {
+  public mutating func push(returnAddress: CodePointer, parameters: [Access<Memory.Place>]) {
     let f = StackFrame(returnAddress: returnAddress, parameters: parameters)
     frames.append(f)
   }
@@ -168,8 +168,10 @@ public struct Interpreter {
     memory = Memory(typesIn: p.base, for: UnrealABI())
 
     // First argument of main.
-    let a: AccessedPlace
-    do { a = try memory.access(memory.allocate(AnyType.void), with: .sink) } catch { unreachable() }
+    let a: Access<Memory.Place>
+    do { a = try memory.begin(.sink, to: memory.allocate(AnyType.void)) } catch {
+      unreachable()
+    }
 
     // The return address of the bottom-most frame will never be used,
     // so we fill it with something arbitrary.
@@ -201,8 +203,8 @@ public struct Interpreter {
     print("\(currentInstruction.site): \(currentInstruction)")
     switch currentInstruction {
     case let x as IR.Access:
-      let c = x.capabilities.elements.first!  // reifed IR has only one access
-      let a = try memory.access(asPlace(x.source), with: c)
+      let e = x.capabilities.elements.first!  // reifed IR has only one access
+      let a = try memory.begin(e, to: asPlace(x.source))
       return .value(.init(payload: a))
     case let x as AdvancedByBytes:
       _ = x
@@ -243,7 +245,7 @@ public struct Interpreter {
       try deallocateStack(p)
       return nil
     case let x as EndAccess:
-      try memory.end(asAccessedPlace(x.start))
+      try memory.end(asAccess(x.start))
       return nil
     case let x as EndProject:
       _ = x
@@ -252,7 +254,7 @@ public struct Interpreter {
     case let x as GlobalPlace:
       _ = x
     case let x as Load:
-      return try .value(.init(payload: memory.builtinValue(in: asAccessedPlace(x.source))));
+      return try .value(.init(payload: memory.builtinValue(in: asAccess(x.source))));
     case let x as MarkState:
       let p = asPlace(x.storage)
       if !x.initialized {
@@ -260,7 +262,7 @@ public struct Interpreter {
       }
       return nil
     case let x as MemoryCopy:
-      try memory.copy(asAccessedPlace(x.source), to: asAccessedPlace(x.target))
+      try memory.copy(asAccess(x.source), to: asAccess(x.target))
       return nil
     case is Move:
       fatalError("Interpreter: Move instructions have not been removed.")
@@ -282,7 +284,7 @@ public struct Interpreter {
     case is Return:
       return .jump(popStackFrame())
     case let x as Store:
-      try memory.store(asBuiltinValue(x.object), in: asAccessedPlace(x.target))
+      try memory.store(asBuiltinValue(x.object), in: asAccess(x.target))
       return .none
     case let x as SubfieldView:
       let p = asPlace(x.recordPlace)
@@ -351,7 +353,7 @@ public struct Interpreter {
     switch x {
     case .register(let instruction):
       let p = topOfStack.registers[instruction]!.payload
-      return (p as? AccessedPlace)?.location ?? (p as! Memory.Place)
+      return (p as? Access<Memory.Place>)?.location ?? (p as! Memory.Place)
     case .parameter(_, let i):
       return topOfStack.parameters[i].location
     case .constant:
@@ -359,13 +361,13 @@ public struct Interpreter {
     }
   }
 
-  /// Interpret `x` as an `AccessedPlace`.
+  /// Interpret `x` as an `Access<Memory.Place>`.
   ///
   /// - Precondition: `x` is an `AccessedPlace`.
-  func asAccessedPlace(_ x: Operand) -> AccessedPlace {
+  func asAccess(_ x: Operand) -> Access<Memory.Place> {
     switch x {
     case .register(let instruction):
-      topOfStack.registers[instruction]!.payload as! AccessedPlace
+      topOfStack.registers[instruction]!.payload as! Access<Memory.Place>
     case .parameter(_, let i):
       topOfStack.parameters[i]
     case .constant:

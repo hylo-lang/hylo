@@ -1,4 +1,6 @@
-/// An access effect, specifying how a parameter, receiver, or remote part is accessed.
+import Utils
+
+/// How a parameter or binding, or capture may (or must) be accessed.
 public enum AccessEffect: UInt8, Codable, Sendable {
 
   /// Value is accessed immutably.
@@ -37,3 +39,5 @@ extension AccessEffect: Comparable {
   }
 
 }
+
+extension AccessEffect: Regular {}

@@ -50,13 +50,17 @@ public struct Memory {
 
     /// A region within an `Allocation`, identified by a starting offset
     /// and the type layout associated with that location.
-    public struct TypedRegion: Regular {
+    public struct TypedRegion: Regular, Comparable {
 
-      /// Start offset relative to base offset.
-      let startOffset: Offset
+      /// Where the region begins relative to an `Allocation`'s `baseOffset`.
+      let offset: Offset
 
-      /// The type describing the layout of the region starting at `startOffset`.
+      /// The type in the region.
       let type: AnyType
+
+      public static func < (lhs: Self, rhs: Self) -> Bool {
+        lhs.offset < rhs.offset
+      }
 
     }
 
@@ -228,8 +232,7 @@ public struct Memory {
     let a = nextAllocation
     nextAllocation += 1
     allocation[a] = Allocation(typeLayouts[t], count: n, id: a)
-    allocationSafetyValidator[a] =
-      MemorySafetyValidator(memory: withUnsafeMutablePointer(to: &self) { $0 }, allocation: a)
+    allocationSafetyValidator[a] = MemorySafetyValidator(a)
     do { try bindRegions(in: a, as: t, count: n) } catch { unreachable() }
     return .init(allocation: a, offset: 0, type: t)
   }
@@ -271,7 +274,9 @@ public struct Memory {
     let s = typeLayouts[t].size
 
     for i in 0..<count {
-      try allocationSafetyValidator[a]!.bind(.init(allocation: a, offset: i * s), to: t)
+      try allocationSafetyValidator[a]!.bindRegion(
+        startingAt: i * s, to: t,
+        in: allocation[a]!, typeLayouts: &typeLayouts)
     }
   }
 }
@@ -330,11 +335,16 @@ extension Memory {
   }
 
   /// Stores `v` in `target`.
-  mutating func store(_ v: BuiltinValue, in target: AccessedPlace) throws {
+  mutating func store(_ v: BuiltinValue, in target: Access<Place>) throws {
     let p = target.location
-    try allocationSafetyValidator[p.allocation]!.requireCanWrite(to: p, using: target.capability)
+    try allocationSafetyValidator[p.allocation]!.requireCanWrite(
+      to: p.typedRegion, using: target.accessedRegion,
+      in: self[p.allocation], typeLayouts: &typeLayouts
+    )
     self[p.allocation].store(v, at: p.offset)
-    try allocationSafetyValidator[p.allocation]!.markInitialized(p)
+    try allocationSafetyValidator[p.allocation]!.markInitialized(
+      p.typedRegion, in: self[p.allocation], typeLayouts: &typeLayouts
+    )
   }
 
   /// Returns the result of calling `body` with raw buffer pointer to bytes in `p`.
@@ -365,7 +375,7 @@ extension Memory {
   /// Copies the bytes of `source` to `destination`.
   ///
   /// - Precondition: Type of `source` should be same as type of `destination`.
-  public mutating func copy(_ source: AccessedPlace, to destination: AccessedPlace) throws {
+  public mutating func copy(_ source: Access<Place>, to destination: Access<Place>) throws {
     let s = source.location
     let d = destination.location
     precondition(
@@ -373,9 +383,14 @@ extension Memory {
       "Copy source type \(s.type) must match with destination type \(d.type).")
 
     try allocationSafetyValidator[s.allocation]!
-      .requireCanRead(from: s, using: source.capability)
+      .requireCanRead(
+        from: s.typedRegion, using: source.accessedRegion,
+        in: self[s.allocation], typeLayouts: &typeLayouts)
     try allocationSafetyValidator[d.allocation]!
-      .requireCanWrite(to: d, using: destination.capability)
+      .requireCanWrite(
+        to: d.typedRegion, using: destination.accessedRegion,
+        in: self[d.allocation], typeLayouts: &typeLayouts
+      )
 
     self.withUnsafeBytes(s, havingLayout: typeLayouts[s.type]) { a in
       self.withUnsafeMutableBytes(d) {
@@ -384,16 +399,22 @@ extension Memory {
       }
     }
 
-    try allocationSafetyValidator[d.allocation]!.markInitialized(d)
+    try allocationSafetyValidator[d.allocation]!.markInitialized(
+      d.typedRegion,
+      in:
+        self[d.allocation], typeLayouts: &typeLayouts)
   }
 
   /// Returns the builtin value stored in `p`.
-  func builtinValue(in p: AccessedPlace) throws -> BuiltinValue {
+  mutating func builtinValue(in p: Access<Place>) throws -> BuiltinValue {
     precondition(p.location.type.isBuiltin);
     precondition(allocation[p.location.allocation] != nil)
 
     try allocationSafetyValidator[p.location.allocation]!
-      .requireCanRead(from: p.location, using: p.capability)
+      .requireCanRead(
+        from: p.location.typedRegion, using: p.accessedRegion,
+        in:
+          self[p.location.allocation], typeLayouts: &typeLayouts)
 
     let o = p.location.offset;
     let a = allocation[p.location.allocation]!
@@ -409,21 +430,48 @@ extension Memory {
     }
   }
 
-  /// Creates an access on `p` with `capability` and returns the `AccessedPlace`
-  /// corresponding to the access.
-  public mutating func access(_ p: Place, with capability: AccessEffect) throws -> AccessedPlace {
-    let a = try allocationSafetyValidator[p.allocation]!.beginAccess(capability, at: p)
-    return .init(location: p, capability: a)
+  /// Creates and returns new access to `p` having effect `e`.
+  public mutating func begin(_ e: AccessEffect, to p: Place) throws -> Access<Place> {
+    try allocationSafetyValidator[p.allocation]!
+      .begin(e, to: p.typedRegion, in: self[p.allocation], typeLayouts: &typeLayouts)
+      .asAccessedPlace(in: p.allocation)
   }
 
-  /// Ends `a.capability` at `a.location`.
-  public mutating func end(_ a: AccessedPlace) throws {
-    try allocationSafetyValidator[a.location.allocation]!.endAccess(a.capability, at: a.location)
+  /// Ends `a`.
+  public mutating func end(_ a: Access<Place>) throws {
+    let p = a.location
+    try allocationSafetyValidator[p.allocation]!
+      .end(a.accessedRegion, to: p.typedRegion, in: self[p.allocation], typeLayouts: &typeLayouts)
   }
 
   /// Marks `p` as deinitialized.
   public mutating func markDeinitialized(_ p: Place) throws {
-    allocationSafetyValidator[p.allocation]!.markDeinitialized(p)
+    allocationSafetyValidator[p.allocation]!.markDeinitialized(
+      p.typedRegion, typeLayouts: &typeLayouts
+    )
   }
 }
 
+extension Memory.Place {
+  /// `TypedRegion` inside `allocation`.
+  var typedRegion: Memory.Allocation.TypedRegion {
+    .init(offset: self.offset, type: self.type)
+  }
+}
+
+extension Access<Memory.Place> {
+  /// The accessed region within `self.location.allocation`.
+  var accessedRegion: Access<Memory.Allocation.TypedRegion> {
+    .init(to: self.location.typedRegion, effect: self.effect, id: self.id)
+  }
+}
+
+extension Access<Memory.Allocation.TypedRegion> {
+  /// Returns `self` interpreted as `Access<Place>` in `a`.
+  func asAccessedPlace(in a: Memory.Allocation.ID) -> Access<Memory.Place> {
+    .init(
+      to: .init(allocation: a, offset: self.location.offset, type: self.location.type),
+      effect: self.effect, id: self.id
+    )
+  }
+}
