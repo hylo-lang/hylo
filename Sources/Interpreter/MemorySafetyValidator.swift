@@ -12,9 +12,9 @@ struct MemorySafetyValidator {
     case noTypeBound(at: Memory.Address)
     case notContained(Memory.Place, in: Memory.Place)
     case readFromIncomplete(Memory.Place)
-    case accessToIncomplete(Memory.Place, capability: AccessEffect)
+    case accessToIncomplete(Memory.Place, effect: AccessEffect)
     case setAccessToPartiallyComplete(Memory.Place)
-    case endAccessToIncomplete(Memory.Place, capability: AccessEffect)
+    case endAccessToIncomplete(Memory.Place, effect: AccessEffect)
   }
 
   /// A region within an `Allocation`, identified by a starting offset
@@ -64,7 +64,7 @@ struct MemorySafetyValidator {
     let ps = try path(to: r.type, at: r.offset, in: a, typeLayouts: &l)
 
     if e != .set && !composedRegions.isComplete(r, typeLayouts: &l) {
-      throw Error.accessToIncomplete(asPlace(r), capability: e)
+      throw Error.accessToIncomplete(asPlace(r), effect: e)
     }
     if e == .set && !composedRegions.isFullyUninitialized(r, typeLayouts: &l) {
       throw Error.setAccessToPartiallyComplete(asPlace(r))
@@ -97,7 +97,7 @@ struct MemorySafetyValidator {
     let ps = try path(to: r.type, at: r.offset, in: m, typeLayouts: &l)
     if a.effect != .sink {
       if !composedRegions.isComplete(r, typeLayouts: &l) {
-        throw Error.endAccessToIncomplete(asPlace(r), capability: a.effect)
+        throw Error.endAccessToIncomplete(asPlace(r), effect: a.effect)
       }
     } else {
       markDeinitialized(r, typeLayouts: &l)
