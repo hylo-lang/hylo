@@ -64,24 +64,24 @@ final class MemorySafetyValidatorTests: XCTestCase {
 
       // No parts are initialized
       _ = try v.begin(.set, to: whole, in: m[a], typeLayouts: &m.typeLayouts)
-      check(throws: Error.accessToIncomplete(place(whole, in: a), capability: k)) {
+      check(throws: Error.accessToIncomplete(place(whole, in: a), effect: k)) {
         _ = try v.begin(k, to: whole, in: m[a], typeLayouts: &m.typeLayouts)
       }
-      check(throws: Error.accessToIncomplete(place(firstPart, in: a), capability: k)) {
+      check(throws: Error.accessToIncomplete(place(firstPart, in: a), effect: k)) {
         _ = try v.begin(k, to: firstPart, in: m[a], typeLayouts: &m.typeLayouts)
       }
-      check(throws: Error.accessToIncomplete(place(secondPart, in: a), capability: k)) {
+      check(throws: Error.accessToIncomplete(place(secondPart, in: a), effect: k)) {
         _ = try v.begin(k, to: secondPart, in: m[a], typeLayouts: &m.typeLayouts)
       }
 
       // First part is initialized
       try v.markInitialized(firstPart, in: m[a], typeLayouts: &m.typeLayouts)
-      check(throws: Error.accessToIncomplete(place(whole, in: a), capability: k)) {
+      check(throws: Error.accessToIncomplete(place(whole, in: a), effect: k)) {
         _ = try v.begin(k, to: whole, in: m[a], typeLayouts: &m.typeLayouts)
       }
       let f = try v.begin(k, to: firstPart, in: m[a], typeLayouts: &m.typeLayouts)
       try v.end(f, in: m[a], typeLayouts: &m.typeLayouts)
-      check(throws: Error.accessToIncomplete(place(secondPart, in: a), capability: k)) {
+      check(throws: Error.accessToIncomplete(place(secondPart, in: a), effect: k)) {
         _ = try v.begin(k, to: secondPart, in: m[a], typeLayouts: &m.typeLayouts)
       }
 
@@ -173,11 +173,11 @@ final class MemorySafetyValidatorTests: XCTestCase {
       let secondPart = Memory.Allocation.TypedRegion(offset: 1, type: i8)
 
       let x = try v.begin(.set, to: whole, in: m[a], typeLayouts: &m.typeLayouts)
-      check(throws: Error.endAccessToIncomplete(place(whole, in: a), capability: .set)) {
+      check(throws: Error.endAccessToIncomplete(place(whole, in: a), effect: .set)) {
         try v.end(x, in: m[a], typeLayouts: &m.typeLayouts)
       }
       try v.markInitialized(firstPart, in: m[a], typeLayouts: &m.typeLayouts)
-      check(throws: Error.endAccessToIncomplete(place(whole, in: a), capability: .set)) {
+      check(throws: Error.endAccessToIncomplete(place(whole, in: a), effect: .set)) {
         try v.end(x, in: m[a], typeLayouts: &m.typeLayouts)
       }
       try v.markInitialized(secondPart, in: m[a], typeLayouts: &m.typeLayouts)
@@ -186,7 +186,7 @@ final class MemorySafetyValidatorTests: XCTestCase {
       let w = try v.begin(k, to: whole, in: m[a], typeLayouts: &m.typeLayouts)
       let s = try v.begin(.sink, to: firstPart, in: m[a], typeLayouts: &m.typeLayouts)
       try v.end(s, in: m[a], typeLayouts: &m.typeLayouts)
-      check(throws: Error.endAccessToIncomplete(place(whole, in: a), capability: k)) {
+      check(throws: Error.endAccessToIncomplete(place(whole, in: a), effect: k)) {
         try v.end(w, in: m[a], typeLayouts: &m.typeLayouts)
       }
     }
