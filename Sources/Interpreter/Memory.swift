@@ -338,8 +338,8 @@ extension Memory {
   mutating func store(_ v: BuiltinValue, in target: Access<Place>) throws {
     let p = target.location
     try allocationSafetyValidator[p.allocation]!.requireCanWrite(
-      to: p.typedRegion, using: target.accessedRegion,
-      in: self[p.allocation], typeLayouts: &typeLayouts
+      to: target.accessedRegion, in: self[p.allocation],
+      typeLayouts: &typeLayouts
     )
     self[p.allocation].store(v, at: p.offset)
     try allocationSafetyValidator[p.allocation]!.markInitialized(
@@ -384,12 +384,13 @@ extension Memory {
 
     try allocationSafetyValidator[s.allocation]!
       .requireCanRead(
-        from: s.typedRegion, using: source.accessedRegion,
-        in: self[s.allocation], typeLayouts: &typeLayouts)
+        from: source.accessedRegion, in: self[s.allocation],
+        typeLayouts: &typeLayouts
+      )
     try allocationSafetyValidator[d.allocation]!
       .requireCanWrite(
-        to: d.typedRegion, using: destination.accessedRegion,
-        in: self[d.allocation], typeLayouts: &typeLayouts
+        to: destination.accessedRegion, in: self[d.allocation],
+        typeLayouts: &typeLayouts
       )
 
     self.withUnsafeBytes(s, havingLayout: typeLayouts[s.type]) { a in
@@ -412,9 +413,9 @@ extension Memory {
 
     try allocationSafetyValidator[p.location.allocation]!
       .requireCanRead(
-        from: p.location.typedRegion, using: p.accessedRegion,
-        in:
-          self[p.location.allocation], typeLayouts: &typeLayouts)
+        from: p.accessedRegion, in: self[p.location.allocation],
+        typeLayouts: &typeLayouts
+      )
 
     let o = p.location.offset;
     let a = allocation[p.location.allocation]!
@@ -441,7 +442,7 @@ extension Memory {
   public mutating func end(_ a: Access<Place>) throws {
     let p = a.location
     try allocationSafetyValidator[p.allocation]!
-      .end(a.accessedRegion, to: p.typedRegion, in: self[p.allocation], typeLayouts: &typeLayouts)
+      .end(a.accessedRegion, in: self[p.allocation], typeLayouts: &typeLayouts)
   }
 
   /// Marks `p` as deinitialized.
