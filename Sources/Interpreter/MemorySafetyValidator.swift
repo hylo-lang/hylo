@@ -204,12 +204,13 @@ struct MemorySafetyValidator {
     guard var r = typeBindings.region(enclosing: i, typeLayouts: &l) else {
       throw Error.noTypeBound(at: .init(allocation: allocation, offset: i))
     }
+    let rootRegion = r
     var path: [TypedRegion] = []
     while r.offset != i || r.type != t {
       path.append(r)
       guard let c = try child(r, enclosing: i, in: a, typeLayouts: &l) else {
         throw Error.notContained(
-          .init(allocation: allocation, offset: i, type: t), in: asPlace(r)
+          .init(allocation: allocation, offset: i, type: t), in: asPlace(rootRegion)
         )
       }
       r = c
