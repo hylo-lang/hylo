@@ -17,3 +17,19 @@ extension Dictionary where Value: Equatable {
   }
 
 }
+
+extension Dictionary {
+
+  /// Assigns the value computed by `v` to `k` if `k` is not already present in the dictionary.
+  ///
+  /// - Returns `true` iff the value had to be inserted.
+  @discardableResult
+  public mutating func assignValueIfAbsent(forKey k: Key, _ v: @autoclosure () -> Value) -> Bool {
+    if !keys.contains(k) { 
+      self[k] = v()
+      return true
+    }
+    return false
+  }
+
+}

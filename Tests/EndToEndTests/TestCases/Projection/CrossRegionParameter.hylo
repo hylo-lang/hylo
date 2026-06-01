@@ -1,0 +1,23 @@
+//- compileAndRun expecting: .success
+
+subscript neg(_ x: Int): Int {
+  yield -x
+}
+
+type A: Deinitializable {
+  public var x: Int
+  public var y: Int
+
+  public memberwise init
+}
+
+fun test(_ x: Int) {
+  let p = neg[5]
+  precondition(p == x)
+  let _ = p.copy()
+  precondition(x == -5)
+}
+
+public fun main() {
+  test(-5)
+}

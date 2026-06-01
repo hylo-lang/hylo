@@ -1,0 +1,16 @@
+//- compileAndRun expecting: .success
+
+subscript neg(_ x: Int): Int {
+  yield -x
+}
+
+fun checkEqual(_ x: Int, _ y: Int) {
+  precondition(x == y)
+}
+
+public fun main() {
+  let p = neg[5]
+  // precondition(p == -5)
+  checkEqual(p, -5)
+  let _ = p.copy()
+}

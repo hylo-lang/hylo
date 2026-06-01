@@ -1,0 +1,11 @@
+//- compileAndRun expecting: .success
+
+subscript neg(_ x: Int): Int {
+  yield -x
+}
+
+public fun main() {
+  let p = neg[5]
+  precondition(p == -5)
+  let _ = p.copy()
+}

@@ -1,0 +1,12 @@
+//- compileAndRun expecting: .success
+
+subscript neg(_ x: Int): Int {
+  var y = 11
+  yield -x
+  precondition(y == 11)
+}
+
+public fun main() {
+  let p = neg[5]
+  precondition(p == -5)
+}
