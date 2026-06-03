@@ -33,7 +33,7 @@ jobs:
       HYLO_LLVM_VERSION: '20.1.6'
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v6.0.2
       with:
         submodules: true
         show-progress: false
