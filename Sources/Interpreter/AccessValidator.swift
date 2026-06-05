@@ -4,13 +4,12 @@ import Utils
 /// Validates accesses to an object and its subobjects, where subobjects
 /// are identified by paths of `PathComponent` values.
 ///
-/// Invariants:
-///  - Accesses are active when they are created.
-///  - If `x` is an active exclusive access (`sink`, `set`, or `inout`) of an
-///    object `o`, no other access that includes `o` is active.
+/// Operations that would otherwise cause an active exclusive access
+/// to overlap another active access throw `AccessValidator.Error`s.
 struct AccessValidator<PathComponent: Regular & Comparable> {
 
-  // The object `(b: (c: C, d: D), f: F)` may be represented as:
+  // The object `(b: (c: C, d: D), f: F)`, with all parts accessed, may be
+  // represented as:
   //
   //             root
   //            /    \
@@ -19,7 +18,7 @@ struct AccessValidator<PathComponent: Regular & Comparable> {
   //        c     d
   //
   // Each part stores the accesses currently associated with it.
-  // Parts without accesses or accessed descendants does not exist.
+  // Parts without accesses or accessed descendants do not exist.
 
   /// A subobject's accesses and immediate subparts.
   ///
@@ -29,7 +28,7 @@ struct AccessValidator<PathComponent: Regular & Comparable> {
     /// The step from parent subobject to this subobject.
     let step: PathComponent
 
-    /// Accesses ordered by creation time, where `let` accesses are
+    /// Accesses ordered by increasing creation time, where `let` accesses are
     /// always active, and all other accesses are active only when they
     /// are the most recently created access and this part has no subparts.
     var accesses: [Access<PathComponent>]
@@ -46,7 +45,7 @@ struct AccessValidator<PathComponent: Regular & Comparable> {
 
   }
 
-  /// Allocated parts, including free entries no longer in use.
+  /// Storage for parts, including free entries not currently in use.
   private typealias PartStorage = Array<Part>
 
   /// Identity of a `Part` in `parts`.
