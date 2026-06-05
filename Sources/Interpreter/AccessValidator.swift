@@ -90,7 +90,7 @@ struct AccessValidator<PathComponent: Regular & Comparable> {
       throw Error.overlappingExclusiveAccess(p)
     }
     if e != .let {
-      incrementExclusiveAccessInAncestors(of: p)
+      beginExclusiveAccess(at: p)
     }
     return r
   }
@@ -116,7 +116,7 @@ struct AccessValidator<PathComponent: Regular & Comparable> {
     parts[ns.last!].accesses.removeAll { $0 == a }
     releaseMaximalEmptySuffix(ns)
     if a.effect != .let {
-      decrementExclusiveAccessInAncestors(of: p)
+      endExclusiveAccess(at: p)
     }
   }
 
@@ -182,9 +182,7 @@ struct AccessValidator<PathComponent: Regular & Comparable> {
     return r
   }
 
-  /// Releases the maximal suffix of parts along `ps` that have neither
-  /// `accesses` nor `subparts`, making those parts reusable by
-  /// adding them to `freeList`.
+  /// Removes trailing parts of `ps` that contain neither accesses nor subparts.
   private mutating func releaseMaximalEmptySuffix(_ ps: [PartID]) {
     var reclaimedChild: PartID? = nil
 
@@ -229,7 +227,7 @@ struct AccessValidator<PathComponent: Regular & Comparable> {
   }
 
   /// Increment exclusive access count in ancestors of `p.last`, if any.
-  private mutating func incrementExclusiveAccessInAncestors(of p: Path) {
+  private mutating func beginExclusiveAccess(at p: Path) {
     guard !p.isEmpty else { return }
     forEachExistingPart(p.dropLast()) {
       parts[$0].descendantExclusiveAccessCount += 1
@@ -237,7 +235,7 @@ struct AccessValidator<PathComponent: Regular & Comparable> {
   }
 
   /// Decrement exclusive access count in ancestors of `p.last`, if any.
-  private mutating func decrementExclusiveAccessInAncestors(of p: Path) {
+  private mutating func endExclusiveAccess(at p: Path) {
     guard !p.isEmpty else { return }
     forEachExistingPart(p.dropLast()) {
       parts[$0].descendantExclusiveAccessCount -= 1
