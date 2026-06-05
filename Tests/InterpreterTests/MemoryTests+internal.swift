@@ -5,6 +5,9 @@ import FrontEnd
 
 final class InterpreterMemoryInternalTests: XCTestCase {
 
+  let i8 = ^BuiltinType.i(8)
+  let i16 = ^BuiltinType.i(16)
+
   func testFormingPointerToLastByteOfAllocation() throws {
     var memory = Memory(typesIn: TypedProgram.empty, for: UnrealABI())
     let a = memory.allocate(^BuiltinType.i(8))
@@ -23,7 +26,9 @@ final class InterpreterMemoryInternalTests: XCTestCase {
   {
     var m = Memory(typesIn: TypedProgram.empty, for: UnrealABI())
     let a = m.allocate(^t)
-    try m.store(v, in: a)
+    let w = try m.begin(.set, to: a)
+    try m.store(v, in: w)
+    try m.end(w)
     m[a.allocation].withUnsafePointer(to: T.self, at: 0) {
       XCTAssertEqual($0.pointee, e)
     }
@@ -43,8 +48,15 @@ final class InterpreterMemoryInternalTests: XCTestCase {
     let s = m.allocate(^t)
     let d = m.allocate(^t)
 
-    try m.store(v, in: s)
-    try m.copy(s, to: d)
+    let ws = try m.begin(.set, to: s)
+    try m.store(v, in: ws)
+    try m.end(ws)
+
+    let rs = try m.begin(.let, to: s)
+    let wd = try m.begin(.set, to: d)
+    try m.copy(rs, to: wd)
+    try m.end(wd)
+    try m.end(rs)
 
     m[d.allocation].withUnsafePointer(to: T.self, at: 0) {
       XCTAssertEqual($0.pointee, e)
@@ -58,21 +70,34 @@ final class InterpreterMemoryInternalTests: XCTestCase {
     try check(copying: .i32(8), asType: .i(32), yields: UInt32(8))
     try check(copying: .i64(8), asType: .i(64), yields: UInt64(8))
     try check(copying: .i128(8), asType: .i(128), yields: UInt128(8))
+  }
 
-    // TODO: should throw when try to copy from non-composed region.
-    // var m = Memory(typesIn: TypedProgram.empty, for: UnrealABI())
-    // let s = m.allocate(^BuiltinType.i(8))
-    // let d = m.allocate(^BuiltinType.i(8))
-    // check(throws: Memory.Error.noComposedPart(at: s.address)) {
-    //   try m.copy(s, to: d)
-    // }
+  func testCopyingFromUninitializedObject() throws {
+    var m = Memory(typesIn: TypedProgram.empty, for: UnrealABI())
+    let source = m.allocate(i8)
+    try m.bind(source.address, to: i8)
+    let t = try m.begin(.set, to: source)
+    try m.store(.i8(2), in: t)
+    try m.end(t)
+    let destination = m.allocate(i8)
+    try m.bind(destination.address, to: i8)
+    let s = try m.begin(.sink, to: source)
+    try m.markDeinitialized(source)
+    let d = try m.begin(.set, to: destination)
+    TestUtils.check(throws: MemorySafetyValidator.Error.readFromIncomplete(source)) {
+      try m.copy(s, to: d)
+    }
   }
 
   func check(storeAndLoadSucceeds v: BuiltinValue, asType t: BuiltinType) throws {
     var m = Memory(typesIn: TypedProgram.empty, for: UnrealABI())
     let p = m.allocate(^t)
-    try m.store(v, in: p)
-    XCTAssertEqual(try m.builtinValue(in: p), v)
+    let w = try m.begin(.set, to: p)
+    try m.store(v, in: w)
+    try m.end(w)
+    let r = try m.begin(.let, to: p)
+    XCTAssertEqual(try m.builtinValue(in: r), v)
+    try m.end(r)
   }
 
   func testLoad() throws {
@@ -82,9 +107,29 @@ final class InterpreterMemoryInternalTests: XCTestCase {
     try check(storeAndLoadSucceeds: .i32(8), asType: .i(32))
     try check(storeAndLoadSucceeds: .i64(8), asType: .i(64))
     try check(storeAndLoadSucceeds: .i128(8), asType: .i(128))
+  }
 
-    // TODO: test for loading as different type than stored.
-    // try check(loading: .i1(true), asType: .i(8), throws: .noComposedPart(...))
+  func testFormingAccessOfInvalidType() throws {
+    for e in [.let, .set, .inout, .sink] as [AccessEffect] {
+      var m = Memory(typesIn: TypedProgram.empty, for: UnrealABI())
+      let p = m.allocate(i16)
+      let i8Place = Memory.Place(allocation: p.allocation, offset: p.offset, type: i8)
+      try m.bind(p.address, to: p.type)
+      TestUtils.check(throws: MemorySafetyValidator.Error.notContained(i8Place, in: p)) {
+        _ = try m.begin(e, to: i8Place)
+      }
+    }
+
+    for e in [.let, .set, .inout, .sink] as [AccessEffect] {
+      var m = Memory(typesIn: TypedProgram.empty, for: UnrealABI())
+      let p = m.allocate(^TupleType(types: [i8, i8]))
+      let i8Place = Memory.Place(
+        allocation: p.allocation, offset: p.offset, type: ^TupleType(types: [i8]))
+      try m.bind(p.address, to: p.type)
+      TestUtils.check(throws: MemorySafetyValidator.Error.notContained(i8Place, in: p)) {
+        _ = try m.begin(e, to: i8Place)
+      }
+    }
   }
 
 }

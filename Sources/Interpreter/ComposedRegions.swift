@@ -73,20 +73,22 @@ struct ComposedRegions {
     }
   }
 
-  /// Replaces the initialization records starting at `a` for the
-  /// parts of a `t` instance with the initialization record for a
-  /// `t` instance.
+  /// Records initialization of the `t` instance at `a`, replacing any
+  /// initialization records for its parts or subparts.
   ///
+  /// - Precondition: Any initialization records in the region occupied by
+  ///   the `t` instance at `a` describe parts of that instance or subparts
+  ///   thereof.
   /// - Precondition: The composed regions in `self` are consistent
   ///   with the type layouts provided by `l`.
-  /// - Precondition: `canCompose(t, at: a, &l)`.
-  public mutating func compose(
-    _ t: AnyType, at a: Offset, typeLayouts l: inout TypeLayoutCache
-  ) {
+  public mutating func markInitialized(_ t: AnyType, at a: Offset,
+      typeLayouts l: inout TypeLayoutCache)
+  {
     let t = l[t]
     let i = composedRegions.partitioningIndex { $0.offset >= a }
+    let j = composedRegions.partitioningIndex { $0.offset >= a + t.size }
     composedRegions.replaceSubrange(
-      i..<(i + t.storedPartCount),
+      i..<j,
       with: CollectionOfOne(.init(offset: a, type: t.type)))
   }
 
@@ -271,7 +273,7 @@ extension ComposedRegions {
         continue
       }
       if canCompose(p.type, at: p.offset, in: a, typeLayouts: &l) {
-        compose(p.type, at: p.offset, typeLayouts: &l)
+        markInitialized(p.type, at: p.offset, typeLayouts: &l)
       } else {
         break
       }

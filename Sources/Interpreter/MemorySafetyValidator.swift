@@ -100,7 +100,7 @@ struct MemorySafetyValidator {
         throw Error.endAccessToIncomplete(asPlace(r), effect: a.effect)
       }
     } else {
-      composedRegions.removeRegions(in: r, typeLayouts: &l)
+      markDeinitialized(r, typeLayouts: &l)
     }
     try accessValidators[ps.first!]!.end(a, at: ps.dropFirst())
   }
@@ -123,7 +123,10 @@ struct MemorySafetyValidator {
     let i = accessValidators[ps.first!]!.accesses(along: ps.dropFirst()).lastIndex {
       $0.contains { $0.effect == .sink }
     }!  // unwrap as every allocation base has sink access.
-    composedRegions.compose(ps.last!.type, at: ps.last!.offset, typeLayouts: &l)
+    for e in ps.lazy.dropLast() {
+      _ = composedRegions.tryDecompose(e.type, at: e.offset, in: a, typeLayouts: &l)
+    }
+    composedRegions.markInitialized(ps.last!.type, at: ps.last!.offset, typeLayouts: &l)
     composedRegions.composeAncestors(along: ps[i...], in: a, typeLayouts: &l)
   }
 
@@ -164,11 +167,35 @@ struct MemorySafetyValidator {
     try accessValidators[ps.first!]!.requireIsActive(destination, in: ps.dropFirst())
   }
 
+  /// Registers region starting at `i` in `a` to be interpreted as `t`.
+  ///
+  /// - Precondition: `allocation == a.id`.
+  /// - Precondition: Allocations in `a` conform to type layouts from `l`.
+  public mutating func bindRegion(
+    startingAt i: Int, to t: AnyType, in a: Memory.Allocation,
+    typeLayouts l: inout TypeLayoutCache
+  ) throws {
+    precondition(allocation == a.id)
+
+    try typeBindings.bind(t, at: i, in: a, typeLayouts: &l)
+    let r = TypedRegion(offset: i, type: t)
+    accessValidators[r] = AccessValidator(r, effect: .sink)
+  }
+
+  /// Marks `r` as deinitialized.
+  ///
+  /// - Precondition: Allocations in `allocation` conform to type layouts from `l`.
+  public mutating func markDeinitialized(
+    _ r: TypedRegion, typeLayouts l: inout TypeLayoutCache
+  ) {
+    composedRegions.removeRegions(in: r, typeLayouts: &l)
+  }
+
   /// Returns the sequence of typed regions leading to a value of `t` located at `i`.
   ///
   /// - Precondition: `allocation == a.id`.
   /// - Precondition: Allocations in `a` conform to type layouts from `l`.
-  func path(
+  private func path(
     to t: AnyType, at i: ReservedTypeRegions.Offset, in a: Memory.Allocation,
     typeLayouts l: inout TypeLayoutCache
   ) throws -> [TypedRegion] {
@@ -177,12 +204,13 @@ struct MemorySafetyValidator {
     guard var r = typeBindings.region(enclosing: i, typeLayouts: &l) else {
       throw Error.noTypeBound(at: .init(allocation: allocation, offset: i))
     }
+    let rootRegion = r
     var path: [TypedRegion] = []
     while r.offset != i || r.type != t {
       path.append(r)
       guard let c = try child(r, enclosing: i, in: a, typeLayouts: &l) else {
         throw Error.notContained(
-          .init(allocation: allocation, offset: i, type: t), in: asPlace(r)
+          .init(allocation: allocation, offset: i, type: t), in: asPlace(rootRegion)
         )
       }
       r = c
@@ -281,11 +309,6 @@ struct MemorySafetyValidator {
   private func asPlace(_ r: TypedRegion) -> Memory.Place {
     return .init(allocation: allocation, offset: r.offset, type: r.type)
   }
+
 }
 
-private extension Memory.Place {
-  /// `TypedRegion` inside `allocation`.
-  var typedRegion: Memory.Allocation.TypedRegion {
-    .init(offset: self.offset, type: self.type)
-  }
-}

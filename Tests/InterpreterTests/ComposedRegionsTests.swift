@@ -21,11 +21,11 @@ final class ComposedRegionsTests: XCTestCase {
 
     // It should be possible to initialize both parts at the same address
     XCTAssertTrue(c.canCompose(void, at: 0, in: m[a], typeLayouts: &l))
-    c.compose(void, at: p.offset + l[voidPair].parts[0].offset, typeLayouts: &l)
+    c.markInitialized(void, at: p.offset + l[voidPair].parts[0].offset, typeLayouts: &l)
     XCTAssertTrue(c.canCompose(void, at: 0, in: m[a], typeLayouts: &l))
-    c.compose(void, at: p.offset + l[voidPair].parts[1].offset, typeLayouts: &l)
+    c.markInitialized(void, at: p.offset + l[voidPair].parts[1].offset, typeLayouts: &l)
     XCTAssertTrue(c.canCompose(voidPair, at: 0, in: m[a], typeLayouts: &l))
-    c.compose(voidPair, at: p.offset, typeLayouts: &l)
+    c.markInitialized(voidPair, at: p.offset, typeLayouts: &l)
     XCTAssertTrue(c.canCompose(^BuiltinType.i(8), at: 0, in: m[a], typeLayouts: &l))
   }
 
@@ -44,11 +44,11 @@ final class ComposedRegionsTests: XCTestCase {
     let parts = l[i16Pair].parts
     XCTAssertFalse(c.canCompose(i16Pair, at: p.offset, in: m[a], typeLayouts: &l))
 
-    c.compose(i16, at: p.offset + parts[0].offset, typeLayouts: &l)
+    c.markInitialized(i16, at: p.offset + parts[0].offset, typeLayouts: &l)
     XCTAssertFalse(c.canCompose(i16Pair, at: p.offset, in: m[a], typeLayouts: &l))
-    c.compose(i16, at: p.offset + parts[1].offset, typeLayouts: &l)
+    c.markInitialized(i16, at: p.offset + parts[1].offset, typeLayouts: &l)
     XCTAssertTrue(c.canCompose(i16Pair, at: p.offset, in: m[a], typeLayouts: &l))
-    c.compose(i16Pair, at: p.offset, typeLayouts: &l)
+    c.markInitialized(i16Pair, at: p.offset, typeLayouts: &l)
 
     XCTAssertFalse(c.tryDecompose(i16, at: p.offset, in: m[a], typeLayouts: &l))
     XCTAssertTrue(c.tryDecompose(i16Pair, at: p.offset, in: m[a], typeLayouts: &l))
@@ -81,11 +81,11 @@ final class ComposedRegionsTests: XCTestCase {
 
     XCTAssertFalse(c.canCompose(i16i32Union, at: p.offset, in: m[a], typeLayouts: &l))
 
-    c.compose(i16, at: parts[0].offset, typeLayouts: &l)
+    c.markInitialized(i16, at: parts[0].offset, typeLayouts: &l)
     XCTAssertFalse(c.canCompose(i16i32Union, at: 0, in: m[a], typeLayouts: &l))
-    c.compose(i8, at: parts[2].offset, typeLayouts: &l)
+    c.markInitialized(i8, at: parts[2].offset, typeLayouts: &l)
     XCTAssertTrue(c.canCompose(i16i32Union, at: 0, in: m[a], typeLayouts: &l))
-    c.compose(i16i32Union, at: 0, typeLayouts: &l)
+    c.markInitialized(i16i32Union, at: 0, typeLayouts: &l)
     
     XCTAssertFalse(c.tryDecompose(i16, at: 0, in: m[a], typeLayouts: &l))
     XCTAssertTrue(c.tryDecompose(i16i32Union, at: 0, in: m[a], typeLayouts: &l))
@@ -108,15 +108,15 @@ final class ComposedRegionsTests: XCTestCase {
     var c = ComposedRegions()
 
     XCTAssertFalse(c.isComplete(e, typeLayouts: &l))
-    c.compose(i8, at: l[t].parts[0].offset, typeLayouts: &l)
+    c.markInitialized(i8, at: l[t].parts[0].offset, typeLayouts: &l)
     XCTAssertFalse(c.isComplete(e, typeLayouts: &l))
-    c.compose(i8, at: l[t].parts[1].offset + l[i8Pair].parts[0].offset, typeLayouts: &l)
+    c.markInitialized(i8, at: l[t].parts[1].offset + l[i8Pair].parts[0].offset, typeLayouts: &l)
     XCTAssertFalse(c.isComplete(e, typeLayouts: &l))
-    c.compose(i8, at: l[t].parts[1].offset + l[i8Pair].parts[1].offset, typeLayouts: &l)
+    c.markInitialized(i8, at: l[t].parts[1].offset + l[i8Pair].parts[1].offset, typeLayouts: &l)
     XCTAssertFalse(c.isComplete(e, typeLayouts: &l))
-    c.compose(i8Pair, at: l[t].parts[1].offset, typeLayouts: &l)
+    c.markInitialized(i8Pair, at: l[t].parts[1].offset, typeLayouts: &l)
     XCTAssertTrue(c.isComplete(e, typeLayouts: &l))
-    c.compose(t, at: 0, typeLayouts: &l)
+    c.markInitialized(t, at: 0, typeLayouts: &l)
     XCTAssertTrue(c.isComplete(e, typeLayouts: &l))
   }
 
@@ -132,16 +132,15 @@ final class ComposedRegionsTests: XCTestCase {
     let e = Memory.Allocation.TypedRegion(offset: l[t].parts[1].offset, type: i8Pair)
     var c = ComposedRegions()
 
+    c.markInitialized(i8, at: l[t].parts[0].offset, typeLayouts: &l)
     XCTAssertTrue(c.isFullyUninitialized(e, typeLayouts: &l))
-    c.compose(i8, at: l[t].parts[0].offset, typeLayouts: &l)
-    XCTAssertTrue(c.isFullyUninitialized(e, typeLayouts: &l))
-    c.compose(i8, at: l[t].parts[1].offset + l[i8Pair].parts[1].offset, typeLayouts: &l)
+    c.markInitialized(i8, at: l[t].parts[1].offset + l[i8Pair].parts[1].offset, typeLayouts: &l)
     XCTAssertFalse(c.isFullyUninitialized(e, typeLayouts: &l))
-    c.compose(i8, at: l[t].parts[1].offset + l[i8Pair].parts[0].offset, typeLayouts: &l)
+    c.markInitialized(i8, at: l[t].parts[1].offset + l[i8Pair].parts[0].offset, typeLayouts: &l)
     XCTAssertFalse(c.isFullyUninitialized(e, typeLayouts: &l))
-    c.compose(i8Pair, at: l[t].parts[1].offset, typeLayouts: &l)
+    c.markInitialized(i8Pair, at: l[t].parts[1].offset, typeLayouts: &l)
     XCTAssertFalse(c.isFullyUninitialized(e, typeLayouts: &l))
-    c.compose(t, at: 0, typeLayouts: &l)
+    c.markInitialized(t, at: 0, typeLayouts: &l)
     XCTAssertFalse(c.isFullyUninitialized(e, typeLayouts: &l))
   }
 
@@ -159,13 +158,13 @@ final class ComposedRegionsTests: XCTestCase {
     let e = Memory.Allocation.TypedRegion(offset: x, type: t)
     var c = ComposedRegions()
 
-    c.compose(i8, at: 0, typeLayouts: &l)
-    c.compose(i8, at: x + l[t].parts[0].offset, typeLayouts: &l)
-    c.compose(i8, at: x + l[t].parts[1].offset + l[i8Pair].parts[0].offset, typeLayouts: &l)
-    c.compose(i8, at: x + l[t].parts[1].offset + l[i8Pair].parts[1].offset, typeLayouts: &l)
-    c.compose(i8Pair, at: x + l[t].parts[1].offset, typeLayouts: &l)
-    c.compose(t, at: x, typeLayouts: &l)
-    c.compose(i8, at: x + l[t].size, typeLayouts: &l)
+    c.markInitialized(i8, at: 0, typeLayouts: &l)
+    c.markInitialized(i8, at: x + l[t].parts[0].offset, typeLayouts: &l)
+    c.markInitialized(i8, at: x + l[t].parts[1].offset + l[i8Pair].parts[0].offset, typeLayouts: &l)
+    c.markInitialized(i8, at: x + l[t].parts[1].offset + l[i8Pair].parts[1].offset, typeLayouts: &l)
+    c.markInitialized(i8Pair, at: x + l[t].parts[1].offset, typeLayouts: &l)
+    c.markInitialized(t, at: x, typeLayouts: &l)
+    c.markInitialized(i8, at: x + l[t].size, typeLayouts: &l)
 
     c.removeRegions(in: e, typeLayouts: &l)
     XCTAssertEqual(c.region(enclosing: 0, typeLayouts: &l), .init(offset: 0, type: i8))
@@ -196,18 +195,19 @@ final class ComposedRegionsTests: XCTestCase {
     let t2 = ^TupleType(types: [t1, i8])
     let t3 = ^TupleType(types: [t2, i8])
 
-    c.compose(
+    c.markInitialized(
       i8, at: l[t3].parts[0].offset + l[t2].parts[0].offset + l[t1].parts[0].offset,
       typeLayouts: &l
     )
-    c.compose(
+    c.markInitialized(
       i8, at: l[t3].parts[0].offset + l[t2].parts[0].offset + l[t1].parts[1].offset,
       typeLayouts: &l
     )
-    c.compose(i8, at: l[t3].parts[0].offset + l[t2].parts[1].offset, typeLayouts: &l)
-    c.compose(i8, at: l[t3].parts[1].offset, typeLayouts: &l)
+    c.markInitialized(i8, at: l[t3].parts[0].offset + l[t2].parts[1].offset, typeLayouts: &l)
+    c.markInitialized(i8, at: l[t3].parts[1].offset, typeLayouts: &l)
 
-    c.composeAncestors(along: [
+    c.composeAncestors(
+      along: [
         .init(offset: l[t3].parts[0].offset, type: t2),
         .init(offset: l[t3].parts[0].offset + l[t2].parts[0].offset, type: t1),
         .init(

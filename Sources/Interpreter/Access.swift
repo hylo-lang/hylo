@@ -24,4 +24,11 @@ public struct Access<Region: Regular>: Regular {
     effect = e
   }
 
+  /// Creates an instance of access to `r` having effect `e` and the given `id`.
+  public init(to r: Region, effect e: AccessEffect, id: ID) {
+    self.id = id
+    location = r
+    effect = e
+  }
+
 }
