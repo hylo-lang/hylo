@@ -50,7 +50,7 @@ jobs:
       ARTIFACT_NAME: hylo-${{ github.ref_name }}-${{ matrix.target }}
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6.0.3
         with:
           submodules: recursive
 
