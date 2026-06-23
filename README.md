@@ -4,8 +4,9 @@
 
 Hylo is a programming language that leverages [mutable value semantics](Docs/ImplementationStrategiesForMutableValueSemantics.pdf) and [generic programming](https://fm2gp.com) for high-level systems programming.
 
-This repository contains the sources of the reference implementation of Hylo.
-Please visit our **[website](https://hylo-lang.org)** to get more information about the language itself.
+> Note: Most of our efforts now go towards the new compiler at https://github.com/hylo-lang/hylo-new. New contributors are encouraged to target that repository.
+
+This repository contains the sources of the former implementation of Hylo. Please visit our **[website](https://hylo-lang.org)** to get more information about the language itself.
 
 ## Development/Use Requirements
 
