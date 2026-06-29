@@ -100,7 +100,7 @@ jobs:
         run: ./Tools/set-hc-version.sh ${{ needs.determine-version.outputs.version }}
 
       - name: Initialize Dev Container
-        uses: devcontainers/ci@v0.3
+        uses: devcontainers/ci@v0.3.1900000449
         with:
           runCmd: uname -a # Just print OS information
           push: never
@@ -108,7 +108,7 @@ jobs:
       # CMAKE BASED BUILD ================================================================
       - name: Build and Test via CMake
         if: ${{ matrix.build-system == 'cmake' }}
-        uses: devcontainers/ci@v0.3
+        uses: devcontainers/ci@v0.3.1900000449
         env:
           HYLO_LLVM_BUILD_TYPE: ${{ matrix.HYLO_LLVM_BUILD_TYPE }}
         with:
@@ -148,7 +148,7 @@ jobs:
 
       - name: Build and Test via SPM
         if: ${{ matrix.build-system == 'spm' }}
-        uses: devcontainers/ci@v0.3
+        uses: devcontainers/ci@v0.3.1900000449
         with: # todo make pipe fail if first command fails
           runCmd: |
             /usr/bin/llvm-cov --version
@@ -156,7 +156,7 @@ jobs:
           push: never
 
       - name: Export Coverage
-        uses: devcontainers/ci@v0.3
+        uses: devcontainers/ci@v0.3.1900000449
         if: ${{ matrix.build-system == 'spm' && contains(matrix.more-spm-test-options, '--enable-code-coverage') }}
         with:
           runCmd: |
@@ -179,7 +179,7 @@ jobs:
 
       - name: Output compiler version
         if: ${{ matrix.build-system == 'spm' }}
-        uses: devcontainers/ci@v0.3
+        uses: devcontainers/ci@v0.3.1900000449
         with:
           runCmd: .build/${{ matrix.config }}/hc --version
           push: never
