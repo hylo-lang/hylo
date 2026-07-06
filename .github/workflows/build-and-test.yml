@@ -139,7 +139,7 @@ jobs:
       # SPM BASED BUILD =================================================================
       - name: Restore Cache for SPM
         if: ${{ matrix.build-system == 'spm' }}
-        uses: actions/cache@v5.0.5
+        uses: actions/cache@v6.1.0
         with:
           path: .build
           key: devcontainer-${{ matrix.config }}-spm-${{ hashFiles('**/Package.resolved') }}
@@ -244,7 +244,7 @@ jobs:
 
       - name: SPM cache setup
         # Workaround for https://github.com/actions/cache/issues/1541
-        uses: actions/cache@v5.0.5
+        uses: actions/cache@v6.1.0
         with:
           path: hylo/.build
           key: ${{ matrix.exact-os }}-${{ matrix.config }}-spm-${{ hashFiles('hylo/**/Package.resolved') }}
