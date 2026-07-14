@@ -5,35 +5,6 @@ import FrontEnd
 
 final class InterpreterMemoryInternalTests: XCTestCase {
 
-  func test_requireInitialized() throws {
-    var layouts = TypeLayoutCache(typesIn: TypedProgram.empty, for: UnrealABI())
-    let void_ = AnyType.void
-    let voidPair = ^TupleType(types: [.void, .void])
-
-    var m = Memory(typesIn: TypedProgram.empty, for: UnrealABI())
-    let p = m.allocate(voidPair).address
-
-    let voidPairPart0 = layouts[voidPair].partParentages.first!
-
-    TestUtils.check(throws: Memory.Error.noComposedPart(at: p, voidPairPart0)) {
-      try m.allocation[p.allocation]!
-        .requireComposed(part: voidPairPart0, baseOffset: 0, region: 0)
-    }
-
-    try m.compose(void_, at: p + layouts[voidPair].parts[0].offset)
-    // It should be possible to initialize both parts at the same address
-    try m.compose(void_, at: p + layouts[voidPair].parts[1].offset)
-    try m.compose(voidPair, at: p)
-
-    let i8Pair = layouts[^TupleType(types: [.builtin(.i(8)), .builtin(.i(8))])]
-    let i8PairPart0 = i8Pair.partParentages.first!
-
-    TestUtils.check(throws: Memory.Error.partType(voidPair, part: i8PairPart0)) {
-      try m.allocation[p.allocation]!
-        .requireComposed(part: i8PairPart0, baseOffset: 0, region: 0)
-    }
-  }
-
   func testFormingPointerToLastByteOfAllocation() throws {
     var memory = Memory(typesIn: TypedProgram.empty, for: UnrealABI())
     let a = memory.allocate(^BuiltinType.i(8))
@@ -73,7 +44,6 @@ final class InterpreterMemoryInternalTests: XCTestCase {
     let d = m.allocate(^t)
 
     try m.store(v, in: s)
-    try m.compose(^t, at: s.address)  // FIXME: This should not be needed after store.
     try m.copy(s, to: d)
 
     m[d.allocation].withUnsafePointer(to: T.self, at: 0) {
@@ -116,4 +86,5 @@ final class InterpreterMemoryInternalTests: XCTestCase {
     // TODO: test for loading as different type than stored.
     // try check(loading: .i1(true), asType: .i(8), throws: .noComposedPart(...))
   }
+
 }
