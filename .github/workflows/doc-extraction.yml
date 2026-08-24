@@ -49,7 +49,7 @@ jobs:
         cache-snapshot: false # Workaround for https://github.com/SwiftyLab/setup-swift/issues/315
 
     - name: Set up LLVM
-      uses: hylo-lang/get-llvm@v0.3.0
+      uses: hylo-lang/get-llvm@0.4.0
       id: get-llvm
       with:
         llvmVersion: ${{ env.HYLO_LLVM_VERSION }}

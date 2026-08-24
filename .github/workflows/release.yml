@@ -60,7 +60,7 @@ jobs:
           swift-version: "6.2.3"
 
       - name: Set up LLVM
-        uses: hylo-lang/get-llvm@v0.3.0
+        uses: hylo-lang/get-llvm@0.4.0
         id: get-llvm
         with:
           llvmVersion: "20.1.6"
